@@ -1,28 +1,34 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/data_providers.dart';
 import '../../models/channel.dart';
 
-class LiveTvScreen extends StatelessWidget {
+class LiveTvScreen extends ConsumerWidget {
   const LiveTvScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final channels = [
-      Channel(id: '1', name: 'Chaîne 1', logoUrl: '', streamUrl: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', group: 'Général'),
-      Channel(id: '2', name: 'Chaîne 2', logoUrl: '', streamUrl: 'https://test-streams.mux.dev/tos_ismc/main.m3u8', group: 'Sport'),
-    ];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final channelsAsync = ref.watch(liveChannelsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Live TV')),
-      body: ListView.builder(
-        itemCount: channels.length,
-        itemBuilder: (context, index) => ListTile(
-          leading: const Icon(Icons.live_tv),
-          title: Text(channels[index].name),
-          subtitle: Text(channels[index].group),
-          onTap: () {
-            context.push('/player?url=${Uri.encodeComponent(channels[index].streamUrl)}&title=${Uri.encodeComponent(channels[index].name)}');
+      body: channelsAsync.when(
+        data: (channels) => ListView.builder(
+          itemCount: channels.length,
+          itemBuilder: (context, index) {
+            final channel = channels[index];
+            return ListTile(
+              leading: const Icon(Icons.live_tv),
+              title: Text(channel.name),
+              subtitle: Text(channel.group),
+              onTap: () {
+                context.push('/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}');
+              },
+            );
           },
         ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Erreur: $err')),
       ),
     );
   }
