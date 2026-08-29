@@ -3,12 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:video_player/video_player.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppState(),
@@ -593,18 +591,21 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late final Player player = Player();
-  late final VideoController controller = VideoController(player);
+  late VideoPlayerController _controller;
 
   @override
   void initState() {
     super.initState();
-    player.open(Media(widget.channel.streamUrl));
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.channel.streamUrl))
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+      });
   }
 
   @override
   void dispose() {
-    player.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -621,7 +622,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
       body: Center(
-        child: Video(controller: controller),
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: VideoPlayer(_controller),
+              )
+            : const CircularProgressIndicator(),
       ),
     );
   }
