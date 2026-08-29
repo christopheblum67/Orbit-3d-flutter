@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../providers/data_providers.dart';
+import '../../providers/providers.dart';
 import '../../models/series.dart';
 
 class SeriesScreen extends ConsumerWidget {
@@ -23,9 +22,6 @@ class SeriesScreen extends ConsumerWidget {
                   : const Icon(Icons.tv),
               title: Text(series.title),
               subtitle: Text('${series.year} - ${series.genre}'),
-              onTap: () {
-                // TODO: ouvrir le détail de la série avec les épisodes
-              },
             );
           },
         ),

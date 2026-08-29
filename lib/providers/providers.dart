@@ -7,6 +7,7 @@ import '../services/subscription_manager.dart';
 import '../services/favorites_service.dart';
 import '../services/history_service.dart';
 import '../services/radio_service.dart';
+import '../services/notification_service.dart';
 import '../models/user_profile.dart';
 import '../models/channel.dart';
 import '../models/movie.dart';
@@ -22,6 +23,7 @@ final subscriptionManagerProvider = Provider<SubscriptionManager>((ref) => Subsc
 final favoritesServiceProvider = Provider<FavoritesService>((ref) => FavoritesService());
 final historyServiceProvider = Provider<HistoryService>((ref) => HistoryService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
+final notificationServiceProvider = Provider<NotificationService>((ref) => NotificationService());
 
 final currentProfileProvider = StateProvider<UserProfile?>((ref) => null);
 

@@ -33,6 +33,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _vpnEnabled = value);
   }
 
+  Future<void> _sendTestNotification() async {
+    final notificationService = ref.read(notificationServiceProvider);
+    await notificationService.showNotification('Orbit 3D', 'Ceci est une notification test');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,6 +50,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             value: _vpnEnabled,
             onChanged: (value) => _toggleVpn(value),
             secondary: const Icon(Icons.vpn_lock),
+          ),
+          ListTile(
+            leading: const Icon(Icons.notifications),
+            title: const Text('Tester les notifications'),
+            onTap: _sendTestNotification,
           ),
           ListTile(
             leading: const Icon(Icons.person),

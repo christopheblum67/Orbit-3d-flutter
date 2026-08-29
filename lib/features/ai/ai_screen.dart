@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
+ï»¿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
-import '../../services/ai_service.dart';
 
 class AiScreen extends ConsumerStatefulWidget {
   const AiScreen({super.key});
@@ -18,7 +17,7 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     final profile = ref.read(currentProfileProvider);
     if (profile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun profil sélectionné')),
+        const SnackBar(content: Text('Aucun profil sÃ©lectionnÃ©')),
       );
       return;
     }

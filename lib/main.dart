@@ -8,6 +8,7 @@ import 'providers/providers.dart';
 import 'services/storage_service.dart';
 import 'services/favorites_service.dart';
 import 'services/history_service.dart';
+import 'services/notification_service.dart';
 import 'features/home_shell.dart';
 import 'features/auth/profile_selection_screen.dart';
 import 'features/auth/profile_creation_screen.dart';
@@ -37,12 +38,15 @@ Future<void> main() async {
   await favoritesService.init();
   final historyService = HistoryService();
   await historyService.init();
+  final notificationService = NotificationService();
+  await notificationService.init();
 
   runApp(ProviderScope(
     overrides: [
       storageServiceProvider.overrideWithValue(storageService),
       favoritesServiceProvider.overrideWithValue(favoritesService),
       historyServiceProvider.overrideWithValue(historyService),
+      notificationServiceProvider.overrideWithValue(notificationService),
     ],
     child: const OrbitApp(),
   ));
