@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'dart:developer' as developer;
 
 enum LogLevel {
@@ -34,7 +34,7 @@ class LoggerService {
     }
     
     final String logTag = tag ?? _tag;
-    final String formattedMessage = '[${level.name.toUpperCase()}] $message';
+    final String formattedMessage = '[' + level.name.toUpperCase() + '] ' + message;
     
     switch (level) {
       case LogLevel.debug:

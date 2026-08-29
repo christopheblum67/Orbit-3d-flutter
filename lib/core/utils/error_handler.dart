@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'logger_service.dart';
 
 class AppError implements Exception {
@@ -16,7 +16,7 @@ class AppError implements Exception {
   
   @override
   String toString() {
-    return 'AppError: $message${code != null ? ' (Code: $code)' : ''}';
+    return 'AppError: ' + message + (code != null ? ' (Code: ' + code! + ')' : '');
   }
 }
 
@@ -35,13 +35,13 @@ class ErrorHandler {
   }) {
     if (error is AppError) {
       _logger.error(
-        '${context != null ? '$context: ' : ''}${error.message}',
+        (context != null ? context + ': ' : '') + error.message,
         error: error,
         stackTrace: error.stackTrace ?? stackTrace,
       );
     } else {
       _logger.error(
-        '${context != null ? '$context: ' : ''}Unexpected error: $error',
+        (context != null ? context + ': ' : '') + 'Unexpected error: ' + error.toString(),
         error: error,
         stackTrace: stackTrace,
       );

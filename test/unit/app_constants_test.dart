@@ -1,5 +1,5 @@
-import 'packageflutter_testflutter_test.dart';
-import 'packageorbit_3d_fluttercoreconstantsapp_constants.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 void main() {
   group('AppConstants', () {
