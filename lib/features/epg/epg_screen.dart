@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class EpgScreen extends StatefulWidget {
@@ -139,7 +139,6 @@ class OrbitPainter extends CustomPainter {
       ..color = Colors.orange;
 
     canvas.drawCircle(center, radius, ringPaint);
-    // Arc actif
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       -math.pi / 2 + (2 * math.pi / programs.length) * selectedIndex,

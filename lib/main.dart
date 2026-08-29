@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -6,6 +6,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
 import 'services/storage_service.dart';
+import 'services/favorites_service.dart';
+import 'services/history_service.dart';
 import 'features/home_shell.dart';
 import 'features/auth/profile_selection_screen.dart';
 import 'features/auth/profile_creation_screen.dart';
@@ -21,6 +23,9 @@ import 'features/vpn/vpn_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/subscriptions/subscriptions_screen.dart';
 import 'features/player/player_screen.dart';
+import 'features/multivideo/multivideo_screen.dart';
+import 'features/favorites/favorites_screen.dart';
+import 'features/history/history_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,10 +33,16 @@ Future<void> main() async {
   await Hive.initFlutter();
   final storageService = StorageService();
   await storageService.init();
+  final favoritesService = FavoritesService();
+  await favoritesService.init();
+  final historyService = HistoryService();
+  await historyService.init();
 
   runApp(ProviderScope(
     overrides: [
       storageServiceProvider.overrideWithValue(storageService),
+      favoritesServiceProvider.overrideWithValue(favoritesService),
+      historyServiceProvider.overrideWithValue(historyService),
     ],
     child: const OrbitApp(),
   ));
@@ -40,22 +51,16 @@ Future<void> main() async {
 final GoRouter router = GoRouter(
   initialLocation: '/profiles',
   routes: [
-    GoRoute(
-      path: '/profiles',
-      builder: (context, state) => const ProfileSelectionScreen(),
-    ),
-    GoRoute(
-      path: '/profile/create',
-      builder: (context, state) => const ProfileCreationScreen(),
-    ),
-    GoRoute(
-      path: '/player',
-      builder: (context, state) {
-        final url = state.uri.queryParameters['url'] ?? '';
-        final title = state.uri.queryParameters['title'] ?? 'Lecture';
-        return PlayerScreen(streamUrl: url, title: title);
-      },
-    ),
+    GoRoute(path: '/profiles', builder: (context, state) => const ProfileSelectionScreen()),
+    GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
+    GoRoute(path: '/player', builder: (context, state) {
+      final url = state.uri.queryParameters['url'] ?? '';
+      final title = state.uri.queryParameters['title'] ?? 'Lecture';
+      return PlayerScreen(streamUrl: url, title: title);
+    }),
+    GoRoute(path: '/multivideo', builder: (context, state) => const MultiVideoScreen()),
+    GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
+    GoRoute(path: '/history', builder: (context, state) => const HistoryScreen()),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
       routes: [

@@ -1,4 +1,4 @@
-ï»¿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/data_providers.dart';
@@ -11,7 +11,7 @@ class SeriesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final seriesAsync = ref.watch(seriesProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('SÃ©ries')),
+      appBar: AppBar(title: const Text('Séries')),
       body: seriesAsync.when(
         data: (seriesList) => ListView.builder(
           itemCount: seriesList.length,
@@ -24,7 +24,7 @@ class SeriesScreen extends ConsumerWidget {
               title: Text(series.title),
               subtitle: Text('${series.year} - ${series.genre}'),
               onTap: () {
-                // TODO: ouvrir le dÃ©tail de la sÃ©rie avec les Ã©pisodes
+                // TODO: ouvrir le détail de la série avec les épisodes
               },
             );
           },

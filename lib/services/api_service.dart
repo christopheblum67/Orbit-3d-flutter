@@ -1,16 +1,17 @@
-import 'package:dio/dio.dart';
+ï»¿import 'package:dio/dio.dart';
 import 'package:xml/xml.dart';
 import '../models/channel.dart';
 import '../models/movie.dart';
 import '../models/series.dart';
 import '../models/epg_program.dart';
+import '../models/replay_item.dart';
 import 'subscription_manager.dart';
 
 class ApiService {
   final Dio _dio = Dio();
   final SubscriptionManager _subscriptionManager = SubscriptionManager();
 
-  // ---------- Canaux en direct ----------
+  // ---------- Canaux live ----------
   Future<List<Channel>> fetchLiveChannels() async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] == 'xtream') {
@@ -25,7 +26,7 @@ class ApiService {
       final response = await _dio.get(url);
       return parseM3u(response.data.toString());
     } else {
-      throw Exception('Aucun abonnement configuré');
+      throw Exception('Aucun abonnement configurÃ©');
     }
   }
 
@@ -43,7 +44,7 @@ class ApiService {
     throw UnimplementedError('M3U not implemented for movies');
   }
 
-  // ---------- Séries ----------
+  // ---------- SÃ©ries ----------
   Future<List<Series>> fetchSeries() async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] == 'xtream') {
@@ -57,10 +58,46 @@ class ApiService {
     throw UnimplementedError('M3U not implemented for series');
   }
 
+  // ---------- Radios ----------
+  Future<List<Channel>> fetchRadioChannels() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] == 'xtream') {
+      final baseUrl = sub['baseUrl']!;
+      final username = sub['username']!;
+      final password = sub['password']!;
+      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_live_streams&category=radio';
+      final response = await _dio.get(url);
+      return (response.data as List).map((e) => Channel.fromMap(e)).toList();
+    }
+    throw UnimplementedError('M3U not implemented for radio');
+  }
+
+  // ---------- Replays ----------
+  Future<List<ReplayItem>> fetchReplays() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] == 'xtream') {
+      final baseUrl = sub['baseUrl']!;
+      final username = sub['username']!;
+      final password = sub['password']!;
+      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_simple_data_table&stream_id=replay';
+      final response = await _dio.get(url);
+      return (response.data as List).map((e) => ReplayItem.fromMap(e)).toList();
+    }
+    throw UnimplementedError('M3U not implemented for replay');
+  }
+
   // ---------- EPG (XMLTV) ----------
-  Future<List<EPGProgram>> fetchEpg(String epgUrl) async {
-    final response = await _dio.get(epgUrl);
-    return parseXmltv(response.data.toString());
+  Future<List<EPGProgram>> fetchEpg() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] == 'xtream') {
+      final baseUrl = sub['baseUrl']!;
+      final username = sub['username']!;
+      final password = sub['password']!;
+      final url = '$baseUrl/xmltv.php?username=$username&password=$password';
+      final response = await _dio.get(url);
+      return parseXmltv(response.data.toString());
+    }
+    throw UnimplementedError('M3U not implemented for EPG');
   }
 
   // ---------- Parseur M3U simple ----------
@@ -70,21 +107,18 @@ class ApiService {
     String? currentName;
     for (final line in lines) {
       if (line.startsWith('#EXTINF')) {
-        // Format : #EXTINF:-1 tvg-id="..." tvg-name="..." group-title="...", Nom
         final nameMatch = RegExp(r',(.+)$').firstMatch(line);
         if (nameMatch != null) {
           currentName = nameMatch.group(1)!.trim();
         }
-        // Extraction du logo éventuel
-        // Pour simplifier, on stocke juste le nom; les autres attributs seront extraits si besoin
       } else if (line.isNotEmpty && !line.startsWith('#')) {
         if (currentName != null) {
           channels.add(Channel(
             id: channels.length.toString(),
             name: currentName,
-            logoUrl: '', // à améliorer avec tvg-logo
+            logoUrl: '',
             streamUrl: line.trim(),
-            group: '', // à améliorer avec group-title
+            group: '',
           ));
           currentName = null;
         }
