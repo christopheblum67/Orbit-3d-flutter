@@ -1,29 +1,60 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/providers.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _vpnEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVpnState();
+  }
+
+  Future<void> _loadVpnState() async {
+    final vpnService = ref.read(vpnServiceProvider);
+    setState(() => _vpnEnabled = vpnService.isConnected);
+  }
+
+  Future<void> _toggleVpn(bool value) async {
+    final vpnService = ref.read(vpnServiceProvider);
+    if (value) {
+      await vpnService.connect('');
+    } else {
+      await vpnService.disconnect();
+    }
+    setState(() => _vpnEnabled = value);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
-        children: const [
-          ListTile(
-            leading: Icon(Icons.person),
-            title: Text('Profils'),
+        children: [
+          SwitchListTile(
+            title: const Text('Activer le VPN'),
+            subtitle: const Text('VPN simulé pour le moment'),
+            value: _vpnEnabled,
+            onChanged: (value) => _toggleVpn(value),
+            secondary: const Icon(Icons.vpn_lock),
           ),
           ListTile(
-            leading: Icon(Icons.subscriptions),
-            title: Text('Abonnements'),
+            leading: const Icon(Icons.person),
+            title: const Text('Profils'),
+            onTap: () {},
           ),
           ListTile(
-            leading: Icon(Icons.vpn_lock),
-            title: Text('VPN'),
-          ),
-          ListTile(
-            leading: Icon(Icons.search),
-            title: Text('Recherche'),
+            leading: const Icon(Icons.subscriptions),
+            title: const Text('Abonnements'),
+            onTap: () {},
           ),
         ],
       ),
