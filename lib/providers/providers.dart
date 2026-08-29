@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
@@ -55,4 +55,9 @@ final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
 final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchReplays();
+});
+
+final epgProgramsProvider = FutureProvider<List<EPGProgram>>((ref) async {
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchEpg();
 });

@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/data_providers.dart';
-import '../../models/channel.dart';
+import '../../providers/providers.dart';
+import '../../core/widgets/tv_focus.dart';
 
 class LiveTvScreen extends ConsumerWidget {
   const LiveTvScreen({super.key});
@@ -17,13 +17,17 @@ class LiveTvScreen extends ConsumerWidget {
           itemCount: channels.length,
           itemBuilder: (context, index) {
             final channel = channels[index];
-            return ListTile(
-              leading: const Icon(Icons.live_tv),
-              title: Text(channel.name),
-              subtitle: Text(channel.group),
-              onTap: () {
-                context.push('/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}');
+            return TvFocus(
+              onActivate: () {
+                context.push(
+                  '/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}',
+                );
               },
+              child: ListTile(
+                leading: const Icon(Icons.live_tv),
+                title: Text(channel.name),
+                subtitle: Text(channel.group),
+              ),
             );
           },
         ),
