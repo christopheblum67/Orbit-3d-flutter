@@ -1,66 +1,91 @@
-﻿import 'package:flutter/material.dart';
-import 'core/constants/app_constants.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
-import 'core/utils/error_handler.dart';
-import 'core/utils/logger_service.dart';
+import 'providers/providers.dart';
+import 'services/storage_service.dart';
+import 'features/home_shell.dart';
+import 'features/auth/profile_selection_screen.dart';
+import 'features/auth/profile_creation_screen.dart';
+import 'features/live_tv/live_tv_screen.dart';
+import 'features/series/series_screen.dart';
+import 'features/vod/vod_screen.dart';
+import 'features/replay/replay_screen.dart';
+import 'features/radio/radio_screen.dart';
+import 'features/epg/epg_screen.dart';
+import 'features/search/search_screen.dart';
+import 'features/ai/ai_screen.dart';
+import 'features/vpn/vpn_screen.dart';
+import 'features/settings/settings_screen.dart';
+import 'features/subscriptions/subscriptions_screen.dart';
+import 'features/player/player_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  LoggerService.configure(isProduction: false);
-  ErrorHandler.instance.setupGlobalErrorHandling();
-  
-  runApp(const Orbit3DApp());
+  await dotenv.load();
+  await Hive.initFlutter();
+  final storageService = StorageService();
+  await storageService.init();
+
+  runApp(ProviderScope(
+    overrides: [
+      storageServiceProvider.overrideWithValue(storageService),
+    ],
+    child: const OrbitApp(),
+  ));
 }
 
-class Orbit3DApp extends StatelessWidget {
-  const Orbit3DApp({super.key});
+final GoRouter router = GoRouter(
+  initialLocation: '/profiles',
+  routes: [
+    GoRoute(
+      path: '/profiles',
+      builder: (context, state) => const ProfileSelectionScreen(),
+    ),
+    GoRoute(
+      path: '/profile/create',
+      builder: (context, state) => const ProfileCreationScreen(),
+    ),
+    GoRoute(
+      path: '/player',
+      builder: (context, state) {
+        final url = state.uri.queryParameters['url'] ?? '';
+        final title = state.uri.queryParameters['title'] ?? 'Lecture';
+        return PlayerScreen(streamUrl: url, title: title);
+      },
+    ),
+    ShellRoute(
+      builder: (context, state, child) => HomeShell(child: child),
+      routes: [
+        GoRoute(path: '/live', builder: (context, state) => const LiveTvScreen()),
+        GoRoute(path: '/series', builder: (context, state) => const SeriesScreen()),
+        GoRoute(path: '/vod', builder: (context, state) => const VodScreen()),
+        GoRoute(path: '/radio', builder: (context, state) => const RadioScreen()),
+        GoRoute(path: '/replay', builder: (context, state) => const ReplayScreen()),
+        GoRoute(path: '/epg', builder: (context, state) => const EpgScreen()),
+        GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+        GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
+        GoRoute(path: '/vpn', builder: (context, state) => const VpnScreen()),
+        GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+        GoRoute(path: '/subscriptions', builder: (context, state) => const SubscriptionsScreen()),
+      ],
+    ),
+  ],
+);
+
+class OrbitApp extends StatelessWidget {
+  const OrbitApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
+    return MaterialApp.router(
+      title: 'Orbit 3D IPTV',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const HomePage(),
-    );
-  }
-}
-
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppConstants.appName),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.public,
-              size: 100,
-              color: AppConstants.primaryColor,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Welcome to ' + AppConstants.appName,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              AppConstants.appDescription,
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+      routerConfig: router,
     );
   }
 }
