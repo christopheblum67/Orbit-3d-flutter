@@ -1,4 +1,4 @@
-﻿name: orbit_3d_flutter
+name: orbit_3d_flutter
 description: 3D Orbit Visualization Application
 publish_to: 'none'
 version: 1.0.0+1
@@ -27,6 +27,7 @@ dependencies:
   xml: ^6.5.0
   just_audio: ^0.9.44
   cached_network_image: ^3.4.0
+  flutter_local_notifications: ^19.5.0
   
 dev_dependencies:
   flutter_test:
