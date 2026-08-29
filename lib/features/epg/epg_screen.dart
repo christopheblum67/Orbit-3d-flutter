@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class EpgScreen extends StatefulWidget {
@@ -8,7 +8,7 @@ class EpgScreen extends StatefulWidget {
   State<EpgScreen> createState() => _EpgScreenState();
 }
 
-class _EpgScreenState extends State<EpgScreen> {
+class _EpgScreenState extends State<EpgScreen> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   final List<String> _channels = ['TF1', 'France 2', 'M6', 'Arte', 'Canal+'];
   final List<Map<String, String>> _programs = [
@@ -19,42 +19,74 @@ class _EpgScreenState extends State<EpgScreen> {
     {'time': '23:45', 'title': 'Fin des programmes'},
   ];
 
+  late final AnimationController _rotationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rotationController.dispose();
+    super.dispose();
+  }
+
+  void _rotateToIndex(int index) {
+    final targetAngle = (2 * math.pi / _programs.length) * index;
+    _rotationController.animateTo(targetAngle, curve: Curves.easeInOut);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Guide TV (EPG Orbit)')),
       body: Column(
         children: [
-          // Partie supérieure : anneau des programmes
           Expanded(
             flex: 3,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final size = constraints.maxWidth * 0.9;
-                return Center(
-                  child: SizedBox(
-                    width: size,
-                    height: size,
-                    child: CustomPaint(
-                      painter: OrbitPainter(
-                        selectedIndex: _selectedIndex,
-                        channels: _channels,
-                        programs: _programs,
-                      ),
-                      child: GestureDetector(
-                        onTapDown: (details) {
-                          final angle = _getAngle(details.localPosition, size);
-                          final index = ((angle + math.pi / _programs.length) / (2 * math.pi / _programs.length)).floor() % _programs.length;
-                          setState(() => _selectedIndex = index);
-                        },
-                      ),
-                    ),
-                  ),
-                );
+            child: GestureDetector(
+              onHorizontalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (velocity < 0) {
+                  setState(() => _selectedIndex = (_selectedIndex + 1) % _programs.length);
+                } else if (velocity > 0) {
+                  setState(() => _selectedIndex = (_selectedIndex - 1 + _programs.length) % _programs.length);
+                }
+                _rotateToIndex(_selectedIndex);
               },
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = constraints.maxWidth * 0.9;
+                  return Center(
+                    child: AnimatedBuilder(
+                      animation: _rotationController,
+                      builder: (context, child) {
+                        return Transform.rotate(
+                          angle: -_rotationController.value,
+                          child: SizedBox(
+                            width: size,
+                            height: size,
+                            child: CustomPaint(
+                              painter: OrbitPainter(
+                                selectedIndex: _selectedIndex,
+                                channels: _channels,
+                                programs: _programs,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-          // Partie inférieure : détails du programme sélectionné
           Expanded(
             flex: 1,
             child: Container(
@@ -80,11 +112,6 @@ class _EpgScreenState extends State<EpgScreen> {
       ),
     );
   }
-
-  double _getAngle(Offset position, double size) {
-    final center = Offset(size / 2, size / 2);
-    return math.atan2(position.dy - center.dy, position.dx - center.dx);
-  }
 }
 
 class OrbitPainter extends CustomPainter {
@@ -109,18 +136,18 @@ class OrbitPainter extends CustomPainter {
     final activeRingPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 24
-      ..color = ThemeData.light().colorScheme.primary;
+      ..color = Colors.orange;
 
     canvas.drawCircle(center, radius, ringPaint);
+    // Arc actif
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
+      -math.pi / 2 + (2 * math.pi / programs.length) * selectedIndex,
       2 * math.pi / programs.length,
       false,
       activeRingPaint,
     );
 
-    // Dessiner les segments et labels
     for (int i = 0; i < programs.length; i++) {
       final angle = (2 * math.pi / programs.length) * i - math.pi / 2;
       final labelPos = Offset(
@@ -144,6 +171,6 @@ class OrbitPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant OrbitPainter oldDelegate) {
-    return oldDelegate.selectedIndex != selectedIndex;
+    return oldDelegate.selectedIndex != selectedIndex || oldDelegate.programs != programs;
   }
 }

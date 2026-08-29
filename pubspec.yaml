@@ -24,6 +24,7 @@ dependencies:
   uuid: ^4.6.0
   package_info_plus: 8.0.0
   video_player: ^2.9.5
+  xml: ^6.5.0
   
 dev_dependencies:
   flutter_test:
