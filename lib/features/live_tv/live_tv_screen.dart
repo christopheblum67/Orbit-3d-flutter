@@ -1,9 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/channel.dart';
 import '../../providers/providers.dart';
 import '../../core/widgets/tv_focus.dart';
 import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
+import 'channel_groups.dart';
 
 class LiveTvScreen extends ConsumerWidget {
   const LiveTvScreen({super.key});
@@ -22,34 +25,110 @@ class LiveTvScreen extends ConsumerWidget {
               message: 'Ajoute une source de chaînes dans les réglages.',
             );
           }
+          final groups = buildLiveChannelGroups(channels);
+          final useHeaders = groups.length > 1 || groups.first.name.isNotEmpty;
+          final rows = useHeaders ? _flattenGroups(groups) : _flatRows(groups.first.channels);
           return ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: channels.length,
-            itemBuilder: (context, index) {
-              final channel = channels[index];
-              void onOpen() {
-                context.push(
-                  '/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}',
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: TvFocus(
-                  onActivate: onOpen,
-                  child: ChannelTile(
-                    title: channel.name,
-                    subtitle: channel.group,
-                    icon: Icons.live_tv,
-                    imageUrl: channel.logoUrl,
-                    onTap: onOpen,
-                  ),
-                ),
-              );
-            },
+            itemCount: rows.length,
+            itemBuilder: (context, index) => _buildRow(context, rows[index], showGroupName: !useHeaders),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur: $err')),
+        loading: () => const LoadingState(message: 'Chargement…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.live_tv_outlined,
+          title: 'Chaînes indisponibles',
+          message: userFriendlyError(err),
+          onRetry: () => ref.invalidate(liveChannelsProvider),
+        ),
+      ),
+    );
+  }
+
+  List<_Row> _flattenGroups(List<ChannelGroup> groups) {
+    final rows = <_Row>[];
+    for (final group in groups) {
+      if (group.name.isNotEmpty) {
+        rows.add(_Row.header(group.name, group.channels.length));
+      }
+      for (final channel in group.channels) {
+        rows.add(_Row.channel(channel));
+      }
+    }
+    return rows;
+  }
+
+  List<_Row> _flatRows(List<Channel> channels) {
+    return [for (final channel in channels) _Row.channel(channel)];
+  }
+
+  Widget _buildRow(BuildContext context, _Row row, {required bool showGroupName}) {
+    if (row.channel == null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+        child: SectionHeader(
+          icon: Icons.live_tv_outlined,
+          title: row.title!,
+          subtitle: '${row.count} chaînes',
+        ),
+      );
+    }
+    final channel = row.channel!;
+    void onOpen() {
+      context.push(
+        '/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}',
+      );
+    }
+    final subtitle = showGroupName && channel.groupLabel.isNotEmpty
+        ? channel.groupLabel
+        : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TvFocus(
+        onActivate: onOpen,
+        child: ChannelTile(
+          title: channel.name,
+          subtitle: subtitle,
+          icon: Icons.live_tv,
+          imageUrl: channel.logoUrl,
+          trailing: channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
+          onTap: onOpen,
+        ),
+      ),
+    );
+  }
+}
+
+class _Row {
+  _Row.header(this.title, this.count) : channel = null;
+
+  _Row.channel(this.channel) : title = null, count = 0;
+
+  final String? title;
+  final int count;
+  final Channel? channel;
+}
+
+class _NumBadge extends StatelessWidget {
+  const _NumBadge({required this.number});
+
+  final int number;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        '$number',
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: scheme.onSecondaryContainer,
+              fontWeight: FontWeight.w800,
+            ),
       ),
     );
   }

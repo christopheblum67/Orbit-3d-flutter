@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import '../../providers/providers.dart';
 import '../../models/channel.dart';
+import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
 
 class MultiVideoScreen extends ConsumerStatefulWidget {
   const MultiVideoScreen({super.key});
@@ -19,22 +21,29 @@ class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     final channelsAsync = ref.watch(liveChannelsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Multi-vidéo')),
-      body: Column(
-        children: [
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.5,
+      body: channelsAsync.when(
+        loading: () => const LoadingState(message: 'Chargement…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.live_tv_outlined,
+          title: 'Chaînes indisponibles',
+          message: userFriendlyError(err),
+          onRetry: () => ref.invalidate(liveChannelsProvider),
+        ),
+        data: (channels) => Column(
+          children: [
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 1.5,
+                ),
+                itemCount: _selectedChannels.length,
+                itemBuilder: (context, index) => VideoTile(url: _selectedChannels[index].streamUrl),
               ),
-              itemCount: _selectedChannels.length,
-              itemBuilder: (context, index) => VideoTile(url: _selectedChannels[index].streamUrl),
             ),
-          ),
-          SizedBox(
-            height: 120,
-            child: channelsAsync.when(
-              data: (channels) => ListView.builder(
+            SizedBox(
+              height: 120,
+              child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: channels.length,
                 itemBuilder: (context, index) {
@@ -56,11 +65,9 @@ class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
                   );
                 },
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Text('Erreur: $err'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

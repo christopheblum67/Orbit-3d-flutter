@@ -16,6 +16,7 @@ import '../models/movie.dart';
 import '../models/series.dart';
 import '../models/epg_program.dart';
 import '../models/replay_item.dart';
+import '../models/ai_recommendation.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 final storageServiceProvider = Provider<StorageService>((ref) => StorageService());
@@ -87,4 +88,26 @@ class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(build);
   }
+}
+
+final aiRecommendationsProvider =
+    FutureProvider.autoDispose.family<List<AIRecommendation>, String>((ref, profileId) async {
+  final aiService = ref.watch(aiServiceProvider);
+  final profile = ref.watch(currentProfileProvider);
+  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
+
+  if (profile == null || profile.id != profileId) {
+    throw const StreamAiException('Aucun profil sélectionné pour les recommandations.');
+  }
+
+  return aiService.getRecommendations(profile, movies);
+});
+
+class StreamAiException implements Exception {
+  const StreamAiException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

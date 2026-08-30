@@ -1,4 +1,5 @@
-﻿import '../services/stream_helpers.dart' as stream_helpers;
+﻿import '../core/utils/media_meta.dart';
+import '../services/stream_helpers.dart' as stream_helpers;
 
 class Channel {
   final String id;
@@ -6,7 +7,10 @@ class Channel {
   final String logoUrl;
   final String streamUrl;
   final String group;
+  final String categoryId;
   final String epgChannelId;
+  final int orderNum;
+  final double rating;
 
   Channel({
     required this.id,
@@ -14,18 +18,29 @@ class Channel {
     required this.logoUrl,
     required this.streamUrl,
     required this.group,
+    this.categoryId = '',
     this.epgChannelId = '',
+    this.orderNum = 0,
+    this.rating = 0,
   });
 
   factory Channel.fromMap(Map<String, dynamic> map) {
     return Channel(
-      id: map['id']?.toString() ?? '',
+      id: firstNonEmpty([map['stream_id'], map['id']]),
       name: map['name'] ?? '',
-      logoUrl: map['logo'] ?? '',
+      logoUrl: firstNonEmpty([map['stream_icon'], map['logo']]),
       streamUrl: map['url'] ?? '',
-      group: map['group'] ?? '',
-      epgChannelId: map['epg_channel_id'] ?? '',
+      group: firstNonEmpty([map['category_name'], map['group']]),
+      categoryId: map['category_id']?.toString() ?? '',
+      epgChannelId: map['epg_channel_id']?.toString() ?? '',
+      orderNum: _parseNumValue(map['num']),
+      rating: (map['rating'] as num?)?.toDouble() ?? 0,
     );
+  }
+
+  static int _parseNumValue(Object? raw) {
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString().trim() ?? '') ?? 0;
   }
 
   Channel copyWith({String? streamUrl}) {
@@ -35,8 +50,22 @@ class Channel {
       logoUrl: logoUrl,
       streamUrl: streamUrl ?? this.streamUrl,
       group: group,
+      categoryId: categoryId,
       epgChannelId: epgChannelId,
+      orderNum: orderNum,
+      rating: rating,
     );
+  }
+
+  String get groupLabel {
+    final raw = group.trim();
+    if (raw.isEmpty) return '';
+    final parts = raw.split(RegExp(r'[|;]'));
+    for (final part in parts) {
+      final trimmed = part.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return raw;
   }
 
   String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: name);

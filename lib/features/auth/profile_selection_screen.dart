@@ -2,7 +2,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
-import '../../models/user_profile.dart';
 import '../../core/widgets/widgets.dart';
 
 class ProfileSelectionScreen extends ConsumerWidget {
@@ -27,8 +26,14 @@ class ProfileSelectionScreen extends ConsumerWidget {
               ),
             );
           }
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 170,
+              childAspectRatio: 0.88,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
             itemCount: profiles.length,
             itemBuilder: (context, index) {
               final profile = profiles[index];
@@ -44,43 +49,31 @@ class ProfileSelectionScreen extends ConsumerWidget {
                     child: Transform.scale(scale: value, child: child),
                   );
                 },
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: AppCard(
-                    onTap: () {
-                      ref.read(currentProfileProvider.notifier).state = profile;
-                      context.pushReplacement('/live');
-                    },
-                    child: Row(
-                      children: [
-                        _ProfileAvatar(profile: profile),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                profile.firstName,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                profile.favoriteGenres.join(', '),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(Icons.chevron_right),
-                      ],
-                    ),
+                child: AppCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 18,
+                  ),
+                  onTap: () {
+                    ref.read(currentProfileProvider.notifier).state = profile;
+                    context.pushReplacement('/live');
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ProfileAvatar(profile: profile, size: 76),
+                      const SizedBox(height: 14),
+                      Text(
+                        profile.firstName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -94,49 +87,6 @@ class ProfileSelectionScreen extends ConsumerWidget {
         onPressed: () => context.push('/profile/create'),
         icon: const Icon(Icons.add),
         label: const Text('Nouveau profil'),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.profile});
-
-  final UserProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final initial = profile.firstName.isNotEmpty
-        ? profile.firstName[0].toUpperCase()
-        : '?';
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [scheme.primary, scheme.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.primary.withOpacity(0.35),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          initial,
-          style: TextStyle(
-            color: scheme.onPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
       ),
     );
   }
