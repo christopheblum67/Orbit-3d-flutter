@@ -30,7 +30,7 @@
     return UserProfile(
       id: map['id'] ?? '',
       firstName: map['firstName'] ?? '',
-      dateOfBirth: DateTime.parse(map['dateOfBirth']),
+      dateOfBirth: DateTime.tryParse(map['dateOfBirth'] ?? '') ?? DateTime(1970),
       gender: map['gender'] ?? '',
       favoriteGenres: List<String>.from(map['favoriteGenres'] ?? []),
       avatarUrl: map['avatarUrl'] ?? '',

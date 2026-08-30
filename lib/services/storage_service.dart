@@ -6,7 +6,6 @@ class StorageService {
   static const String _settingsBox = 'settings';
 
   Future<void> init() async {
-    await Hive.initFlutter();
     await Hive.openBox(_profilesBox);
     await Hive.openBox(_settingsBox);
   }
@@ -18,7 +17,10 @@ class StorageService {
 
   Future<List<UserProfile>> getProfiles() async {
     final box = Hive.box(_profilesBox);
-    return box.values.map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e))).toList();
+    return box.values
+        .whereType<Map>()
+        .map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
   }
 
   Future<void> deleteProfile(String id) async {
