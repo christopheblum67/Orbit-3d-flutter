@@ -9,6 +9,7 @@ import 'services/storage_service.dart';
 import 'services/favorites_service.dart';
 import 'services/history_service.dart';
 import 'services/notification_service.dart';
+import 'services/beta_config.dart';
 import 'features/home_shell.dart';
 import 'features/auth/profile_selection_screen.dart';
 import 'features/auth/profile_creation_screen.dart';
@@ -40,6 +41,8 @@ Future<void> main() async {
   await historyService.init();
   final notificationService = NotificationService();
   await notificationService.init();
+
+  await BetaConfig.applyIfNeeded();
 
   runApp(ProviderScope(
     overrides: [
