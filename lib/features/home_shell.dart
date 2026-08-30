@@ -28,6 +28,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final isM3u = _sourceType == 'm3u';
     final destinations = <NavigationDestination>[
       const NavigationDestination(icon: Icon(Icons.live_tv), label: 'Live TV'),
@@ -40,20 +41,37 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ];
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _calculateSelectedIndex(context, destinations),
-        onDestinationSelected: (index) {
-          final route = switch (index) {
-            0 => '/live',
-            1 when isM3u => '/settings',
-            1 => '/series',
-            2 => '/vod',
-            3 => '/radio',
-            _ => '/settings',
-          };
-          context.go(route);
-        },
-        destinations: destinations,
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          border: Border(
+            top: BorderSide(color: scheme.outlineVariant.withOpacity(0.5)),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: NavigationBar(
+            selectedIndex: _calculateSelectedIndex(context, destinations),
+            onDestinationSelected: (index) {
+              final route = switch (index) {
+                0 => '/live',
+                1 when isM3u => '/settings',
+                1 => '/series',
+                2 => '/vod',
+                3 => '/radio',
+                _ => '/settings',
+              };
+              context.go(route);
+            },
+            destinations: destinations,
+          ),
+        ),
       ),
     );
   }

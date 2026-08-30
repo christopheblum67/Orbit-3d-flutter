@@ -4,3 +4,18 @@
 
 # FVM Version Cache
 .fvm/
+
+# Artefacts de build / plugin générés
+.flutter-plugins
+.flutter-plugins-dependencies
+android/.gradle/
+android/local.properties
+local.properties
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugins.cmake
+macos/Flutter/GeneratedPluginRegistrant.swift
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
