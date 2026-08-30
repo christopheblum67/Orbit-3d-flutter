@@ -56,7 +56,7 @@ class ProfileSelectionScreen extends ConsumerWidget {
                   ),
                   onTap: () {
                     ref.read(currentProfileProvider.notifier).state = profile;
-                    context.pushReplacement('/live');
+                    context.pushReplacement('/home');
                   },
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

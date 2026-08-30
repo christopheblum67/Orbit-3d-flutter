@@ -11,6 +11,7 @@ import 'services/history_service.dart';
 import 'services/notification_service.dart';
 import 'services/beta_config.dart';
 import 'features/home_shell.dart';
+import 'features/home/home_screen.dart';
 import 'features/auth/profile_selection_screen.dart';
 import 'features/auth/profile_creation_screen.dart';
 import 'features/live_tv/live_tv_screen.dart';
@@ -64,8 +65,17 @@ final GoRouter router = GoRouter(
   initialLocation: '/profiles',
   routes: [
     GoRoute(path: '/profiles', builder: (context, state) => const ProfileSelectionScreen()),
-    GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
+GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
     GoRoute(path: '/player', builder: (context, state) {
+      final data = state.extra;
+      if (data is PlayerRouteData) {
+        return PlayerScreen(
+          streamUrl: data.streamUrl,
+          title: data.title,
+          channels: data.channels,
+          initialIndex: data.index,
+        );
+      }
       final url = state.uri.queryParameters['url'] ?? '';
       final title = state.uri.queryParameters['title'] ?? 'Lecture';
       return PlayerScreen(streamUrl: url, title: title);
@@ -75,7 +85,8 @@ final GoRouter router = GoRouter(
     GoRoute(path: '/history', builder: (context, state) => const HistoryScreen()),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
-      routes: [
+routes: [
+        GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(path: '/live', builder: (context, state) => const LiveTvScreen()),
         GoRoute(path: '/series', builder: (context, state) => const SeriesScreen()),
         GoRoute(path: '/vod', builder: (context, state) => const VodScreen()),
