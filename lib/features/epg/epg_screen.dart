@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../models/epg_program.dart';
+import '../../core/widgets/error_state.dart';
+import '../../core/widgets/loading_state.dart';
 
 class EpgScreen extends ConsumerStatefulWidget {
   const EpgScreen({super.key});
@@ -133,8 +135,14 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur EPG: $err')),
+        loading: () => const LoadingState(message: 'Chargement du guide TV…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.tv_off_rounded,
+          title: 'Guide TV indisponible',
+          message: 'Impossible de charger le programme. '
+              'Vérifie ta connexion ou réessaie.',
+          onRetry: () => ref.invalidate(epgProgramsProvider),
+        ),
       ),
     );
   }

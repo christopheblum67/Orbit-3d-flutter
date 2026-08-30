@@ -52,3 +52,27 @@ Future<T> retryStream<T>(
   }
   throw lastError ?? StateError('Lecture du flux impossible.');
 }
+
+final RegExp _xmltvDatePattern =
+    RegExp(r'^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?: ([+-]\d{4}))?$');
+
+DateTime? parseXmltvDate(String raw) {
+  final m = _xmltvDatePattern.firstMatch(raw.trim());
+  if (m == null) return null;
+  final year = int.parse(m.group(1)!);
+  final month = int.parse(m.group(2)!);
+  final day = int.parse(m.group(3)!);
+  final hour = int.parse(m.group(4)!);
+  final minute = int.parse(m.group(5)!);
+  final second = int.parse(m.group(6)!);
+  DateTime value =
+      DateTime.utc(year, month, day, hour, minute, second);
+  final offset = m.group(7);
+  if (offset != null && offset.length == 5) {
+    final sign = offset[0] == '-' ? -1 : 1;
+    final hours = int.parse(offset.substring(1, 3));
+    final minutes = int.parse(offset.substring(3, 5));
+    value = value.subtract(Duration(hours: sign * hours, minutes: sign * minutes));
+  }
+  return value.toLocal();
+}
