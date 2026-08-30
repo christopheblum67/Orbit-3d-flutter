@@ -82,25 +82,96 @@ class VideoTile extends StatefulWidget {
 }
 
 class _VideoTileState extends State<VideoTile> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
+  int _generation = 0;
+  bool _failed = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) => setState(() => _controller.play()));
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(VideoTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final gen = ++_generation;
+    _failed = false;
+    final old = _controller;
+    _controller = null;
+    if (old != null) {
+      old.removeListener(_onControllerUpdate);
+      old.dispose();
+    }
+    if (!mounted) return;
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _controller = controller;
+    controller.addListener(_onControllerUpdate);
+    try {
+      await controller.initialize();
+    } catch (e) {
+      debugPrint('Orbit3D multivideo error: $e');
+      if (!mounted || gen != _generation) return;
+      if (_controller == controller) {
+        _controller = null;
+        controller.removeListener(_onControllerUpdate);
+        controller.dispose();
+      }
+      setState(() => _failed = true);
+      return;
+    }
+    if (!mounted || gen != _generation || _controller != controller) return;
+    if (controller.value.hasError) {
+      setState(() => _failed = true);
+      return;
+    }
+    controller.play();
+    setState(() {});
+  }
+
+  void _onControllerUpdate() {
+    if (!mounted) return;
+    final controller = _controller;
+    if (controller == null || !controller.value.hasError) return;
+    setState(() => _failed = true);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _generation++;
+    final controller = _controller;
+    _controller = null;
+    if (controller != null) {
+      controller.removeListener(_onControllerUpdate);
+      controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return _controller.value.isInitialized
-        ? AspectRatio(aspectRatio: _controller.value.aspectRatio, child: VideoPlayer(_controller))
-        : const Center(child: CircularProgressIndicator());
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      return AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: VideoPlayer(controller),
+      );
+    }
+    if (_failed) {
+      return Center(
+        child: Icon(
+          Icons.live_tv_rounded,
+          color: Theme.of(context).colorScheme.error,
+          size: 32,
+        ),
+      );
+    }
+    return const Center(child: CircularProgressIndicator());
   }
 }

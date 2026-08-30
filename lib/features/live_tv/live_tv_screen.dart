@@ -6,6 +6,7 @@ import '../../providers/providers.dart';
 import '../../core/widgets/tv_focus.dart';
 import '../../core/widgets/widgets.dart';
 import '../../services/user_friendly_error.dart';
+import '../player/player_screen.dart';
 import 'channel_groups.dart';
 
 class LiveTvScreen extends ConsumerWidget {
@@ -31,7 +32,12 @@ class LiveTvScreen extends ConsumerWidget {
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: rows.length,
-            itemBuilder: (context, index) => _buildRow(context, rows[index], showGroupName: !useHeaders),
+            itemBuilder: (context, index) => _buildRow(
+              context,
+              rows[index],
+              showGroupName: !useHeaders,
+              groups: groups,
+            ),
           );
         },
         loading: () => const LoadingState(message: 'Chargement…'),
@@ -62,7 +68,12 @@ class LiveTvScreen extends ConsumerWidget {
     return [for (final channel in channels) _Row.channel(channel)];
   }
 
-  Widget _buildRow(BuildContext context, _Row row, {required bool showGroupName}) {
+  Widget _buildRow(
+    BuildContext context,
+    _Row row, {
+    required bool showGroupName,
+    required List<ChannelGroup> groups,
+  }) {
     if (row.channel == null) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
@@ -74,11 +85,7 @@ class LiveTvScreen extends ConsumerWidget {
       );
     }
     final channel = row.channel!;
-    void onOpen() {
-      context.push(
-        '/player?url=${Uri.encodeComponent(channel.streamUrl)}&title=${Uri.encodeComponent(channel.name)}',
-      );
-    }
+    void onOpen() => _openPlayer(context, groups, channel);
     final subtitle = showGroupName && channel.groupLabel.isNotEmpty
         ? channel.groupLabel
         : null;
@@ -94,6 +101,30 @@ class LiveTvScreen extends ConsumerWidget {
           trailing: channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
           onTap: onOpen,
         ),
+      ),
+    );
+  }
+void _openPlayer(
+    BuildContext context,
+    List<ChannelGroup> groups,
+    Channel channel,
+  ) {
+    var groupIndex = -1;
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].channels.contains(channel)) {
+        groupIndex = i;
+        break;
+      }
+    }
+    final list = groupIndex >= 0 ? groups[groupIndex].channels : <Channel>[channel];
+    final index = list.indexOf(channel);
+    context.push(
+      '/player',
+      extra: PlayerRouteData(
+        streamUrl: channel.streamUrl,
+        title: channel.name,
+        channels: list,
+        index: index,
       ),
     );
   }
