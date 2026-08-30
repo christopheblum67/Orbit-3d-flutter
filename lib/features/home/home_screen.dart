@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/tv_focus.dart';
 import '../../core/widgets/widgets.dart';
+import '../../models/user_profile.dart';
 import '../../providers/providers.dart';
 import '../home_shell.dart';
 
@@ -12,42 +15,33 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
-    final profile = ref.watch(currentProfileProvider);
-    final tiles = _HomeTile.all(isM3u: isM3u, scheme: scheme);
+    final mediaTiles = _HomeTile.media(isM3u: isM3u, scheme: Theme.of(context).colorScheme);
+    final persoTiles = _HomeTile.perso(scheme: Theme.of(context).colorScheme);
     return Scaffold(
       body: CustomScrollView(
         slivers: [
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+            sliver: SliverToBoxAdapter(child: _TopBanner()),
+          ),
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
+            sliver: SliverToBoxAdapter(child: _ProfilesSection()),
+          ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(0, 20, 0, 8),
             sliver: SliverToBoxAdapter(
-              child: _HomeHero(profileName: profile?.firstName),
+              child: _MediaLayout(
+                mediaTiles: mediaTiles,
+                persoTiles: persoTiles,
+                isM3u: isM3u,
+              ),
             ),
           ),
           const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 22, 16, 8),
-            sliver: SliverToBoxAdapter(
-              child: SectionHeader(icon: Icons.apps_rounded, title: 'Explorer'),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 165,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.92,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final tile = tiles[index];
-                  return _HomeTileCard(tile: tile, index: index);
-                },
-                childCount: tiles.length,
-              ),
-            ),
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 24),
+            sliver: SliverToBoxAdapter(child: _SearchBanner()),
           ),
         ],
       ),
@@ -55,105 +49,367 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _HomeHero extends StatelessWidget {
-  const _HomeHero({this.profileName});
-
-  final String? profileName;
+class _TopBanner extends StatelessWidget {
+  const _TopBanner();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final today = DateTime.now();
+    final dateLabel = DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(today);
     return Container(
-      height: 132,
-      clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppConstants.radiusXl),
+        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [scheme.primary, scheme.secondary],
+          colors: [scheme.primary, scheme.tertiary],
         ),
         boxShadow: [
           BoxShadow(
-            color: scheme.primary.withOpacity(0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: scheme.primary.withOpacity(0.25),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Stack(
+      child: Row(
         children: [
-          Positioned(
-            right: -34,
-            top: -34,
-            child: _OrbitRing(size: 130, color: Colors.white.withOpacity(0.12)),
-          ),
-          Positioned(
-            right: 30,
-            bottom: -46,
-            child: _OrbitRing(size: 118, color: Colors.white.withOpacity(0.10)),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Icon(
-                Icons.satellite_alt,
-                size: 46,
-                color: Colors.white.withOpacity(0.9),
+          Icon(Icons.calendar_today_rounded, size: 20, color: Colors.white.withOpacity(0.95)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _capitalize(dateLabel),
+              style: textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  AppConstants.appName,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.5,
-                  ),
+          const SizedBox(width: 12),
+          const _SubEndChip(),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+}
+
+class _SubEndChip extends ConsumerWidget {
+  const _SubEndChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final type = ref.watch(sourceTypeProvider).valueOrNull;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.16),
+        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+        border: Border.all(color: Colors.white.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lock_clock, size: 16, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            'Fin d\'abo · ${_endCaption(type)}',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  profileName == null
-                      ? 'Bienvenue sur ton IPTV'
-                      : 'Bienvenue, $profileName',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.92),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
+
+  String _endCaption(String? type) {
+    if (type == null) return '—';
+    if (type == 'm3u') return 'M3U';
+    return 'actif';
+  }
 }
 
-class _OrbitRing extends StatelessWidget {
-  const _OrbitRing({required this.size, required this.color});
+class _ProfilesSection extends ConsumerWidget {
+  const _ProfilesSection();
 
-  final double size;
-  final Color color;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profilesAsync = ref.watch(profilesProvider);
+    final current = ref.watch(currentProfileProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          icon: Icons.people_alt_rounded,
+          title: 'Profils',
+          subtitle: 'Changer',
+          padding: EdgeInsets.fromLTRB(0, 0, 0, 8),
+        ),
+        SizedBox(
+          height: 92,
+          child: profilesAsync.when(
+            data: (profiles) {
+              if (profiles.isEmpty) {
+                return const _ProfilesEmpty();
+              }
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: profiles.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  final profile = profiles[index];
+                  final selected = current?.id == profile.id;
+                  return _ProfileChip(
+                    profile: profile,
+                    selected: selected,
+                    onTap: () => context.go('/profiles'),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            ),
+            error: (error, _) => const _ProfilesEmpty(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfilesEmpty extends StatelessWidget {
+  const _ProfilesEmpty();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 2),
+    return Center(
+      child: Text(
+        'Aucun profil pour l\'instant',
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+}
+
+class _ProfileChip extends StatelessWidget {
+  const _ProfileChip({
+    required this.profile,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final UserProfile profile;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TvFocus(
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 82,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+            color: selected
+                ? scheme.secondaryContainer.withOpacity(0.55)
+                : scheme.surfaceContainerLow,
+            border: Border.all(
+              color: selected ? scheme.secondary : scheme.outlineVariant.withOpacity(0.6),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ProfileAvatar(profile: profile, size: 40),
+              const SizedBox(height: 6),
+              Text(
+                profile.firstName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: selected ? scheme.onSecondaryContainer : null,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaLayout extends StatelessWidget {
+  const _MediaLayout({
+    required this.mediaTiles,
+    required this.persoTiles,
+    required this.isM3u,
+  });
+
+  final List<_HomeTile> mediaTiles;
+  final List<_HomeTile> persoTiles;
+  final bool isM3u;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 720;
+        final media = _SectionColumn(
+          icon: Icons.ondemand_video_rounded,
+          title: 'Média',
+          tiles: mediaTiles,
+          startIndex: 0,
+        );
+        final perso = _SectionColumn(
+          icon: Icons.widgets_rounded,
+          title: 'Perso & Services',
+          tiles: persoTiles,
+          startIndex: mediaTiles.length,
+        );
+        if (wide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: media),
+              const SizedBox(width: 16),
+              Expanded(child: perso),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            media,
+            const SizedBox(height: 4),
+            perso,
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SectionColumn extends StatelessWidget {
+  const _SectionColumn({
+    required this.icon,
+    required this.title,
+    required this.tiles,
+    required this.startIndex,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<_HomeTile> tiles;
+  final int startIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SectionHeader(
+            icon: icon,
+            title: title,
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 150,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.92,
+            ),
+            itemCount: tiles.length,
+            itemBuilder: (context, index) {
+              final tile = tiles[index];
+              return _HomeTileCard(tile: tile, index: startIndex + index);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchBanner extends StatelessWidget {
+  const _SearchBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TvFocus(
+      onActivate: () => context.go('/search'),
+      child: GestureDetector(
+        onTap: () => context.go('/search'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+            color: scheme.surfaceContainerLow,
+            border: Border.all(color: scheme.primary.withOpacity(0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withOpacity(0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [scheme.primary, scheme.tertiary],
+                  ),
+                ),
+                child: const Icon(Icons.search, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Chercher une chaîne, un film, une série…',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              Icon(Icons.arrow_forward, color: scheme.primary),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -161,20 +417,20 @@ class _OrbitRing extends StatelessWidget {
 
 class _HomeTile {
   const _HomeTile({
-    required this.route,
     required this.label,
     required this.icon,
     required this.color,
+    this.route,
     this.sparkle = false,
   });
 
-  final String route;
+  final String? route;
   final String label;
   final IconData icon;
   final Color color;
   final bool sparkle;
 
-  static List<_HomeTile> all({
+  static List<_HomeTile> media({
     required bool isM3u,
     required ColorScheme scheme,
   }) {
@@ -194,7 +450,7 @@ class _HomeTile {
         ),
         _HomeTile(
           route: '/vod',
-          label: 'VOD',
+          label: 'Films & VOD',
           icon: Icons.movie,
           color: scheme.secondary,
         ),
@@ -211,25 +467,11 @@ class _HomeTile {
         icon: Icons.replay_circle_filled,
         color: Color(0xFF00CFE8),
       ),
-      _HomeTile(
-        route: '/search',
-        label: 'Recherche',
-        icon: Icons.search,
-        color: scheme.secondary,
-      ),
-      const _HomeTile(
-        route: '/epg',
-        label: 'EPG',
-        icon: Icons.calendar_view_day,
-        color: Color(0xFF8A72FF),
-      ),
-      _HomeTile(
-        route: '/ai',
-        label: 'IA',
-        icon: Icons.auto_awesome,
-        color: scheme.tertiary,
-        sparkle: true,
-      ),
+    ];
+  }
+
+  static List<_HomeTile> perso({required ColorScheme scheme}) {
+    return [
       const _HomeTile(
         route: '/favorites',
         label: 'Favoris',
@@ -237,21 +479,27 @@ class _HomeTile {
         color: Color(0xFFFF6FA8),
       ),
       _HomeTile(
+        route: '/ai',
+        label: 'Orbit IA',
+        icon: Icons.auto_awesome,
+        color: scheme.tertiary,
+        sparkle: true,
+      ),
+      const _HomeTile(
+        label: 'Match',
+        icon: Icons.sports_soccer,
+        color: Color(0xFF8A72FF),
+      ),
+      _HomeTile(
         route: '/history',
         label: 'Historique',
         icon: Icons.history,
         color: scheme.primary,
       ),
-      _HomeTile(
-        route: '/multivideo',
-        label: 'Multivideo',
-        icon: Icons.ondemand_video,
-        color: scheme.tertiary,
-      ),
       const _HomeTile(
-        route: '/vpn',
-        label: 'VPN',
-        icon: Icons.vpn_lock,
+        route: '/epg',
+        label: 'EPG',
+        icon: Icons.calendar_view_day,
         color: Color(0xFF00CFE8),
       ),
       _HomeTile(
@@ -270,6 +518,22 @@ class _HomeTileCard extends StatelessWidget {
   final _HomeTile tile;
   final int index;
 
+  void _handleTap(BuildContext context) {
+    final route = tile.route;
+    if (route != null) {
+      context.go(route);
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Match — bientôt disponible'),
+          duration: Duration(milliseconds: 1600),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
@@ -284,10 +548,10 @@ class _HomeTileCard extends StatelessWidget {
         );
       },
       child: TvFocus(
-        onActivate: () => context.go(tile.route),
+        onActivate: () => _handleTap(context),
         child: AppCard(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          onTap: () => context.go(tile.route),
+          onTap: () => _handleTap(context),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -297,6 +561,7 @@ class _HomeTileCard extends StatelessWidget {
                 tile.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
