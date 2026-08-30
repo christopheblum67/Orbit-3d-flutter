@@ -7,22 +7,22 @@ class StorageService {
 
   Future<void> init() async {
     await Hive.initFlutter();
-    await Hive.openBox<UserProfile>(_profilesBox);
+    await Hive.openBox(_profilesBox);
     await Hive.openBox(_settingsBox);
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    final box = Hive.box<UserProfile>(_profilesBox);
-    await box.put(profile.id, profile);
+    final box = Hive.box(_profilesBox);
+    await box.put(profile.id, profile.toMap());
   }
 
   Future<List<UserProfile>> getProfiles() async {
-    final box = Hive.box<UserProfile>(_profilesBox);
-    return box.values.toList();
+    final box = Hive.box(_profilesBox);
+    return box.values.map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e))).toList();
   }
 
   Future<void> deleteProfile(String id) async {
-    final box = Hive.box<UserProfile>(_profilesBox);
+    final box = Hive.box(_profilesBox);
     await box.delete(id);
   }
 
