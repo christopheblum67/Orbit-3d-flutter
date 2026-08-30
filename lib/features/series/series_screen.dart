@@ -20,25 +20,42 @@ class SeriesScreen extends ConsumerWidget {
               message: 'La bibliothèque de séries est vide pour le moment.',
             );
           }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SectionHeader(
-                icon: Icons.auto_awesome,
-                title: 'Séries',
-                subtitle: '${seriesList.length} titres',
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: SectionHeader(
+                  icon: Icons.auto_awesome,
+                  title: 'Séries',
+                  subtitle: '${seriesList.length} titres',
+                ),
               ),
-              const SizedBox(height: 8),
-              for (final series in seriesList)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ChannelTile(
-                    title: series.title,
-                    subtitle: '${series.year} – ${series.genre}',
-                    icon: Icons.tv,
-                    imageUrl: series.coverUrl,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final series = seriesList[index];
+                      return MediaCard(
+                        title: series.title,
+                        posterUrl: series.coverUrl,
+                        year: series.year,
+                        genre: series.genre,
+                        rating: series.rating,
+                        synopsis: series.description,
+                        ageLabel: series.pegiLabel,
+                        fallbackIcon: Icons.tv,
+                      );
+                    },
+                    childCount: seriesList.length,
                   ),
                 ),
+              ),
             ],
           );
         },

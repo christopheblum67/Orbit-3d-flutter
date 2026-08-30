@@ -120,11 +120,15 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_live_streams';
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_live_streams',
+      });
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
-        final streamUrl = _buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString());
+        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString());
         final channel = Channel.fromMap(map).copyWith(streamUrl: streamUrl);
         channel.requireStreamUrl();
         return channel;
@@ -145,11 +149,15 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_vod_streams';
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_vod_streams',
+      });
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
-        final streamUrl = _buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString(), type: 'movie');
+        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString(), type: 'movie');
         final movie = Movie.fromMap(map).copyWith(streamUrl: streamUrl);
         movie.requireStreamUrl();
         return movie;
@@ -165,7 +173,11 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_series';
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_series',
+      });
       final response = await _get(url);
       return (response.data as List).map((e) => Series.fromMap(e)).toList();
     }
@@ -179,7 +191,12 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_live_streams&category=radio';
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_live_streams',
+        'category': 'radio',
+      });
       final response = await _get(url);
       return (response.data as List).map((e) => Channel.fromMap(e)).toList();
     }
@@ -193,14 +210,25 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/player_api.php?username=$username&password=$password&action=get_simple_data_table&stream_id=replay';
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_simple_data_table',
+        'stream_id': 'replay',
+      });
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
         final id = map['stream_id']?.toString() ?? '';
         final streamUrl = id.isEmpty
             ? ''
-            : '$baseUrl/player_api.php?username=$username&password=$password&stream=$id&start=${map['start'] ?? ''}&end=${map['end'] ?? ''}';
+            : buildXtreamStreamUrl(
+                baseUrl,
+                username,
+                password,
+                id,
+                extra: {'start': '${map['start'] ?? ''}', 'end': '${map['end'] ?? ''}'},
+              );
         final replay = ReplayItem.fromMap(map).copyWith(streamUrl: streamUrl);
         replay.requireStreamUrl();
         return replay;
@@ -216,18 +244,50 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final url = '$baseUrl/xmltv.php?username=$username&password=$password';
+      final url = _playerApiUrl(baseUrl, 'xmltv.php', {
+        'username': username,
+        'password': password,
+      });
       final response = await _get(url);
       return parseXmltv(response.data.toString());
     }
     throw UnimplementedError('M3U not implemented for EPG');
   }
 
-  // ---------- Parseur M3U simple ----------
-  String _buildXtreamStreamUrl(String baseUrl, String username, String password, String? streamId, {String type = ''}) {
+  static String _trimBaseUrl(String baseUrl) {
+    var url = baseUrl.trim();
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    const suffix = '/player_api.php';
+    if (url.toLowerCase().endsWith(suffix)) {
+      url = url.substring(0, url.length - suffix.length);
+    }
+    return url;
+  }
+
+  static String _playerApiUrl(String baseUrl, String script, Map<String, String> params) {
+    final uri = Uri.parse(_trimBaseUrl(baseUrl));
+    final segments = [...uri.pathSegments.where((s) => s.isNotEmpty), script];
+    return uri.replace(pathSegments: segments, queryParameters: params).toString();
+  }
+
+  String buildXtreamStreamUrl(
+    String baseUrl,
+    String username,
+    String password,
+    String? streamId, {
+    String type = '',
+    Map<String, String> extra = const {},
+  }) {
     if (streamId == null || streamId.isEmpty) return '';
-    final typeParam = type.isEmpty ? '' : '&type=$type';
-    return '$baseUrl/player_api.php?username=$username&password=$password&stream=$streamId$typeParam';
+    return _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'stream': streamId,
+      if (type.isNotEmpty) 'type': type,
+      ...extra,
+    });
   }
 
   List<Channel> parseM3u(String content) {
