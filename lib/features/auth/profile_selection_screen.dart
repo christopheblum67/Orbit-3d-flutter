@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
 
 class ProfileSelectionScreen extends ConsumerWidget {
@@ -21,7 +22,7 @@ class ProfileSelectionScreen extends ConsumerWidget {
               subtitle: Text(profile.favoriteGenres.join(', ')),
               onTap: () {
                 ref.read(currentProfileProvider.notifier).state = profile;
-                Navigator.of(context).pushReplacementNamed('/live');
+                context.pushReplacement('/live');
               },
             );
           },
@@ -31,7 +32,7 @@ class ProfileSelectionScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
-        onPressed: () => Navigator.of(context).pushNamed('/profile/create'),
+        onPressed: () => context.push('/profile/create'),
       ),
     );
   }

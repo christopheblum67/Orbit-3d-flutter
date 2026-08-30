@@ -31,7 +31,12 @@ import 'features/history/history_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load();
+  // Le fichier .env est optionnel : son absence ne doit pas bloquer le démarrage.
+  try {
+    await dotenv.load();
+  } catch (_) {
+    // Pas de fichier .env embarqué : on continue avec les valeurs par défaut.
+  }
   await Hive.initFlutter();
   final storageService = StorageService();
   await storageService.init();
