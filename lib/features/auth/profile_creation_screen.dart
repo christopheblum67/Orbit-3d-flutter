@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../providers/providers.dart';
 import '../../models/user_profile.dart';
@@ -16,6 +17,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
   final _firstNameController = TextEditingController();
   DateTime? _dateOfBirth;
   String? _gender;
+  bool _submitted = false;
   final List<String> _favoriteGenres = [];
 
   @override
@@ -35,6 +37,9 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             const SizedBox(height: 20),
             ListTile(
               title: Text(_dateOfBirth == null ? 'Date de naissance' : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0]),
+              subtitle: (_submitted && _dateOfBirth == null)
+                  ? const Text('Obligatoire', style: TextStyle(color: Colors.red))
+                  : null,
               trailing: const Icon(Icons.calendar_today),
               onTap: () async {
                 final picked = await showDatePicker(
@@ -75,7 +80,9 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () async {
-                if (_formKey.currentState!.validate()) {
+                if (_formKey.currentState!.validate() &&
+                    _dateOfBirth != null &&
+                    _gender != null) {
                   final profile = UserProfile(
                     id: const Uuid().v4(),
                     firstName: _firstNameController.text,
@@ -83,8 +90,11 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                     gender: _gender!,
                     favoriteGenres: _favoriteGenres,
                   );
-                  await ref.read(storageServiceProvider).saveProfile(profile);
-                  if (context.mounted) Navigator.of(context).pop();
+                      await ref.read(storageServiceProvider).saveProfile(profile);
+                  ref.invalidate(profilesProvider);
+                  if (context.mounted) context.pop();
+                } else {
+                  setState(() => _submitted = true);
                 }
               },
               child: const Text('Enregistrer'),

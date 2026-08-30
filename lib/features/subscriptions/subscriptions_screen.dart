@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../services/subscription_manager.dart';
 
 class SubscriptionsScreen extends ConsumerStatefulWidget {
@@ -91,7 +92,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Abonnement sauvegardé')),
                       );
-                      Navigator.of(context).pop();
+                      context.pop();
                     }
                   }
                 },
