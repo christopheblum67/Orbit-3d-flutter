@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../models/channel.dart';
 import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
 
 class RadioScreen extends ConsumerStatefulWidget {
   const RadioScreen({super.key});
@@ -63,8 +64,13 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur: $err')),
+        loading: () => const LoadingState(message: 'Chargement…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.radio,
+          title: 'Stations indisponibles',
+          message: userFriendlyError(err),
+          onRetry: () => ref.invalidate(radioChannelsProvider),
+        ),
       ),
     );
   }

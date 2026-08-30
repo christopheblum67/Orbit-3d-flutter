@@ -5,6 +5,7 @@ export 'empty_state.dart';
 export 'error_state.dart';
 export 'loading_state.dart';
 export 'media_card.dart';
+export 'profile_avatar.dart';
 export 'section_header.dart';
 export 'video_error_state.dart';
 export 'video_loading_state.dart';

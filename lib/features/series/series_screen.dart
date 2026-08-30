@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
 
 class SeriesScreen extends ConsumerWidget {
   const SeriesScreen({super.key});
@@ -59,8 +60,13 @@ class SeriesScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur: $err')),
+        loading: () => const LoadingState(message: 'Chargement…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.tv,
+          title: 'Séries indisponibles',
+          message: userFriendlyError(err),
+          onRetry: () => ref.invalidate(seriesProvider),
+        ),
       ),
     );
   }

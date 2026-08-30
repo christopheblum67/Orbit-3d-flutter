@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../providers/providers.dart';
 import '../../models/user_profile.dart';
+import '../../core/widgets/widgets.dart';
 
 class ProfileCreationScreen extends ConsumerStatefulWidget {
   const ProfileCreationScreen({super.key});
@@ -20,6 +21,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
   bool _submitted = false;
   bool _saving = false;
   final List<String> _favoriteGenres = [];
+  String _avatarId = '';
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +85,53 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                 );
               }).toList(),
             ),
+            const SizedBox(height: 24),
+            const Text('Avatar'),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              children: profileAvatarOptions.map((option) {
+                final selected = _avatarId == option.id;
+                return InkWell(
+                  onTap: () => setState(
+                    () => _avatarId = selected ? '' : option.id,
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            option.color,
+                            Color.lerp(option.color, Colors.white, 0.25)!,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Icon(option.icon, size: 26, color: Colors.white),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: _saving
@@ -99,6 +148,9 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                             dateOfBirth: _dateOfBirth!,
                             gender: _gender!,
                             favoriteGenres: _favoriteGenres,
+                            avatarUrl: _avatarId.isEmpty
+                                ? ''
+                                : 'icone:$_avatarId',
                           );
                           await ref.read(storageServiceProvider).saveProfile(profile);
                           ref.invalidate(profilesProvider);

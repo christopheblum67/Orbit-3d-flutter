@@ -2,6 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
 
 class ReplayScreen extends ConsumerWidget {
   const ReplayScreen({super.key});
@@ -26,8 +28,13 @@ class ReplayScreen extends ConsumerWidget {
             );
           },
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur: $err')),
+        loading: () => const LoadingState(message: 'Chargement…'),
+        error: (err, _) => ErrorState(
+          icon: Icons.replay,
+          title: 'Replays indisponibles',
+          message: userFriendlyError(err),
+          onRetry: () => ref.invalidate(replaysProvider),
+        ),
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/data_providers.dart';
 import '../../models/movie.dart';
 import '../../models/series.dart';
+import '../../core/widgets/widgets.dart';
+import '../../services/user_friendly_error.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -53,6 +55,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final moviesAsync = ref.watch(moviesProvider);
+    final seriesAsync = ref.watch(seriesProvider);
+    final loadError = moviesAsync.error ?? seriesAsync.error;
+    if (loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Recherche avancée')),
+        body: ErrorState(
+          icon: Icons.search_off,
+          title: 'Recherche indisponible',
+          message: userFriendlyError(loadError),
+          onRetry: () {
+            ref.invalidate(moviesProvider);
+            ref.invalidate(seriesProvider);
+          },
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Recherche avancée')),
       body: Padding(
