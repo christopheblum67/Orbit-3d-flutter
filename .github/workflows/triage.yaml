@@ -1,0 +1,65 @@
+name: Triage automatique des bugs
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    name: Triage automatique
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determiner la criticite depuis le corps de l'issue
+        id: criticite
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = (context.payload.issue.body || '').toLowerCase();
+            let label = 'criticality:moyen';
+            let message = 'Criticite par defaut : Moyen (a ajuster par l equipe).';
+
+            if (body.includes('critique') && body.includes('bloquant')) {
+              label = 'criticality:critique';
+              message = 'Criticite detectee : Critique (bloquant) - priorite absolue.';
+            } else if (body.includes('eleve') || body.includes('elevé')) {
+              label = 'criticality:eleve';
+              message = 'Criticite detectee : Eleve - fonction majeure en panne.';
+            } else if (body.includes('faible')) {
+              label = 'criticality:faible';
+              message = 'Criticite detectee : Faible - mineur.';
+            }
+
+            core.setOutput('label', label);
+            core.setOutput('message', message);
+
+      - name: Appliquer le label de criticite
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = '${{ steps.criticite.outputs.label }}';
+            const labels = context.payload.issue.labels.map(l => l.name);
+            if (!labels.includes(label)) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [label]
+              });
+            }
+
+      - name: Commentaire de suivi de triage
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_MESSAGE: ${{ steps.criticite.outputs.message }}
+        with:
+          script: |
+            const message = process.env.TRIAGE_MESSAGE;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message + '\n\nCette issue est ajoutee au pipeline de triage et sera rattachee a une phase de correctif. Merci pour votre retour!'
+            });
