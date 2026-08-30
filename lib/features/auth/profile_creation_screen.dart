@@ -18,6 +18,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
   DateTime? _dateOfBirth;
   String? _gender;
   bool _submitted = false;
+  bool _saving = false;
   final List<String> _favoriteGenres = [];
 
   @override
@@ -32,7 +33,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             TextFormField(
               controller: _firstNameController,
               decoration: const InputDecoration(labelText: 'Prénom'),
-              validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
             ),
             const SizedBox(height: 20),
             ListTile(
@@ -79,24 +80,36 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             ),
             const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () async {
-                if (_formKey.currentState!.validate() &&
-                    _dateOfBirth != null &&
-                    _gender != null) {
-                  final profile = UserProfile(
-                    id: const Uuid().v4(),
-                    firstName: _firstNameController.text,
-                    dateOfBirth: _dateOfBirth!,
-                    gender: _gender!,
-                    favoriteGenres: _favoriteGenres,
-                  );
-                      await ref.read(storageServiceProvider).saveProfile(profile);
-                  ref.invalidate(profilesProvider);
-                  if (context.mounted) context.pop();
-                } else {
-                  setState(() => _submitted = true);
-                }
-              },
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate() &&
+                          _dateOfBirth != null &&
+                          _gender != null) {
+                        setState(() => _saving = true);
+                        try {
+                          final profile = UserProfile(
+                            id: const Uuid().v4(),
+                            firstName: _firstNameController.text.trim(),
+                            dateOfBirth: _dateOfBirth!,
+                            gender: _gender!,
+                            favoriteGenres: _favoriteGenres,
+                          );
+                          await ref.read(storageServiceProvider).saveProfile(profile);
+                          ref.invalidate(profilesProvider);
+                          if (context.mounted) context.pop();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Erreur lors de la sauvegarde')),
+                            );
+                          }
+                          setState(() => _saving = false);
+                        }
+                      } else {
+                        setState(() => _submitted = true);
+                      }
+                    },
               child: const Text('Enregistrer'),
             ),
           ],
