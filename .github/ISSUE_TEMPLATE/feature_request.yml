@@ -1,0 +1,49 @@
+name: 💡 Suggestion d'amélioration
+description: Proposez une amélioration ou une nouvelle fonctionnalité pour Orbit 3D.
+title: "[AMÉLIORATION] - "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Votre idée / amélioration
+      description: Décrivez ce que vous souhaitez ajouter ou améliorer
+      placeholder: "Je souhaiterais pouvoir ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: Bénéfice attendu
+      description: En quoi cela améliorerait l'expérience ?
+      placeholder: "Cela permettrait de ..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module concerné
+      multiple: true
+      options:
+        - 🔐 Connexion / Profil
+        - 📺 Live TV
+        - 🎬 VOD (Films)
+        - 📚 Séries
+        - 📡 EPG (Guide TV)
+        - 🔁 Replay
+        - 📻 Radio
+        - 🎥 Multivision
+        - ▶️ Lecteur vidéo
+        - 🛡️ VPN
+        - 🔍 Recherche
+        - ❤️ Favoris
+        - 🕘 Historique
+        - 🤖 IA
+        - ⚙️ Paramètres
+        - 🎨 Interface / Thème
+        - 💾 Données / Base
+        - 📲 Notification
+    validations:
+      required: false

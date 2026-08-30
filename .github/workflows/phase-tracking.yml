@@ -1,0 +1,50 @@
+name: Suivi des phases de correction
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  phase-tracking:
+    name: Démarrage de la phase de correctif
+    runs-on: ubuntu-latest
+    if: |
+      github.event.label.name == 'phase-1' ||
+      github.event.label.name == 'phase-2' ||
+      github.event.label.name == 'phase-3'
+    steps:
+      - name: Passer l'issue en cours de traitement
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue_number = context.issue.number;
+            const phase = context.payload.label.name;
+            const phaseLabel = { 'phase-1': 'Phase 1 — Critiques & Élevés', 'phase-2': 'Phase 2 — Moyens', 'phase-3': 'Phase 3 — Faibles' }[phase];
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue_number,
+                name: 'triage-required'
+              });
+            } catch (e) {
+              // label absent, rien à faire
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              labels: ['en-cours', 'phase-corrective']
+            });
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              body: `🛠️ Ce bug est intégré à la **${phaseLabel}** et est désormais **en cours de traitement** par l'équipe.\n\nCycle de correctif :\n- [ ] Reproduction du bug\n- [ ] Correctif développé\n- [ ] Build et tests (CI)\n- [ ] Publication en bêta\n- [ ] Validation par le testeur\n- [ ] Fermeture de l'issue`
+            });

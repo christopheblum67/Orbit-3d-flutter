@@ -1,0 +1,88 @@
+# Labels de criticité (triage des bugs)
+- name: "criticality:critique"
+  description: 🔴 Bloquant - crash ou app inutilisable
+  color: "b60205"
+- name: "criticality:eleve"
+  description: 🟠 Fonction majeure en panne
+  color: "d93f0b"
+- name: "criticality:moyen"
+  description: 🟡 Fonction partielle / gêne non bloquante
+  color: "fbca04"
+- name: "criticality:faible"
+  description: 🟢 Détail d'interface ou mineur
+  color: "0e8a16"
+
+# Statuts de cycle de correction
+- name: "triage-required"
+  description: En attente de triage par l'équipe
+  color: "e4e669"
+- name: "en-cours"
+  description: En cours de correction
+  color: "0052cc"
+- name: "correctif-prepare"
+  description: Correctif développé, en attente de build/test
+  color: "1d76db"
+- name: "en-test-boucle"
+  description: Correctif déployé en bêta, en attente de validation testeur
+  color: "c5def5"
+- name: "corrige"
+  description: Bug corrigé et validé
+  color: "7057ff"
+- name: "duplique"
+  description: Bug déjà signalé
+  color: "d4c5f9"
+- name: "non-reproductible"
+  description: Impossible de reproduire le bug
+  color: "ffffff"
+
+# Labels de module
+- name: "module:connexion"
+  color: "5319e7"
+- name: "module:livetv"
+  color: "5319e7"
+- name: "module:vod"
+  color: "5319e7"
+- name: "module:series"
+  color: "5319e7"
+- name: "module:epg"
+  color: "5319e7"
+- name: "module:replay"
+  color: "5319e7"
+- name: "module:radio"
+  color: "5319e7"
+- name: "module:multivision"
+  color: "5319e7"
+- name: "module:player"
+  color: "5319e7"
+- name: "module:vpn"
+  color: "5319e7"
+- name: "module:recherche"
+  color: "5319e7"
+- name: "module:favoris"
+  color: "5319e7"
+- name: "module:historique"
+  color: "5319e7"
+- name: "module:ia"
+  color: "5319e7"
+- name: "module:parametres"
+  color: "5319e7"
+- name: "module:interface"
+  color: "5319e7"
+- name: "module:donnees"
+  color: "5319e7"
+- name: "module:notification"
+  color: "5319e7"
+
+# Autres
+- name: "phase-corrective"
+  description: Issue rattachée à une phase de correction
+  color: "f9d0c4"
+- name: "phase-1"
+  description: Correctif phase 1 (critiques et élevés)
+  color: "f9d0c4"
+- name: "phase-2"
+  description: Correctif phase 2 (moyens)
+  color: "f9d0c4"
+- name: "phase-3"
+  description: Correctif phase 3 (faibles et retours)
+  color: "f9d0c4"

@@ -1,0 +1,89 @@
+name: Publish Beta (100 testeurs)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Tag de version (ex: v1.0.1). Laissez vide pour auto-incrément.'
+        required: false
+        default: ''
+      release_notes:
+        description: 'Notes de version / changelog pour cette release'
+        required: false
+        default: ''
+
+jobs:
+  publish:
+    name: Build + publish release bêta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Lire le numéro de version
+        id: version
+        run: |
+          VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: *//' | tr -d '\r')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version détectée: $VERSION"
+
+      - name: Déterminer le tag de release
+        id: tag
+        shell: bash
+        run: |
+          INPUT_TAG="${{ github.event.inputs.version_tag }}"
+          if [ -z "$INPUT_TAG" ]; then
+            echo "tag=v${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build APK (release)
+        run: flutter build apk --release
+
+      - name: Renommer l'APK avec la version
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk"
+
+      - name: Créer la Release GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Orbit 3D - Bêta ${{ steps.tag.outputs.tag }}"
+          body: |
+            ## 📦 Version bêta pour testeurs (${{ steps.tag.outputs.tag }})
+            Version application : ${{ steps.version.outputs.version }}
+
+            ${{ github.event.inputs.release_notes }}
+
+            ### 🔧 Installation
+            - Téléchargez le fichier **orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk** ci-dessous
+            - Autorisez l'installation de sources inconnues sur votre appareil
+            - Installez et signalez les bugs via l'onglet *Issues* du dépôt
+
+            ### 🐞 Signaler un bug
+            Utilisez le modèle *Bug Report* fourni (Criticité, Module, Logs).
+          files: dist/orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

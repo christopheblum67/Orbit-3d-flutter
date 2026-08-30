@@ -1,0 +1,122 @@
+name: 🐞 Rapport de bug (testeurs bêta)
+description: Signalez un bug rencontré lors du test de la version bêta. Merci de remplir le plus d'informations possible.
+title: "[BUG] - "
+labels: ["bug", "triage-required"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Merci de prendre le temps de remplir ce rapport 🚀
+        Plus vous donnez d'informations, plus le correctif sera rapide.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version de l'application
+      description: Numéro de version affiché (ex: 1.0.1). Trouvable dans Réglages > À propos.
+      placeholder: "ex: 1.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Appareil / Modèle
+      description: Modèle du téléphone ou de la tablette (ex: Samsung Galaxy S22)
+      placeholder: "ex: Samsung Galaxy S22"
+    validations:
+      required: true
+
+  - type: input
+    id: android_version
+    attributes:
+      label: Version Android
+      description: Version du système (ex: Android 13)
+      placeholder: "ex: Android 13"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Criticité (niveau de gravité)
+      description: Classez le bug selon sa gravité
+      options:
+        - 🔴 Critique (bloquant - l'app crash ou devient inutilisable)
+        - 🟠 Élevé (fonction majeure en panne)
+        - 🟡 Moyen (fonction partielle / gêne non bloquante)
+        - 🟢 Faible (détail d'interface ou mineur)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module concerné
+      description: Dans quel écran / quelle fonction le bug apparaît-il ?
+      multiple: true
+      options:
+        - 🔐 Connexion / Profil
+        - 📺 Live TV
+        - 🎬 VOD (Films)
+        - 📚 Séries
+        - 📡 EPG (Guide TV)
+        - 🔁 Replay
+        - 📻 Radio
+        - 🎥 Multivision
+        - ▶️ Lecteur vidéo
+        - 🛡️ VPN
+        - 🔍 Recherche
+        - ❤️ Favoris
+        - 🕘 Historique
+        - 🤖 IA
+        - ⚙️ Paramètres
+        - 🎨 Interface / Thème
+        - 💾 Données / Base
+        - 📲 Notification
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description du problème
+      description: Décrivez clairement ce qui ne fonctionne pas
+      placeholder: "1. J'ouvre l'onglet Live TV\n2. Je sélectionne une chaîne\n3. L'écran reste noir et l'app se ferme"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+      description: Que devrait-il se passer normalement ?
+      placeholder: "La chaîne devrait se lancer et afficher la vidéo"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      description: Étapes précises pour reproduire le bug
+      placeholder: "1. Ouvrir l'app\n2. Aller dans ...\n3. Cliquer sur ..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Journal / Logs
+      description: Copiez ici les logs d'erreur si disponibles (menu Paramètres > Journaux)
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Informations complémentaires
+      description: Toute autre information utile (tests effectués, lié à d'autres versions, etc.)
+    validations:
+      required: false
