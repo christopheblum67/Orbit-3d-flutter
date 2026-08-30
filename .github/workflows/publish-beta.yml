@@ -1,20 +1,36 @@
-name: Publish Beta (100 testeurs)
+﻿name: Publish Beta (100 testeurs)
 
 on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Tag de version (ex: v1.0.1). Laissez vide pour auto-incrément.'
+        description: 'Tag de version (ex: v1.0.1). Laissez vide pour auto-increment.'
         required: false
         default: ''
       release_notes:
         description: 'Notes de version / changelog pour cette release'
         required: false
         default: ''
+      beta_base_url:
+        description: 'URL du serveur Xtream (lot Xtream)'
+        required: false
+        default: 'http://sofia.rabaden.eu:80'
+      beta_username:
+        description: 'Username Xtream'
+        required: false
+        default: 'LzoLGMw2GkPxzN'
+      beta_password:
+        description: 'Password Xtream'
+        required: false
+        default: 'S8TbVmPyUB3sjx'
+      beta_m3u_url:
+        description: 'URL de la playlist M3U (lot M3U)'
+        required: false
+        default: 'http://sofia.rabaden.eu:80/get.php?username=LzoLGMw2GkPxzN&password=S8TbVmPyUB3sjx&type=m3u_plus&output=ts'
 
 jobs:
   publish:
-    name: Build + publish release bêta
+    name: Build + publish release (Xtream + M3U)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -37,14 +53,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Lire le numéro de version
+      - name: Lire le numero de version
         id: version
         run: |
           VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: *//' | tr -d '\r')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version détectée: $VERSION"
+          echo "Version detectee: $VERSION"
 
-      - name: Déterminer le tag de release
+      - name: Determiner le tag de release
         id: tag
         shell: bash
         run: |
@@ -55,34 +71,63 @@ jobs:
             echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build APK (release)
-        run: flutter build apk --release
-
-      - name: Renommer l'APK avec la version
-        shell: bash
+      - name: Build APK Xtream (lot 50 testeurs)
         run: |
+          flutter build apk --release \
+            --dart-define=BETA_LOT=xtream \
+            --dart-define=BETA_BASE_URL="${{ github.event.inputs.beta_base_url }}" \
+            --dart-define=BETA_USERNAME="${{ github.event.inputs.beta_username }}" \
+            --dart-define=BETA_PASSWORD="${{ github.event.inputs.beta_password }}" \
+            --dart-define=BETA_M3U_URL=""
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-xtream-${{ steps.tag.outputs.tag }}.apk"
 
-      - name: Créer la Release GitHub
+      - name: Build APK M3U (lot 50 testeurs)
+        run: |
+          flutter build apk --release \
+            --dart-define=BETA_LOT=m3u \
+            --dart-define=BETA_BASE_URL="" \
+            --dart-define=BETA_USERNAME="" \
+            --dart-define=BETA_PASSWORD="" \
+            --dart-define=BETA_M3U_URL="${{ github.event.inputs.beta_m3u_url }}"
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-m3u-${{ steps.tag.outputs.tag }}.apk"
+
+      - name: Lister les APK produits
+        shell: bash
+        run: ls -la dist/
+
+      - name: Creer la Release GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: "Orbit 3D - Bêta ${{ steps.tag.outputs.tag }}"
+          name: "Orbit 3D - Beta ${{ steps.tag.outputs.tag }}"
           body: |
-            ## 📦 Version bêta pour testeurs (${{ steps.tag.outputs.tag }})
+            ## Version beta pour testeurs (${{ steps.tag.outputs.tag }})
             Version application : ${{ steps.version.outputs.version }}
 
             ${{ github.event.inputs.release_notes }}
 
-            ### 🔧 Installation
-            - Téléchargez le fichier **orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk** ci-dessous
-            - Autorisez l'installation de sources inconnues sur votre appareil
-            - Installez et signalez les bugs via l'onglet *Issues* du dépôt
+            ## Deux lots de testeurs (50/50)
+            Telechargez l'APK correspondant a votre lot :
 
-            ### 🐞 Signaler un bug
-            Utilisez le modèle *Bug Report* fourni (Criticité, Module, Logs).
-          files: dist/orbit-3d-beta-${{ steps.tag.outputs.tag }}.apk
+            ### Lot Xtream (testeurs 1-50)
+            **Fichier :** `orbit-3d-beta-xtream-${{ steps.tag.outputs.tag }}.apk`
+            - Acces complet : Live TV, VOD, Series, Radio, Replay, EPG
+            - L'application se connecte automatiquement au serveur Xtream.
+
+            ### Lot M3U (testeurs 51-100)
+            **Fichier :** `orbit-3d-beta-m3u-${{ steps.tag.outputs.tag }}.apk`
+            - Mode M3U : Live TV principalement (VOD/Series/EPG non disponibles en M3U)
+            - L'application charge automatiquement la playlist M3U.
+
+            ### Installation
+            - Autorisez l'installation de sources inconnues sur votre appareil
+            - Installez le fichier .apk correspondant a votre lot
+            - Signalez les bugs via l'onglet Issues (modele Bug Report)
+
+            ### Test des boutons / fonctions
+            Verifiez notamment : Live TV, VOD, Series, Radio, Replay, EPG, Recherche, Favoris, Historique, Multivision, VPN, IA, Parametres.
+          files: dist/*.apk
           draft: false
           prerelease: true
         env:
