@@ -1,4 +1,5 @@
-﻿import '../services/stream_helpers.dart' as stream_helpers;
+﻿import '../core/utils/media_meta.dart';
+import '../services/stream_helpers.dart' as stream_helpers;
 
 class Movie {
   final String id;
@@ -29,13 +30,24 @@ class Movie {
     return Movie(
       id: map['id']?.toString() ?? '',
       title: map['title'] ?? '',
-      description: map['description'] ?? '',
+      description: firstNonEmpty([
+        map['plot'],
+        map['overview'],
+        map['description'],
+        map['synopsis'],
+      ]),
       posterUrl: map['poster'] ?? '',
       year: map['year'] ?? 0,
       genre: map['genre'] ?? '',
       director: map['director'] ?? '',
       rating: (map['rating'] as num?)?.toDouble() ?? 0,
-      pegi: map['pegi'] ?? '',
+      pegi: firstNonEmpty([
+        map['pegi'],
+        map['age'],
+        map['mpaa'],
+        map['contentRating'],
+        map['us_certification'],
+      ]),
       streamUrl: map['url'] ?? '',
     );
   }
@@ -56,4 +68,6 @@ class Movie {
   }
 
   String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
+
+  String? get pegiLabel => ageBadgeLabel(pegi);
 }

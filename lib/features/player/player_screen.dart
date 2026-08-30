@@ -14,9 +14,17 @@ class PlayerScreen extends StatefulWidget {
 
 enum _PlayerStatus { loading, error, ready }
 
+const _playbackUserAgents = <String>[
+  'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+  'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
+  'ExoPlayer/2.19.1',
+];
+
 class _PlayerScreenState extends State<PlayerScreen> {
   VideoPlayerController? _controller;
   _PlayerStatus _status = _PlayerStatus.loading;
+  int _attempt = 0;
+  bool _handlingError = false;
 
   @override
   void initState() {
@@ -25,34 +33,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Future<void> _initializePlayer() async {
-    setState(() {
-      _status = _PlayerStatus.loading;
-    });
-    try {
-      final controller =
-          VideoPlayerController.networkUrl(Uri.parse(widget.streamUrl));
-      _controller = controller;
-      controller.addListener(_onControllerUpdate);
-      await controller.initialize();
-      if (!mounted) return;
-      if (controller.value.hasError) {
-        debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
-        setState(() {
-          _status = _PlayerStatus.error;
-        });
-        return;
-      }
-      controller.play();
-      setState(() {
-        _status = _PlayerStatus.ready;
-      });
-    } catch (e) {
-      debugPrint('Orbit3D video error: $e');
-      if (!mounted) return;
+    _attempt = 0;
+    _handlingError = false;
+    await _startAttempt();
+  }
+
+  Future<void> _startAttempt() async {
+    if (!mounted) return;
+    if (_attempt >= _playbackUserAgents.length) {
       setState(() {
         _status = _PlayerStatus.error;
       });
+      return;
     }
+    setState(() {
+      _status = _PlayerStatus.loading;
+    });
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.streamUrl),
+      httpHeaders: {'User-Agent': _playbackUserAgents[_attempt]},
+    );
+    _controller = controller;
+    controller.addListener(_onControllerUpdate);
+    try {
+      await controller.initialize();
+    } catch (e) {
+      debugPrint('Orbit3D video error: $e');
+      _onFailure();
+      return;
+    }
+    if (!mounted || _controller != controller) return;
+    if (controller.value.hasError) {
+      _onFailure();
+      return;
+    }
+    controller.play();
+    setState(() {
+      _status = _PlayerStatus.ready;
+    });
   }
 
   void _onControllerUpdate() {
@@ -60,9 +78,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final controller = _controller;
     if (controller == null || !controller.value.hasError) return;
     debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
-    setState(() {
-      _status = _PlayerStatus.error;
-    });
+    _onFailure();
+  }
+
+  void _onFailure() {
+    if (!mounted || _handlingError) return;
+    final failedAttempt = _attempt;
+    _handlingError = true;
+    _disposeController();
+    _attempt++;
+    if (!mounted || _attempt != failedAttempt + 1) return;
+    _startAttempt();
   }
 
   void _disposeController() {

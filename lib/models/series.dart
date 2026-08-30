@@ -1,4 +1,5 @@
-﻿import '../services/stream_helpers.dart' as stream_helpers;
+﻿import '../core/utils/media_meta.dart';
+import '../services/stream_helpers.dart' as stream_helpers;
 
 class Series {
   final String id;
@@ -29,18 +30,31 @@ class Series {
     return Series(
       id: map['id']?.toString() ?? '',
       title: map['title'] ?? '',
-      description: map['description'] ?? '',
+      description: firstNonEmpty([
+        map['plot'],
+        map['overview'],
+        map['description'],
+        map['synopsis'],
+      ]),
       coverUrl: map['cover'] ?? '',
       year: map['year'] ?? 0,
       genre: map['genre'] ?? '',
       director: map['director'] ?? '',
       rating: (map['rating'] as num?)?.toDouble() ?? 0,
-      pegi: map['pegi'] ?? '',
+      pegi: firstNonEmpty([
+        map['pegi'],
+        map['age'],
+        map['mpaa'],
+        map['contentRating'],
+        map['us_certification'],
+      ]),
       episodes: (map['episodes'] as List<dynamic>? ?? [])
           .map((e) => Episode.fromMap(e as Map<String, dynamic>))
           .toList(),
     );
   }
+
+  String? get pegiLabel => ageBadgeLabel(pegi);
 }
 
 class Episode {
