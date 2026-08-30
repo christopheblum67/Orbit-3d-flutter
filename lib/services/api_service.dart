@@ -264,8 +264,9 @@ class ApiService {
       final channelId = prog.getAttribute('channel') ?? '';
       final title = prog.getElement('title')?.innerText ?? '';
       final desc = prog.getElement('desc')?.innerText ?? '';
-      final start = DateTime.parse(prog.getAttribute('start') ?? '');
-      final end = DateTime.parse(prog.getAttribute('stop') ?? '');
+      final start = stream_helpers.parseXmltvDate(prog.getAttribute('start') ?? '');
+      final end = stream_helpers.parseXmltvDate(prog.getAttribute('stop') ?? '');
+      if (start == null || end == null) continue;
       programs.add(EPGProgram(
         channelId: channelId,
         title: title,

@@ -1,4 +1,6 @@
 ﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/utils/error_handler.dart';
+import '../services/stream_helpers.dart' as stream_helpers;
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
@@ -57,7 +59,32 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   return api.fetchReplays();
 });
 
-final epgProgramsProvider = FutureProvider<List<EPGProgram>>((ref) async {
-  final api = ref.watch(apiServiceProvider);
-  return api.fetchEpg();
-});
+final epgProgramsProvider =
+    AsyncNotifierProvider<EPGProgramsNotifier, List<EPGProgram>>(
+  EPGProgramsNotifier.new,
+);
+
+class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
+  @override
+  Future<List<EPGProgram>> build() async {
+    final api = ref.watch(apiServiceProvider);
+    try {
+      return await stream_helpers.retryStream(
+        () => api.fetchEpg(),
+        attempts: 2,
+      );
+    } catch (error, stackTrace) {
+      ErrorHandler.instance.handleError(
+        error,
+        stackTrace: stackTrace,
+        context: 'EPG',
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> retry() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(build);
+  }
+}
