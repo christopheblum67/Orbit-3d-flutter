@@ -44,6 +44,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final programsAsync = ref.watch(epgProgramsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Guide TV (EPG Orbit)')),
@@ -82,6 +83,10 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
                                   painter: OrbitPainter(
                                     selectedIndex: _selectedIndex,
                                     programs: _programs,
+                                    ringColor: scheme.primaryContainer.withOpacity(0.45),
+                                    accentColor: scheme.tertiary,
+                                    textColor: scheme.onSurfaceVariant,
+                                    activeTextColor: scheme.secondary,
                                   ),
                                 ),
                               ),
@@ -97,7 +102,12 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
                 flex: 1,
                 child: Container(
                   padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).colorScheme.surface,
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -111,6 +121,10 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
                       if (_programs.isNotEmpty)
                         Text(
                           '${_programs[_selectedIndex].start} - ${_programs[_selectedIndex].end}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
                         ),
                     ],
                   ),
@@ -129,8 +143,19 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
 class OrbitPainter extends CustomPainter {
   final int selectedIndex;
   final List<EPGProgram> programs;
+  final Color ringColor;
+  final Color accentColor;
+  final Color textColor;
+  final Color activeTextColor;
 
-  OrbitPainter({required this.selectedIndex, required this.programs});
+  OrbitPainter({
+    required this.selectedIndex,
+    required this.programs,
+    required this.ringColor,
+    required this.accentColor,
+    required this.textColor,
+    required this.activeTextColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -140,11 +165,11 @@ class OrbitPainter extends CustomPainter {
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 20
-      ..color = Colors.blueGrey.withOpacity(0.2);
+      ..color = ringColor;
     final activeRingPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 24
-      ..color = Colors.orange;
+      ..color = accentColor;
 
     canvas.drawCircle(center, radius, ringPaint);
     // Arc actif
@@ -168,7 +193,7 @@ class OrbitPainter extends CustomPainter {
               ? programs[i].title.substring(0, 15)
               : programs[i].title,
           style: TextStyle(
-            color: i == selectedIndex ? Colors.orange : Colors.white,
+            color: i == selectedIndex ? activeTextColor : textColor,
             fontSize: 12,
             fontWeight: i == selectedIndex ? FontWeight.bold : FontWeight.normal,
           ),
@@ -185,6 +210,10 @@ class OrbitPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant OrbitPainter oldDelegate) {
     return oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.programs != programs;
+        oldDelegate.programs != programs ||
+        oldDelegate.ringColor != ringColor ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.textColor != textColor ||
+        oldDelegate.activeTextColor != activeTextColor;
   }
 }

@@ -1,0 +1,7 @@
+// Barrel des widgets partagés du redesign "jeune".
+export 'app_card.dart';
+export 'channel_tile.dart';
+export 'empty_state.dart';
+export 'section_header.dart';
+export 'video_error_state.dart';
+export 'video_loading_state.dart';

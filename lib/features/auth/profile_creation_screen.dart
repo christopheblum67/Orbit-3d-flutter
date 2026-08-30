@@ -39,7 +39,12 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             ListTile(
               title: Text(_dateOfBirth == null ? 'Date de naissance' : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0]),
               subtitle: (_submitted && _dateOfBirth == null)
-                  ? const Text('Obligatoire', style: TextStyle(color: Colors.red))
+                  ? Text(
+                      'Obligatoire',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    )
                   : null,
               trailing: const Icon(Icons.calendar_today),
               onTap: () async {

@@ -25,6 +25,7 @@ class _VpnScreenState extends ConsumerState<VpnScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final vpnService = ref.read(vpnServiceProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('VPN')),
@@ -35,7 +36,7 @@ class _VpnScreenState extends ConsumerState<VpnScreen> {
             Icon(
               Icons.vpn_lock,
               size: 100,
-              color: _isConnected ? Colors.green : Colors.grey,
+              color: _isConnected ? scheme.tertiary : scheme.outline,
             ),
             const SizedBox(height: 20),
             Text(

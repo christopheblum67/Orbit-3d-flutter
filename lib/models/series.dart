@@ -1,4 +1,6 @@
-﻿class Series {
+﻿import '../services/stream_helpers.dart' as stream_helpers;
+
+class Series {
   final String id;
   final String title;
   final String description;
@@ -65,4 +67,6 @@ class Episode {
       streamUrl: map['url'] ?? '',
     );
   }
+
+  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
 }

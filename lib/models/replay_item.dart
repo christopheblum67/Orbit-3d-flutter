@@ -1,4 +1,6 @@
-﻿class ReplayItem {
+﻿import '../services/stream_helpers.dart' as stream_helpers;
+
+class ReplayItem {
   final String id;
   final String title;
   final String streamUrl;
@@ -22,4 +24,16 @@
       endTime: map['end'] ?? '',
     );
   }
+
+  ReplayItem copyWith({String? streamUrl}) {
+    return ReplayItem(
+      id: id,
+      title: title,
+      streamUrl: streamUrl ?? this.streamUrl,
+      startTime: startTime,
+      endTime: endTime,
+    );
+  }
+
+  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
 }

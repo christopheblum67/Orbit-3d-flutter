@@ -1,4 +1,6 @@
-﻿class Movie {
+﻿import '../services/stream_helpers.dart' as stream_helpers;
+
+class Movie {
   final String id;
   final String title;
   final String description;
@@ -37,4 +39,21 @@
       streamUrl: map['url'] ?? '',
     );
   }
+
+  Movie copyWith({String? streamUrl}) {
+    return Movie(
+      id: id,
+      title: title,
+      description: description,
+      posterUrl: posterUrl,
+      year: year,
+      genre: genre,
+      director: director,
+      rating: rating,
+      pegi: pegi,
+      streamUrl: streamUrl ?? this.streamUrl,
+    );
+  }
+
+  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
 }

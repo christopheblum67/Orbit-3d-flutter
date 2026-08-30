@@ -1,4 +1,6 @@
-﻿class Channel {
+﻿import '../services/stream_helpers.dart' as stream_helpers;
+
+class Channel {
   final String id;
   final String name;
   final String logoUrl;
@@ -25,4 +27,17 @@
       epgChannelId: map['epg_channel_id'] ?? '',
     );
   }
+
+  Channel copyWith({String? streamUrl}) {
+    return Channel(
+      id: id,
+      name: name,
+      logoUrl: logoUrl,
+      streamUrl: streamUrl ?? this.streamUrl,
+      group: group,
+      epgChannelId: epgChannelId,
+    );
+  }
+
+  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: name);
 }
