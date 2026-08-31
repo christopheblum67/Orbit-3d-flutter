@@ -3,96 +3,371 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/constants/app_constants.dart';
 import '../../core/widgets/tv_focus.dart';
-import '../../core/widgets/widgets.dart';
 import '../../models/user_profile.dart';
 import '../../providers/providers.dart';
 import '../home_shell.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late final PageController _pageController;
+  double _currentPage = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(
+      initialPage: 0,
+      viewportFraction: 0.38,
+    );
+    _pageController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _currentPage = _pageController.page ?? 0.0;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
-    final mediaTiles = _HomeTile.media(isM3u: isM3u, scheme: Theme.of(context).colorScheme);
-    final persoTiles = _HomeTile.perso(scheme: Theme.of(context).colorScheme);
+    final items = _OrbitItem.buildAll(isM3u: isM3u);
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
-            sliver: SliverToBoxAdapter(child: _TopBanner()),
-          ),
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 22, 16, 0),
-            sliver: SliverToBoxAdapter(child: _ProfilesSection()),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(0, 20, 0, 8),
-            sliver: SliverToBoxAdapter(
-              child: _MediaLayout(
-                mediaTiles: mediaTiles,
-                persoTiles: persoTiles,
-                isM3u: isM3u,
+      backgroundColor: const Color(0xFF0E1117),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(child: _buildOrbitCarousel(items)),
+            _buildBottomBar(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    final today = DateTime.now();
+    final dateLabel = DateFormat('EEE d MMM | HH:mm', 'fr_FR').format(today);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Color(0xFF00CFE8), Color(0xFFB388FF)],
+            ).createShader(bounds),
+            child: const Text(
+              'Orbit 3D',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 1.1,
               ),
             ),
           ),
-          const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 24),
-            sliver: SliverToBoxAdapter(child: _SearchBanner()),
+          const SizedBox(width: 16),
+          Expanded(
+            child: TvFocus(
+              onActivate: () => context.go('/search'),
+              child: GestureDetector(
+                onTap: () => context.go('/search'),
+                child: Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.search, color: Colors.white.withOpacity(0.5), size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Rechercher une chaîne, un film…',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            _capitalize(dateLabel),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.65),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _TopBanner extends StatelessWidget {
-  const _TopBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final today = DateTime.now();
-    final dateLabel = DateFormat('EEEE d MMMM yyyy', 'fr_FR').format(today);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [scheme.primary, scheme.tertiary],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.primary.withOpacity(0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+  Widget _buildOrbitCarousel(List<_OrbitItem> items) {
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final rel = index - _currentPage;
+        final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
+        final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
+        final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
+        final transform = Matrix4.identity()
+          ..setEntry(3, 2, 0.0018)
+          ..rotateY(rotationY)
+          ..scale(scale);
+        final focused = rel.abs() < 0.4;
+        final item = items[index];
+        return Transform(
+          transform: transform,
+          alignment: Alignment.center,
+          child: Opacity(
+            opacity: opacity,
+            child: TvFocus(
+              onActivate: () => _openItem(context, item),
+              child: _buildCard(item, focused),
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(_OrbitItem item, bool focused) {
+    return Center(
+      child: GestureDetector(
+        onTap: () => _openItem(context, item),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 290,
+          height: 400,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: focused ? const Color(0xFF1E222D) : const Color(0xFF141720),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: focused ? item.color : Colors.white10,
+              width: focused ? 2.5 : 1,
+            ),
+            boxShadow: focused
+                ? [
+                    BoxShadow(
+                      color: item.color.withOpacity(0.35),
+                      blurRadius: 25,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Stack(
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: item.color.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(item.icon, size: 58, color: item.color),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    item.title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      item.subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (!item.hasRoute)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: item.color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: item.color.withOpacity(0.3)),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Text(
+                        'Bientôt',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openItem(BuildContext context, _OrbitItem item) {
+    if (item.route != null) {
+      context.go(item.route!);
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Bientôt disponible'),
+          duration: Duration(milliseconds: 1600),
+        ),
+      );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    final profilesAsync = ref.watch(profilesProvider);
+    final current = ref.watch(currentProfileProvider);
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12151E),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+      ),
+      child: Row(
+        children: [
+          const _SubStatusChip(),
+          const Spacer(),
+          GestureDetector(
+            onTap: () => context.go('/profiles'),
+            child: Row(
+              children: [
+                Text(
+                  'Profil : ',
+                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                ),
+                const SizedBox(width: 8),
+                _buildProfileAvatar(context, current, profilesAsync.valueOrNull ?? const <UserProfile>[]),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileAvatar(
+    BuildContext context,
+    UserProfile? current,
+    List<UserProfile> profiles,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    if (current == null || profiles.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.person_outline, size: 18, color: scheme.primary),
+            const SizedBox(width: 6),
+            const Text(
+              'Choisir',
+              style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
+    }
+    final idx = profiles.indexWhere((p) => p.id == current.id);
+    final color = _profileColor(idx);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.2),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.4), blurRadius: 12, spreadRadius: 1),
         ],
       ),
       child: Row(
         children: [
-          Icon(Icons.calendar_today_rounded, size: 20, color: Colors.white.withOpacity(0.95)),
-          const SizedBox(width: 10),
-          Expanded(
+          CircleAvatar(
+            radius: 11,
+            backgroundColor: color.withOpacity(0.3),
             child: Text(
-              _capitalize(dateLabel),
-              style: textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
+              current.firstName.isNotEmpty ? current.firstName[0].toUpperCase() : '?',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
-          const SizedBox(width: 12),
-          const _SubEndChip(),
+          const SizedBox(width: 6),
+          Text(
+            current.firstName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  static const List<Color> _profileColors = [
+    Color(0xFF00CFE8),
+    Color(0xFFFFB300),
+    Color(0xFFB388FF),
+    Color(0xFFFF6FA8),
+  ];
+
+  Color _profileColor(int index) {
+    if (index < 0) return _profileColors.first;
+    return _profileColors[index % _profileColors.length];
   }
 
   String _capitalize(String s) {
@@ -101,89 +376,51 @@ class _TopBanner extends StatelessWidget {
   }
 }
 
-class _SubEndChip extends ConsumerWidget {
-  const _SubEndChip();
+class _SubStatusChip extends ConsumerWidget {
+  const _SubStatusChip();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final type = ref.watch(sourceTypeProvider).valueOrNull;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        border: Border.all(color: Colors.white.withOpacity(0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.lock_clock, size: 16, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            'Fin d\'abo · ${_endCaption(type)}',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _endCaption(String? type) {
-    if (type == null) return '—';
-    if (type == 'm3u') return 'M3U';
-    return 'actif';
-  }
-}
-
-class _ProfilesSection extends ConsumerWidget {
-  const _ProfilesSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profilesAsync = ref.watch(profilesProvider);
-    final current = ref.watch(currentProfileProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final caption = type == 'm3u' ? 'M3U' : (type == null ? 'Aucun abo' : 'VIP Gold');
+    return Row(
       children: [
-        const SectionHeader(
-          icon: Icons.people_alt_rounded,
-          title: 'Profils',
-          subtitle: 'Changer',
-          padding: EdgeInsets.fromLTRB(0, 0, 0, 8),
+        const Icon(Icons.credit_card_rounded, color: Colors.amberAccent, size: 20),
+        const SizedBox(width: 8),
+        RichText(
+          text: TextSpan(
+            style: const TextStyle(fontSize: 13, color: Colors.white),
+            children: [
+              const TextSpan(text: 'Abo : '),
+              TextSpan(
+                text: caption,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: type == null ? Colors.white60 : Colors.amberAccent,
+                ),
+              ),
+            ],
+          ),
         ),
-        SizedBox(
-          height: 92,
-          child: profilesAsync.when(
-            data: (profiles) {
-              if (profiles.isEmpty) {
-                return const _ProfilesEmpty();
-              }
-              return ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: profiles.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
-                itemBuilder: (context, index) {
-                  final profile = profiles[index];
-                  final selected = current?.id == profile.id;
-                  return _ProfileChip(
-                    profile: profile,
-                    selected: selected,
-                    onTap: () => context.go('/profiles'),
-                  );
-                },
-              );
-            },
-            loading: () => const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+        const SizedBox(width: 10),
+        InkWell(
+          onTap: () => context.go('/subscriptions'),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00CFE8).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF00CFE8).withOpacity(0.4)),
+            ),
+            child: const Text(
+              'Changer',
+              style: TextStyle(
+                color: Color(0xFF00CFE8),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            error: (error, _) => const _ProfilesEmpty(),
           ),
         ),
       ],
@@ -191,445 +428,96 @@ class _ProfilesSection extends ConsumerWidget {
   }
 }
 
-class _ProfilesEmpty extends StatelessWidget {
-  const _ProfilesEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Aucun profil pour l\'instant',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-    );
-  }
-}
-
-class _ProfileChip extends StatelessWidget {
-  const _ProfileChip({
-    required this.profile,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final UserProfile profile;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TvFocus(
-      onActivate: onTap,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 82,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-            color: selected
-                ? scheme.secondaryContainer.withOpacity(0.55)
-                : scheme.surfaceContainerLow,
-            border: Border.all(
-              color: selected ? scheme.secondary : scheme.outlineVariant.withOpacity(0.6),
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ProfileAvatar(profile: profile, size: 40),
-              const SizedBox(height: 6),
-              Text(
-                profile.firstName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: selected ? scheme.onSecondaryContainer : null,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MediaLayout extends StatelessWidget {
-  const _MediaLayout({
-    required this.mediaTiles,
-    required this.persoTiles,
-    required this.isM3u,
-  });
-
-  final List<_HomeTile> mediaTiles;
-  final List<_HomeTile> persoTiles;
-  final bool isM3u;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 720;
-        final media = _SectionColumn(
-          icon: Icons.ondemand_video_rounded,
-          title: 'Média',
-          tiles: mediaTiles,
-          startIndex: 0,
-        );
-        final perso = _SectionColumn(
-          icon: Icons.widgets_rounded,
-          title: 'Perso & Services',
-          tiles: persoTiles,
-          startIndex: mediaTiles.length,
-        );
-        if (wide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: media),
-              const SizedBox(width: 16),
-              Expanded(child: perso),
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            media,
-            const SizedBox(height: 4),
-            perso,
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SectionColumn extends StatelessWidget {
-  const _SectionColumn({
-    required this.icon,
-    required this.title,
-    required this.tiles,
-    required this.startIndex,
-  });
-
-  final IconData icon;
+class _OrbitItem {
   final String title;
-  final List<_HomeTile> tiles;
-  final int startIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: SectionHeader(
-            icon: icon,
-            title: title,
-            padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 150,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.92,
-            ),
-            itemCount: tiles.length,
-            itemBuilder: (context, index) {
-              final tile = tiles[index];
-              return _HomeTileCard(tile: tile, index: startIndex + index);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SearchBanner extends StatelessWidget {
-  const _SearchBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TvFocus(
-      onActivate: () => context.go('/search'),
-      child: GestureDetector(
-        onTap: () => context.go('/search'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-            color: scheme.surfaceContainerLow,
-            border: Border.all(color: scheme.primary.withOpacity(0.4)),
-            boxShadow: [
-              BoxShadow(
-                color: scheme.primary.withOpacity(0.10),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [scheme.primary, scheme.tertiary],
-                  ),
-                ),
-                child: const Icon(Icons.search, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  'Chercher une chaîne, un film, une série…',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              Icon(Icons.arrow_forward, color: scheme.primary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeTile {
-  const _HomeTile({
-    required this.label,
-    required this.icon,
-    required this.color,
-    this.route,
-    this.sparkle = false,
-  });
-
-  final String? route;
-  final String label;
   final IconData icon;
   final Color color;
-  final bool sparkle;
+  final String subtitle;
+  final String? route;
 
-  static List<_HomeTile> media({
-    required bool isM3u,
-    required ColorScheme scheme,
-  }) {
+  const _OrbitItem({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.subtitle,
+    this.route,
+  });
+
+  bool get hasRoute => route != null;
+
+  static List<_OrbitItem> buildAll({required bool isM3u}) {
     return [
-      _HomeTile(
+      const _OrbitItem(
+        title: 'Live TV',
+        icon: Icons.tv_rounded,
+        color: Color(0xFF00CFE8),
+        subtitle: 'Chaînes en direct & Zapping',
         route: '/live',
-        label: 'Live TV',
-        icon: Icons.live_tv,
-        color: scheme.primary,
+      ),
+      const _OrbitItem(
+        title: 'Multi-écrans',
+        icon: Icons.grid_view_rounded,
+        color: Color(0xFF26A69A),
+        subtitle: 'Jusqu\'à 4 flux à la fois',
+        route: '/multivideo',
       ),
       if (!isM3u) ...[
-        _HomeTile(
+        const _OrbitItem(
+          title: 'Séries',
+          icon: Icons.video_library_rounded,
+          color: Color(0xFFB388FF),
+          subtitle: 'Saisons & Épisodes',
           route: '/series',
-          label: 'Séries',
-          icon: Icons.tv,
-          color: scheme.tertiary,
         ),
-        _HomeTile(
-          route: '/vod',
-          label: 'Films & VOD',
-          icon: Icons.movie,
-          color: scheme.secondary,
-        ),
-        const _HomeTile(
-          route: '/radio',
-          label: 'Radio',
-          icon: Icons.radio,
+        const _OrbitItem(
+          title: 'Films & VOD',
+          icon: Icons.movie_outlined,
           color: Color(0xFF8A72FF),
+          subtitle: 'Nouveautés & 4K',
+          route: '/vod',
+        ),
+        const _OrbitItem(
+          title: 'Radio',
+          icon: Icons.radio_rounded,
+          color: Color(0xFFFF6FA8),
+          subtitle: 'Stations FM & WebRadio',
+          route: '/radio',
         ),
       ],
-      const _HomeTile(
+      const _OrbitItem(
+        title: 'Replay',
+        icon: Icons.replay_rounded,
+        color: Color(0xFFFFB300),
+        subtitle: 'Rattrapage des chaînes',
         route: '/replay',
-        label: 'Replay',
-        icon: Icons.replay_circle_filled,
+      ),
+      const _OrbitItem(
+        title: 'EPG',
+        icon: Icons.calendar_month_rounded,
         color: Color(0xFF00CFE8),
-      ),
-    ];
-  }
-
-  static List<_HomeTile> perso({required ColorScheme scheme}) {
-    return [
-      const _HomeTile(
-        route: '/favorites',
-        label: 'Favoris',
-        icon: Icons.favorite,
-        color: Color(0xFFFF6FA8),
-      ),
-      _HomeTile(
-        route: '/ai',
-        label: 'Orbit IA',
-        icon: Icons.auto_awesome,
-        color: scheme.tertiary,
-        sparkle: true,
-      ),
-      const _HomeTile(
-        label: 'Match',
-        icon: Icons.sports_soccer,
-        color: Color(0xFF8A72FF),
-      ),
-      _HomeTile(
-        route: '/history',
-        label: 'Historique',
-        icon: Icons.history,
-        color: scheme.primary,
-      ),
-      const _HomeTile(
+        subtitle: 'Grille des programmes',
         route: '/epg',
-        label: 'EPG',
-        icon: Icons.calendar_view_day,
-        color: Color(0xFF00CFE8),
       ),
-      _HomeTile(
-        route: '/settings',
-        label: 'Réglages',
-        icon: Icons.settings,
-        color: scheme.secondary,
+      const _OrbitItem(
+        title: 'Facture & IA',
+        icon: Icons.auto_awesome,
+        color: Color(0xFF4CAF50),
+        subtitle: 'Recommandations personnalisées',
+        route: '/ai',
+      ),
+      const _OrbitItem(
+        title: 'Favoris',
+        icon: Icons.favorite_rounded,
+        color: Color(0xFFFF6FA8),
+        subtitle: 'Vos chaînes & contenus',
+        route: '/favorites',
+      ),
+      const _OrbitItem(
+        title: 'Match & Sport',
+        icon: Icons.sports_soccer_rounded,
+        color: Color(0xFFFF3D3D),
+        subtitle: 'Directs & Scores',
       ),
     ];
-  }
-}
-
-class _HomeTileCard extends StatelessWidget {
-  const _HomeTileCard({required this.tile, required this.index});
-
-  final _HomeTile tile;
-  final int index;
-
-  void _handleTap(BuildContext context) {
-    final route = tile.route;
-    if (route != null) {
-      context.go(route);
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Match — bientôt disponible'),
-          duration: Duration(milliseconds: 1600),
-        ),
-      );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.92, end: 1),
-      duration: Duration(milliseconds: 300 + (index * 40)),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) {
-        final opacity = value.clamp(0.0, 1.0).toDouble();
-        return Opacity(
-          opacity: opacity,
-          child: Transform.scale(scale: value, child: child),
-        );
-      },
-      child: TvFocus(
-        onActivate: () => _handleTap(context),
-        child: AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          onTap: () => _handleTap(context),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _TileIcon(tile: tile),
-              const SizedBox(height: 10),
-              Text(
-                tile.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TileIcon extends StatelessWidget {
-  const _TileIcon({required this.tile});
-
-  final _HomeTile tile;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final IconData iconData = tile.sparkle ? Icons.auto_awesome : tile.icon;
-    final Widget icon = Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: tile.sparkle
-              ? [scheme.primary, scheme.tertiary]
-              : [tile.color, Color.lerp(tile.color, Colors.white, 0.25)!],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tile.color.withOpacity(0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Icon(iconData, color: Colors.white, size: 26),
-    );
-    if (!tile.sparkle) return icon;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        icon,
-        Positioned(
-          right: -1,
-          bottom: -1,
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: scheme.primary.withOpacity(0.3),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            child: Icon(Icons.star, size: 11, color: scheme.primary),
-          ),
-        ),
-      ],
-    );
   }
 }

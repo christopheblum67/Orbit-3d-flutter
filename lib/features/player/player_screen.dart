@@ -102,7 +102,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _setStatus(_PlayerStatus.loading);
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(_activeStreamUrl),
-      httpHeaders: {'User-Agent': _playbackUserAgents[_attempt]},
+      httpHeaders: {
+        'User-Agent': _playbackUserAgents[_attempt],
+        'Accept': '*/*',
+        'Referer': 'https://sofia.rabaden.eu/',
+      },
     );
     _controller = controller;
     controller.addListener(_onControllerUpdate);
@@ -270,7 +274,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     for (var attempt = 0; attempt < _playbackUserAgents.length; attempt++) {
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(_channels[target].streamUrl),
-        httpHeaders: {'User-Agent': _playbackUserAgents[attempt]},
+        httpHeaders: {
+          'User-Agent': _playbackUserAgents[attempt],
+          'Accept': '*/*',
+          'Referer': 'https://sofia.rabaden.eu/',
+        },
       );
       try {
         await controller.initialize();

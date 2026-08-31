@@ -1,55 +1,74 @@
-﻿import 'package:shared_preferences/shared_preferences.dart';
+﻿import 'package:hive_flutter/hive_flutter.dart';
+import '../models/subscription.dart';
+import 'storage_service.dart';
 
+/// Délégué vers [StorageService] pour la gestion multi-abonnements Hive.
+/// Garde l'API inchangée pour ne pas casser [BetaConfig] et l'existant.
 class SubscriptionManager {
-  static const String _xtreamBaseUrlKey = 'xtream_base_url';
-  static const String _xtreamUsernameKey = 'xtream_username';
-  static const String _xtreamPasswordKey = 'xtream_password';
-  static const String _m3uUrlKey = 'm3u_url';
-  static const String _activeSourceKey = 'active_source'; // 'xtream' ou 'm3u'
+  static const String _subscriptionsBox = 'subscriptions';
+
+  Future<void> _ensureBoxOpen() async {
+    if (!Hive.isBoxOpen(_subscriptionsBox)) {
+      await Hive.openBox<Subscription>(_subscriptionsBox);
+    }
+  }
 
   Future<void> saveXtream({
     required String baseUrl,
     required String username,
     required String password,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_xtreamBaseUrlKey, baseUrl);
-    await prefs.setString(_xtreamUsernameKey, username);
-    await prefs.setString(_xtreamPasswordKey, password);
-    await prefs.setString(_activeSourceKey, 'xtream');
+    await _ensureBoxOpen();
+    final storage = StorageService();
+    await storage.init();
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final sub = Subscription(
+      id: id,
+      name: 'Xtream Codes',
+      type: SubscriptionType.xtream,
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+      isActive: true,
+      createdAt: DateTime.now(),
+    );
+    await storage.saveSubscription(sub);
+    await storage.setActiveSubscription(id);
   }
 
   Future<void> saveM3u(String url) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_m3uUrlKey, url);
-    await prefs.setString(_activeSourceKey, 'm3u');
+    await _ensureBoxOpen();
+    final storage = StorageService();
+    await storage.init();
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final sub = Subscription(
+      id: id,
+      name: 'Playlist M3U',
+      type: SubscriptionType.m3u,
+      m3uUrl: url,
+      isActive: true,
+      createdAt: DateTime.now(),
+    );
+    await storage.saveSubscription(sub);
+    await storage.setActiveSubscription(id);
   }
 
   Future<Map<String, String?>> getActiveSubscription() async {
-    final prefs = await SharedPreferences.getInstance();
-    final active = prefs.getString(_activeSourceKey);
-    if (active == 'xtream') {
-      return {
-        'type': 'xtream',
-        'baseUrl': prefs.getString(_xtreamBaseUrlKey),
-        'username': prefs.getString(_xtreamUsernameKey),
-        'password': prefs.getString(_xtreamPasswordKey),
-      };
-    } else if (active == 'm3u') {
-      return {
-        'type': 'm3u',
-        'url': prefs.getString(_m3uUrlKey),
-      };
-    }
-    return {'type': null};
+    await _ensureBoxOpen();
+    final storage = StorageService();
+    await storage.init();
+
+    final active = await storage.getActiveSubscription();
+    if (active == null) return {'type': null};
+    return active.toSubscriptionManagerFormat();
   }
 
   Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_xtreamBaseUrlKey);
-    await prefs.remove(_xtreamUsernameKey);
-    await prefs.remove(_xtreamPasswordKey);
-    await prefs.remove(_m3uUrlKey);
-    await prefs.remove(_activeSourceKey);
+    await _ensureBoxOpen();
+    final storage = StorageService();
+    await storage.init();
+    await storage.clearSubscriptions();
   }
 }
