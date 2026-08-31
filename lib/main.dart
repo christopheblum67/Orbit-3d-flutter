@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'models/subscription.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
@@ -43,6 +44,13 @@ Future<void> main() async {
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
   Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
+  // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
+  // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
+  try {
+    await initializeDateFormatting('fr_FR');
+  } catch (_) {
+    // Non bloquant : on retombe sur la locale par défaut si indisponible.
+  }
   final storageService = StorageService();
   await storageService.init();
   final favoritesService = FavoritesService();

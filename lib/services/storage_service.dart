@@ -57,10 +57,10 @@ class StorageService {
 
   Future<Subscription?> getActiveSubscription() async {
     final box = Hive.box<Subscription>(_subscriptionsBox);
-    return box.values.firstWhere(
-      (s) => s.isActive,
-      orElse: () => null as Subscription,
-    );
+    for (final s in box.values) {
+      if (s.isActive) return s;
+    }
+    return null;
   }
 
   Future<void> deleteSubscription(String id) async {

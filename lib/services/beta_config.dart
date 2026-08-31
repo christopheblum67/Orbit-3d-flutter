@@ -15,6 +15,12 @@ class BetaConfig {
   static const String _defaultPassword = String.fromEnvironment('BETA_PASSWORD');
   static const String _defaultM3uUrl = String.fromEnvironment('BETA_M3U_URL');
 
+  /// Abonnement de test supplémentaire (facultatif) — ex. draap.online.
+  static const String _test2BaseUrl = String.fromEnvironment('BETA2_BASE_URL');
+  static const String _test2Username = String.fromEnvironment('BETA2_USERNAME');
+  static const String _test2Password = String.fromEnvironment('BETA2_PASSWORD');
+  static const String _test2Name = String.fromEnvironment('BETA2_NAME', defaultValue: 'Abo test DRAAP');
+
   /// Applique la préconfiguration au premier lancement (une seule fois).
   /// Retourne true si une source a été préchargée.
   static Future<bool> applyIfNeeded() async {
@@ -55,6 +61,24 @@ class BetaConfig {
       return true;
     }
 
-    return false;
+    // Abonnement de test supplémentaire (inactif) — ex. draap.online.
+    // Ajouté en plus du lot bêta, commutable manuellement dans l'app.
+    var added = false;
+    if (_test2BaseUrl.isNotEmpty && _test2Username.isNotEmpty) {
+      final sub = Subscription.fromSubscriptionManagerFormat(
+        DateTime.now().millisecondsSinceEpoch.toString() + '-t2',
+        _test2Name,
+        {
+          'type': 'xtream',
+          'baseUrl': _test2BaseUrl,
+          'username': _test2Username,
+          'password': _test2Password,
+        },
+      ); // isActive false par défaut => second abo test.
+      await storage.saveSubscription(sub);
+      added = true;
+    }
+
+    return added;
   }
 }
