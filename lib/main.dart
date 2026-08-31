@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'models/subscription.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
 import 'services/storage_service.dart';
@@ -32,13 +33,16 @@ import 'features/history/history_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Le fichier .env est optionnel : son absence ne doit pas bloquer le démarrage.
+  // Le fichier .env est optionnel : son absence ne doit pas bloquer le d�marrage.
   try {
     await dotenv.load();
   } catch (_) {
-    // Pas de fichier .env embarqué : on continue avec les valeurs par défaut.
+    // Pas de fichier .env embarqu� : on continue avec les valeurs par d�faut.
   }
   await Hive.initFlutter();
+  Hive.registerAdapter<Subscription>(SubscriptionAdapter());
+  Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
+  Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
   final storageService = StorageService();
   await storageService.init();
   final favoritesService = FavoritesService();

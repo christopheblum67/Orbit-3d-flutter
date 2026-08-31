@@ -1,4 +1,5 @@
-import 'subscription_manager.dart';
+import '../models/subscription.dart';
+import 'storage_service.dart';
 
 /// Configuration de préchargement pour la phase de test bêta.
 ///
@@ -17,22 +18,40 @@ class BetaConfig {
   /// Applique la préconfiguration au premier lancement (une seule fois).
   /// Retourne true si une source a été préchargée.
   static Future<bool> applyIfNeeded() async {
-    final manager = SubscriptionManager();
-    final current = await manager.getActiveSubscription();
-    // Une source est déjà active => on ne touche à rien.
-    if (current['type'] != null) return false;
+    final storage = StorageService();
+    await storage.init();
+
+    final subs = await storage.getSubscriptions();
+    // Un abonnement existe déjà => on ne touche à rien.
+    if (subs.isNotEmpty) return false;
 
     if (lot == 'xtream' && _defaultBaseUrl.isNotEmpty && _defaultUsername.isNotEmpty) {
-      await manager.saveXtream(
-        baseUrl: _defaultBaseUrl,
-        username: _defaultUsername,
-        password: _defaultPassword,
-      );
+      final sub = Subscription.fromSubscriptionManagerFormat(
+        DateTime.now().millisecondsSinceEpoch.toString(),
+        'Abonnement Beta',
+        {
+          'type': 'xtream',
+          'baseUrl': _defaultBaseUrl,
+          'username': _defaultUsername,
+          'password': _defaultPassword,
+        },
+      ).copyWith(isActive: true);
+      await storage.saveSubscription(sub);
+      await storage.setActiveSubscription(sub.id);
       return true;
     }
 
     if (lot == 'm3u' && _defaultM3uUrl.isNotEmpty) {
-      await manager.saveM3u(_defaultM3uUrl);
+      final sub = Subscription.fromSubscriptionManagerFormat(
+        DateTime.now().millisecondsSinceEpoch.toString(),
+        'Playlist M3U Beta',
+        {
+          'type': 'm3u',
+          'url': _defaultM3uUrl,
+        },
+      ).copyWith(isActive: true);
+      await storage.saveSubscription(sub);
+      await storage.setActiveSubscription(sub.id);
       return true;
     }
 

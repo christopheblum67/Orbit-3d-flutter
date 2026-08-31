@@ -40,6 +40,8 @@ class ApiService {
     );
   }
 
+  Future<Response<dynamic>> get(String url) => _get(url);
+
   Future<Response<dynamic>> _performGet(String url) async {
     try {
       return await _dio.get<dynamic>(url);
