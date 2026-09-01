@@ -59,15 +59,21 @@ Future<void> main() async {
   await storageService.init();
   final favoritesService = FavoritesService();
   await favoritesService.init();
-final historyService = HistoryService();
+  final historyService = HistoryService();
   await historyService.init();
   final notificationService = NotificationService();
   await notificationService.init();
 
   await BetaConfig.applyIfNeeded();
 
+  // S'assure qu'un éventuel abonnement issu des préférences (source par défaut)
+  // est présent en Hive avant de décider de la route de démarrage.
+  await storageService.migrateFromSharedPreferences();
+
   final restoredProfile = await _restoreLastProfile(storageService);
-  routerInitialLocation = restoredProfile != null ? '/home' : '/profiles';
+  final hasActiveServer = await storageService.getActiveSubscription() != null;
+  final hasDefaultConfig = restoredProfile != null && hasActiveServer;
+  routerInitialLocation = hasDefaultConfig ? '/home' : '/profiles';
 
   runApp(ProviderScope(
     overrides: [
@@ -96,43 +102,69 @@ String routerInitialLocation = '/profiles';
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
   routes: [
-    GoRoute(path: '/profiles', builder: (context, state) => const ProfileSelectionScreen()),
-GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
-    GoRoute(path: '/profile/preferences', builder: (context, state) => const ProfilePreferencesScreen()),
-    GoRoute(path: '/parental', builder: (context, state) => const ParentalControlScreen()),
-    GoRoute(path: '/matchmaking', builder: (context, state) => const MatchmakingScreen()),
-    GoRoute(path: '/player', builder: (context, state) {
-      final data = state.extra;
-      if (data is PlayerRouteData) {
-        return PlayerScreen(
-          streamUrl: data.streamUrl,
-          title: data.title,
-          channels: data.channels,
-          initialIndex: data.index,
-        );
-      }
-      final url = state.uri.queryParameters['url'] ?? '';
-      final title = state.uri.queryParameters['title'] ?? 'Lecture';
-      return PlayerScreen(streamUrl: url, title: title);
-    }),
-    GoRoute(path: '/multivideo', builder: (context, state) => const MultiVideoScreen()),
-    GoRoute(path: '/favorites', builder: (context, state) => const FavoritesScreen()),
-    GoRoute(path: '/history', builder: (context, state) => const HistoryScreen()),
+    GoRoute(
+        path: '/profiles',
+        builder: (context, state) => const ProfileSelectionScreen()),
+    GoRoute(
+        path: '/profile/create',
+        builder: (context, state) => const ProfileCreationScreen()),
+    GoRoute(
+        path: '/profile/preferences',
+        builder: (context, state) => const ProfilePreferencesScreen()),
+    GoRoute(
+        path: '/parental',
+        builder: (context, state) => const ParentalControlScreen()),
+    GoRoute(
+        path: '/matchmaking',
+        builder: (context, state) => const MatchmakingScreen()),
+    GoRoute(
+        path: '/player',
+        builder: (context, state) {
+          final data = state.extra;
+          if (data is PlayerRouteData) {
+            return PlayerScreen(
+              streamUrl: data.streamUrl,
+              title: data.title,
+              channels: data.channels,
+              initialIndex: data.index,
+            );
+          }
+          final url = state.uri.queryParameters['url'] ?? '';
+          final title = state.uri.queryParameters['title'] ?? 'Lecture';
+          return PlayerScreen(streamUrl: url, title: title);
+        }),
+    GoRoute(
+        path: '/multivideo',
+        builder: (context, state) => const MultiVideoScreen()),
+    GoRoute(
+        path: '/favorites',
+        builder: (context, state) => const FavoritesScreen()),
+    GoRoute(
+        path: '/history', builder: (context, state) => const HistoryScreen()),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
-routes: [
+      routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-        GoRoute(path: '/live', builder: (context, state) => const LiveTvScreen()),
-        GoRoute(path: '/series', builder: (context, state) => const SeriesScreen()),
+        GoRoute(
+            path: '/live', builder: (context, state) => const LiveTvScreen()),
+        GoRoute(
+            path: '/series', builder: (context, state) => const SeriesScreen()),
         GoRoute(path: '/vod', builder: (context, state) => const VodScreen()),
-        GoRoute(path: '/radio', builder: (context, state) => const RadioScreen()),
-        GoRoute(path: '/replay', builder: (context, state) => const ReplayScreen()),
+        GoRoute(
+            path: '/radio', builder: (context, state) => const RadioScreen()),
+        GoRoute(
+            path: '/replay', builder: (context, state) => const ReplayScreen()),
         GoRoute(path: '/epg', builder: (context, state) => const EpgScreen()),
-        GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
+        GoRoute(
+            path: '/search', builder: (context, state) => const SearchScreen()),
         GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
         GoRoute(path: '/vpn', builder: (context, state) => const VpnScreen()),
-        GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
-        GoRoute(path: '/subscriptions', builder: (context, state) => const SubscriptionsScreen()),
+        GoRoute(
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen()),
+        GoRoute(
+            path: '/subscriptions',
+            builder: (context, state) => const SubscriptionsScreen()),
       ],
     ),
   ],
