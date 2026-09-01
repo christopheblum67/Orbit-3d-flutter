@@ -198,8 +198,9 @@ class _EpisodeTile extends StatelessWidget {
           .substring(seriesTitle.length)
           .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
     }
+    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)').hasMatch(episodeTitle);
     final label = episodeTitle.isNotEmpty
-        ? '$number — $episodeTitle'
+        ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
         : 'Épisode $number';
     final canPlay = episode.streamUrl.isNotEmpty;
     void onOpen() {
