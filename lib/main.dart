@@ -16,6 +16,9 @@ import 'features/home_shell.dart';
 import 'features/home/home_screen.dart';
 import 'features/auth/profile_selection_screen.dart';
 import 'features/auth/profile_creation_screen.dart';
+import 'features/auth/profile_preferences_screen.dart';
+import 'features/auth/parental_control_screen.dart';
+import 'features/matchmaking/matchmaking_screen.dart';
 import 'features/live_tv/live_tv_screen.dart';
 import 'features/series/series_screen.dart';
 import 'features/vod/vod_screen.dart';
@@ -78,6 +81,9 @@ final GoRouter router = GoRouter(
   routes: [
     GoRoute(path: '/profiles', builder: (context, state) => const ProfileSelectionScreen()),
 GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
+    GoRoute(path: '/profile/preferences', builder: (context, state) => const ProfilePreferencesScreen()),
+    GoRoute(path: '/parental', builder: (context, state) => const ParentalControlScreen()),
+    GoRoute(path: '/matchmaking', builder: (context, state) => const MatchmakingScreen()),
     GoRoute(path: '/player', builder: (context, state) {
       final data = state.extra;
       if (data is PlayerRouteData) {

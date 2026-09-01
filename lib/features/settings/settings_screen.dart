@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -59,12 +60,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Profils'),
-            onTap: () {},
+            onTap: () => context.go('/profiles'),
           ),
           ListTile(
             leading: const Icon(Icons.subscriptions),
             title: const Text('Abonnements'),
-            onTap: () {},
+            onTap: () => context.go('/subscriptions'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Préférences'),
+            onTap: () => context.go('/profile/preferences'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.gpp_good_outlined),
+            title: const Text('Contrôle parental'),
+            onTap: () => context.go('/parental'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_outlined),
+            title: const Text('Pour vous (recommandations)'),
+            onTap: () => context.go('/matchmaking'),
           ),
         ],
       ),

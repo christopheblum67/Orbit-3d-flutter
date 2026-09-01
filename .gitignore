@@ -9,6 +9,7 @@
 .flutter-plugins
 .flutter-plugins-dependencies
 android/.gradle/
+android/build/
 android/local.properties
 local.properties
 android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java

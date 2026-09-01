@@ -2,6 +2,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../models/user_profile.dart';
+import '../models/user_preferences.dart';
 import '../models/subscription.dart';
 
 class StorageService {
@@ -31,6 +32,38 @@ class StorageService {
   Future<void> deleteProfile(String id) async {
     final box = Hive.box(_profilesBox);
     await box.delete(id);
+  }
+
+  static const String _prefsKey = 'user_preferences';
+  static const String _parentalPinKey = 'parental_pin';
+
+  Future<void> savePreferences(UserPreferences prefs) async {
+    final box = Hive.box(_settingsBox);
+    await box.put(_prefsKey, prefs.toMap());
+  }
+
+  Future<UserPreferences> getPreferences() async {
+    final box = Hive.box(_settingsBox);
+    final map = box.get(_prefsKey);
+    if (map is Map) {
+      return UserPreferences.fromMap(Map<String, dynamic>.from(map));
+    }
+    return const UserPreferences();
+  }
+
+  Future<void> setParentalPin(String pin) async {
+    final box = Hive.box(_settingsBox);
+    await box.put(_parentalPinKey, pin);
+  }
+
+  Future<String?> getParentalPin() async {
+    final box = Hive.box(_settingsBox);
+    return box.get(_parentalPinKey);
+  }
+
+  Future<void> clearParentalPin() async {
+    final box = Hive.box(_settingsBox);
+    await box.delete(_parentalPinKey);
   }
 
   Future<void> setSetting(String key, dynamic value) async {

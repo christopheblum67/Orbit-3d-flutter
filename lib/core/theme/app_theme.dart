@@ -62,7 +62,7 @@ class AppTheme {
           );
         }),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surfaceContainerLow,
         shadowColor: Colors.transparent,
