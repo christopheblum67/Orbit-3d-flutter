@@ -22,6 +22,7 @@ import 'features/auth/parental_control_screen.dart';
 import 'features/matchmaking/matchmaking_screen.dart';
 import 'features/live_tv/live_tv_screen.dart';
 import 'features/series/series_screen.dart';
+import 'features/series/series_detail_screen.dart';
 import 'features/vod/vod_screen.dart';
 import 'features/replay/replay_screen.dart';
 import 'features/radio/radio_screen.dart';
@@ -132,6 +133,13 @@ final GoRouter router = GoRouter(
           final url = state.uri.queryParameters['url'] ?? '';
           final title = state.uri.queryParameters['title'] ?? 'Lecture';
           return PlayerScreen(streamUrl: url, title: title);
+        }),
+    GoRoute(
+        path: '/series/detail',
+        builder: (context, state) {
+          final id = state.uri.queryParameters['id'] ?? '';
+          final title = state.uri.queryParameters['title'] ?? '';
+          return SeriesDetailScreen(seriesId: id, title: title);
         }),
     GoRoute(
         path: '/multivideo',

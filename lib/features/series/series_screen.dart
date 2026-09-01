@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/providers.dart';
+import '../../core/widgets/tv_focus.dart';
 import '../../core/widgets/widgets.dart';
 import '../../services/user_friendly_error.dart';
 
@@ -42,15 +44,26 @@ class SeriesScreen extends ConsumerWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final series = seriesList[index];
-                      return MediaCard(
-                        title: series.title,
-                        posterUrl: series.coverUrl,
-                        year: series.year,
-                        genre: series.genre,
-                        rating: series.rating,
-                        synopsis: series.description,
-                        ageLabel: series.pegiLabel,
-                        fallbackIcon: Icons.tv,
+                      void onOpen() {
+                        context.push(
+                          '/series/detail?id=${Uri.encodeComponent(series.id)}'
+                          '&title=${Uri.encodeComponent(series.title)}',
+                        );
+                      }
+
+                      return TvFocus(
+                        onActivate: onOpen,
+                        child: MediaCard(
+                          title: series.title,
+                          posterUrl: series.coverUrl,
+                          year: series.year,
+                          genre: series.genre,
+                          rating: series.rating,
+                          synopsis: series.description,
+                          ageLabel: series.pegiLabel,
+                          fallbackIcon: Icons.tv,
+                          onTap: onOpen,
+                        ),
                       );
                     },
                     childCount: seriesList.length,
