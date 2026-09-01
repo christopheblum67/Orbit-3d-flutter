@@ -70,6 +70,57 @@ final epgProgramsProvider =
   EPGProgramsNotifier.new,
 );
 
+/// Cache partagé du guide EPG brut, avec expiration, pour éviter de
+/// re-télécharger l'intégralité du XMLTV à chaque changement de chaîne.
+class EPGDataCache {
+  EPGDataCache();
+
+  static const _ttl = Duration(minutes: 30);
+
+  List<EPGProgram>? _all;
+  DateTime? _fetchedAt;
+
+  bool get isFresh {
+    final fetched = _fetchedAt;
+    return _all != null &&
+        fetched != null &&
+        DateTime.now().difference(fetched) < _ttl;
+  }
+
+  Future<List<EPGProgram>> loadFull(ApiService api) async {
+    if (isFresh) return _all!;
+    final programs = await api.fetchEpg();
+    _all = programs;
+    _fetchedAt = DateTime.now();
+    return programs;
+  }
+
+  void invalidate() {
+    _all = null;
+    _fetchedAt = null;
+  }
+}
+
+final epgDataCacheProvider = Provider<EPGDataCache>((ref) => EPGDataCache());
+
+/// EPG d'une chaîne (par son `epg_channel_id`), chargé paresseusement puis
+/// mis en cache avec une expiration. Renvoie une liste vide si la chaîne
+/// n'a pas d'identifiant EPG ou aucun programme à venir.
+final channelEpgProvider =
+    FutureProvider.autoDispose.family<List<EPGProgram>, String>(
+  (ref, epgChannelId) async {
+    if (epgChannelId.isEmpty) return const <EPGProgram>[];
+    final api = ref.watch(apiServiceProvider);
+    final cache = ref.watch(epgDataCacheProvider);
+    final all = await cache.loadFull(api);
+    final now = DateTime.now();
+    return all
+        .where((p) => p.channelId == epgChannelId && p.end.isAfter(now))
+        .toList()
+      ..sort((a, b) => a.start.compareTo(b.start));
+  },
+);
+
 class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
   @override
   Future<List<EPGProgram>> build() async {

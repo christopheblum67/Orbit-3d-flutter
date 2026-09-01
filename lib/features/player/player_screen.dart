@@ -1,8 +1,17 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
+
 import '../../core/widgets/widgets.dart';
 import '../../models/channel.dart';
+import '../../models/epg_program.dart';
+import '../../providers/providers.dart';
 import '../../services/stream_helpers.dart';
+import '../../services/stream_prewarm_service.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -18,7 +27,7 @@ class PlayerRouteData {
   final int index;
 }
 
-class PlayerScreen extends StatefulWidget {
+class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
     super.key,
     required this.streamUrl,
@@ -33,7 +42,7 @@ class PlayerScreen extends StatefulWidget {
   final int initialIndex;
 
   @override
-  State<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
 enum _PlayerStatus { loading, error, ready }
@@ -44,8 +53,15 @@ const _playbackUserAgents = <String>[
   'ExoPlayer/2.19.1',
 ];
 
-class _PlayerScreenState extends State<PlayerScreen> {
-  late final List<Channel> _channels;
+/// Durée maximale accordée à initialise() avant de basculer sur le
+/// prochain User-Agent : évite de bloquer le zapping sur un flux muet.
+const _probTimeout = Duration(seconds: 12);
+
+/// Durée d'affichage de la barre d'info avant masquage automatique.
+const _infoBarDuration = Duration(milliseconds: 4500);
+
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
   VideoPlayerController? _cachedNext;
@@ -58,6 +74,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _handlingError = false;
   bool _autorecovered = false;
   int _generation = 0;
+  bool _showInfo = false;
+  Timer? _infoTimer;
+  bool _volumeToZap = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
 
   bool get _canZap => _channels.length > 1;
   bool get _hasNext => _canZap && _index < _channels.length - 1;
@@ -69,6 +89,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ? _channels[_index].streamUrl
         : widget.streamUrl;
   }
+
+  Channel? get _currentChannel =>
+      _channels.isEmpty ? null : _channels[_index];
 
   static String _refererFor(Uri uri) {
     final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
@@ -87,6 +110,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _initializePlayer();
   }
 
+  @override
+  void dispose() {
+    _infoTimer?.cancel();
+    _focusNode.dispose();
+    _generation++;
+    _disposeActive();
+    _disposeCachedNext();
+    _disposeCachedPrev();
+    _preloadTarget = null;
+    super.dispose();
+  }
+
   void _initializePlayer() {
     _generation++;
     _handlingError = false;
@@ -99,8 +134,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
-    if (_attempt >= _playbackUserAgents.length ||
-        !isLikelyStreamUrl(_activeStreamUrl)) {
+    if (!isLikelyStreamUrl(_activeStreamUrl)) {
+      if (gen == _generation) _setStatus(_PlayerStatus.error);
+      return;
+    }
+    // Flux préchauffé par la grille Live TV : zapping sans démarrage à froid.
+    final prewarmed = StreamPrewarmService.instance.take(_activeStreamUrl);
+    if (prewarmed != null) {
+      _controller = prewarmed;
+      prewarmed.addListener(_onControllerUpdate);
+      prewarmed.play();
+      if (!mounted || gen != _generation || _controller != prewarmed) {
+        _disposeController(prewarmed);
+        return;
+      }
+      _setStatus(_PlayerStatus.ready);
+      _showInfoBrief();
+      return;
+    }
+    if (_attempt >= _playbackUserAgents.length) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
     }
@@ -112,11 +164,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
         'Accept': '*/*',
         'Referer': _refererFor(Uri.parse(_activeStreamUrl)),
       },
+      videoPlayerOptions: VideoPlayerOptions(
+        mixWithOthers: true,
+        allowBackgroundPlayback: false,
+      ),
     );
     _controller = controller;
     controller.addListener(_onControllerUpdate);
     try {
-      await controller.initialize();
+      await controller.initialize().timeout(_probTimeout);
     } catch (e) {
       debugPrint('Orbit3D video error: $e');
       if (_controller == controller) {
@@ -144,6 +200,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return;
     }
     _setStatus(_PlayerStatus.ready);
+    _showInfoBrief();
   }
 
   void _onControllerUpdate() {
@@ -241,6 +298,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       newActive.addListener(_onControllerUpdate);
       newActive.play();
       _setStatus(_PlayerStatus.ready);
+      _showInfoBrief();
     } else {
       _attempt = 0;
       _startAttempt();
@@ -284,9 +342,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
           'Accept': '*/*',
           'Referer': _refererFor(Uri.parse(_channels[target].streamUrl)),
         },
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: true,
+          allowBackgroundPlayback: false,
+        ),
       );
       try {
-        await controller.initialize();
+        await controller.initialize().timeout(_probTimeout);
       } catch (e) {
         debugPrint('Orbit3D preload error: $e');
         _disposeController(controller);
@@ -360,14 +422,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _startPreload();
   }
 
-  @override
-  void dispose() {
-    _generation++;
-    _disposeActive();
-    _disposeCachedNext();
-    _disposeCachedPrev();
-    _preloadTarget = null;
-    super.dispose();
+  void _showInfoBrief() {
+    _infoTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _showInfo = true);
+    _infoTimer = Timer(_infoBarDuration, () {
+      if (mounted) setState(() => _showInfo = false);
+    });
+  }
+
+  void _toggleInfo() {
+    _infoTimer?.cancel();
+    setState(() => _showInfo = !_showInfo);
   }
 
   void _togglePlayPause() {
@@ -378,32 +444,93 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
+  void _toggleVolumeZap() {
+    setState(() => _volumeToZap = !_volumeToZap);
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.pageUp) {
+      _goPrevious();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.pageDown) {
+      _goNext();
+      return KeyEventResult.handled;
+    }
+    if (_volumeToZap) {
+      if (key == LogicalKeyboardKey.audioVolumeUp) {
+        _goNext();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.audioVolumeDown) {
+        _goPrevious();
+        return KeyEventResult.handled;
+      }
+    }
+    if (key == LogicalKeyboardKey.space) {
+      _togglePlayPause();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      _toggleInfo();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currentTitle = _channels.isEmpty
-        ? (widget.title ?? 'Lecture')
-        : _channels[_index].name;
+    final currentTitle = _currentChannel?.name ?? widget.title ?? 'Lecture';
     return Scaffold(
       appBar: AppBar(title: Text(currentTitle)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: switch (_status) {
-            _PlayerStatus.loading => const VideoLoadingState(),
-            _PlayerStatus.error => VideoErrorState(onRetry: _retry),
-            _PlayerStatus.ready => _ReadyPlayer(
-                controller: _controller!,
-                onTap: _togglePlayPause,
-              ),
-          },
+      body: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _onKeyEvent,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: switch (_status) {
+              _PlayerStatus.loading => const VideoLoadingState(),
+              _PlayerStatus.error => VideoErrorState(onRetry: _retry),
+              _PlayerStatus.ready => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _ReadyPlayer(
+                      controller: _controller!,
+                      onTap: _toggleInfo,
+                    ),
+                    if (_showInfo && _currentChannel != null)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: _InfoBar(
+                            channel: _currentChannel!,
+                            onClose: _toggleInfo,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+            },
+          ),
         ),
       ),
       bottomNavigationBar: _canZap
           ? _ZapBar(
               index: _index,
               total: _channels.length,
+              volumeToZap: _volumeToZap,
               onPrevious: _hasPrevious ? _goPrevious : null,
               onNext: _hasNext ? _goNext : null,
+              onToggleVolumeZap: _toggleVolumeZap,
             )
           : null,
       floatingActionButton: _status == _PlayerStatus.ready
@@ -430,14 +557,18 @@ class _ZapBar extends StatelessWidget {
   const _ZapBar({
     required this.index,
     required this.total,
+    required this.volumeToZap,
     required this.onPrevious,
     required this.onNext,
+    required this.onToggleVolumeZap,
   });
 
   final int index;
   final int total;
+  final bool volumeToZap;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
+  final VoidCallback? onToggleVolumeZap;
 
   @override
   Widget build(BuildContext context) {
@@ -465,12 +596,23 @@ class _ZapBar extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Zapping rapide',
+                    volumeToZap
+                        ? 'Zapping rapide · volume = chaîne'
+                        : 'Zapping rapide',
                     style: textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ],
+              ),
+            ),
+            IconButton.filledTonal(
+              tooltip: volumeToZap
+                  ? 'Volume normal'
+                  : 'Changer de chaîne avec le volume',
+              onPressed: onToggleVolumeZap,
+              icon: Icon(
+                volumeToZap ? Icons.tap_and_play : Icons.volume_up,
               ),
             ),
             IconButton.filledTonal(
@@ -484,6 +626,177 @@ class _ZapBar extends StatelessWidget {
     );
   }
 }
+
+class _InfoBar extends ConsumerWidget {
+  const _InfoBar({required this.channel, this.onClose});
+
+  final Channel channel;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final epgAsync = ref.watch(channelEpgProvider(channel.epgChannelId));
+    final (nowProgram, nextProgram) = _nowAndNext(epgAsync.value ?? const []);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.72),
+                Colors.black.withOpacity(0.28),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      channel.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (epgAsync.isLoading && nowProgram == null)
+                      Text(
+                        'Programme en cours de chargement…',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: Colors.white70,
+                        ),
+                      )
+                    else
+                      _EpgRow(now: nowProgram, next: nextProgram),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Masquer les infos',
+                onPressed: onClose,
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EpgRow extends StatelessWidget {
+  const _EpgRow({required this.now, required this.next});
+
+  final EPGProgram? now;
+  final EPGProgram? next;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final current = now;
+    if (current == null) {
+      return const Row(
+        children: [
+          Icon(Icons.tv_off_rounded, size: 14, color: Colors.white54),
+          SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Programme non disponible',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.graphic_eq_rounded, size: 14, color: scheme.tertiary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                '${_fmt(current.start)} - ${_fmt(current.end)}   ${current.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (next != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.schedule_rounded, size: 14, color: Colors.white54),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Suivant : ${_fmt(next!.start)}   ${next!.title}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+(EPGProgram?, EPGProgram?) _nowAndNext(List<EPGProgram> programs) {
+  final now = DateTime.now();
+  EPGProgram? current;
+  EPGProgram? next;
+  for (final program in programs) {
+    if (!program.start.isAfter(now) && program.end.isAfter(now)) {
+      current = program;
+      break;
+    }
+  }
+  if (current != null) {
+    final index = programs.indexOf(current);
+    if (index + 1 < programs.length && programs[index + 1].start.isAfter(now)) {
+      next = programs[index + 1];
+    }
+  } else if (programs.isNotEmpty) {
+    next = programs.firstWhere(
+      (p) => p.start.isAfter(now),
+      orElse: () => programs.last,
+    );
+  }
+  return (current, next);
+}
+
+String _fmt(DateTime time) => DateFormat('HH:mm').format(time);
 
 class _ReadyPlayer extends StatelessWidget {
   const _ReadyPlayer({required this.controller, required this.onTap});
