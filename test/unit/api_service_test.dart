@@ -5,26 +5,22 @@ void main() {
   final api = ApiService();
 
   group('buildXtreamStreamUrl', () {
-    test('builds a live stream URL with a valid query string', () {
+    test('builds the classic host-style stream URL (host/user/pass/id)', () {
       final url = api.buildXtreamStreamUrl(
-        'http://sofia.rabaden.eu:80',
+        'http://host:80',
         'user',
         'p4ss',
         '12345',
       );
       final uri = Uri.parse(url);
       expect(uri.scheme, 'http');
-      expect(uri.host, 'sofia.rabaden.eu');
+      expect(uri.host, 'host');
       expect(uri.port, 80);
-      expect(uri.path, '/player_api.php');
-      expect(uri.queryParameters['username'], 'user');
-      expect(uri.queryParameters['password'], 'p4ss');
-      expect(uri.queryParameters['stream'], '12345');
-      expect(uri.queryParameters.containsKey('type'), isFalse);
-      expect(url.contains('&type='), isFalse);
+      expect(uri.path, '/user/p4ss/12345');
+      expect(uri.hasQuery, isFalse);
     });
 
-    test('adds type param for movie streams', () {
+    test('adds type param for movie streams without changing the path', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'user',
@@ -33,8 +29,8 @@ void main() {
         type: 'movie',
       );
       final uri = Uri.parse(url);
-      expect(uri.queryParameters['stream'], '42');
-      expect(uri.queryParameters['type'], 'movie');
+      expect(uri.path, '/user/p4ss/42');
+      expect(uri.hasQuery, isFalse);
     });
 
     test('strips a trailing slash from the base URL', () {
@@ -44,10 +40,10 @@ void main() {
         'p4ss',
         '7',
       );
-      expect(Uri.parse(url).path, '/player_api.php');
+      expect(Uri.parse(url).path, '/user/p4ss/7');
     });
 
-    test('does not duplicate player_api.php when base URL already contains it',
+    test('keeps only the stream part when base URL already contains a script',
         () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80/player_api.php',
@@ -55,10 +51,11 @@ void main() {
         'p4ss',
         '7',
       );
-      expect(Uri.parse(url).path, '/player_api.php');
+      expect(Uri.parse(url).path, '/user/p4ss/7');
     });
 
-    test('URL-encodes credentials with reserved characters', () {
+    test('URL-encodes credentials with reserved characters in path segments',
+        () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'us er',
@@ -66,12 +63,11 @@ void main() {
         '7',
       );
       final uri = Uri.parse(url);
-      expect(uri.queryParameters['username'], 'us er');
-      expect(uri.queryParameters['password'], 'p@ss&word');
+      expect(uri.pathSegments, containsAll(['us er', 'p@ss&word', '7']));
       expect(url.contains(' '), isFalse);
     });
 
-    test('includes extra params for replay streams', () {
+    test('includes extra params as query for replay streams', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'user',
@@ -80,7 +76,7 @@ void main() {
         extra: {'start': '20260830090000', 'end': '20260830100000'},
       );
       final uri = Uri.parse(url);
-      expect(uri.queryParameters['stream'], '99');
+      expect(uri.path, '/user/p4ss/99');
       expect(uri.queryParameters['start'], '20260830090000');
       expect(uri.queryParameters['end'], '20260830100000');
     });
