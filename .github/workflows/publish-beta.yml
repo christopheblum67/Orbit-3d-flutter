@@ -14,7 +14,7 @@ on:
       beta_base_url:
         description: 'URL du serveur Xtream (lot Xtream)'
         required: false
-        default: 'http://sofia.rabaden.eu:80'
+        default: 'https://draap.online'
       beta_username:
         description: 'Username Xtream'
         required: false
@@ -26,7 +26,7 @@ on:
       beta_m3u_url:
         description: 'URL de la playlist M3U (lot M3U)'
         required: false
-        default: 'http://sofia.rabaden.eu:80/get.php?username=REDACTED&password=REDACTED&type=m3u_plus&output=ts'
+        default: 'https://draap.online/get.php?username=REDACTED&password=REDACTED&type=m3u_plus&output=ts'
 
 jobs:
   publish:
@@ -46,7 +46,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
+          flutter-version: '3.47.2'
           channel: 'stable'
           cache: true
 
