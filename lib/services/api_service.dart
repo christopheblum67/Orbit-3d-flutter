@@ -159,7 +159,7 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
-        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString(), type: 'movie');
+        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString(), type: 'movie', extension: map['container_extension']?.toString());
         final movie = Movie.fromMap(map).copyWith(streamUrl: streamUrl);
         movie.requireStreamUrl();
         return movie;
@@ -241,6 +241,7 @@ class ApiService {
                   password,
                   id,
                   type: 'series',
+                  extension: em['container_extension']?.toString(),
                 );
           episodeMaps.add(em);
         }
@@ -346,18 +347,35 @@ class ApiService {
     String password,
     String? streamId, {
     String type = '',
+    String? extension,
     Map<String, String> extra = const {},
   }) {
     if (streamId == null || streamId.isEmpty) return '';
     final uri = Uri.parse(_trimBaseUrl(baseUrl));
-    final segments = [
+    final segments = <String>[
       ...uri.pathSegments.where((s) => s.isNotEmpty),
       username,
       password,
-      streamId,
     ];
+    final mediaType = type.toLowerCase();
+    if (mediaType == 'movie') {
+      segments.add('movie');
+    } else if (mediaType == 'series') {
+      segments.add('series');
+    }
+    var mediaId = streamId;
+    if (mediaType == 'movie' || mediaType == 'series') {
+      final ext = _normalizeExtension(extension);
+      mediaId = '$streamId.$ext';
+    }
+    segments.add(mediaId);
     final query = extra.isEmpty ? null : extra;
     return uri.replace(pathSegments: segments, queryParameters: query).toString();
+  }
+
+  static String _normalizeExtension(String? extension) {
+    if (extension == null || extension.trim().isEmpty) return 'mp4';
+    return extension.trim().replaceFirst(RegExp(r'^\.'), '').toLowerCase();
   }
 
   List<Channel> parseM3u(String content) {
