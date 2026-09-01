@@ -281,6 +281,16 @@ class _SubscriptionCard extends ConsumerWidget {
                               ),
                             ),
                           ),
+                        if (!isActive)
+                          IconButton(
+                            tooltip: 'Définir comme serveur par défaut',
+                            icon: const Icon(Icons.star_outline, size: 20),
+                            color: scheme.onSurfaceVariant,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onPressed: onTap,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 4),

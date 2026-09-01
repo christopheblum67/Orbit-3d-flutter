@@ -56,6 +56,7 @@ class ProfileSelectionScreen extends ConsumerWidget {
                   ),
                   onTap: () {
                     ref.read(currentProfileProvider.notifier).state = profile;
+                    ref.read(storageServiceProvider).setSetting('last_profile_id', profile.id);
                     context.pushReplacement('/home');
                   },
                   child: Column(

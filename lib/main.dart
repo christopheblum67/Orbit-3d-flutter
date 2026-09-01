@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'models/subscription.dart';
+import 'models/user_profile.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/providers.dart';
 import 'services/storage_service.dart';
@@ -58,12 +59,15 @@ Future<void> main() async {
   await storageService.init();
   final favoritesService = FavoritesService();
   await favoritesService.init();
-  final historyService = HistoryService();
+final historyService = HistoryService();
   await historyService.init();
   final notificationService = NotificationService();
   await notificationService.init();
 
   await BetaConfig.applyIfNeeded();
+
+  final restoredProfile = await _restoreLastProfile(storageService);
+  routerInitialLocation = restoredProfile != null ? '/home' : '/profiles';
 
   runApp(ProviderScope(
     overrides: [
@@ -71,13 +75,26 @@ Future<void> main() async {
       favoritesServiceProvider.overrideWithValue(favoritesService),
       historyServiceProvider.overrideWithValue(historyService),
       notificationServiceProvider.overrideWithValue(notificationService),
+      currentProfileProvider.overrideWith((ref) => restoredProfile),
     ],
     child: const OrbitApp(),
   ));
 }
 
+Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
+  final lastId = storage.getSetting('last_profile_id') as String?;
+  if (lastId == null || lastId.isEmpty) return null;
+  final profiles = await storage.getProfiles();
+  for (final profile in profiles) {
+    if (profile.id == lastId) return profile;
+  }
+  return null;
+}
+
+String routerInitialLocation = '/profiles';
+
 final GoRouter router = GoRouter(
-  initialLocation: '/profiles',
+  initialLocation: routerInitialLocation,
   routes: [
     GoRoute(path: '/profiles', builder: (context, state) => const ProfileSelectionScreen()),
 GoRoute(path: '/profile/create', builder: (context, state) => const ProfileCreationScreen()),
