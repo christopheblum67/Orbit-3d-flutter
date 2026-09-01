@@ -24,3 +24,7 @@ windows/flutter/generated_plugins.cmake
 # Fichiers d'environnement local (secrets)
 .env
 .env.local
+
+# Clés de compte de service Firebase (secrets à ne jamais committer)
+*firebase-adminsdk*.json
+service_account.json

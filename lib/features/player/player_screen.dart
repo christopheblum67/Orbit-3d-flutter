@@ -70,6 +70,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         : widget.streamUrl;
   }
 
+  static String _refererFor(Uri uri) {
+    final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+    return '${uri.scheme}://${uri.host}:$port/';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -105,7 +110,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       httpHeaders: {
         'User-Agent': _playbackUserAgents[_attempt],
         'Accept': '*/*',
-        'Referer': 'https://sofia.rabaden.eu/',
+        'Referer': _refererFor(Uri.parse(_activeStreamUrl)),
       },
     );
     _controller = controller;
@@ -277,7 +282,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         httpHeaders: {
           'User-Agent': _playbackUserAgents[attempt],
           'Accept': '*/*',
-          'Referer': 'https://sofia.rabaden.eu/',
+          'Referer': _refererFor(Uri.parse(_channels[target].streamUrl)),
         },
       );
       try {
