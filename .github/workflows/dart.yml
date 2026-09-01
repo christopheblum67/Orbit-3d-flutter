@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Analyse statique
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Tests unitaires
+        run: flutter test
+
       - name: Build APK
         run: flutter build apk --release
 

@@ -16,17 +16,17 @@ on:
         required: false
         default: 'https://draap.online'
       beta_username:
-        description: 'Username Xtream'
+        description: 'Username Xtream (laissez vide pour utiliser le secret BETA_USERNAME)'
         required: false
-        default: '169503400638842'
+        default: ''
       beta_password:
-        description: 'Password Xtream'
+        description: 'Password Xtream (laissez vide pour utiliser le secret BETA_PASSWORD)'
         required: false
-        default: '1593574628'
+        default: ''
       beta_m3u_url:
-        description: 'URL de la playlist M3U (lot M3U)'
+        description: 'URL de la playlist M3U (laissez vide pour utiliser le secret BETA_M3U_URL)'
         required: false
-        default: 'https://draap.online/get.php?username=169503400638842&password=1593574628&type=m3u_plus&output=ts'
+        default: ''
 
 jobs:
   publish:
@@ -76,8 +76,8 @@ jobs:
           flutter build apk --release \
             --dart-define=BETA_LOT=xtream \
             --dart-define=BETA_BASE_URL="${{ github.event.inputs.beta_base_url }}" \
-            --dart-define=BETA_USERNAME="${{ github.event.inputs.beta_username }}" \
-            --dart-define=BETA_PASSWORD="${{ github.event.inputs.beta_password }}" \
+            --dart-define=BETA_USERNAME="${{ secrets.BETA_USERNAME || github.event.inputs.beta_username }}" \
+            --dart-define=BETA_PASSWORD="${{ secrets.BETA_PASSWORD || github.event.inputs.beta_password }}" \
             --dart-define=BETA_M3U_URL=""
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-xtream-${{ steps.tag.outputs.tag }}.apk"
@@ -89,7 +89,7 @@ jobs:
             --dart-define=BETA_BASE_URL="" \
             --dart-define=BETA_USERNAME="" \
             --dart-define=BETA_PASSWORD="" \
-            --dart-define=BETA_M3U_URL="${{ github.event.inputs.beta_m3u_url }}"
+            --dart-define=BETA_M3U_URL="${{ secrets.BETA_M3U_URL || github.event.inputs.beta_m3u_url }}"
           cp build/app/outputs/flutter-apk/app-release.apk "dist/orbit-3d-beta-m3u-${{ steps.tag.outputs.tag }}.apk"
 
       - name: Lister les APK produits
