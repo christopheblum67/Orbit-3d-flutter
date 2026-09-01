@@ -253,7 +253,9 @@ class ApiService {
       final response = await _get(url);
       return parseXmltv(response.data.toString());
     }
-    throw UnimplementedError('M3U not implemented for EPG');
+    // Les flux M3U ne fournissent pas de guide XMLTV : pas de programme,
+    // plutôt que de lever une erreur technique à l'écran.
+    return const <EPGProgram>[];
   }
 
   static String _trimBaseUrl(String baseUrl) {
