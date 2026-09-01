@@ -50,6 +50,11 @@ final seriesProvider = FutureProvider<List<Series>>((ref) async {
   return api.fetchSeries();
 });
 
+final seriesInfoProvider = FutureProvider.family<Series, String>((ref, seriesId) async {
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchSeriesInfo(seriesId);
+});
+
 final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();

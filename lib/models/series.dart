@@ -51,8 +51,8 @@ class Series {
       ]),
       coverUrl: map['cover']?.toString() ?? '',
       year: parsedYear,
-      genre: map['genre']?.toString() ?? '',
-      director: map['director']?.toString() ?? '',
+      genre: _joined(map['genre']),
+      director: _joined(map['director']),
       rating: parsedRating,
       pegi: firstNonEmpty([
         map['pegi'],
@@ -65,6 +65,17 @@ class Series {
           .map((e) => Episode.fromMap(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  static String _joined(Object? value) {
+    if (value == null) return '';
+    if (value is List) {
+      return value
+          .where((e) => e != null && '$e'.trim().isNotEmpty)
+          .map((e) => '$e')
+          .join(', ');
+    }
+    return '$value';
   }
 
   String? get pegiLabel => ageBadgeLabel(pegi);

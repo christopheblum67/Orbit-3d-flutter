@@ -186,6 +186,70 @@ class ApiService {
     throw UnimplementedError('M3U not implemented for series');
   }
 
+  Future<Series> fetchSeriesInfo(String seriesId) async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream') {
+      throw UnimplementedError('M3U not implemented for series info');
+    }
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_series_info',
+      'series_id': seriesId,
+    });
+    final response = await _get(url);
+    final data = response.data;
+    Map<String, dynamic> root;
+    if (data is List) {
+      if (data.isEmpty) {
+        throw StreamNetworkException(
+          'Aucun détail disponible pour cette série.',
+        );
+      }
+      root = Map<String, dynamic>.from(data.first as Map);
+    } else if (data is Map) {
+      root = Map<String, dynamic>.from(data);
+    } else {
+      throw StreamNetworkException(
+        'Réponse inattendue du serveur pour cette série.',
+      );
+    }
+    final rootSorted = root;
+    final info = rootSorted['info'];
+    final stitched = Map<String, dynamic>.from(
+      info is Map ? Map<String, dynamic>.from(info) : const <String, dynamic>{},
+    );
+    stitched['series_id'] = seriesId;
+    final episodeMaps = <Map<String, dynamic>>[];
+    final rawEpisodes = root['episodes'];
+    if (rawEpisodes is Map) {
+      for (final seasonEntry in rawEpisodes.entries) {
+        final season = int.tryParse(seasonEntry.key.toString()) ?? 0;
+        final list = seasonEntry.value is List ? seasonEntry.value as List : const [];
+        for (final raw in list) {
+          final em = Map<String, dynamic>.from(raw as Map);
+          em['season'] = season;
+          final id = em['id']?.toString() ?? '';
+          em['url'] = id.isEmpty
+              ? ''
+              : buildXtreamStreamUrl(
+                  baseUrl,
+                  username,
+                  password,
+                  id,
+                  type: 'series',
+                );
+          episodeMaps.add(em);
+        }
+      }
+    }
+    stitched['episodes'] = episodeMaps;
+    return Series.fromMap(stitched);
+  }
+
   // ---------- Radios ----------
   Future<List<Channel>> fetchRadioChannels() async {
     final sub = await _subscriptionManager.getActiveSubscription();
