@@ -5,12 +5,28 @@ import '../../models/channel.dart';
 import '../../providers/providers.dart';
 import '../../core/widgets/tv_focus.dart';
 import '../../core/widgets/widgets.dart';
+import '../../services/stream_prewarm_service.dart';
 import '../../services/user_friendly_error.dart';
 import '../player/player_screen.dart';
 import 'channel_groups.dart';
 
 class LiveTvScreen extends ConsumerWidget {
   const LiveTvScreen({super.key});
+
+  static String _refererFor(Uri uri) {
+    final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+    return '${uri.scheme}://${uri.host}:$port/';
+  }
+
+  static Map<String, String> _httpHeadersFor(String url) {
+    final uri = Uri.parse(url);
+    return {
+      'User-Agent':
+          'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
+      'Accept': '*/*',
+      'Referer': _refererFor(uri),
+    };
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -85,7 +101,16 @@ class LiveTvScreen extends ConsumerWidget {
       );
     }
     final channel = row.channel!;
-    void onOpen() => _openPlayer(context, groups, channel);
+    void prewarm() =>
+        StreamPrewarmService.instance.prewarm(
+          channel.streamUrl,
+          _httpHeadersFor(channel.streamUrl),
+        );
+    void onOpen() {
+      prewarm();
+      _openPlayer(context, groups, channel);
+    }
+
     final subtitle = showGroupName && channel.groupLabel.isNotEmpty
         ? channel.groupLabel
         : null;
@@ -93,6 +118,9 @@ class LiveTvScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: TvFocus(
         onActivate: onOpen,
+        onFocusChange: (focused) {
+          if (focused) prewarm();
+        },
         child: ChannelTile(
           title: channel.name,
           subtitle: subtitle,
