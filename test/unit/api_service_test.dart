@@ -20,7 +20,8 @@ void main() {
       expect(uri.hasQuery, isFalse);
     });
 
-    test('adds type param for movie streams without changing the path', () {
+    test('builds the movie stream URL with the /movie/ folder and extension',
+        () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'user',
@@ -29,8 +30,33 @@ void main() {
         type: 'movie',
       );
       final uri = Uri.parse(url);
-      expect(uri.path, '/user/p4ss/42');
+      expect(uri.path, '/user/p4ss/movie/42.mp4');
       expect(uri.hasQuery, isFalse);
+    });
+
+    test('uses the container extension when provided for a movie', () {
+      final url = api.buildXtreamStreamUrl(
+        'http://host:80',
+        'user',
+        'p4ss',
+        '42',
+        type: 'movie',
+        extension: '.mkv',
+      );
+      expect(Uri.parse(url).path, '/user/p4ss/movie/42.mkv');
+    });
+
+    test('builds the series stream URL with the /series/ folder and extension',
+        () {
+      final url = api.buildXtreamStreamUrl(
+        'http://host:80',
+        'user',
+        'p4ss',
+        '7',
+        type: 'series',
+        extension: 'mp4',
+      );
+      expect(Uri.parse(url).path, '/user/p4ss/series/7.mp4');
     });
 
     test('strips a trailing slash from the base URL', () {
