@@ -9,9 +9,17 @@ import '../providers/providers.dart';
 class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   final StorageService _storage;
   final Ref _ref;
+  Future<void>? _initialLoad;
 
   SubscriptionsNotifier(this._storage, this._ref) : super([]) {
-    _loadSubscriptions();
+    _initialLoad = _loadSubscriptions();
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_initialLoad != null) {
+      await _initialLoad;
+      _initialLoad = null;
+    }
   }
 
   Future<void> _loadSubscriptions() async {
@@ -21,21 +29,25 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   }
 
   Future<void> addSubscription(Subscription subscription) async {
+    await _ensureLoaded();
     await _storage.saveSubscription(subscription);
     state = [...state, subscription];
   }
 
   Future<void> updateSubscription(Subscription subscription) async {
+    await _ensureLoaded();
     await _storage.saveSubscription(subscription);
     state = state.map((s) => s.id == subscription.id ? subscription : s).toList();
   }
 
   Future<void> deleteSubscription(String id) async {
+    await _ensureLoaded();
     await _storage.deleteSubscription(id);
     state = state.where((s) => s.id != id).toList();
   }
 
   Future<void> setActive(String id) async {
+    await _ensureLoaded();
     final subscriptions = state.map((s) {
       if (s.id == id) {
         return s.copyWith(isActive: true);
@@ -58,6 +70,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     int? latencyMs,
     String? error,
   }) async {
+    await _ensureLoaded();
     final index = state.indexWhere((s) => s.id == id);
     if (index == -1) return;
 
@@ -76,9 +89,9 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     ];
   }
 
-  Future<void> testConnection(Subscription sub) async {
+  Future<void> testConnection(Subscription sub, {ApiService? api}) async {
     _ref.read(subscriptionsTestingProvider.notifier).state = {..._ref.read(subscriptionsTestingProvider), sub.id};
-    final api = ApiService();
+    final apiService = api ?? ApiService();
     final stopwatch = Stopwatch()..start();
 
     try {
@@ -86,13 +99,13 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
         if (sub.baseUrl == null || sub.username == null || sub.password == null) {
           throw Exception('Configuration Xtream incomplète');
         }
-        final url = _buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
-        await api.get(url);
+        final url = buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
+        await apiService.get(url);
       } else {
         if (sub.m3uUrl == null) {
           throw Exception('URL M3U manquante');
         }
-        await api.get(sub.m3uUrl!);
+        await apiService.get(sub.m3uUrl!);
       }
       stopwatch.stop();
       await updateTestResult(
@@ -114,7 +127,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     }
   }
 
-  static String _buildXtreamTestUrl(String baseUrl, String username, String password) {
+  static String buildXtreamTestUrl(String baseUrl, String username, String password) {
     final uri = Uri.parse(baseUrl.trim().replaceAll(RegExp(r'/+$'), ''));
     final segments = [...uri.pathSegments.where((s) => s.isNotEmpty), 'player_api.php'];
     return uri.replace(pathSegments: segments, queryParameters: {
