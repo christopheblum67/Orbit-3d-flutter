@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/loading_state.dart';
-import '../../core/widgets/error_state.dart';
 import '../../models/subscription.dart';
 import '../../providers/providers.dart';
 import '../../providers/subscription_provider.dart';
@@ -37,36 +34,56 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           ? _EmptyState(
               onAdd: () => _showAddSubscriptionDialog(context, ref),
             )
-          : ListView.separated(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: subs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final sub = subs[index];
-                final isActive = sub.id == activeId;
-                return _SubscriptionCard(
-                  subscription: sub,
-                  isActive: isActive,
-                  onTap: () {
-                    if (!isActive) {
-                      ref.read(subscriptionsProvider.notifier).setActive(sub.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Basculé vers "${sub.name}"')),
-                      );
-                      ref.invalidate(liveChannelsProvider);
-                      ref.invalidate(moviesProvider);
-                      ref.invalidate(seriesProvider);
-                      ref.invalidate(radioChannelsProvider);
-                      ref.invalidate(replaysProvider);
-                    }
-                  },
-                  onTest: () => ref.read(subscriptionsProvider.notifier).testConnection(sub),
-                  onEdit: () => _showEditSubscriptionDialog(context, ref, sub),
-                  onDelete: () => _confirmDelete(context, ref, sub),
-                );
-              },
+              children: [
+                if (activeId == null)
+                  _NoActiveBanner(
+                    onAdd: () => _showAddSubscriptionDialog(context, ref),
+                  ),
+                ..._buildSubCards(context, ref, subs, activeId),
+              ],
             ),
     );
+  }
+
+  List<Widget> _buildSubCards(
+    BuildContext context,
+    WidgetRef ref,
+    List<Subscription> subs,
+    String? activeId,
+  ) {
+    return [
+      for (var index = 0; index < subs.length; index++) ...[
+        if (index > 0) const SizedBox(height: 12),
+        Builder(
+          builder: (_) {
+            final sub = subs[index];
+            final isActive = sub.id == activeId;
+            return _SubscriptionCard(
+              subscription: sub,
+              isActive: isActive,
+              onTap: () {
+                if (!isActive) {
+                  ref.read(subscriptionsProvider.notifier).setActive(sub.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Basculï¿½ vers "${sub.name}"')),
+                  );
+                  ref.invalidate(liveChannelsProvider);
+                  ref.invalidate(moviesProvider);
+                  ref.invalidate(seriesProvider);
+                  ref.invalidate(radioChannelsProvider);
+                  ref.invalidate(replaysProvider);
+                }
+              },
+              onTest: () => ref.read(subscriptionsProvider.notifier).testConnection(sub),
+              onEdit: () => _showEditSubscriptionDialog(context, ref, sub),
+              onDelete: () => _confirmDelete(context, ref, sub),
+            );
+          },
+        ),
+      ],
+    ];
   }
 
   void _showAddSubscriptionDialog(BuildContext context, WidgetRef ref) {
@@ -91,7 +108,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer l\'abonnement ?'),
-        content: Text('Voulez-vous supprimer "${sub.name}" ? Cette action est irréversible.'),
+        content: Text('Voulez-vous supprimer "${sub.name}" ? Cette action est irrï¿½versible.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
           FilledButton(
@@ -101,6 +118,45 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               Navigator.pop(ctx);
             },
             child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoActiveBanner extends StatelessWidget {
+  final VoidCallback onAdd;
+
+  const _NoActiveBanner({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.secondary.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: scheme.secondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Aucun abonnement actif. SÃ©lectionnez-en un ou ajoutez-en un nouveau.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Activer'),
+            onPressed: onAdd,
           ),
         ],
       ),
@@ -269,14 +325,14 @@ class _SubscriptionCard extends ConsumerWidget {
   }
 
   bool _isTesting(WidgetRef ref, String id) {
-    return false;
+    return ref.watch(subscriptionsTestingProvider).contains(id);
   }
 
   String _subtitle(Subscription sub) {
     if (sub.type == SubscriptionType.xtream) {
-      return sub.baseUrl ?? 'Configuration incomplète';
+      return sub.baseUrl ?? 'Configuration incomplï¿½te';
     }
-    return sub.m3uUrl ?? 'Configuration incomplète';
+    return sub.m3uUrl ?? 'Configuration incomplï¿½te';
   }
 }
 
@@ -344,8 +400,8 @@ class _TestResultRow extends ConsumerWidget {
               Expanded(
                 child: Text(
                   status == TestResultStatus.success
-                      ? 'Test OK · ${latency != null ? '$latency ms' : '—'}'
-                      : 'Échec : ${error ?? 'Erreur inconnue'}',
+                      ? 'Test OK ï¿½ ${latency != null ? '$latency ms' : 'ï¿½'}'
+                      : 'ï¿½chec : ${error ?? 'Erreur inconnue'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success ? Colors.green : scheme.error,
                         fontWeight: FontWeight.w600,
@@ -376,7 +432,7 @@ class _TestButton extends StatelessWidget {
       icon: isTesting
           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.wifi_find, size: 18),
-      label: Text(isTesting ? 'Test…' : 'Tester'),
+      label: Text(isTesting ? 'Testï¿½' : 'Tester'),
       onPressed: isTesting ? null : onTest,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

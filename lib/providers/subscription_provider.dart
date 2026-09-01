@@ -77,6 +77,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   }
 
   Future<void> testConnection(Subscription sub) async {
+    _ref.read(subscriptionsTestingProvider.notifier).state = {..._ref.read(subscriptionsTestingProvider), sub.id};
     final api = ApiService();
     final stopwatch = Stopwatch()..start();
 
@@ -107,6 +108,9 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
         latencyMs: stopwatch.elapsedMilliseconds,
         error: e.toString(),
       );
+    } finally {
+      final current = _ref.read(subscriptionsTestingProvider);
+      _ref.read(subscriptionsTestingProvider.notifier).state = {...current}..remove(sub.id);
     }
   }
 
@@ -132,6 +136,8 @@ final activeSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
   final storage = ref.watch(storageServiceProvider);
   return storage.getActiveSubscription();
 });
+
+final subscriptionsTestingProvider = StateProvider<Set<String>>((ref) => {});
 
 final subscriptionsStreamProvider = StreamProvider<List<Subscription>>((ref) {
   final storage = ref.watch(storageServiceProvider);

@@ -111,7 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Text(
             _capitalize(dateLabel),
             style: TextStyle(
@@ -120,9 +120,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(width: 8),
+          _UpdateButton(
+            tooltip: 'Mettre à jour toutes les données',
+            onPressed: _refreshAll,
+          ),
         ],
       ),
     );
+  }
+
+  void _refreshAll() {
+    ref.invalidate(liveChannelsProvider);
+    ref.invalidate(moviesProvider);
+    ref.invalidate(seriesProvider);
+    ref.invalidate(radioChannelsProvider);
+    ref.invalidate(replaysProvider);
+    ref.invalidate(epgProgramsProvider);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Mise à jour en cours…'),
+          duration: Duration(milliseconds: 1800),
+        ),
+      );
+  }
+
+  void _refreshOne(_RefreshCategory category) {
+    switch (category) {
+      case _RefreshCategory.live:
+        ref.invalidate(liveChannelsProvider);
+      case _RefreshCategory.series:
+        ref.invalidate(seriesProvider);
+      case _RefreshCategory.vod:
+        ref.invalidate(moviesProvider);
+      case _RefreshCategory.radio:
+        ref.invalidate(radioChannelsProvider);
+      case _RefreshCategory.replay:
+        ref.invalidate(replaysProvider);
+      case _RefreshCategory.epg:
+        ref.invalidate(epgProgramsProvider);
+    }
   }
 
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
@@ -218,29 +257,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
-              if (!item.hasRoute)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: item.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: item.color.withOpacity(0.3)),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Text(
-                        'Bientôt',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                if (!item.hasRoute)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: item.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: item.color.withOpacity(0.3)),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Text(
+                          'Bientôt',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                if (item.refreshCategory != null)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: _UpdateButton(
+                      tooltip: 'Mettre à jour cette catégorie',
+                      icon: Icons.update_rounded,
+                      color: item.color,
+                      onPressed: () => _refreshOne(item.refreshCategory!),
+                    ),
+                  ),
             ],
           ),
         ),
@@ -428,12 +478,15 @@ class _SubStatusChip extends ConsumerWidget {
   }
 }
 
+enum _RefreshCategory { live, series, vod, radio, replay, epg }
+
 class _OrbitItem {
   final String title;
   final IconData icon;
   final Color color;
   final String subtitle;
   final String? route;
+  final _RefreshCategory? refreshCategory;
 
   const _OrbitItem({
     required this.title,
@@ -441,6 +494,7 @@ class _OrbitItem {
     required this.color,
     required this.subtitle,
     this.route,
+    this.refreshCategory,
   });
 
   bool get hasRoute => route != null;
@@ -453,6 +507,7 @@ class _OrbitItem {
         color: Color(0xFF00CFE8),
         subtitle: 'Chaînes en direct & Zapping',
         route: '/live',
+        refreshCategory: _RefreshCategory.live,
       ),
       const _OrbitItem(
         title: 'Multi-écrans',
@@ -468,6 +523,7 @@ class _OrbitItem {
           color: Color(0xFFB388FF),
           subtitle: 'Saisons & Épisodes',
           route: '/series',
+          refreshCategory: _RefreshCategory.series,
         ),
         const _OrbitItem(
           title: 'Films & VOD',
@@ -475,6 +531,7 @@ class _OrbitItem {
           color: Color(0xFF8A72FF),
           subtitle: 'Nouveautés & 4K',
           route: '/vod',
+          refreshCategory: _RefreshCategory.vod,
         ),
         const _OrbitItem(
           title: 'Radio',
@@ -482,6 +539,7 @@ class _OrbitItem {
           color: Color(0xFFFF6FA8),
           subtitle: 'Stations FM & WebRadio',
           route: '/radio',
+          refreshCategory: _RefreshCategory.radio,
         ),
       ],
       const _OrbitItem(
@@ -490,6 +548,7 @@ class _OrbitItem {
         color: Color(0xFFFFB300),
         subtitle: 'Rattrapage des chaînes',
         route: '/replay',
+        refreshCategory: _RefreshCategory.replay,
       ),
       const _OrbitItem(
         title: 'EPG',
@@ -497,6 +556,7 @@ class _OrbitItem {
         color: Color(0xFF00CFE8),
         subtitle: 'Grille des programmes',
         route: '/epg',
+        refreshCategory: _RefreshCategory.epg,
       ),
       const _OrbitItem(
         title: 'Facture & IA',
@@ -519,5 +579,39 @@ class _OrbitItem {
         subtitle: 'Directs & Scores',
       ),
     ];
+  }
+}
+
+class _UpdateButton extends StatelessWidget {
+  const _UpdateButton({
+    required this.onPressed,
+    this.tooltip = 'Mettre à jour',
+    this.icon = Icons.refresh_rounded,
+    this.color = const Color(0xFF00CFE8),
+  });
+
+  final VoidCallback onPressed;
+  final String tooltip;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
   }
 }
