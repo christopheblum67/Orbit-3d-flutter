@@ -6,12 +6,14 @@ class ParentalControlScreen extends ConsumerStatefulWidget {
   const ParentalControlScreen({super.key});
 
   @override
-  ConsumerState<ParentalControlScreen> createState() => _ParentalControlScreenState();
+  ConsumerState<ParentalControlScreen> createState() =>
+      _ParentalControlScreenState();
 }
 
 class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
   final _pinController = TextEditingController();
   bool _hasPin = false;
+  bool _obscurePin = true;
 
   @override
   void initState() {
@@ -80,11 +82,18 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           TextField(
             controller: _pinController,
             keyboardType: TextInputType.number,
-            obscureText: true,
+            obscureText: _obscurePin,
             maxLength: 4,
             decoration: InputDecoration(
-              labelText: _hasPin ? 'Nouveau PIN (4 chiffres)' : 'PIN (4 chiffres)',
+              labelText:
+                  _hasPin ? 'Nouveau PIN (4 chiffres)' : 'PIN (4 chiffres)',
               border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: _obscurePin ? 'Afficher le PIN' : 'Masquer le PIN',
+                icon:
+                    Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscurePin = !_obscurePin),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -110,7 +119,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
     final pin = _pinController.text.trim();
     if (pin.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le PIN doit contenir exactement 4 chiffres')),
+        const SnackBar(
+            content: Text('Le PIN doit contenir exactement 4 chiffres')),
       );
       return;
     }

@@ -27,20 +27,33 @@ class Series {
   });
 
   factory Series.fromMap(Map<String, dynamic> map) {
+    final rawRating = map['rating'];
+    final parsedRating = rawRating is num
+        ? rawRating.toDouble()
+        : double.tryParse('$rawRating') ?? 0;
+    var parsedYear = 0;
+    final rawYear = map['year'] ?? map['releaseDate'] ?? map['air_date'];
+    if (rawYear != null) {
+      final yearStr = '$rawYear';
+      final digits = yearStr.replaceAll(RegExp(r'[^0-9]'), '');
+      if (digits.length >= 4) {
+        parsedYear = int.tryParse(digits.substring(0, 4)) ?? 0;
+      }
+    }
     return Series(
-      id: map['id']?.toString() ?? '',
-      title: map['title'] ?? '',
+      id: map['series_id']?.toString() ?? map['id']?.toString() ?? '',
+      title: map['name']?.toString() ?? map['title']?.toString() ?? '',
       description: firstNonEmpty([
         map['plot'],
         map['overview'],
         map['description'],
         map['synopsis'],
       ]),
-      coverUrl: map['cover'] ?? '',
-      year: map['year'] ?? 0,
-      genre: map['genre'] ?? '',
-      director: map['director'] ?? '',
-      rating: (map['rating'] as num?)?.toDouble() ?? 0,
+      coverUrl: map['cover']?.toString() ?? '',
+      year: parsedYear,
+      genre: map['genre']?.toString() ?? '',
+      director: map['director']?.toString() ?? '',
+      rating: parsedRating,
       pegi: firstNonEmpty([
         map['pegi'],
         map['age'],
@@ -73,12 +86,14 @@ class Episode {
   });
 
   factory Episode.fromMap(Map<String, dynamic> map) {
+    final rawSeason = map['season'];
+    final rawEp = map['episode'] ?? map['episode_num'];
     return Episode(
       id: map['id']?.toString() ?? '',
-      title: map['title'] ?? '',
-      season: map['season'] ?? 0,
-      episodeNumber: map['episode'] ?? 0,
-      streamUrl: map['url'] ?? '',
+      title: map['title']?.toString() ?? '',
+      season: int.tryParse('$rawSeason') ?? 0,
+      episodeNumber: int.tryParse('$rawEp') ?? 0,
+      streamUrl: map['url']?.toString() ?? '',
     );
   }
 

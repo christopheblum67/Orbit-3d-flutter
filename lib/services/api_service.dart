@@ -285,13 +285,15 @@ class ApiService {
     Map<String, String> extra = const {},
   }) {
     if (streamId == null || streamId.isEmpty) return '';
-    return _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'stream': streamId,
-      if (type.isNotEmpty) 'type': type,
-      ...extra,
-    });
+    final uri = Uri.parse(_trimBaseUrl(baseUrl));
+    final segments = [
+      ...uri.pathSegments.where((s) => s.isNotEmpty),
+      username,
+      password,
+      streamId,
+    ];
+    final query = extra.isEmpty ? null : extra;
+    return uri.replace(pathSegments: segments, queryParameters: query).toString();
   }
 
   List<Channel> parseM3u(String content) {

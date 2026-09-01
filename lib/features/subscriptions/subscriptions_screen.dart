@@ -10,7 +10,8 @@ class SubscriptionsScreen extends ConsumerStatefulWidget {
   const SubscriptionsScreen({super.key});
 
   @override
-  ConsumerState<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
+  ConsumerState<SubscriptionsScreen> createState() =>
+      _SubscriptionsScreenState();
 }
 
 class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
@@ -76,7 +77,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   ref.invalidate(replaysProvider);
                 }
               },
-              onTest: () => ref.read(subscriptionsProvider.notifier).testConnection(sub),
+              onTest: () =>
+                  ref.read(subscriptionsProvider.notifier).testConnection(sub),
               onEdit: () => _showEditSubscriptionDialog(context, ref, sub),
               onDelete: () => _confirmDelete(context, ref, sub),
             );
@@ -89,11 +91,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   void _showAddSubscriptionDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => _SubscriptionFormDialog(onSaved: () => ref.invalidate(subscriptionsProvider)),
+      builder: (_) => _SubscriptionFormDialog(
+          onSaved: () => ref.invalidate(subscriptionsProvider)),
     );
   }
 
-  void _showEditSubscriptionDialog(BuildContext context, WidgetRef ref, Subscription sub) {
+  void _showEditSubscriptionDialog(
+      BuildContext context, WidgetRef ref, Subscription sub) {
     showDialog(
       context: context,
       builder: (_) => _SubscriptionFormDialog(
@@ -108,13 +112,19 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer l\'abonnement ?'),
-        content: Text('Voulez-vous supprimer "${sub.name}" ? Cette action est irr�versible.'),
+        content: Text(
+            'Voulez-vous supprimer "${sub.name}" ? Cette action est irr�versible.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error),
             onPressed: () {
-              ref.read(subscriptionsProvider.notifier).deleteSubscription(sub.id);
+              ref
+                  .read(subscriptionsProvider.notifier)
+                  .deleteSubscription(sub.id);
               Navigator.pop(ctx);
             },
             child: const Text('Supprimer'),
@@ -185,7 +195,8 @@ class _EmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: scheme.primaryContainer.withOpacity(0.5),
               ),
-              child: Icon(Icons.subscriptions_outlined, size: 48, color: scheme.primary),
+              child: Icon(Icons.subscriptions_outlined,
+                  size: 48, color: scheme.primary),
             ),
             const SizedBox(height: 20),
             Text(
@@ -257,7 +268,10 @@ class _SubscriptionCard extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             subscription.name,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
                                   fontWeight: FontWeight.w800,
                                 ),
                             maxLines: 1,
@@ -266,10 +280,12 @@ class _SubscriptionCard extends ConsumerWidget {
                         ),
                         if (isActive)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: scheme.primary,
-                              borderRadius: BorderRadius.circular(AppConstants.radiusSm),
+                              borderRadius:
+                                  BorderRadius.circular(AppConstants.radiusSm),
                             ),
                             child: Text(
                               'ACTIF',
@@ -288,7 +304,8 @@ class _SubscriptionCard extends ConsumerWidget {
                             color: scheme.onSurfaceVariant,
                             visualDensity: VisualDensity.compact,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
                             onPressed: onTap,
                           ),
                       ],
@@ -317,8 +334,15 @@ class _SubscriptionCard extends ConsumerWidget {
                   }
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit), title: Text('Modifier'))),
-                  const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete), title: Text('Supprimer'))),
+                  const PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                          leading: Icon(Icons.edit), title: Text('Modifier'))),
+                  const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                          leading: Icon(Icons.delete),
+                          title: Text('Supprimer'))),
                 ],
               ),
             ],
@@ -357,7 +381,9 @@ class _TypeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: type == SubscriptionType.xtream ? scheme.secondaryContainer : scheme.tertiaryContainer,
+        color: type == SubscriptionType.xtream
+            ? scheme.secondaryContainer
+            : scheme.tertiaryContainer,
         borderRadius: BorderRadius.circular(AppConstants.radiusSm),
       ),
       child: Text(
@@ -366,7 +392,9 @@ class _TypeBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.5,
-          color: type == SubscriptionType.xtream ? scheme.onSecondaryContainer : scheme.onTertiaryContainer,
+          color: type == SubscriptionType.xtream
+              ? scheme.onSecondaryContainer
+              : scheme.onTertiaryContainer,
         ),
       ),
     );
@@ -402,9 +430,13 @@ class _TestResultRow extends ConsumerWidget {
           child: Row(
             children: [
               Icon(
-                status == TestResultStatus.success ? Icons.check_circle : Icons.error,
+                status == TestResultStatus.success
+                    ? Icons.check_circle
+                    : Icons.error,
                 size: 18,
-                color: status == TestResultStatus.success ? Colors.green : scheme.error,
+                color: status == TestResultStatus.success
+                    ? Colors.green
+                    : scheme.error,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -413,7 +445,9 @@ class _TestResultRow extends ConsumerWidget {
                       ? 'Test OK � ${latency != null ? '$latency ms' : '�'}'
                       : '�chec : ${error ?? 'Erreur inconnue'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: status == TestResultStatus.success ? Colors.green : scheme.error,
+                        color: status == TestResultStatus.success
+                            ? Colors.green
+                            : scheme.error,
                         fontWeight: FontWeight.w600,
                       ),
                   maxLines: 1,
@@ -440,7 +474,10 @@ class _TestButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       icon: isTesting
-          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.wifi_find, size: 18),
       label: Text(isTesting ? 'Test�' : 'Tester'),
       onPressed: isTesting ? null : onTest,
@@ -460,10 +497,12 @@ class _SubscriptionFormDialog extends ConsumerStatefulWidget {
   const _SubscriptionFormDialog({this.subscription, required this.onSaved});
 
   @override
-  ConsumerState<_SubscriptionFormDialog> createState() => _SubscriptionFormDialogState();
+  ConsumerState<_SubscriptionFormDialog> createState() =>
+      _SubscriptionFormDialogState();
 }
 
-class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog> {
+class _SubscriptionFormDialogState
+    extends ConsumerState<_SubscriptionFormDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _baseUrlController = TextEditingController();
@@ -471,6 +510,7 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
   final _passwordController = TextEditingController();
   final _m3uUrlController = TextEditingController();
   SubscriptionType _type = SubscriptionType.xtream;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -511,14 +551,19 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Nom de l\'abonnement'),
+                  decoration:
+                      const InputDecoration(labelText: 'Nom de l\'abonnement'),
                   validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                 ),
                 const SizedBox(height: 16),
                 SegmentedButton<SubscriptionType>(
                   segments: const [
-                    ButtonSegment(value: SubscriptionType.xtream, label: Text('Xtream Codes')),
-                    ButtonSegment(value: SubscriptionType.m3u, label: Text('M3U Playlist')),
+                    ButtonSegment(
+                        value: SubscriptionType.xtream,
+                        label: Text('Xtream Codes')),
+                    ButtonSegment(
+                        value: SubscriptionType.m3u,
+                        label: Text('M3U Playlist')),
                   ],
                   selected: {_type},
                   onSelectionChanged: (Set<SubscriptionType> newSelection) {
@@ -529,7 +574,8 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
                 if (_type == SubscriptionType.xtream) ...[
                   TextFormField(
                     controller: _baseUrlController,
-                    decoration: const InputDecoration(labelText: 'URL du serveur (ex: https://provider.com)'),
+                    decoration: const InputDecoration(
+                        labelText: 'URL du serveur (ex: https://provider.com)'),
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 12),
@@ -541,14 +587,27 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      suffixIcon: IconButton(
+                        tooltip: _obscurePassword
+                            ? 'Afficher le mot de passe'
+                            : 'Masquer le mot de passe',
+                        icon: Icon(_obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                 ] else ...[
                   TextFormField(
                     controller: _m3uUrlController,
-                    decoration: const InputDecoration(labelText: 'URL de la playlist M3U'),
+                    decoration: const InputDecoration(
+                        labelText: 'URL de la playlist M3U'),
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                 ],
@@ -558,7 +617,9 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler')),
         FilledButton(
           onPressed: _save,
           child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
@@ -570,24 +631,41 @@ class _SubscriptionFormDialogState extends ConsumerState<_SubscriptionFormDialog
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final id = widget.subscription?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final id = widget.subscription?.id ??
+        DateTime.now().millisecondsSinceEpoch.toString();
     final sub = widget.subscription?.copyWith(
           id: id,
           name: _nameController.text.trim(),
           type: _type,
-          baseUrl: _type == SubscriptionType.xtream ? _baseUrlController.text.trim() : null,
-          username: _type == SubscriptionType.xtream ? _usernameController.text.trim() : null,
-          password: _type == SubscriptionType.xtream ? _passwordController.text.trim() : null,
-          m3uUrl: _type == SubscriptionType.m3u ? _m3uUrlController.text.trim() : null,
+          baseUrl: _type == SubscriptionType.xtream
+              ? _baseUrlController.text.trim()
+              : null,
+          username: _type == SubscriptionType.xtream
+              ? _usernameController.text.trim()
+              : null,
+          password: _type == SubscriptionType.xtream
+              ? _passwordController.text.trim()
+              : null,
+          m3uUrl: _type == SubscriptionType.m3u
+              ? _m3uUrlController.text.trim()
+              : null,
         ) ??
         Subscription(
           id: id,
           name: _nameController.text.trim(),
           type: _type,
-          baseUrl: _type == SubscriptionType.xtream ? _baseUrlController.text.trim() : null,
-          username: _type == SubscriptionType.xtream ? _usernameController.text.trim() : null,
-          password: _type == SubscriptionType.xtream ? _passwordController.text.trim() : null,
-          m3uUrl: _type == SubscriptionType.m3u ? _m3uUrlController.text.trim() : null,
+          baseUrl: _type == SubscriptionType.xtream
+              ? _baseUrlController.text.trim()
+              : null,
+          username: _type == SubscriptionType.xtream
+              ? _usernameController.text.trim()
+              : null,
+          password: _type == SubscriptionType.xtream
+              ? _passwordController.text.trim()
+              : null,
+          m3uUrl: _type == SubscriptionType.m3u
+              ? _m3uUrlController.text.trim()
+              : null,
           isActive: widget.subscription?.isActive ?? false,
           createdAt: widget.subscription?.createdAt ?? DateTime.now(),
         );
