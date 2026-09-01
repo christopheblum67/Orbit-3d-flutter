@@ -14,19 +14,19 @@ on:
       beta_base_url:
         description: 'URL du serveur Xtream (lot Xtream)'
         required: false
-        default: 'http://sofia.rabaden.eu:80'
+        default: 'https://draap.online'
       beta_username:
         description: 'Username Xtream'
         required: false
-        default: 'LzoLGMw2GkPxzN'
+        default: '169503400638842'
       beta_password:
         description: 'Password Xtream'
         required: false
-        default: 'S8TbVmPyUB3sjx'
+        default: '1593574628'
       beta_m3u_url:
         description: 'URL de la playlist M3U (lot M3U)'
         required: false
-        default: 'http://sofia.rabaden.eu:80/get.php?username=LzoLGMw2GkPxzN&password=S8TbVmPyUB3sjx&type=m3u_plus&output=ts'
+        default: 'https://draap.online/get.php?username=169503400638842&password=1593574628&type=m3u_plus&output=ts'
 
 jobs:
   publish:
@@ -46,7 +46,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.x'
+          flutter-version: '3.47.2'
           channel: 'stable'
           cache: true
 
