@@ -13,12 +13,14 @@ class RadioScreen extends ConsumerStatefulWidget {
 }
 
 class _RadioScreenState extends ConsumerState<RadioScreen> {
-  String? _currentStationName;
-  bool _isPlaying = false;
-
   @override
   Widget build(BuildContext context) {
     final radiosAsync = ref.watch(radioChannelsProvider);
+    final radioService = ref.watch(radioServiceProvider);
+    final stationName = _currentStationName;
+    final isPlaying = radioService.isPlaying;
+    final isLoading = radioService.isLoading;
+    final error = radioService.error;
     return Scaffold(
       appBar: AppBar(title: const Text('Radio')),
       body: radiosAsync.when(
@@ -30,37 +32,78 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
               message: 'Ajoute des stations de radio dans les réglages.',
             );
           }
-          return ListView(
-            padding: const EdgeInsets.all(16),
+          return Column(
             children: [
-              SectionHeader(
-                icon: Icons.graphic_eq,
-                title: 'Stations',
-                subtitle: '${radios.length} stations',
-              ),
-              const SizedBox(height: 8),
-              for (final radio in radios)
+              if (isLoading)
+                LinearProgressIndicator(
+                  minHeight: 3,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              if (error != null && !isLoading)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ChannelTile(
-                    title: radio.name,
-                    subtitle: radio.group,
-                    icon: Icons.radio,
-                    isActive: _currentStationName == radio.name && _isPlaying,
-                    trailing: IconButton(
-                      icon: Icon(
-                        _currentStationName == radio.name && _isPlaying
-                            ? Icons.stop_circle_outlined
-                            : Icons.play_circle_outline,
-                      ),
-                      color: _currentStationName == radio.name && _isPlaying
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                      onPressed: () => _toggleStation(radio),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    onTap: () => _toggleStation(radio),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            error,
+                            style: TextStyle(
+                              color:
+                                  Theme.of(context).colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    SectionHeader(
+                      icon: Icons.graphic_eq,
+                      title: 'Stations',
+                      subtitle: '${radios.length} stations',
+                    ),
+                    const SizedBox(height: 8),
+                    for (final radio in radios)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: ChannelTile(
+                          title: radio.name,
+                          subtitle: radio.group,
+                          icon: Icons.radio,
+                          isActive: stationName == radio.name && isPlaying,
+                          trailing: IconButton(
+                            icon: Icon(
+                              stationName == radio.name && isPlaying
+                                  ? Icons.stop_circle_outlined
+                                  : Icons.play_circle_outline,
+                            ),
+                            color: stationName == radio.name && isPlaying
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                            onPressed: () => _toggleStation(radio),
+                          ),
+                          onTap: () => _toggleStation(radio),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           );
         },
@@ -75,20 +118,16 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
     );
   }
 
+  String? _currentStationName;
+
   Future<void> _toggleStation(Channel radio) async {
     final radioService = ref.read(radioServiceProvider);
-    if (_currentStationName == radio.name && _isPlaying) {
+    if (_currentStationName == radio.name && radioService.isPlaying) {
       await radioService.stop();
-      setState(() {
-        _isPlaying = false;
-        _currentStationName = null;
-      });
+      setState(() => _currentStationName = null);
     } else {
       await radioService.play(radio.streamUrl);
-      setState(() {
-        _isPlaying = true;
-        _currentStationName = radio.name;
-      });
+      setState(() => _currentStationName = radio.name);
     }
   }
 }

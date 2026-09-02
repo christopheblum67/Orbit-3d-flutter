@@ -31,4 +31,40 @@ void main() {
       expect(parseXmltvDate('2026-08-30 09:00:00'), isNull);
     });
   });
+
+  group('streamUrlVariants', () {
+    test('standard Xtream /movie/{u}/{p}/{id} proposes ext + live-style', () {
+      final variants = streamUrlVariants(
+        'https://host/movie/15548815/l3khgnaaa3mh/12345',
+      );
+      expect(variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345'));
+      expect(variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mp4'));
+      expect(variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mkv'));
+      expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345'));
+    });
+
+    test('standard Xtream /series/{u}/{p}/{id}.ext drops the extension', () {
+      final variants = streamUrlVariants(
+        'https://host/series/15548815/l3khgnaaa3mh/14190.mkv',
+      );
+      expect(variants, contains('https://host/series/15548815/l3khgnaaa3mh/14190.mkv'));
+      expect(variants, contains('https://host/series/15548815/l3khgnaaa3mh/14190'));
+      expect(variants, contains('https://host/15548815/l3khgnaaa3mh/14190'));
+      expect(variants, contains('https://host/15548815/l3khgnaaa3mh/14190.mkv'));
+    });
+
+    test('live-style /u/p/id proposes standard media folders', () {
+      final variants = streamUrlVariants(
+        'https://host/15548815/l3khgnaaa3mh/12345',
+      );
+      expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345'));
+      expect(variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345'));
+      expect(variants, contains('https://host/series/15548815/l3khgnaaa3mh/12345'));
+    });
+
+    test('handles empty / invalid urls gracefully', () {
+      expect(streamUrlVariants(''), ['']);
+      expect(streamUrlVariants('  '), ['  ']);
+    });
+  });
 }

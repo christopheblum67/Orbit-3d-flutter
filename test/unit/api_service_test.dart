@@ -20,8 +20,8 @@ void main() {
       expect(uri.hasQuery, isFalse);
     });
 
-    test('builds the movie stream URL with the /movie/ folder (no extension)',
-        () {
+    test('builds the movie stream URL with the standard /movie/ prefix '
+        '(no extension)', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'user',
@@ -30,11 +30,11 @@ void main() {
         type: 'movie',
       );
       final uri = Uri.parse(url);
-      expect(uri.path, '/user/p4ss/movie/42');
+      expect(uri.path, '/movie/user/p4ss/42');
       expect(uri.hasQuery, isFalse);
     });
 
-    test('keeps the /movie/ folder without extension by default even when '
+    test('keeps the /movie/ prefix without extension by default even when '
         'provided', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
@@ -44,7 +44,7 @@ void main() {
         type: 'movie',
         extension: '.mkv',
       );
-      expect(Uri.parse(url).path, '/user/p4ss/movie/42');
+      expect(Uri.parse(url).path, '/movie/user/p4ss/42');
     });
 
     test('adds the extension only when withExtension is set (legacy servers)',
@@ -58,11 +58,11 @@ void main() {
         extension: '.mkv',
         withExtension: true,
       );
-      expect(Uri.parse(url).path, '/user/p4ss/movie/42.mkv');
+      expect(Uri.parse(url).path, '/movie/user/p4ss/42.mkv');
     });
 
-    test('builds the series stream URL with the /series/ folder (no extension)',
-        () {
+    test('builds the series stream URL with the standard /series/ prefix '
+        '(no extension)', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
         'user',
@@ -71,7 +71,7 @@ void main() {
         type: 'series',
         extension: 'mp4',
       );
-      expect(Uri.parse(url).path, '/user/p4ss/series/7');
+      expect(Uri.parse(url).path, '/series/user/p4ss/7');
     });
 
     test('adds the series extension only when withExtension is set', () {
@@ -84,7 +84,7 @@ void main() {
         extension: 'mp4',
         withExtension: true,
       );
-      expect(Uri.parse(url).path, '/user/p4ss/series/7.mp4');
+      expect(Uri.parse(url).path, '/series/user/p4ss/7.mp4');
     });
 
     test('strips a trailing slash from the base URL', () {

@@ -210,8 +210,14 @@ class ApiService {
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
         final streamUrl = buildXtreamStreamUrl(
-            baseUrl, username, password, map['stream_id']?.toString(),
-            type: 'movie', extension: map['container_extension']?.toString(),);
+            baseUrl,
+            username,
+            password,
+            map['stream_id']?.toString(),
+            type: 'movie',
+            extension: map['container_extension']?.toString(),
+            withExtension: true,
+        );
         final movie = Movie.fromMap(map).copyWith(streamUrl: streamUrl);
         movie.requireStreamUrl();
         return movie;
@@ -298,6 +304,7 @@ class ApiService {
                   id,
                   type: 'series',
                   extension: em['container_extension']?.toString(),
+                  withExtension: true,
                 );
           episodeMaps.add(em);
         }
@@ -471,20 +478,23 @@ class ApiService {
   }) {
     if (streamId == null || streamId.isEmpty) return '';
     final uri = Uri.parse(_trimBaseUrl(baseUrl));
-    final segments = <String>[
+    final mediaType = type.toLowerCase();
+    // Live et Radio : `/u/p/{id}`, redirigé vers un CDN signé.
+    // Movie/Séries : chemin Xtream standard `/movie/{u}/{p}/{id}` ou
+    // `/series/{u}/{p}/{id}` — c'est la seule forme que draap.online sert
+    // (302 → CDN) ; `/u/p/movie/{id}` renvoyait 401/406.
+    final segments = <String>[];
+    if (mediaType == 'movie' || mediaType == 'series') {
+      segments.add(mediaType);
+    }
+    segments.addAll(<String>[
       ...uri.pathSegments.where((s) => s.isNotEmpty),
       username,
       password,
-    ];
-    final mediaType = type.toLowerCase();
-    if (mediaType == 'movie') {
-      segments.add('movie');
-    } else if (mediaType == 'series') {
-      segments.add('series');
-    }
+    ]);
     var mediaId = streamId;
     // Les serveurs Xtream récents (ex. draap.online) servent le fichier
-    // :/movie/{id} et :/series/{id} sans extension ; forcer ".mp4" renvoie
+    // /movie/{id} et /series/{id} sans extension ; forcer ".mp4" renvoie
     // un 404. On ne l'ajoute que si l'appelant le demande explicitement
     // (withExtension) pour les serveurs legacy qui l'exigent.
     if ((mediaType == 'movie' || mediaType == 'series') && withExtension) {

@@ -39,7 +39,12 @@ class Movie {
         map['description'],
         map['synopsis'],
       ]),
-      posterUrl: map['poster'] ?? '',
+      posterUrl: firstNonEmpty([
+        map['poster'],
+        map['stream_icon'],
+        map['cover'],
+        map['backdrop_path'],
+      ]),
       year: map['year'] ?? 0,
       genre: map['genre'] ?? '',
       director: map['director'] ?? '',
