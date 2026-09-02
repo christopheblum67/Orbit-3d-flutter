@@ -25,15 +25,19 @@ class HomeShell extends ConsumerWidget {
         label: 'Accueil',
       ),
       const NavigationDestination(icon: Icon(Icons.live_tv), label: 'Live TV'),
-      if (!isM3u) ...[
-        const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
-        const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
-        const NavigationDestination(icon: Icon(Icons.radio), label: 'Radio'),
-      ],
-      const NavigationDestination(
-        icon: Icon(Icons.settings),
-        label: 'Réglages',
-      ),
+if (!isM3u) ...[
+            const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
+            const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
+            const NavigationDestination(icon: Icon(Icons.radio), label: 'Radio'),
+          ],
+          const NavigationDestination(
+            icon: Icon(Icons.recommend),
+            label: 'Pour vous',
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: 'Réglages',
+          ),
     ];
 
     final railDestinations = <NavigationRailDestination>[
@@ -59,6 +63,10 @@ class HomeShell extends ConsumerWidget {
           label: Text('Radio'),
         ),
       ],
+      const NavigationRailDestination(
+        icon: Icon(Icons.recommend),
+        label: Text('Pour vous'),
+      ),
       const NavigationRailDestination(
         icon: Icon(Icons.calendar_today),
         label: Text('EPG'),
@@ -157,10 +165,11 @@ class HomeShell extends ConsumerWidget {
               final route = switch (index) {
                 0 => '/home',
                 1 => '/live',
-                2 when isM3u => '/settings',
+                2 when isM3u => '/matchmaking',
                 2 => '/series',
                 3 => '/vod',
                 4 => '/radio',
+                5 => '/matchmaking',
                 _ => '/settings',
               };
               context.go(route);
@@ -182,6 +191,9 @@ class HomeShell extends ConsumerWidget {
     if (location.startsWith('/series')) return 2;
     if (location.startsWith('/vod')) return 3;
     if (location.startsWith('/radio')) return 4;
+    if (location.startsWith('/matchmaking')) {
+      return destinations.length == 4 ? 2 : 5;
+    }
     if (location.startsWith('/settings')) {
       return destinations.length - 1;
     }
@@ -193,6 +205,7 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/series')) return 'Séries';
     if (path.startsWith('/vod')) return 'VOD';
     if (path.startsWith('/radio')) return 'Radio';
+    if (path.startsWith('/matchmaking')) return 'Pour vous';
     if (path.startsWith('/replay')) return 'Replay';
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
@@ -208,11 +221,14 @@ class HomeShell extends ConsumerWidget {
     if (location.startsWith('/series')) return 2;
     if (location.startsWith('/vod')) return 3;
     if (location.startsWith('/radio')) return 4;
-    if (location.startsWith('/epg')) {
+    if (location.startsWith('/matchmaking')) {
       return isM3u ? 2 : 5;
     }
-    if (location.startsWith('/settings')) {
+    if (location.startsWith('/epg')) {
       return isM3u ? 3 : 6;
+    }
+    if (location.startsWith('/settings')) {
+      return isM3u ? 4 : 7;
     }
     return 0;
   }
@@ -221,12 +237,14 @@ class HomeShell extends ConsumerWidget {
     return switch (index) {
       0 => '/home',
       1 => '/live',
-      2 when isM3u => '/epg',
+      2 when isM3u => '/matchmaking',
       2 => '/series',
-      3 when isM3u => '/settings',
+      3 when isM3u => '/epg',
       3 => '/vod',
+      4 when isM3u => '/settings',
       4 => '/radio',
-      5 => '/epg',
+      5 => '/matchmaking',
+      6 => '/epg',
       _ => '/settings',
     };
   }
@@ -263,6 +281,12 @@ class _HomeMenuDrawer extends ConsumerWidget {
               icon: Icons.search, label: 'Recherche', route: '/search',),
           const _MenuEntry(
               icon: Icons.calendar_today, label: 'EPG (grille)', route: '/epg',),
+          _MenuEntry(
+            icon: Icons.recommend,
+            label: 'Pour vous (matchmaking)',
+            route: '/matchmaking',
+            color: scheme.primary,
+          ),
           const _MenuEntry(
               icon: Icons.replay_circle_filled,
               label: 'Replay',
