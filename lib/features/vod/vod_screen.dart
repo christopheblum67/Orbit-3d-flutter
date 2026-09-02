@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
@@ -14,11 +16,14 @@ class VodScreen extends ConsumerStatefulWidget {
 }
 
 class _VodScreenState extends ConsumerState<VodScreen> {
-  String _selectedGenre = '';
+  String _selectedCategoryId = '';
 
   @override
   Widget build(BuildContext context) {
     final moviesAsync = ref.watch(moviesProvider);
+    final categoriesAsync = ref.watch(vodCategoriesProvider);
+    final hasSidebar =
+        MediaQuery.sizeOf(context).width > 600 && categoriesAsync.hasValue;
     return Scaffold(
       appBar: AppBar(title: const Text('Films (VOD)')),
       body: moviesAsync.when(
@@ -30,36 +35,42 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               message: 'La bibliothèque VOD est vide pour le moment.',
             );
           }
-          final genres = <String>{
-            for (final movie in movies)
-              if (movie.genre.trim().isNotEmpty) movie.genre.trim(),
-          }.toList()
-            ..sort();
-          final visibleMovies = _selectedGenre.isEmpty
+          final categories =
+              categoriesAsync.value ?? _categoriesFromMovies(movies);
+          final visibleMovies = _selectedCategoryId.isEmpty
               ? movies
               : movies
-                  .where((movie) => movie.genre.trim() == _selectedGenre)
+                  .where((movie) => movie.categoryId == _selectedCategoryId)
                   .toList();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _GenreFilterBar(
-                genres: genres,
-                selectedGenre: _selectedGenre,
-                onSelected: (genre) => setState(() => _selectedGenre = genre),
-              ),
+              if (hasSidebar)
+                _CategoryRail(
+                  categories: [
+                    const MediaCategory(id: '', name: 'Tous'),
+                    ...categories,
+                  ],
+                  selectedId: _selectedCategoryId,
+                  onSelected: (id) =>
+                      setState(() => _selectedCategoryId = id),
+                ),
               Expanded(
                 child: visibleMovies.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.movie_outlined,
-                        title: 'Aucun film dans cette catégorie',
-                        message: 'Aucun film ne correspond à ce filtre.',
+                        title: _selectedCategoryId.isEmpty
+                            ? 'Aucun film disponible'
+                            : 'Aucun film dans cette catégorie',
+                        message: _selectedCategoryId.isEmpty
+                            ? 'La bibliothèque VOD est vide pour le moment.'
+                            : 'Aucun film ne correspond à cette catégorie.',
                       )
                     : GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200,
                           childAspectRatio: 0.55,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
@@ -103,82 +114,119 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       ),
     );
   }
+
+  static List<MediaCategory> _categoriesFromMovies(List<Movie> movies) {
+    final map = <String, List<String>>{};
+    for (final movie in movies) {
+      final id = movie.categoryId;
+      final name = movie.genre.trim();
+      if (id.isEmpty) continue;
+      map.putIfAbsent(id, () => []).add(name);
+    }
+    return map.entries.map((e) {
+      final names = e.value.where((n) => n.isNotEmpty).toSet().toList();
+      return MediaCategory(
+        id: e.key,
+        name: names.isEmpty ? e.key : names.join(', '),
+      );
+    }).toList();
+  }
 }
 
-class _GenreFilterBar extends StatelessWidget {
-  const _GenreFilterBar({
-    required this.genres,
-    required this.selectedGenre,
+class _CategoryRail extends StatelessWidget {
+  const _CategoryRail({
+    required this.categories,
+    required this.selectedId,
     required this.onSelected,
   });
 
-  final List<String> genres;
-  final String selectedGenre;
+  final List<MediaCategory> categories;
+  final String selectedId;
   final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _GenreChip(
-            label: 'Tous',
-            selected: selectedGenre.isEmpty,
-            scheme: scheme,
-            onTap: () => onSelected(''),
+    return Container(
+      width: 180,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        border: Border(
+          right: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
           ),
-          for (final genre in genres) ...[
-            const SizedBox(width: 8),
-            _GenreChip(
-              label: genre,
-              selected: selectedGenre == genre,
-              scheme: scheme,
-              onTap: () => onSelected(genre),
+        ),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Text(
+              'Catégories',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
             ),
-          ],
+          ),
+          for (final category in categories)
+            _CategoryTile(
+              name: category.name,
+              selected: category.id == selectedId,
+              onTap: () => onSelected(category.id),
+            ),
         ],
       ),
     );
   }
 }
 
-class _GenreChip extends StatelessWidget {
-  const _GenreChip({
-    required this.label,
+class _CategoryTile extends StatelessWidget {
+  const _CategoryTile({
+    required this.name,
     required this.selected,
-    required this.scheme,
     required this.onTap,
   });
 
-  final String label;
+  final String name;
   final bool selected;
-  final ColorScheme scheme;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: selected
+            ? scheme.primaryContainer.withValues(alpha: 0.5)
+            : Colors.transparent,
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.folder_open : Icons.folder_outlined,
+              size: 18,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? scheme.primary : scheme.onSurface,
+                ),
+              ),
+            ),
+          ],
         ),
-      ),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      showCheckmark: false,
-      selectedColor: scheme.primary,
-      backgroundColor: scheme.surfaceContainerHigh,
-      side: BorderSide(
-        color: selected ? scheme.primary : scheme.outlineVariant,
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
       ),
     );
   }
 }
+

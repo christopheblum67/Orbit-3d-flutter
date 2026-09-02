@@ -13,6 +13,7 @@ class Movie {
   final double rating;
   final String pegi;
   final String streamUrl;
+  final String categoryId;
 
   Movie({
     required this.id,
@@ -25,6 +26,7 @@ class Movie {
     required this.rating,
     required this.pegi,
     required this.streamUrl,
+    this.categoryId = '',
   });
 
   factory Movie.fromMap(Map<String, dynamic> map) {
@@ -46,14 +48,15 @@ class Movie {
         map['pegi'],
         map['age'],
         map['mpaa'],
-        map['contentRating'],
         map['us_certification'],
+        map['contentRating'],
       ]),
       streamUrl: map['url'] ?? '',
+      categoryId: map['category_id']?.toString() ?? '',
     );
   }
 
-  Movie copyWith({String? streamUrl}) {
+  Movie copyWith({String? streamUrl, String? categoryId}) {
     return Movie(
       id: id,
       title: title,
@@ -65,6 +68,7 @@ class Movie {
       rating: rating,
       pegi: pegi,
       streamUrl: streamUrl ?? this.streamUrl,
+      categoryId: categoryId ?? this.categoryId,
     );
   }
 

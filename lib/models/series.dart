@@ -13,6 +13,7 @@ class Series {
   final double rating;
   final String pegi;
   final List<Episode> episodes;
+  final String categoryId;
 
   Series({
     required this.id,
@@ -25,6 +26,7 @@ class Series {
     required this.rating,
     required this.pegi,
     required this.episodes,
+    this.categoryId = '',
   });
 
   factory Series.fromMap(Map<String, dynamic> map) {
@@ -65,6 +67,7 @@ class Series {
       episodes: (map['episodes'] as List<dynamic>? ?? [])
           .map((e) => Episode.fromMap(e as Map<String, dynamic>))
           .toList(),
+      categoryId: map['category_id']?.toString() ?? '',
     );
   }
 
