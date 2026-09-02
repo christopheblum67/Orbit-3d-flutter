@@ -16,6 +16,9 @@ class HomeShell extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
     final profile = ref.watch(currentProfileProvider);
+    final location = GoRouterState.of(context).uri.path;
+    final isWide = MediaQuery.sizeOf(context).width > 720;
+
     final destinations = <NavigationDestination>[
       const NavigationDestination(
         icon: Icon(Icons.home_rounded),
@@ -32,10 +35,46 @@ class HomeShell extends ConsumerWidget {
         label: 'Réglages',
       ),
     ];
+
+    final railDestinations = <NavigationRailDestination>[
+      const NavigationRailDestination(
+        icon: Icon(Icons.home_rounded),
+        label: Text('Accueil'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.live_tv),
+        label: Text('Live TV'),
+      ),
+      if (!isM3u) ...[
+        const NavigationRailDestination(
+          icon: Icon(Icons.tv),
+          label: Text('Séries'),
+        ),
+        const NavigationRailDestination(
+          icon: Icon(Icons.movie),
+          label: Text('VOD'),
+        ),
+        const NavigationRailDestination(
+          icon: Icon(Icons.radio),
+          label: Text('Radio'),
+        ),
+      ],
+      const NavigationRailDestination(
+        icon: Icon(Icons.calendar_today),
+        label: Text('EPG'),
+      ),
+      const NavigationRailDestination(
+        icon: Icon(Icons.settings),
+        label: Text('Réglages'),
+      ),
+    ];
+
+    final railIndex = _railIndex(location, isM3u);
+
     return Scaffold(
-      drawer: const _HomeMenuDrawer(),
+      drawer: isWide ? null : const _HomeMenuDrawer(),
       appBar: AppBar(
-        title: Text(_titleForPath(GoRouterState.of(context).uri.path)),
+        title: Text(_titleForPath(location)),
         actions: [
           IconButton(
             tooltip: 'Recommandations IA',
@@ -46,8 +85,57 @@ class HomeShell extends ConsumerWidget {
           _ProfileSwitchButton(profile: profile),
         ],
       ),
-      body: child,
-      bottomNavigationBar: DecoratedBox(
+      body: Row(
+        children: [
+          if (isWide)
+            NavigationRail(
+              selectedIndex: railIndex,
+              onDestinationSelected: (index) {
+                final route = _railRoute(index, isM3u);
+                context.go(route);
+              },
+              labelType: NavigationRailLabelType.all,
+              leading: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
+              ),
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _ProfileSwitchButton(profile: profile),
+                  ),
+                ),
+              ),
+              backgroundColor: scheme.surfaceContainerLow,
+              indicatorColor: scheme.primaryContainer,
+              selectedIconTheme: IconThemeData(color: scheme.onPrimaryContainer),
+              unselectedIconTheme:
+                  IconThemeData(color: scheme.onSurfaceVariant),
+              selectedLabelTextStyle: TextStyle(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+              unselectedLabelTextStyle: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+              ),
+              destinations: railDestinations,
+            ),
+          if (isWide)
+            VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+          Expanded(child: child),
+        ],
+      ),
+      bottomNavigationBar: isWide
+          ? null
+          : DecoratedBox(
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,
           border: Border(
@@ -113,6 +201,34 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/subscriptions')) return 'Abonnements';
     if (path.startsWith('/settings')) return 'Réglages';
     return AppConstants.appName;
+  }
+
+  static int _railIndex(String location, bool isM3u) {
+    if (location.startsWith('/live')) return 1;
+    if (location.startsWith('/series')) return 2;
+    if (location.startsWith('/vod')) return 3;
+    if (location.startsWith('/radio')) return 4;
+    if (location.startsWith('/epg')) {
+      return isM3u ? 2 : 5;
+    }
+    if (location.startsWith('/settings')) {
+      return isM3u ? 3 : 6;
+    }
+    return 0;
+  }
+
+  static String _railRoute(int index, bool isM3u) {
+    return switch (index) {
+      0 => '/home',
+      1 => '/live',
+      2 when isM3u => '/epg',
+      2 => '/series',
+      3 when isM3u => '/settings',
+      3 => '/vod',
+      4 => '/radio',
+      5 => '/epg',
+      _ => '/settings',
+    };
   }
 }
 
