@@ -52,7 +52,12 @@ class Series {
         map['description'],
         map['synopsis'],
       ]),
-      coverUrl: map['cover']?.toString() ?? '',
+      coverUrl: firstNonEmpty([
+        map['cover'],
+        map['poster'],
+        map['backdrop_path'],
+        map['stream_icon'],
+      ]),
       year: parsedYear,
       genre: _joined(map['genre']),
       director: _joined(map['director']),

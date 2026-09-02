@@ -50,6 +50,89 @@ String requireStreamUrl(String url, {String? label}) {
   return url.trim();
 }
 
+/// Génère une liste d'URL candidates pour la lecture, en partant de l'URL
+/// construite. Gère les deux structures Xtream :
+///  - standard : `/movie/{u}/{p}/{id}` ou `/series/{u}/{p}/{id}` (avec ou
+///    sans extension) ;
+///  - « style live » : `/{u}/{p}/{id}`, redirigé vers un CDN signé
+///    (utilisé par draap.online pour le VOD/live/radio).
+/// On renvoie les variantes de la plus résiliente à la plus spécifique pour
+/// que le player puisse retenter en cas d'échec.
+List<String> streamUrlVariants(String url) {
+  if (!isLikelyStreamUrl(url)) return <String>[url];
+  final uri = Uri.tryParse(url);
+  if (uri == null) return <String>[url];
+  final segments = <String>[...uri.pathSegments];
+  final variants = <String>{};
+
+  // Variante 1 : telle quelle.
+  variants.add(url);
+
+  if (segments.length < 2) return variants.toList();
+
+  final first = segments.first.toLowerCase();
+  final isMediaFolder = first == 'movie' || first == 'series';
+
+  if (isMediaFolder) {
+    // /movie/{u}/{p}/{id}[.ext] ou /series/...
+    final id = segments.last;
+    final dotIdx = id.lastIndexOf('.');
+    final baseId = dotIdx > 0 ? id.substring(0, dotIdx) : id;
+    final ext = dotIdx > 0 ? id.substring(dotIdx + 1) : null;
+    // Variante 2 : retirer l'éventuelle extension.
+    if (dotIdx > 0) {
+      final noExt = [...segments];
+      noExt[noExt.length - 1] = baseId;
+      variants.add(_rebuild(uri, noExt));
+    }
+    // Variante 3 : ajouter l'extension si absente.
+    if (dotIdx <= 0) {
+      final m4 = [...segments];
+      m4[m4.length - 1] = '$baseId.mp4';
+      variants.add(_rebuild(uri, m4));
+      final mkv = [...segments];
+      mkv[mkv.length - 1] = '$baseId.mkv';
+      variants.add(_rebuild(uri, mkv));
+    }
+    // Variante 4 : tenter le style live /{u}/{p}/{id} (sans dossier).
+    final liveStyle = <String>[...segments]..removeAt(0);
+    variants.add(_rebuild(uri, liveStyle));
+    if (ext != null && ext.isNotEmpty) {
+      final withExt = [...liveStyle];
+      withExt[withExt.length - 1] = '$baseId.$ext';
+      variants.add(_rebuild(uri, withExt));
+      final noExtLive = [...liveStyle];
+      noExtLive[noExtLive.length - 1] = baseId;
+      variants.add(_rebuild(uri, noExtLive));
+    }
+  } else {
+    // Style live /{u}/{p}/{id}[.ext] : tenter /movie/ et /series/ standard.
+    final id = segments.last;
+    final dotIdx = id.lastIndexOf('.');
+    final baseId = dotIdx > 0 ? id.substring(0, dotIdx) : id;
+    final ext = dotIdx > 0 ? id.substring(dotIdx + 1) : null;
+    final base = [...segments]..removeLast();
+    if (dotIdx > 0) {
+      variants.add(_rebuild(uri, [...base, baseId]));
+    }
+    for (final folder in ['movie', 'series']) {
+      variants.add(_rebuild(uri, [folder, ...base, baseId]));
+      if (ext != null && ext.isNotEmpty) {
+        variants.add(_rebuild(uri, [folder, ...base, '$baseId.$ext']));
+      }
+    }
+  }
+  return variants.toList();
+}
+
+String _rebuild(Uri uri, List<String> segments) {
+  return uri.replace(
+    pathSegments: segments,
+    queryParameters: uri.hasQuery ? uri.queryParameters : null,
+  ).toString();
+}
+
+
 Future<T> retryStream<T>(
   Future<T> Function() fn, {
   int attempts = 2,

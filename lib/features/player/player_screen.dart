@@ -64,7 +64,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   int? _cachedPrevIndex;
   int? _preloadTarget;
   _PlayerStatus _status = _PlayerStatus.loading;
-  int _attempt = 0;
   bool _handlingError = false;
   bool _autorecovered = false;
   int _generation = 0;
@@ -114,7 +113,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _generation++;
     _handlingError = false;
     _autorecovered = false;
-    _attempt = 0;
     _startAttempt();
     _startPreload();
   }
@@ -141,52 +139,65 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _recordHistory();
       return;
     }
-    if (_attempt >= playbackUserAgents.length) {
-      if (gen == _generation) _setStatus(_PlayerStatus.error);
-      return;
-    }
     _setStatus(_PlayerStatus.loading);
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(_activeStreamUrl),
-      httpHeaders: streamHeaders(_activeStreamUrl, userAgentIndex: _attempt),
-      videoPlayerOptions: VideoPlayerOptions(
-        mixWithOthers: true,
-        allowBackgroundPlayback: false,
-      ),
-    );
-    _controller = controller;
-    controller.addListener(_onControllerUpdate);
-    try {
-      await controller.initialize().timeout(_probTimeout);
-    } catch (e) {
-      debugPrint('Orbit3D video error: $e');
-      if (_controller == controller) {
-        _onFailure(gen);
-      } else {
-        _disposeController(controller);
+    // Priorité : sur les serveurs hybrides, l'URL « style live » /u/p/{id}
+    // (redirigée vers un CDN signé) fonctionne pour le VOD tandis que le
+    // chemin /movie/{id} renvoie 401. On tente donc les variantes dans
+    // l'ordre, en complétant par les User-Agents si toutes échouent.
+    final variants = streamUrlVariants(_activeStreamUrl);
+    for (final attemptUrl in variants) {
+      final found = await _tryPlay(gen, attemptUrl);
+      if (found) return;
+      if (!mounted || gen != _generation) return;
+    }
+    if (gen == _generation) _setStatus(_PlayerStatus.error);
+  }
+
+  Future<bool> _tryPlay(int gen, String url) async {
+    for (var attempt = 0; attempt < playbackUserAgents.length; attempt++) {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: streamHeaders(url, userAgentIndex: attempt),
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: true,
+          allowBackgroundPlayback: false,
+        ),
+      );
+      _controller = controller;
+      controller.addListener(_onControllerUpdate);
+      try {
+        await controller.initialize().timeout(_probTimeout);
+      } catch (e) {
+        debugPrint('Orbit3D video error ($url): $e');
+        if (_controller == controller) {
+          _disposeController(controller);
+          _controller = null;
+        } else {
+          _disposeController(controller);
+        }
+        continue;
       }
-      return;
-    }
-    if (!mounted || gen != _generation || _controller != controller) {
-      _disposeController(controller);
-      return;
-    }
-    if (controller.value.hasError) {
-      if (_controller == controller) {
-        _onFailure(gen);
-      } else {
+      if (!mounted || gen != _generation || _controller != controller) {
         _disposeController(controller);
+        return true;
       }
-      return;
+      if (controller.value.hasError) {
+        debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+        _disposeController(controller);
+        _controller = null;
+        continue;
+      }
+      controller.play();
+      if (!mounted || gen != _generation || _controller != controller) {
+        _disposeController(controller);
+        return true;
+      }
+      _setStatus(_PlayerStatus.ready);
+      _showInfoBrief();
+      _recordHistory();
+      return true;
     }
-    controller.play();
-    if (!mounted || gen != _generation || _controller != controller) {
-      _disposeController(controller);
-      return;
-    }
-    _setStatus(_PlayerStatus.ready);
-    _showInfoBrief();
-    _recordHistory();
+    return false;
   }
 
   void _onControllerUpdate() {
@@ -208,32 +219,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     if (!_autorecovered) {
       _autorecovered = true;
-      _attempt = 0;
       _handlingError = false;
       _startAttempt();
       return;
     }
-    _attempt = playbackUserAgents.length;
     _handlingError = false;
     _setStatus(_PlayerStatus.error);
-  }
-
-  void _onFailure(int gen) {
-    if (!mounted || _handlingError || gen != _generation) return;
-    _handlingError = true;
-    _disposeActive();
-    if (!mounted || gen != _generation) {
-      _handlingError = false;
-      return;
-    }
-    _attempt++;
-    if (_attempt >= playbackUserAgents.length) {
-      _handlingError = false;
-      _setStatus(_PlayerStatus.error);
-      return;
-    }
-    _handlingError = false;
-    _startAttempt();
   }
 
   void _goNext() {
@@ -286,7 +277,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _setStatus(_PlayerStatus.ready);
       _showInfoBrief();
     } else {
-      _attempt = 0;
       _startAttempt();
     }
     _startPreload();
@@ -400,7 +390,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _autorecovered = false;
     _disposeCachedNext();
     _disposeCachedPrev();
-    _attempt = 0;
     _startAttempt();
     _startPreload();
   }
