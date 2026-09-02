@@ -75,6 +75,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   ref.invalidate(seriesProvider);
                   ref.invalidate(radioChannelsProvider);
                   ref.invalidate(replaysProvider);
+                  ref.invalidate(epgProgramsProvider);
+                  ref.invalidate(epgDataCacheProvider);
                 }
               },
               onTest: () =>

@@ -196,21 +196,3 @@ class Subscription extends HiveObject {
     }
   }
 }
-
-class TestResult {
-  final TestResultStatus status;
-  final int? latencyMs;
-  final String? error;
-
-  const TestResult({
-    required this.status,
-    this.latencyMs,
-    this.error,
-  });
-
-  TestResult.success(int latencyMs)
-      : this(status: TestResultStatus.success, latencyMs: latencyMs);
-
-  TestResult.error(String error)
-      : this(status: TestResultStatus.error, error: error);
-}

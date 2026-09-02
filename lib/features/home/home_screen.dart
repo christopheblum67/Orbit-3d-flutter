@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../core/widgets/tv_focus.dart';
 import '../../models/user_profile.dart';
 import '../../providers/providers.dart';
-import '../home_shell.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -137,6 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.invalidate(radioChannelsProvider);
     ref.invalidate(replaysProvider);
     ref.invalidate(epgProgramsProvider);
+    ref.invalidate(epgDataCacheProvider);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -161,6 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ref.invalidate(replaysProvider);
       case _RefreshCategory.epg:
         ref.invalidate(epgProgramsProvider);
+        ref.invalidate(epgDataCacheProvider);
     }
   }
 

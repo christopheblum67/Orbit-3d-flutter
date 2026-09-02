@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../../models/user_profile.dart';
@@ -87,25 +88,22 @@ class ProfileAvatar extends StatelessWidget {
     if (option != null) {
       content = Icon(option.icon, size: size * 0.5, color: Colors.white);
     } else if (isRemote) {
-      content = Image.network(
-        avatarUrl,
+      content = CachedNetworkImage(
+        imageUrl: avatarUrl,
         fit: BoxFit.cover,
         width: size,
         height: size,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: SizedBox(
-              width: size * 0.36,
-              height: size * 0.36,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: Colors.white70,
-              ),
+        placeholder: (context, url) => Center(
+          child: SizedBox(
+            width: size * 0.36,
+            height: size * 0.36,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Colors.white70,
             ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) => Text(
+          ),
+        ),
+        errorWidget: (context, url, error) => Text(
           initial,
           style: TextStyle(
             color: scheme.onPrimary,

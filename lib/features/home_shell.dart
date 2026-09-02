@@ -5,12 +5,6 @@ import '../core/constants/app_constants.dart';
 import '../core/widgets/profile_avatar.dart';
 import '../models/user_profile.dart';
 import '../providers/providers.dart';
-import '../services/subscription_manager.dart';
-
-final sourceTypeProvider = FutureProvider<String?>((ref) async {
-  final sub = await SubscriptionManager().getActiveSubscription();
-  return sub['type'];
-});
 
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.child});

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 
@@ -105,12 +106,13 @@ class _Artwork extends StatelessWidget {
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Image.network(
-        imageUrl!,
+      child: CachedNetworkImage(
+        imageUrl: imageUrl!,
         width: 52,
         height: 52,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _placeholder(scheme),
+        placeholder: (context, url) => _placeholder(scheme),
+        errorWidget: (context, url, error) => _placeholder(scheme),
       ),
     );
   }

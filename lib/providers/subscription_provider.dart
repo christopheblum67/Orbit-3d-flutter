@@ -1,6 +1,4 @@
 ﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive/hive.dart';
-import 'package:uuid/uuid.dart';
 import '../models/subscription.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
@@ -151,9 +149,3 @@ final activeSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
 });
 
 final subscriptionsTestingProvider = StateProvider<Set<String>>((ref) => {});
-
-final subscriptionsStreamProvider = StreamProvider<List<Subscription>>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  final box = Hive.box('subscriptions');
-  return box.watch().map((_) => storage.getSubscriptions()).asyncExpand((f) => Stream.fromFuture(f));
-});
