@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -109,14 +110,14 @@ class _SeriesHeader extends StatelessWidget {
                   width: 112,
                   height: 168,
                   child: series.coverUrl.isNotEmpty
-                      ? Image.network(
-                          series.coverUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
-                            Icons.tv,
-                            color: scheme.primary,
-                          ),
-                        )
+? CachedNetworkImage(
+                        imageUrl: series.coverUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            Icon(Icons.tv, color: scheme.primary),
+                        errorWidget: (_, __, ___) =>
+                            Icon(Icons.tv, color: scheme.primary),
+                      )
                       : Icon(Icons.tv, color: scheme.primary),
                 ),
               ),

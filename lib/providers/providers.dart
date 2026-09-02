@@ -30,6 +30,11 @@ final notificationServiceProvider = Provider<NotificationService>((ref) => Notif
 
 final currentProfileProvider = StateProvider<UserProfile?>((ref) => null);
 
+final sourceTypeProvider = FutureProvider<String?>((ref) async {
+  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
+  return sub['type'];
+});
+
 final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
   final storage = ref.watch(storageServiceProvider);
   return storage.getProfiles();

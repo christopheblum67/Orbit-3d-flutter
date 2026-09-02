@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'app_card.dart';
 
@@ -41,10 +42,12 @@ class MediaCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 posterUrl.isNotEmpty
-                    ? Image.network(
-                        posterUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: posterUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
+                        placeholder: (context, url) =>
+                            _PosterFallback(scheme: scheme, icon: fallbackIcon),
+                        errorWidget: (context, url, error) =>
                             _PosterFallback(scheme: scheme, icon: fallbackIcon),
                       )
                     : _PosterFallback(scheme: scheme, icon: fallbackIcon),
