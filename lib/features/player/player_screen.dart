@@ -54,7 +54,8 @@ const _probTimeout = Duration(seconds: 12);
 /// Durée d'affichage de la barre d'info avant masquage automatique.
 const _infoBarDuration = Duration(milliseconds: 4500);
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen>
+    with WidgetsBindingObserver {
   List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
@@ -70,6 +71,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   bool _showInfo = false;
   Timer? _infoTimer;
   bool _volumeToZap = false;
+  bool _immersive = false;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
 
   bool get _canZap => _channels.length > 1;
@@ -88,6 +90,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _channels = widget.channels;
     _index = widget.initialIndex;
     if (_channels.isNotEmpty) {
@@ -99,6 +102,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _restoreSystemUi();
     _infoTimer?.cancel();
     _focusNode.dispose();
     _generation++;
@@ -107,6 +112,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _disposeCachedPrev();
     _preloadTarget = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncImmersive();
+    } else {
+      _restoreSystemUi();
+    }
+  }
+
+  /// Passe en plein écran immersif (masque status bar + navbar Android)
+  /// quand la vidéo joue, et restaure les barres sinon (pause, erreur…).
+  void _syncImmersive() {
+    final playing =
+        _status == _PlayerStatus.ready &&
+        _controller != null &&
+        _controller!.value.isPlaying;
+    if (playing && !_immersive) {
+      _immersive = true;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),);
+    } else if (!playing && _immersive) {
+      _restoreSystemUi();
+    }
+  }
+
+  /// Restaure la system UI par défaut de l'application.
+  void _restoreSystemUi() {
+    if (!_immersive) return;
+    _immersive = false;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   void _initializePlayer() {
@@ -201,7 +243,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _onControllerUpdate() {
-    if (!mounted || _status != _PlayerStatus.ready) return;
+    if (!mounted) return;
+    _syncImmersive();
+    if (_status != _PlayerStatus.ready) return;
     final controller = _controller;
     if (controller == null || !controller.value.hasError) return;
     debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
@@ -382,6 +426,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   void _setStatus(_PlayerStatus status) {
     if (!mounted) return;
     setState(() => _status = status);
+    _syncImmersive();
   }
 
   Future<void> _retry() async {
@@ -424,6 +469,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     setState(() {
       controller.value.isPlaying ? controller.pause() : controller.play();
     });
+    _syncImmersive();
   }
 
   void _toggleVolumeZap() {
