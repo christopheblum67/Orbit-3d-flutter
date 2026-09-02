@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
@@ -55,6 +56,17 @@ final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchMovies();
+});
+
+final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchVodCategories();
+});
+
+final seriesCategoriesProvider =
+    FutureProvider<List<MediaCategory>>((ref) async {
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchSeriesCategories();
 });
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {

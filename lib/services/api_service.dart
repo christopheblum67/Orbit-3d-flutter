@@ -3,6 +3,7 @@ import 'package:xml/xml.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
@@ -148,6 +149,52 @@ class ApiService {
   }
 
   // ---------- Films (VOD) ----------
+  Future<List<MediaCategory>> fetchVodCategories() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream') {
+      return const [];
+    }
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_vod_categories',
+    });
+    final response = await _get(url);
+    final raw = response.data;
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => MediaCategory.fromMap(Map<String, dynamic>.from(e)))
+        .where((c) => c.id.isNotEmpty)
+        .toList();
+  }
+
+  Future<List<MediaCategory>> fetchSeriesCategories() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream') {
+      return const [];
+    }
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_series_categories',
+    });
+    final response = await _get(url);
+    final raw = response.data;
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => MediaCategory.fromMap(Map<String, dynamic>.from(e)))
+        .where((c) => c.id.isNotEmpty)
+        .toList();
+  }
+
   Future<List<Movie>> fetchMovies() async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] == 'xtream') {
@@ -267,17 +314,71 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
+
+      // Identifie la catégorie "Radio" parmi les catégories live, puis ne
+      // garde que les flux appartenant à cette catégorie. Beaucoup de
+      // serveurs ignorent `category=radio` sur get_live_streams et
+      // renverraient alors tout le Live TV.
+      final radioCategoryIds = await _fetchRadioCategoryIds(
+        baseUrl,
+        username,
+        password,
+      );
+
       final url = _playerApiUrl(baseUrl, 'player_api.php', {
         'username': username,
         'password': password,
         'action': 'get_live_streams',
-        'category': 'radio',
       });
       final response = await _get(url);
-      return (response.data as List).map((e) => Channel.fromMap(e)).toList();
+      return (response.data as List)
+          .whereType<Map>()
+          .where((e) =>
+              radioCategoryIds.isEmpty ||
+              radioCategoryIds.contains(e['category_id']?.toString()),)
+          .map((e) {
+            final map = Map<String, dynamic>.from(e);
+            final streamUrl = buildXtreamStreamUrl(
+              baseUrl,
+              username,
+              password,
+              map['stream_id']?.toString(),
+            );
+            return Channel.fromMap(map).copyWith(streamUrl: streamUrl);
+          })
+          .toList();
     }
     throw StreamNetworkException(
         'Ce mode n\'est pas encore disponible pour cette section.',);
+  }
+
+  Future<Set<String>> _fetchRadioCategoryIds(
+    String baseUrl,
+    String username,
+    String password,
+  ) async {
+    try {
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_live_categories',
+      });
+      final response = await _get(url);
+      final categories = response.data as List;
+      return categories
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .where((c) {
+            final name = '${c['category_name'] ?? ''}'.toLowerCase();
+            return name.contains('radio') || name.contains('musique') ||
+                name.contains('music');
+          })
+          .map((c) => c['category_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    } catch (_) {
+      return const {};
+    }
   }
 
   // ---------- Replays ----------
@@ -365,6 +466,7 @@ class ApiService {
     String? streamId, {
     String type = '',
     String? extension,
+    bool withExtension = false,
     Map<String, String> extra = const {},
   }) {
     if (streamId == null || streamId.isEmpty) return '';
@@ -381,7 +483,11 @@ class ApiService {
       segments.add('series');
     }
     var mediaId = streamId;
-    if (mediaType == 'movie' || mediaType == 'series') {
+    // Les serveurs Xtream récents (ex. draap.online) servent le fichier
+    // :/movie/{id} et :/series/{id} sans extension ; forcer ".mp4" renvoie
+    // un 404. On ne l'ajoute que si l'appelant le demande explicitement
+    // (withExtension) pour les serveurs legacy qui l'exigent.
+    if ((mediaType == 'movie' || mediaType == 'series') && withExtension) {
       final ext = _normalizeExtension(extension);
       mediaId = '$streamId.$ext';
     }
