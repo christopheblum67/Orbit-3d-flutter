@@ -90,23 +90,46 @@ final matchmakingProvider = FutureProvider.autoDispose
   if (movies.isEmpty) return const <Movie>[];
 
   final favorites = profile.favoriteGenres
-      .map((g) => g.toLowerCase())
+      .map((g) => g.trim().toLowerCase())
       .where((g) => g.isNotEmpty)
-      .toSet();
+      .toList();
 
   final scored = movies.map((m) {
     final titleLower = m.title.toLowerCase();
     final genresStr = m.genre.toLowerCase();
+    final descLower = m.description.toLowerCase();
+
+    var favCount = 0;
     var score = 0;
 
     for (final fav in favorites) {
-      if (genresStr.contains(fav)) score += 3;
-      if (titleLower.contains(fav)) score += 1;
+      final inGenre = genresStr.contains(fav);
+      final inTitle = inGenre || titleLower.contains(fav);
+      final inDesc = descLower.contains(fav);
+      if (inGenre) score += 3;
+      if (inTitle) score += 1;
+      if (inDesc && !inGenre) score += 1;
+      if (inGenre || inTitle || inDesc) favCount++;
     }
 
-    return (movie: m, score: score);
+    final ratingBonus = m.rating >= 7
+        ? 2
+        : (m.rating >= 5 ? 1 : 0);
+
+    return (movie: m, score: score, favCount: favCount, bonus: ratingBonus);
   }).toList();
 
-  scored.sort((a, b) => b.score.compareTo(a.score));
-  return scored.where((e) => e.score > 0).map((e) => e.movie).take(20).toList();
+  scored.sort((a, b) {
+    final s = b.score.compareTo(a.score);
+    if (s != 0) return s;
+    final b_ = b.favCount.compareTo(a.favCount);
+    if (b_ != 0) return b_;
+    return b.bonus.compareTo(a.bonus);
+  });
+
+  return scored
+      .where((e) => e.favCount > 0)
+      .map((e) => e.movie)
+      .take(20)
+      .toList();
 });
