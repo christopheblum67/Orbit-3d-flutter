@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/data_providers.dart';
-import '../../models/movie.dart';
-import '../../models/series.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/data_providers.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -32,7 +32,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final filteredMovies = movies.where((m) {
       final okTitle = title.isEmpty || m.title.toLowerCase().contains(title);
-      final okDirector = director.isEmpty || m.director.toLowerCase().contains(director);
+      final okDirector =
+          director.isEmpty || m.director.toLowerCase().contains(director);
       final okYear = year.isEmpty || m.year.toString() == year;
       final okGenre = genre.isEmpty || m.genre.toLowerCase().contains(genre);
       final okRating = minRating == null || m.rating >= minRating;
@@ -41,7 +42,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     final filteredSeries = series.where((s) {
       final okTitle = title.isEmpty || s.title.toLowerCase().contains(title);
-      final okDirector = director.isEmpty || s.director.toLowerCase().contains(director);
+      final okDirector =
+          director.isEmpty || s.director.toLowerCase().contains(director);
       final okYear = year.isEmpty || s.year.toString() == year;
       final okGenre = genre.isEmpty || s.genre.toLowerCase().contains(genre);
       final okRating = minRating == null || s.rating >= minRating;
@@ -97,7 +99,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             TextField(
               controller: _minRatingController,
-              decoration: const InputDecoration(labelText: 'Note minimale (0-10)'),
+              decoration:
+                  const InputDecoration(labelText: 'Note minimale (0-10)'),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 20),

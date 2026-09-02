@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../constants/app_constants.dart';
-import '../../models/user_profile.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
 
 const List<ProfileAvatarOption> profileAvatarOptions = [
   ProfileAvatarOption(
@@ -80,8 +80,9 @@ class ProfileAvatar extends StatelessWidget {
     final initial = _initial();
     final avatarUrl = profile.avatarUrl.trim();
     final isIconAvatar = avatarUrl.startsWith(avatarIconPrefix);
-    final option =
-        isIconAvatar ? _optionForId(avatarUrl.substring(avatarIconPrefix.length)) : null;
+    final option = isIconAvatar
+        ? _optionForId(avatarUrl.substring(avatarIconPrefix.length))
+        : null;
     final isRemote = avatarUrl.isNotEmpty && !isIconAvatar;
 
     final Widget content;
@@ -141,7 +142,7 @@ class ProfileAvatar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (option?.color ?? scheme.primary).withOpacity(0.35),
+            color: (option?.color ?? scheme.primary).withValues(alpha: 0.35),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

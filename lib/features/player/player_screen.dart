@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../core/widgets/widgets.dart';
-import '../../models/channel.dart';
-import '../../models/epg_program.dart';
-import '../../providers/providers.dart';
-import '../../services/stream_helpers.dart';
-import '../../services/stream_prewarm_service.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart';
+import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -46,12 +46,6 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 enum _PlayerStatus { loading, error, ready }
-
-const _playbackUserAgents = <String>[
-  'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
-  'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
-  'ExoPlayer/2.19.1',
-];
 
 /// Durée maximale accordée à initialise() avant de basculer sur le
 /// prochain User-Agent : évite de bloquer le zapping sur un flux muet.
@@ -90,13 +84,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : widget.streamUrl;
   }
 
-  Channel? get _currentChannel =>
-      _channels.isEmpty ? null : _channels[_index];
-
-  static String _refererFor(Uri uri) {
-    final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
-    return '${uri.scheme}://${uri.host}:$port/';
-  }
+  Channel? get _currentChannel => _channels.isEmpty ? null : _channels[_index];
 
   @override
   void initState() {
@@ -150,20 +138,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       }
       _setStatus(_PlayerStatus.ready);
       _showInfoBrief();
+      _recordHistory();
       return;
     }
-    if (_attempt >= _playbackUserAgents.length) {
+    if (_attempt >= playbackUserAgents.length) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
     }
     _setStatus(_PlayerStatus.loading);
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(_activeStreamUrl),
-      httpHeaders: {
-        'User-Agent': _playbackUserAgents[_attempt],
-        'Accept': '*/*',
-        'Referer': _refererFor(Uri.parse(_activeStreamUrl)),
-      },
+      httpHeaders: streamHeaders(_activeStreamUrl, userAgentIndex: _attempt),
       videoPlayerOptions: VideoPlayerOptions(
         mixWithOthers: true,
         allowBackgroundPlayback: false,
@@ -201,6 +186,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
     _setStatus(_PlayerStatus.ready);
     _showInfoBrief();
+    _recordHistory();
   }
 
   void _onControllerUpdate() {
@@ -227,7 +213,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       _startAttempt();
       return;
     }
-    _attempt = _playbackUserAgents.length;
+    _attempt = playbackUserAgents.length;
     _handlingError = false;
     _setStatus(_PlayerStatus.error);
   }
@@ -241,7 +227,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       return;
     }
     _attempt++;
-    if (_attempt >= _playbackUserAgents.length) {
+    if (_attempt >= playbackUserAgents.length) {
       _handlingError = false;
       _setStatus(_PlayerStatus.error);
       return;
@@ -334,14 +320,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     if (_cachedNext != null || _preloadTarget == target) return;
     if (!isLikelyStreamUrl(_channels[target].streamUrl)) return;
     _preloadTarget = target;
-    for (var attempt = 0; attempt < _playbackUserAgents.length; attempt++) {
+    for (var attempt = 0; attempt < playbackUserAgents.length; attempt++) {
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(_channels[target].streamUrl),
-        httpHeaders: {
-          'User-Agent': _playbackUserAgents[attempt],
-          'Accept': '*/*',
-          'Referer': _refererFor(Uri.parse(_channels[target].streamUrl)),
-        },
+        httpHeaders:
+            streamHeaders(_channels[target].streamUrl, userAgentIndex: attempt),
         videoPlayerOptions: VideoPlayerOptions(
           mixWithOthers: true,
           allowBackgroundPlayback: false,
@@ -431,6 +414,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
   }
 
+  void _recordHistory() {
+    final channel = _currentChannel;
+    if (channel == null) return;
+    try {
+      ref
+          .read(historyServiceProvider)
+          .addEntry('channel', channel.name, channel.streamUrl);
+    } catch (_) {}
+  }
+
   void _toggleInfo() {
     _infoTimer?.cancel();
     setState(() => _showInfo = !_showInfo);
@@ -451,8 +444,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.arrowUp ||
-        key == LogicalKeyboardKey.pageUp) {
+    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.pageUp) {
       _goPrevious();
       return KeyEventResult.handled;
     }
@@ -541,9 +533,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 transitionBuilder: (child, animation) =>
                     ScaleTransition(scale: animation, child: child),
                 child: Icon(
-                  _controller!.value.isPlaying
-                      ? Icons.pause
-                      : Icons.play_arrow,
+                  _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
                   key: ValueKey(_controller!.value.isPlaying),
                 ),
               ),
@@ -649,8 +639,8 @@ class _InfoBar extends ConsumerWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.72),
-                Colors.black.withOpacity(0.28),
+                Colors.black.withValues(alpha: 0.72),
+                Colors.black.withValues(alpha: 0.28),
               ],
             ),
             borderRadius: BorderRadius.circular(16),
@@ -751,7 +741,8 @@ class _EpgRow extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.schedule_rounded, size: 14, color: Colors.white54),
+              const Icon(Icons.schedule_rounded,
+                  size: 14, color: Colors.white54,),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(

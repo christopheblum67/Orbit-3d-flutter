@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/tv_focus.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
   const VodScreen({super.key});
@@ -60,7 +60,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.62,
+                          childAspectRatio: 0.55,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),

@@ -1,9 +1,9 @@
-﻿import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import '../models/user_profile.dart';
-import '../models/user_preferences.dart';
-import '../models/subscription.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/user_preferences.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 
 class StorageService {
   static const String _profilesBox = 'profiles';
@@ -126,7 +126,9 @@ class StorageService {
     final m3uUrl = prefs.getString('m3u_url');
 
     Subscription? sub;
-    if (activeSource == 'xtream' && xtreamBaseUrl != null && xtreamUsername != null) {
+    if (activeSource == 'xtream' &&
+        xtreamBaseUrl != null &&
+        xtreamUsername != null) {
       sub = Subscription(
         id: const Uuid().v4(),
         name: 'Abonnement principal',

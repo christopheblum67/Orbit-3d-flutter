@@ -1,15 +1,17 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:xml/xml.dart';
-import '../models/channel.dart';
-import '../models/movie.dart';
-import '../models/series.dart';
-import '../models/epg_program.dart';
-import '../models/replay_item.dart';
-import 'stream_helpers.dart' as stream_helpers;
-import 'subscription_manager.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
+import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 
 class StreamNetworkException implements Exception {
-  StreamNetworkException(this.message, {this.original, this.isRetriable = false});
+  StreamNetworkException(this.message,
+      {this.original, this.isRetriable = false,});
 
   final String message;
   final Object? original;
@@ -26,7 +28,7 @@ class ApiService {
     receiveTimeout: const Duration(seconds: 30),
     followRedirects: true,
     maxRedirects: 5,
-  ));
+  ),);
   final SubscriptionManager _subscriptionManager = SubscriptionManager();
 
   Future<Response<dynamic>> _get(String url) {
@@ -130,7 +132,8 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
-        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString());
+        final streamUrl = buildXtreamStreamUrl(
+            baseUrl, username, password, map['stream_id']?.toString(),);
         final channel = Channel.fromMap(map).copyWith(streamUrl: streamUrl);
         channel.requireStreamUrl();
         return channel;
@@ -140,7 +143,7 @@ class ApiService {
       final response = await _get(url);
       return parseM3u(response.data.toString());
     } else {
-      throw Exception('Aucun abonnement configuré');
+      throw StreamNetworkException('Aucun abonnement configuré.');
     }
   }
 
@@ -159,13 +162,16 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
-        final streamUrl = buildXtreamStreamUrl(baseUrl, username, password, map['stream_id']?.toString(), type: 'movie', extension: map['container_extension']?.toString());
+        final streamUrl = buildXtreamStreamUrl(
+            baseUrl, username, password, map['stream_id']?.toString(),
+            type: 'movie', extension: map['container_extension']?.toString(),);
         final movie = Movie.fromMap(map).copyWith(streamUrl: streamUrl);
         movie.requireStreamUrl();
         return movie;
       }).toList();
     }
-    throw UnimplementedError('M3U not implemented for movies');
+    throw StreamNetworkException(
+        'Ce mode n\'est pas encore disponible pour cette section.',);
   }
 
   // ---------- Séries ----------
@@ -183,13 +189,15 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) => Series.fromMap(e)).toList();
     }
-    throw UnimplementedError('M3U not implemented for series');
+    throw StreamNetworkException(
+        'Ce mode n\'est pas encore disponible pour cette section.',);
   }
 
   Future<Series> fetchSeriesInfo(String seriesId) async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] != 'xtream') {
-      throw UnimplementedError('M3U not implemented for series info');
+      throw StreamNetworkException(
+          'Ce mode n\'est pas encore disponible pour cette section.',);
     }
     final baseUrl = sub['baseUrl']!;
     final username = sub['username']!;
@@ -228,7 +236,8 @@ class ApiService {
     if (rawEpisodes is Map) {
       for (final seasonEntry in rawEpisodes.entries) {
         final season = int.tryParse(seasonEntry.key.toString()) ?? 0;
-        final list = seasonEntry.value is List ? seasonEntry.value as List : const [];
+        final list =
+            seasonEntry.value is List ? seasonEntry.value as List : const [];
         for (final raw in list) {
           final em = Map<String, dynamic>.from(raw as Map);
           em['season'] = season;
@@ -267,7 +276,8 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) => Channel.fromMap(e)).toList();
     }
-    throw UnimplementedError('M3U not implemented for radio');
+    throw StreamNetworkException(
+        'Ce mode n\'est pas encore disponible pour cette section.',);
   }
 
   // ---------- Replays ----------
@@ -294,14 +304,18 @@ class ApiService {
                 username,
                 password,
                 id,
-                extra: {'start': '${map['start'] ?? ''}', 'end': '${map['end'] ?? ''}'},
+                extra: {
+                  'start': '${map['start'] ?? ''}',
+                  'end': '${map['end'] ?? ''}',
+                },
               );
         final replay = ReplayItem.fromMap(map).copyWith(streamUrl: streamUrl);
         replay.requireStreamUrl();
         return replay;
       }).toList();
     }
-    throw UnimplementedError('M3U not implemented for replay');
+    throw StreamNetworkException(
+        'Ce mode n\'est pas encore disponible pour cette section.',);
   }
 
   // ---------- EPG (XMLTV) ----------
@@ -335,10 +349,13 @@ class ApiService {
     return url;
   }
 
-  static String _playerApiUrl(String baseUrl, String script, Map<String, String> params) {
+  static String _playerApiUrl(
+      String baseUrl, String script, Map<String, String> params,) {
     final uri = Uri.parse(_trimBaseUrl(baseUrl));
     final segments = [...uri.pathSegments.where((s) => s.isNotEmpty), script];
-    return uri.replace(pathSegments: segments, queryParameters: params).toString();
+    return uri
+        .replace(pathSegments: segments, queryParameters: params)
+        .toString();
   }
 
   String buildXtreamStreamUrl(
@@ -370,7 +387,9 @@ class ApiService {
     }
     segments.add(mediaId);
     final query = extra.isEmpty ? null : extra;
-    return uri.replace(pathSegments: segments, queryParameters: query).toString();
+    return uri
+        .replace(pathSegments: segments, queryParameters: query)
+        .toString();
   }
 
   static String _normalizeExtension(String? extension) {
@@ -394,9 +413,10 @@ class ApiService {
             id: channels.length.toString(),
             name: currentName,
             logoUrl: '',
-            streamUrl: stream_helpers.requireStreamUrl(line.trim(), label: currentName),
+            streamUrl: stream_helpers.requireStreamUrl(line.trim(),
+                label: currentName,),
             group: '',
-          ));
+          ),);
           currentName = null;
         }
       }
@@ -412,8 +432,10 @@ class ApiService {
       final channelId = prog.getAttribute('channel') ?? '';
       final title = prog.getElement('title')?.innerText ?? '';
       final desc = prog.getElement('desc')?.innerText ?? '';
-      final start = stream_helpers.parseXmltvDate(prog.getAttribute('start') ?? '');
-      final end = stream_helpers.parseXmltvDate(prog.getAttribute('stop') ?? '');
+      final start =
+          stream_helpers.parseXmltvDate(prog.getAttribute('start') ?? '');
+      final end =
+          stream_helpers.parseXmltvDate(prog.getAttribute('stop') ?? '');
       if (start == null || end == null) continue;
       programs.add(EPGProgram(
         channelId: channelId,
@@ -421,7 +443,7 @@ class ApiService {
         description: desc,
         start: start,
         end: end,
-      ));
+      ),);
     }
     return programs;
   }

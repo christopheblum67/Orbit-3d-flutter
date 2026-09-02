@@ -1,5 +1,5 @@
 ﻿import 'package:flutter/material.dart';
-import '../constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 /// Thème global "Orbit 3D" — refonte moderne : palette seed indigo/violet,
 /// accents rose/cyan, arrondis généreux et typographie dynamique.
@@ -15,9 +15,13 @@ class AppTheme {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppConstants.seedColor,
       brightness: brightness,
-      primary: isDark ? AppConstants.darkPrimaryColor : AppConstants.primaryColor,
-      secondary: isDark ? AppConstants.darkSecondaryColor : AppConstants.secondaryColor,
-      tertiary: isDark ? AppConstants.darkTertiaryColor : AppConstants.tertiaryColor,
+      primary:
+          isDark ? AppConstants.darkPrimaryColor : AppConstants.primaryColor,
+      secondary: isDark
+          ? AppConstants.darkSecondaryColor
+          : AppConstants.secondaryColor,
+      tertiary:
+          isDark ? AppConstants.darkTertiaryColor : AppConstants.tertiaryColor,
       error: isDark ? AppConstants.darkErrorColor : AppConstants.errorColor,
     );
 
@@ -51,7 +55,9 @@ class AppTheme {
             fontSize: 12,
             letterSpacing: 0.2,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant,
+            color: selected
+                ? scheme.onSecondaryContainer
+                : scheme.onSurfaceVariant,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -137,10 +143,13 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withOpacity(isDark ? 0.35 : 0.45),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: scheme.surfaceContainerHighest
+            .withValues(alpha: isDark ? 0.35 : 0.45),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: scheme.onSurfaceVariant),
-        hintStyle: TextStyle(color: scheme.onSurfaceVariant.withOpacity(0.7)),
+        hintStyle:
+            TextStyle(color: scheme.onSurfaceVariant.withValues(alpha: 0.7)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           borderSide: BorderSide(color: scheme.outlineVariant),
@@ -155,7 +164,7 @@ class AppTheme {
         ),
       ),
       dividerTheme: DividerThemeData(
-        color: scheme.outlineVariant.withOpacity(0.5),
+        color: scheme.outlineVariant.withValues(alpha: 0.5),
         space: 1,
         thickness: 1,
       ),

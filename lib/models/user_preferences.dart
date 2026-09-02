@@ -21,7 +21,8 @@ class UserPreferences {
     String? theme,
   }) {
     return UserPreferences(
-      parentalControlEnabled: parentalControlEnabled ?? this.parentalControlEnabled,
+      parentalControlEnabled:
+          parentalControlEnabled ?? this.parentalControlEnabled,
       ageRestriction: ageRestriction ?? this.ageRestriction,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       language: language ?? this.language,

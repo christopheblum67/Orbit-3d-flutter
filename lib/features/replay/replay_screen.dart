@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class ReplayScreen extends ConsumerWidget {
   const ReplayScreen({super.key});
@@ -23,7 +23,8 @@ class ReplayScreen extends ConsumerWidget {
               title: Text(replay.title),
               subtitle: Text('${replay.startTime} - ${replay.endTime}'),
               onTap: () {
-                context.push('/player?url=${Uri.encodeComponent(replay.streamUrl)}&title=${Uri.encodeComponent(replay.title)}');
+                context.push(
+                    '/player?url=${Uri.encodeComponent(replay.streamUrl)}&title=${Uri.encodeComponent(replay.title)}',);
               },
             );
           },

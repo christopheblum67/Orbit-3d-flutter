@@ -1,32 +1,19 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/channel.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/tv_focus.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/stream_prewarm_service.dart';
-import '../../services/user_friendly_error.dart';
-import '../player/player_screen.dart';
-import 'channel_groups.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
+import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/features/player/player_screen.dart';
+import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 
 class LiveTvScreen extends ConsumerWidget {
   const LiveTvScreen({super.key});
-
-  static String _refererFor(Uri uri) {
-    final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
-    return '${uri.scheme}://${uri.host}:$port/';
-  }
-
-  static Map<String, String> _httpHeadersFor(String url) {
-    final uri = Uri.parse(url);
-    return {
-      'User-Agent':
-          'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
-      'Accept': '*/*',
-      'Referer': _refererFor(uri),
-    };
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -44,7 +31,9 @@ class LiveTvScreen extends ConsumerWidget {
           }
           final groups = buildLiveChannelGroups(channels);
           final useHeaders = groups.length > 1 || groups.first.name.isNotEmpty;
-          final rows = useHeaders ? _flattenGroups(groups) : _flatRows(groups.first.channels);
+          final rows = useHeaders
+              ? _flattenGroups(groups)
+              : _flatRows(groups.first.channels);
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: rows.length,
@@ -101,10 +90,9 @@ class LiveTvScreen extends ConsumerWidget {
       );
     }
     final channel = row.channel!;
-    void prewarm() =>
-        StreamPrewarmService.instance.prewarm(
+    void prewarm() => StreamPrewarmService.instance.prewarm(
           channel.streamUrl,
-          _httpHeadersFor(channel.streamUrl),
+          stream_helpers.streamHeaders(channel.streamUrl),
         );
     void onOpen() {
       prewarm();
@@ -126,13 +114,20 @@ class LiveTvScreen extends ConsumerWidget {
           subtitle: subtitle,
           icon: Icons.live_tv,
           imageUrl: channel.logoUrl,
-          trailing: channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (channel.orderNum > 0) _NumBadge(number: channel.orderNum),
+              FavoriteButton(channelId: channel.id, channelName: channel.name),
+            ],
+          ),
           onTap: onOpen,
         ),
       ),
     );
   }
-void _openPlayer(
+
+  void _openPlayer(
     BuildContext context,
     List<ChannelGroup> groups,
     Channel channel,
@@ -144,7 +139,8 @@ void _openPlayer(
         break;
       }
     }
-    final list = groupIndex >= 0 ? groups[groupIndex].channels : <Channel>[channel];
+    final list =
+        groupIndex >= 0 ? groups[groupIndex].channels : <Channel>[channel];
     final index = list.indexOf(channel);
     context.push(
       '/player',
@@ -161,7 +157,9 @@ void _openPlayer(
 class _Row {
   _Row.header(this.title, this.count) : channel = null;
 
-  _Row.channel(this.channel) : title = null, count = 0;
+  _Row.channel(this.channel)
+      : title = null,
+        count = 0;
 
   final String? title;
   final int count;
@@ -189,6 +187,56 @@ class _NumBadge extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
       ),
+    );
+  }
+}
+
+class FavoriteButton extends ConsumerStatefulWidget {
+  const FavoriteButton({
+    super.key,
+    required this.channelId,
+    required this.channelName,
+  });
+
+  final String channelId;
+  final String channelName;
+
+  @override
+  ConsumerState<FavoriteButton> createState() => _FavoriteButtonState();
+}
+
+class _FavoriteButtonState extends ConsumerState<FavoriteButton> {
+  bool _isFav = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final svc = ref.read(favoritesServiceProvider);
+    final result = await svc.isFavorite('channel', widget.channelId);
+    if (mounted) setState(() => _isFav = result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final svc = ref.read(favoritesServiceProvider);
+    return IconButton(
+      tooltip: _isFav ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      icon: Icon(
+        _isFav ? Icons.favorite : Icons.favorite_border,
+        color: _isFav ? Theme.of(context).colorScheme.error : null,
+      ),
+      onPressed: () async {
+        if (_isFav) {
+          await svc.removeFavorite('channel', widget.channelId);
+        } else {
+          await svc.addFavorite('channel', widget.channelId);
+        }
+        if (mounted) setState(() => _isFav = !_isFav);
+      },
     );
   }
 }

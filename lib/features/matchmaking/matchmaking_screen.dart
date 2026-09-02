@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/providers.dart';
-import '../../providers/preferences_provider.dart';
-import '../../core/widgets/media_card.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
 
 class MatchmakingScreen extends ConsumerWidget {
   const MatchmakingScreen({super.key});
@@ -14,7 +14,9 @@ class MatchmakingScreen extends ConsumerWidget {
 
     if (profile == null) {
       return const Scaffold(
-        body: Center(child: Text('Sélectionnez un profil pour voir ses recommandations')),
+        body: Center(
+            child:
+                Text('Sélectionnez un profil pour voir ses recommandations'),),
       );
     }
 
@@ -28,7 +30,8 @@ class MatchmakingScreen extends ConsumerWidget {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Pas encore de recommandations. Ajoutez vos genres favoris dans votre profil.'),
+                child: Text(
+                    'Pas encore de recommandations. Ajoutez vos genres favoris dans votre profil.',),
               ),
             );
           }

@@ -1,8 +1,8 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/subscription.dart';
-import '../services/storage_service.dart';
-import '../services/api_service.dart';
-import '../providers/providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/services/storage_service.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   final StorageService _storage;
@@ -35,7 +35,8 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> updateSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
-    state = state.map((s) => s.id == subscription.id ? subscription : s).toList();
+    state =
+        state.map((s) => s.id == subscription.id ? subscription : s).toList();
   }
 
   Future<void> deleteSubscription(String id) async {
@@ -88,16 +89,22 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   }
 
   Future<void> testConnection(Subscription sub, {ApiService? api}) async {
-    _ref.read(subscriptionsTestingProvider.notifier).state = {..._ref.read(subscriptionsTestingProvider), sub.id};
+    _ref.read(subscriptionsTestingProvider.notifier).state = {
+      ..._ref.read(subscriptionsTestingProvider),
+      sub.id,
+    };
     final apiService = api ?? ApiService();
     final stopwatch = Stopwatch()..start();
 
     try {
       if (sub.type == SubscriptionType.xtream) {
-        if (sub.baseUrl == null || sub.username == null || sub.password == null) {
+        if (sub.baseUrl == null ||
+            sub.username == null ||
+            sub.password == null) {
           throw Exception('Configuration Xtream incomplète');
         }
-        final url = buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
+        final url =
+            buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
         await apiService.get(url);
       } else {
         if (sub.m3uUrl == null) {
@@ -121,22 +128,28 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
       );
     } finally {
       final current = _ref.read(subscriptionsTestingProvider);
-      _ref.read(subscriptionsTestingProvider.notifier).state = {...current}..remove(sub.id);
+      _ref.read(subscriptionsTestingProvider.notifier).state = {...current}
+        ..remove(sub.id);
     }
   }
 
-  static String buildXtreamTestUrl(String baseUrl, String username, String password) {
+  static String buildXtreamTestUrl(
+      String baseUrl, String username, String password,) {
     final uri = Uri.parse(baseUrl.trim().replaceAll(RegExp(r'/+$'), ''));
-    final segments = [...uri.pathSegments.where((s) => s.isNotEmpty), 'player_api.php'];
+    final segments = [
+      ...uri.pathSegments.where((s) => s.isNotEmpty),
+      'player_api.php',
+    ];
     return uri.replace(pathSegments: segments, queryParameters: {
       'username': username,
       'password': password,
       'action': 'get_live_streams',
-    }).toString();
+    },).toString();
   }
 }
 
-final subscriptionsProvider = StateNotifierProvider<SubscriptionsNotifier, List<Subscription>>(
+final subscriptionsProvider =
+    StateNotifierProvider<SubscriptionsNotifier, List<Subscription>>(
   (ref) {
     final storage = ref.watch(storageServiceProvider);
     return SubscriptionsNotifier(storage, ref);

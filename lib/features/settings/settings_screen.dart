@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -36,7 +36,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _sendTestNotification() async {
     final notificationService = ref.read(notificationServiceProvider);
-    await notificationService.showNotification('Orbit 3D', 'Ceci est une notification test');
+    await notificationService.showNotification(
+        'Orbit 3D', 'Ceci est une notification test',);
   }
 
   @override

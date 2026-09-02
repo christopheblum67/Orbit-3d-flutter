@@ -1,11 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class FavoritesScreen extends ConsumerStatefulWidget {
   const FavoritesScreen({super.key});
+
+  // TODO: brancher — les écritures addFavorite/removeFavorite sont désormais
+  // appelées depuis live_tv_screen (FavoriteButton).  Vérifier que getFavorites
+  // renvoie bien les données une fois que l'utilisateur a ajouté des favoris.
 
   @override
   ConsumerState<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -95,7 +99,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen> {
                   Expanded(
                     child: Text(
                       _favorites[index],
-                      style: Theme.of(context).textTheme.bodyLarge
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),

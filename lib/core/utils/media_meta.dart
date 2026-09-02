@@ -15,7 +15,11 @@ String? ageBadgeLabel(Object? raw) {
   final text = raw?.toString().trim() ?? '';
   if (text.isEmpty) return null;
   final upper = text.toUpperCase();
-  if (upper == 'ALL' || upper == 'TOUS' || upper == 'NA' || upper == 'N/A' || upper == '0') {
+  if (upper == 'ALL' ||
+      upper == 'TOUS' ||
+      upper == 'NA' ||
+      upper == 'N/A' ||
+      upper == '0') {
     return null;
   }
   if (RegExp(r'^\d{1,2}$').hasMatch(text)) {

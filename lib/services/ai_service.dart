@@ -1,9 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../models/user_profile.dart';
-import '../models/movie.dart';
-import '../models/ai_recommendation.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
 
 /// Message utilisateur compréhensible pour une erreur IA dédiée.
 String aiUserFriendlyError(Object error) {
@@ -48,7 +48,7 @@ class AiService {
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 20),
     receiveTimeout: const Duration(seconds: 40),
-  ));
+  ),);
 
   static const int _maxRetries = 2;
   static const Duration _retryDelay = Duration(milliseconds: 900);
@@ -58,8 +58,8 @@ class AiService {
     List<Movie> availableMovies = const [],
   ]) async {
     final apiKey = dotenv.env['IA_API_KEY'];
-    final endpoint =
-        dotenv.env['IA_API_ENDPOINT'] ?? 'https://api.openai.com/v1/chat/completions';
+    final endpoint = dotenv.env['IA_API_ENDPOINT'] ??
+        'https://api.openai.com/v1/chat/completions';
 
     if (apiKey == null || apiKey.isEmpty) {
       throw const AIApiKeyMissingException(
@@ -85,11 +85,13 @@ class AiService {
             'messages': [
               {'role': 'user', 'content': prompt},
             ],
-            if (_supportsResponseFormat(endpoint)) 'response_format': {'type': 'json_object'},
+            if (_supportsResponseFormat(endpoint))
+              'response_format': {'type': 'json_object'},
           },
         );
         final content =
-            response.data?['choices']?[0]?['message']?['content']?.toString() ?? '';
+            response.data?['choices']?[0]?['message']?['content']?.toString() ??
+                '';
         return _parseContent(content);
       } catch (error) {
         lastError = error;
@@ -145,8 +147,8 @@ class AiService {
         final decoded = jsonDecode(jsonStr);
         if (decoded is List) {
           return decoded
-              .where((e) => e is Map)
-              .map((e) => Map<String, dynamic>.from(e as Map))
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
               .toList();
         }
       } catch (_) {
@@ -173,7 +175,7 @@ class AiService {
               title: _cleanTitle(line),
               reason: '',
               category: 'Film / Série',
-            ))
+            ),)
         .toList();
   }
 

@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 void main() {
@@ -6,21 +6,22 @@ void main() {
     test('should have correct app name', () {
       expect(AppConstants.appName, 'Orbit 3D');
     });
-    
+
     test('should have valid API URL', () {
       expect(AppConstants.apiBaseUrl, isNotEmpty);
       expect(AppConstants.apiBaseUrl.startsWith('http'), isTrue);
     });
-    
+
     test('should have positive dimensions', () {
       expect(AppConstants.defaultPadding, greaterThan(0));
       expect(AppConstants.defaultMargin, greaterThan(0));
       expect(AppConstants.defaultRadius, greaterThan(0));
     });
-    
+
     test('should have valid pagination', () {
       expect(AppConstants.defaultPageSize, greaterThan(0));
-      expect(AppConstants.maxPageSize, greaterThanOrEqualTo(AppConstants.defaultPageSize));
+      expect(AppConstants.maxPageSize,
+          greaterThanOrEqualTo(AppConstants.defaultPageSize),);
     });
   });
 }

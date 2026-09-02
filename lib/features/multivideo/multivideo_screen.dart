@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
-import '../../providers/providers.dart';
-import '../../models/channel.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class MultiVideoScreen extends ConsumerStatefulWidget {
   const MultiVideoScreen({super.key});
@@ -14,7 +14,7 @@ class MultiVideoScreen extends ConsumerStatefulWidget {
 }
 
 class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
-  List<Channel> _selectedChannels = [];
+  final List<Channel> _selectedChannels = [];
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,8 @@ class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
                   childAspectRatio: 1.5,
                 ),
                 itemCount: _selectedChannels.length,
-                itemBuilder: (context, index) => VideoTile(url: _selectedChannels[index].streamUrl),
+                itemBuilder: (context, index) =>
+                    VideoTile(url: _selectedChannels[index].streamUrl),
               ),
             ),
             SizedBox(

@@ -1,5 +1,5 @@
-import '../models/subscription.dart';
-import 'storage_service.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/services/storage_service.dart';
 
 /// Configuration de préchargement pour la phase de test bêta.
 ///
@@ -11,15 +11,18 @@ class BetaConfig {
   static const String lot = String.fromEnvironment('BETA_LOT');
 
   static const String _defaultBaseUrl = String.fromEnvironment('BETA_BASE_URL');
-  static const String _defaultUsername = String.fromEnvironment('BETA_USERNAME');
-  static const String _defaultPassword = String.fromEnvironment('BETA_PASSWORD');
+  static const String _defaultUsername =
+      String.fromEnvironment('BETA_USERNAME');
+  static const String _defaultPassword =
+      String.fromEnvironment('BETA_PASSWORD');
   static const String _defaultM3uUrl = String.fromEnvironment('BETA_M3U_URL');
 
   /// Abonnement de test supplémentaire (facultatif) — ex. draap.online.
   static const String _test2BaseUrl = String.fromEnvironment('BETA2_BASE_URL');
   static const String _test2Username = String.fromEnvironment('BETA2_USERNAME');
   static const String _test2Password = String.fromEnvironment('BETA2_PASSWORD');
-  static const String _test2Name = String.fromEnvironment('BETA2_NAME', defaultValue: 'Abo test DRAAP');
+  static const String _test2Name =
+      String.fromEnvironment('BETA2_NAME', defaultValue: 'Abo test DRAAP');
 
   /// Applique la préconfiguration au premier lancement (une seule fois).
   /// Retourne true si une source a été préchargée.
@@ -31,7 +34,9 @@ class BetaConfig {
     // Un abonnement existe déjà => on ne touche à rien.
     if (subs.isNotEmpty) return false;
 
-    if (lot == 'xtream' && _defaultBaseUrl.isNotEmpty && _defaultUsername.isNotEmpty) {
+    if (lot == 'xtream' &&
+        _defaultBaseUrl.isNotEmpty &&
+        _defaultUsername.isNotEmpty) {
       final sub = Subscription.fromSubscriptionManagerFormat(
         DateTime.now().millisecondsSinceEpoch.toString(),
         'Abonnement Beta',
@@ -66,7 +71,7 @@ class BetaConfig {
     var added = false;
     if (_test2BaseUrl.isNotEmpty && _test2Username.isNotEmpty) {
       final sub = Subscription.fromSubscriptionManagerFormat(
-        DateTime.now().millisecondsSinceEpoch.toString() + '-t2',
+        '${DateTime.now().millisecondsSinceEpoch}-t2',
         _test2Name,
         {
           'type': 'xtream',

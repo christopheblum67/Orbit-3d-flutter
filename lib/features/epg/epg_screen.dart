@@ -1,10 +1,10 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../models/epg_program.dart';
-import '../../core/widgets/error_state.dart';
-import '../../core/widgets/loading_state.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
+import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 
 class EpgScreen extends ConsumerStatefulWidget {
   const EpgScreen({super.key});
@@ -13,7 +13,8 @@ class EpgScreen extends ConsumerStatefulWidget {
   ConsumerState<EpgScreen> createState() => _EpgScreenState();
 }
 
-class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProviderStateMixin {
+class _EpgScreenState extends ConsumerState<EpgScreen>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   List<EPGProgram> _programs = [];
   late final AnimationController _rotationController;
@@ -85,7 +86,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
                                   painter: OrbitPainter(
                                     selectedIndex: _selectedIndex,
                                     programs: _programs,
-                                    ringColor: scheme.primaryContainer.withOpacity(0.45),
+                                    ringColor: scheme.primaryContainer
+                                        .withValues(alpha: 0.45),
                                     accentColor: scheme.tertiary,
                                     textColor: scheme.onSurfaceVariant,
                                     activeTextColor: scheme.secondary,
@@ -123,10 +125,10 @@ class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProvider
                       if (_programs.isNotEmpty)
                         Text(
                           '${_programs[_selectedIndex].start} - ${_programs[_selectedIndex].end}',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                         ),
                     ],
                   ),
@@ -203,7 +205,8 @@ class OrbitPainter extends CustomPainter {
           style: TextStyle(
             color: i == selectedIndex ? activeTextColor : textColor,
             fontSize: 12,
-            fontWeight: i == selectedIndex ? FontWeight.bold : FontWeight.normal,
+            fontWeight:
+                i == selectedIndex ? FontWeight.bold : FontWeight.normal,
           ),
         ),
         textDirection: TextDirection.ltr,

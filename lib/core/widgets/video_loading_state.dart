@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'app_card.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
 class VideoLoadingState extends StatelessWidget {
   const VideoLoadingState({super.key, this.message = 'Chargement du flux…'});

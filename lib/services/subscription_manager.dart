@@ -1,6 +1,6 @@
-﻿import 'package:hive_flutter/hive_flutter.dart';
-import '../models/subscription.dart';
-import 'storage_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/services/storage_service.dart';
 
 /// Délégué vers [StorageService] pour la gestion multi-abonnements Hive.
 /// Garde l'API inchangée pour ne pas casser [BetaConfig] et l'existant.

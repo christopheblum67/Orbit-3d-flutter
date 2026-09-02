@@ -1,16 +1,17 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
-import '../../providers/providers.dart';
-import '../../models/user_profile.dart';
-import '../../core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 
 class ProfileCreationScreen extends ConsumerStatefulWidget {
   const ProfileCreationScreen({super.key});
 
   @override
-  ConsumerState<ProfileCreationScreen> createState() => _ProfileCreationScreenState();
+  ConsumerState<ProfileCreationScreen> createState() =>
+      _ProfileCreationScreenState();
 }
 
 class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
@@ -35,11 +36,14 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             TextFormField(
               controller: _firstNameController,
               decoration: const InputDecoration(labelText: 'Prénom'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
             ),
             const SizedBox(height: 20),
             ListTile(
-              title: Text(_dateOfBirth == null ? 'Date de naissance' : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0]),
+              title: Text(_dateOfBirth == null
+                  ? 'Date de naissance'
+                  : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0],),
               subtitle: (_submitted && _dateOfBirth == null)
                   ? Text(
                       'Obligatoire',
@@ -61,7 +65,9 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             ),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Genre'),
-              items: ['Homme', 'Femme', 'Autre'].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+              items: ['Homme', 'Femme', 'Autre']
+                  .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                  .toList(),
               onChanged: (v) => setState(() => _gender = v),
               validator: (v) => v == null ? 'Obligatoire' : null,
             ),
@@ -69,7 +75,8 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             const Text('Genres favoris'),
             Wrap(
               spacing: 8,
-              children: ['Action', 'Comédie', 'Drame', 'Sci-Fi', 'Horreur'].map((genre) {
+              children: ['Action', 'Comédie', 'Drame', 'Sci-Fi', 'Horreur']
+                  .map((genre) {
                 return FilterChip(
                   label: Text(genre),
                   selected: _favoriteGenres.contains(genre),
@@ -148,17 +155,20 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                             dateOfBirth: _dateOfBirth!,
                             gender: _gender!,
                             favoriteGenres: _favoriteGenres,
-                            avatarUrl: _avatarId.isEmpty
-                                ? ''
-                                : 'icone:$_avatarId',
+                            avatarUrl:
+                                _avatarId.isEmpty ? '' : 'icone:$_avatarId',
                           );
-                          await ref.read(storageServiceProvider).saveProfile(profile);
+                          await ref
+                              .read(storageServiceProvider)
+                              .saveProfile(profile);
                           ref.invalidate(profilesProvider);
                           if (context.mounted) context.pop();
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Erreur lors de la sauvegarde')),
+                              const SnackBar(
+                                  content:
+                                      Text('Erreur lors de la sauvegarde'),),
                             );
                           }
                           setState(() => _saving = false);

@@ -1,37 +1,44 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/utils/error_handler.dart';
-import '../services/stream_helpers.dart' as stream_helpers;
-import '../services/api_service.dart';
-import '../services/storage_service.dart';
-import '../services/ai_service.dart';
-import '../services/vpn_service.dart';
-import '../services/subscription_manager.dart';
-import '../services/favorites_service.dart';
-import '../services/history_service.dart';
-import '../services/radio_service.dart';
-import '../services/notification_service.dart';
-import '../models/user_profile.dart';
-import '../models/channel.dart';
-import '../models/movie.dart';
-import '../models/series.dart';
-import '../models/epg_program.dart';
-import '../models/replay_item.dart';
-import '../models/ai_recommendation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
+import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/services/storage_service.dart';
+import 'package:orbit_3d_flutter/services/ai_service.dart';
+import 'package:orbit_3d_flutter/services/vpn_service.dart';
+import 'package:orbit_3d_flutter/services/subscription_manager.dart';
+import 'package:orbit_3d_flutter/services/favorites_service.dart';
+import 'package:orbit_3d_flutter/services/history_service.dart';
+import 'package:orbit_3d_flutter/services/radio_service.dart';
+import 'package:orbit_3d_flutter/services/notification_service.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
-final storageServiceProvider = Provider<StorageService>((ref) => StorageService());
+final storageServiceProvider =
+    Provider<StorageService>((ref) => StorageService());
 final aiServiceProvider = Provider<AiService>((ref) => AiService());
 final vpnServiceProvider = Provider<VpnService>((ref) => VpnService());
-final subscriptionManagerProvider = Provider<SubscriptionManager>((ref) => SubscriptionManager());
-final favoritesServiceProvider = Provider<FavoritesService>((ref) => FavoritesService());
-final historyServiceProvider = Provider<HistoryService>((ref) => HistoryService());
+final subscriptionManagerProvider =
+    Provider<SubscriptionManager>((ref) => SubscriptionManager());
+final favoritesServiceProvider =
+    Provider<FavoritesService>((ref) => FavoritesService());
+final historyServiceProvider =
+    Provider<HistoryService>((ref) => HistoryService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
-final notificationServiceProvider = Provider<NotificationService>((ref) => NotificationService());
+final notificationServiceProvider =
+    Provider<NotificationService>((ref) => NotificationService());
 
 final currentProfileProvider = StateProvider<UserProfile?>((ref) => null);
 
 final sourceTypeProvider = FutureProvider<String?>((ref) async {
-  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
+  final sub =
+      await ref.watch(subscriptionManagerProvider).getActiveSubscription();
   return sub['type'];
 });
 
@@ -55,7 +62,8 @@ final seriesProvider = FutureProvider<List<Series>>((ref) async {
   return api.fetchSeries();
 });
 
-final seriesInfoProvider = FutureProvider.family<Series, String>((ref, seriesId) async {
+final seriesInfoProvider =
+    FutureProvider.family<Series, String>((ref, seriesId) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchSeriesInfo(seriesId);
 });
@@ -151,14 +159,15 @@ class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
   }
 }
 
-final aiRecommendationsProvider =
-    FutureProvider.autoDispose.family<List<AIRecommendation>, String>((ref, profileId) async {
+final aiRecommendationsProvider = FutureProvider.autoDispose
+    .family<List<AIRecommendation>, String>((ref, profileId) async {
   final aiService = ref.watch(aiServiceProvider);
   final profile = ref.watch(currentProfileProvider);
   final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
 
   if (profile == null || profile.id != profileId) {
-    throw const StreamAiException('Aucun profil sélectionné pour les recommandations.');
+    throw const StreamAiException(
+        'Aucun profil sélectionné pour les recommandations.',);
   }
 
   return aiService.getRecommendations(profile, movies);

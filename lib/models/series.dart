@@ -1,5 +1,6 @@
-﻿import '../core/utils/media_meta.dart';
-import '../services/stream_helpers.dart' as stream_helpers;
+import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
 
 class Series {
   final String id;
@@ -108,5 +109,6 @@ class Episode {
     );
   }
 
-  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
+  String requireStreamUrl() =>
+      stream_helpers.requireStreamUrl(streamUrl, label: title);
 }

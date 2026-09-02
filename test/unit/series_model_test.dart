@@ -3,7 +3,8 @@ import 'package:orbit_3d_flutter/models/series.dart';
 
 void main() {
   group('Series.fromMap', () {
-    test('parses a series from a real Xtream API list item (rating as string)', () {
+    test('parses a series from a real Xtream API list item (rating as string)',
+        () {
       final series = Series.fromMap({
         'num': 1,
         'name': 'The Rain',

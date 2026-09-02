@@ -1,4 +1,4 @@
-import '../../models/channel.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 
 class ChannelGroup {
   ChannelGroup({
