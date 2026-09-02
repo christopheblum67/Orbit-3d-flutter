@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class VpnScreen extends ConsumerStatefulWidget {
   const VpnScreen({super.key});

@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/widgets.dart';
-import '../../models/ai_recommendation.dart';
-import '../../services/ai_service.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
+import 'package:orbit_3d_flutter/services/ai_service.dart';
 
 class AiScreen extends ConsumerStatefulWidget {
   const AiScreen({super.key});
@@ -42,7 +42,8 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       content = EmptyState(
         icon: Icons.auto_awesome,
         title: 'Recommandations IA',
-        message: 'Obtenez des suggestions de films et séries adaptées à votre profil.',
+        message:
+            'Obtenez des suggestions de films et séries adaptées à votre profil.',
         action: FilledButton.icon(
           onPressed: profile == null ? null : _generate,
           icon: const Icon(Icons.auto_awesome),
@@ -150,9 +151,10 @@ class _RecommendationCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           recommendation.title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                       ),
                       if (recommendation.rating != null) ...[
@@ -160,9 +162,10 @@ class _RecommendationCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           recommendation.rating!.toStringAsFixed(1),
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ],
                     ],
@@ -202,9 +205,9 @@ class _CategoryBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         category,
@@ -236,7 +239,7 @@ class _CategoryIcon extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [color.withOpacity(0.3), color.withOpacity(0.08)],
+          colors: [color.withValues(alpha: 0.3), color.withValues(alpha: 0.08)],
         ),
       ),
       child: Icon(

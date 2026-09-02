@@ -1,4 +1,5 @@
-﻿import '../services/stream_helpers.dart' as stream_helpers;
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
 
 class ReplayItem {
   final String id;
@@ -35,5 +36,6 @@ class ReplayItem {
     );
   }
 
-  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: title);
+  String requireStreamUrl() =>
+      stream_helpers.requireStreamUrl(streamUrl, label: title);
 }

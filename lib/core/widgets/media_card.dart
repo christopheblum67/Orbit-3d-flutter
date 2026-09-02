@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
 /// Carte média (film / série) : poster, badge d'âge, note, méta + synopsis.
 class MediaCard extends StatelessWidget {
@@ -51,7 +51,7 @@ class MediaCard extends StatelessWidget {
                             _PosterFallback(scheme: scheme, icon: fallbackIcon),
                       )
                     : _PosterFallback(scheme: scheme, icon: fallbackIcon),
-                if (ageLabel != null)
+                if (ageLabel != null && ageLabel!.isNotEmpty)
                   Positioned(
                     left: 8,
                     top: 8,
@@ -96,9 +96,10 @@ class MediaCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           rating.toStringAsFixed(1),
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ],
                     ),
@@ -130,17 +131,20 @@ class MediaCard extends StatelessWidget {
                         color: scheme.onSurfaceVariant,
                       ),
                 ),
-                if (synopsis.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    synopsis,
-                    maxLines: 2,
+                const SizedBox(height: 4),
+                Text(
+                    synopsis.isNotEmpty ? synopsis : 'Synopsis non disponible',
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                          color: synopsis.isNotEmpty
+                              ? scheme.onSurfaceVariant
+                              : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                          fontStyle: synopsis.isNotEmpty
+                              ? FontStyle.normal
+                              : FontStyle.italic,
                         ),
                   ),
-                ],
               ],
             ),
           ),

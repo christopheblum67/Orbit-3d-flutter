@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 class AppError implements Exception {
   final String message;
@@ -52,7 +52,7 @@ class ErrorHandler {
         exception: error,
         stack: stackTrace,
         library: context ?? 'Orbit3D',
-      ));
+      ),);
     }
   }
 

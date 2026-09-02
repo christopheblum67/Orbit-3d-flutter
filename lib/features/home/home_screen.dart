@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../core/widgets/tv_focus.dart';
-import '../../models/user_profile.dart';
-import '../../providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -89,19 +89,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 40,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: Colors.white.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.white.withOpacity(0.12)),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.search, color: Colors.white.withOpacity(0.5), size: 20),
+                      Icon(Icons.search,
+                          color: Colors.white.withValues(alpha: 0.5), size: 20,),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Rechercher une chaîne, un film…',
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 13,),
                         ),
                       ),
                     ],
@@ -114,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             _capitalize(dateLabel),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.65),
+              color: Colors.white.withValues(alpha: 0.65),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -177,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final transform = Matrix4.identity()
           ..setEntry(3, 2, 0.0018)
           ..rotateY(rotationY)
-          ..scale(scale);
+          ..scaleByDouble(scale, scale, scale, 1.0);
         final focused = rel.abs() < 0.4;
         final item = items[index];
         return Transform(
@@ -214,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             boxShadow: focused
                 ? [
                     BoxShadow(
-                      color: item.color.withOpacity(0.35),
+                      color: item.color.withValues(alpha: 0.35),
                       blurRadius: 25,
                       spreadRadius: 2,
                     ),
@@ -229,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: item.color.withOpacity(0.15),
+                      color: item.color.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(item.icon, size: 58, color: item.color),
@@ -252,46 +256,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
                 ],
               ),
-                if (!item.hasRoute)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: item.color.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: item.color.withOpacity(0.3)),
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        child: Text(
-                          'Bientôt',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
+              if (!item.hasRoute)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: item.color.withValues(alpha: 0.3)),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Text(
+                        'Bientôt',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                   ),
-                if (item.refreshCategory != null)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: _UpdateButton(
-                      tooltip: 'Mettre à jour cette catégorie',
-                      icon: Icons.update_rounded,
-                      color: item.color,
-                      onPressed: () => _refreshOne(item.refreshCategory!),
-                    ),
+                ),
+              if (item.refreshCategory != null)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: _UpdateButton(
+                    tooltip: 'Mettre à jour cette catégorie',
+                    icon: Icons.update_rounded,
+                    color: item.color,
+                    onPressed: () => _refreshOne(item.refreshCategory!),
                   ),
+                ),
             ],
           ),
         ),
@@ -322,7 +327,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF12151E),
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+        border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),),
       ),
       child: Row(
         children: [
@@ -334,10 +340,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 Text(
                   'Profil : ',
-                  style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5), fontSize: 13,),
                 ),
                 const SizedBox(width: 8),
-                _buildProfileAvatar(context, current, profilesAsync.valueOrNull ?? const <UserProfile>[]),
+                _buildProfileAvatar(context, current,
+                    profilesAsync.valueOrNull ?? const <UserProfile>[],),
               ],
             ),
           ),
@@ -356,7 +364,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white12),
         ),
@@ -366,7 +374,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(width: 6),
             const Text(
               'Choisir',
-              style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,),
             ),
           ],
         ),
@@ -378,21 +389,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color, width: 1.2),
         boxShadow: [
-          BoxShadow(color: color.withOpacity(0.4), blurRadius: 12, spreadRadius: 1),
+          BoxShadow(
+              color: color.withValues(alpha: 0.4),
+              blurRadius: 12,
+              spreadRadius: 1,),
         ],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 11,
-            backgroundColor: color.withOpacity(0.3),
+            backgroundColor: color.withValues(alpha: 0.3),
             child: Text(
-              current.firstName.isNotEmpty ? current.firstName[0].toUpperCase() : '?',
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+              current.firstName.isNotEmpty
+                  ? current.firstName[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 11,),
             ),
           ),
           const SizedBox(width: 6),
@@ -433,10 +450,12 @@ class _SubStatusChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final type = ref.watch(sourceTypeProvider).valueOrNull;
-    final caption = type == 'm3u' ? 'M3U' : (type == null ? 'Aucun abo' : 'VIP Gold');
+    final caption =
+        type == 'm3u' ? 'M3U' : (type == null ? 'Aucun abo' : 'VIP Gold');
     return Row(
       children: [
-        const Icon(Icons.credit_card_rounded, color: Colors.amberAccent, size: 20),
+        const Icon(Icons.credit_card_rounded,
+            color: Colors.amberAccent, size: 20,),
         const SizedBox(width: 8),
         RichText(
           text: TextSpan(
@@ -460,9 +479,10 @@ class _SubStatusChip extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF00CFE8).withOpacity(0.15),
+              color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFF00CFE8).withOpacity(0.4)),
+              border: Border.all(
+                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),),
             ),
             child: const Text(
               'Changer',
@@ -606,9 +626,9 @@ class _UpdateButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.14),
+            color: color.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withOpacity(0.4)),
+            border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
           child: Icon(icon, size: 18, color: color),
         ),

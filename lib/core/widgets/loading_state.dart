@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
 /// État de chargement générique : anneau animé dans une carte.
 class LoadingState extends StatelessWidget {
@@ -91,7 +91,8 @@ class _OrbitSpinnerState extends State<_OrbitSpinner>
               height: 56,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: scheme.primaryContainer.withOpacity(0.45 - 0.2 * value),
+                color: scheme.primaryContainer
+                    .withValues(alpha: 0.45 - 0.2 * value),
               ),
             ),
             Transform.rotate(
@@ -125,7 +126,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round
-      ..color = color.withOpacity(0.25);
+      ..color = color.withValues(alpha: 0.25);
     final arc = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5

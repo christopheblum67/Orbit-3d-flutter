@@ -1,3 +1,23 @@
+const playbackUserAgents = <String>[
+  'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+  'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
+  'ExoPlayer/2.19.1',
+];
+
+String refererFor(Uri uri) {
+  final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
+  return '${uri.scheme}://${uri.host}:$port/';
+}
+
+Map<String, String> streamHeaders(String url, {int userAgentIndex = 0}) {
+  final uri = Uri.parse(url);
+  return {
+    'User-Agent': playbackUserAgents[userAgentIndex],
+    'Accept': '*/*',
+    'Referer': refererFor(uri),
+  };
+}
+
 class StreamUrlEmptyException implements Exception {
   StreamUrlEmptyException(this.message);
 
@@ -19,9 +39,8 @@ bool isLikelyStreamUrl(String url) {
 
 String requireStreamUrl(String url, {String? label}) {
   if (!isLikelyStreamUrl(url)) {
-    final subject = (label == null || label.isEmpty)
-        ? 'un flux'
-        : 'le flux "$label"';
+    final subject =
+        (label == null || label.isEmpty) ? 'un flux' : 'le flux "$label"';
     throw StreamUrlEmptyException(
       'Impossible de lire $subject : URL vide ou invalide. '
       'Vérifiez votre abonnement (identifiants Xtream ou URL M3U) '
@@ -65,14 +84,14 @@ DateTime? parseXmltvDate(String raw) {
   final hour = int.parse(m.group(4)!);
   final minute = int.parse(m.group(5)!);
   final second = int.parse(m.group(6)!);
-  DateTime value =
-      DateTime.utc(year, month, day, hour, minute, second);
+  DateTime value = DateTime.utc(year, month, day, hour, minute, second);
   final offset = m.group(7);
   if (offset != null && offset.length == 5) {
     final sign = offset[0] == '-' ? -1 : 1;
     final hours = int.parse(offset.substring(1, 3));
     final minutes = int.parse(offset.substring(3, 5));
-    value = value.subtract(Duration(hours: sign * hours, minutes: sign * minutes));
+    value =
+        value.subtract(Duration(hours: sign * hours, minutes: sign * minutes));
   }
   return value.toLocal();
 }

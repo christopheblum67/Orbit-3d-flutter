@@ -1,10 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../core/constants/app_constants.dart';
-import '../core/widgets/profile_avatar.dart';
-import '../models/user_profile.dart';
-import '../providers/providers.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.child});
@@ -51,11 +51,12 @@ class HomeShell extends ConsumerWidget {
         decoration: BoxDecoration(
           color: scheme.surfaceContainer,
           border: Border(
-            top: BorderSide(color: scheme.outlineVariant.withOpacity(0.5)),
+            top:
+                BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -127,21 +128,29 @@ class _HomeMenuDrawer extends ConsumerWidget {
       _MenuSection(
         header: 'Continuer',
         items: [
-          const _MenuEntry(icon: Icons.home_rounded, label: 'Accueil', route: '/home'),
-          const _MenuEntry(icon: Icons.live_tv, label: 'Live TV', route: '/live'),
+          const _MenuEntry(
+              icon: Icons.home_rounded, label: 'Accueil', route: '/home',),
+          const _MenuEntry(
+              icon: Icons.live_tv, label: 'Live TV', route: '/live',),
           if (!isM3u) ...[
             const _MenuEntry(icon: Icons.tv, label: 'Séries', route: '/series'),
             const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
-            const _MenuEntry(icon: Icons.radio, label: 'Radio', route: '/radio'),
+            const _MenuEntry(
+                icon: Icons.radio, label: 'Radio', route: '/radio',),
           ],
         ],
       ),
       _MenuSection(
         header: 'Découvrir',
         items: [
-          const _MenuEntry(icon: Icons.search, label: 'Recherche', route: '/search'),
-          const _MenuEntry(icon: Icons.calendar_today, label: 'EPG (grille)', route: '/epg'),
-          const _MenuEntry(icon: Icons.replay_circle_filled, label: 'Replay', route: '/replay'),
+          const _MenuEntry(
+              icon: Icons.search, label: 'Recherche', route: '/search',),
+          const _MenuEntry(
+              icon: Icons.calendar_today, label: 'EPG (grille)', route: '/epg',),
+          const _MenuEntry(
+              icon: Icons.replay_circle_filled,
+              label: 'Replay',
+              route: '/replay',),
           _MenuEntry(
             icon: Icons.auto_awesome,
             label: 'Orbit IA',
@@ -153,8 +162,10 @@ class _HomeMenuDrawer extends ConsumerWidget {
       _MenuSection(
         header: 'Mes contenus',
         items: [
-          const _MenuEntry(icon: Icons.favorite, label: 'Favoris', route: '/favorites'),
-          const _MenuEntry(icon: Icons.history, label: 'Historique', route: '/history'),
+          const _MenuEntry(
+              icon: Icons.favorite, label: 'Favoris', route: '/favorites',),
+          const _MenuEntry(
+              icon: Icons.history, label: 'Historique', route: '/history',),
           const _MenuEntry(icon: Icons.vpn_lock, label: 'VPN', route: '/vpn'),
           _MenuEntry(
             icon: Icons.person_outline,
@@ -173,7 +184,8 @@ class _HomeMenuDrawer extends ConsumerWidget {
             label: 'Abonnements',
             route: '/subscriptions',
           ),
-          _MenuEntry(icon: Icons.settings, label: 'Réglages', route: '/settings'),
+          _MenuEntry(
+              icon: Icons.settings, label: 'Réglages', route: '/settings',),
         ],
       ),
     ];
@@ -189,7 +201,8 @@ class _HomeMenuDrawer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.live_tv, size: 40, color: scheme.onPrimaryContainer),
+                  Icon(Icons.live_tv,
+                      size: 40, color: scheme.onPrimaryContainer,),
                   const SizedBox(height: 8),
                   Text(
                     AppConstants.appName,
@@ -201,7 +214,8 @@ class _HomeMenuDrawer extends ConsumerWidget {
                   Text(
                     'Sélectionnez un sous-menu',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onPrimaryContainer.withOpacity(0.8),
+                          color:
+                              scheme.onPrimaryContainer.withValues(alpha: 0.8),
                         ),
                   ),
                 ],
@@ -270,7 +284,7 @@ class _MenuTile extends StatelessWidget {
         ),
       ),
       selected: selected,
-      selectedTileColor: scheme.primaryContainer.withOpacity(0.4),
+      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onTap: () {
         Navigator.of(context).pop();

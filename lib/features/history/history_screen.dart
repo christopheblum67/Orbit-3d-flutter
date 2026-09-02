@@ -1,11 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
+
+  // TODO: brancher — historyService.addEntry est désormais appelé depuis
+  // player_screen.  Vérifier que getHistory renvoie bien les entrées
+  // une fois qu'une vidéo a été lue.
 
   @override
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
@@ -101,7 +105,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           parts[0],
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyLarge
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (parts.length > 1 && parts[1].isNotEmpty) ...[
@@ -110,14 +116,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             parts[1],
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                           ),
                         ],
                       ],

@@ -2,11 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/series.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/tv_focus.dart';
-import '../../core/widgets/widgets.dart';
-import '../../services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class SeriesDetailScreen extends ConsumerWidget {
   const SeriesDetailScreen({
@@ -27,9 +27,7 @@ class SeriesDetailScreen extends ConsumerWidget {
         data: (series) {
           final episodesBySeason = <int, List<Episode>>{};
           for (final episode in series.episodes) {
-            episodesBySeason
-                .putIfAbsent(episode.season, () => [])
-                .add(episode);
+            episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
           }
           final seasons = episodesBySeason.keys.toList()..sort();
           return CustomScrollView(
@@ -110,14 +108,14 @@ class _SeriesHeader extends StatelessWidget {
                   width: 112,
                   height: 168,
                   child: series.coverUrl.isNotEmpty
-? CachedNetworkImage(
-                        imageUrl: series.coverUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) =>
-                            Icon(Icons.tv, color: scheme.primary),
-                        errorWidget: (_, __, ___) =>
-                            Icon(Icons.tv, color: scheme.primary),
-                      )
+                      ? CachedNetworkImage(
+                          imageUrl: series.coverUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) =>
+                              Icon(Icons.tv, color: scheme.primary),
+                          errorWidget: (_, __, ___) =>
+                              Icon(Icons.tv, color: scheme.primary),
+                        )
                       : Icon(Icons.tv, color: scheme.primary),
                 ),
               ),
@@ -155,10 +153,11 @@ class _SeriesHeader extends StatelessWidget {
                         ),
                         child: Text(
                           series.pegiLabel!,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: scheme.onPrimary,
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: scheme.onPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                       ),
                     ],
@@ -220,28 +219,28 @@ class _EpisodeTile extends StatelessWidget {
           onTap: canPlay ? onOpen : null,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
-          children: [
-            Icon(
-              canPlay ? Icons.play_circle_outline : Icons.play_circle,
-              color: canPlay ? scheme.primary : scheme.outline,
-              size: 30,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+            children: [
+              Icon(
+                canPlay ? Icons.play_circle_outline : Icons.play_circle,
+                color: canPlay ? scheme.primary : scheme.outline,
+                size: 30,
               ),
-            ),
-            if (canPlay)
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (canPlay)
+                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+            ],
+          ),
         ),
       ),
     );

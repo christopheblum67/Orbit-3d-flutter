@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
+﻿import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import '../constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 /// Ligne de contenu (chaîne / série / radio) avec artwork dégradé.
 class ChannelTile extends StatelessWidget {
@@ -30,12 +30,13 @@ class ChannelTile extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: isActive ? scheme.secondaryContainer : scheme.surfaceContainerLow,
+        color:
+            isActive ? scheme.secondaryContainer : scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         border: Border.all(
           color: isActive
-              ? scheme.primary.withOpacity(0.5)
-              : scheme.outlineVariant.withOpacity(0.5),
+              ? scheme.primary.withValues(alpha: 0.5)
+              : scheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
       child: Material(
@@ -71,9 +72,10 @@ class ChannelTile extends StatelessWidget {
                           subtitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
                         ),
                       ],
                     ],

@@ -77,14 +77,16 @@ void main() {
 
     final storage = StorageService();
     await storage.init();
-    await storage.saveSubscription(Subscription(
-      id: 'keep-me',
-      name: 'Existant',
-      type: SubscriptionType.xtream,
-      baseUrl: 'https://new.example',
-      username: 'new-user',
-      createdAt: DateTime.now(),
-    ),);
+    await storage.saveSubscription(
+      Subscription(
+        id: 'keep-me',
+        name: 'Existant',
+        type: SubscriptionType.xtream,
+        baseUrl: 'https://new.example',
+        username: 'new-user',
+        createdAt: DateTime.now(),
+      ),
+    );
     await storage.migrateFromSharedPreferences();
 
     final subs = await storage.getSubscriptions();

@@ -80,10 +80,12 @@ void main() {
 
     final state = container.read(subscriptionsProvider);
     expect(state.single.lastTestResult, TestResultStatus.error);
-    expect(state.single.lastTestError, contains('Configuration Xtream incomplète'));
+    expect(state.single.lastTestError,
+        contains('Configuration Xtream incomplète'),);
   });
 
-  test('testConnection signale une erreur réseau via une API injectée', () async {
+  test('testConnection signale une erreur réseau via une API injectée',
+      () async {
     final container = ProviderContainer(
       overrides: [storageServiceProvider.overrideWithValue(storage)],
     );

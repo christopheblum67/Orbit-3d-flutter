@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import '../constants/app_constants.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 /// Carte arrondie moderne, réutilisable sur tous les écrans.
 class AppCard extends StatelessWidget {
@@ -28,10 +28,10 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? scheme.surfaceContainerLow,
         borderRadius: radius,
-        border: Border.all(color: scheme.outlineVariant.withOpacity(0.6)),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

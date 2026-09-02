@@ -1,5 +1,6 @@
-﻿import '../core/utils/media_meta.dart';
-import '../services/stream_helpers.dart' as stream_helpers;
+import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    as stream_helpers;
 
 class Channel {
   final String id;
@@ -68,5 +69,6 @@ class Channel {
     return raw;
   }
 
-  String requireStreamUrl() => stream_helpers.requireStreamUrl(streamUrl, label: name);
+  String requireStreamUrl() =>
+      stream_helpers.requireStreamUrl(streamUrl, label: name);
 }

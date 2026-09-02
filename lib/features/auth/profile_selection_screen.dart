@@ -1,8 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/providers.dart';
-import '../../core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 
 class ProfileSelectionScreen extends ConsumerWidget {
   const ProfileSelectionScreen({super.key});
@@ -56,7 +56,9 @@ class ProfileSelectionScreen extends ConsumerWidget {
                   ),
                   onTap: () {
                     ref.read(currentProfileProvider.notifier).state = profile;
-                    ref.read(storageServiceProvider).setSetting('last_profile_id', profile.id);
+                    ref
+                        .read(storageServiceProvider)
+                        .setSetting('last_profile_id', profile.id);
                     context.pushReplacement('/home');
                   },
                   child: Column(

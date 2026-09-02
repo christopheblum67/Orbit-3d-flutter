@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
   const ProfilePreferencesScreen({super.key});
@@ -132,7 +132,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     initialValue: ageRestriction,
-                    decoration: const InputDecoration(labelText: 'Restriction d\'âge'),
+                    decoration:
+                        const InputDecoration(labelText: 'Restriction d\'âge'),
                     items: [
                       const DropdownMenuItem(value: 0, child: Text('Aucune')),
                       for (final age in [7, 10, 12, 16, 18])
@@ -148,8 +149,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                   child: const Text('Annuler'),
                 ),
                 FilledButton(
-                  onPressed: () =>
-                      Navigator.pop(context, (enabled: enabled, ageRestriction: ageRestriction)),
+                  onPressed: () => Navigator.pop(context,
+                      (enabled: enabled, ageRestriction: ageRestriction),),
                   child: const Text('Valider'),
                 ),
               ],

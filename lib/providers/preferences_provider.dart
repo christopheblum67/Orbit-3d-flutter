@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/user_preferences.dart';
-import '../models/movie.dart';
-import 'providers.dart';
+import 'package:orbit_3d_flutter/models/user_preferences.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
-final preferencesProvider = StateNotifierProvider<PreferencesNotifier, UserPreferences>(
+final preferencesProvider =
+    StateNotifierProvider<PreferencesNotifier, UserPreferences>(
   (ref) => PreferencesNotifier(ref),
 );
 
@@ -26,11 +27,12 @@ class PreferencesNotifier extends StateNotifier<UserPreferences> {
     state = prefs;
   }
 
-  Future<void> updateParental({required bool enabled, int ageRestriction = 0}) async {
+  Future<void> updateParental(
+      {required bool enabled, int ageRestriction = 0,}) async {
     await update(state.copyWith(
       parentalControlEnabled: enabled,
       ageRestriction: ageRestriction,
-    ));
+    ),);
   }
 
   Future<void> setNotifications(bool enabled) async {
@@ -76,8 +78,8 @@ class ParentalPinController {
   }
 }
 
-final matchmakingProvider =
-    FutureProvider.autoDispose.family<List<Movie>, String>((ref, profileId) async {
+final matchmakingProvider = FutureProvider.autoDispose
+    .family<List<Movie>, String>((ref, profileId) async {
   final profile = ref.watch(currentProfileProvider);
   final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
 
@@ -106,9 +108,5 @@ final matchmakingProvider =
   }).toList();
 
   scored.sort((a, b) => b.score.compareTo(a.score));
-  return scored
-      .where((e) => e.score > 0)
-      .map((e) => e.movie)
-      .take(20)
-      .toList();
+  return scored.where((e) => e.score > 0).map((e) => e.movie).take(20).toList();
 });

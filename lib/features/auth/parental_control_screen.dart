@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 class ParentalControlScreen extends ConsumerStatefulWidget {
   const ParentalControlScreen({super.key});
@@ -120,7 +120,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
     if (pin.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Le PIN doit contenir exactement 4 chiffres')),
+            content: Text('Le PIN doit contenir exactement 4 chiffres'),),
       );
       return;
     }
