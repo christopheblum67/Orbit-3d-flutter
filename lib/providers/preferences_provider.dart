@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
-import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 final preferencesProvider =
@@ -77,59 +76,3 @@ class ParentalPinController {
     return pin;
   }
 }
-
-final matchmakingProvider = FutureProvider.autoDispose
-    .family<List<Movie>, String>((ref, profileId) async {
-  final profile = ref.watch(currentProfileProvider);
-  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
-
-  if (profile == null || profile.id != profileId) {
-    return const <Movie>[];
-  }
-
-  if (movies.isEmpty) return const <Movie>[];
-
-  final favorites = profile.favoriteGenres
-      .map((g) => g.trim().toLowerCase())
-      .where((g) => g.isNotEmpty)
-      .toList();
-
-  final scored = movies.map((m) {
-    final titleLower = m.title.toLowerCase();
-    final genresStr = m.genre.toLowerCase();
-    final descLower = m.description.toLowerCase();
-
-    var favCount = 0;
-    var score = 0;
-
-    for (final fav in favorites) {
-      final inGenre = genresStr.contains(fav);
-      final inTitle = inGenre || titleLower.contains(fav);
-      final inDesc = descLower.contains(fav);
-      if (inGenre) score += 3;
-      if (inTitle) score += 1;
-      if (inDesc && !inGenre) score += 1;
-      if (inGenre || inTitle || inDesc) favCount++;
-    }
-
-    final ratingBonus = m.rating >= 7
-        ? 2
-        : (m.rating >= 5 ? 1 : 0);
-
-    return (movie: m, score: score, favCount: favCount, bonus: ratingBonus);
-  }).toList();
-
-  scored.sort((a, b) {
-    final s = b.score.compareTo(a.score);
-    if (s != 0) return s;
-    final b_ = b.favCount.compareTo(a.favCount);
-    if (b_ != 0) return b_;
-    return b.bonus.compareTo(a.bonus);
-  });
-
-  return scored
-      .where((e) => e.favCount > 0)
-      .map((e) => e.movie)
-      .take(20)
-      .toList();
-});

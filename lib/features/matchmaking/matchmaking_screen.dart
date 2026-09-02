@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
-import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/models/recommendation.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class MatchmakingScreen extends ConsumerWidget {
@@ -44,8 +45,8 @@ class MatchmakingScreen extends ConsumerWidget {
         ],
       ),
       body: recommendationsAsync.when(
-        data: (movies) {
-          if (movies.isEmpty) {
+        data: (recos) {
+          if (recos.isEmpty) {
             return _EmptyState(
               scheme: scheme,
               hasFavoriteGenres: hasFavoriteGenres,
@@ -59,24 +60,32 @@ class MatchmakingScreen extends ConsumerWidget {
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
-            itemCount: movies.length,
+            itemCount: recos.length,
             itemBuilder: (context, index) {
-              final movie = movies[index];
+              final reco = recos[index];
               void onOpen() {
-                context.push(
-                  '/player?url=${Uri.encodeComponent(movie.streamUrl)}&title=${Uri.encodeComponent(movie.title)}',
-                );
+                if (reco.kind == RecommendationKind.series) {
+                  context.push(
+                    '/series/detail?id=${Uri.encodeComponent(reco.id)}',
+                  );
+                } else {
+                  context.push(
+                    '/player?url=${Uri.encodeComponent(reco.movie!.streamUrl)}&title=${Uri.encodeComponent(reco.title)}',
+                  );
+                }
               }
 
               return MediaCard(
-                title: movie.title,
-                posterUrl: movie.posterUrl,
-                year: movie.year,
-                genre: movie.genre,
-                rating: movie.rating,
-                synopsis: movie.description,
-                ageLabel: movie.pegiLabel,
-                fallbackIcon: Icons.movie_outlined,
+                title: reco.title,
+                posterUrl: reco.posterUrl,
+                year: reco.year,
+                genre: reco.genre,
+                rating: reco.rating,
+                synopsis: reco.description,
+                ageLabel: reco.pegiLabel,
+                fallbackIcon: reco.kind == RecommendationKind.series
+                    ? Icons.video_library_outlined
+                    : Icons.movie_outlined,
                 onTap: onOpen,
               );
             },
