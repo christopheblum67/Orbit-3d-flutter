@@ -19,16 +19,15 @@ class HomeShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
 
-    final destinations = <NavigationDestination>[
+final destinations = <NavigationDestination>[
       const NavigationDestination(
         icon: Icon(Icons.home_rounded),
         label: 'Accueil',
       ),
       const NavigationDestination(icon: Icon(Icons.live_tv), label: 'Live TV'),
-if (!isM3u) ...[
+      if (!isM3u) ...[
             const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
             const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
-            const NavigationDestination(icon: Icon(Icons.radio), label: 'Radio'),
           ],
           const NavigationDestination(
             icon: Icon(Icons.recommend),
@@ -57,10 +56,6 @@ if (!isM3u) ...[
         const NavigationRailDestination(
           icon: Icon(Icons.movie),
           label: Text('VOD'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.radio),
-          label: Text('Radio'),
         ),
       ],
       const NavigationRailDestination(
@@ -168,8 +163,7 @@ if (!isM3u) ...[
                 2 when isM3u => '/matchmaking',
                 2 => '/series',
                 3 => '/vod',
-                4 => '/radio',
-                5 => '/matchmaking',
+                4 => '/matchmaking',
                 _ => '/settings',
               };
               context.go(route);
@@ -190,9 +184,8 @@ if (!isM3u) ...[
     if (location.startsWith('/live')) return 1;
     if (location.startsWith('/series')) return 2;
     if (location.startsWith('/vod')) return 3;
-    if (location.startsWith('/radio')) return 4;
     if (location.startsWith('/matchmaking')) {
-      return destinations.length == 4 ? 2 : 5;
+      return destinations.length == 4 ? 2 : 4;
     }
     if (location.startsWith('/settings')) {
       return destinations.length - 1;
@@ -204,13 +197,11 @@ if (!isM3u) ...[
     if (path.startsWith('/live')) return 'Live TV';
     if (path.startsWith('/series')) return 'Séries';
     if (path.startsWith('/vod')) return 'VOD';
-    if (path.startsWith('/radio')) return 'Radio';
     if (path.startsWith('/matchmaking')) return 'Pour vous';
     if (path.startsWith('/replay')) return 'Replay';
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
     if (path.startsWith('/ai')) return 'Orbit IA';
-    if (path.startsWith('/vpn')) return 'VPN';
     if (path.startsWith('/subscriptions')) return 'Abonnements';
     if (path.startsWith('/settings/advanced')) return 'Configuration Avancée';
     if (path.startsWith('/settings')) return 'Réglages';
@@ -221,15 +212,14 @@ if (!isM3u) ...[
     if (location.startsWith('/live')) return 1;
     if (location.startsWith('/series')) return 2;
     if (location.startsWith('/vod')) return 3;
-    if (location.startsWith('/radio')) return 4;
     if (location.startsWith('/matchmaking')) {
-      return isM3u ? 2 : 5;
+      return isM3u ? 2 : 4;
     }
     if (location.startsWith('/epg')) {
-      return isM3u ? 3 : 6;
+      return isM3u ? 3 : 5;
     }
     if (location.startsWith('/settings')) {
-      return isM3u ? 4 : 7;
+      return isM3u ? 4 : 6;
     }
     return 0;
   }
@@ -243,9 +233,8 @@ if (!isM3u) ...[
       3 when isM3u => '/epg',
       3 => '/vod',
       4 when isM3u => '/settings',
-      4 => '/radio',
-      5 => '/matchmaking',
-      6 => '/epg',
+      4 => '/matchmaking',
+      5 => '/epg',
       _ => '/settings',
     };
   }
@@ -270,8 +259,6 @@ class _HomeMenuDrawer extends ConsumerWidget {
           if (!isM3u) ...[
             const _MenuEntry(icon: Icons.tv, label: 'Séries', route: '/series'),
             const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
-            const _MenuEntry(
-                icon: Icons.radio, label: 'Radio', route: '/radio',),
           ],
         ],
       ),
@@ -307,7 +294,6 @@ class _HomeMenuDrawer extends ConsumerWidget {
               icon: Icons.favorite, label: 'Favoris', route: '/favorites',),
           const _MenuEntry(
               icon: Icons.history, label: 'Historique', route: '/history',),
-          const _MenuEntry(icon: Icons.vpn_lock, label: 'VPN', route: '/vpn'),
           _MenuEntry(
             icon: Icons.person_outline,
             label: profile?.firstName == null

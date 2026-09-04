@@ -56,14 +56,29 @@ class CloudflareBypassService {
   Future<_CfEntries?> _doObtain(BuildContext context, String host) async {
     final baseUrl = 'https://$host/';
     final controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            debugPrint('[CloudflareBypass] Page started: $url');
+          },
+          onPageFinished: (url) {
+            debugPrint('[CloudflareBypass] Page finished: $url');
+          },
+          onNavigationRequest: (request) {
+            debugPrint('[CloudflareBypass] Navigation request: ${request.url}');
+            return NavigationDecision.navigate;
+          },
+        ),
+      );
 
     final completer = Completer<Map<String, String>>();
     late final OverlayEntry entry;
 
     // Délai d'attente global : après ce délai, on récolte ce qu'on a.
-    final timer = Timer(const Duration(seconds: 30), () {
+    final timer = Timer(const Duration(seconds: 60), () {
       if (completer.isCompleted) return;
+      debugPrint('[CloudflareBypass] Global timeout, harvesting...');
       _harvest(baseUrl, controller).then(completer.complete).catchError((_) {
         completer.complete(<String, String>{});
       });
@@ -84,6 +99,13 @@ class CloudflareBypassService {
 
     Overlay.of(context).insert(entry);
 
+    // Charger la page d'accueil pour déclencher le challenge Cloudflare
+    try {
+      await controller.loadRequest(Uri.parse(baseUrl));
+    } catch (e) {
+      debugPrint('[CloudflareBypass] loadRequest error: $e');
+    }
+
     try {
       final cookies = await completer.future;
       timer.cancel();
@@ -95,6 +117,7 @@ class CloudflareBypassService {
       if (cookies.isEmpty) return null;
       final entries = _CfEntries.fromCookies(cookies);
       _byHost[host] = entries;
+      debugPrint('[CloudflareBypass] Host=$host headers=${entries.toHeaders()}');
       return entries;
     } finally {
       if (entry.mounted) entry.remove();
@@ -112,11 +135,17 @@ class CloudflareBypassService {
       for (final c in cookies) {
         if (c.name.trim().isNotEmpty) {
           map[c.name] = c.value;
+          debugPrint('[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...');
         }
       }
       final ua = await _tryGetUserAgent(controller);
-      if (ua != null && ua.isNotEmpty) map['__user_agent__'] = ua;
-    } catch (_) {}
+      if (ua != null && ua.isNotEmpty) {
+        map['__user_agent__'] = ua;
+        debugPrint('[CloudflareBypass] Captured UA: $ua');
+      }
+    } catch (e) {
+      debugPrint('[CloudflareBypass] Harvest error: $e');
+    }
     return map;
   }
 
@@ -188,16 +217,59 @@ class _BypassOverlay extends StatefulWidget {
 
 class _BypassOverlayState extends State<_BypassOverlay> {
   bool _checking = false;
+  Timer? _autoCheckTimer;
+  int _pageLoadCount = 0;
 
   @override
   void initState() {
     super.initState();
-    // Lancer le chargement initial de la page cible.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        widget.controller.loadRequest(Uri.parse('https://${widget.host}/'));
-      } catch (_) {}
+    // Vérification auto toutes les 3s pour détecter cf_clearance
+    _autoCheckTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted && !_checking) _harvestAndCheck();
     });
+  }
+
+  @override
+  void dispose() {
+    _autoCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _harvestAndCheck() async {
+    if (_checking) return;
+    _checking = true;
+    setState(() {});
+    try {
+      final cookies = await WebViewCookieManager()
+          .getCookies(domain: Uri.parse('https://${widget.host}/'));
+      final map = <String, String>{};
+      bool hasCf = false;
+      for (final c in cookies) {
+        if (c.name.trim().isNotEmpty) {
+          map[c.name] = c.value;
+          if (c.name.toLowerCase() == 'cf_clearance') hasCf = true;
+        }
+      }
+      if (hasCf) {
+        debugPrint('[CloudflareBypass] cf_clearance detected, auto-completing');
+        widget.onDone(map);
+        return;
+      }
+      _pageLoadCount++;
+      // Recharger la page toutes les 2 vérifications si pas de cookie
+      if (_pageLoadCount % 2 == 0) {
+        debugPrint('[CloudflareBypass] Reloading page to trigger challenge...');
+        try {
+          await widget.controller.loadRequest(Uri.parse('https://${widget.host}/'));
+        } catch (_) {}
+      }
+    } catch (_) {}
+    finally {
+      if (mounted) {
+        _checking = false;
+        setState(() {});
+      }
+    }
   }
 
   Future<void> _harvestAndDone() async {
@@ -252,6 +324,11 @@ class _BypassOverlayState extends State<_BypassOverlay> {
               ),
             ),
             Expanded(child: WebViewWidget(controller: widget.controller)),
+            if (_checking)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: CircularProgressIndicator(color: Color(0xFF00CFE8)),
+              ),
           ],
         ),
       ),

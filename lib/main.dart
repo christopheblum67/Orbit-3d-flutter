@@ -47,7 +47,7 @@ import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
 import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 import 'package:orbit_3d_flutter/features/ai/ai_screen.dart';
-import 'package:orbit_3d_flutter/features/vpn/vpn_screen.dart';
+
 import 'package:orbit_3d_flutter/features/settings/settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
@@ -248,7 +248,7 @@ final GoRouter router = GoRouter(
         GoRoute(
             path: '/search', builder: (context, state) => const SearchScreen(),),
         GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
-        GoRoute(path: '/vpn', builder: (context, state) => const VpnScreen()),
+        
         GoRoute(
             path: '/settings',
             builder: (context, state) => const SettingsScreen(),),

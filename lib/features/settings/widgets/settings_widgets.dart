@@ -187,3 +187,48 @@ class SettingsNavTile extends StatelessWidget {
     );
   }
 }
+
+/// Tuile d'action sur fond de carte (bouton avec label + icône),
+/// utilisée pour déclencher une action immédiate (reset, clear, etc.).
+class SettingsActionTile extends StatelessWidget {
+  const SettingsActionTile({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: icon == null
+              ? null
+              : Icon(icon!, color: scheme.primary),
+          title: Text(title, style: const TextStyle(fontSize: 14)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+          ),
+          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          onTap: onTap,
+        ),
+      ),
+    );
+  }
+}

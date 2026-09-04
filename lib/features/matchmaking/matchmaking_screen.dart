@@ -37,7 +37,7 @@ class MatchmakingScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
         title: Text('Pour vous · ${profile.firstName}'),
         actions: [

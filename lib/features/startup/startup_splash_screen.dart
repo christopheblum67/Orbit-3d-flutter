@@ -162,7 +162,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void _startAutoAdvance() {
     _autoAdvance?.cancel();
     _autoAdvance = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted || _recommendations.isEmpty) return;
+      if (!mounted || _recommendations.isEmpty) {
+        _autoAdvance?.cancel();
+        return;
+      }
+      if (!_pageController.hasClients) {
+        _autoAdvance?.cancel();
+        return;
+      }
       final next = (_page + 1) % _recommendations.length;
       _pageController.animateToPage(
         next,
@@ -175,6 +182,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void _restartAutoAdvance() {
     _autoAdvance?.cancel();
     if (_controller.isFinished) return;
+    if (!_pageController.hasClients) return;
     _startAutoAdvance();
   }
 

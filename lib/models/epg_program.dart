@@ -12,4 +12,12 @@
     required this.start,
     required this.end,
   });
+
+  DateTime get startTime => start;
+  DateTime get endTime => end;
+  int get durationMinutes => end.difference(start).inMinutes;
+  bool get isLive {
+    final now = DateTime.now();
+    return now.isAfter(start) && now.isBefore(end);
+  }
 }
