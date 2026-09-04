@@ -29,18 +29,25 @@ class MatchmakingScreen extends ConsumerWidget {
       );
     }
 
-    final recommendationsAsync = ref.watch(matchmakingProvider(profile.id));
+    final profileId = profile.id;
+    final recommendationsAsync = ref.watch(matchmakingProvider(profileId));
     final hasFavoriteGenres = profile.favoriteGenres.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
+        ),
         title: Text('Pour vous · ${profile.firstName}'),
         actions: [
           IconButton(
             tooltip: 'Actualiser',
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.invalidate(matchmakingProvider(profile.id)),
+            onPressed: () {
+              ref.invalidate(matchmakingProvider(profileId));
+              ref.invalidate(dismissedRecoIdsProvider(profileId));
+            },
           ),
         ],
       ),
@@ -52,43 +59,49 @@ class MatchmakingScreen extends ConsumerWidget {
               hasFavoriteGenres: hasFavoriteGenres,
             );
           }
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 200,
-              childAspectRatio: 0.62,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: recos.length,
-            itemBuilder: (context, index) {
-              final reco = recos[index];
-              void onOpen() {
-                if (reco.kind == RecommendationKind.series) {
-                  context.push(
-                    '/series/detail?id=${Uri.encodeComponent(reco.id)}',
-                  );
-                } else {
-                  context.push(
-                    '/player?url=${Uri.encodeComponent(reco.movie!.streamUrl)}&title=${Uri.encodeComponent(reco.title)}',
-                  );
-                }
-              }
 
-              return MediaCard(
-                title: reco.title,
-                posterUrl: reco.posterUrl,
-                year: reco.year,
-                genre: reco.genre,
-                rating: reco.rating,
-                synopsis: reco.description,
-                ageLabel: reco.pegiLabel,
-                fallbackIcon: reco.kind == RecommendationKind.series
-                    ? Icons.video_library_outlined
-                    : Icons.movie_outlined,
-                onTap: onOpen,
-              );
-            },
+          final dismissed = ref.watch(dismissedRecoIdsProvider(profileId));
+          final movies = recos
+              .where(
+                (r) =>
+                    r.kind == RecommendationKind.movie &&
+                    !dismissed.contains(r.id),
+              )
+              .toList();
+          final series = recos
+              .where(
+                (r) =>
+                    r.kind == RecommendationKind.series &&
+                    !dismissed.contains(r.id),
+              )
+              .toList();
+
+          if (movies.isEmpty && series.isEmpty) {
+            return _EmptyState(
+              scheme: scheme,
+              hasFavoriteGenres: true,
+              allDismissed: true,
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            children: [
+              if (movies.isNotEmpty)
+                _RecoSection(
+                  title: 'Films',
+                  icon: Icons.movie_outlined,
+                  items: movies,
+                  profileId: profileId,
+                ),
+              if (series.isNotEmpty)
+                _RecoSection(
+                  title: 'Séries',
+                  icon: Icons.video_library_outlined,
+                  items: series,
+                  profileId: profileId,
+                ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -98,14 +111,142 @@ class MatchmakingScreen extends ConsumerWidget {
   }
 }
 
+class _RecoSection extends ConsumerWidget {
+  const _RecoSection({
+    required this.title,
+    required this.icon,
+    required this.items,
+    required this.profileId,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Recommendation> items;
+  final String profileId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(icon, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 280,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final reco = items[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: SizedBox(
+                  width: 160,
+                  child: MediaCard(
+                    title: reco.title,
+                    posterUrl: reco.posterUrl,
+                    year: reco.year,
+                    genre: reco.genre,
+                    rating: reco.rating,
+                    ageLabel: reco.pegiLabel,
+                    fallbackIcon: reco.kind == RecommendationKind.series
+                        ? Icons.video_library_outlined
+                        : Icons.movie_outlined,
+                    onTap: () => _openReco(context, reco),
+                    onLongPress: () => _dismissReco(ref, reco),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  void _openReco(BuildContext context, Recommendation reco) {
+    if (reco.kind == RecommendationKind.series) {
+      context.push('/series/detail?id=${Uri.encodeComponent(reco.id)}');
+    } else {
+      context.push(
+        '/player?url=${Uri.encodeComponent(reco.movie!.streamUrl)}'
+        '&title=${Uri.encodeComponent(reco.title)}&type=vod',
+      );
+    }
+  }
+
+  void _dismissReco(WidgetRef ref, Recommendation reco) async {
+    final notifier = ref.read(dismissedRecoIdsProvider(profileId).notifier);
+    await notifier.dismiss(reco.id);
+    ref.invalidate(matchmakingProvider(profileId));
+
+    if (ref.context.mounted) {
+      ScaffoldMessenger.of(ref.context).showSnackBar(
+        SnackBar(
+          content: Text('"${reco.title}" retiré'),
+          action: SnackBarAction(
+            label: 'Annuler',
+            onPressed: () async {
+              final current =
+                  ref.read(dismissedRecoIdsProvider(profileId));
+              final updated = {...current}..remove(reco.id);
+              final storage = ref.read(storageServiceProvider);
+              await storage.setSetting(
+                'dismissed_recos_$profileId',
+                updated.toList(),
+              );
+              ref.invalidate(dismissedRecoIdsProvider(profileId));
+              ref.invalidate(matchmakingProvider(profileId));
+            },
+          ),
+        ),
+      );
+    }
+  }
+}
+
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.scheme, required this.hasFavoriteGenres});
+  const _EmptyState({
+    required this.scheme,
+    required this.hasFavoriteGenres,
+    this.allDismissed = false,
+  });
 
   final ColorScheme scheme;
   final bool hasFavoriteGenres;
+  final bool allDismissed;
 
   @override
   Widget build(BuildContext context) {
+    final title = allDismissed
+        ? 'Toutes les recommandations ont été retirées'
+        : hasFavoriteGenres
+            ? 'Aucun contenu ne matche vos goûts pour l’instant'
+            : 'Pas encore de recommandations';
+
+    final subtitle = allDismissed
+        ? 'Actualisez pour en découvrir de nouvelles.'
+        : hasFavoriteGenres
+            ? 'Essayez d’actualiser ou élargissez vos genres favoris.'
+            : 'Ajoutez vos genres favoris dans votre profil pour voir des '
+                'films correspondants.';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -113,23 +254,23 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              hasFavoriteGenres ? Icons.movie_filter : Icons.manage_search,
+              allDismissed
+                  ? Icons.visibility_off_outlined
+                  : hasFavoriteGenres
+                      ? Icons.movie_filter
+                      : Icons.manage_search,
               size: 64,
               color: scheme.primary,
             ),
             const SizedBox(height: 16),
             Text(
-              hasFavoriteGenres
-                  ? 'Aucun contenu ne matche vos goûts pour l’instant'
-                  : 'Pas encore de recommandations',
+              title,
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              hasFavoriteGenres
-                  ? 'Essayez d’actualiser ou élargissez vos genres favoris.'
-                  : 'Ajoutez vos genres favoris dans votre profil pour voir des films correspondants.',
+              subtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

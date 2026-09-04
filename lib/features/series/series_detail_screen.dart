@@ -59,7 +59,7 @@ class SeriesDetailScreen extends ConsumerWidget {
                       itemBuilder: (context, index) {
                         final episode = episodesBySeason[season]![index];
                         return _EpisodeTile(
-                          seriesTitle: series.title,
+                          series: series,
                           episode: episode,
                         );
                       },
@@ -182,9 +182,9 @@ class _SeriesHeader extends StatelessWidget {
 }
 
 class _EpisodeTile extends StatelessWidget {
-  const _EpisodeTile({required this.seriesTitle, required this.episode});
+  const _EpisodeTile({required this.series, required this.episode});
 
-  final String seriesTitle;
+  final Series series;
   final Episode episode;
 
   @override
@@ -193,9 +193,9 @@ class _EpisodeTile extends StatelessWidget {
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
         'E${episode.episodeNumber.toString().padLeft(2, '0')}';
     var episodeTitle = episode.title.trim();
-    if (episodeTitle.startsWith(seriesTitle)) {
+    if (episodeTitle.startsWith(series.title)) {
       episodeTitle = episodeTitle
-          .substring(seriesTitle.length)
+          .substring(series.title.length)
           .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
     }
     final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)').hasMatch(episodeTitle);
@@ -205,10 +205,7 @@ class _EpisodeTile extends StatelessWidget {
     final canPlay = episode.streamUrl.isNotEmpty;
     void onOpen() {
       if (!canPlay) return;
-      context.push(
-        '/player?url=${Uri.encodeComponent(episode.streamUrl)}'
-        '&title=${Uri.encodeComponent(label)}',
-      );
+      context.push('/episode/detail', extra: (series, episode));
     }
 
     return TvFocus(

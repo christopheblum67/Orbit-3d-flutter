@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -11,6 +12,8 @@ import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -34,6 +37,15 @@ final historyServiceProvider =
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
+final playbackProgressServiceProvider =
+    Provider<PlaybackProgressService>((ref) => PlaybackProgressService());
+final mediaLibraryManagerProvider =
+    Provider<MediaLibraryManager>((ref) => MediaLibraryManager());
+
+final playbackProgressProvider =
+    Provider.family<PlaybackProgress?, String>((ref, id) {
+  return ref.watch(playbackProgressServiceProvider).get(id);
+});
 
 final currentProfileProvider = StateProvider<UserProfile?>((ref) => null);
 
@@ -192,4 +204,31 @@ class StreamAiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Horodatage de la dernière mise à jour des flux (UTC), durabilisé afin
+/// d'afficher « Dernière mise à jour : … » dans la barre supérieure.
+final lastRefreshTimestampProvider = StateProvider<DateTime?>((ref) => null);
+
+Future<void> persistLastRefresh(DateTime timestamp) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'orbit_last_refresh',
+      timestamp.toIso8601String(),
+    );
+  } catch (_) {
+    // Non bloquant.
+  }
+}
+
+Future<DateTime?> loadLastRefresh() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('orbit_last_refresh');
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.tryParse(raw);
+  } catch (_) {
+    return null;
+  }
 }

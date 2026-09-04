@@ -30,13 +30,14 @@ class SubscriptionAdapter extends TypeAdapter<Subscription> {
       lastTestResult: fields[10] as TestResultStatus,
       lastTestLatencyMs: fields[11] as int?,
       lastTestError: fields[12] as String?,
+      validUntil: fields[13] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Subscription obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +63,9 @@ class SubscriptionAdapter extends TypeAdapter<Subscription> {
       ..writeByte(11)
       ..write(obj.lastTestLatencyMs)
       ..writeByte(12)
-      ..write(obj.lastTestError);
+      ..write(obj.lastTestError)
+      ..writeByte(13)
+      ..write(obj.validUntil);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/storage_service.dart';
 
 const int kMatchmakingLimit = 24;
 
@@ -117,3 +118,44 @@ final matchmakingProvider = FutureProvider.autoDispose
     favorites: favorites,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Dismissed recommendations (persisted per profile via StorageService)
+// ---------------------------------------------------------------------------
+
+class DismissedRecoIdsNotifier extends StateNotifier<Set<String>> {
+  DismissedRecoIdsNotifier(this._storage, String profileId)
+      : super(const <String>{}) {
+    _load(profileId);
+  }
+
+  final StorageService _storage;
+  late final String _profileId;
+
+  void _load(String profileId) {
+    _profileId = profileId;
+    final raw = _storage.getSetting('dismissed_recos_$profileId');
+    if (raw is List) {
+      state = raw.cast<String>().toSet();
+    }
+  }
+
+  Future<void> dismiss(String id) async {
+    if (state.contains(id)) return;
+    state = {...state, id};
+    await _storage.setSetting(
+      'dismissed_recos_$_profileId',
+      state.toList(),
+    );
+  }
+}
+
+final dismissedRecoIdsProvider = StateNotifierProvider.autoDispose
+    .family<DismissedRecoIdsNotifier, Set<String>, String>(
+  (ref, profileId) {
+    final storage = ref.watch(storageServiceProvider);
+    return DismissedRecoIdsNotifier(storage, profileId);
+  },
+);
+
+

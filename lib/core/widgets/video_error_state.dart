@@ -8,11 +8,18 @@ class VideoErrorState extends StatelessWidget {
     this.message = 'Impossible de lancer cette chaîne. '
         'Vérifie ton abonnement ou réessaie.',
     this.onRetry,
+    this.onCloudflare,
+    this.cloudflareMessage,
   });
 
   final String title;
   final String message;
   final VoidCallback? onRetry;
+
+  /// Action lancée pour débloquer un flux protégé par un challenge Cloudflare
+  /// (cf_clearance) via un WebView.
+  final VoidCallback? onCloudflare;
+  final String? cloudflareMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +73,24 @@ class VideoErrorState extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Réessayer'),
                 ),
+              ],
+              if (onCloudflare != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: onCloudflare,
+                  icon: const Icon(Icons.security_rounded),
+                  label: const Text('Débloquer (Cloudflare)'),
+                ),
+                if (cloudflareMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    cloudflareMessage!,
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ],
           ),

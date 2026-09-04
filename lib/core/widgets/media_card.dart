@@ -2,7 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
-/// Carte média (film / série) : poster, badge d'âge, note, méta + synopsis.
+/// Carte média (film / série) : poster, badge d'âge, note, méta.
 class MediaCard extends StatelessWidget {
   const MediaCard({
     super.key,
@@ -11,10 +11,10 @@ class MediaCard extends StatelessWidget {
     required this.year,
     required this.genre,
     required this.rating,
-    required this.synopsis,
     required this.ageLabel,
     required this.fallbackIcon,
     this.onTap,
+    this.onLongPress,
   });
 
   final String title;
@@ -22,10 +22,10 @@ class MediaCard extends StatelessWidget {
   final int year;
   final String genre;
   final double rating;
-  final String synopsis;
   final String? ageLabel;
   final IconData fallbackIcon;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +34,7 @@ class MediaCard extends StatelessWidget {
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -120,29 +121,20 @@ class MediaCard extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$year • $genre',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                      ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                    synopsis.isNotEmpty ? synopsis : 'Synopsis non disponible',
-                    maxLines: 3,
+                if (year > 0 || genre.isNotEmpty)
+                  Text(
+                    [
+                      if (year > 0) '$year',
+                      if (genre.isNotEmpty) genre,
+                    ].join(' • '),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: synopsis.isNotEmpty
-                              ? scheme.onSurfaceVariant
-                              : scheme.onSurfaceVariant.withValues(alpha: 0.5),
-                          fontStyle: synopsis.isNotEmpty
-                              ? FontStyle.normal
-                              : FontStyle.italic,
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 12,
                         ),
                   ),
               ],

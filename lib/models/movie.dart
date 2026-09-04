@@ -31,7 +31,7 @@ class Movie {
 
   factory Movie.fromMap(Map<String, dynamic> map) {
     return Movie(
-      id: map['id']?.toString() ?? '',
+      id: map['id']?.toString() ?? map['stream_id']?.toString() ?? '',
       title: map['title'] ?? '',
       description: firstNonEmpty([
         map['plot'],
