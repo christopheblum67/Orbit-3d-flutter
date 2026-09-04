@@ -34,6 +34,31 @@ const List<ProfileAvatarOption> profileAvatarOptions = [
     icon: Icons.favorite,
     color: Color(0xFFFF6FA8),
   ),
+  ProfileAvatarOption(
+    id: 'account',
+    icon: Icons.account_circle_rounded,
+    color: AppConstants.primaryColor,
+  ),
+  ProfileAvatarOption(
+    id: 'smart_toy',
+    icon: Icons.smart_toy_rounded,
+    color: AppConstants.secondaryColor,
+  ),
+  ProfileAvatarOption(
+    id: 'esports',
+    icon: Icons.sports_esports_rounded,
+    color: AppConstants.tertiaryColor,
+  ),
+  ProfileAvatarOption(
+    id: 'movie_filter',
+    icon: Icons.movie_filter_rounded,
+    color: AppConstants.secondaryColor,
+  ),
+  ProfileAvatarOption(
+    id: 'psychology',
+    icon: Icons.psychology_rounded,
+    color: AppConstants.primaryColor,
+  ),
 ];
 
 class ProfileAvatarOption {

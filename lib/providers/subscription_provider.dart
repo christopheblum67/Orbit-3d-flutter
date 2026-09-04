@@ -30,6 +30,9 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
     state = [...state, subscription];
+    if (subscription.type == SubscriptionType.xtream) {
+      refreshValidity(subscription.id);
+    }
   }
 
   Future<void> updateSubscription(Subscription subscription) async {
@@ -37,6 +40,9 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     await _storage.saveSubscription(subscription);
     state =
         state.map((s) => s.id == subscription.id ? subscription : s).toList();
+    if (subscription.type == SubscriptionType.xtream) {
+      refreshValidity(subscription.id);
+    }
   }
 
   Future<void> deleteSubscription(String id) async {
@@ -61,6 +67,17 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     }
     state = subscriptions;
     _ref.invalidate(activeSubscriptionProvider);
+    // Rafraîchit la validité du serveur activé (Xtream) à la volée.
+    Subscription? activated;
+    for (final s in subscriptions) {
+      if (s.id == id) {
+        activated = s;
+        break;
+      }
+    }
+    if (activated != null && activated.type == SubscriptionType.xtream) {
+      refreshValidity(id);
+    }
   }
 
   Future<void> updateTestResult(
@@ -86,6 +103,30 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
       updated,
       ...state.sublist(index + 1),
     ];
+  }
+
+  /// Récupère la date d'expiration du compte (Xtream) et la persiste sur
+  /// l'abonnement afin que `validityLabel` affiche une vraie valeur.
+  /// Sans effet pour les playlists M3U (aucune validité serveur).
+  Future<void> refreshValidity(String id, {ApiService? api}) async {
+    await _ensureLoaded();
+    final index = state.indexWhere((s) => s.id == id);
+    if (index == -1) return;
+    final sub = state[index];
+    if (sub.type != SubscriptionType.xtream) return;
+
+    final apiService = api ?? ApiService();
+    final expiry = await apiService.fetchExpiration();
+    if (expiry == null) return;
+
+    final updated = sub.copyWith(validUntil: expiry);
+    await _storage.saveSubscription(updated);
+    state = [
+      ...state.sublist(0, index),
+      updated,
+      ...state.sublist(index + 1),
+    ];
+    _ref.invalidate(activeSubscriptionProvider);
   }
 
   Future<void> testConnection(Subscription sub, {ApiService? api}) async {
@@ -118,6 +159,10 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
         TestResultStatus.success,
         latencyMs: stopwatch.elapsedMilliseconds,
       );
+      // Après un test réussi, rafraîchit la date d'expiration (Xtream).
+      if (sub.type == SubscriptionType.xtream) {
+        await refreshValidity(sub.id, api: apiService);
+      }
     } catch (e) {
       stopwatch.stop();
       await updateTestResult(

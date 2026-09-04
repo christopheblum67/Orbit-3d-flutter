@@ -9,13 +9,21 @@ String refererFor(Uri uri) {
   return '${uri.scheme}://${uri.host}:$port/';
 }
 
-Map<String, String> streamHeaders(String url, {int userAgentIndex = 0}) {
+Map<String, String> streamHeaders(
+  String url, {
+  int userAgentIndex = 0,
+  Map<String, String>? additional,
+}) {
   final uri = Uri.parse(url);
-  return {
+  final headers = <String, String>{
     'User-Agent': playbackUserAgents[userAgentIndex],
     'Accept': '*/*',
     'Referer': refererFor(uri),
   };
+  if (additional != null) {
+    headers.addAll(additional);
+  }
+  return headers;
 }
 
 class StreamUrlEmptyException implements Exception {

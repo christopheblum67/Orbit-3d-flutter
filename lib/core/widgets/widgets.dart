@@ -1,5 +1,6 @@
 // Barrel des widgets partagés du redesign "jeune".
 export 'app_card.dart';
+export 'categories_rail.dart';
 export 'channel_tile.dart';
 export 'empty_state.dart';
 export 'error_state.dart';

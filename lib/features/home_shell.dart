@@ -212,6 +212,7 @@ if (!isM3u) ...[
     if (path.startsWith('/ai')) return 'Orbit IA';
     if (path.startsWith('/vpn')) return 'VPN';
     if (path.startsWith('/subscriptions')) return 'Abonnements';
+    if (path.startsWith('/settings/advanced')) return 'Configuration Avancée';
     if (path.startsWith('/settings')) return 'Réglages';
     return AppConstants.appName;
   }
@@ -326,6 +327,8 @@ class _HomeMenuDrawer extends ConsumerWidget {
           ),
           _MenuEntry(
               icon: Icons.settings, label: 'Réglages', route: '/settings',),
+          _MenuEntry(
+              icon: Icons.tune, label: 'Configuration avancée', route: '/settings/advanced',),
         ],
       ),
     ];

@@ -27,12 +27,12 @@ class ProfileSelectionScreen extends ConsumerWidget {
             );
           }
           return GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 170,
-              childAspectRatio: 0.88,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              maxCrossAxisExtent: 300,
+              childAspectRatio: 1.15,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
             ),
             itemCount: profiles.length,
             itemBuilder: (context, index) {
@@ -51,8 +51,8 @@ class ProfileSelectionScreen extends ConsumerWidget {
                 },
                 child: AppCard(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 18,
+                    horizontal: 10,
+                    vertical: 16,
                   ),
                   onTap: () {
                     ref.read(currentProfileProvider.notifier).state = profile;
@@ -63,9 +63,52 @@ class ProfileSelectionScreen extends ConsumerWidget {
                   },
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ProfileAvatar(profile: profile, size: 76),
-                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: 110,
+                        height: 110,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            ProfileAvatar(profile: profile, size: 100),
+                            Positioned(
+                              right: -4,
+                              bottom: -4,
+                              child: GestureDetector(
+                                onTap: () => context.push(
+                                  '/profile/edit?id=${profile.id}',
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHigh,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.3),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.edit_outlined,
+                                    size: 20,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       Text(
                         profile.firstName,
                         maxLines: 1,
@@ -73,7 +116,7 @@ class ProfileSelectionScreen extends ConsumerWidget {
                         textAlign: TextAlign.center,
                         style: Theme.of(context)
                             .textTheme
-                            .titleSmall
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ],

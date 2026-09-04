@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
@@ -14,7 +15,7 @@ class AiScreen extends ConsumerStatefulWidget {
 
 class _AiScreenState extends ConsumerState<AiScreen> {
   bool _generated = false;
-  String _profileId = '';
+  int _generation = 0;
 
   void _generate() {
     final profile = ref.read(currentProfileProvider);
@@ -26,29 +27,40 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     }
     setState(() {
       _generated = true;
-      _profileId = profile.id;
+      // Incrémente la génération : force un re-fetch même si la clé
+      // précédente était déjà résolue en cache (autoDispose).
+      _generation++;
     });
-    ref.invalidate(aiRecommendationsProvider(profile.id));
+  }
+
+  void _goBack() {
+    context.go('/home');
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final profile = ref.watch(currentProfileProvider);
-    final profileId = profile?.id ?? _profileId;
-    final async = ref.watch(aiRecommendationsProvider(profileId));
+    final key = profile == null ? '' : '${profile.id}#$_generation';
+    final async = ref.watch(aiRecommendationsProvider(key));
 
     final Widget content;
     if (!_generated || profile == null) {
       content = EmptyState(
         icon: Icons.auto_awesome,
         title: 'Recommandations IA',
-        message:
-            'Obtenez des suggestions de films et séries adaptées à votre profil.',
-        action: FilledButton.icon(
-          onPressed: profile == null ? null : _generate,
-          icon: const Icon(Icons.auto_awesome),
-          label: const Text('Obtenir des recommandations'),
-        ),
+        message: 'Obtenez des suggestions de films et séries adaptées à votre profil.',
+        action: profile == null
+            ? FilledButton.icon(
+                icon: const Icon(Icons.person_outline),
+                label: const Text('Choisir un profil'),
+                onPressed: () => context.go('/profiles'),
+              )
+            : FilledButton.icon(
+                onPressed: _generate,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Obtenir des recommandations'),
+              ),
       );
     } else {
       content = async.when(
@@ -82,7 +94,23 @@ class _AiScreenState extends ConsumerState<AiScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Recommandations IA')),
+      appBar: AppBar(
+        leading: _GeneratedBackLeading(
+          onPressed: _goBack,
+          generated: _generated && profile != null,
+        ),
+        title: const Text('Recommandations IA'),
+        actions: [
+          IconButton(
+            tooltip: 'Obtenir des recommandations',
+            onPressed: profile == null ? null : _generate,
+            icon: const Icon(Icons.auto_awesome),
+            color: scheme.secondary,
+          ),
+          if (_generated && profile != null)
+            _RefreshButton(onPressed: _generate),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -98,12 +126,6 @@ class _AiScreenState extends ConsumerState<AiScreen> {
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Obtenir des recommandations',
-                  onPressed: _generated ? _generate : null,
-                  icon: const Icon(Icons.auto_awesome),
-                  color: Theme.of(context).colorScheme.secondary,
                 ),
               ],
             ),
@@ -122,6 +144,45 @@ class _AiScreenState extends ConsumerState<AiScreen> {
   String _errorMessage(Object error) {
     if (error is StreamAiException) return error.message;
     return aiUserFriendlyError(error);
+  }
+}
+
+/// Bouton retour en haut à gauche de l'écran IA (revient à l'accueil).
+class _GeneratedBackLeading extends StatelessWidget {
+  const _GeneratedBackLeading({required this.onPressed, required this.generated});
+
+  final VoidCallback onPressed;
+  final bool generated;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: 'Retour à l\'accueil',
+      onPressed: onPressed,
+      icon: Icon(
+        generated ? Icons.arrow_back : Icons.arrow_back,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+/// Bouton de rafraîchissement explicite des recommandations IA.
+class _RefreshButton extends StatelessWidget {
+  const _RefreshButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: 'Rafraîchir les recommandations',
+      onPressed: onPressed,
+      icon: const Icon(Icons.refresh_rounded),
+      color: scheme.tertiary,
+    );
   }
 }
 

@@ -61,6 +61,9 @@ class Subscription extends HiveObject {
   @HiveField(12)
   String? lastTestError;
 
+  @HiveField(13)
+  DateTime? validUntil;
+
   Subscription({
     required this.id,
     required this.name,
@@ -75,6 +78,7 @@ class Subscription extends HiveObject {
     this.lastTestResult = TestResultStatus.untested,
     this.lastTestLatencyMs,
     this.lastTestError,
+    this.validUntil,
   });
 
   Map<String, dynamic> toMap() {
@@ -91,9 +95,10 @@ class Subscription extends HiveObject {
       'lastTestedAt': lastTestedAt?.toIso8601String(),
       'lastTestResult': lastTestResult.name,
       'lastTestLatencyMs': lastTestLatencyMs,
-      'lastTestError': lastTestError,
-    };
-  }
+       'lastTestError': lastTestError,
+       'validUntil': validUntil?.toIso8601String(),
+     };
+   }
 
   factory Subscription.fromMap(Map<String, dynamic> map) {
     return Subscription(
@@ -116,10 +121,13 @@ class Subscription extends HiveObject {
         (e) => e.name == map['lastTestResult'],
         orElse: () => TestResultStatus.untested,
       ),
-      lastTestLatencyMs: map['lastTestLatencyMs'],
-      lastTestError: map['lastTestError'],
-    );
-  }
+       lastTestLatencyMs: map['lastTestLatencyMs'],
+       lastTestError: map['lastTestError'],
+       validUntil: map['validUntil'] != null
+           ? DateTime.tryParse(map['validUntil']!)
+           : null,
+     );
+   }
 
   Subscription copyWith({
     String? id,
@@ -133,25 +141,42 @@ class Subscription extends HiveObject {
     DateTime? createdAt,
     DateTime? lastTestedAt,
     TestResultStatus? lastTestResult,
-    int? lastTestLatencyMs,
-    String? lastTestError,
-  }) {
-    return Subscription(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      type: type ?? this.type,
-      baseUrl: baseUrl ?? this.baseUrl,
-      username: username ?? this.username,
+     int? lastTestLatencyMs,
+     String? lastTestError,
+     DateTime? validUntil,
+   }) {
+     return Subscription(
+       id: id ?? this.id,
+       name: name ?? this.name,
+       type: type ?? this.type,
+       baseUrl: baseUrl ?? this.baseUrl,
+       username: username ?? this.username,
       password: password ?? this.password,
       m3uUrl: m3uUrl ?? this.m3uUrl,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       lastTestedAt: lastTestedAt ?? this.lastTestedAt,
       lastTestResult: lastTestResult ?? this.lastTestResult,
-      lastTestLatencyMs: lastTestLatencyMs ?? this.lastTestLatencyMs,
-      lastTestError: lastTestError ?? this.lastTestError,
-    );
-  }
+       lastTestLatencyMs: lastTestLatencyMs ?? this.lastTestLatencyMs,
+       lastTestError: lastTestError ?? this.lastTestError,
+       validUntil: validUntil ?? this.validUntil,
+     );
+   }
+
+   String get validityLabel {
+     if (validUntil == null) return 'Sans limite';
+     final now = DateTime.now();
+     final diff = validUntil!.difference(now);
+     if (diff.isNegative) return 'Expiré';
+     final days = diff.inDays;
+     if (days <= 0) return 'Expire aujourd\'hui';
+     return '$days ${days == 1 ? 'jour' : 'jours'} restant${days > 1 ? 's' : ''}';
+   }
+
+   String get validUntilLabel {
+     if (validUntil == null) return 'Date de validité non définie';
+     return 'Valide jusqu\'au ${validUntil!.day.toString().padLeft(2, '0')}/${validUntil!.month.toString().padLeft(2, '0')}/${validUntil!.year}';
+   }
 
   Map<String, String?> toSubscriptionManagerFormat() {
     if (type == SubscriptionType.xtream) {

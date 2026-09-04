@@ -7,6 +7,7 @@ class ReplayItem {
   final String streamUrl;
   final String startTime;
   final String endTime;
+  final String categoryId;
 
   ReplayItem({
     required this.id,
@@ -14,6 +15,7 @@ class ReplayItem {
     required this.streamUrl,
     required this.startTime,
     required this.endTime,
+    this.categoryId = '',
   });
 
   factory ReplayItem.fromMap(Map<String, dynamic> map) {
@@ -23,6 +25,7 @@ class ReplayItem {
       streamUrl: map['url'] ?? '',
       startTime: map['start'] ?? '',
       endTime: map['end'] ?? '',
+      categoryId: map['category_id']?.toString() ?? '',
     );
   }
 
@@ -33,6 +36,7 @@ class ReplayItem {
       streamUrl: streamUrl ?? this.streamUrl,
       startTime: startTime,
       endTime: endTime,
+      categoryId: categoryId,
     );
   }
 

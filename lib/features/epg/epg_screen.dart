@@ -2,7 +2,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 
@@ -13,142 +15,214 @@ class EpgScreen extends ConsumerStatefulWidget {
   ConsumerState<EpgScreen> createState() => _EpgScreenState();
 }
 
-class _EpgScreenState extends ConsumerState<EpgScreen>
-    with SingleTickerProviderStateMixin {
-  int _selectedIndex = 0;
-  List<EPGProgram> _programs = [];
-  late final AnimationController _rotationController;
-
-  @override
-  void initState() {
-    super.initState();
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-  }
-
-  @override
-  void dispose() {
-    _rotationController.dispose();
-    super.dispose();
-  }
-
-  void _selectIndex(int index) {
-    if (_programs.isEmpty) return;
-    setState(() {
-      _selectedIndex = index % _programs.length;
-    });
-    _rotationController.animateTo(
-      (2 * math.pi / _programs.length) * _selectedIndex,
-      curve: Curves.easeInOut,
-    );
-  }
-
+class _EpgScreenState extends ConsumerState<EpgScreen> {
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final programsAsync = ref.watch(epgProgramsProvider);
+    final epgMode = ref.watch(advancedSettingsProvider).epgDisplayMode;
     return Scaffold(
-      appBar: AppBar(title: const Text('Guide TV (EPG Orbit)')),
-      body: programsAsync.when(
-        data: (data) {
-          _programs = data;
-          if (_programs.isNotEmpty && _selectedIndex >= _programs.length) {
-            _selectedIndex = 0;
-          }
-          return Column(
-            children: [
-              Expanded(
-                flex: 3,
-                child: GestureDetector(
-                  onHorizontalDragEnd: (details) {
-                    final velocity = details.primaryVelocity ?? 0;
-                    if (velocity < 0) {
-                      _selectIndex(_selectedIndex + 1);
-                    } else if (velocity > 0) {
-                      _selectIndex(_selectedIndex - 1);
-                    }
-                  },
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final size = constraints.maxWidth * 0.9;
-                      return Center(
-                        child: AnimatedBuilder(
-                          animation: _rotationController,
-                          builder: (context, child) {
-                            return Transform.rotate(
-                              angle: -_rotationController.value,
-                              child: SizedBox(
-                                width: size,
-                                height: size,
-                                child: CustomPaint(
-                                  painter: OrbitPainter(
-                                    selectedIndex: _selectedIndex,
-                                    programs: _programs,
-                                    ringColor: scheme.primaryContainer
-                                        .withValues(alpha: 0.45),
-                                    accentColor: scheme.tertiary,
-                                    textColor: scheme.onSurfaceVariant,
-                                    activeTextColor: scheme.secondary,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 1,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerLow,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _programs.isNotEmpty
-                            ? _programs[_selectedIndex].title
-                            : 'Aucun programme',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      if (_programs.isNotEmpty)
-                        Text(
-                          '${_programs[_selectedIndex].start} - ${_programs[_selectedIndex].end}',
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-        loading: () => const LoadingState(message: 'Chargement du guide TV…'),
-        error: (err, _) => ErrorState(
-          icon: Icons.tv_off_rounded,
-          title: 'Guide TV indisponible',
-          message: 'Impossible de charger le programme. '
-              'Vérifie ta connexion ou réessaie.',
-          onRetry: () => ref.invalidate(epgProgramsProvider),
-        ),
+      appBar: AppBar(title: const Text('Guide TV (EPG)')),
+      body: switch (epgMode) {
+        EpgDisplayMode.grid2D => const _EpgGrid2D(),
+        EpgDisplayMode.grid3D => const _EpgGrid3DPlaceholder(),
+      },
+    );
+  }
+}
+
+class _EpgGrid2D extends ConsumerWidget {
+  const _EpgGrid2D();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final channelsAsync = ref.watch(liveChannelsProvider);
+    return channelsAsync.when(
+      data: (channels) {
+        if (channels.isEmpty) {
+          return const Center(child: Text('Aucune chaîne disponible'));
+        }
+        return ListView.separated(
+          itemCount: channels.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) =>
+              _ChannelRow(channel: channels[index]),
+        );
+      },
+      loading: () =>
+          const LoadingState(message: 'Chargement des chaînes…'),
+      error: (err, _) => ErrorState(
+        icon: Icons.tv_off_rounded,
+        title: 'Chaînes indisponibles',
+        message: 'Impossible de charger les chaînes.',
+        onRetry: () => ref.invalidate(liveChannelsProvider),
       ),
     );
   }
 }
+
+class _ChannelRow extends ConsumerWidget {
+  const _ChannelRow({required this.channel});
+  final Channel channel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final programsAsync =
+        ref.watch(channelEpgProvider(channel.epgChannelId));
+
+    return Container(
+      height: 60,
+      color: scheme.surface,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 8,
+              ),
+              child: Text(
+                channel.name,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            color: scheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+          Expanded(
+            child: programsAsync.when(
+              data: (programs) {
+                if (programs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      '—',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  );
+                }
+                final now = DateTime.now();
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: programs.length,
+                  itemBuilder: (context, i) {
+                    final p = programs[i];
+                    final isCurrent =
+                        p.start.isBefore(now) && p.end.isAfter(now);
+                    final durationMin =
+                        p.end.difference(p.start).inMinutes;
+                    final blockWidth =
+                        (durationMin * 3.0).clamp(80.0, 400.0);
+                    return Container(
+                      width: blockWidth,
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 6,
+                      ),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isCurrent
+                            ? scheme.primaryContainer
+                            : scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.title,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: isCurrent
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isCurrent
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_formatTime(p.start)} - ${_formatTime(p.end)}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EpgGrid3DPlaceholder extends StatelessWidget {
+  const _EpgGrid3DPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.view_in_ar_rounded,
+            size: 80,
+            color: scheme.primary.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'EPG 3D bientôt disponible',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Le guide TV en vue immersive arrive prochainement.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatTime(DateTime dt) =>
+    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
 class OrbitPainter extends CustomPainter {
   final int selectedIndex;

@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -17,15 +19,39 @@ class SeriesScreen extends ConsumerStatefulWidget {
 
 class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   String _selectedCategoryId = '';
+  SortMode _selectedSortMode = SortMode.nameAsc;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _openSortDialog() {
+    SortOptionsDialogTV.show(
+      context,
+      currentMode: _selectedSortMode,
+      onSortSelected: (newMode) => setState(() => _selectedSortMode = newMode),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final seriesAsync = ref.watch(seriesProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
-    final hasSidebar =
-        MediaQuery.sizeOf(context).width > 600 && categoriesAsync.hasValue;
     return Scaffold(
-      appBar: AppBar(title: const Text('Séries')),
+      appBar: AppBar(
+        title: const Text('Séries'),
+        actions: [
+          IconButton(
+            tooltip: 'Trier',
+            icon: const Icon(Icons.sort),
+            onPressed: _openSortDialog,
+          ),
+        ],
+      ),
       body: seriesAsync.when(
         data: (seriesList) {
           if (seriesList.isEmpty) {
@@ -37,83 +63,146 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           }
           final categories = categoriesAsync.value ??
               _categoriesFromSeries(seriesList);
-          final visibleSeries = _selectedCategoryId.isEmpty
+          final q = _query.trim().toLowerCase();
+          final filteredSeries = _selectedCategoryId.isEmpty
               ? seriesList
               : seriesList
                   .where((s) => s.categoryId == _selectedCategoryId)
                   .toList();
+          final queryFiltered = q.isEmpty
+              ? filteredSeries
+              : filteredSeries
+                  .where(
+                    (s) =>
+                        s.title.toLowerCase().contains(q) ||
+                        s.genre.toLowerCase().contains(q),
+                  )
+                  .toList();
+          final libraryManager = ref.read(mediaLibraryManagerProvider);
+          final mediaItems = queryFiltered.map((s) => MediaItem(
+            id: s.id,
+            title: s.title,
+            streamUrl: '', // Series n'ont pas de streamUrl direct
+            posterUrl: s.coverUrl,
+            categoryId: s.categoryId,
+            rating: s.rating,
+            releaseYear: s.year,
+            durationMinutes: 0,
+            addedDate: DateTime.now(),
+          ),).toList();
+          final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
+          final seriesById = <String, Series>{
+            for (final s in queryFiltered)
+              if (s.id.isNotEmpty) s.id: s,
+          };
+          final visibleSeries = sortedItems.map<Series>((item) {
+            return seriesById[item.id] ?? queryFiltered.firstWhere(
+              (s) => s.id == item.id,
+              orElse: () => queryFiltered.first,
+            );
+          }).toList();
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (hasSidebar)
-                _SeriesCategoryRail(
-                  categories: [
-                    const MediaCategory(id: '', name: 'Tous'),
-                    ...categories,
-                  ],
-                  selectedId: _selectedCategoryId,
-                  onSelected: (id) =>
-                      setState(() => _selectedCategoryId = id),
-                ),
+              CategoriesRail(
+                categories: [
+                  const MediaCategory(id: '', name: 'Tous'),
+                  ...categories,
+                ],
+                selectedId: _selectedCategoryId,
+                onSelected: (id) => setState(() => _selectedCategoryId = id),
+              ),
               Expanded(
-                child: visibleSeries.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.tv,
-                        title: 'Aucune série dans cette catégorie',
-                        message: 'Aucune série ne correspond à cette catégorie.',
-                      )
-                    : CustomScrollView(
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: SectionHeader(
-                              icon: Icons.auto_awesome,
-                              title: 'Séries',
-                              subtitle:
-                                  '${visibleSeries.length} titres',
-                            ),
-                          ),
-                          SliverPadding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                            sliver: SliverGrid(
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 200,
-                                childAspectRatio: 0.62,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final series = visibleSeries[index];
-                                  void onOpen() {
-                                    context.push(
-                                      '/series/detail?id=${Uri.encodeComponent(series.id)}'
-                                      '&title=${Uri.encodeComponent(series.title)}',
-                                    );
-                                  }
-
-                                  return TvFocus(
-                                    onActivate: onOpen,
-                                    child: MediaCard(
-                                      title: series.title,
-                                      posterUrl: series.coverUrl,
-                                      year: series.year,
-                                      genre: series.genre,
-                                      rating: series.rating,
-                                      synopsis: series.description,
-                                      ageLabel: series.pegiLabel,
-                                      fallbackIcon: Icons.tv,
-                                      onTap: onOpen,
-                                    ),
-                                  );
-                                },
-                                childCount: visibleSeries.length,
-                              ),
-                            ),
-                          ),
-                        ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: _SeriesSearchField(
+                        controller: _searchController,
+                        hint: 'Rechercher une série ou un genre…',
+                        onChanged: (value) => setState(() => _query = value),
                       ),
+                    ),
+                    Expanded(
+                      child: visibleSeries.isEmpty
+                          ? const EmptyState(
+                              icon: Icons.tv,
+                              title: 'Aucun résultat',
+                              message: 'Aucune série ne correspond à cette recherche.',
+                            )
+                          : CustomScrollView(
+                              slivers: [
+                                SliverToBoxAdapter(
+                                  child: SectionHeader(
+                                    icon: Icons.auto_awesome,
+                                    title: 'Séries',
+                                    subtitle:
+                                        '${visibleSeries.length} titres',
+                                  ),
+                                ),
+                                SliverPadding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                  sliver: SliverGrid(
+                                    gridDelegate:
+                                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: 200,
+                                      childAspectRatio: 0.62,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
+                                    ),
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        final series = visibleSeries[index];
+                                        void onOpen() {
+                                          context.push(
+                                            '/series/detail?id=${Uri.encodeComponent(series.id)}'
+                                            '&title=${Uri.encodeComponent(series.title)}',
+                                          );
+                                        }
+
+                                        void onLongPress() {
+                                          ref
+                                              .read(favoritesServiceProvider)
+                                              .addFavorite('series', series.id);
+                                          ScaffoldMessenger.of(context)
+                                            ..hideCurrentSnackBar()
+                                            ..showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  '« ${series.title} » ajouté aux favoris',
+                                                ),
+                                                duration:
+                                                    const Duration(milliseconds: 1500),
+                                              ),
+                                            );
+                                        }
+
+                                        return TvFocus(
+                                          onActivate: onOpen,
+                                          child: MediaCard(
+                                            title: series.title,
+                                            posterUrl: series.coverUrl,
+                                            year: series.year,
+                                            genre: series.genre,
+                                            rating: series.rating,
+                                            ageLabel: series.pegiLabel,
+                                            fallbackIcon: Icons.tv,
+                                            onTap: onOpen,
+                                            onLongPress: onLongPress,
+                                          ),
+                                        );
+                                      },
+                                      childCount: visibleSeries.length,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
               ),
             ],
           );
@@ -147,99 +236,42 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   }
 }
 
-class _SeriesCategoryRail extends StatelessWidget {
-  const _SeriesCategoryRail({
-    required this.categories,
-    required this.selectedId,
-    required this.onSelected,
+/// Champ de recherche large, avec police lisible pour la TV.
+class _SeriesSearchField extends StatelessWidget {
+  const _SeriesSearchField({
+    required this.controller,
+    required this.hint,
+    required this.onChanged,
   });
 
-  final List<MediaCategory> categories;
-  final String selectedId;
-  final ValueChanged<String> onSelected;
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 180,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(
-          right: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.5),
-          ),
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: scheme.onSurfaceVariant,
+          fontSize: 16,
         ),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Text(
-              'Catégories',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-            ),
-          ),
-          for (final category in categories)
-            _CategoryTile(
-              name: category.name,
-              selected: category.id == selectedId,
-              onTap: () => onSelected(category.id),
-            ),
-        ],
+        prefixIcon: const Icon(Icons.search, size: 24),
+        isDense: true,
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
 }
 
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({
-    required this.name,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String name;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: selected
-            ? scheme.primaryContainer.withValues(alpha: 0.5)
-            : Colors.transparent,
-        child: Row(
-          children: [
-            Icon(
-              selected ? Icons.folder_open : Icons.folder_outlined,
-              size: 18,
-              color: selected ? scheme.primary : scheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? scheme.primary : scheme.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
@@ -106,15 +107,52 @@ class ApiService {
               'L\'abonnement est peut-être bloqué.',
           404 => 'Ressource introuvable (code 404). '
               'Vérifiez l\'adresse du serveur.',
+          429 => 'Limite de requêtes dépassée (code 429). '
+              'Le serveur limite le nombre de requêtes. '
+              'Réessayez dans quelques instants.',
           _ => 'Le serveur a renvoyé une erreur (code ${status ?? 'inconnu'}).',
         };
-        return StreamNetworkException(message, original: e);
+        return StreamNetworkException(message, original: e,
+            isRetriable: status == 429,
+          );
       case DioExceptionType.unknown:
         return StreamNetworkException(
           'Erreur réseau inattendue : ${e.message ?? e.runtimeType}.',
           original: e,
           isRetriable: true,
         );
+    }
+  }
+
+  // ---------- Informations du compte (validité) ----------
+  /// Récupère la date d'expiration du compte Xtream via
+  /// `get_user_info` (champ `exp_date`, timestamp Unix en secondes).
+  /// Renvoie `null` si l'information n'est pas disponible (M3U, champ absent…).
+  Future<DateTime?> fetchExpiration() async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream') return null;
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_user_info',
+    });
+    try {
+      final response = await _get(url);
+      final data = response.data;
+      if (data is! Map) return null;
+      final raw = data['user_info'];
+      final info = raw is Map ? raw : data;
+      final expRaw = info['exp_date'];
+      if (expRaw == null) return null;
+      final seconds = int.tryParse('$expRaw');
+      // Certains serveurs renvoient 0 pour « illimité ».
+      if (seconds == null || seconds <= 0) return null;
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -125,6 +163,8 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
+      final categoryNames =
+          await _fetchLiveCategoryNames(baseUrl, username, password);
       final url = _playerApiUrl(baseUrl, 'player_api.php', {
         'username': username,
         'password': password,
@@ -133,6 +173,10 @@ class ApiService {
       final response = await _get(url);
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
+        final categoryId = map['category_id']?.toString() ?? '';
+        if (categoryNames.containsKey(categoryId)) {
+          map['category_name'] = categoryNames[categoryId];
+        }
         final streamUrl = buildXtreamStreamUrl(
             baseUrl, username, password, map['stream_id']?.toString(),);
         final channel = Channel.fromMap(map).copyWith(streamUrl: streamUrl);
@@ -145,6 +189,34 @@ class ApiService {
       return parseM3u(response.data.toString());
     } else {
       throw StreamNetworkException('Aucun abonnement configuré.');
+    }
+  }
+
+  Future<Map<String, String>> _fetchLiveCategoryNames(
+    String baseUrl,
+    String username,
+    String password,
+  ) async {
+    try {
+      final url = _playerApiUrl(baseUrl, 'player_api.php', {
+        'username': username,
+        'password': password,
+        'action': 'get_live_categories',
+      });
+      final response = await _get(url);
+      if (response.data is! List) return const {};
+      final map = <String, String>{};
+      for (final e in response.data as List) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final id = m['category_id']?.toString();
+        final name = m['category_name']?.toString() ?? '';
+        if (id != null && id.isNotEmpty && name.isNotEmpty) {
+          map[id] = name;
+        }
+      }
+      return map;
+    } catch (_) {
+      return const {};
     }
   }
 
@@ -227,7 +299,86 @@ class ApiService {
         'Ce mode n\'est pas encore disponible pour cette section.',);
   }
 
-  // ---------- Séries ----------
+  /// Enrichit un film avec les métadonnées détaillées du serveur grâce à
+  /// `get_vod_info` (synopsis, année, genre, réalisateur, note, âge/PEGI).
+  /// L'endpoint de liste `get_vod_streams` ne fournit pas ces champs, d'où
+  /// l'appel ciblé au détail. Renvoie une copie enrichie de [movie], ou le
+  /// film d'origine inchangé si l'information n'est pas disponible.
+  Future<Movie> fetchMovieDetail(Movie movie) async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream' || movie.id.isEmpty) return movie;
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_vod_info',
+      'vod_id': movie.id,
+    });
+    try {
+      final response = await _get(url);
+      final data = response.data;
+      if (data is! Map) return movie;
+      final rawInfo = data['info'];
+      final info = rawInfo is Map ? rawInfo : <String, dynamic>{};
+
+      // Année depuis `releaseDate` (YYYY-...), sinon depuis `releasedate`.
+      var year = movie.year;
+      final releaseDate =
+          firstNonEmpty([info['releaseDate'], info['releasedate']]).toString();
+      final ym = RegExp(r'^(\d{4})').firstMatch(releaseDate);
+      if (ym != null) year = int.tryParse(ym.group(1)!) ?? year;
+
+      final genreRaw = firstNonEmpty([
+        info['genre'],
+        info['genre_1'],
+        movie.genre,
+      ]).toString().trim();
+
+      var rating = movie.rating;
+      final ratingRaw = firstNonEmpty([info['rating'], info['rating_5based']])
+          .toString()
+          .replaceAll(RegExp(r'[^0-9.]'), '');
+      if (ratingRaw.isNotEmpty) rating = double.tryParse(ratingRaw) ?? rating;
+
+      final posterUrl = firstNonEmpty([
+        info['cover_big'],
+        info['movie_image'],
+        info['backdrop_path'],
+        movie.posterUrl,
+      ]).toString();
+
+      return Movie(
+        id: movie.id,
+        title: movie.title,
+        description: firstNonEmpty([
+          info['description'],
+          info['plot'],
+          movie.description,
+        ]).toString(),
+        posterUrl: posterUrl,
+        year: year,
+        genre: genreRaw,
+        director: firstNonEmpty([
+          info['director'],
+          movie.director,
+        ]).toString(),
+        rating: rating,
+        pegi: firstNonEmpty([
+          info['age'],
+          info['mpaa_rating'],
+          info['us_certification'],
+          movie.pegi,
+        ]).toString(),
+        streamUrl: movie.streamUrl,
+        categoryId: movie.categoryId,
+      );
+    } catch (_) {
+      return movie;
+    }
+  }
+
   Future<List<Series>> fetchSeries() async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] == 'xtream') {
@@ -402,7 +553,17 @@ class ApiService {
         'stream_id': 'replay',
       });
       final response = await _get(url);
-      return (response.data as List).map((e) {
+      final data = response.data;
+      List<dynamic> list;
+      if (data is List) {
+        list = data;
+      } else if (data is Map) {
+        final inner = data['epg_listings'] ?? data['replay'] ?? data['data'];
+        list = inner is List ? inner : const [];
+      } else {
+        list = const [];
+      }
+      return list.map((e) {
         final map = Map<String, dynamic>.from(e);
         final id = map['stream_id']?.toString() ?? '';
         final streamUrl = id.isEmpty

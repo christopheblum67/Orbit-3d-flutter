@@ -5,13 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -19,12 +24,18 @@ class PlayerRouteData {
     this.title,
     this.channels = const [],
     this.index = 0,
+    this.progressId,
+    this.initialPositionMs,
+    this.contentType = PlaybackContentType.live,
   });
 
   final String streamUrl;
   final String? title;
   final List<Channel> channels;
   final int index;
+  final String? progressId;
+  final int? initialPositionMs;
+  final PlaybackContentType contentType;
 }
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -34,12 +45,18 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.title,
     this.channels = const [],
     this.initialIndex = 0,
+    this.progressId,
+    this.initialPositionMs,
+    this.contentType = PlaybackContentType.live,
   });
 
   final String streamUrl;
   final String? title;
   final List<Channel> channels;
   final int initialIndex;
+  final String? progressId;
+  final int? initialPositionMs;
+  final PlaybackContentType contentType;
 
   @override
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
@@ -70,8 +87,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   int _generation = 0;
   bool _showInfo = false;
   Timer? _infoTimer;
+  Timer? _saveProgressTimer;
+  Timer? _statusBarTimer;
   bool _volumeToZap = false;
   bool _immersive = false;
+  bool _statusBarVisible = false;
+  bool _hasAppliedInitialPosition = false;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
 
   bool get _canZap => _channels.length > 1;
@@ -98,6 +119,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_index >= _channels.length) _index = _channels.length - 1;
     }
     _initializePlayer();
+    _startSaveProgressTimer();
   }
 
   @override
@@ -105,6 +127,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _restoreSystemUi();
     _infoTimer?.cancel();
+    _saveProgressTimer?.cancel();
+    _statusBarTimer?.cancel();
+    _saveProgress();
     _focusNode.dispose();
     _generation++;
     _disposeActive();
@@ -124,13 +149,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Passe en plein écran immersif (masque status bar + navbar Android)
-  /// quand la vidéo joue, et restaure les barres sinon (pause, erreur…).
+  /// quand la vidéo joue. Ne fait RIEN si la barre est temporairement visible
+  /// (touch/OK) — le timer la masquera après 25s.
   void _syncImmersive() {
     final playing =
         _status == _PlayerStatus.ready &&
         _controller != null &&
         _controller!.value.isPlaying;
-    if (playing && !_immersive) {
+    if (playing && !_immersive && !_statusBarVisible) {
       _immersive = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -144,11 +170,77 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  /// Restaure la system UI par défaut de l'application.
+  /// Affiche les barres système (status + nav) pendant [duration] puis
+  /// repasse en immersiveSticky. Appelé sur tap écran ou touche OK.
+  void _showStatusBarTemporarily({Duration duration = const Duration(seconds: 25)}) {
+    if (_statusBarVisible) {
+      _statusBarTimer?.cancel();
+    } else {
+      _statusBarVisible = true;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    _statusBarTimer = Timer(duration, () {
+      if (mounted) {
+        _statusBarVisible = false;
+        _statusBarTimer = null;
+        _syncImmersive(); // repasse en immersive si lecture en cours
+      }
+    });
+  }
+
+  /// Restaure la system UI par défaut de l'application (sortie player, pause).
   void _restoreSystemUi() {
+    _statusBarTimer?.cancel();
+    _statusBarVisible = false;
     if (!_immersive) return;
     _immersive = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  /// Démarre le timer de sauvegarde périodique de la progression.
+  void _startSaveProgressTimer() {
+    if (widget.progressId == null) return;
+    _saveProgressTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _saveProgress(),
+    );
+  }
+
+  /// Sauvegarde la position courante de lecture.
+  void _saveProgress() {
+    final id = widget.progressId;
+    if (id == null) return;
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final position = controller.value.position;
+    final duration = controller.value.duration;
+    final positionMs = position.inMilliseconds;
+    final durationMs = duration.inMilliseconds;
+    // Si la lecture est terminée (> 95 %), on efface la progression.
+    if (durationMs > 0 && positionMs > durationMs * 0.95) {
+      ref.read(playbackProgressServiceProvider).clear(id);
+    } else {
+      ref.read(playbackProgressServiceProvider).save(id, positionMs, durationMs);
+    }
+  }
+
+  /// Applique la position initiale si elle est fournie et que le controller
+  /// est prêt.
+  void _applyInitialPosition() {
+    if (_hasAppliedInitialPosition) return;
+    final initialMs = widget.initialPositionMs;
+    if (initialMs == null || initialMs <= 0) {
+      _hasAppliedInitialPosition = true;
+      return;
+    }
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    _hasAppliedInitialPosition = true;
+    final position = Duration(milliseconds: initialMs);
+    final duration = controller.value.duration;
+    if (position < duration) {
+      controller.seekTo(position);
+    }
   }
 
   void _initializePlayer() {
@@ -162,6 +254,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
+    // Applique la config « Night Focus » au processeur audio natif AVANT la
+    // création d'un contrôleur, pour qu'elle soit active à la configuration
+    // du pipeline audio (par défaut : by-pass quand le switch maître est OFF).
+    final nf = ref.read(advancedSettingsProvider);
+    await NightFocusAudioService.push(
+      nf.nightFocusEnabled,
+      dialogueBoostDb: nf.nightFocusDialogueBoost ? 4.0 : 0,
+      bassKillerCutoffHz: nf.nightFocusBassKiller ? 120.0 : 0,
+      vocalGainDb: nf.nightFocusDialogueBoost ? nf.nightFocusVocalGainDb : 0,
+      audioDelayMs: nf.nightFocusAudioShiftMs,
+    );
     if (!isLikelyStreamUrl(_activeStreamUrl)) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
@@ -182,6 +285,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
     _setStatus(_PlayerStatus.loading);
+    // Si le moteur principal du type de contenu est une application externe
+    // (VLC / MX), on tente d'abord de diriger la lecture vers celle-ci.
+    if (_engineConfig.primary.isExternal) {
+      final external = await _launchExternal();
+      if (external && mounted && gen == _generation) return;
+      if (!mounted || gen != _generation) return;
+      // Échec du lecteur externe : on retombe sur le moteur interne.
+    }
     // Priorité : sur les serveurs hybrides, l'URL « style live » /u/p/{id}
     // (redirigée vers un CDN signé) fonctionne pour le VOD tandis que le
     // chemin /movie/{id} renvoie 401. On tente donc les variantes dans
@@ -192,14 +303,114 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (found) return;
       if (!mounted || gen != _generation) return;
     }
-    if (gen == _generation) _setStatus(_PlayerStatus.error);
+    if (gen == _generation) {
+      // Échec du moteur interne : si le moteur de secours est externe, on
+      // bascule sur le fallback (ex. libVLC) avant de déclarer une erreur.
+      if (_engineConfig.fallback.isExternal) {
+        final external = await _launchFallbackExternal();
+        if (external && mounted && gen == _generation) return;
+        if (!mounted || gen != _generation) return;
+      }
+      _setStatus(_PlayerStatus.error);
+    }
+  }
+
+  /// Tente de diriger la lecture vers le moteur de secours externe (fallback,
+  /// ex. libVLC) en cas d'échec du moteur principal interne.
+  Future<bool> _launchFallbackExternal() async {
+    final engine = _engineConfig.fallback;
+    if (!engine.isExternal) return false;
+    try {
+      final url = _activeStreamUrl;
+      final uri = engine == PlayerEngine.vlc
+          ? Uri.parse('vlc://$url')
+          : Uri.parse(url);
+      final ui = Uri.parse(url);
+      final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
+      if (!supported) return false;
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication) ||
+              await launchUrl(ui, mode: LaunchMode.externalApplication);
+      if (launched && mounted) {
+        _setStatus(_PlayerStatus.ready);
+        _showInfoBrief();
+      }
+      return launched;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
+  /// est active (réglage avancé), on privilégie l'User-Agent navigateur
+  /// (index 0) qui imite le trafic d'un navigateur moderne pour contourner
+  /// Cloudflare ; sinon on tente d'abord l'Agent natif ExoPlayer.
+  List<int> _userAgentOrder() {
+    final tls = ref.read(advancedSettingsProvider).useTlsImpersonation;
+    if (!tls) {
+      return [
+        for (var i = playbackUserAgents.length - 1; i >= 0; i--) i,
+      ];
+    }
+    return [
+      for (var i = 0; i < playbackUserAgents.length; i++) i,
+    ];
+  }
+
+  /// Construit les en-têtes HTTP pour une URL de flux, en fusionnant les
+  /// cookies Cloudflare (`cf_clearance`) déjà obtenus pour ce host, si
+  /// présents. Ceux-ci sont utilisés par ExoPlayer pour ses propres requêtes.
+  Map<String, String> _resolvedHeaders(String url, int agentIndex) {
+    final base = streamHeaders(url, userAgentIndex: agentIndex);
+    final host = Uri.tryParse(url)?.host;
+    if (host != null) {
+      final cf = CloudflareBypassService.instance.headersForHost(host);
+      if (cf != null) base.addAll(cf);
+    }
+    return base;
+  }
+
+  /// Configuration de moteur du type de contenu couramment lu.
+  PlayerPerTypeConfig get _engineConfig =>
+      ref.read(advancedSettingsProvider).configFor(widget.contentType);
+
+  /// Tente de diriger la lecture vers une application externe (VLC / MX).
+  /// Renvoie `true` si le lancement a réussi (le player interne se met en
+  /// pause et l'utilisateur poursuit dans l'app externe).
+  Future<bool> _launchExternal() async {
+    final engine = _engineConfig.primary;
+    if (!engine.isExternal) return false;
+    try {
+      final url = _activeStreamUrl;
+      // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
+      final uri = engine == PlayerEngine.vlc
+          ? Uri.parse('vlc://$url')
+          : Uri.parse(url);
+      final ui = Uri.parse(url);
+      final supported =
+          await canLaunchUrl(uri) || await canLaunchUrl(ui);
+      if (!supported) return false;
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication) ||
+              await launchUrl(
+                ui,
+                mode: LaunchMode.externalApplication,
+              );
+      if (launched && mounted) {
+        _setStatus(_PlayerStatus.ready);
+        _showInfoBrief();
+      }
+      return launched;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> _tryPlay(int gen, String url) async {
-    for (var attempt = 0; attempt < playbackUserAgents.length; attempt++) {
-      final controller = VideoPlayerController.networkUrl(
+    final userAgentOrder = _userAgentOrder();
+    for (final agentIndex in userAgentOrder) {      final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
-        httpHeaders: streamHeaders(url, userAgentIndex: attempt),
+        httpHeaders: _resolvedHeaders(url, agentIndex),
         videoPlayerOptions: VideoPlayerOptions(
           mixWithOthers: true,
           allowBackgroundPlayback: false,
@@ -235,6 +446,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         return true;
       }
       _setStatus(_PlayerStatus.ready);
+      _applyInitialPosition();
       _showInfoBrief();
       _recordHistory();
       return true;
@@ -349,6 +561,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _startPreload() async {
     final gen = _generation;
     if (!mounted || _channels.isEmpty) return;
+    if (!ref.read(advancedSettingsProvider).zeroLagPrefetch) return;
     final target = _index + 1;
     if (target >= _channels.length) return;
     if (_cachedNext != null || _preloadTarget == target) return;
@@ -358,7 +571,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(_channels[target].streamUrl),
         httpHeaders:
-            streamHeaders(_channels[target].streamUrl, userAgentIndex: attempt),
+            _resolvedHeaders(_channels[target].streamUrl, attempt),
         videoPlayerOptions: VideoPlayerOptions(
           mixWithOthers: true,
           allowBackgroundPlayback: false,
@@ -439,6 +652,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _startPreload();
   }
 
+  /// `true` si on peut proposer le déblocage Cloudflare pour le flux courant.
+  bool get _canCloudflare {
+    final host = Uri.tryParse(_activeStreamUrl)?.host;
+    if (host == null || host.isEmpty) return false;
+    return !CloudflareBypassService.instance.hasCookieFor(host);
+  }
+
+  /// Ouvre un WebView de déblocage Cloudflare (cf_clearance), puis relance la
+  /// lecture.
+  Future<void> _unlockCloudflare() async {
+    if (!mounted) return;
+    final host = Uri.tryParse(_activeStreamUrl)?.host;
+    if (host == null || host.isEmpty) return;
+    _setStatus(_PlayerStatus.loading);
+    final headers =
+        await CloudflareBypassService.instance.obtainHeaders(context, host);
+    if (!mounted) return;
+    if (headers == null || headers.isEmpty) {
+      _setStatus(_PlayerStatus.error);
+      return;
+    }
+    _retry();
+  }
+
   void _showInfoBrief() {
     _infoTimer?.cancel();
     if (!mounted) return;
@@ -461,6 +698,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _toggleInfo() {
     _infoTimer?.cancel();
     setState(() => _showInfo = !_showInfo);
+  }
+
+  void _openAudioControls() {
+    showAudioControlsSheet(context);
   }
 
   void _togglePlayPause() {
@@ -523,13 +764,37 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             padding: const EdgeInsets.all(16),
             child: switch (_status) {
               _PlayerStatus.loading => const VideoLoadingState(),
-              _PlayerStatus.error => VideoErrorState(onRetry: _retry),
+              _PlayerStatus.error => VideoErrorState(
+                  onRetry: _retry,
+                  onCloudflare: _canCloudflare ? _unlockCloudflare : null,
+                  cloudflareMessage: _canCloudflare
+                      ? 'Le flux est protégé par un challenge Cloudflare. '
+                          'Débloque-le puis réessaie.'
+                      : null,
+                ),
               _PlayerStatus.ready => Stack(
                   fit: StackFit.expand,
                   children: [
-                    _ReadyPlayer(
-                      controller: _controller!,
-                      onTap: _toggleInfo,
+                    Focus(
+                      autofocus: true,
+                      child: KeyboardListener(
+                        focusNode: _focusNode,
+                        onKeyEvent: (event) {
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.select ||
+                               event.logicalKey == LogicalKeyboardKey.enter ||
+                               event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+                            _showStatusBarTemporarily();
+                          }
+                        },
+                        child: _ReadyPlayer(
+                          controller: _controller!,
+                          onTap: () {
+                            _toggleInfo();
+                            _showStatusBarTemporarily();
+                          },
+                        ),
+                      ),
                     ),
                     if (_showInfo && _currentChannel != null)
                       Positioned(
@@ -541,6 +806,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           child: _InfoBar(
                             channel: _currentChannel!,
                             onClose: _toggleInfo,
+                            onAudioControls: _openAudioControls,
                           ),
                         ),
                       ),
@@ -653,10 +919,15 @@ class _ZapBar extends StatelessWidget {
 }
 
 class _InfoBar extends ConsumerWidget {
-  const _InfoBar({required this.channel, this.onClose});
+  const _InfoBar({
+    required this.channel,
+    this.onClose,
+    this.onAudioControls,
+  });
 
   final Channel channel;
   final VoidCallback? onClose;
+  final VoidCallback? onAudioControls;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -707,6 +978,15 @@ class _InfoBar extends ConsumerWidget {
                     else
                       _EpgRow(now: nowProgram, next: nextProgram),
                   ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Réglages audio & sync',
+                onPressed: onAudioControls,
+                icon: const Icon(
+                  Icons.nightlight_round,
+                  color: Colors.white70,
+                  size: 20,
                 ),
               ),
               IconButton(

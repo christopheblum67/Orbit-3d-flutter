@@ -1,8 +1,10 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
@@ -12,11 +14,18 @@ import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 
-class LiveTvScreen extends ConsumerWidget {
+class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LiveTvScreen> createState() => _LiveTvScreenState();
+}
+
+class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
+  String _selectedGroup = '';
+
+  @override
+  Widget build(BuildContext context) {
     final channelsAsync = ref.watch(liveChannelsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Live TV')),
@@ -30,19 +39,53 @@ class LiveTvScreen extends ConsumerWidget {
             );
           }
           final groups = buildLiveChannelGroups(channels);
-          final useHeaders = groups.length > 1 || groups.first.name.isNotEmpty;
-          final rows = useHeaders
-              ? _flattenGroups(groups)
-              : _flatRows(groups.first.channels);
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: rows.length,
-            itemBuilder: (context, index) => _buildRow(
-              context,
-              rows[index],
-              showGroupName: !useHeaders,
-              groups: groups,
-            ),
+          final grouped = groups.length > 1 || groups.first.name.isNotEmpty;
+          final categoryGroups = _groupToCategories(groups);
+
+          final List<Channel> visibleChannels;
+          if (!grouped) {
+            visibleChannels = groups.first.channels;
+          } else if (_selectedGroup.isEmpty) {
+            visibleChannels = [
+              for (final g in groups) ...g.channels,
+            ];
+          } else if (_selectedGroup.startsWith('g')) {
+            final index = int.tryParse(_selectedGroup.substring(1));
+            visibleChannels = (index != null && index >= 0 && index < groups.length)
+                ? groups[index].channels
+                : const [];
+          } else {
+            visibleChannels = const [];
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (grouped && categoryGroups.isNotEmpty)
+                CategoriesRail(
+                  categories: categoryGroups,
+                  selectedId: _selectedGroup,
+                  onSelected: (id) =>
+                      setState(() => _selectedGroup = id),
+                ),
+              Expanded(
+                child: visibleChannels.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.live_tv_outlined,
+                        title: 'Aucune chaîne dans ce groupe',
+                        message: 'Ce groupe ne contient aucune chaîne.',
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: visibleChannels.length,
+                        itemBuilder: (context, index) => _buildRow(
+                          groups,
+                          visibleChannels[index],
+                          showGroupName: !grouped,
+                        ),
+                      ),
+              ),
+            ],
           );
         },
         loading: () => const LoadingState(message: 'Chargement…'),
@@ -56,47 +99,30 @@ class LiveTvScreen extends ConsumerWidget {
     );
   }
 
-  List<_Row> _flattenGroups(List<ChannelGroup> groups) {
-    final rows = <_Row>[];
-    for (final group in groups) {
-      if (group.name.isNotEmpty) {
-        rows.add(_Row.header(group.name, group.channels.length));
-      }
-      for (final channel in group.channels) {
-        rows.add(_Row.channel(channel));
-      }
-    }
-    return rows;
-  }
-
-  List<_Row> _flatRows(List<Channel> channels) {
-    return [for (final channel in channels) _Row.channel(channel)];
+  static List<MediaCategory> _groupToCategories(List<ChannelGroup> groups) {
+    final categories = <MediaCategory>[
+      const MediaCategory(id: '', name: 'Tous'),
+      for (var i = 0; i < groups.length; i++)
+        MediaCategory(
+          id: 'g$i',
+          name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
+        ),
+    ];
+    return categories;
   }
 
   Widget _buildRow(
-    BuildContext context,
-    _Row row, {
+    List<ChannelGroup> groups,
+    Channel channel, {
     required bool showGroupName,
-    required List<ChannelGroup> groups,
   }) {
-    if (row.channel == null) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-        child: SectionHeader(
-          icon: Icons.live_tv_outlined,
-          title: row.title!,
-          subtitle: '${row.count} chaînes',
-        ),
-      );
-    }
-    final channel = row.channel!;
     void prewarm() => StreamPrewarmService.instance.prewarm(
           channel.streamUrl,
           stream_helpers.streamHeaders(channel.streamUrl),
         );
     void onOpen() {
       prewarm();
-      _openPlayer(context, groups, channel);
+      _openPlayer(groups, channel);
     }
 
     final subtitle = showGroupName && channel.groupLabel.isNotEmpty
@@ -127,11 +153,7 @@ class LiveTvScreen extends ConsumerWidget {
     );
   }
 
-  void _openPlayer(
-    BuildContext context,
-    List<ChannelGroup> groups,
-    Channel channel,
-  ) {
+  void _openPlayer(List<ChannelGroup> groups, Channel channel) {
     var groupIndex = -1;
     for (var i = 0; i < groups.length; i++) {
       if (groups[i].channels.contains(channel)) {
@@ -149,21 +171,10 @@ class LiveTvScreen extends ConsumerWidget {
         title: channel.name,
         channels: list,
         index: index,
+        contentType: PlaybackContentType.live,
       ),
     );
   }
-}
-
-class _Row {
-  _Row.header(this.title, this.count) : channel = null;
-
-  _Row.channel(this.channel)
-      : title = null,
-        count = 0;
-
-  final String? title;
-  final int count;
-  final Channel? channel;
 }
 
 class _NumBadge extends StatelessWidget {

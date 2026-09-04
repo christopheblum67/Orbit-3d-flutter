@@ -87,17 +87,58 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                           subtitle: radio.group,
                           icon: Icons.radio,
                           isActive: stationName == radio.name && isPlaying,
-                          trailing: IconButton(
-                            icon: Icon(
-                              stationName == radio.name && isPlaying
-                                  ? Icons.stop_circle_outlined
-                                  : Icons.play_circle_outline,
-                            ),
-                            color: stationName == radio.name && isPlaying
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                            onPressed: () => _toggleStation(radio),
-                          ),
+                          trailing: _unavailable.contains(radio.name)
+                              ? Tooltip(
+                                  message:
+                                      'Flux radio indisponible sur cette station',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .errorContainer,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline_rounded,
+                                          size: 16,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onErrorContainer,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Indisponible',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onErrorContainer,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : IconButton(
+                                  icon: Icon(
+                                    stationName == radio.name && isPlaying
+                                        ? Icons.stop_circle_outlined
+                                        : Icons.play_circle_outline,
+                                  ),
+                                  color: stationName == radio.name && isPlaying
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                  onPressed: () => _toggleStation(radio),
+                                ),
                           onTap: () => _toggleStation(radio),
                         ),
                       ),
@@ -119,15 +160,27 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
   }
 
   String? _currentStationName;
+  final Set<String> _unavailable = {};
 
   Future<void> _toggleStation(Channel radio) async {
     final radioService = ref.read(radioServiceProvider);
     if (_currentStationName == radio.name && radioService.isPlaying) {
       await radioService.stop();
-      setState(() => _currentStationName = null);
+      setState(() {
+        _currentStationName = null;
+        _unavailable.remove(radio.name);
+      });
     } else {
       await radioService.play(radio.streamUrl);
-      setState(() => _currentStationName = radio.name);
+      setState(() {
+        if (radioService.error != null) {
+          _unavailable.add(radio.name);
+          _currentStationName = null;
+        } else {
+          _unavailable.remove(radio.name);
+          _currentStationName = radio.name;
+        }
+      });
     }
   }
 }
