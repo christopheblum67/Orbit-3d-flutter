@@ -137,26 +137,9 @@ class _NetworkTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
-    final vpn = ref.watch(vpnServiceProvider);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const SettingsSectionTitle('VPN'),
-        SettingsSwitchTile(
-          title: 'VPN',
-          subtitle: vpn.isConnected
-              ? 'Connecté — contourne le bridage réseau'
-              : 'VPN simulé pour le moment',
-          value: vpn.isConnected,
-          onChanged: (value) async {
-            if (value) {
-              await vpn.connect('');
-            } else {
-              await vpn.disconnect();
-            }
-          },
-          icon: Icons.vpn_lock,
-        ),
         const SettingsSectionTitle('Protection contre le bridage FAI'),
         SettingsSwitchTile(
           title: 'TLS Impersonation (Proxy Local)',

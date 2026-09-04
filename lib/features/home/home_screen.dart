@@ -602,7 +602,7 @@ class _OrbitItem {
   static List<_OrbitItem> buildAll({required bool isM3u}) {
     return [
       const _OrbitItem(
-        title: 'Live TV',
+        title: 'Chaînes TV',
         icon: Icons.tv_rounded,
         color: Color(0xFF00CFE8),
         subtitle: 'Chaînes en direct & Zapping',
@@ -611,7 +611,7 @@ class _OrbitItem {
       ),
       if (!isM3u) ...[
         const _OrbitItem(
-          title: 'Films & VOD',
+          title: 'Films',
           icon: Icons.movie_outlined,
           color: Color(0xFF8A72FF),
           subtitle: 'Nouveautés & 4K',
@@ -757,6 +757,15 @@ class _ClockBlock extends StatelessWidget {
   }
 }
 
+/// Formate un timestamp en "il y a XhYY" ou "il y a X min".
+String _formatRelative(DateTime ts) {
+  final diff = DateTime.now().difference(ts);
+  if (diff.inHours > 0) {
+    return 'Mis à jour il y a ${diff.inHours}h${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}';
+  }
+  return 'Mis à jour il y a ${diff.inMinutes} min';
+}
+
 /// Bouton de mise à jour avec la date de la dernière actualisation en dessous.
 class _UpdateStack extends StatelessWidget {
   const _UpdateStack({
@@ -772,8 +781,8 @@ class _UpdateStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (lastRefresh) {
-      null => 'Jamais mise à jour',
-      final ts => 'À jour : ${DateFormat('dd/MM HH:mm', 'fr_FR').format(ts.toLocal())}',
+      null => 'Jamais mis à jour',
+      final ts => _formatRelative(ts.toLocal()),
     };
     return Column(
       mainAxisSize: MainAxisSize.min,
