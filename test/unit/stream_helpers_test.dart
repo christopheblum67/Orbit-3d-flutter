@@ -53,13 +53,21 @@ void main() {
       expect(variants, contains('https://host/15548815/l3khgnaaa3mh/14190.mkv'));
     });
 
-    test('live-style /u/p/id proposes standard media folders', () {
+    test('live-style /u/p/id proposes only the original url', () {
       final variants = streamUrlVariants(
         'https://host/15548815/l3khgnaaa3mh/12345',
       );
+      expect(variants, ['https://host/15548815/l3khgnaaa3mh/12345']);
+    });
+
+    test('live-style /u/p/id.ext proposes the extensionless form', () {
+      final variants = streamUrlVariants(
+        'https://host/15548815/l3khgnaaa3mh/12345.mkv',
+      );
+      expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345.mkv'));
       expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345'));
-      expect(variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345'));
-      expect(variants, contains('https://host/series/15548815/l3khgnaaa3mh/12345'));
+      expect(variants, isNot(contains('https://host/movie/15548815/l3khgnaaa3mh/12345')));
+      expect(variants, isNot(contains('https://host/series/15548815/l3khgnaaa3mh/12345')));
     });
 
     test('handles empty / invalid urls gracefully', () {

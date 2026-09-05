@@ -1,7 +1,7 @@
 const playbackUserAgents = <String>[
   'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
   'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
-  'ExoPlayer/2.19.1',
+  'Mozilla/5.0',
 ];
 
 String refererFor(Uri uri) {
@@ -114,20 +114,16 @@ List<String> streamUrlVariants(String url) {
       variants.add(_rebuild(uri, noExtLive));
     }
   } else {
-    // Style live /{u}/{p}/{id}[.ext] : tenter /movie/ et /series/ standard.
+    // Style live /{u}/{p}/{id}[.ext] : ne tenter QUE la forme sans extension.
+    // Pour les flux retransmis, les chemins /movie/ et /series/ n'existent pas
+    // et déclenchent l'anti-leech du panneau (401 et blocage IP temporaire).
     final id = segments.last;
     final dotIdx = id.lastIndexOf('.');
     final baseId = dotIdx > 0 ? id.substring(0, dotIdx) : id;
-    final ext = dotIdx > 0 ? id.substring(dotIdx + 1) : null;
-    final base = [...segments]..removeLast();
     if (dotIdx > 0) {
-      variants.add(_rebuild(uri, [...base, baseId]));
-    }
-    for (final folder in ['movie', 'series']) {
-      variants.add(_rebuild(uri, [folder, ...base, baseId]));
-      if (ext != null && ext.isNotEmpty) {
-        variants.add(_rebuild(uri, [folder, ...base, '$baseId.$ext']));
-      }
+      final noExt = [...segments];
+      noExt[noExt.length - 1] = baseId;
+      variants.add(_rebuild(uri, noExt));
     }
   }
   return variants.toList();

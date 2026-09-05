@@ -8,6 +8,10 @@
 3. Dépendances : vérifier `pubspec.yaml` avant tout nouvel import (pas de surprise).
 4. Après toute série de modifications : `dart format <fichiers>` puis `flutter analyze` puis `flutter test` (50 tests).
 5. Toute modification de widget garde un chemin de retour (`context.canPop() ? pop() : go('/home')`).
+6. **Gestion d'erreurs robuste et détaillée — jamais d'écran muet.** Tout échec (flux, API, EPG, réseau) affiche une erreur HUMaine : cause, code HTTP/code interne, étape, action de remédiation (« Vérifiez votre abonnement, puis Réessayer »). Les `debugPrint` portent systématiquement `[feature] étape → cause` pour que le logcat soit exploitable en 5 min.
+7. **Cas limites traités EXPLICITEMENT** (pas « ça ne devrait pas arriver ») : abonnement absent/expiré, URL de flux vide, hôte offline (socket timeout), 403/404/406, manifest HLS/DASH vide, chaîne retirée, données partiellement chargées → chaque cas a une branche de code et un état UI dédié.
+8. **Présence continue d'un ingénieur du début à la fin** : l'agent qui lance un chantier le MÈNE À TERME (implémentation + tests + analyze + build + leçon écrite). Interdit de « compiler et passer à autre chose » : un chantier n'est clos que DoD respecté, vérifié par le coordinateur.
+9. **Gain d'expérience x10** : chaque chantier dépose au moins 1 leçon réutilisable ; les leçons L1..L13 sont relues AVANT chaque nouveau chantier ; toute découverte (bug, contournement Cloudflare, spécificité panneau Xtream) alimente directement le playbook plutôt que la mémoire volatile d'un agent.
 
 ## Pièges connus (lecons apprises — LIRE AVANT LE CODE)
 ### L1. Parenthèses/accollades en cascade (cause n°1 des erreurs AI)
@@ -71,3 +75,8 @@ Le coordinateur calcule après chaque sprint, et affiche le niveau dans `docs/sp
 - **Un utilitaire conservé doit être documenté comme tel** : `ContentFilter`/`contentFilterProvider` sont gardés (réutilisables pour les badges « âge » et les recommandations par âge) avec un en-tête « inactif dans l'UI courante » — sans changer leur comportement : les tests unitaires dédiés restent la garantie de non-régression.
 - **UI = source unique de la décision** : retirer TOUTE la surface d'édition des booléens (édition de profil ET onglet Réglages), pas seulement les grilles ; un toggle restant qui éditait le masquage serait une UI morte qui ment à l'utilisateur.
 - **Leçon préservée du S4** : filtrer à la couche d'affichage (widget) plutôt que dans les providers exposés — les listes brutes (`moviesProvider`, etc.) servent aussi à la recherche, l'EPG et le matchmaking.
+### L13. Standards full-stack : erreurs détaillées + cas limites (flux hors ligne)
+- **Un échec de lecture doit dire POURQUOI** : distinguer `URL vide/malformée` (StreamUrlEmptyException), `réseau/socket` (offline), `HTTP 403/404/406` (WAF/CDN/abonnement), `décodage errata` (манifest JSON invalide), `chaîne retirée` (404 panel). Le player expose `erreur codée` + `étape` + `remédiation`, jamais un `ErrorWidget` brut en production.
+- **Toujours brancher les états hors-ligne** : avant d'essayer 3 User-Agents sur un flux, tester la connectivité (`InternetAddress.lookup` borné, ~1.5s) et afficher « Hors ligne » sinon — économise des erreurs factices et un spinner infini.
+- **La robustesse se vérifie par l'énumération des états** : lister les combinaisons (données OK/partielles/vides × réseau OK/absent × HTTP codes) et s'assurer qu'aucune ne produit ni crash ni blocage sans message.
+- **Gain x10** : toute constatation (ex: draap.online 406 vs HEAD 200, cf_clearance lié à IP+UA) quitte le commissaire et entre ICI, pour que l'ingénieur suivant parte de cette connaissance.
