@@ -280,6 +280,12 @@ class ApiService {
         'action': 'get_vod_streams',
       });
       final response = await _get(url);
+
+      // `get_vod_streams` ne renvoie ni `genre` ni `category_name` (seulement
+      // `category_id`). On enrichit le genre depuis les catégories VOD pour que
+      // le matchmaking puisse scorer les films par genre.
+      final categoryNames = await _vodCategoryNames();
+
       return (response.data as List).map((e) {
         final map = Map<String, dynamic>.from(e);
         final streamUrl = buildXtreamStreamUrl(
@@ -291,6 +297,7 @@ class ApiService {
             extension: map['container_extension']?.toString(),
             withExtension: true,
         );
+        _enrichMovieListMap(map, categoryNames);
         final movie = Movie.fromMap(map).copyWith(streamUrl: streamUrl);
         movie.requireStreamUrl();
         return movie;
@@ -298,6 +305,43 @@ class ApiService {
     }
     throw StreamNetworkException(
         'Ce mode n\'est pas encore disponible pour cette section.',);
+  }
+
+  /// Retourne la correspondance `category_id` → `category_name` des VOD.
+  Future<Map<String, String>> _vodCategoryNames() async {
+    try {
+      final cats = await fetchVodCategories();
+      return {
+        for (final c in cats)
+          if (c.id.isNotEmpty && c.name.isNotEmpty) c.id: c.name,
+      };
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
+  /// Enrichit une entrée de liste VOD : genre manquant ← nom de catégorie,
+  /// et année manquante ← timestamp `added` (en secondes Unix).
+  void _enrichMovieListMap(
+    Map<String, dynamic> map,
+    Map<String, String> categoryNames,
+  ) {
+    final genre = (map['genre']?.toString() ?? '').trim();
+    if (genre.isEmpty) {
+      final catId = map['category_id']?.toString() ?? '';
+      final catName = categoryNames[catId];
+      if (catName != null && catName.trim().isNotEmpty) {
+        map['genre'] = catName.trim();
+      }
+    }
+    final year = map['year'];
+    if ((year == null || year == 0 || '$year' == '0') && map['added'] != null) {
+      final added = map['added'];
+      if (added is num) {
+        map['year'] = DateTime.fromMillisecondsSinceEpoch(added.toInt() * 1000)
+            .year;
+      }
+    }
   }
 
   /// Enrichit un film avec les métadonnées détaillées du serveur grâce à
