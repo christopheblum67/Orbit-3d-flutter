@@ -433,6 +433,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<bool> _tryPlay(int gen, String url) async {
     final userAgentOrder = _userAgentOrder();
     for (final agentIndex in userAgentOrder) {
+      // Laisse un intervalle entre deux essais : marteler le panneau IPTV
+      // déclenche son anti-leech (401 « indisponible » temporaire).
+      if (agentIndex != userAgentOrder.first) {
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        if (!mounted || gen != _generation) return false;
+      }
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
         httpHeaders: _resolvedHeaders(url, agentIndex),

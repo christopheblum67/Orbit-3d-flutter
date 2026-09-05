@@ -15,6 +15,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import java.util.Map;
@@ -80,7 +81,12 @@ final class HttpVideoAsset extends VideoAsset {
     }
     unstableUpdateDataSourceFactory(initialFactory, httpHeaders, userAgent);
     DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(context, initialFactory);
-    return new DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory);
+    // MPEG-TS (draap) : media3 peut planter en copiant les samples (« The source
+    // buffer is this buffer ») quand la détection d'access units est active.
+    // On neutralise les flags TS pour contourner ce bug sur Exynos.
+    return new DefaultMediaSourceFactory(
+            context, new DefaultExtractorsFactory().setTsExtractorFlags(0))
+        .setDataSourceFactory(dataSourceFactory);
   }
 
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
