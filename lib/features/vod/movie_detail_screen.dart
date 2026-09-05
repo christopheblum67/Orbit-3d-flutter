@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/features/vod/widgets/cast_grid.dart';
+import 'package:orbit_3d_flutter/features/vod/widgets/crew_section.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 
 /// Page intermédiaire d'un film VOD : toutes les infos disponibles + un
 /// bouton « Démarrer » et un bouton « Reprendre » (si une progression existe).
@@ -21,12 +25,15 @@ class MovieDetailScreen extends ConsumerStatefulWidget {
 class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
   late Movie _movie;
   bool _loadingDetail = false;
+  bool _loadingCredits = false;
+  MovieCredits? _credits;
 
   @override
   void initState() {
     super.initState();
     _movie = widget.movie;
     _loadDetail();
+    _loadCredits();
   }
 
   Future<void> _loadDetail() async {
@@ -39,6 +46,20 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
       // Garder les données de la liste en cas d'échec du détail.
     } finally {
       if (mounted) setState(() => _loadingDetail = false);
+    }
+  }
+
+  Future<void> _loadCredits() async {
+    if (_movie.id.isEmpty) return;
+    setState(() => _loadingCredits = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final credits = await api.fetchMovieCredits(_movie.id);
+      if (mounted) setState(() => _credits = credits);
+    } catch (_) {
+      // Ignorer les erreurs de crédits
+    } finally {
+      if (mounted) setState(() => _loadingCredits = false);
     }
   }
 
@@ -73,7 +94,7 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
       appBar: AppBar(
         title: const Text('Détail'),
         actions: [
-          if (_loadingDetail)
+          if (_loadingDetail || _loadingCredits)
             const Padding(
               padding: EdgeInsets.only(right: 16),
               child: SizedBox(
@@ -228,6 +249,25 @@ class _MovieDetailScreenState extends ConsumerState<MovieDetailScreen> {
                     .bodyMedium
                     ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
               ),
+            ],
+            // Distribution (Cast)
+            if (_credits != null && _credits!.cast.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              CastGrid(
+                cast: _credits!.cast,
+                maxVisible: 15,
+                onActorTap: (actor) {
+                  // TODO: Naviguer vers la page de l'acteur
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${actor.name} - ${actor.character}')),
+                  );
+                },
+              ),
+            ],
+            // Équipe technique (Crew)
+            if (_credits != null && _credits!.crew.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              CrewSection(crew: _credits!.crew),
             ],
           ],
         ),

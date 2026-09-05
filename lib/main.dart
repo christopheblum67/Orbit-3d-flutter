@@ -30,9 +30,9 @@ import 'package:orbit_3d_flutter/services/beta_config.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
-import 'package:orbit_3d_flutter/features/auth/profile_selection_screen.dart';
-import 'package:orbit_3d_flutter/features/auth/profile_creation_screen.dart';
-import 'package:orbit_3d_flutter/features/auth/profile_edit_screen.dart';
+import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
+import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
+import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/auth/profile_preferences_screen.dart';
 import 'package:orbit_3d_flutter/features/auth/parental_control_screen.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/matchmaking_screen.dart';
@@ -103,21 +103,22 @@ Future<void> main() async {
 
   final lastRefresh = await loadLastRefresh();
 
-  runApp(ProviderScope(
-    overrides: [
-      storageServiceProvider.overrideWithValue(storageService),
-      favoritesServiceProvider.overrideWithValue(favoritesService),
-      historyServiceProvider.overrideWithValue(historyService),
-      playbackProgressServiceProvider
-          .overrideWithValue(playbackProgressService),
-      notificationServiceProvider.overrideWithValue(notificationService),
-      mediaLibraryManagerProvider.overrideWithValue(mediaLibraryManager),
-      currentProfileProvider.overrideWith((ref) => restoredProfile),
-      lastRefreshTimestampProvider
-          .overrideWith((ref) => lastRefresh),
-    ],
-    child: const OrbitApp(),
-  ),);
+  runApp(
+    ProviderScope(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storageService),
+        favoritesServiceProvider.overrideWithValue(favoritesService),
+        historyServiceProvider.overrideWithValue(historyService),
+        playbackProgressServiceProvider
+            .overrideWithValue(playbackProgressService),
+        notificationServiceProvider.overrideWithValue(notificationService),
+        mediaLibraryManagerProvider.overrideWithValue(mediaLibraryManager),
+        currentProfileProvider.overrideWith((ref) => restoredProfile),
+        lastRefreshTimestampProvider.overrideWith((ref) => lastRefresh),
+      ],
+      child: const OrbitApp(),
+    ),
+  );
 
   // FCM initialisé après le premier frame pour ne pas bloquer l'affichage.
   SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -141,123 +142,156 @@ final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
   routes: [
     GoRoute(
-        path: '/profiles',
-        builder: (context, state) => const ProfileSelectionScreen(),),
+      path: '/profiles',
+      builder: (context, state) => const ProfileSelectionScreen(),
+    ),
     GoRoute(
-        path: '/profile/create',
-        builder: (context, state) => const ProfileCreationScreen(),),
+      path: '/profile/create',
+      builder: (context, state) => const ProfileEditScreen(),
+    ),
     GoRoute(
-        path: '/profile/edit',
-        builder: (context, state) {
-          final id = state.uri.queryParameters['id'];
-          return ProfileEditScreen(profileId: id);
-        },),
+      path: '/profile/edit/:id',
+      builder: (context, state) => ProfileEditScreen(
+        profileId: state.pathParameters['id'],
+      ),
+    ),
     GoRoute(
-        path: '/profile/preferences',
-        builder: (context, state) => const ProfilePreferencesScreen(),),
+      path: '/profile/pin',
+      builder: (context, state) {
+        final args = state.extra;
+        return PinPadScreen(
+          args: args is PinPadArgs ? args : const PinPadArgs.set(),
+        );
+      },
+    ),
     GoRoute(
-        path: '/parental',
-        builder: (context, state) => const ParentalControlScreen(),),
+      path: '/profile/preferences',
+      builder: (context, state) => const ProfilePreferencesScreen(),
+    ),
     GoRoute(
-        path: '/matchmaking',
-        builder: (context, state) => const MatchmakingScreen(),),
+      path: '/parental',
+      builder: (context, state) => const ParentalControlScreen(),
+    ),
     GoRoute(
-        path: '/player',
-        builder: (context, state) {
-          final data = state.extra;
-          if (data is PlayerRouteData) {
-            return PlayerScreen(
-              streamUrl: data.streamUrl,
-              title: data.title,
-              channels: data.channels,
-              initialIndex: data.index,
-              progressId: data.progressId,
-              initialPositionMs: data.initialPositionMs,
-              contentType: data.contentType,
-            );
-          }
-          final url = state.uri.queryParameters['url'] ?? '';
-          final title = state.uri.queryParameters['title'] ?? 'Lecture';
-          final progressId = state.uri.queryParameters['progressId'];
-          final initialPos =
-              int.tryParse(state.uri.queryParameters['pos'] ?? '');
-          final contentType = switch (
-            state.uri.queryParameters['type']) {
-            'vod' => PlaybackContentType.vod,
-            'series' => PlaybackContentType.series,
-            'replay' => PlaybackContentType.replay,
-            _ => PlaybackContentType.live,
-          };
+      path: '/matchmaking',
+      builder: (context, state) => const MatchmakingScreen(),
+    ),
+    GoRoute(
+      path: '/player',
+      builder: (context, state) {
+        final data = state.extra;
+        if (data is PlayerRouteData) {
           return PlayerScreen(
-            streamUrl: url,
-            title: title,
-            progressId: progressId,
-            initialPositionMs: initialPos,
-            contentType: contentType,
+            streamUrl: data.streamUrl,
+            title: data.title,
+            channels: data.channels,
+            initialIndex: data.index,
+            progressId: data.progressId,
+            initialPositionMs: data.initialPositionMs,
+            contentType: data.contentType,
           );
-        },),
+        }
+        final url = state.uri.queryParameters['url'] ?? '';
+        final title = state.uri.queryParameters['title'] ?? 'Lecture';
+        final progressId = state.uri.queryParameters['progressId'];
+        final initialPos = int.tryParse(state.uri.queryParameters['pos'] ?? '');
+        final contentType = switch (state.uri.queryParameters['type']) {
+          'vod' => PlaybackContentType.vod,
+          'series' => PlaybackContentType.series,
+          'replay' => PlaybackContentType.replay,
+          _ => PlaybackContentType.live,
+        };
+        return PlayerScreen(
+          streamUrl: url,
+          title: title,
+          progressId: progressId,
+          initialPositionMs: initialPos,
+          contentType: contentType,
+        );
+      },
+    ),
     GoRoute(
-        path: '/vod/detail',
-        builder: (context, state) {
-          final movie = state.extra;
-          if (movie is Movie) return MovieDetailScreen(movie: movie);
-          return const Material(child: SizedBox.shrink());
-        },),
+      path: '/vod/detail',
+      builder: (context, state) {
+        final movie = state.extra;
+        if (movie is Movie) return MovieDetailScreen(movie: movie);
+        return const Material(child: SizedBox.shrink());
+      },
+    ),
     GoRoute(
-        path: '/series/detail',
-        builder: (context, state) {
-          final id = state.uri.queryParameters['id'] ?? '';
-          final title = state.uri.queryParameters['title'] ?? '';
-          return SeriesDetailScreen(seriesId: id, title: title);
-        },),
+      path: '/series/detail',
+      builder: (context, state) {
+        final id = state.uri.queryParameters['id'] ?? '';
+        final title = state.uri.queryParameters['title'] ?? '';
+        return SeriesDetailScreen(seriesId: id, title: title);
+      },
+    ),
     GoRoute(
-        path: '/episode/detail',
-        builder: (context, state) {
-          final args = state.extra;
-          if (args is (Series, Episode)) {
-            final (series, episode) = args;
-            return EpisodeDetailScreen(series: series, episode: episode);
-          }
-          return const Material(child: SizedBox.shrink());
-        },),
+      path: '/episode/detail',
+      builder: (context, state) {
+        final args = state.extra;
+        if (args is (Series, Episode)) {
+          final (series, episode) = args;
+          return EpisodeDetailScreen(series: series, episode: episode);
+        }
+        return const Material(child: SizedBox.shrink());
+      },
+    ),
     GoRoute(
-        path: '/multivideo',
-        builder: (context, state) => const MultiVideoScreen(),),
+      path: '/multivideo',
+      builder: (context, state) => const MultiVideoScreen(),
+    ),
     GoRoute(
-        path: '/favorites',
-        builder: (context, state) => const FavoritesScreen(),),
+      path: '/favorites',
+      builder: (context, state) => const FavoritesScreen(),
+    ),
     GoRoute(
-        path: '/history', builder: (context, state) => const HistoryScreen(),),
+      path: '/history',
+      builder: (context, state) => const HistoryScreen(),
+    ),
     GoRoute(
-        path: '/startup',
-        builder: (context, state) => const StartupSplashScreen(),),
+      path: '/startup',
+      builder: (context, state) => const StartupSplashScreen(),
+    ),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
       routes: [
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(
-            path: '/live', builder: (context, state) => const LiveTvScreen(),),
+          path: '/live',
+          builder: (context, state) => const LiveTvScreen(),
+        ),
         GoRoute(
-            path: '/series', builder: (context, state) => const SeriesScreen(),),
+          path: '/series',
+          builder: (context, state) => const SeriesScreen(),
+        ),
         GoRoute(path: '/vod', builder: (context, state) => const VodScreen()),
         GoRoute(
-            path: '/radio', builder: (context, state) => const RadioScreen(),),
+          path: '/radio',
+          builder: (context, state) => const RadioScreen(),
+        ),
         GoRoute(
-            path: '/replay', builder: (context, state) => const ReplayScreen(),),
+          path: '/replay',
+          builder: (context, state) => const ReplayScreen(),
+        ),
         GoRoute(path: '/epg', builder: (context, state) => const EpgScreen()),
         GoRoute(
-            path: '/search', builder: (context, state) => const SearchScreen(),),
+          path: '/search',
+          builder: (context, state) => const SearchScreen(),
+        ),
         GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
-        
         GoRoute(
-            path: '/settings',
-            builder: (context, state) => const SettingsScreen(),),
+          path: '/settings',
+          builder: (context, state) => const SettingsScreen(),
+        ),
         GoRoute(
-            path: '/settings/advanced',
-            builder: (context, state) => const AdvancedSettingsScreen(),),
+          path: '/settings/advanced',
+          builder: (context, state) => const AdvancedSettingsScreen(),
+        ),
         GoRoute(
-            path: '/subscriptions',
-            builder: (context, state) => const SubscriptionsScreen(),),
+          path: '/subscriptions',
+          builder: (context, state) => const SubscriptionsScreen(),
+        ),
       ],
     ),
   ],
@@ -291,7 +325,7 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Orbit 3D IPTV',
+      title: 'Orbit IPTV',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
@@ -316,11 +350,14 @@ class _ExitConfirmDialog extends StatelessWidget {
       backgroundColor: const Color(0xFF16181E),
       title: const Row(
         children: [
-          Icon(Icons.power_settings_new_rounded,
-              color: Color(0xFFFF6B6B), size: 26,),
+          Icon(
+            Icons.power_settings_new_rounded,
+            color: Color(0xFFFF6B6B),
+            size: 26,
+          ),
           SizedBox(width: 10),
           Text(
-            'Quitter Orbit 3D',
+            'Quitter Orbit IPTV',
             style: TextStyle(color: Colors.white, fontSize: 18),
           ),
         ],
@@ -341,7 +378,9 @@ class _ExitConfirmDialog extends StatelessWidget {
             child: const Text(
               'Non',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold,),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -356,7 +395,9 @@ class _ExitConfirmDialog extends StatelessWidget {
             child: const Text(
               'Oui',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold,),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

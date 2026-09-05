@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -73,8 +73,52 @@ class ProfileAvatarOption {
   final Color color;
 }
 
-/// Avatar de profil : icône prédéfinie ("icone:<id>"), image distante
-/// (URL) ou initiale du prénom en secours.
+/// Dégradé orbital partagé entre l'édition et la sélection de profil
+/// (avatar encodé dans `avatarUrl` sous la forme `orbital:<index>`).
+class OrbitGradient {
+  const OrbitGradient({required this.start, required this.end});
+
+  final Color start;
+  final Color end;
+}
+
+const List<OrbitGradient> orbitGradientOptions = [
+  OrbitGradient(
+    start: Color(0xFF5B5BD6),
+    end: Color(0xFF00B8D4),
+  ),
+  OrbitGradient(
+    start: Color(0xFFFF4D8D),
+    end: Color(0xFF5B5BD6),
+  ),
+  OrbitGradient(
+    start: Color(0xFF00CFE8),
+    end: Color(0xFF4FACFE),
+  ),
+  OrbitGradient(
+    start: Color(0xFF8A72FF),
+    end: Color(0xFF5B5BD6),
+  ),
+  OrbitGradient(
+    start: Color(0xFFFF6FA8),
+    end: Color(0xFFFF4D8D),
+  ),
+  OrbitGradient(
+    start: Color(0xFFFF9A56),
+    end: Color(0xFFFFC24D),
+  ),
+  OrbitGradient(
+    start: Color(0xFF34D399),
+    end: Color(0xFF00CFE8),
+  ),
+  OrbitGradient(
+    start: Color(0xFFFF6B6B),
+    end: Color(0xFFFF4D8D),
+  ),
+];
+
+/// Avatar de profil : icône prédéfinie ("icone:<id>"), dégradé orbital
+/// ("orbital:<index>"), image distante (URL) ou initiale du prénom en secours.
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({
     super.key,
@@ -83,6 +127,7 @@ class ProfileAvatar extends StatelessWidget {
   });
 
   static const String avatarIconPrefix = 'icone:';
+  static const String orbitGradientPrefix = 'orbital:';
 
   final UserProfile profile;
   final double size;
@@ -108,7 +153,15 @@ class ProfileAvatar extends StatelessWidget {
     final option = isIconAvatar
         ? _optionForId(avatarUrl.substring(avatarIconPrefix.length))
         : null;
-    final isRemote = avatarUrl.isNotEmpty && !isIconAvatar;
+    final isOrbital = avatarUrl.startsWith(orbitGradientPrefix);
+    final gradientIdx = isOrbital
+        ? int.tryParse(avatarUrl.substring(orbitGradientPrefix.length)) ?? -1
+        : -1;
+    final orbital =
+        (gradientIdx >= 0 && gradientIdx < orbitGradientOptions.length)
+            ? orbitGradientOptions[gradientIdx]
+            : null;
+    final isRemote = avatarUrl.isNotEmpty && !isIconAvatar && !isOrbital;
 
     final Widget content;
     if (option != null) {
@@ -142,16 +195,25 @@ class ProfileAvatar extends StatelessWidget {
       content = Text(
         initial,
         style: TextStyle(
-          color: scheme.onPrimary,
+          color: Colors.white,
           fontSize: size * 0.42,
           fontWeight: FontWeight.w800,
+          shadows: const [
+            Shadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+          ],
         ),
       );
     }
 
-    final gradientColors = option != null
-        ? <Color>[option.color, Color.lerp(option.color, Colors.white, 0.25)!]
-        : <Color>[scheme.primary, scheme.secondary];
+    final gradientColors = orbital != null
+        ? <Color>[orbital.start, orbital.end]
+        : option != null
+            ? <Color>[
+                option.color,
+                Color.lerp(option.color, Colors.white, 0.25)!,
+              ]
+            : <Color>[scheme.primary, scheme.secondary];
+    final glowColor = orbital?.start ?? option?.color ?? scheme.primary;
 
     return Container(
       width: size,
@@ -167,7 +229,7 @@ class ProfileAvatar extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (option?.color ?? scheme.primary).withValues(alpha: 0.35),
+            color: glowColor.withValues(alpha: 0.35),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

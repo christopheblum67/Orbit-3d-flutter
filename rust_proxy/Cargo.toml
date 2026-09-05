@@ -1,0 +1,107 @@
+[package]
+name = "orbit_rust_proxy"
+version = "0.1.0"
+edition = "2021"
+description = "Local TLS-impersonating proxy for Cloudflare bypass (Orbit 3D Flutter)"
+
+[workspace]
+resolver = "2"
+
+[features]
+default = ["process-manager"]
+# FFI (flutter_rust_bridge) NON utilisé pour le moment : le pont S3 utilise un
+# ProcessManager. Garder ce feature OFF évite des échecs de build inutiles.
+ffi = ["dep:flutter_rust_bridge"]
+
+[dependencies]
+# HTTP Client with TLS Impersonation (Chrome 120 + fallback Chrome 131)
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate", "trust-dns", "native-tls", "rustls-tls", "stream"] }
+reqwest-impersonate = { version = "0.1", features = ["chrome-120", "chrome-131", "rustls"] }
+
+# Async Runtime
+tokio = { version = "1.38", features = ["full", "rt-multi-thread", "macros", "signal"] }
+
+# HTTP Types
+http = "1.1"
+http-body = "0.4"
+http-body-util = "0.1"
+bytes = "1.5"
+
+# Web Framework
+axum = { version = "0.7", features = ["ws"] }
+
+# Hyper
+hyper = { version = "1.1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+hyper-rustls = "0.27"
+
+# HLS/DASH Parsing
+m3u8 = "0.7"
+async-compression = "0.4"
+
+# Cache LRU en mémoire pour les segments
+lru = "0.12"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# URL parsing + encoding (utilisé par client_factory/hls/dash/proxy)
+url = "2.5"
+urlencoding = "2.1"
+
+# Metrics
+prometheus-client = "0.14"
+
+# Directories
+dirs = "5.0"
+
+# Logging
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+tracing-appender = "0.6"
+
+# Configuration
+config = "0.13"
+toml = "0.8"
+
+# Error Handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Async Utilities
+futures = "0.3"
+futures-util = "0.3"
+
+# FFI optionnel (activé uniquement par la feature `ffi`)
+flutter_rust_bridge = { version = "2.0", optional = true }
+
+[dependencies.rustls]
+version = "0.23"
+features = ["dangerous_configuration", "std"]
+
+[dependencies.webpki]
+version = "0.22"
+
+[dev-dependencies]
+tempfile = "3.0"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+debug = true
+
+[target.'cfg(target_os = "android")']
+rustflags = [
+  "-C", "link-arg=-Wl,--no-undefined",
+  "-C", "link-arg=-Wl,--as-needed",
+]
+
+[[bin]]
+name = "orbit_proxy_server"
+path = "src/main.rs"

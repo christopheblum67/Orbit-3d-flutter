@@ -1,6 +1,7 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
+import 'cast.dart';
 
 class Movie {
   final String id;
@@ -14,6 +15,10 @@ class Movie {
   final String pegi;
   final String streamUrl;
   final String categoryId;
+  
+  // Nouvelles données de casting
+  final List<Actor> cast;
+  final List<CrewMember> crew;
 
   Movie({
     required this.id,
@@ -27,9 +32,24 @@ class Movie {
     required this.pegi,
     required this.streamUrl,
     this.categoryId = '',
+    this.cast = const [],
+    this.crew = const [],
   });
 
   factory Movie.fromMap(Map<String, dynamic> map) {
+    final castList = (map['cast'] as List<dynamic>? ?? [])
+        .map((e) => Actor.fromMap(e as Map<String, dynamic>))
+        .toList();
+    final crewList = (map['crew'] as List<dynamic>? ?? [])
+        .map((e) => CrewMember.fromMap(e as Map<String, dynamic>))
+        .toList();
+    castList.sort((a, b) => a.order.compareTo(b.order));
+    crewList.sort((a, b) {
+      final deptCompare = a.department.compareTo(b.department);
+      if (deptCompare != 0) return deptCompare;
+      return a.order.compareTo(b.order);
+    });
+
     return Movie(
       id: map['id']?.toString() ?? map['stream_id']?.toString() ?? '',
       title: map['title'] ?? '',
@@ -58,10 +78,17 @@ class Movie {
       ]),
       streamUrl: map['url'] ?? '',
       categoryId: map['category_id']?.toString() ?? '',
+      cast: castList,
+      crew: crewList,
     );
   }
 
-  Movie copyWith({String? streamUrl, String? categoryId}) {
+  Movie copyWith({
+    String? streamUrl,
+    String? categoryId,
+    List<Actor>? cast,
+    List<CrewMember>? crew,
+  }) {
     return Movie(
       id: id,
       title: title,
@@ -74,6 +101,8 @@ class Movie {
       pegi: pegi,
       streamUrl: streamUrl ?? this.streamUrl,
       categoryId: categoryId ?? this.categoryId,
+      cast: cast ?? this.cast,
+      crew: crew ?? this.crew,
     );
   }
 

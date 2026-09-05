@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
@@ -51,9 +51,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             ];
           } else if (_selectedGroup.startsWith('g')) {
             final index = int.tryParse(_selectedGroup.substring(1));
-            visibleChannels = (index != null && index >= 0 && index < groups.length)
-                ? groups[index].channels
-                : const [];
+            visibleChannels =
+                (index != null && index >= 0 && index < groups.length)
+                    ? groups[index].channels
+                    : const [];
           } else {
             visibleChannels = const [];
           }
@@ -65,8 +66,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                 CategoriesRail(
                   categories: categoryGroups,
                   selectedId: _selectedGroup,
-                  onSelected: (id) =>
-                      setState(() => _selectedGroup = id),
+                  onSelected: (id) => setState(() => _selectedGroup = id),
                 ),
               Expanded(
                 child: visibleChannels.isEmpty

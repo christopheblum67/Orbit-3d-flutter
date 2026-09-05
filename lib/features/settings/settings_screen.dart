@@ -119,7 +119,7 @@ class _AccountTab extends ConsumerWidget {
           onTap: () async {
             final notificationService = ref.read(notificationServiceProvider);
             await notificationService.showNotification(
-              'Orbit 3D',
+              'Orbit IPTV',
               'Ceci est une notification test',
             );
           },
@@ -189,7 +189,8 @@ class _DnsProviderTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.dns_outlined, color: Theme.of(context).colorScheme.primary),
+          leading: Icon(Icons.dns_outlined,
+              color: Theme.of(context).colorScheme.primary),
           title: const Text('Fournisseur DNS', style: TextStyle(fontSize: 14)),
           subtitle: const Text(
             'Serveur utilisé pour les requêtes DoH',

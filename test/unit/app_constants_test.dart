@@ -4,7 +4,7 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 void main() {
   group('AppConstants', () {
     test('should have correct app name', () {
-      expect(AppConstants.appName, 'Orbit 3D');
+      expect(AppConstants.appName, 'Orbit IPTV');
     });
 
     test('should have valid API URL', () {

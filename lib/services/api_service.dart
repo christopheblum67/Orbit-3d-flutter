@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -376,6 +377,35 @@ class ApiService {
       );
     } catch (_) {
       return movie;
+    }
+  }
+
+  /// Récupère le casting et l'équipe technique d'un film (cast + crew).
+  /// Nécessite un serveur Xtream compatible avec l'endpoint `get_vod_info`
+  /// qui retourne les champs `cast` et `crew` (format TMDB-like).
+  Future<MovieCredits?> fetchMovieCredits(String movieId) async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream' || movieId.isEmpty) return null;
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final url = _playerApiUrl(baseUrl, 'player_api.php', {
+      'username': username,
+      'password': password,
+      'action': 'get_vod_info',
+      'vod_id': movieId,
+    });
+    try {
+      final response = await _get(url);
+      final data = response.data;
+      if (data is! Map) return null;
+      final rawInfo = data['info'];
+      final info = rawInfo is Map
+          ? Map<String, dynamic>.from(rawInfo)
+          : <String, dynamic>{};
+      return MovieCredits.fromMap(info);
+    } catch (_) {
+      return null;
     }
   }
 
