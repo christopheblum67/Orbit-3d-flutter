@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -64,44 +64,48 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           final categories =
               categoriesAsync.value ?? _categoriesFromMovies(movies);
           final q = _query.trim().toLowerCase();
-          final filteredMovies =
-              _selectedCategoryId.isEmpty
-                  ? movies
-                  : movies
-                      .where((movie) => movie.categoryId == _selectedCategoryId)
-                      .toList();
-          final queryFiltered =
-              q.isEmpty
-                  ? filteredMovies
-                  : filteredMovies
-                      .where(
-                        (m) =>
-                            m.title.toLowerCase().contains(q) ||
-                            m.genre.toLowerCase().contains(q),
-                      )
-                      .toList();
+          final filteredMovies = _selectedCategoryId.isEmpty
+              ? movies
+              : movies
+                  .where((movie) => movie.categoryId == _selectedCategoryId)
+                  .toList();
+          final queryFiltered = q.isEmpty
+              ? filteredMovies
+              : filteredMovies
+                  .where(
+                    (m) =>
+                        m.title.toLowerCase().contains(q) ||
+                        m.genre.toLowerCase().contains(q),
+                  )
+                  .toList();
           final libraryManager = ref.read(mediaLibraryManagerProvider);
-          final mediaItems = queryFiltered.map((m) => MediaItem(
-            id: m.id,
-            title: m.title,
-            streamUrl: m.streamUrl,
-            posterUrl: m.posterUrl,
-            categoryId: m.categoryId,
-            rating: m.rating,
-            releaseYear: m.year,
-            durationMinutes: 0, // Movie model doesn't have duration
-            addedDate: DateTime.now(),
-          ),).toList();
-          final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
+          final mediaItems = queryFiltered
+              .map(
+                (m) => MediaItem(
+                  id: m.id,
+                  title: m.title,
+                  streamUrl: m.streamUrl,
+                  posterUrl: m.posterUrl,
+                  categoryId: m.categoryId,
+                  rating: m.rating,
+                  releaseYear: m.year,
+                  durationMinutes: 0, // Movie model doesn't have duration
+                  addedDate: DateTime.now(),
+                ),
+              )
+              .toList();
+          final sortedItems =
+              libraryManager.applySort(mediaItems, _selectedSortMode);
           final movieById = <String, Movie>{
             for (final m in queryFiltered)
               if (m.id.isNotEmpty) m.id: m,
           };
           final visibleMovies = sortedItems.map<Movie>((item) {
-            return movieById[item.id] ?? queryFiltered.firstWhere(
-              (m) => m.id == item.id,
-              orElse: () => queryFiltered.first,
-            );
+            return movieById[item.id] ??
+                queryFiltered.firstWhere(
+                  (m) => m.id == item.id,
+                  orElse: () => queryFiltered.first,
+                );
           }).toList();
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,7 +142,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                   : 'Aucun film ne correspond à cette catégorie.',
                             )
                           : GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 16, 16, 16),
                               gridDelegate:
                                   const SliverGridDelegateWithMaxCrossAxisExtent(
                                 maxCrossAxisExtent: 200,
@@ -161,8 +166,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     ..hideCurrentSnackBar()
                                     ..showSnackBar(
                                       SnackBar(
-                                        content: Text('« ${movie.title} » ajouté aux favoris'),
-                                        duration: const Duration(milliseconds: 1500),
+                                        content: Text(
+                                            '« ${movie.title} » ajouté aux favoris'),
+                                        duration:
+                                            const Duration(milliseconds: 1500),
                                       ),
                                     );
                                 }
@@ -252,7 +259,8 @@ class _SearchField extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

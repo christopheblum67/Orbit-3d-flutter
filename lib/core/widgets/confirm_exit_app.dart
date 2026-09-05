@@ -57,10 +57,10 @@ class _ExitConfirmDialog extends StatelessWidget {
           Icon(Icons.power_settings_new_rounded,
               color: Color(0xFFFF6B6B), size: 26,),
           SizedBox(width: 10),
-          Text(
-            'Quitter Orbit 3D',
-            style: TextStyle(color: Colors.white, fontSize: 18),
-          ),
+Text(
+              'Quitter Orbit IPTV',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
         ],
       ),
       content: const Text(

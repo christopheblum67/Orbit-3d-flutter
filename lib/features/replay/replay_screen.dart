@@ -49,8 +49,11 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.history_toggle_off_rounded,
-                      size: 56, color: Colors.grey,),
+                  Icon(
+                    Icons.history_toggle_off_rounded,
+                    size: 56,
+                    color: Colors.grey,
+                  ),
                   SizedBox(height: 16),
                   Text(
                     'Aucun replay disponible',
@@ -72,19 +75,26 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                   .where((r) => r.categoryId == _selectedCategoryId)
                   .toList();
           final libraryManager = ref.read(mediaLibraryManagerProvider);
-          final mediaItems = filteredReplays.map((r) => MediaItem(
-            id: r.id,
-            title: r.title,
-            streamUrl: r.streamUrl,
-            posterUrl: '', // ReplayItem doesn't have posterUrl
-            categoryId: r.categoryId,
-            rating: 0.0,
-            releaseYear: 0,
-            durationMinutes: 0,
-            addedDate: DateTime.now(),
-          ),).toList();
-          final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
-          final visibleReplays = sortedItems.map((item) => replays.firstWhere((r) => r.id == item.id)).toList();
+          final mediaItems = filteredReplays
+              .map(
+                (r) => MediaItem(
+                  id: r.id,
+                  title: r.title,
+                  streamUrl: r.streamUrl,
+                  posterUrl: '', // ReplayItem doesn't have posterUrl
+                  categoryId: r.categoryId,
+                  rating: 0.0,
+                  releaseYear: 0,
+                  durationMinutes: 0,
+                  addedDate: DateTime.now(),
+                ),
+              )
+              .toList();
+          final sortedItems =
+              libraryManager.applySort(mediaItems, _selectedSortMode);
+          final visibleReplays = sortedItems
+              .map((item) => replays.firstWhere((r) => r.id == item.id))
+              .toList();
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -95,12 +105,12 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                     ...categories,
                   ],
                   selectedId: _selectedCategoryId,
-                  onSelected: (id) =>
-                      setState(() => _selectedCategoryId = id),
+                  onSelected: (id) => setState(() => _selectedCategoryId = id),
                 ),
               Expanded(
                 child: visibleReplays.isEmpty
-                    ? const Center(child: Text('Aucun replay dans cette catégorie'))
+                    ? const Center(
+                        child: Text('Aucun replay dans cette catégorie'))
                     : ListView.builder(
                         itemCount: visibleReplays.length,
                         itemBuilder: (context, index) {
@@ -142,7 +152,8 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
       map.putIfAbsent(id, () => id);
     }
     return [
-      for (final entry in map.entries) MediaCategory(id: entry.key, name: entry.value),
+      for (final entry in map.entries)
+        MediaCategory(id: entry.key, name: entry.value),
     ];
   }
 }

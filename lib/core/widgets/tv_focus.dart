@@ -19,10 +19,16 @@ class TvFocus extends StatelessWidget {
   Widget build(BuildContext context) {
     return Focus(
       focusNode: focusNode,
-      onFocusChange: onFocusChange,
+      onFocusChange: (focused) {
+        if (focused) {
+          HapticFeedback.selectionClick();
+        }
+        onFocusChange?.call(focused);
+      },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.enter) {
+          HapticFeedback.heavyImpact();
           onActivate?.call();
           return KeyEventResult.handled;
         }

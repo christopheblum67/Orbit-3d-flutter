@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -22,6 +23,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
+export 'profile_type_provider.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 final storageServiceProvider =
@@ -41,6 +43,15 @@ final playbackProgressServiceProvider =
     Provider<PlaybackProgressService>((ref) => PlaybackProgressService());
 final mediaLibraryManagerProvider =
     Provider<MediaLibraryManager>((ref) => MediaLibraryManager());
+
+/// Pilote le process proxy Rust local (détection du binaire, démarrage,
+/// watchdog, ping `/api/proxy-status`). Singleton partagé : l'app lit
+/// `manager.isReady` avant de rebaser une URL via `stream_relay`.
+final rustProxyManagerProvider = Provider<RustProxyManager>((ref) {
+  final manager = RustProxyManager.instance;
+  ref.onDispose(manager.dispose);
+  return manager;
+});
 
 final playbackProgressProvider =
     Provider.family<PlaybackProgress?, String>((ref, id) {
@@ -191,7 +202,8 @@ final aiRecommendationsProvider = FutureProvider.autoDispose
 
   if (profile == null || profile.id != profileId) {
     throw const StreamAiException(
-        'Aucun profil sélectionné pour les recommandations.',);
+      'Aucun profil sélectionné pour les recommandations.',
+    );
   }
 
   return aiService.getRecommendations(profile, movies);

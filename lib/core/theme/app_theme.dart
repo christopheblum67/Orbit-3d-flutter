@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
-/// Thème global "Orbit 3D" — refonte moderne : palette seed indigo/violet,
+/// Thème global "Orbit IPTV" — refonte moderne : palette seed indigo/violet,
 /// accents rose/cyan, arrondis généreux et typographie dynamique.
 class AppTheme {
   AppTheme._();

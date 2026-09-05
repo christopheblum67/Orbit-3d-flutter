@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/core/services/personalized_recommendations.dart';
+import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 /// Écran de démarrage : régénère les flux et affiche une barre de progression
 /// (%) pendant qu'un carrousel de recommandations personnalisées défile
@@ -105,7 +107,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (_recommendations.isEmpty) {
       _recommendations = [
         const StartupRecommendation(
-          title: 'Orbit 3D',
+          title: 'Orbit IPTV',
           category: 'Bienvenue',
           posterUrl: '',
           reason: 'Vos recommandations personnalisées arrivent…',
@@ -141,6 +143,64 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         if (_pageController.hasClients) _pageController.jumpToPage(0);
       });
     }
+    // Auto-resume: check for last session playback progress
+    if (mounted) {
+      await _checkAutoResume();
+    }
+  }
+
+  Future<void> _checkAutoResume() async {
+    final progress = ref.read(playbackProgressProvider('last_session'));
+    if (progress != null && progress.positionMs > 60000 && progress.hasProgress) {
+      final title = _getResumeTitle(progress);
+      final timestamp = _formatTimestamp(progress.positionMs);
+      final shouldResume = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E222D),
+          title: const Text('Reprendre la lecture ?', style: TextStyle(color: Colors.white)),
+          content: Text(
+            'Reprendre "$title" à $timestamp ?',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Plus tard', style: TextStyle(color: Colors.white54)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00CFE8)),
+              child: const Text('Reprendre', style: TextStyle(color: Colors.black)),
+            ),
+          ],
+        ),
+      );
+      if (shouldResume == true && mounted) {
+        context.go('/player', extra: PlayerRouteData(
+          streamUrl: '',
+          title: title,
+          initialPositionMs: progress.positionMs,
+          progressId: 'last_session',
+        ));
+      }
+    }
+  }
+
+  String _getResumeTitle(PlaybackProgress progress) {
+    // Try to get title from recently watched history
+    final history = ref.read(mediaLibraryManagerProvider).recentlyWatched;
+    if (history.isNotEmpty) {
+      return history.first.title;
+    }
+    return 'Dernière session';
+  }
+
+  String _formatTimestamp(int positionMs) {
+    final minutes = (positionMs / 60000).floor();
+    final seconds = ((positionMs % 60000) / 1000).floor();
+    return '${minutes}m ${seconds}s';
   }
 
   Future<void> _refreshSubscriptionValidity() async {

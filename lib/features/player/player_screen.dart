@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
+import 'package:orbit_3d_flutter/services/stream_relay.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -152,19 +153,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// quand la vidéo joue. Ne fait RIEN si la barre est temporairement visible
   /// (touch/OK) — le timer la masquera après 25s.
   void _syncImmersive() {
-    final playing =
-        _status == _PlayerStatus.ready &&
+    final playing = _status == _PlayerStatus.ready &&
         _controller != null &&
         _controller!.value.isPlaying;
     if (playing && !_immersive && !_statusBarVisible) {
       _immersive = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+      );
     } else if (!playing && _immersive) {
       _restoreSystemUi();
     }
@@ -172,7 +174,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Affiche les barres système (status + nav) pendant [duration] puis
   /// repasse en immersiveSticky. Appelé sur tap écran ou touche OK.
-  void _showStatusBarTemporarily({Duration duration = const Duration(seconds: 25)}) {
+  void _showStatusBarTemporarily(
+      {Duration duration = const Duration(seconds: 25)}) {
     if (_statusBarVisible) {
       _statusBarTimer?.cancel();
     } else {
@@ -220,7 +223,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (durationMs > 0 && positionMs > durationMs * 0.95) {
       ref.read(playbackProgressServiceProvider).clear(id);
     } else {
-      ref.read(playbackProgressServiceProvider).save(id, positionMs, durationMs);
+      ref
+          .read(playbackProgressServiceProvider)
+          .save(id, positionMs, durationMs);
     }
   }
 
@@ -297,7 +302,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // (redirigée vers un CDN signé) fonctionne pour le VOD tandis que le
     // chemin /movie/{id} renvoie 401. On tente donc les variantes dans
     // l'ordre, en complétant par les User-Agents si toutes échouent.
-    final variants = streamUrlVariants(_activeStreamUrl);
+    final variants = await _resolvedVariants();
     for (final attemptUrl in variants) {
       final found = await _tryPlay(gen, attemptUrl);
       if (found) return;
@@ -322,9 +327,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!engine.isExternal) return false;
     try {
       final url = _activeStreamUrl;
-      final uri = engine == PlayerEngine.vlc
-          ? Uri.parse('vlc://$url')
-          : Uri.parse(url);
+      final uri =
+          engine == PlayerEngine.vlc ? Uri.parse('vlc://$url') : Uri.parse(url);
       final ui = Uri.parse(url);
       final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
       if (!supported) return false;
@@ -357,6 +361,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     ];
   }
 
+  /// Variantes d'URL candidates à tenter. Quand le proxy Rust est prêt et
+  /// que le flux est un candidat (draap.online), chaque variante est rebasée
+  /// via le relais local : l'entrée passe par `/proxy/hls` (manifest HLS/DASH)
+  /// ou `/proxy/stream|segment` (média), puis le player suit les URLs
+  /// réécrites `/hls/<hash>/…` renvoyées par le serveur. Comportement
+  /// inchangé si le proxy n'est pas prêt ou si l'URL n'est pas relayable.
+  Future<List<String>> _resolvedVariants() async {
+    final manager = ref.read(rustProxyManagerProvider);
+    // Démarrage best-effort (no-op si binaire absent / Android sans hook FFI),
+    // borné par le ping : on attend une fenêtre courte AVANT de relayer.
+    if (isRelayCandidate(_activeStreamUrl) && !manager.isReady) {
+      await manager.ensureStarted();
+    }
+    var variants = streamUrlVariants(_activeStreamUrl);
+    if (manager.isReady) {
+      variants = variants
+          .map((u) => maybeRebaseThroughProxy(u, proxyReady: true))
+          .toList();
+    }
+    return variants;
+  }
+
   /// Construit les en-têtes HTTP pour une URL de flux, en fusionnant les
   /// cookies Cloudflare (`cf_clearance`) déjà obtenus pour ce host, si
   /// présents. Ceux-ci sont utilisés par ExoPlayer pour ses propres requêtes.
@@ -383,12 +409,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     try {
       final url = _activeStreamUrl;
       // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
-      final uri = engine == PlayerEngine.vlc
-          ? Uri.parse('vlc://$url')
-          : Uri.parse(url);
+      final uri =
+          engine == PlayerEngine.vlc ? Uri.parse('vlc://$url') : Uri.parse(url);
       final ui = Uri.parse(url);
-      final supported =
-          await canLaunchUrl(uri) || await canLaunchUrl(ui);
+      final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
       if (!supported) return false;
       final launched =
           await launchUrl(uri, mode: LaunchMode.externalApplication) ||
@@ -408,7 +432,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Future<bool> _tryPlay(int gen, String url) async {
     final userAgentOrder = _userAgentOrder();
-    for (final agentIndex in userAgentOrder) {      final controller = VideoPlayerController.networkUrl(
+    for (final agentIndex in userAgentOrder) {
+      final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
         httpHeaders: _resolvedHeaders(url, agentIndex),
         videoPlayerOptions: VideoPlayerOptions(
@@ -565,13 +590,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final target = _index + 1;
     if (target >= _channels.length) return;
     if (_cachedNext != null || _preloadTarget == target) return;
-    if (!isLikelyStreamUrl(_channels[target].streamUrl)) return;
+    final channelUrl = _channels[target].streamUrl;
+    if (!isLikelyStreamUrl(channelUrl)) return;
     _preloadTarget = target;
+    // Préchargement relais : on passe par le proxy local si celui-ci est prêt
+    // et que la chaîne cible est un candidat au relais.
+    final targetUrl = maybeRebaseThroughProxy(
+      channelUrl,
+      proxyReady: ref.read(rustProxyManagerProvider).isReady,
+    );
     for (var attempt = 0; attempt < playbackUserAgents.length; attempt++) {
       final controller = VideoPlayerController.networkUrl(
-        Uri.parse(_channels[target].streamUrl),
-        httpHeaders:
-            _resolvedHeaders(_channels[target].streamUrl, attempt),
+        Uri.parse(targetUrl),
+        httpHeaders: _resolvedHeaders(targetUrl, attempt),
         videoPlayerOptions: VideoPlayerOptions(
           mixWithOthers: true,
           allowBackgroundPlayback: false,
@@ -754,7 +785,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Widget build(BuildContext context) {
     final currentTitle = _currentChannel?.name ?? widget.title ?? 'Lecture';
     return Scaffold(
-      appBar: AppBar(title: Text(currentTitle)),
+      appBar: AppBar(
+        title: Text(currentTitle),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            _restoreSystemUi();
+            Navigator.of(context).pop();
+          },
+        ),
+      ),
       body: Focus(
         focusNode: _focusNode,
         autofocus: true,
@@ -782,8 +822,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         onKeyEvent: (event) {
                           if (event is KeyDownEvent &&
                               (event.logicalKey == LogicalKeyboardKey.select ||
-                               event.logicalKey == LogicalKeyboardKey.enter ||
-                               event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.enter ||
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.numpadEnter)) {
                             _showStatusBarTemporarily();
                           }
                         },
@@ -1056,8 +1098,11 @@ class _EpgRow extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.schedule_rounded,
-                  size: 14, color: Colors.white54,),
+              const Icon(
+                Icons.schedule_rounded,
+                size: 14,
+                color: Colors.white54,
+              ),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -1104,22 +1149,162 @@ class _EpgRow extends StatelessWidget {
 
 String _fmt(DateTime time) => DateFormat('HH:mm').format(time);
 
-class _ReadyPlayer extends StatelessWidget {
+class _ReadyPlayer extends ConsumerStatefulWidget {
   const _ReadyPlayer({required this.controller, required this.onTap});
 
   final VideoPlayerController controller;
   final VoidCallback onTap;
 
   @override
+  ConsumerState<_ReadyPlayer> createState() => _ReadyPlayerState();
+}
+
+class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
+  bool _showBuffering = false;
+  bool _showHardwareControls = false;
+  Timer? _hideControlsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onPlayerStateChanged);
+    _startHideControlsTimer();
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onPlayerStateChanged);
+    _hideControlsTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onPlayerStateChanged() {
+    if (!mounted) return;
+    final isBuffering = widget.controller.value.isBuffering;
+    if (isBuffering != _showBuffering) {
+      setState(() => _showBuffering = isBuffering);
+    }
+  }
+
+  void _startHideControlsTimer() {
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showHardwareControls) {
+        setState(() => _showHardwareControls = false);
+      }
+    });
+  }
+
+  void _showControls() {
+    if (!_showHardwareControls) {
+      setState(() => _showHardwareControls = true);
+    }
+    _startHideControlsTimer();
+  }
+
+  void _togglePlayPause() {
+    if (widget.controller.value.isPlaying) {
+      widget.controller.pause();
+    } else {
+      widget.controller.play();
+    }
+    _showControls();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: AspectRatio(
-          aspectRatio: controller.value.aspectRatio,
-          child: VideoPlayer(controller),
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => _showControls(),
+      onDoubleTap: _togglePlayPause,
+      onLongPress: () =>
+          setState(() => _showHardwareControls = !_showHardwareControls),
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AspectRatio(
+                aspectRatio: widget.controller.value.aspectRatio,
+                child: VideoPlayer(widget.controller),
+              ),
+              // Buffering indicator
+              if (_showBuffering)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+              // Hardware controls overlay
+              if (_showHardwareControls)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Progress bar
+                      VideoProgressIndicator(widget.controller,
+                          allowScrubbing: true),
+                      // Control buttons
+                      SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton.filledTonal(
+                                onPressed: () => widget.controller.seekTo(
+                                  widget.controller.value.position -
+                                      const Duration(seconds: 10),
+                                ),
+                                icon: const Icon(Icons.replay_10,
+                                    color: Colors.white),
+                                tooltip: 'Reculer 10s',
+                              ),
+                              IconButton.filledTonal(
+                                onPressed: () {
+                                  if (widget.controller.value.isPlaying) {
+                                    widget.controller.pause();
+                                  } else {
+                                    widget.controller.play();
+                                  }
+                                },
+                                icon: Icon(
+                                  widget.controller.value.isPlaying
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                                tooltip: widget.controller.value.isPlaying
+                                    ? 'Pause'
+                                    : 'Lecture',
+                              ),
+                              IconButton.filledTonal(
+                                onPressed: () => widget.controller.seekTo(
+                                  widget.controller.value.position +
+                                      const Duration(seconds: 30),
+                                ),
+                                icon: const Icon(Icons.forward_30,
+                                    color: Colors.white),
+                                tooltip: 'Avancer 30s',
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

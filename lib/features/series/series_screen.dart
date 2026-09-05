@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -61,8 +61,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               message: 'La bibliothèque de séries est vide pour le moment.',
             );
           }
-          final categories = categoriesAsync.value ??
-              _categoriesFromSeries(seriesList);
+          final categories =
+              categoriesAsync.value ?? _categoriesFromSeries(seriesList);
           final q = _query.trim().toLowerCase();
           final filteredSeries = _selectedCategoryId.isEmpty
               ? seriesList
@@ -79,27 +79,33 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   )
                   .toList();
           final libraryManager = ref.read(mediaLibraryManagerProvider);
-          final mediaItems = queryFiltered.map((s) => MediaItem(
-            id: s.id,
-            title: s.title,
-            streamUrl: '', // Series n'ont pas de streamUrl direct
-            posterUrl: s.coverUrl,
-            categoryId: s.categoryId,
-            rating: s.rating,
-            releaseYear: s.year,
-            durationMinutes: 0,
-            addedDate: DateTime.now(),
-          ),).toList();
-          final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
+          final mediaItems = queryFiltered
+              .map(
+                (s) => MediaItem(
+                  id: s.id,
+                  title: s.title,
+                  streamUrl: '', // Series n'ont pas de streamUrl direct
+                  posterUrl: s.coverUrl,
+                  categoryId: s.categoryId,
+                  rating: s.rating,
+                  releaseYear: s.year,
+                  durationMinutes: 0,
+                  addedDate: DateTime.now(),
+                ),
+              )
+              .toList();
+          final sortedItems =
+              libraryManager.applySort(mediaItems, _selectedSortMode);
           final seriesById = <String, Series>{
             for (final s in queryFiltered)
               if (s.id.isNotEmpty) s.id: s,
           };
           final visibleSeries = sortedItems.map<Series>((item) {
-            return seriesById[item.id] ?? queryFiltered.firstWhere(
-              (s) => s.id == item.id,
-              orElse: () => queryFiltered.first,
-            );
+            return seriesById[item.id] ??
+                queryFiltered.firstWhere(
+                  (s) => s.id == item.id,
+                  orElse: () => queryFiltered.first,
+                );
           }).toList();
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,7 +135,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                           ? const EmptyState(
                               icon: Icons.tv,
                               title: 'Aucun résultat',
-                              message: 'Aucune série ne correspond à cette recherche.',
+                              message:
+                                  'Aucune série ne correspond à cette recherche.',
                             )
                           : CustomScrollView(
                               slivers: [
@@ -137,8 +144,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   child: SectionHeader(
                                     icon: Icons.auto_awesome,
                                     title: 'Séries',
-                                    subtitle:
-                                        '${visibleSeries.length} titres',
+                                    subtitle: '${visibleSeries.length} titres',
                                   ),
                                 ),
                                 SliverPadding(
@@ -173,8 +179,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                                 content: Text(
                                                   '« ${series.title} » ajouté aux favoris',
                                                 ),
-                                                duration:
-                                                    const Duration(milliseconds: 1500),
+                                                duration: const Duration(
+                                                    milliseconds: 1500),
                                               ),
                                             );
                                         }
@@ -269,9 +275,9 @@ class _SeriesSearchField extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
 }
-

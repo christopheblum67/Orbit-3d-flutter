@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'Orbit 3D';
+  static const String appName = 'Orbit IPTV';
   static const String appVersion = '1.0.0';
-  static const String appDescription = '3D Orbit Visualization';
+  static const String appDescription = 'IPTV Streaming Platform';
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',

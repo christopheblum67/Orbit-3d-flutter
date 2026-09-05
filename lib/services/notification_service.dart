@@ -54,7 +54,7 @@ class NotificationService {
         final notification = message.notification;
         if (notification != null) {
           showNotification(
-              notification.title ?? 'Orbit 3D', notification.body ?? '',);
+              notification.title ?? 'Orbit IPTV', notification.body ?? '',);
         }
       });
     } catch (e) {
@@ -81,7 +81,7 @@ class NotificationService {
         priority: Priority.high,
       );
       const details = NotificationDetails(android: androidDetails);
-      await plugin.show(0, notification.title ?? 'Orbit 3D',
+      await plugin.show(0, notification.title ?? 'Orbit IPTV',
           notification.body ?? '', details,);
     }
   }
