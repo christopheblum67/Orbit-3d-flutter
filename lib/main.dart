@@ -55,6 +55,8 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/multivideo/multivideo_screen.dart';
 import 'package:orbit_3d_flutter/features/favorites/favorites_screen.dart';
 import 'package:orbit_3d_flutter/features/history/history_screen.dart';
+import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
+import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -151,8 +153,15 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profile/edit/:id',
-      builder: (context, state) => ProfileEditScreen(
-        profileId: state.pathParameters['id'],
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'profile_edit',
+        child: WithBackHandling(
+          meta: RouteMeta.popOrFallback('/home', restorationId: 'profile_edit'),
+          child: ProfileEditScreen(
+            profileId: state.pathParameters['id'],
+          ),
+        ),
       ),
     ),
     GoRoute(
@@ -178,37 +187,44 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/player',
-      builder: (context, state) {
-        final data = state.extra;
-        if (data is PlayerRouteData) {
-          return PlayerScreen(
-            streamUrl: data.streamUrl,
-            title: data.title,
-            channels: data.channels,
-            initialIndex: data.index,
-            progressId: data.progressId,
-            initialPositionMs: data.initialPositionMs,
-            contentType: data.contentType,
-          );
-        }
-        final url = state.uri.queryParameters['url'] ?? '';
-        final title = state.uri.queryParameters['title'] ?? 'Lecture';
-        final progressId = state.uri.queryParameters['progressId'];
-        final initialPos = int.tryParse(state.uri.queryParameters['pos'] ?? '');
-        final contentType = switch (state.uri.queryParameters['type']) {
-          'vod' => PlaybackContentType.vod,
-          'series' => PlaybackContentType.series,
-          'replay' => PlaybackContentType.replay,
-          _ => PlaybackContentType.live,
-        };
-        return PlayerScreen(
-          streamUrl: url,
-          title: title,
-          progressId: progressId,
-          initialPositionMs: initialPos,
-          contentType: contentType,
-        );
-      },
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'player',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'player'),
+          child: () {
+            final data = state.extra;
+            if (data is PlayerRouteData) {
+              return PlayerScreen(
+                streamUrl: data.streamUrl,
+                title: data.title,
+                channels: data.channels,
+                initialIndex: data.index,
+                progressId: data.progressId,
+                initialPositionMs: data.initialPositionMs,
+                contentType: data.contentType,
+              );
+            }
+            final url = state.uri.queryParameters['url'] ?? '';
+            final title = state.uri.queryParameters['title'] ?? 'Lecture';
+            final progressId = state.uri.queryParameters['progressId'];
+            final initialPos = int.tryParse(state.uri.queryParameters['pos'] ?? '');
+            final contentType = switch (state.uri.queryParameters['type']) {
+              'vod' => PlaybackContentType.vod,
+              'series' => PlaybackContentType.series,
+              'replay' => PlaybackContentType.replay,
+              _ => PlaybackContentType.live,
+            };
+            return PlayerScreen(
+              streamUrl: url,
+              title: title,
+              progressId: progressId,
+              initialPositionMs: initialPos,
+              contentType: contentType,
+            );
+          }(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/vod/detail',
@@ -284,10 +300,17 @@ final GoRouter router = GoRouter(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
         ),
-        GoRoute(
-          path: '/settings/advanced',
-          builder: (context, state) => const AdvancedSettingsScreen(),
+GoRoute(
+      path: '/settings/advanced',
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'settings_advanced',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'settings_advanced'),
+          child: const AdvancedSettingsScreen(),
         ),
+      ),
+    ),
         GoRoute(
           path: '/subscriptions',
           builder: (context, state) => const SubscriptionsScreen(),
@@ -333,7 +356,13 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
       builder: (context, child) => PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _confirmExit();
+          if (!didPop) {
+            final router = GoRouter.of(context);
+            // Only show exit confirmation at root (no routes can pop)
+            if (!router.canPop()) {
+              _confirmExit();
+            }
+          }
         },
         child: child!,
       ),
