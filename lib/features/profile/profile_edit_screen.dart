@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
@@ -34,6 +35,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameController = TextEditingController();
   ProfileType _type = ProfileType.adult;
   int _gradientIndex = 0;
+  String? _remoteAvatarUrl;
   String? _pinHash;
   bool _saving = false;
   bool _submitted = false;
@@ -53,7 +55,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.text = profile.firstName;
     _type = profile.profileType;
     final raw = profile.avatarUrl.trim();
-    final idx = raw.startsWith(ProfileAvatar.orbitGradientPrefix)
+    final isIcon = raw.startsWith(ProfileAvatar.avatarIconPrefix);
+    final isOrbital = raw.startsWith(ProfileAvatar.orbitGradientPrefix);
+    if (!isIcon && !isOrbital && raw.isNotEmpty) {
+      _remoteAvatarUrl = raw;
+    } else {
+      _remoteAvatarUrl = null;
+    }
+    final idx = isOrbital
         ? int.tryParse(
               raw.substring(ProfileAvatar.orbitGradientPrefix.length),
             ) ??
@@ -72,7 +81,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       dateOfBirth: DateTime(2000),
       gender: 'Non spécifié',
       favoriteGenres: const [],
-      avatarUrl: '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex',
+      avatarUrl: _remoteAvatarUrl ??
+          '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex',
     );
   }
 
@@ -106,7 +116,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() => _saving = true);
     try {
       final name = _nameController.text.trim();
-      final avatarUrl = '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
+      final avatarUrl = _remoteAvatarUrl ??
+          '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
       final now = DateTime.now();
       if (_isEdit) {
         final target = _loadedTarget;
@@ -181,6 +192,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       children: [
         _buildAvatarSection(),
+        const SizedBox(height: 16),
+        _buildAvatarPickerCard(),
         const SizedBox(height: 8),
         _buildIdentityCard(),
         const SizedBox(height: 16),
@@ -296,12 +309,47 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       _GradientSwatch(
                         gradient: orbitGradientOptions[i],
                         selected: _gradientIndex == i,
-                        onTap: () => setState(() => _gradientIndex = i),
+                        onTap: () => setState(() {
+                          _remoteAvatarUrl = null;
+                          _gradientIndex = i;
+                        }),
                       ),
                   ],
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarPickerCard() {
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Avatars',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Choisissez un avatar 3D parmi 30 modèles',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 16),
+          AvatarPickerGrid(
+            selectedImageUrl: _remoteAvatarUrl ?? '',
+            onAvatarSelected: (url) => setState(() {
+              _remoteAvatarUrl = url;
+            }),
           ),
         ],
       ),
