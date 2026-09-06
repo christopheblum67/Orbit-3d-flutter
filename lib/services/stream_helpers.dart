@@ -2,6 +2,10 @@ const playbackUserAgents = <String>[
   'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
   'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
   'Mozilla/5.0',
+  // UA exact de l'app XCIPTV (capture PCAP) : obtient systématiquement le
+  // 302 vers le CDN signé sur les serveurs de type draap. Placé en dernier
+  // car l'ordre de tentative par défaut est inversé (premier essayé).
+  'XCIPTV-v7.0-2000',
 ];
 
 String refererFor(Uri uri) {
@@ -125,6 +129,10 @@ List<String> streamUrlVariants(String url) {
       noExt[noExt.length - 1] = baseId;
       variants.add(_rebuild(uri, noExt));
     }
+    // Ne PAS ajouter d'extension ici : sur ce type de panneau, seul le
+    // chemin nu /live/{u}/{p}/{id} (ou l'URL d'origine avec son extension)
+    // est valide. Tenter {id}.ts ou {id}.m3u8 renvoie 404 et les retries
+    // successives maintiennent l'anti-leech du panneau (fenêtre ~90 s).
   }
   return variants.toList();
 }
