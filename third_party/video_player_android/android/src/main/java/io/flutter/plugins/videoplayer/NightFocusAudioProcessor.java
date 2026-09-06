@@ -117,28 +117,44 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
 
   @Override
   public void queueInput(@NonNull ByteBuffer inputBuffer) {
-    if (!processingEnabled) {
-      // By-pass pur : copier l'entrée vers la sortie sans modification.
-      ByteBuffer out = replaceOutputBuffer(inputBuffer.remaining());
-      out.put(inputBuffer);
-      out.flip();
+    int channels = channelCount;
+    int frames = inputBuffer.remaining() / 2 / channels;
+
+    if (!processingEnabled || frames <= 0) {
+      // By-pass : copier l'entrée vers la sortie sans modification, sauf quand
+      // media3 passe le MÊME buffer (traitement in-place) : alors rien à copier.
+      int remaining = inputBuffer.remaining();
+      if (remaining == 0) {
+        return;
+      }
+      ByteBuffer out = replaceOutputBuffer(remaining);
+      if (out != inputBuffer) {
+        out.put(inputBuffer);
+        out.flip();
+      }
       return;
     }
 
-    int channels = channelCount;
-    int frames = inputBuffer.remaining() / 2 / channels;
     ShortBuffer in = inputBuffer.order(ByteOrder.nativeOrder()).asShortBuffer();
     ByteBuffer out = replaceOutputBuffer(frames * 2 * channels);
-    ShortBuffer outS = out.order(ByteOrder.nativeOrder()).asShortBuffer();
+    boolean inPlace = out == inputBuffer;
+    ShortBuffer outS = inPlace ? null : out.order(ByteOrder.nativeOrder()).asShortBuffer();
 
     for (int f = 0; f < frames; f++) {
       for (int ch = 0; ch < channels; ch++) {
+        int pos = in.position();
         double x = in.get();
         double v = biquad(x, ch, hpB, hpA, hpX, hpY);
         v = biquad(v, ch, peB, peA, peX, peY);
         v *= gain;
         short s = (short) Math.max(-32768.0, Math.min(32767.0, Math.round(v)));
-        outS.put(delayPut(s));
+        s = delayPut(s);
+        if (inPlace) {
+          // In-place : ré-écriture absolue au même index (lecture/écriture 1:1).
+          in.put(pos, s);
+        } else {
+          outS.put(s);
+        }
       }
     }
     out.flip();
