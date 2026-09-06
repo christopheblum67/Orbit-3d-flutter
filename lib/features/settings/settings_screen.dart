@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 
@@ -109,6 +110,13 @@ class _AccountTab extends ConsumerWidget {
           title: 'Préférences',
           subtitle: 'Langue, thème et restrictions d\'âge',
           onTap: () => context.go('/profile/preferences'),
+        ),
+        _NavTile(
+          icon: Icons.memory_rounded,
+          title: 'Configurer l\'appareil',
+          subtitle:
+              'Profil ${ref.watch(deviceProfileProvider).label} · diagnostic et réglages du lecteur',
+          onTap: () => context.go('/onboarding'),
         ),
         const SizedBox(height: 8),
         const SettingsSectionTitle('Notifications'),

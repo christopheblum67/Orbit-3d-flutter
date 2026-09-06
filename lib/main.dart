@@ -31,6 +31,7 @@ import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
+import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/auth/profile_preferences_screen.dart';
@@ -101,7 +102,12 @@ Future<void> main() async {
   final restoredProfile = await _restoreLastProfile(storageService);
   final hasActiveServer = await storageService.getActiveSubscription() != null;
   final hasDefaultConfig = restoredProfile != null && hasActiveServer;
-  routerInitialLocation = hasDefaultConfig ? '/startup' : '/profiles';
+  final onboardingDone = storageService.getSetting('onboarding_done') == true;
+  routerInitialLocation = !onboardingDone
+      ? '/onboarding'
+      : hasDefaultConfig
+          ? '/startup'
+          : '/profiles';
 
   final lastRefresh = await loadLastRefresh();
 
@@ -143,6 +149,10 @@ String routerInitialLocation = '/profiles';
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
   routes: [
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingConfigScreen(),
+    ),
     GoRoute(
       path: '/profiles',
       builder: (context, state) => const ProfileSelectionScreen(),
