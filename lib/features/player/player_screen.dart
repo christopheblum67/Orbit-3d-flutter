@@ -8,6 +8,8 @@ import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
+import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
+import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -85,6 +87,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   _PlayerStatus _status = _PlayerStatus.loading;
   bool _handlingError = false;
   bool _autorecovered = false;
+  String? _lastErrorDescription;
   int _generation = 0;
   bool _showInfo = false;
   Timer? _infoTimer;
@@ -252,6 +255,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _generation++;
     _handlingError = false;
     _autorecovered = false;
+    _lastErrorDescription = null;
     _startAttempt();
     _startPreload();
   }
@@ -269,6 +273,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       bassKillerCutoffHz: nf.nightFocusBassKiller ? 120.0 : 0,
       vocalGainDb: nf.nightFocusDialogueBoost ? nf.nightFocusVocalGainDb : 0,
       audioDelayMs: nf.nightFocusAudioShiftMs,
+    );
+    // Applique la configuration de lecture par profil (tampon media3 + limite
+    // de résolution) AVANT la création du contrôleur ExoPlayer.
+    await PlayerProfileService.push(
+      Media3PlaybackProfile.forProfile(ref.read(deviceProfileProvider)),
     );
     if (!isLikelyStreamUrl(_activeStreamUrl)) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
@@ -492,7 +501,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final controller = _controller;
     if (controller == null || !controller.value.hasError) return;
     debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+    _lastErrorDescription = controller.value.errorDescription;
     _handleActiveError();
+  }
+
+  /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
+  /// Source error), distincte d'une simple chaîne indisponible.
+  static bool isProviderBlock(String? description) {
+    if (description == null || description.isEmpty) return false;
+    return description.contains('401') || description.contains('Source error');
   }
 
   void _handleActiveError() {
@@ -811,6 +828,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             child: switch (_status) {
               _PlayerStatus.loading => const VideoLoadingState(),
               _PlayerStatus.error => VideoErrorState(
+                  title: isProviderBlock(_lastErrorDescription)
+                      ? 'Flux verrouillé par le fournisseur'
+                      : 'Flux indisponible',
+                  message: isProviderBlock(_lastErrorDescription)
+                      ? 'La lecture a été coupée par la protection anti-leech '
+                          'du serveur. Patientez 3 à 5 minutes sans lecture, '
+                          'puis relancez cette chaîne (sans zapper).'
+                      : 'Impossible de lancer cette chaîne. '
+                          'Vérifie ton abonnement ou réessaie.',
                   onRetry: _retry,
                   onCloudflare: _canCloudflare ? _unlockCloudflare : null,
                   cloudflareMessage: _canCloudflare
@@ -1217,7 +1243,6 @@ class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showControls(),
       onDoubleTap: _togglePlayPause,

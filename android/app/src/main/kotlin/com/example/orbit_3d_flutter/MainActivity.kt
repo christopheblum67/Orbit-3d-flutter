@@ -7,5 +7,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         NightFocusChannel.register(flutterEngine, this)
+        PlayerConfigChannel.register(flutterEngine, this)
+        HardwareChannel.register(flutterEngine, this)
     }
 }

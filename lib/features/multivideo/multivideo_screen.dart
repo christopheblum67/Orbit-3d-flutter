@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
@@ -19,6 +21,22 @@ class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   @override
   Widget build(BuildContext context) {
     final channelsAsync = ref.watch(liveChannelsProvider);
+    final maxStreams = ref.watch(deviceProfileProvider).maxMultiView;
+    if (maxStreams <= 0) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Multi-vidéo')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Multi-vue désactivée par le profil Économique.\n'
+              'Réglez le profil dans Configurer l\'appareil.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Multi-vidéo')),
       body: channelsAsync.when(
@@ -55,8 +73,10 @@ class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
                     onSelected: (selected) {
                       setState(() {
                         if (selected) {
-                          if (_selectedChannels.length < 4) {
+                          if (_selectedChannels.length < maxStreams) {
                             _selectedChannels.add(ch);
+                          } else {
+                            HapticFeedback.mediumImpact();
                           }
                         } else {
                           _selectedChannels.remove(ch);

@@ -16,7 +16,9 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import io.flutter.view.TextureRegistry;
 
 final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
@@ -56,6 +58,37 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
               new ExoPlayer.Builder(context)
                   .setRenderersFactory(new NightFocusRenderersFactory(context))
                   .setMediaSourceFactory(asset.getMediaSourceFactory(context));
+
+          // Configuration par profil (Orbit Player Config) : tampon media3 et
+          // limite de résolution, peuplés depuis Dart avant la création.
+          // 0 = non renseigné -> comportement ExoPlayer par défaut.
+          if (OrbitPlayerConfig.minBufferMs > 0 && OrbitPlayerConfig.maxBufferMs > 0) {
+            builder.setLoadControl(
+                new DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        OrbitPlayerConfig.minBufferMs,
+                        OrbitPlayerConfig.maxBufferMs,
+                        OrbitPlayerConfig.bufferForPlaybackMs > 0
+                            ? OrbitPlayerConfig.bufferForPlaybackMs
+                            : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                        OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs > 0
+                            ? OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs
+                            : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                    .build());
+          }
+          if (OrbitPlayerConfig.maxVideoHeight > 0) {
+            DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
+            trackSelector.setParameters(
+                new DefaultTrackSelector.Parameters.Builder(context)
+                    .setMaxVideoSize(
+                        OrbitPlayerConfig.maxVideoWidth > 0
+                            ? OrbitPlayerConfig.maxVideoWidth
+                            : Integer.MAX_VALUE,
+                        OrbitPlayerConfig.maxVideoHeight)
+                    .build());
+            builder.setTrackSelector(trackSelector);
+          }
+
           return builder.build();
         },
         events,
