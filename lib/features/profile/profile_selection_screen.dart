@@ -68,6 +68,60 @@ class _ProfileSelectionScreenState
     context.push('/profile/create');
   }
 
+  void _openEdit(UserProfile profile) {
+    context.push('/profile/edit/${profile.id}');
+  }
+
+  void _openDelete(UserProfile profile) {
+    final profiles = ref.read(profilesProvider).valueOrNull ?? const [];
+    if (profiles.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Au moins un profil doit rester sur l\'appareil'),
+        ),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer le profil ?'),
+        content: Text(
+          '« ${profile.firstName} » et ses préférences seront supprimés '
+          'définitivement. Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton.tonal(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            ),
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              final storage = ref.read(storageServiceProvider);
+              await storage.deleteProfile(profile.id);
+              if (profile.id ==
+                  ref.read(storageServiceProvider).getSetting('last_profile_id')) {
+                await storage.setSetting('last_profile_id', null);
+              }
+              final current = ref.read(currentProfileProvider);
+              if (current?.id == profile.id) {
+                ref.read(currentProfileProvider.notifier).state = null;
+                ref.read(profileTypeProvider.notifier).clear();
+              }
+              ref.invalidate(profilesProvider);
+            },
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   int _maxFor(List<UserProfile> profiles) {
     return profiles.isEmpty
         ? _defaultMaxProfiles
@@ -142,6 +196,8 @@ class _ProfileSelectionScreenState
           index: index,
           autofocus: index == 0,
           onSelect: () => _selectProfile(profile),
+          onEdit: () => _openEdit(profile),
+          onDelete: () => _openDelete(profile),
         );
       },
     );
@@ -319,12 +375,16 @@ class _ProfileCard extends StatefulWidget {
     required this.index,
     required this.autofocus,
     required this.onSelect,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final UserProfile profile;
   final int index;
   final bool autofocus;
   final VoidCallback onSelect;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   State<_ProfileCard> createState() => _ProfileCardState();
@@ -397,22 +457,46 @@ class _ProfileCardState extends State<_ProfileCard>
         ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Stack(
         children: [
-          _OrbitAvatar(profile: profile, enlarged: _focused),
-          const SizedBox(height: 12),
-          Text(
-            profile.firstName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _OrbitAvatar(profile: profile, enlarged: _focused),
+              const SizedBox(height: 12),
+              Text(
+                profile.firstName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              _ProfileTypeBadge(profileType: profile.profileType),
+            ],
           ),
-          const SizedBox(height: 6),
-          _ProfileTypeBadge(profileType: profile.profileType),
+          Positioned(
+            top: -12,
+            right: -6,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _CardActionButton(
+                  icon: Icons.edit_rounded,
+                  tooltip: 'Modifier',
+                  onPressed: widget.onEdit,
+                ),
+                const SizedBox(width: 6),
+                _CardActionButton(
+                  icon: Icons.delete_outline_rounded,
+                  tooltip: 'Supprimer',
+                  onPressed: widget.onDelete,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -607,6 +691,83 @@ class _AddProfileCardState extends State<_AddProfileCard>
               scale: _scale,
               child: _buildCardContent(),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bouton d'action sur la carte profil (Modifier / Supprimer), focalisable au d-pad.
+class _CardActionButton extends StatefulWidget {
+  const _CardActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_CardActionButton> createState() => _CardActionButtonState();
+}
+
+class _CardActionButtonState extends State<_CardActionButton> {
+  bool _focused = false;
+
+  void _activate() {
+    HapticFeedback.mediumImpact();
+    widget.onPressed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (hasFocus) HapticFeedback.selectionClick();
+        setState(() => _focused = hasFocus);
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          _activate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _activate,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _focused
+                ? scheme.tertiaryContainer
+                : scheme.surfaceContainerHighest,
+            border: Border.all(
+              color: _focused ? scheme.tertiary : scheme.outlineVariant,
+              width: _focused ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _focused ? 0.35 : 0.18),
+                blurRadius: _focused ? 10 : 4,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(
+            widget.icon,
+            size: 21,
+            color: _focused
+                ? scheme.onTertiaryContainer
+                : scheme.onSurfaceVariant,
           ),
         ),
       ),

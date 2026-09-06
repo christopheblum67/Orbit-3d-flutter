@@ -37,9 +37,69 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   int _gradientIndex = 0;
   String? _remoteAvatarUrl;
   String? _pinHash;
+  DateTime? _dateOfBirth;
+  String _gender = 'Non spécifié';
+  final List<String> _favoriteGenres = [];
   bool _saving = false;
   bool _submitted = false;
   UserProfile? _loadedTarget;
+
+  static const _ageRanges = [
+    (label: '- 12 ans', min: 0, max: 12),
+    (label: '13 - 17 ans', min: 13, max: 17),
+    (label: '18 - 24 ans', min: 18, max: 24),
+    (label: '25 - 34 ans', min: 25, max: 34),
+    (label: '35 - 44 ans', min: 35, max: 44),
+    (label: '45 - 54 ans', min: 45, max: 54),
+    (label: '55 ans et plus', min: 55, max: 100),
+  ];
+
+  static const _genderOptions = ['Homme', 'Femme', 'Autre'];
+
+  static const _genreOptions = [
+    'Action',
+    'Aventure',
+    'Animation',
+    'Comédie',
+    'Comédie romantique',
+    'Drame',
+    'Horreur',
+    'Thriller',
+    'Policier',
+    'Crime',
+    'Guerre',
+    'Historique',
+    'Western',
+    'Sci-Fi',
+    'Fantasy',
+    'Super-héros',
+    'Mystère',
+    'Romance',
+    'Musical',
+    'Musique',
+    'Biopic',
+    'Documentaire',
+    'Tournoi',
+    'Enfants',
+    'Famille',
+    'Suspense',
+    'Noir & Blanc',
+    'Classique',
+  ];
+
+  int get _ageRangeIndex {
+    if (_dateOfBirth == null) return 2;
+    final age = DateTime.now().difference(_dateOfBirth!).inDays ~/ 365;
+    for (var i = 0; i < _ageRanges.length; i++) {
+      if (age >= _ageRanges[i].min && age <= _ageRanges[i].max) return i;
+    }
+    return 2;
+  }
+
+  DateTime _dateForRange(int index) {
+    final now = DateTime.now();
+    return DateTime(now.year - _ageRanges[index].max, now.month, now.day);
+  }
 
   bool get _isEdit => widget.profileId != null;
 
@@ -54,6 +114,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _loadedTarget = profile;
     _nameController.text = profile.firstName;
     _type = profile.profileType;
+    _dateOfBirth = profile.dateOfBirth;
+    _gender = profile.gender.isEmpty ? 'Non spécifié' : profile.gender;
+    _favoriteGenres
+      ..clear()
+      ..addAll(profile.favoriteGenres);
     final raw = profile.avatarUrl.trim();
     final isIcon = raw.startsWith(ProfileAvatar.avatarIconPrefix);
     final isOrbital = raw.startsWith(ProfileAvatar.orbitGradientPrefix);
@@ -129,6 +194,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           firstName: name,
           profileType: _type,
           avatarUrl: avatarUrl,
+          dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
+          gender: _gender.isEmpty ? 'Non spécifié' : _gender,
+          favoriteGenres: List.of(_favoriteGenres),
           pinHash: _pinHash,
           updatedAt: now,
         );
@@ -162,9 +230,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       final profile = UserProfile(
         id: const Uuid().v4(),
         firstName: name,
-        dateOfBirth: DateTime(now.year - 25, 1, 1),
-        gender: 'Non spécifié',
-        favoriteGenres: const [],
+        dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
+        gender: _gender.isEmpty ? 'Non spécifié' : _gender,
+        favoriteGenres: List.of(_favoriteGenres),
         avatarUrl: avatarUrl,
         profileType: _type,
         pinHash: _pinHash,
@@ -196,6 +264,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         _buildAvatarPickerCard(),
         const SizedBox(height: 8),
         _buildIdentityCard(),
+        const SizedBox(height: 16),
+        _buildPersonalCard(),
         const SizedBox(height: 16),
         _buildTypeSection(),
         if (showPin) ...[
@@ -388,6 +458,90 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     );
   }
 
+  Widget _buildPersonalCard() {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Âge',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'La tranche d\'âge sert aux réglages du profil',
+            style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < _ageRanges.length; i++)
+                _ProfileChoiceChip(
+                  label: _ageRanges[i].label,
+                  selected: _ageRangeIndex == i,
+                  onTap: () => setState(() {
+                    _dateOfBirth = _dateForRange(i);
+                  }),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Genre',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              segments: [
+                for (final option in _genderOptions)
+                  ButtonSegment(value: option, label: Text(option)),
+              ],
+              selected: {_gender},
+              onSelectionChanged: (selection) =>
+                  setState(() => _gender = selection.first),
+              showSelectedIcon: true,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Genres de films favoris',
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Choisissez un ou plusieurs styles pour les recommandations',
+            style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final genre in _genreOptions)
+                _ProfileChoiceChip(
+                  label: genre,
+                  selected: _favoriteGenres.contains(genre),
+                  onTap: () => setState(() {
+                    if (_favoriteGenres.contains(genre)) {
+                      _favoriteGenres.remove(genre);
+                    } else {
+                      _favoriteGenres.add(genre);
+                    }
+                  }),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTypeSection() {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
@@ -495,6 +649,107 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Puces focales du pad (tranche d'âge / genre de film), sélectionnables
+/// et navigables au d-pad avec retour haptique.
+class _ProfileChoiceChip extends StatefulWidget {
+  const _ProfileChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_ProfileChoiceChip> createState() => _ProfileChoiceChipState();
+}
+
+class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
+  bool _focused = false;
+
+  void _activate() {
+    HapticFeedback.selectionClick();
+    widget.onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final highlighted = widget.selected || _focused;
+    return Focus(
+      onFocusChange: (hasFocus) {
+        if (hasFocus) HapticFeedback.selectionClick();
+        setState(() => _focused = hasFocus);
+      },
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.enter)) {
+          _activate();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: _activate,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: highlighted
+                ? scheme.primaryContainer
+                : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: widget.selected
+                  ? scheme.primary
+                  : _focused
+                      ? scheme.tertiary
+                      : scheme.outlineVariant,
+              width: widget.selected ? 2 : (_focused ? 2 : 1),
+            ),
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                      color: scheme.tertiary.withValues(alpha: 0.35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.selected) ...[
+                Icon(
+                  Icons.check_circle,
+                  size: 17,
+                  color: scheme.primary,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: highlighted
+                      ? scheme.onPrimaryContainer
+                      : scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
