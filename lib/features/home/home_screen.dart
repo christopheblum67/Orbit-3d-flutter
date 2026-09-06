@@ -65,80 +65,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
     final lastRefresh = ref.watch(lastRefreshTimestampProvider);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      child: Column(
         children: [
-          _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
-          const SizedBox(width: 16),
-          Expanded(
-            child: TvFocus(
-              onActivate: () => context.go('/search'),
-              child: GestureDetector(
-                onTap: () => context.go('/search'),
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search,
-                          color: Colors.white.withValues(alpha: 0.5),
-                          size: 20,),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Rechercher une chaîne, un film…',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 13,),
-                        ),
-                      ),
-                    ],
+          Row(
+            children: [
+              _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
+              const Spacer(),
+              TvFocus(
+                onActivate: () => context.go('/settings'),
+                child: GestureDetector(
+                  onTap: () => context.go('/settings'),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12)),
+                    ),
+                    child:
+                        const Icon(Icons.settings, color: Colors.white, size: 22),
                   ),
                 ),
               ),
-            ),
+              const SizedBox(width: 10),
+              _UpdateStack(
+                tooltip: 'Mettre à jour toutes les données',
+                onPressed: _refreshAll,
+                lastRefresh: lastRefresh,
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
+          const SizedBox(height: 10),
           TvFocus(
-            onActivate: () => context.go('/settings'),
+            onActivate: () => context.go('/search'),
             child: GestureDetector(
-              onTap: () => context.go('/settings'),
+              onTap: () => context.go('/search'),
               child: Container(
-                width: 40,
-                height: 40,
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12)),
                 ),
-                child: const Icon(Icons.settings, color: Colors.white, size: 22),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          _UpdateStack(
-            tooltip: 'Mettre à jour toutes les données',
-            onPressed: _refreshAll,
-            lastRefresh: lastRefresh,
-          ),
-          const SizedBox(width: 16),
-          const ShaderMask(
-            shaderCallback: _logoGradient,
-            child: Text(
-              'Orbit IPTV',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 1.1,
+                child: Row(
+                  children: [
+                    Icon(Icons.search,
+                        color: Colors.white.withValues(alpha: 0.5),
+                        size: 20,),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Rechercher une chaîne, un film…',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            fontSize: 13,),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -726,11 +716,6 @@ class _UpdateButton extends StatelessWidget {
     );
   }
 }
-
-/// Dégradé du logo Orbit 3D.
-Shader _logoGradient(Rect bounds) => const LinearGradient(
-      colors: [Color(0xFF00CFE8), Color(0xFFB388FF)],
-    ).createShader(bounds);
 
 /// Horloge affichée à gauche de la barre d'accueil (date + heure réelles).
 class _ClockBlock extends StatelessWidget {

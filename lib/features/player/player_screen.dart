@@ -823,25 +823,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   children: [
                     Focus(
                       autofocus: true,
-                      child: KeyboardListener(
-                        focusNode: _focusNode,
-                        onKeyEvent: (event) {
-                          if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.select ||
-                                  event.logicalKey ==
-                                      LogicalKeyboardKey.enter ||
-                                  event.logicalKey ==
-                                      LogicalKeyboardKey.numpadEnter)) {
-                            _showStatusBarTemporarily();
-                          }
+                      onKeyEvent: (_, event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.enter ||
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.numpadEnter)) {
+                          _showStatusBarTemporarily();
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: _ReadyPlayer(
+                        controller: _controller!,
+                        onTap: () {
+                          _toggleInfo();
+                          _showStatusBarTemporarily();
                         },
-                        child: _ReadyPlayer(
-                          controller: _controller!,
-                          onTap: () {
-                            _toggleInfo();
-                            _showStatusBarTemporarily();
-                          },
-                        ),
                       ),
                     ),
                     if (_showInfo && _currentChannel != null)
