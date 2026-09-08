@@ -77,12 +77,12 @@ XP : sprint propre +40 · DoD +20 · leçon +10 · bug capté avant push +10 · 
 ## 5. UX — Navigation & expérience
 | Chantier | Contenu | Statut | Reste |
 |---|---|---|---|
-| Back Handling | Spike `RouteMeta` + `WithBackHandling` (3 routes + test intégration) committé `894a377` | 🟢 | Audit complet restant : 2h |
-| Buffering/hardware | Indicateur buffering + contrôles (replay10/play/ff30) dans _ReadyPlayer | 🟡 | 1h (test téléphone) |
+| Back Handling | Spike `RouteMeta` + `WithBackHandling` committé `894a377` ; **audit complet `docs/back_handling_audit.md` (09/09, 28 routes, P0/P1/P2)** | 🟢 | Apply corrections P0/P1 : 3h |
+| Buffering/hardware | Indicateur buffering + contrôles (replay10/play/ff30) dans footerbar (BU : ✅ _ReadyPlayer → footerbar VOD) | 🟢 | — |
 | EPG Timeline | Frise horaire EPG continue | ◻️ | 4h |
-| Nebula Search | Recherche "nébuleuse" fine + VoiceInput | ◻️ | 3h |
+| Nebula Search | Recherche "nébuleuse" fine + VoiceInput | 🟢 | **Livré 09/09 : SearchService unifié (fuzzy+historique+ranking), VoiceInput fr-FR, suggestions temps réel, 12 tests** |
 
-**Progression : ~45% — Reste : ~10h**
+**Progression : ~80% — Reste : ~7h (audit P0/P1 + EPG Timeline)**
 
 ---
 
@@ -193,5 +193,25 @@ XP : sprint propre +40 · DoD +20 · leçon +10 · bug capté avant push +10 · 
 
 ---
 
+## 11. PLAYER — FUSION HEADERBAR/FOOTERBAR (Alpha) — 09/09
+**Objectif** : une seule footerbar basse translucide en bas (retrait AppBar, FAB, InfoBar top, ZapBar). Auto-masquage 5s. Menu contextuel paramètre. Night Focus direct. Hints télécommande.
+
+| Élément | Statut | Détail |
+|---|---|---|
+| Footerbar Live | 🟢 | nom + n° chaîne (`Channel.orderNum`) + EPG now/next (`_EpgRow`/`_nowAndNext`) + **barre de progression du programme** + zapping prev/next + volume-zap |
+| Footerbar Replay | 🟢 | horaires + seek ±10s + pause/play |
+| Footerbar VOD/Séries | 🟢 | titre + ★ note + genre (+ série·épisode) + `VideoProgressIndicator` + replay10/play/ff30 |
+| Auto-masquage 5s | 🟢 | `_showFooterBar/_hideFooterBar/_toggleFooter` + timer, couplé system UI immersive ; tap/OK/espace/zapping réaffichent |
+| Menu contextuel ⚙️ | 🟢 | Audio & sync (`showAudioControlsSheet`), Night Focus, Qualité/lecteur (`showPlayerEngineConfigSheet`), Réglages → `/settings` |
+| Night Focus 🌙 | 🟢 | toggle direct `NightFocusAudioService.push` |
+| Retraits | 🟢 | AppBar, FAB pause, `_InfoBar`, `_ZapBar`, contrôles matériels `_ReadyPlayer` (replay10/play/ff30 → footerbar) |
+| `PlayerRouteData` étendu | 🟢 | `posterUrl/subtitle/rating/genre/year/seriesName/episodeLabel` + call sites VOD/Séries/Replay/Fav/Search/Matchmaking enrichis |
+| Baseline build cassée | 🟢 | Fix 4 fichiers WIP bloquant APK : `form_back_handler` (import RouteMeta), `home_shell` (paren excéd), `main.dart` (context.read→ProviderScope.containerOf, radio stop), `profile_preferences` (brace corrompue) |
+| Vérifs | 🟢 | analyze 0 erreur · **142/142 tests** · build APK OK · install S20 topResumed 0 FATAL |
+
+**Progression : 100% — Footerbar unifiée livrée (commit `194e6eb`).**
+
+---
+
 ## Total backlog restant estimé : ~12h (1 ingénieur)
-Prochaines priorités : **falsifier hypothèse Rust proxy** (0.2h, décisif) → **multi-abonnements** (couche universelle VOD/Séries/Replay) → **EPG Timeline** (4h) + **Nebula Search** (3h) + **Back Handling audit** (2h).
+Prochaines priorités : **Back Handling audit → corrections P0/P1** (3h) → **multi-abonnements** (couche universelle VOD/Séries/Replay) → **EPG Timeline** (4h). Le test Rust (falsification) est sur ta machine (Cargo requis).
