@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
@@ -110,7 +114,8 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
               Expanded(
                 child: visibleReplays.isEmpty
                     ? const Center(
-                        child: Text('Aucun replay dans cette catégorie'))
+                        child: Text('Aucun replay dans cette catégorie'),
+                      )
                     : ListView.builder(
                         itemCount: visibleReplays.length,
                         itemBuilder: (context, index) {
@@ -121,9 +126,34 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                             subtitle: Text(
                               '${replay.startTime} - ${replay.endTime}',
                             ),
+                            trailing: FavoriteToggle(
+                              entry: FavoriteEntry(
+                                type: ContentType.replay,
+                                id: replay.id,
+                                title: replay.title,
+                                subtitle:
+                                    '${replay.startTime} - ${replay.endTime}',
+                                streamUrl: replay.streamUrl,
+                              ),
+                            ),
                             onTap: () {
                               context.push(
-                                '/player?url=${Uri.encodeComponent(replay.streamUrl)}&title=${Uri.encodeComponent(replay.title)}&type=replay',
+                                '/player',
+                                extra: PlayerRouteData(
+                                  streamUrl: replay.streamUrl,
+                                  title: replay.title,
+                                  contentType: PlaybackContentType.replay,
+                                  subtitle:
+                                      '${replay.startTime} - ${replay.endTime}',
+                                  favorite: FavoriteEntry(
+                                    type: ContentType.replay,
+                                    id: replay.id,
+                                    title: replay.title,
+                                    subtitle:
+                                        '${replay.startTime} - ${replay.endTime}',
+                                    streamUrl: replay.streamUrl,
+                                  ),
+                                ),
                               );
                             },
                           );

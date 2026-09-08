@@ -1,26 +1,21 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
-import 'package:orbit_3d_flutter/models/epg_models.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
-import 'package:orbit_3d_flutter/features/epg/widgets/favorites_orbit_system_3d.dart';
-import 'package:orbit_3d_flutter/features/epg/widgets/orbit_planet_node.dart';
-import 'package:orbit_3d_flutter/features/epg/widgets/nebula_search_space.dart';
-import 'package:orbit_3d_flutter/services/favorites_service.dart';
 
-/// Provider pour les favoris
-final favoritesListProvider = FutureProvider.autoDispose.family<List<FavoriteChannelNode>, String>((ref, type) async {
-    final service = ref.watch(favoritesServiceProvider);
-    await service.getFavorites(type);
-    return <FavoriteChannelNode>[];
-  });
-
+/// Guide TV (EPG) : affiche la grille 2D seule.
+///
+/// Les vues lourdes (Orbite 3D) et annexes (Favoris, Recherche) ont été
+/// retirées de cet écran pour éliminer la latence : l'Orbite 3D (canvas,
+/// rotation, focus) était une cause probable de freeze/ANR sur les box TV.
+/// Elles seront repositionnées dans d'autres sections dédiées.
 class EpgScreen extends ConsumerStatefulWidget {
   const EpgScreen({super.key});
 
@@ -28,146 +23,161 @@ class EpgScreen extends ConsumerStatefulWidget {
   ConsumerState<EpgScreen> createState() => _EpgScreenState();
 }
 
-class _EpgScreenState extends ConsumerState<EpgScreen> with SingleTickerProviderStateMixin {
-  late TabController _viewTabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _viewTabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _viewTabController.dispose();
-    super.dispose();
-  }
+class _EpgScreenState extends ConsumerState<EpgScreen> {
+  String? _gridCategory;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Guide TV (EPG)'),
-        bottom: TabBar(
-          isScrollable: true,
-          tabs: const [
-            Tab(icon: Icon(Icons.grid_view), text: 'Grille 2D'),
-            Tab(icon: Icon(Icons.public), text: 'Orbite 3D'),
-            Tab(icon: Icon(Icons.favorite), text: 'Favoris'),
-            Tab(icon: Icon(Icons.search), text: 'Recherche'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        children: [
-          _buildGrid2DTab(),
-          _buildOrbit3DTab(),
-          _buildFavoritesOrbitTab(),
-          _buildNebulaSearchTab(),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Guide TV (EPG)')),
+      body: _buildGrid2DTab(),
     );
   }
 
   Widget _buildGrid2DTab() {
     final channelsAsync = ref.watch(liveChannelsProvider);
+    final favoriteEntries = ref.watch(favoritesProvider);
+    final recentEntries = ref.watch(recentlyWatchedProvider);
 
     return channelsAsync.when(
       data: (channels) {
         if (channels.isEmpty) {
           return const Center(child: Text('Aucune chaîne disponible'));
         }
-        return _EpgGrid2DWrapper(
-          channels: channels.map((c) => c.name).toList(),
-          channelObjects: channels,
-        );
-      },
-      loading: () => const LoadingState(message: 'Chargement des chaînes…'),
-      error: (err, _) => ErrorState(
-        icon: Icons.tv_off_rounded,
-        title: 'Chaînes indisponibles',
-        message: 'Impossible de charger les chaînes.',
-        onRetry: () => ref.invalidate(liveChannelsProvider),
-      ),
-    );
-  }
-
-  Widget _buildOrbit3DTab() {
-    final channelsAsync = ref.watch(liveChannelsProvider);
-
-    return channelsAsync.when(
-      data: (channels) {
-        if (channels.isEmpty) {
-          return const Center(child: Text('Aucune chaîne disponible'));
+        final categories = <String>[];
+        for (final c in channels) {
+          if (c.groupLabel.isNotEmpty && !categories.contains(c.groupLabel)) {
+            categories.add(c.groupLabel);
+          }
         }
-        return _Orbit3DView(channels: channels);
-      },
-      loading: () => const LoadingState(message: 'Chargement des chaînes…'),
-      error: (err, _) => ErrorState(
-        icon: Icons.tv_off_rounded,
-        title: 'Chaînes indisponibles',
-        message: 'Impossible de charger les chaînes.',
-        onRetry: () => ref.invalidate(liveChannelsProvider),
-      ),
-    );
-  }
-
-  Widget _buildFavoritesOrbitTab() {
-    final favoritesAsync = ref.watch(favoritesListProvider('channel'));
-
-    return favoritesAsync.when(
-      data: (favoriteNodes) {
-        if (favoriteNodes.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.favorite_outline, size: 64, color: Colors.white38),
-                SizedBox(height: 16),
-                Text('Aucun favori enregistré', style: TextStyle(color: Colors.white38, fontSize: 16)),
-                SizedBox(height: 8),
-                Text('Appuyez longuement sur une chaîne pour l\'ajouter', style: TextStyle(color: Colors.white24, fontSize: 12)),
-              ],
+        // Démarre sur la 1re catégorie de chaînes (perf : pas de tout-chargement).
+        final effective =
+            _gridCategory ?? (categories.isNotEmpty ? categories.first : null);
+        final favIds = favoriteEntries.values
+            .where((e) => e.type == ContentType.live)
+            .map((e) => e.id)
+            .toSet();
+        final recentIds = recentEntries.values
+            .where((e) => e.type == ContentType.live)
+            .map((e) => e.id)
+            .toSet();
+        final List<Channel> visible;
+        if (effective == 'fav') {
+          visible = channels.where((c) => favIds.contains(c.id)).toList();
+        } else if (effective == 'recent') {
+          visible = channels.where((c) => recentIds.contains(c.id)).toList();
+        } else if (effective == null) {
+          visible = const [];
+        } else {
+          visible = channels.where((c) => c.groupLabel == effective).toList();
+        }
+        return Column(
+          children: [
+            _CategoryFilterBar(
+              categories: categories,
+              selected: effective,
+              onSelected: (category) =>
+                  setState(() => _gridCategory = category),
             ),
-          );
-        }
-
-        return FavoritesOrbitSystem3D(
-          favorites: favoriteNodes,
-          onZoomOutToCategories: () {},
-          onSelectChannel: (node) {
-            final channels = ref.read(liveChannelsProvider).valueOrNull;
-            if (channels != null) {
-              final channel = channels.firstWhere((c) => c.name == node.name, orElse: () => channels.first);
-              Navigator.pushNamed(
-                context,
-                '/player',
-                arguments: {
-                  'streamUrl': channel.streamUrl,
-                  'title': channel.name,
-                  'contentType': 'live',
-                },
-              );
-            }
-          },
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(
+                      child: Text(
+                        effective == 'fav'
+                            ? 'Aucune chaîne favorite'
+                            : effective == 'recent'
+                                ? 'Aucune chaîne récente'
+                                : 'Aucune chaîne dans cette catégorie',
+                        style: const TextStyle(color: Colors.white54),
+                      ),
+                    )
+                  : _EpgGrid2DWrapper(
+                      key: ValueKey(effective),
+                      channels: visible.map((c) => c.name).toList(),
+                      channelObjects: visible,
+                    ),
+            ),
+          ],
         );
       },
-      loading: () => const LoadingState(message: 'Chargement des favoris…'),
+      loading: () => const LoadingState(message: 'Chargement des chaînes…'),
       error: (err, _) => ErrorState(
-        icon: Icons.favorite_outline,
-        title: 'Favoris indisponibles',
-        message: 'Impossible de charger les favoris.',
-        onRetry: () => ref.invalidate(favoritesListProvider('channel')),
+        icon: Icons.tv_off_rounded,
+        title: 'Chaînes indisponibles',
+        message: 'Impossible de charger les chaînes.',
+        onRetry: () => ref.invalidate(liveChannelsProvider),
       ),
     );
-  }
-
-  Widget _buildNebulaSearchTab() {
-    return _NebulaSearchTab();
   }
 }
 
-/// Wrapper pour la grille 2D avec chargement EPG par chaîne
+/// Barre de filtrage par catégorie (groupes de chaînes) au-dessus de la grille.
+class _CategoryFilterBar extends StatelessWidget {
+  const _CategoryFilterBar({
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> categories;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      color: const Color(0xFF0D0E12),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _chip(
+            label: 'Favoris',
+            selected: selected == 'fav',
+            onTap: () => onSelected('fav'),
+          ),
+          _chip(
+            label: 'Récemment',
+            selected: selected == 'recent',
+            onTap: () => onSelected('recent'),
+          ),
+          for (final category in categories)
+            _chip(
+              label: category,
+              selected: selected == category,
+              onTap: () => onSelected(category),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        backgroundColor: const Color(0xFF16181E),
+        selectedColor: const Color(0xFF2D224D),
+        checkmarkColor: const Color(0xFF8B5CF6),
+        labelStyle: TextStyle(
+          color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+/// Wrapper pour la grille 2D avec chargement EPG par chaîne.
 class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
   final List<String> channels;
   final List<Channel> channelObjects;
@@ -183,7 +193,7 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
 }
 
 class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
-  final Map<String, List<EPGProgram>> _epgData = {}; // EPGProgram from epg_program.dart
+  final Map<String, List<EPGProgram>> _epgData = {};
   final Set<String> _loadingChannels = {};
 
   @override
@@ -193,24 +203,53 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
   }
 
   Future<void> _loadAllEpg() async {
-    for (final channelName in widget.channels) {
-      if (!_loadingChannels.contains(channelName)) {
+    // 1. Un seul téléchargement XMLTV (le gros morceau), primé une fois via le
+    // cache partagé avant de filtrer en parallèle.
+    final api = ref.read(apiServiceProvider);
+    final cache = ref.read(epgDataCacheProvider);
+    try {
+      await cache.loadFull(api);
+    } catch (_) {}
+
+    // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
+    // au lieu d'un rebuild complet de la grille à chaque chaîne (ANR sinon).
+    final byName = {for (final c in widget.channelObjects) c.name: c};
+    const chunkSize = 8;
+    for (var i = 0; i < widget.channels.length; i += chunkSize) {
+      final chunk = widget.channels.skip(i).take(chunkSize);
+      final tasks = <Future<void>>[];
+      final chunkResults = <String, List<EPGProgram>>{};
+      for (final channelName in chunk) {
+        if (_loadingChannels.contains(channelName)) continue;
         _loadingChannels.add(channelName);
-        final channel = widget.channelObjects.firstWhere((c) => c.name == channelName);
-        if (channel.epgChannelId.isNotEmpty) {
-          try {
-            final programs = await ref.read(channelEpgProvider(channel.epgChannelId).future);
-            if (mounted) {
-              setState(() {
-                _epgData[channelName] = programs;
-              });
-            }
-          } catch (_) {}
+        final channel = byName[channelName];
+        if (channel == null || channel.epgChannelId.isEmpty) {
+          _loadingChannels.remove(channelName);
+          continue;
         }
-        _loadingChannels.remove(channelName);
+        tasks.add(_loadOne(channelName, channel, chunkResults));
+      }
+      await Future.wait(tasks);
+      if (mounted) {
+        setState(() => _epgData.addAll(chunkResults));
       }
     }
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadOne(
+    String channelName,
+    Channel channel,
+    Map<String, List<EPGProgram>> out,
+  ) async {
+    try {
+      final programs =
+          await ref.read(channelEpgProvider(channel.epgChannelId).future);
+      out[channelName] = programs;
+    } catch (_) {}
+    if (mounted) {
+      _loadingChannels.remove(channelName);
+    }
   }
 
   @override
@@ -225,7 +264,8 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           _showProgramDetails(context, program);
         },
         onChannelTap: (channelName) {
-          final channel = widget.channelObjects.firstWhere((c) => c.name == channelName);
+          final channel =
+              widget.channelObjects.firstWhere((c) => c.name == channelName);
           Navigator.pushNamed(
             context,
             '/player',
@@ -253,17 +293,38 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(program.title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              program.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 12),
-            Text('${_formatTime(program.start)} - ${_formatTime(program.end)}', style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            if (program.description != null) ...[
+            Text(
+              '${_formatTime(program.start)} - ${_formatTime(program.end)}',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            if (program.description.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text(program.description!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              Text(
+                program.description,
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+              ),
             ],
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: FilledButton.icon(icon: const Icon(Icons.play_arrow), label: const Text('Regarder'), onPressed: () { Navigator.pop(context); })),
+                Expanded(
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Regarder'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
               ],
             ),
           ],
@@ -272,218 +333,6 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     );
   }
 
-  String _formatTime(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-}
-
-/// Vue 3D Orbite des chaînes
-class _Orbit3DView extends ConsumerStatefulWidget {
-  final List<Channel> channels;
-
-  const _Orbit3DView({super.key, required this.channels});
-
-  @override
-  ConsumerState<_Orbit3DView> createState() => _Orbit3DViewState();
-}
-
-class _Orbit3DViewState extends ConsumerState<_Orbit3DView> with SingleTickerProviderStateMixin {
-  late AnimationController _rotationController;
-  int _focusedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _rotationController = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat(reverse: false);
-  }
-
-  @override
-  void dispose() {
-    _rotationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final channels = ref.watch(liveChannelsProvider).valueOrNull ?? [];
-
-    if (channels.isEmpty) {
-      return const Center(child: Text('Aucune chaîne disponible'));
-    }
-
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-            setState(() => _focusedIndex = (_focusedIndex - 1 + channels.length) % channels.length);
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            setState(() => _focusedIndex = (_focusedIndex + 1) % channels.length);
-            return KeyEventResult.handled;
-          } else if (event.logicalKey == LogicalKeyboardKey.select || event.logicalKey == LogicalKeyboardKey.enter) {
-            _launchChannel(channels[_focusedIndex]);
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Container(
-        color: const Color(0xFF0B0C10),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ...List.generate(3, (ring) => Container(
-              width: 200.0 + ring * 120.0,
-              height: 200.0 + ring * 120.0,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.15 - ring * 0.03), width: 1),
-              ),
-            )),
-            AnimatedBuilder(
-              animation: _rotationController,
-              builder: (context, child) {
-                final channelsList = ref.watch(liveChannelsProvider).valueOrNull ?? [];
-                return Stack(
-                  alignment: Alignment.center,
-                  children: List.generate(channelsList.length, (index) {
-                    final channel = channelsList[index];
-                    final isFocused = index == _focusedIndex;
-                    final angleStep = (2 * math.pi) / channelsList.length;
-                    final currentAngle = (angleStep * index) + (_rotationController.value * 2 * math.pi);
-
-                    final radius = 120.0 + (index % 3) * 80.0;
-                    final x = radius * math.cos(currentAngle);
-                    final y = radius * math.sin(currentAngle);
-
-                    return Transform.translate(
-                      offset: Offset(x, y),
-                      child: OrbitPlanetNode(
-                        planet: OrbitChannelPlanet.fromChannel(
-                          channel,
-                          preference: 0.5 + (index % 3) * 0.2,
-                          currentProgram: 'Programme en cours',
-                          progress: 0.3 + (index % 4) * 0.2,
-                        ),
-                        angleRadians: currentAngle,
-                        baseRadius: 150.0,
-                        isFocused: isFocused,
-                        onTap: () => _launchChannel(channel),
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-
-            GestureDetector(
-              onTap: () => _launchChannel(channels[_focusedIndex]),
-              child: Container(
-                width: 80, height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF00CFE8)]),
-                  boxShadow: [BoxShadow(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 5)],
-                ),
-                child: Center(child: Text(channels[_focusedIndex].name.substring(0, math.min(3, channels[_focusedIndex].name.length)), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
-              ),
-            ),
-
-            Positioned(
-              bottom: 60,
-              child: Column(
-                children: [
-                  Text(channels[_focusedIndex].name, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF8B5CF6))),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.keyboard_arrow_left, color: Colors.white38), SizedBox(width: 8),
-                      Icon(Icons.keyboard_arrow_right, color: Colors.white38), SizedBox(width: 16),
-                      Text('← → Naviguer  ·  OK Lancer', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                    ]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _launchChannel(Channel channel) {
-    Navigator.pushNamed(context, '/player', arguments: {'streamUrl': channel.streamUrl, 'title': channel.name, 'contentType': 'live'});
-  }
-}
-
-/// Onglet recherche nébuleuse
-class _NebulaSearchTab extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<_NebulaSearchTab> createState() => _NebulaSearchTabState();
-}
-
-class _NebulaSearchTabState extends ConsumerState<_NebulaSearchTab> {
-  final TextEditingController _searchController = TextEditingController();
-  List<NebulaSearchResult> _searchResults = [];
-  bool _isSearching = false;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _performSearch(String query) async {
-    if (query.trim().isEmpty) { setState(() => _searchResults = []); return; }
-    setState(() => _isSearching = true);
-
-    final channels = ref.read(liveChannelsProvider).valueOrNull ?? [];
-    final movies = ref.read(moviesProvider).valueOrNull ?? [];
-    final series = ref.read(seriesProvider).valueOrNull ?? [];
-
-    final results = <NebulaSearchResult>[];
-    final lowerQuery = query.toLowerCase();
-
-    for (final ch in channels) {
-      if (ch.name.toLowerCase().contains(lowerQuery)) {
-        results.add(NebulaSearchResult(title: ch.name, type: 'Live', relevanceScore: 1.0));
-      }
-    }
-    for (final m in movies) {
-      if (m.title.toLowerCase().contains(lowerQuery)) {
-        results.add(NebulaSearchResult(title: m.title, type: 'VOD', relevanceScore: 0.9));
-      }
-    }
-    for (final s in series) {
-      if (s.title.toLowerCase().contains(lowerQuery)) {
-        results.add(NebulaSearchResult(title: s.title, type: 'Séries', relevanceScore: 0.8));
-      }
-    }
-    results.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
-
-    if (mounted) setState(() { _searchResults = results.take(20).toList(); _isSearching = false; });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [
-      Padding(padding: const EdgeInsets.all(16), child: TextField(
-        controller: _searchController, style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          hintText: 'Rechercher une chaîne, un film, une série...', hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: const Icon(Icons.search, color: Colors.white54),
-          suffixIcon: _isSearching ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6))) : IconButton(icon: const Icon(Icons.mic, color: Color(0xFF8B5CF6)), onPressed: () {}),
-          filled: true, fillColor: const Color(0xFF16181E),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 2)),
-        ),
-        onChanged: (value) { Future.delayed(const Duration(milliseconds: 300), () { if (_searchController.text == value) _performSearch(value); }); },
-      )),
-      Expanded(child: NebulaSearchSpace(searchQuery: _searchController.text, results: _searchResults, onResultTap: (result) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Navigation vers ${result.title} (${result.type})')));
-      })),
-    ]);
-  }
+  String _formatTime(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:'
+      '${dt.minute.toString().padLeft(2, '0')}';
 }

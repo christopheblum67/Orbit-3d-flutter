@@ -38,7 +38,8 @@ class OrbitChannelPlanet {
     return baseRadius + ((1.0 - userPreferenceScore) * 180.0);
   }
 
-  factory OrbitChannelPlanet.fromChannel(Channel channel, {
+  factory OrbitChannelPlanet.fromChannel(
+    Channel channel, {
     double preference = 0.5,
     String currentProgram = '',
     double progress = 0.0,
@@ -77,13 +78,19 @@ class FavoriteChannelNode {
 /// Résultat de recherche nébuleuse
 class NebulaSearchResult {
   final String title;
-  final String type; // 'Live', 'VOD', 'Series', 'Channel'
+  final String type; // 'Live', 'VOD', 'Series', 'Channel', 'EPG'
   final double relevanceScore;
+  final String? subtitle;
+  final String? streamUrl;
+  final String? id; // ID pour navigation vers detail (VOD/Series)
 
   NebulaSearchResult({
     required this.title,
     required this.type,
     required this.relevanceScore,
+    this.subtitle,
+    this.streamUrl,
+    this.id,
   });
 }
 

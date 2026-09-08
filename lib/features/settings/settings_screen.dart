@@ -157,21 +157,7 @@ class _NetworkTab extends ConsumerWidget {
           onChanged: n.setTlsImpersonation,
           icon: Icons.shield_outlined,
         ),
-        SettingsSwitchTile(
-          title: 'DNS over HTTPS (DoH)',
-          subtitle: 'Masque les requêtes DNS au FAI',
-          value: s.useCustomDNS,
-          onChanged: n.setCustomDNS,
-          icon: Icons.dns_outlined,
-        ),
         const _DnsProviderTile(),
-        SettingsSwitchTile(
-          title: 'Streaming Hybride P2P (WebRTC)',
-          subtitle: 'Partage de segments pour réduire le buffering',
-          value: s.enableP2PHybrid,
-          onChanged: n.setP2PHybrid,
-          icon: Icons.hub_outlined,
-        ),
       ],
     );
   }
@@ -239,27 +225,11 @@ class _PlaybackTab extends ConsumerWidget {
         const _PlayerEngineTile(),
         const SettingsSectionTitle('Rendu Vidéo et Zapping'),
         SettingsSwitchTile(
-          title: 'Auto Frame Rate (AFR)',
-          subtitle:
-              'Ajuste la fréquence de rafraîchissement de la TV au flux (24/50/60Hz)',
-          value: s.autoFrameRate,
-          onChanged: n.setAutoFrameRate,
-          icon: Icons.highlight_outlined,
-        ),
-        SettingsSwitchTile(
           title: 'Zapping Instantané (Prefetching)',
           subtitle: 'Précharge les chaînes adjacentes en mémoire tampon',
           value: s.zeroLagPrefetch,
           onChanged: n.setZeroLagPrefetch,
           icon: Icons.fast_forward_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Super-Résolution IA (NPU Upscaling)',
-          subtitle:
-              'Améliore la netteté des flux SD/HD vers la 4K en temps réel',
-          value: s.enableAiUpscaling,
-          onChanged: n.setAiUpscaling,
-          icon: Icons.hd_outlined,
         ),
         const SizedBox(height: 8),
         const SettingsSectionTitle('Mémoire & Cache'),
@@ -290,29 +260,9 @@ class _SecurityTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const SettingsSectionTitle('Résilience du Service'),
-        SettingsSwitchTile(
-          title: 'Smart Failover (Serveur de secours)',
-          subtitle:
-              'Bascule automatiquement sur un serveur alternatif si le flux coupe',
-          value: s.smartFailover,
-          onChanged: n.setSmartFailover,
-          icon: Icons.sync_problem_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Masquer les identifiants',
-          subtitle:
-              'Chiffre et masque les liens d\'accès Xtream dans l\'interface',
-          value: s.hideCredentials,
-          onChanged: n.setHideCredentials,
-          icon: Icons.lock_outline,
-        ),
-        const SizedBox(height: 8),
         const SettingsSectionTitle('Contrôle parental'),
         _NavTile(
           icon: Icons.gpp_good_outlined,
@@ -330,8 +280,6 @@ class _ContentTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -341,22 +289,6 @@ class _ContentTab extends ConsumerWidget {
           title: 'Pour vous (recommandations)',
           subtitle: 'Gérer l\'appariement et les suggestions',
           onTap: () => context.go('/matchmaking'),
-        ),
-        const SizedBox(height: 8),
-        const SettingsSectionTitle('Fonctionnalités IA'),
-        SettingsSwitchTile(
-          title: 'Sous-Titres IA Locaux',
-          subtitle: 'Génère des sous-titres via traitement vocal local',
-          value: s.localAiSubtitles,
-          onChanged: n.setLocalAiSubtitles,
-          icon: Icons.subtitles_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Détection des Temps Forts Sportifs',
-          subtitle: 'Marque les événements clés sur les replays',
-          value: s.sportsHighlightsDetection,
-          onChanged: n.setSportsHighlights,
-          icon: Icons.sports_soccer_outlined,
         ),
       ],
     );

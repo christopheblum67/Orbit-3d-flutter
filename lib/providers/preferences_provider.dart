@@ -26,12 +26,24 @@ class PreferencesNotifier extends StateNotifier<UserPreferences> {
     state = prefs;
   }
 
-  Future<void> updateParental(
-      {required bool enabled, int ageRestriction = 0,}) async {
-    await update(state.copyWith(
-      parentalControlEnabled: enabled,
-      ageRestriction: ageRestriction,
-    ),);
+  Future<void> updateParental({
+    required bool enabled,
+    int ageRestriction = 0,
+  }) async {
+    await update(
+      state.copyWith(
+        parentalControlEnabled: enabled,
+        ageRestriction: ageRestriction,
+      ),
+    );
+  }
+
+  Future<void> setProfileVisible(bool visible) async {
+    await update(state.copyWith(profileVisible: visible));
+  }
+
+  Future<void> setAllowRecording(bool allow) async {
+    await update(state.copyWith(allowRecording: allow));
   }
 
   Future<void> setNotifications(bool enabled) async {

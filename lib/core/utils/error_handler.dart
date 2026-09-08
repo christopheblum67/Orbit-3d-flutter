@@ -48,11 +48,13 @@ class ErrorHandler {
     }
 
     if (kDebugMode) {
-      FlutterError.presentError(FlutterErrorDetails(
-        exception: error,
-        stack: stackTrace,
-        library: context ?? 'Orbit3D',
-      ),);
+      FlutterError.presentError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: context ?? 'Orbit3D',
+        ),
+      );
     }
   }
 

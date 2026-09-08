@@ -5,12 +5,16 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 
@@ -27,6 +31,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   @override
   Widget build(BuildContext context) {
     final channelsAsync = ref.watch(liveChannelsProvider);
+    final favoriteEntries = ref.watch(favoritesProvider);
+    final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Live TV')),
       body: channelsAsync.when(
@@ -41,9 +47,23 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
           final groups = buildLiveChannelGroups(channels);
           final grouped = groups.length > 1 || groups.first.name.isNotEmpty;
           final categoryGroups = _groupToCategories(groups);
+          final favIds = favoriteEntries.values
+              .where((e) => e.type == ContentType.live)
+              .map((e) => e.id)
+              .toSet();
 
           final List<Channel> visibleChannels;
-          if (!grouped) {
+          if (_selectedGroup == 'fav') {
+            visibleChannels =
+                channels.where((c) => favIds.contains(c.id)).toList();
+          } else if (_selectedGroup == 'recent') {
+            final recentIds = recentEntries.values
+                .where((e) => e.type == ContentType.live)
+                .map((e) => e.id)
+                .toSet();
+            visibleChannels =
+                channels.where((c) => recentIds.contains(c.id)).toList();
+          } else if (!grouped) {
             visibleChannels = groups.first.channels;
           } else if (_selectedGroup.isEmpty) {
             visibleChannels = [
@@ -70,10 +90,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                 ),
               Expanded(
                 child: visibleChannels.isEmpty
-                    ? const EmptyState(
+                    ? EmptyState(
                         icon: Icons.live_tv_outlined,
-                        title: 'Aucune chaîne dans ce groupe',
-                        message: 'Ce groupe ne contient aucune chaîne.',
+                        title: _selectedGroup == 'fav'
+                            ? 'Aucune chaîne favorite'
+                            : _selectedGroup == 'recent'
+                                ? 'Aucune chaîne récente'
+                                : 'Aucune chaîne dans ce groupe',
+                        message: _selectedGroup == 'fav'
+                            ? 'Appuie sur le cœur d\'une chaîne pour la '
+                                'retrouver ici.'
+                            : _selectedGroup == 'recent'
+                                ? 'Les chaînes regardées s\'afficheront ici.'
+                                : 'Ce groupe ne contient aucune chaîne.',
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
@@ -102,6 +131,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   static List<MediaCategory> _groupToCategories(List<ChannelGroup> groups) {
     final categories = <MediaCategory>[
       const MediaCategory(id: '', name: 'Tous'),
+      const MediaCategory(id: 'fav', name: 'Favoris'),
+      const MediaCategory(id: 'recent', name: 'Récemment'),
       for (var i = 0; i < groups.length; i++)
         MediaCategory(
           id: 'g$i',
@@ -144,7 +175,16 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (channel.orderNum > 0) _NumBadge(number: channel.orderNum),
-              FavoriteButton(channelId: channel.id, channelName: channel.name),
+              FavoriteToggle(
+                entry: FavoriteEntry(
+                  type: ContentType.live,
+                  id: channel.id,
+                  title: channel.name,
+                  posterUrl: channel.logoUrl,
+                  subtitle: channel.groupLabel,
+                  streamUrl: channel.streamUrl,
+                ),
+              ),
             ],
           ),
           onTap: onOpen,
@@ -172,6 +212,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         channels: list,
         index: index,
         contentType: PlaybackContentType.live,
+        favorite: FavoriteEntry(
+          type: ContentType.live,
+          id: channel.id,
+          title: channel.name,
+          posterUrl: channel.logoUrl,
+          subtitle: channel.groupLabel,
+          streamUrl: channel.streamUrl,
+        ),
       ),
     );
   }
@@ -198,56 +246,6 @@ class _NumBadge extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
       ),
-    );
-  }
-}
-
-class FavoriteButton extends ConsumerStatefulWidget {
-  const FavoriteButton({
-    super.key,
-    required this.channelId,
-    required this.channelName,
-  });
-
-  final String channelId;
-  final String channelName;
-
-  @override
-  ConsumerState<FavoriteButton> createState() => _FavoriteButtonState();
-}
-
-class _FavoriteButtonState extends ConsumerState<FavoriteButton> {
-  bool _isFav = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final svc = ref.read(favoritesServiceProvider);
-    final result = await svc.isFavorite('channel', widget.channelId);
-    if (mounted) setState(() => _isFav = result);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final svc = ref.read(favoritesServiceProvider);
-    return IconButton(
-      tooltip: _isFav ? 'Retirer des favoris' : 'Ajouter aux favoris',
-      icon: Icon(
-        _isFav ? Icons.favorite : Icons.favorite_border,
-        color: _isFav ? Theme.of(context).colorScheme.error : null,
-      ),
-      onPressed: () async {
-        if (_isFav) {
-          await svc.removeFavorite('channel', widget.channelId);
-        } else {
-          await svc.addFavorite('channel', widget.channelId);
-        }
-        if (mounted) setState(() => _isFav = !_isFav);
-      },
     );
   }
 }

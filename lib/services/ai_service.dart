@@ -45,10 +45,12 @@ class AIApiKeyMissingException implements Exception {
 }
 
 class AiService {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 20),
-    receiveTimeout: const Duration(seconds: 40),
-  ),);
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 40),
+    ),
+  );
 
   static const int _maxRetries = 2;
   static const Duration _retryDelay = Duration(milliseconds: 900);
@@ -171,11 +173,13 @@ class AiService {
         .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
-        .map((line) => AIRecommendation(
-              title: _cleanTitle(line),
-              reason: '',
-              category: 'Film / Série',
-            ),)
+        .map(
+          (line) => AIRecommendation(
+            title: _cleanTitle(line),
+            reason: '',
+            category: 'Film / Série',
+          ),
+        )
         .toList();
   }
 

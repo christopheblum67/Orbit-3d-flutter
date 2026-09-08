@@ -47,8 +47,7 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: TvFocus(
-                  onActivate: () =>
-                      setState(() => _selectedCategory = cat),
+                  onActivate: () => setState(() => _selectedCategory = cat),
                   child: GestureDetector(
                     onTap: () => setState(() => _selectedCategory = cat),
                     child: AnimatedContainer(

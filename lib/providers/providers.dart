@@ -8,21 +8,34 @@ import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/ai_service.dart';
 import 'package:orbit_3d_flutter/services/vpn_service.dart';
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
+import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
+import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
+import 'package:orbit_3d_flutter/services/omdb_service.dart';
+import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
+import 'package:orbit_3d_flutter/services/search_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';
+import 'package:orbit_3d_flutter/services/host_circuit_breaker.dart';
+import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
+import 'package:orbit_3d_flutter/models/search.dart';
 export 'profile_type_provider.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
@@ -36,6 +49,8 @@ final favoritesServiceProvider =
     Provider<FavoritesService>((ref) => FavoritesService());
 final historyServiceProvider =
     Provider<HistoryService>((ref) => HistoryService());
+final recentlyWatchedServiceProvider =
+    Provider<RecentlyWatchedService>((ref) => RecentlyWatchedService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
@@ -44,11 +59,76 @@ final playbackProgressServiceProvider =
 final mediaLibraryManagerProvider =
     Provider<MediaLibraryManager>((ref) => MediaLibraryManager());
 
+// ==================== MÉTADONNÉES EXTERNES (TMDB, TVmaze, OMDB) ====================
+
+final tmdbServiceProvider = Provider<TmdbService>((ref) {
+  final service = TmdbService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
+  final service = TvmazeService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+final omdbServiceProvider = Provider<OmdbService>((ref) {
+  final service = OmdbService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+final enrichmentServiceProvider = Provider<MetadataEnrichmentService>((ref) {
+  return MetadataEnrichmentService(
+    tmdb: ref.watch(tmdbServiceProvider),
+    tvmaze: ref.watch(tvmazeServiceProvider),
+    omdb: ref.watch(omdbServiceProvider),
+    ai: ref.watch(aiServiceProvider),
+  );
+});
+
+// ==================== RECHERCHE UNIFIÉE ====================
+
+final searchServiceProvider = Provider<SearchService>((ref) {
+  final service = SearchService(
+    api: ref.watch(apiServiceProvider),
+    storage: ref.watch(storageServiceProvider),
+    tmdb: ref.watch(tmdbServiceProvider),
+    tvmaze: ref.watch(tvmazeServiceProvider),
+  );
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+final searchProvider =
+    FutureProvider.family<UnifiedSearchResult, String>((ref, query) async {
+  if (query.trim().isEmpty) return UnifiedSearchResult.empty();
+  return ref.watch(searchServiceProvider).search(query);
+});
+
+final searchSuggestionsProvider =
+    StreamProvider.family<List<SearchSuggestion>, String>((ref, query) async* {
+  if (query.trim().length < 2) {
+    yield [];
+    return;
+  }
+  yield* ref.watch(searchServiceProvider).suggestions(query);
+});
+
 /// Pilote le process proxy Rust local (détection du binaire, démarrage,
 /// watchdog, ping `/api/proxy-status`). Singleton partagé : l'app lit
 /// `manager.isReady` avant de rebaser une URL via `stream_relay`.
 final rustProxyManagerProvider = Provider<RustProxyManager>((ref) {
   final manager = RustProxyManager.instance;
+  ref.onDispose(manager.dispose);
+  return manager;
+});
+
+/// Gestionnaire de session Cloudflare global (cookies + User-Agent) pour le zapping IPTV.
+/// Initialisé au démarrage (StartupSplashScreen) et injecté dans les headers du lecteur vidéo.
+final cloudflareSessionProvider = Provider<CloudflareSessionManager>((ref) {
+  final manager = CloudflareSessionManager();
   ref.onDispose(manager.dispose);
   return manager;
 });
@@ -103,6 +183,20 @@ final seriesInfoProvider =
   return api.fetchSeriesInfo(seriesId);
 });
 
+// ==================== DÉTAILS ENRICHIS (MovieDetail, SeriesDetail) ====================
+
+/// Film enrichi avec métadonnées TMDB/TVmaze/OMDB/IA
+final movieDetailProvider =
+    FutureProvider.family<MovieDetail, Movie>((ref, movie) async {
+  return ref.watch(enrichmentServiceProvider).enrichMovie(movie);
+});
+
+/// Série enrichie avec métadonnées TVmaze/TMDB/OMDB/IA
+final seriesDetailProvider =
+    FutureProvider.family<SeriesDetail, Series>((ref, series) async {
+  return ref.watch(enrichmentServiceProvider).enrichSeries(series);
+});
+
 final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();
@@ -127,6 +221,7 @@ class EPGDataCache {
 
   List<EPGProgram>? _all;
   DateTime? _fetchedAt;
+  Future<List<EPGProgram>>? _inFlight;
 
   bool get isFresh {
     final fetched = _fetchedAt;
@@ -135,12 +230,35 @@ class EPGDataCache {
         DateTime.now().difference(fetched) < _ttl;
   }
 
+  /// Charge l'intégralité du guide (filtre 48 h) UNE seule fois à la fois via
+  /// un futur partagé : la grille (`_loadAllEpg`) et l'onglet Recherche
+  /// (`epgProgramsProvider`) ne déclenchent chacun qu'un seul téléchargement
+  /// XMLTV, jamais deux en parallèle.
   Future<List<EPGProgram>> loadFull(ApiService api) async {
     if (isFresh) return _all!;
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    final future = _fetchAndFilter(api);
+    _inFlight = future;
+    try {
+      return await future;
+    } finally {
+      _inFlight = null;
+    }
+  }
+
+  Future<List<EPGProgram>> _fetchAndFilter(ApiService api) async {
     final programs = await api.fetchEpg();
-    _all = programs;
-    _fetchedAt = DateTime.now();
-    return programs;
+    // Ne conserve que les programmes à venir (48 h) : l'XMLTV draap contient
+    // ~94 000 entrées, inutile de les garder toutes en mémoire pour la grille.
+    final now = DateTime.now();
+    _all = programs
+        .where((p) =>
+            p.end.isAfter(now) &&
+            p.end.isBefore(now.add(const Duration(hours: 48))))
+        .toList();
+    _fetchedAt = now;
+    return _all!;
   }
 
   void invalidate() {
@@ -150,6 +268,8 @@ class EPGDataCache {
 }
 
 final epgDataCacheProvider = Provider<EPGDataCache>((ref) => EPGDataCache());
+
+/// EPG d'une chaîne
 
 /// EPG d'une chaîne (par son `epg_channel_id`), chargé paresseusement puis
 /// mis en cache avec une expiration. Renvoie une liste vide si la chaîne
@@ -173,9 +293,13 @@ class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
   @override
   Future<List<EPGProgram>> build() async {
     final api = ref.watch(apiServiceProvider);
+    final cache = ref.watch(epgDataCacheProvider);
     try {
+      // Passe par le cache partagé : aucune redondance avec la grille EPG
+      // (un seul fetch XMLTV global). La mise en garde retry garde la
+      // robustesse anti-leech draap.
       return await stream_helpers.retryStream(
-        () => api.fetchEpg(),
+        () => cache.loadFull(api),
         attempts: 2,
       );
     } catch (error, stackTrace) {
@@ -207,6 +331,25 @@ final aiRecommendationsProvider = FutureProvider.autoDispose
   }
 
   return aiService.getRecommendations(profile, movies);
+});
+
+/// Moniteur de connectivité temps réel (singleton via ChangeNotifier)
+final connectivityMonitorProvider = Provider<ConnectivityMonitor>((ref) {
+  final monitor = ConnectivityMonitor();
+  ref.onDispose(monitor.dispose);
+  return monitor;
+});
+
+/// Circuit breaker par hôte (cooldown anti-leech)
+final hostCircuitBreakerProvider = Provider<HostCircuitBreaker>((ref) {
+  return HostCircuitBreaker.instance;
+});
+
+/// Détecteur de stall (flux figé) pendant la lecture
+final stallDetectorProvider = Provider<StallDetector>((ref) {
+  final detector = StallDetector();
+  ref.onDispose(detector.dispose);
+  return detector;
 });
 
 class StreamAiException implements Exception {

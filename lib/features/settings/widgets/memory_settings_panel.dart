@@ -62,7 +62,8 @@ class MemorySettingsPanel extends ConsumerWidget {
                 icon: const Icon(Icons.delete_outline, size: 18),
                 label: const Text('Effacer'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -70,7 +71,8 @@ class MemorySettingsPanel extends ConsumerWidget {
                   await libraryManager.clearRecentlyWatched();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Historique de lecture effacé.')),
+                      const SnackBar(
+                          content: Text('Historique de lecture effacé.')),
                     );
                   }
                 },
@@ -102,7 +104,8 @@ class MemorySettingsPanel extends ConsumerWidget {
                 icon: const Icon(Icons.cleaning_services_rounded, size: 18),
                 label: const Text('Purger'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),

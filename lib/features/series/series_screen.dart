@@ -6,8 +6,12 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class SeriesScreen extends ConsumerStatefulWidget {
@@ -41,6 +45,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   Widget build(BuildContext context) {
     final seriesAsync = ref.watch(seriesProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
+    final favoriteEntries = ref.watch(favoritesProvider);
+    final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Séries'),
@@ -64,11 +70,28 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           final categories =
               categoriesAsync.value ?? _categoriesFromSeries(seriesList);
           final q = _query.trim().toLowerCase();
-          final filteredSeries = _selectedCategoryId.isEmpty
-              ? seriesList
-              : seriesList
-                  .where((s) => s.categoryId == _selectedCategoryId)
-                  .toList();
+          final List<Series> filteredSeries;
+          if (_selectedCategoryId == 'fav') {
+            final favIds = favoriteEntries.values
+                .where((e) => e.type == ContentType.series)
+                .map((e) => e.id)
+                .toSet();
+            filteredSeries =
+                seriesList.where((s) => favIds.contains(s.id)).toList();
+          } else if (_selectedCategoryId == 'recent') {
+            final recentIds = recentEntries.values
+                .where((e) => e.type == ContentType.series)
+                .map((e) => e.id)
+                .toSet();
+            filteredSeries =
+                seriesList.where((s) => recentIds.contains(s.id)).toList();
+          } else if (_selectedCategoryId.isEmpty) {
+            filteredSeries = seriesList;
+          } else {
+            filteredSeries = seriesList
+                .where((s) => s.categoryId == _selectedCategoryId)
+                .toList();
+          }
           final queryFiltered = q.isEmpty
               ? filteredSeries
               : filteredSeries
@@ -113,6 +136,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               CategoriesRail(
                 categories: [
                   const MediaCategory(id: '', name: 'Tous'),
+                  const MediaCategory(id: 'fav', name: 'Favoris'),
+                  const MediaCategory(id: 'recent', name: 'Récemment'),
                   ...categories,
                 ],
                 selectedId: _selectedCategoryId,
@@ -132,11 +157,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     ),
                     Expanded(
                       child: visibleSeries.isEmpty
-                          ? const EmptyState(
+                          ? EmptyState(
                               icon: Icons.tv,
-                              title: 'Aucun résultat',
-                              message:
-                                  'Aucune série ne correspond à cette recherche.',
+                              title: _selectedCategoryId == 'fav'
+                                  ? 'Aucune série favorite'
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Aucune série récente'
+                                      : 'Aucun résultat',
+                              message: _selectedCategoryId == 'fav'
+                                  ? 'Appuie sur le cœur d\'une série pour la '
+                                      'retrouver ici.'
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Les séries regardées s\'afficheront ici.'
+                                      : 'Aucune série ne correspond à cette '
+                                          'recherche.',
                             )
                           : CustomScrollView(
                               slivers: [
@@ -169,9 +203,25 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         }
 
                                         void onLongPress() {
-                                          ref
-                                              .read(favoritesServiceProvider)
-                                              .addFavorite('series', series.id);
+                                          final notifier = ref
+                                              .read(favoritesProvider.notifier);
+                                          final wasFavorite =
+                                              notifier.isFavorite(
+                                            ContentType.series,
+                                            series.id,
+                                          );
+                                          notifier.toggle(
+                                            FavoriteEntry(
+                                              type: ContentType.series,
+                                              id: series.id,
+                                              title: series.title,
+                                              posterUrl: series.coverUrl,
+                                              subtitle: series.year > 0
+                                                  ? '${series.year}'
+                                                  : series.genre,
+                                            ),
+                                          );
+                                          if (wasFavorite) return;
                                           ScaffoldMessenger.of(context)
                                             ..hideCurrentSnackBar()
                                             ..showSnackBar(
@@ -180,7 +230,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                                   '« ${series.title} » ajouté aux favoris',
                                                 ),
                                                 duration: const Duration(
-                                                    milliseconds: 1500),
+                                                  milliseconds: 1500,
+                                                ),
                                               ),
                                             );
                                         }
@@ -195,6 +246,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             rating: series.rating,
                                             ageLabel: series.pegiLabel,
                                             fallbackIcon: Icons.tv,
+                                            favoriteOverlay:
+                                                FavoriteToggle.overlay(
+                                              entry: FavoriteEntry(
+                                                type: ContentType.series,
+                                                id: series.id,
+                                                title: series.title,
+                                                posterUrl: series.coverUrl,
+                                                subtitle: series.year > 0
+                                                    ? '${series.year}'
+                                                    : series.genre,
+                                              ),
+                                            ),
                                             onTap: onOpen,
                                             onLongPress: onLongPress,
                                           ),

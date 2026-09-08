@@ -39,12 +39,22 @@ class LoggerService {
         developer.log(formattedMessage, name: logTag, level: 2, error: error);
         break;
       case LogLevel.error:
-        developer.log(formattedMessage,
-            name: logTag, level: 3, error: error, stackTrace: stackTrace,);
+        developer.log(
+          formattedMessage,
+          name: logTag,
+          level: 3,
+          error: error,
+          stackTrace: stackTrace,
+        );
         break;
       case LogLevel.critical:
-        developer.log(formattedMessage,
-            name: logTag, level: 4, error: error, stackTrace: stackTrace,);
+        developer.log(
+          formattedMessage,
+          name: logTag,
+          level: 4,
+          error: error,
+          stackTrace: stackTrace,
+        );
         break;
     }
 
@@ -57,18 +67,30 @@ class LoggerService {
       log(message, level: LogLevel.info, tag: tag);
   void warning(String message, {String? tag, Object? error}) =>
       log(message, level: LogLevel.warning, tag: tag, error: error);
-  void error(String message,
-          {String? tag, Object? error, StackTrace? stackTrace,}) =>
-      log(message,
-          level: LogLevel.error,
-          tag: tag,
-          error: error,
-          stackTrace: stackTrace,);
-  void critical(String message,
-          {String? tag, Object? error, StackTrace? stackTrace,}) =>
-      log(message,
-          level: LogLevel.critical,
-          tag: tag,
-          error: error,
-          stackTrace: stackTrace,);
+  void error(
+    String message, {
+    String? tag,
+    Object? error,
+    StackTrace? stackTrace,
+  }) =>
+      log(
+        message,
+        level: LogLevel.error,
+        tag: tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
+  void critical(
+    String message, {
+    String? tag,
+    Object? error,
+    StackTrace? stackTrace,
+  }) =>
+      log(
+        message,
+        level: LogLevel.critical,
+        tag: tag,
+        error: error,
+        stackTrace: stackTrace,
+      );
 }

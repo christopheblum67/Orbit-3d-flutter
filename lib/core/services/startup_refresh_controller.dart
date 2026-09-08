@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 
 /// Énumère les étapes de la régénération des flux au démarrage.
@@ -25,6 +26,7 @@ enum StartupStep {
 /// serviront aux recommandations personnalisées.
 class StartupRefreshController extends ChangeNotifier {
   final ApiService _api;
+  final EPGDataCache? _epgCache;
   final Set<StartupStep> _todo;
   final Set<StartupStep> _done = {};
 
@@ -45,11 +47,15 @@ class StartupRefreshController extends ChangeNotifier {
   Object? _error;
   bool _skippedEpg = false;
 
+  Set<StartupStep> get doneSteps => _done;
+
   List<Movie> movies = const [];
   List<Series> series = const [];
 
-  StartupRefreshController(this._api, {Set<StartupStep>? steps})
-      : _todo = steps ??
+  StartupRefreshController(this._api,
+      {Set<StartupStep>? steps, EPGDataCache? epgCache})
+      : _epgCache = epgCache,
+        _todo = steps ??
             {
               StartupStep.live,
               StartupStep.movies,
@@ -90,39 +96,81 @@ class StartupRefreshController extends ChangeNotifier {
     for (final step in _todo) {
       switch (step) {
         case StartupStep.live:
-          futures.add(_run(step, () async {
-            await _api.fetchLiveChannels();
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                await _api.fetchLiveChannels();
+              },
+            ),
+          );
         case StartupStep.movies:
-          futures.add(_run(step, () async {
-            final list = await _api.fetchMovies();
-            movies = list;
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                final list = await _api.fetchMovies();
+                movies = list;
+              },
+            ),
+          );
         case StartupStep.series:
-          futures.add(_run(step, () async {
-            final list = await _api.fetchSeries();
-            series = list;
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                final list = await _api.fetchSeries();
+                series = list;
+              },
+            ),
+          );
         case StartupStep.radio:
-          futures.add(_run(step, () async {
-            await _api.fetchRadioChannels();
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                await _api.fetchRadioChannels();
+              },
+            ),
+          );
         case StartupStep.replay:
-          futures.add(_run(step, () async {
-            await _api.fetchReplays();
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                await _api.fetchReplays();
+              },
+            ),
+          );
         case StartupStep.epg:
-          futures.add(_run(step, () async {
-            try {
-              await _api.fetchEpg();
-            } finally {
-              // Marqué comme traité même en erreur (non bloquant).
-            }
-          },),);
+          futures.add(
+            _run(
+              step,
+              () async {
+                try {
+                  // Précharge le guide dans le cache partagé, une seule fois :
+                  // la grille EPG l'utilise ensuite sans re-télécharger le XMLTV.
+                  final cache = _epgCache;
+                  if (cache != null) {
+                    await cache.loadFull(_api);
+                  } else {
+                    await _api.fetchEpg();
+                  }
+                } finally {
+                  // Marqué comme traité même en erreur (non bloquant).
+                }
+              },
+            ),
+          );
         case StartupStep.ai:
           // L'étape IA est purement indicative : on la marque instantanément
           // comme faite pour que la progression reste fluide sans latence.
-          futures.add(_run(step, () async {},),);
+          futures.add(
+            _run(
+              step,
+              () async {},
+            ),
+          );
       }
     }
 

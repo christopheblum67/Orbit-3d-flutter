@@ -15,7 +15,7 @@ class Movie {
   final String pegi;
   final String streamUrl;
   final String categoryId;
-  
+
   // Nouvelles données de casting
   final List<Actor> cast;
   final List<CrewMember> crew;

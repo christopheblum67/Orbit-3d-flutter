@@ -25,8 +25,7 @@ class AudioControlsSheet extends ConsumerStatefulWidget {
   const AudioControlsSheet({super.key});
 
   @override
-  ConsumerState<AudioControlsSheet> createState() =>
-      _AudioControlsSheetState();
+  ConsumerState<AudioControlsSheet> createState() => _AudioControlsSheetState();
 }
 
 class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
@@ -203,8 +202,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                           if (_nightFocusEnabled && _dialogueBoost) ...[
                             const SizedBox(height: 8),
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
                                   'Amplification des voix :',
@@ -224,12 +222,11 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                               min: 1.0,
                               max: 8.0,
                               divisions: 14,
-                              label:
-                                  '+${_vocalGainDb.toStringAsFixed(1)} dB',
+                              label: '+${_vocalGainDb.toStringAsFixed(1)} dB',
                               onChanged: (v) async {
-                              await _notifier.setNightFocusVocalGainDb(v);
-                              await _push();
-                            },
+                                await _notifier.setNightFocusVocalGainDb(v);
+                                await _push();
+                              },
                             ),
                           ],
                         ],

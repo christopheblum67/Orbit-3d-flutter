@@ -47,14 +47,17 @@ class NotificationService {
 
       // Gestion du message reçu en arrière-plan
       FirebaseMessaging.onBackgroundMessage(
-          _firebaseMessagingBackgroundHandler,);
+        _firebaseMessagingBackgroundHandler,
+      );
 
       // Écoute des messages en premier plan
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         final notification = message.notification;
         if (notification != null) {
           showNotification(
-              notification.title ?? 'Orbit IPTV', notification.body ?? '',);
+            notification.title ?? 'Orbit IPTV',
+            notification.body ?? '',
+          );
         }
       });
     } catch (e) {
@@ -65,7 +68,8 @@ class NotificationService {
   }
 
   static Future<void> _firebaseMessagingBackgroundHandler(
-      RemoteMessage message,) async {
+    RemoteMessage message,
+  ) async {
     await Firebase.initializeApp();
     final notification = message.notification;
     if (notification != null) {
@@ -81,8 +85,12 @@ class NotificationService {
         priority: Priority.high,
       );
       const details = NotificationDetails(android: androidDetails);
-      await plugin.show(0, notification.title ?? 'Orbit IPTV',
-          notification.body ?? '', details,);
+      await plugin.show(
+        0,
+        notification.title ?? 'Orbit IPTV',
+        notification.body ?? '',
+        details,
+      );
     }
   }
 

@@ -6,8 +6,12 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
@@ -41,6 +45,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   Widget build(BuildContext context) {
     final moviesAsync = ref.watch(moviesProvider);
     final categoriesAsync = ref.watch(vodCategoriesProvider);
+    final favoriteEntries = ref.watch(favoritesProvider);
+    final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Films (VOD)'),
@@ -64,11 +70,28 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           final categories =
               categoriesAsync.value ?? _categoriesFromMovies(movies);
           final q = _query.trim().toLowerCase();
-          final filteredMovies = _selectedCategoryId.isEmpty
-              ? movies
-              : movies
-                  .where((movie) => movie.categoryId == _selectedCategoryId)
-                  .toList();
+          final List<Movie> filteredMovies;
+          if (_selectedCategoryId == 'fav') {
+            final favIds = favoriteEntries.values
+                .where((e) => e.type == ContentType.vod)
+                .map((e) => e.id)
+                .toSet();
+            filteredMovies =
+                movies.where((m) => favIds.contains(m.id)).toList();
+          } else if (_selectedCategoryId == 'recent') {
+            final recentIds = recentEntries.values
+                .where((e) => e.type == ContentType.vod)
+                .map((e) => e.id)
+                .toSet();
+            filteredMovies =
+                movies.where((m) => recentIds.contains(m.id)).toList();
+          } else if (_selectedCategoryId.isEmpty) {
+            filteredMovies = movies;
+          } else {
+            filteredMovies = movies
+                .where((movie) => movie.categoryId == _selectedCategoryId)
+                .toList();
+          }
           final queryFiltered = q.isEmpty
               ? filteredMovies
               : filteredMovies
@@ -113,6 +136,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               CategoriesRail(
                 categories: [
                   const MediaCategory(id: '', name: 'Tous'),
+                  const MediaCategory(id: 'fav', name: 'Favoris'),
+                  const MediaCategory(id: 'recent', name: 'Récemment'),
                   ...categories,
                 ],
                 selectedId: _selectedCategoryId,
@@ -134,12 +159,23 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                       child: visibleMovies.isEmpty
                           ? EmptyState(
                               icon: Icons.movie_outlined,
-                              title: _selectedCategoryId.isEmpty
-                                  ? 'Aucun résultat'
-                                  : 'Aucun film dans cette catégorie',
-                              message: _selectedCategoryId.isEmpty
-                                  ? 'Aucun film ne correspond à cette recherche.'
-                                  : 'Aucun film ne correspond à cette catégorie.',
+                              title: _selectedCategoryId == 'fav'
+                                  ? 'Aucun film favori'
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Aucun film récent'
+                                      : _selectedCategoryId.isEmpty
+                                          ? 'Aucun résultat'
+                                          : 'Aucun film dans cette catégorie',
+                              message: _selectedCategoryId == 'fav'
+                                  ? 'Appuie sur le cœur d\'un film pour le '
+                                      'retrouver ici.'
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Les films regardés s\'afficheront ici.'
+                                      : _selectedCategoryId.isEmpty
+                                          ? 'Aucun film ne correspond à cette '
+                                              'recherche.'
+                                          : 'Aucun film ne correspond à cette '
+                                              'catégorie.',
                             )
                           : GridView.builder(
                               padding:
@@ -159,15 +195,32 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                 }
 
                                 void onLongPress() {
-                                  ref
-                                      .read(favoritesServiceProvider)
-                                      .addFavorite('movie', movie.id);
+                                  final notifier =
+                                      ref.read(favoritesProvider.notifier);
+                                  final wasFavorite = notifier.isFavorite(
+                                    ContentType.vod,
+                                    movie.id,
+                                  );
+                                  notifier.toggle(
+                                    FavoriteEntry(
+                                      type: ContentType.vod,
+                                      id: movie.id,
+                                      title: movie.title,
+                                      posterUrl: movie.posterUrl,
+                                      subtitle: movie.year > 0
+                                          ? '${movie.year}'
+                                          : movie.genre,
+                                      streamUrl: movie.streamUrl,
+                                    ),
+                                  );
+                                  if (wasFavorite) return;
                                   ScaffoldMessenger.of(context)
                                     ..hideCurrentSnackBar()
                                     ..showSnackBar(
                                       SnackBar(
                                         content: Text(
-                                            '« ${movie.title} » ajouté aux favoris'),
+                                          '« ${movie.title} » ajouté aux favoris',
+                                        ),
                                         duration:
                                             const Duration(milliseconds: 1500),
                                       ),
@@ -184,6 +237,18 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     rating: movie.rating,
                                     ageLabel: movie.pegiLabel,
                                     fallbackIcon: Icons.movie_outlined,
+                                    favoriteOverlay: FavoriteToggle.overlay(
+                                      entry: FavoriteEntry(
+                                        type: ContentType.vod,
+                                        id: movie.id,
+                                        title: movie.title,
+                                        posterUrl: movie.posterUrl,
+                                        subtitle: movie.year > 0
+                                            ? '${movie.year}'
+                                            : movie.genre,
+                                        streamUrl: movie.streamUrl,
+                                      ),
+                                    ),
                                     onTap: onOpen,
                                     onLongPress: onLongPress,
                                   ),

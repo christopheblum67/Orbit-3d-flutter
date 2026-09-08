@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/series_detail.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 class SeriesDetailScreen extends ConsumerWidget {
@@ -20,80 +24,158 @@ class SeriesDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final infoAsync = ref.watch(seriesInfoProvider(seriesId));
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: infoAsync.when(
-        data: (series) {
-          final episodesBySeason = <int, List<Episode>>{};
-          for (final episode in series.episodes) {
-            episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
-          }
-          final seasons = episodesBySeason.keys.toList()..sort();
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: _SeriesHeader(series: series),
+    // D'abord charger la série de base depuis Xtream
+    final baseSeriesAsync = ref.watch(seriesInfoProvider(seriesId));
+
+    return baseSeriesAsync.when(
+      data: (baseSeries) {
+        // Puis enrichir avec les métadonnées externes
+        final detailAsync = ref.watch(seriesDetailProvider(baseSeries));
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(title.isEmpty ? baseSeries.title : title),
+            actions: [
+              FavoriteToggle(
+                entry: FavoriteEntry(
+                  type: ContentType.series,
+                  id: baseSeries.id,
+                  title: baseSeries.title,
+                  posterUrl: baseSeries.coverUrl,
+                  subtitle: baseSeries.genre,
+                  streamUrl: baseSeries.episodes.isNotEmpty
+                      ? baseSeries.episodes.first.streamUrl
+                      : '',
+                ),
               ),
-              if (seasons.isEmpty)
-                const SliverToBoxAdapter(
-                  child: EmptyState(
-                    icon: Icons.video_library_outlined,
-                    title: 'Aucun épisode',
-                    message: 'Cette série ne propose pas encore d\'épisodes.',
-                  ),
-                )
-              else
-                for (final season in seasons) ...[
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      icon: Icons.play_circle_outline,
-                      title: 'Saison $season',
-                      subtitle: '${episodesBySeason[season]!.length} épisodes',
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    sliver: SliverList.builder(
-                      itemCount: episodesBySeason[season]!.length,
-                      itemBuilder: (context, index) {
-                        final episode = episodesBySeason[season]![index];
-                        return _EpisodeTile(
-                          series: series,
-                          episode: episode,
-                        );
-                      },
-                    ),
-                  ),
-                ],
             ],
-          );
-        },
-        loading: () => const LoadingState(message: 'Chargement des épisodes…'),
-        error: (err, _) => ErrorState(
-          icon: Icons.tv,
-          title: 'Détail indisponible',
-          message: userFriendlyError(err),
-          onRetry: () => ref.invalidate(seriesInfoProvider(seriesId)),
-        ),
+          ),
+          body: detailAsync.when(
+            data: (detail) => _SeriesDetailContent(
+              detail: detail,
+              baseSeries: baseSeries,
+            ),
+            loading: () =>
+                const LoadingState(message: 'Enrichissement des métadonnées…'),
+            error: (err, _) => ErrorState(
+              icon: Icons.tv,
+              title: 'Détail indisponible',
+              message: userFriendlyError(err),
+              onRetry: () => ref.invalidate(seriesDetailProvider(baseSeries)),
+            ),
+          ),
+        );
+      },
+      loading: () => const LoadingState(message: 'Chargement de la série…'),
+      error: (err, _) => ErrorState(
+        icon: Icons.tv,
+        title: 'Série introuvable',
+        message: userFriendlyError(err),
+        onRetry: () => ref.invalidate(seriesInfoProvider(seriesId)),
       ),
     );
   }
 }
 
-class _SeriesHeader extends StatelessWidget {
-  const _SeriesHeader({required this.series});
+class _SeriesDetailContent extends StatelessWidget {
+  const _SeriesDetailContent({
+    required this.detail,
+    required this.baseSeries,
+  });
 
-  final Series series;
+  final SeriesDetail detail;
+  final Series baseSeries;
+
+  @override
+  Widget build(BuildContext context) {
+    final episodesBySeason = <int, List<Episode>>{};
+    for (final episode in baseSeries.episodes) {
+      episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
+    }
+    final seasons = episodesBySeason.keys.toList()..sort();
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _SeriesHeader(series: detail, baseSeries: baseSeries),
+        ),
+        if (seasons.isEmpty)
+          const SliverToBoxAdapter(
+            child: EmptyState(
+              icon: Icons.video_library_outlined,
+              title: 'Aucun épisode',
+              message: 'Cette série ne propose pas encore d\'épisodes.',
+            ),
+          )
+        else
+          for (final season in seasons) ...[
+            SliverToBoxAdapter(
+              child: SectionHeader(
+                icon: Icons.play_circle_outline,
+                title: 'Saison $season',
+                subtitle: '${episodesBySeason[season]!.length} épisodes',
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              sliver: SliverList.builder(
+                itemCount: episodesBySeason[season]!.length,
+                itemBuilder: (context, index) {
+                  final episode = episodesBySeason[season]![index];
+                  return _EpisodeTile(
+                    series: baseSeries,
+                    episode: episode,
+                  );
+                },
+              ),
+            ),
+            //Invités spéciaux pour cette saison
+            if (detail.getGuestStarsForSeason(season).isNotEmpty)
+              SliverToBoxAdapter(
+                child: CastCarousel(
+                  actors: detail.getGuestStarsForSeason(season),
+                  title: 'Invités spéciaux - Saison $season',
+                  maxVisible: 10,
+                  showCharacter: true,
+                  itemWidth: 120,
+                  imageSize: 80,
+                ),
+              ),
+          ],
+      ],
+    );
+  }
+}
+
+class _SeriesHeader extends StatelessWidget {
+  const _SeriesHeader({required this.series, required this.baseSeries});
+
+  final SeriesDetail series;
+  final Series baseSeries;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final meta = [
+    final textTheme = Theme.of(context).textTheme;
+
+    final metaParts = <String>[
       if (series.year > 0) '${series.year}',
+      if (series.runtime > 0) '${series.runtime} min/ép',
       if (series.genre.isNotEmpty) series.genre,
       if (series.rating > 0) '★ ${series.rating.toStringAsFixed(1)}',
-    ].join('  •  ');
+    ];
+    final meta = metaParts.join('  •  ');
+
+    final extraMetaParts = <String>[
+      if (series.status.isNotEmpty) series.status,
+      if (series.networks.isNotEmpty) 'Réseau: ${series.networks.join(', ')}',
+      if (series.firstAirDate.isNotEmpty)
+        '1ʳᵉ diffusion: ${_formatDate(series.firstAirDate)}',
+      if (series.numberOfSeasons > 0) '${series.numberOfSeasons} saisons',
+      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} épisodes',
+    ];
+    final extraMeta = extraMetaParts.join('  •  ');
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(
@@ -126,38 +208,78 @@ class _SeriesHeader extends StatelessWidget {
                   children: [
                     Text(
                       series.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
+                      style: textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     if (meta.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
                         meta,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                    if (extraMeta.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        extraMeta,
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
                     ],
                     if (series.pegiLabel != null) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: scheme.primary,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           series.pegiLabel!,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: scheme.onPrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          style: textTheme.labelSmall?.copyWith(
+                            color: scheme.onPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Badge source de données
+                    if (series.dataSource != 'xtream') ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _getSourceColor(series.dataSource)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: _getSourceColor(series.dataSource)
+                                  .withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              series.aiGenerated
+                                  ? Icons.psychology_outlined
+                                  : Icons.data_usage_outlined,
+                              size: 12,
+                              color: _getSourceColor(series.dataSource),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              series.aiGenerated
+                                  ? 'Données générées par IA'
+                                  : 'Données ${series.dataSource.toUpperCase()}',
+                              style: textTheme.labelSmall?.copyWith(
+                                color: _getSourceColor(series.dataSource),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -170,14 +292,47 @@ class _SeriesHeader extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               series.description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              style: textTheme.bodyMedium
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+          // Cast principal (compact)
+          if (series.cast.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            CompactCastCarousel(
+              actors: series.cast,
+              title: 'Distribution principale',
+              maxVisible: 8,
             ),
           ],
         ],
       ),
     );
+  }
+
+  Color _getSourceColor(String source) {
+    switch (source.toLowerCase()) {
+      case 'tvmaze':
+        return Colors.blue;
+      case 'tmdb':
+        return Colors.green;
+      case 'omdb':
+        return Colors.orange;
+      case 'ai':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return dateStr;
+    try {
+      final date = DateTime.parse(dateStr);
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (_) {
+      return dateStr;
+    }
   }
 }
 

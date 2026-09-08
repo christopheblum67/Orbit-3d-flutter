@@ -54,13 +54,16 @@ class _ExitConfirmDialog extends StatelessWidget {
       backgroundColor: const Color(0xFF16181E),
       title: const Row(
         children: [
-          Icon(Icons.power_settings_new_rounded,
-              color: Color(0xFFFF6B6B), size: 26,),
+          Icon(
+            Icons.power_settings_new_rounded,
+            color: Color(0xFFFF6B6B),
+            size: 26,
+          ),
           SizedBox(width: 10),
-Text(
-              'Quitter Orbit IPTV',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+          Text(
+            'Quitter Orbit IPTV',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
         ],
       ),
       content: const Text(
@@ -79,7 +82,9 @@ Text(
             child: const Text(
               'Non',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold,),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),
@@ -94,7 +99,9 @@ Text(
             child: const Text(
               'Oui',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold,),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

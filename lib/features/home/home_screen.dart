@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -85,8 +87,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       border: Border.all(
                           color: Colors.white.withValues(alpha: 0.12)),
                     ),
-                    child:
-                        const Icon(Icons.settings, color: Colors.white, size: 22),
+                    child: const Icon(Icons.settings,
+                        color: Colors.white, size: 22),
                   ),
                 ),
               ),
@@ -109,22 +111,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.search,
-                        color: Colors.white.withValues(alpha: 0.5),
-                        size: 20,),
+                    Icon(
+                      Icons.search,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Rechercher une chaîne, un film…',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                            fontSize: 13,),
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -137,21 +142,77 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _refreshAll() {
-    ref.invalidate(liveChannelsProvider);
-    ref.invalidate(moviesProvider);
-    ref.invalidate(seriesProvider);
-    ref.invalidate(radioChannelsProvider);
-    ref.invalidate(replaysProvider);
-    ref.invalidate(epgProgramsProvider);
-    ref.invalidate(epgDataCacheProvider);
-    ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
+  Future<void> _refreshAll() async {
+    final last = ref.read(lastRefreshTimestampProvider);
+    // Garde-fou : si la dernière mise à jour date de moins de 30 min
+    // (TTL EPG), on évite de re-télécharger inutilement.
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 30)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Données déjà fraîches (moins de 30 min)'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
+
+    // Affiche une progression simple pendant le rafraîchissement.
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
           content: Text('Mise à jour en cours…'),
-          duration: Duration(milliseconds: 1800),
+          duration: Duration(seconds: 30),
+        ),
+      );
+
+    // Lance les rechargements en parallèle.
+    final liveFut = ref.read(liveChannelsProvider.future);
+    final moviesFut = ref.read(moviesProvider.future);
+    final seriesFut = ref.read(seriesProvider.future);
+    final radioFut = ref.read(radioChannelsProvider.future);
+    final replayFut = ref.read(replaysProvider.future);
+    final epgFut = ref.read(epgProgramsProvider.future);
+
+    // Attend la fin de tous les fournisseurs (timeout sécurité 60 s).
+    final results = await Future.wait([
+      liveFut,
+      moviesFut,
+      seriesFut,
+      radioFut,
+      replayFut,
+      epgFut,
+    ]).timeout(const Duration(seconds: 60), onTimeout: () {
+      throw TimeoutException('Certains flux n\'ont pas répondu à temps');
+    });
+
+    final liveCount = (results[0] as List).length;
+    final moviesCount = (results[1] as List).length;
+    final seriesCount = (results[2] as List).length;
+    final radioCount = (results[3] as List).length;
+    final replayCount = (results[4] as List).length;
+    final epgCount = (results[5] as List).length;
+
+    // Invalide le cache EPG pour forcer le re-trim à la prochaine ouverture grille.
+    ref.invalidate(epgDataCacheProvider);
+
+    // Horodate la mise à jour.
+    ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Mise à jour terminée : '
+            '$liveCount chaînes, $moviesCount films, $seriesCount séries, '
+            '$radioCount radios, $replayCount replays, $epgCount programmes EPG',
+          ),
+          duration: const Duration(seconds: 4),
         ),
       );
   }
@@ -293,6 +354,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ),
+              if (item.route == '/favorites')
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final count = ref.watch(favoritesProvider).length;
+                      if (count == 0) return const SizedBox.shrink();
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: item.color,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: item.color.withValues(alpha: 0.5),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               if (item.refreshCategory != null)
                 Positioned(
                   bottom: 0,
@@ -335,7 +431,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF12151E),
         border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
       ),
       child: Row(
         children: [
@@ -348,11 +445,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Text(
                   'Profil : ',
                   style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5), fontSize: 13,),
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                _buildProfileAvatar(context, current,
-                    profilesAsync.valueOrNull ?? const <UserProfile>[],),
+                _buildProfileAvatar(
+                  context,
+                  current,
+                  profilesAsync.valueOrNull ?? const <UserProfile>[],
+                ),
               ],
             ),
           ),
@@ -382,9 +484,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const Text(
               'Choisir',
               style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,),
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -401,9 +504,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         border: Border.all(color: color, width: 1.2),
         boxShadow: [
           BoxShadow(
-              color: color.withValues(alpha: 0.4),
-              blurRadius: 12,
-              spreadRadius: 1,),
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
         ],
       ),
       child: Row(
@@ -416,7 +520,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? current.firstName[0].toUpperCase()
                   : '?',
               style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 11,),
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -472,8 +579,8 @@ class _SubStatusChip extends ConsumerWidget {
             color: scheme.primaryContainer.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: scheme.primary.withValues(alpha: 0.4),
-              ),
+              color: scheme.primary.withValues(alpha: 0.4),
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -508,7 +615,8 @@ class _SubStatusChip extends ConsumerWidget {
               color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),),
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+              ),
             ),
             child: const Text(
               'Changer',
@@ -544,10 +652,10 @@ class _NoSubscriptionChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
-                  Icons.credit_card_rounded,
-                  color: Colors.amberAccent,
-                  size: 16,
-                ),
+                Icons.credit_card_rounded,
+                color: Colors.amberAccent,
+                size: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Aucun abo',
@@ -569,7 +677,8 @@ class _NoSubscriptionChip extends StatelessWidget {
               color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),),
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+              ),
             ),
             child: const Text(
               'Changer',

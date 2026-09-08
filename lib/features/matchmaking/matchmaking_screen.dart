@@ -22,7 +22,8 @@ class MatchmakingScreen extends ConsumerWidget {
             children: [
               Icon(Icons.person_search, size: 56, color: scheme.outline),
               const SizedBox(height: 12),
-              const Text('Sélectionnez un profil pour voir ses recommandations'),
+              const Text(
+                  'Sélectionnez un profil pour voir ses recommandations'),
             ],
           ),
         ),
@@ -37,7 +38,8 @@ class MatchmakingScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
         ),
         title: Text('Pour vous · ${profile.firstName}'),
         actions: [
@@ -84,18 +86,19 @@ class MatchmakingScreen extends ConsumerWidget {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            children: [
+          return CustomScrollView(
+            slivers: [
               if (movies.isNotEmpty)
-                _RecoSection(
+                _RecoSectionSliver(
                   title: 'Films',
                   icon: Icons.movie_outlined,
                   items: movies,
                   profileId: profileId,
                 ),
+              if (movies.isNotEmpty && series.isNotEmpty)
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
               if (series.isNotEmpty)
-                _RecoSection(
+                _RecoSectionSliver(
                   title: 'Séries',
                   icon: Icons.video_library_outlined,
                   items: series,
@@ -111,8 +114,8 @@ class MatchmakingScreen extends ConsumerWidget {
   }
 }
 
-class _RecoSection extends ConsumerWidget {
-  const _RecoSection({
+class _RecoSectionSliver extends ConsumerWidget {
+  const _RecoSectionSliver({
     required this.title,
     required this.icon,
     required this.items,
@@ -126,57 +129,59 @@ class _RecoSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Icon(icon, size: 22),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 280,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final reco = items[index];
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: SizedBox(
-                  width: 160,
-                  child: MediaCard(
-                    title: reco.title,
-                    posterUrl: reco.posterUrl,
-                    year: reco.year,
-                    genre: reco.genre,
-                    rating: reco.rating,
-                    ageLabel: reco.pegiLabel,
-                    fallbackIcon: reco.kind == RecommendationKind.series
-                        ? Icons.video_library_outlined
-                        : Icons.movie_outlined,
-                    onTap: () => _openReco(context, reco),
-                    onLongPress: () => _dismissReco(ref, reco),
-                  ),
+            child: Row(
+              children: [
+                Icon(icon, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-      ],
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 280,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final reco = items[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: SizedBox(
+                    width: 160,
+                    child: MediaCard(
+                      title: reco.title,
+                      posterUrl: reco.posterUrl,
+                      year: reco.year,
+                      genre: reco.genre,
+                      rating: reco.rating,
+                      ageLabel: reco.pegiLabel,
+                      fallbackIcon: reco.kind == RecommendationKind.series
+                          ? Icons.video_library_outlined
+                          : Icons.movie_outlined,
+                      onTap: () => _openReco(context, reco),
+                      onLongPress: () => _dismissReco(ref, reco),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 
@@ -184,9 +189,14 @@ class _RecoSection extends ConsumerWidget {
     if (reco.kind == RecommendationKind.series) {
       context.push('/series/detail?id=${Uri.encodeComponent(reco.id)}');
     } else {
+      final movie = reco.movie;
       context.push(
-        '/player?url=${Uri.encodeComponent(reco.movie!.streamUrl)}'
-        '&title=${Uri.encodeComponent(reco.title)}&type=vod',
+        '/player?url=${Uri.encodeComponent(movie!.streamUrl)}'
+        '&title=${Uri.encodeComponent(reco.title)}&type=vod'
+        '&poster=${Uri.encodeComponent(reco.posterUrl)}'
+        '&genre=${Uri.encodeComponent(reco.genre)}'
+        '&year=${reco.year}'
+        '&rating=${reco.rating}',
       );
     }
   }
@@ -203,8 +213,7 @@ class _RecoSection extends ConsumerWidget {
           action: SnackBarAction(
             label: 'Annuler',
             onPressed: () async {
-              final current =
-                  ref.read(dismissedRecoIdsProvider(profileId));
+              final current = ref.read(dismissedRecoIdsProvider(profileId));
               final updated = {...current}..remove(reco.id);
               final storage = ref.read(storageServiceProvider);
               await storage.setSetting(

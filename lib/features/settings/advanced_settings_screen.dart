@@ -22,7 +22,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(advancedSettingsProvider.notifier).load();
     });
@@ -46,9 +46,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
             Tab(icon: Icon(Icons.security), text: 'Réseau'),
             Tab(icon: Icon(Icons.play_circle), text: 'Lecteur'),
             Tab(icon: Icon(Icons.shield), text: 'Sécurité'),
-            Tab(icon: Icon(Icons.tv), text: 'Ergonomie'),
             Tab(icon: Icon(Icons.equalizer), text: 'Audio'),
-            Tab(icon: Icon(Icons.psychology), text: 'IA'),
           ],
         ),
       ),
@@ -58,9 +56,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
           _NetworkTab(),
           _PlayerTab(),
           _SecurityTab(),
-          _ErgonomicsTab(),
           _AudioTab(),
-          _AiTab(),
         ],
       ),
     );
@@ -104,20 +100,6 @@ class _NetworkTab extends ConsumerWidget {
             }
           },
         ),
-        SettingsSwitchTile(
-          title: 'DNS over HTTPS (DoH)',
-          subtitle: 'Masque les requêtes de nom de domaine au FAI',
-          value: s.useCustomDNS,
-          onChanged: n.setCustomDNS,
-          icon: Icons.dns_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Streaming Hybride P2P (WebRTC)',
-          subtitle: 'Partage de segments entre utilisateurs pour réduire le buffering',
-          value: s.enableP2PHybrid,
-          onChanged: n.setP2PHybrid,
-          icon: Icons.hub_outlined,
-        ),
       ],
     );
   }
@@ -135,25 +117,11 @@ class _PlayerTab extends ConsumerWidget {
       children: [
         const SettingsSectionTitle('Rendu Vidéo et Zapping'),
         SettingsSwitchTile(
-          title: 'Auto Frame Rate (AFR)',
-          subtitle: 'Ajuste la fréquence de rafraîchissement de la TV au flux (24/50/60Hz)',
-          value: s.autoFrameRate,
-          onChanged: n.setAutoFrameRate,
-          icon: Icons.highlight_outlined,
-        ),
-        SettingsSwitchTile(
           title: 'Zapping Instantané (Prefetching)',
           subtitle: 'Précharge les chaînes adjacentes en mémoire tampon',
           value: s.zeroLagPrefetch,
           onChanged: n.setZeroLagPrefetch,
           icon: Icons.fast_forward_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Super-Résolution IA (NPU Upscaling)',
-          subtitle: 'Améliore la netteté des flux SD/HD vers la 4K en temps réel',
-          value: s.enableAiUpscaling,
-          onChanged: n.setAiUpscaling,
-          icon: Icons.hd_outlined,
         ),
       ],
     );
@@ -165,67 +133,11 @@ class _SecurityTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: [
-        const SettingsSectionTitle('Résilience du Service'),
-        SettingsSwitchTile(
-          title: 'Smart Failover (Serveur de secours)',
-          subtitle:
-              'Bascule automatiquement sur un serveur alternatif si le flux coupe',
-          value: s.smartFailover,
-          onChanged: n.setSmartFailover,
-          icon: Icons.sync_problem_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Masquer les identifiants',
-          subtitle:
-              'Chiffre et masque les liens d\'accès Xtream dans l\'interface',
-          value: s.hideCredentials,
-          onChanged: n.setHideCredentials,
-          icon: Icons.lock_outline,
-        ),
-      ],
-    );
-  }
-}
-
-class _ErgonomicsTab extends ConsumerWidget {
-  const _ErgonomicsTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SettingsSectionTitle('Expérience Télécommande'),
-        SettingsSwitchTile(
-          title: 'Lancement Direct au Démarrage',
-          subtitle:
-              'Ouvre directement la dernière chaîne au lancement de l\'application',
-          value: s.directToLive,
-          onChanged: n.setDirectToLive,
-          icon: Icons.monitor_outlined,
-        ),
-        const SettingsSectionTitle('Guide TV (EPG)'),
-        SettingsDropdownTile<String>(
-          title: 'Affichage EPG',
-          subtitle: 'Choisir le mode d\'affichage du guide TV',
-          value: s.epgDisplayMode.label,
-          options: EpgDisplayMode.values.map((e) => e.label).toList(),
-          onChanged: (label) {
-            final mode = EpgDisplayMode.values.firstWhere(
-              (e) => e.label == label,
-              orElse: () => EpgDisplayMode.grid2D,
-            );
-            n.setEpgDisplayMode(mode);
-          },
-          icon: Icons.tv,
-        ),
+      children: const [
+        SettingsSectionTitle('Résilience du Service'),
+        // Options déplacées (smartFailover, hideCredentials) : non consommées par le code métier
       ],
     );
   }
@@ -315,37 +227,6 @@ class _AudioTab extends ConsumerWidget {
               );
             }
           },
-        ),
-      ],
-    );
-  }
-}
-
-class _AiTab extends ConsumerWidget {
-  const _AiTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const SettingsSectionTitle('Fonctionnalités NPU Embarquées'),
-        SettingsSwitchTile(
-          title: 'Sous-Titres IA Locaux',
-          subtitle: 'Génère des sous-titres à la volée via traitement vocal local',
-          value: s.localAiSubtitles,
-          onChanged: n.setLocalAiSubtitles,
-          icon: Icons.subtitles_outlined,
-        ),
-        SettingsSwitchTile(
-          title: 'Détection des Temps Forts Sportifs',
-          subtitle:
-              'Marque automatiquement les événements clés sur les replays',
-          value: s.sportsHighlightsDetection,
-          onChanged: n.setSportsHighlights,
-          icon: Icons.sports_soccer_outlined,
         ),
       ],
     );

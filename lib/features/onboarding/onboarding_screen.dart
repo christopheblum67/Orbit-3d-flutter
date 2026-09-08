@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -20,7 +22,8 @@ class OnboardingConfigScreen extends ConsumerStatefulWidget {
       _OnboardingConfigScreenState();
 }
 
-class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen> {
+class _OnboardingConfigScreenState
+    extends ConsumerState<OnboardingConfigScreen> {
   late Future<HardwareSpecs> _detection;
   HardwareSpecs? _specs;
   DeviceProfile? _selected;
@@ -40,9 +43,23 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
     final storage = ref.read(storageServiceProvider);
     await storage.setSetting(kDeviceProfileKey, profile.name);
     await storage.setSetting(kOnboardingDoneKey, true);
+    // Prépare la recherche vocale : demande la permission micro pendant la
+    // configuration automatique, plutôt qu'au moment de la première dictée.
+    if (profile.allowsVoiceSearch) {
+      unawaited(_prewarmMicrophone());
+    }
     ref.invalidate(deviceProfileProvider);
     if (!mounted) return;
     context.go('/profiles');
+  }
+
+  /// Préchauffe SpeechToText (déclenche la demande d'autorisation micro)
+  /// sans bloquer la navigation.
+  Future<void> _prewarmMicrophone() async {
+    final speech = SpeechToText();
+    try {
+      await speech.initialize();
+    } catch (_) {}
   }
 
   String _profileDescription(DeviceProfile profile) {
@@ -139,9 +156,7 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
     final scheme = Theme.of(context).colorScheme;
     final isSelected = _adjusting && _selected == profile;
     return _FocusableOption(
-      onTap: _adjusting
-          ? () => setState(() => _selected = profile)
-          : null,
+      onTap: _adjusting ? () => setState(() => _selected = profile) : null,
       selected: isSelected,
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -168,7 +183,8 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
                 color: scheme.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(_profileIcon(profile), size: 26, color: scheme.primary),
+              child:
+                  Icon(_profileIcon(profile), size: 26, color: scheme.primary),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -191,8 +207,7 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: scheme.primary),
+            if (isSelected) Icon(Icons.check_circle, color: scheme.primary),
           ],
         ),
       ),
@@ -212,7 +227,9 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
                     }),
             icon: Icon(_adjusting ? Icons.auto_awesome_rounded : Icons.tune),
             label: Text(
-              _adjusting ? 'Réinitialiser la recommandation' : 'Ajuster manuellement',
+              _adjusting
+                  ? 'Réinitialiser la recommandation'
+                  : 'Ajuster manuellement',
             ),
           ),
         ),
@@ -265,8 +282,9 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
                   }
                   _specs ??= specs;
                   final recommended = specs.recommendedProfile;
-                  final displayed =
-                      _adjusting && _selected != null ? _selected! : recommended;
+                  final displayed = _adjusting && _selected != null
+                      ? _selected!
+                      : recommended;
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
@@ -275,10 +293,13 @@ class _OnboardingConfigScreenState extends ConsumerState<OnboardingConfigScreen>
                         _buildDeviceCard(specs),
                         const SizedBox(height: 16),
                         Text(
-                          _adjusting ? 'Choisissez un profil' : 'Profil recommandé',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          _adjusting
+                              ? 'Choisissez un profil'
+                              : 'Profil recommandé',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                         const SizedBox(height: 10),
                         _buildProfileCard(recommended, highlight: true),

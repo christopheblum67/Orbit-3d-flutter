@@ -56,9 +56,7 @@ class SettingsDropdownTile<T> extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: icon == null
-              ? null
-              : Icon(icon!, color: scheme.primary),
+          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
           title: Text(title, style: const TextStyle(fontSize: 14)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -116,9 +114,7 @@ class SettingsSwitchTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         child: SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          secondary: icon == null
-              ? null
-              : Icon(icon, color: scheme.primary),
+          secondary: icon == null ? null : Icon(icon, color: scheme.primary),
           activeThumbColor: scheme.primary,
           activeTrackColor: scheme.primary.withValues(alpha: 0.4),
           title: Text(title, style: const TextStyle(fontSize: 14)),
@@ -168,9 +164,7 @@ class SettingsNavTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: icon == null
-              ? null
-              : Icon(icon!, color: scheme.primary),
+          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
           title: Text(title, style: const TextStyle(fontSize: 14)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -214,9 +208,7 @@ class SettingsActionTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: icon == null
-              ? null
-              : Icon(icon!, color: scheme.primary),
+          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
           title: Text(title, style: const TextStyle(fontSize: 14)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 2),

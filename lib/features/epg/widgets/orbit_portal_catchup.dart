@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:orbit_3d_flutter/models/epg_models.dart';
 
 /// Navigation temporelle 3D "Orbit Portal" pour le Catch-up / Replay
 class OrbitPortalCatchUpView extends StatefulWidget {
@@ -29,7 +28,8 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
   @override
   void initState() {
     super.initState();
-    _selectedDayIndex = widget.initialDayIndex.clamp(0, widget.availableDays.length - 1);
+    _selectedDayIndex =
+        widget.initialDayIndex.clamp(0, widget.availableDays.length - 1);
     _pageController = PageController(initialPage: _selectedDayIndex);
   }
 
@@ -86,7 +86,7 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                 index: index,
                 day: day,
                 isSelected: isSelected,
-                isLive: isSelected,
+                isLive: isLive,
               );
             },
           ),
@@ -122,27 +122,31 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_left, color: Colors.white70, size: 28),
+                      icon: const Icon(Icons.keyboard_arrow_left,
+                          color: Colors.white70, size: 28),
                       onPressed: _selectedDayIndex > 0
                           ? () => _pageController.previousPage(
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOutCubic,
-                            )
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.easeOutCubic,
+                              )
                           : null,
                     ),
                     const SizedBox(width: 24),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.play_arrow, size: 20),
                       label: Text(
-                        widget.availableDays[_selectedDayIndex] == widget.availableDays.first
+                        widget.availableDays[_selectedDayIndex] ==
+                                widget.availableDays.first
                             ? 'EN DIRECT'
                             : 'REPLAY J-${_selectedDayIndex}',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8B5CF6),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -158,13 +162,15 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                     ),
                     const SizedBox(width: 24),
                     IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_right, color: Colors.white70, size: 28),
-                      onPressed: _selectedDayIndex < widget.availableDays.length - 1
-                          ? () => _pageController.nextPage(
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOutCubic,
-                            )
-                          : null,
+                      icon: const Icon(Icons.keyboard_arrow_right,
+                          color: Colors.white70, size: 28),
+                      onPressed:
+                          _selectedDayIndex < widget.availableDays.length - 1
+                              ? () => _pageController.nextPage(
+                                    duration: const Duration(milliseconds: 400),
+                                    curve: Curves.easeOutCubic,
+                                  )
+                              : null,
                     ),
                   ],
                 ),
@@ -204,8 +210,10 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
     required bool isLive,
   }) {
     final zOffset = (index - _selectedDayIndex) * -250.0;
-    final opacity = (1.0 - ((index - _selectedDayIndex).abs() * 0.25)).clamp(0.15, 1.0);
-    final scale = (1.0 - ((index - _selectedDayIndex).abs() * 0.15)).clamp(0.5, 1.2);
+    final opacity =
+        (1.0 - ((index - _selectedDayIndex).abs() * 0.25)).clamp(0.15, 1.0);
+    final scale =
+        (1.0 - ((index - _selectedDayIndex).abs() * 0.15)).clamp(0.5, 1.2);
 
     return Transform(
       transform: Matrix4.identity()
@@ -232,13 +240,14 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: isSelected
-                    ? [const Color(0xFF8B5CF6).withOpacity(0.3), Colors.transparent]
+                    ? [
+                        const Color(0xFF8B5CF6).withOpacity(0.3),
+                        Colors.transparent
+                      ]
                     : [Colors.white10, Colors.transparent],
               ),
               border: Border.all(
-                color: isSelected
-                    ? const Color(0xFF8B5CF6)
-                    : Colors.white12,
+                color: isSelected ? const Color(0xFF8B5CF6) : Colors.white12,
                 width: isSelected ? 3 : 1,
               ),
               boxShadow: isSelected
@@ -274,14 +283,18 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                   if (isSelected) ...[
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFF8B5CF6).withOpacity(0.3),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFF8B5CF6), width: 1),
+                        border: Border.all(
+                            color: const Color(0xFF8B5CF6), width: 1),
                       ),
                       child: Text(
-                        isLive ? 'Appuyez pour regarder en direct' : 'Appuyez pour ouvrir le replay',
+                        isLive
+                            ? 'Appuyez pour regarder en direct'
+                            : 'Appuyez pour ouvrir le replay',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,

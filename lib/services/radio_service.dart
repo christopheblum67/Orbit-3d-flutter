@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 /// Lecteur audio pour les stations de radio Xtream.
@@ -38,8 +38,7 @@ class RadioService extends ChangeNotifier {
       }
     } on Exception {
       _isPlaying = false;
-      _error =
-          'Flux radio indisponible. Le serveur d\'hébergement de cette '
+      _error = 'Flux radio indisponible. Le serveur d\'hébergement de cette '
           'station ne répond pas. Réessaie ou choisis une autre station.';
     } finally {
       _isLoading = false;

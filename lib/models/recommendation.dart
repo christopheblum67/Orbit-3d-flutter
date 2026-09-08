@@ -21,16 +21,13 @@ class Recommendation {
   String get description => kind == RecommendationKind.movie
       ? movie!.description
       : series!.description;
-  String get posterUrl => kind == RecommendationKind.movie
-      ? movie!.posterUrl
-      : series!.coverUrl;
-  int get year =>
-      kind == RecommendationKind.movie ? movie!.year : series!.year;
+  String get posterUrl =>
+      kind == RecommendationKind.movie ? movie!.posterUrl : series!.coverUrl;
+  int get year => kind == RecommendationKind.movie ? movie!.year : series!.year;
   String get genre =>
       kind == RecommendationKind.movie ? movie!.genre : series!.genre;
   double get rating =>
       kind == RecommendationKind.movie ? movie!.rating : series!.rating;
-  String? get pegiLabel => kind == RecommendationKind.movie
-      ? movie!.pegiLabel
-      : series!.pegiLabel;
+  String? get pegiLabel =>
+      kind == RecommendationKind.movie ? movie!.pegiLabel : series!.pegiLabel;
 }

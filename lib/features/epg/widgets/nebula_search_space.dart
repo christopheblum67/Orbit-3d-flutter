@@ -19,7 +19,7 @@ class NebulaSearchSpace extends StatefulWidget {
 }
 
 class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _rotationController;
   late AnimationController _pulseController;
 
@@ -58,7 +58,8 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
               return Transform.scale(
                 scale: 1.0 + (_pulseController.value * 0.05),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(40),
@@ -88,12 +89,12 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                         ),
                       ),
                     ],
-),
+                  ),
                 ),
               );
             },
           ),
-      if (widget.results.isNotEmpty)
+          if (widget.results.isNotEmpty)
             AnimatedBuilder(
               animation: _rotationController,
               builder: (context, child) {
@@ -101,8 +102,9 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                   alignment: Alignment.center,
                   children: List.generate(widget.results.length, (index) {
                     final item = widget.results[index];
-                    final angle = (2 * math.pi / widget.results.length) * index +
-                        (_rotationController.value * 2 * math.pi);
+                    final angle =
+                        (2 * math.pi / widget.results.length) * index +
+                            (_rotationController.value * 2 * math.pi);
                     const radius = 180.0;
                     final x = radius * math.cos(angle);
                     final y = radius * math.sin(angle);
@@ -122,7 +124,9 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                 children: [
                   const Icon(Icons.cloud_off, size: 64, color: Colors.white24),
                   const SizedBox(height: 16),
-                  Text('Aucun résultat pour "${widget.searchQuery}"', style: const TextStyle(color: Colors.white38, fontSize: 16)),
+                  Text('Aucun résultat pour "${widget.searchQuery}"',
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 16)),
                 ],
               ),
             ),
@@ -142,7 +146,8 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                   SizedBox(width: 8),
                   Icon(Icons.keyboard_arrow_right, color: Colors.white38),
                   SizedBox(width: 16),
-                  Text('Naviguer · OK pour sélectionner', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  Text('Naviguer · OK pour sélectionner',
+                      style: TextStyle(color: Colors.white38, fontSize: 12)),
                 ],
               ),
             ),
@@ -172,7 +177,8 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                 const Color(0xFF8B5CF6),
                 const Color(0xFF00CFE8),
                 const Color(0xFFFF6FA8),
-              ][index % 3].withValues(alpha: 0.4),
+              ][index % 3]
+                  .withValues(alpha: 0.4),
             ),
           ),
         );

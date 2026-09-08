@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
 
+/// Source des données de l'acteur
+enum ActorSource {
+  tmdb,
+  tvmaze,
+  omdb,
+  ai,
+  xtream,
+}
+
 /// Acteur/Casting - style Allociné
 class Actor {
   final String id;
@@ -7,6 +16,8 @@ class Actor {
   final String character; // Rôle joué
   final String profilePath; // Photo de l'acteur (URL)
   final int order; // Ordre au générique
+  final bool isGuestStar; // True pour les invités spéciaux (séries)
+  final ActorSource source; // Source des données
 
   Actor({
     required this.id,
@@ -14,6 +25,8 @@ class Actor {
     required this.character,
     required this.profilePath,
     this.order = 0,
+    this.isGuestStar = false,
+    this.source = ActorSource.xtream,
   });
 
   factory Actor.fromMap(Map<String, dynamic> map) {
@@ -23,16 +36,51 @@ class Actor {
       character: map['character'] ?? map['role'] ?? '',
       profilePath: map['profile_path'] ?? map['profile_url'] ?? '',
       order: map['order'] ?? map['cast_id'] ?? 0,
+      isGuestStar: map['guest_star'] == true ||
+          map['type'] == 'Guest Star' ||
+          map['credit_id']?.toString().contains('guest') == true,
+      source: _parseSource(map['source']),
     );
+  }
+
+  static ActorSource _parseSource(dynamic source) {
+    if (source == null) return ActorSource.xtream;
+    final str = source.toString().toLowerCase();
+    if (str.contains('tmdb')) return ActorSource.tmdb;
+    if (str.contains('tvmaze')) return ActorSource.tvmaze;
+    if (str.contains('omdb')) return ActorSource.omdb;
+    if (str.contains('ai')) return ActorSource.ai;
+    return ActorSource.xtream;
   }
 
   String get profileUrl {
     if (profilePath.isEmpty) return '';
     if (profilePath.startsWith('http')) return profilePath;
-    return 'https://image.tmdb.org/t/p/w185$profilePath'; // TMDB format
+    // TMDB/TVmaze utilisent le même format de base d'image
+    return 'https://image.tmdb.org/t/p/w185$profilePath';
   }
 
   bool get hasProfile => profilePath.isNotEmpty;
+
+  Actor copyWith({
+    String? id,
+    String? name,
+    String? character,
+    String? profilePath,
+    int? order,
+    bool? isGuestStar,
+    ActorSource? source,
+  }) {
+    return Actor(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      character: character ?? this.character,
+      profilePath: profilePath ?? this.profilePath,
+      order: order ?? this.order,
+      isGuestStar: isGuestStar ?? this.isGuestStar,
+      source: source ?? this.source,
+    );
+  }
 }
 
 /// Membre de l'équipe technique (réalisateur, scénariste, producteur, etc.)
@@ -166,16 +214,16 @@ class MovieCredits {
 
   /// Réalisateurs
   List<CrewMember> get directors => crew
-      .where((m) => m.department.toLowerCase() == 'directing' && m.job.toLowerCase().contains('director'))
+      .where((m) =>
+          m.department.toLowerCase() == 'directing' &&
+          m.job.toLowerCase().contains('director'))
       .toList();
 
   /// Scénaristes
-  List<CrewMember> get writers => crew
-      .where((m) => m.department.toLowerCase() == 'writing')
-      .toList();
+  List<CrewMember> get writers =>
+      crew.where((m) => m.department.toLowerCase() == 'writing').toList();
 
   /// Producteurs
-  List<CrewMember> get producers => crew
-      .where((m) => m.department.toLowerCase() == 'production')
-      .toList();
+  List<CrewMember> get producers =>
+      crew.where((m) => m.department.toLowerCase() == 'production').toList();
 }

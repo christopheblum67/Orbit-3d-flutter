@@ -67,17 +67,21 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
       (f) => f.isTopFavorite,
       orElse: () => widget.favorites.first,
     );
-    final orbitFavorites = widget.favorites.where((f) => f.id != topFavorite.id).toList();
+    final orbitFavorites =
+        widget.favorites.where((f) => f.id != topFavorite.id).toList();
 
     return Focus(
       autofocus: true,
       onKey: (node, event) {
         if (event is RawKeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            setState(() => _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length);
+            setState(() =>
+                _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length);
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-            setState(() => _focusedIndex = (_focusedIndex - 1 + orbitFavorites.length) % orbitFavorites.length);
+            setState(() => _focusedIndex =
+                (_focusedIndex - 1 + orbitFavorites.length) %
+                    orbitFavorites.length);
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
             widget.onZoomOutToCategories();
@@ -155,7 +159,8 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.amber.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
@@ -181,7 +186,8 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                     final item = orbitFavorites[index];
                     final isFocused = index == _focusedIndex;
                     final angleStep = (2 * math.pi) / orbitFavorites.length;
-                    final currentAngle = (angleStep * index) + (_rotationController.value * 2 * math.pi);
+                    final currentAngle = (angleStep * index) +
+                        (_rotationController.value * 2 * math.pi);
 
                     const radius = 190.0;
                     final x = radius * math.cos(currentAngle);
@@ -200,13 +206,16 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                             shape: BoxShape.circle,
                             color: const Color(0xFF1C1F26),
                             border: Border.all(
-                              color: isFocused ? const Color(0xFF8B5CF6) : Colors.white24,
+                              color: isFocused
+                                  ? const Color(0xFF8B5CF6)
+                                  : Colors.white24,
                               width: isFocused ? 3 : 1,
                             ),
                             boxShadow: isFocused
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF8B5CF6).withOpacity(0.5),
+                                      color: const Color(0xFF8B5CF6)
+                                          .withOpacity(0.5),
                                       blurRadius: 15,
                                       spreadRadius: 3,
                                     ),
@@ -217,9 +226,12 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                             child: Text(
                               item.name,
                               style: TextStyle(
-                                color: isFocused ? Colors.white : Colors.white70,
+                                color:
+                                    isFocused ? Colors.white : Colors.white70,
                                 fontSize: 10,
-                                fontWeight: isFocused ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isFocused
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -236,7 +248,8 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
             Positioned(
               bottom: 40,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(20),
@@ -245,19 +258,26 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.keyboard_arrow_up, color: Colors.white38, size: 18),
+                    const Icon(Icons.keyboard_arrow_up,
+                        color: Colors.white38, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Sélectionner', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const Text('Sélectionner',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
                     const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_left, color: Colors.white38, size: 18),
+                    const Icon(Icons.keyboard_arrow_left,
+                        color: Colors.white38, size: 18),
                     const SizedBox(width: 8),
-                    const Icon(Icons.keyboard_arrow_right, color: Colors.white38, size: 18),
+                    const Icon(Icons.keyboard_arrow_right,
+                        color: Colors.white38, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Naviguer', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const Text('Naviguer',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
                     const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_down, color: Colors.white38, size: 18),
+                    const Icon(Icons.keyboard_arrow_down,
+                        color: Colors.white38, size: 18),
                     const SizedBox(width: 8),
-                    const Text('Catégories', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const Text('Catégories',
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
                   ],
                 ),
               ),

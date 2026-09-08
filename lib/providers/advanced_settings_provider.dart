@@ -18,8 +18,9 @@ extension PlayerEngineX on PlayerEngine {
   /// `true` si ce moteur est une application externe (intent Android).
   bool get isExternal => this != PlayerEngine.exoPlayer;
 
-  static PlayerEngine fromLabel(String? label) => PlayerEngine.values
-      .firstWhere((e) => e.label == label, orElse: () => PlayerEngine.exoPlayer);
+  static PlayerEngine fromLabel(String? label) =>
+      PlayerEngine.values.firstWhere((e) => e.label == label,
+          orElse: () => PlayerEngine.exoPlayer);
 }
 
 enum PlaybackContentType { live, vod, series, replay }
@@ -30,19 +31,6 @@ extension PlaybackContentTypeX on PlaybackContentType {
         PlaybackContentType.vod => 'VOD',
         PlaybackContentType.series => 'Séries',
         PlaybackContentType.replay => 'Replays',
-      };
-}
-
-/// Mode d'affichage du guide TV (EPG) :
-///  - [EpgDisplayMode.grid2D] : grille classique chaînes × temps (XCIPTV) ;
-///  - [EpgDisplayMode.grid3D] : rendu 3D (en conception, placeholder pour
-///    l'instant).
-enum EpgDisplayMode { grid2D, grid3D }
-
-extension EpgDisplayModeX on EpgDisplayMode {
-  String get label => switch (this) {
-        EpgDisplayMode.grid2D => 'Grille 2D',
-        EpgDisplayMode.grid3D => '3D immersive',
       };
 }
 
@@ -82,29 +70,14 @@ class PlayerPerTypeConfig {
 class AdvancedSettings {
   // Réseau & Bypass
   final bool useTlsImpersonation;
-  final bool useCustomDNS;
   final String dnsProvider;
-  final bool enableP2PHybrid;
-
-  // Lecteur & Performance
-  final String livePlayer;
-  final bool autoFrameRate;
   final bool zeroLagPrefetch;
-  final bool enableAiUpscaling;
 
   // Lecteurs par type de contenu (moteur principal + moteur de secours).
   final PlayerPerTypeConfig playerLive;
   final PlayerPerTypeConfig playerVod;
   final PlayerPerTypeConfig playerSeries;
   final PlayerPerTypeConfig playerReplay;
-
-  // Sécurité & Failover
-  final bool smartFailover;
-  final bool hideCredentials;
-
-  // Ergonomie & TV
-  final bool directToLive;
-  final EpgDisplayMode epgDisplayMode;
 
   // Audio & Night Focus
   final bool nightFocusEnabled;
@@ -113,19 +86,10 @@ class AdvancedSettings {
   final double nightFocusVocalGainDb;
   final int nightFocusAudioShiftMs;
 
-  // Options IA
-  final bool localAiSubtitles;
-  final bool sportsHighlightsDetection;
-
   const AdvancedSettings({
     this.useTlsImpersonation = true,
-    this.useCustomDNS = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
-    this.enableP2PHybrid = false,
-    this.livePlayer = 'ExoPlayer (Interne)',
-    this.autoFrameRate = true,
     this.zeroLagPrefetch = true,
-    this.enableAiUpscaling = false,
     this.playerLive = const PlayerPerTypeConfig(
       primary: PlayerEngine.exoPlayer,
       fallback: PlayerEngine.vlc,
@@ -142,62 +106,35 @@ class AdvancedSettings {
       primary: PlayerEngine.exoPlayer,
       fallback: PlayerEngine.vlc,
     ),
-    this.smartFailover = true,
-    this.hideCredentials = true,
-    this.directToLive = false,
-    this.epgDisplayMode = EpgDisplayMode.grid2D,
     this.nightFocusEnabled = false,
     this.nightFocusDialogueBoost = true,
     this.nightFocusBassKiller = true,
     this.nightFocusVocalGainDb = 3.0,
     this.nightFocusAudioShiftMs = 0,
-    this.localAiSubtitles = false,
-    this.sportsHighlightsDetection = true,
   });
 
   AdvancedSettings copyWith({
     bool? useTlsImpersonation,
-    bool? useCustomDNS,
     String? dnsProvider,
-    bool? enableP2PHybrid,
-    String? livePlayer,
-    bool? autoFrameRate,
     bool? zeroLagPrefetch,
-    bool? enableAiUpscaling,
     PlayerPerTypeConfig? playerLive,
     PlayerPerTypeConfig? playerVod,
     PlayerPerTypeConfig? playerSeries,
     PlayerPerTypeConfig? playerReplay,
-    bool? smartFailover,
-    bool? hideCredentials,
-    bool? directToLive,
-    EpgDisplayMode? epgDisplayMode,
     bool? nightFocusEnabled,
     bool? nightFocusDialogueBoost,
     bool? nightFocusBassKiller,
     double? nightFocusVocalGainDb,
     int? nightFocusAudioShiftMs,
-    bool? localAiSubtitles,
-    bool? sportsHighlightsDetection,
   }) {
     return AdvancedSettings(
-      useTlsImpersonation:
-          useTlsImpersonation ?? this.useTlsImpersonation,
-      useCustomDNS: useCustomDNS ?? this.useCustomDNS,
+      useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
       dnsProvider: dnsProvider ?? this.dnsProvider,
-      enableP2PHybrid: enableP2PHybrid ?? this.enableP2PHybrid,
-      livePlayer: livePlayer ?? this.livePlayer,
-      autoFrameRate: autoFrameRate ?? this.autoFrameRate,
       zeroLagPrefetch: zeroLagPrefetch ?? this.zeroLagPrefetch,
-      enableAiUpscaling: enableAiUpscaling ?? this.enableAiUpscaling,
       playerLive: playerLive ?? this.playerLive,
       playerVod: playerVod ?? this.playerVod,
       playerSeries: playerSeries ?? this.playerSeries,
       playerReplay: playerReplay ?? this.playerReplay,
-      smartFailover: smartFailover ?? this.smartFailover,
-      hideCredentials: hideCredentials ?? this.hideCredentials,
-      directToLive: directToLive ?? this.directToLive,
-      epgDisplayMode: epgDisplayMode ?? this.epgDisplayMode,
       nightFocusEnabled: nightFocusEnabled ?? this.nightFocusEnabled,
       nightFocusDialogueBoost:
           nightFocusDialogueBoost ?? this.nightFocusDialogueBoost,
@@ -206,9 +143,6 @@ class AdvancedSettings {
           nightFocusVocalGainDb ?? this.nightFocusVocalGainDb,
       nightFocusAudioShiftMs:
           nightFocusAudioShiftMs ?? this.nightFocusAudioShiftMs,
-      localAiSubtitles: localAiSubtitles ?? this.localAiSubtitles,
-      sportsHighlightsDetection:
-          sportsHighlightsDetection ?? this.sportsHighlightsDetection,
     );
   }
 
@@ -222,13 +156,8 @@ class AdvancedSettings {
 
   /// Clés de persistance (partagées avec la page de référence).
   static const kTlsImpersonation = 'tls_impersonation';
-  static const kCustomDNS = 'custom_dns';
   static const kDnsProvider = 'dns_provider';
-  static const kP2PHybrid = 'p2p_hybrid';
-  static const kLivePlayer = 'live_player';
-  static const kAutoFrameRate = 'auto_frame_rate';
   static const kZeroLagPrefetch = 'zero_lag_prefetch';
-  static const kAiUpscaling = 'ai_upscaling';
 
   // Clés de persistance des lecteurs par type de contenu (moteur par index).
   static const kPlayerEngine = 'player_engine';
@@ -240,17 +169,11 @@ class AdvancedSettings {
       '$kPlayerEngine.$_kPrimary.${t.name}';
   static String kPlayerFallback(PlaybackContentType t) =>
       '$kPlayerEngine.$_kFallback.${t.name}';
-  static const kSmartFailover = 'smart_failover';
-  static const kHideCredentials = 'hide_credentials';
-  static const kDirectToLive = 'direct_to_live';
-  static const kEpgDisplayMode = 'epg_display_mode';
   static const kNightFocus = 'night_focus';
   static const kNightFocusDialogueBoost = 'night_focus_dialogue_boost';
   static const kNightFocusBassKiller = 'night_focus_bass_killer';
   static const kNightFocusVocalGainDb = 'night_focus_vocal_gain_db';
   static const kNightFocusAudioShiftMs = 'night_focus_audio_shift_ms';
-  static const kLocalAiSubtitles = 'local_ai_subtitles';
-  static const kSportsHighlights = 'sports_highlights';
 }
 
 class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
@@ -263,18 +186,10 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
     _prefs = prefs;
     state = AdvancedSettings(
       useTlsImpersonation:
-          prefs.getBool(AdvancedSettings.kTlsImpersonation) ??
-              true,
-      useCustomDNS: prefs.getBool(AdvancedSettings.kCustomDNS) ?? true,
+          prefs.getBool(AdvancedSettings.kTlsImpersonation) ?? true,
       dnsProvider: prefs.getString(AdvancedSettings.kDnsProvider) ??
           '1.1.1.1 (Cloudflare DoH)',
-      enableP2PHybrid: prefs.getBool(AdvancedSettings.kP2PHybrid) ?? false,
-      livePlayer: prefs.getString(AdvancedSettings.kLivePlayer) ??
-          'ExoPlayer (Interne)',
-      autoFrameRate: prefs.getBool(AdvancedSettings.kAutoFrameRate) ?? true,
-      zeroLagPrefetch:
-          prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
-      enableAiUpscaling: prefs.getBool(AdvancedSettings.kAiUpscaling) ?? false,
+      zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
       playerLive: _readPlayerConfig(
         prefs,
         PlaybackContentType.live,
@@ -282,13 +197,6 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
       playerVod: _readPlayerConfig(prefs, PlaybackContentType.vod),
       playerSeries: _readPlayerConfig(prefs, PlaybackContentType.series),
       playerReplay: _readPlayerConfig(prefs, PlaybackContentType.replay),
-      smartFailover: prefs.getBool(AdvancedSettings.kSmartFailover) ?? true,
-      hideCredentials:
-          prefs.getBool(AdvancedSettings.kHideCredentials) ?? true,
-      directToLive: prefs.getBool(AdvancedSettings.kDirectToLive) ?? false,
-      epgDisplayMode: _readEpgDisplayMode(
-        prefs.getString(AdvancedSettings.kEpgDisplayMode),
-      ),
       nightFocusEnabled: prefs.getBool(AdvancedSettings.kNightFocus) ?? false,
       nightFocusDialogueBoost: prefs.getBool(
             AdvancedSettings.kNightFocusDialogueBoost,
@@ -300,10 +208,6 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
           prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb) ?? 3.0,
       nightFocusAudioShiftMs:
           prefs.getInt(AdvancedSettings.kNightFocusAudioShiftMs) ?? 0,
-      localAiSubtitles:
-          prefs.getBool(AdvancedSettings.kLocalAiSubtitles) ?? false,
-      sportsHighlightsDetection:
-          prefs.getBool(AdvancedSettings.kSportsHighlights) ?? true,
     );
   }
 
@@ -332,24 +236,9 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kTlsImpersonation, value);
   }
 
-  Future<void> setCustomDNS(bool value) async {
-    state = state.copyWith(useCustomDNS: value);
-    await _persistBool(AdvancedSettings.kCustomDNS, value);
-  }
-
   Future<void> setDnsProvider(String value) async {
     state = state.copyWith(dnsProvider: value);
     await _persistString(AdvancedSettings.kDnsProvider, value);
-  }
-
-  Future<void> setP2PHybrid(bool value) async {
-    state = state.copyWith(enableP2PHybrid: value);
-    await _persistBool(AdvancedSettings.kP2PHybrid, value);
-  }
-
-  Future<void> setLivePlayer(String value) async {
-    state = state.copyWith(livePlayer: value);
-    await _persistString(AdvancedSettings.kLivePlayer, value);
   }
 
   Future<void> setPlayerPrimary(
@@ -402,39 +291,9 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
     );
   }
 
-  Future<void> setAutoFrameRate(bool value) async {
-    state = state.copyWith(autoFrameRate: value);
-    await _persistBool(AdvancedSettings.kAutoFrameRate, value);
-  }
-
   Future<void> setZeroLagPrefetch(bool value) async {
     state = state.copyWith(zeroLagPrefetch: value);
     await _persistBool(AdvancedSettings.kZeroLagPrefetch, value);
-  }
-
-  Future<void> setAiUpscaling(bool value) async {
-    state = state.copyWith(enableAiUpscaling: value);
-    await _persistBool(AdvancedSettings.kAiUpscaling, value);
-  }
-
-  Future<void> setSmartFailover(bool value) async {
-    state = state.copyWith(smartFailover: value);
-    await _persistBool(AdvancedSettings.kSmartFailover, value);
-  }
-
-  Future<void> setHideCredentials(bool value) async {
-    state = state.copyWith(hideCredentials: value);
-    await _persistBool(AdvancedSettings.kHideCredentials, value);
-  }
-
-  Future<void> setDirectToLive(bool value) async {
-    state = state.copyWith(directToLive: value);
-    await _persistBool(AdvancedSettings.kDirectToLive, value);
-  }
-
-  Future<void> setEpgDisplayMode(EpgDisplayMode value) async {
-    state = state.copyWith(epgDisplayMode: value);
-    await _persistString(AdvancedSettings.kEpgDisplayMode, value.name);
   }
 
   Future<void> setNightFocus(bool value) async {
@@ -461,20 +320,10 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
     state = state.copyWith(nightFocusAudioShiftMs: value);
     await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, value);
   }
-
-  Future<void> setLocalAiSubtitles(bool value) async {
-    state = state.copyWith(localAiSubtitles: value);
-    await _persistBool(AdvancedSettings.kLocalAiSubtitles, value);
-  }
-
-  Future<void> setSportsHighlights(bool value) async {
-    state = state.copyWith(sportsHighlightsDetection: value);
-    await _persistBool(AdvancedSettings.kSportsHighlights, value);
-  }
 }
 
-final advancedSettingsProvider = StateNotifierProvider<
-    AdvancedSettingsNotifier, AdvancedSettings>(
+final advancedSettingsProvider =
+    StateNotifierProvider<AdvancedSettingsNotifier, AdvancedSettings>(
   (ref) => AdvancedSettingsNotifier(),
 );
 
@@ -491,6 +340,3 @@ PlayerPerTypeConfig _readPlayerConfig(
     ),
   );
 }
-
-EpgDisplayMode _readEpgDisplayMode(String? raw) => EpgDisplayMode.values
-    .firstWhere((m) => m.name == raw, orElse: () => EpgDisplayMode.grid2D);
