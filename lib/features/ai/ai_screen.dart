@@ -49,7 +49,8 @@ class _AiScreenState extends ConsumerState<AiScreen> {
       content = EmptyState(
         icon: Icons.auto_awesome,
         title: 'Recommandations IA',
-        message: 'Obtenez des suggestions de films et séries adaptées à votre profil.',
+        message:
+            'Obtenez des suggestions de films et séries adaptées à votre profil.',
         action: profile == null
             ? FilledButton.icon(
                 icon: const Icon(Icons.person_outline),
@@ -149,7 +150,8 @@ class _AiScreenState extends ConsumerState<AiScreen> {
 
 /// Bouton retour en haut à gauche de l'écran IA (revient à l'accueil).
 class _GeneratedBackLeading extends StatelessWidget {
-  const _GeneratedBackLeading({required this.onPressed, required this.generated});
+  const _GeneratedBackLeading(
+      {required this.onPressed, required this.generated});
 
   final VoidCallback onPressed;
   final bool generated;

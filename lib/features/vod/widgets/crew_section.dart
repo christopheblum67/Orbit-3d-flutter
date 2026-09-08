@@ -50,7 +50,7 @@ class CrewSection extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
-            ),
+          ),
         ),
         const SizedBox(height: 12),
         ListView.separated(
@@ -125,7 +125,8 @@ class _DepartmentSection extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: members.map((member) => _CrewMemberChip(member: member)).toList(),
+          children:
+              members.map((member) => _CrewMemberChip(member: member)).toList(),
         ),
       ],
     );
@@ -182,8 +183,8 @@ class _CrewMemberChip extends StatelessWidget {
               ),
             ],
           ),
-          ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 }

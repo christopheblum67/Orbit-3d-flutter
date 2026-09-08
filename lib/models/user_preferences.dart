@@ -4,6 +4,8 @@ class UserPreferences {
   final bool notificationsEnabled;
   final String language;
   final String theme;
+  final bool profileVisible;
+  final bool allowRecording;
 
   const UserPreferences({
     this.parentalControlEnabled = false,
@@ -11,6 +13,8 @@ class UserPreferences {
     this.notificationsEnabled = true,
     this.language = 'fr',
     this.theme = 'system',
+    this.profileVisible = true,
+    this.allowRecording = true,
   });
 
   UserPreferences copyWith({
@@ -19,6 +23,8 @@ class UserPreferences {
     bool? notificationsEnabled,
     String? language,
     String? theme,
+    bool? profileVisible,
+    bool? allowRecording,
   }) {
     return UserPreferences(
       parentalControlEnabled:
@@ -27,6 +33,8 @@ class UserPreferences {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       language: language ?? this.language,
       theme: theme ?? this.theme,
+      profileVisible: profileVisible ?? this.profileVisible,
+      allowRecording: allowRecording ?? this.allowRecording,
     );
   }
 
@@ -37,6 +45,8 @@ class UserPreferences {
       'notificationsEnabled': notificationsEnabled,
       'language': language,
       'theme': theme,
+      'profileVisible': profileVisible,
+      'allowRecording': allowRecording,
     };
   }
 
@@ -47,6 +57,8 @@ class UserPreferences {
       notificationsEnabled: map['notificationsEnabled'] ?? true,
       language: map['language'] ?? 'fr',
       theme: map['theme'] ?? 'system',
+      profileVisible: map['profileVisible'] ?? true,
+      allowRecording: map['allowRecording'] ?? true,
     );
   }
 }

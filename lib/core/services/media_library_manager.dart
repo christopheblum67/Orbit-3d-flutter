@@ -5,14 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Types de tri disponibles
 enum SortMode {
-  nameAsc,          // A -> Z
-  nameDesc,         // Z -> A
-  ratingDesc,       // Mieux notés (XCIPTV)
-  yearDesc,         // Plus récents par année de sortie
-  recentlyAdded,    // Ajoutés récemment à la liste
-  resumeFirst,      // Intuitif : À reprendre en priorité
-  durationShort,    // Durée : Plus courts d'abord
-  durationLong,     // Durée : Plus longs d'abord
+  nameAsc, // A -> Z
+  nameDesc, // Z -> A
+  ratingDesc, // Mieux notés (XCIPTV)
+  yearDesc, // Plus récents par année de sortie
+  recentlyAdded, // Ajoutés récemment à la liste
+  resumeFirst, // Intuitif : À reprendre en priorité
+  durationShort, // Durée : Plus courts d'abord
+  durationLong, // Durée : Plus longs d'abord
 }
 
 /// Modèle Unifié pour Chaîne, Film ou Série
@@ -22,10 +22,10 @@ class MediaItem {
   final String streamUrl;
   final String? posterUrl;
   final String? categoryId;
-  final double rating;        // Note (ex: 8.5)
-  final int releaseYear;      // Année (ex: 2024)
-  final int durationMinutes;  // Durée en minutes
-  final DateTime addedDate;   // Date d'import
+  final double rating; // Note (ex: 8.5)
+  final int releaseYear; // Année (ex: 2024)
+  final int durationMinutes; // Durée en minutes
+  final DateTime addedDate; // Date d'import
 
   // Attributs de lecture dynamique
   bool isFavorite;
@@ -123,9 +123,8 @@ class MediaLibraryManager extends ChangeNotifier {
 
     // 2. Charger les Récemment Regardés
     final historyJson = prefs.getStringList(_historyKey) ?? [];
-    _historyItems = historyJson
-        .map((str) => MediaItem.fromJson(jsonDecode(str)))
-        .toList();
+    _historyItems =
+        historyJson.map((str) => MediaItem.fromJson(jsonDecode(str))).toList();
 
     notifyListeners();
   }
@@ -146,7 +145,10 @@ class MediaLibraryManager extends ChangeNotifier {
 
   /// Enregistrer une position de lecture (Historique)
   Future<void> updatePlaybackHistory(
-      MediaItem item, int positionMs, int totalMs,) async {
+    MediaItem item,
+    int positionMs,
+    int totalMs,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
 
     item.lastPositionMs = positionMs;
@@ -192,10 +194,12 @@ class MediaLibraryManager extends ChangeNotifier {
 
     switch (mode) {
       case SortMode.nameAsc:
-        sorted.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        sorted.sort(
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
         break;
       case SortMode.nameDesc:
-        sorted.sort((a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+        sorted.sort(
+            (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
         break;
       case SortMode.ratingDesc:
         sorted.sort((a, b) => b.rating.compareTo(a.rating));

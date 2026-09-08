@@ -1,6 +1,8 @@
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
+import 'package:orbit_3d_flutter/models/replay_item.dart';
 
 /// Moteur de recommandations personnalisées, local et sans dépendance externe.
 ///
@@ -13,12 +15,14 @@ class PersonalizedRecommendations {
 
   PersonalizedRecommendations({required this.favoriteGenres});
 
-  /// Recomande environ [count] contenus (films + séries entrelacés).
+  /// Recommande environ [count] contenus (films, séries, radio, replay entrelacés).
   List<StartupRecommendation> build({
     required List<Movie> movies,
     required List<Series> series,
+    List<Channel> radios = const [],
+    List<ReplayItem> replays = const [],
     required List<String> watchedTitles,
-    int count = 8,
+    int count = 12,
   }) {
     final genref = favoriteGenres
         .map((g) => g.trim().toLowerCase())
@@ -39,37 +43,97 @@ class PersonalizedRecommendations {
       scoredSeries.add(_Scored(score, series: s));
     }
 
+    final scoredRadios = <_Scored>[];
+    for (final r in radios) {
+      if (watchedTitles.contains(r.name.toLowerCase())) continue;
+      final score = _scoreRadio(r);
+      scoredRadios.add(_Scored(score, radio: r));
+    }
+
+    final scoredReplays = <_Scored>[];
+    for (final rp in replays) {
+      if (watchedTitles.contains(rp.title.toLowerCase())) continue;
+      final score = _scoreReplay(rp);
+      scoredReplays.add(_Scored(score, replay: rp));
+    }
+
     _rankDesc(scoredMovies);
     _rankDesc(scoredSeries);
+    _rankDesc(scoredRadios);
+    _rankDesc(scoredReplays);
 
     final result = <StartupRecommendation>[];
-    var mi = 0;
-    var si = 0;
-    while (result.length < count &&
-        (mi < scoredMovies.length || si < scoredSeries.length)) {
-      final useMovie = _pickNext(scoredMovies, mi, scoredSeries, si);
-      if (useMovie && mi < scoredMovies.length) {
-        final scored = scoredMovies[mi++];
-        result.add(StartupRecommendation.fromMovie(
-          scored.movie!,
-          _reasonForMovie(scored.movie!, genref),
-        ),);
-      } else if (si < scoredSeries.length) {
-        final scored = scoredSeries[si++];
-        result.add(StartupRecommendation.fromSeries(
-          scored.series!,
-          _reasonForSeries(scored.series!, genref),
-        ),);
+    var mi = 0, si = 0, ri = 0, rpi = 0;
+    final pools = <List<_Scored>>[
+      scoredMovies,
+      scoredSeries,
+      scoredRadios,
+      scoredReplays
+    ];
+    var poolIndex = 0;
+    while (result.length < count) {
+      bool added = false;
+      for (var p = 0; p < pools.length; p++) {
+        final pool = pools[(poolIndex + p) % pools.length];
+        final idx = [mi, si, ri, rpi][(poolIndex + p) % pools.length];
+        if (idx < pool.length) {
+          final scored = pool[idx];
+          switch ((poolIndex + p) % pools.length) {
+            case 0:
+              mi++;
+              result.add(StartupRecommendation.fromMovie(
+                scored.movie!,
+                _reasonForMovie(scored.movie!, genref),
+              ));
+              break;
+            case 1:
+              si++;
+              result.add(StartupRecommendation.fromSeries(
+                scored.series!,
+                _reasonForSeries(scored.series!, genref),
+              ));
+              break;
+            case 2:
+              ri++;
+              result.add(StartupRecommendation.fromRadio(
+                scored.radio!,
+                'Station radio${scored.radio!.group.isNotEmpty ? " · ${scored.radio!.group}" : ""}',
+              ));
+              break;
+            case 3:
+              rpi++;
+              result.add(StartupRecommendation.fromReplay(
+                scored.replay!.title,
+                '', // ReplayItem n'a pas de posterUrl
+                'Replay',
+                scored.replay!.streamUrl,
+                rating: 0,
+                id: scored.replay!.id,
+              ));
+              break;
+          }
+          added = true;
+          break;
+        }
       }
+      if (!added) break;
+      poolIndex = (poolIndex + 1) % pools.length;
     }
     return result;
   }
 
-  bool _pickNext(List<_Scored> movies, int mi, List<_Scored> series, int si) {
-    if (mi >= movies.length) return false;
-    if (si >= series.length) return true;
-    // Intercale films/séries (alternance) pour un défilement varié.
-    return (mi + si).isEven;
+  int _scoreRadio(Channel radio) {
+    var score = 20; // base pour radio
+    if (radio.groupLabel.isNotEmpty) score += 10;
+    if (radio.logoUrl.isNotEmpty) score += 5;
+    return score;
+  }
+
+  int _scoreReplay(ReplayItem replay) {
+    var score = 30; // base pour replay
+    if (replay.title.isNotEmpty) score += 10;
+    if (replay.streamUrl.isNotEmpty) score += 5;
+    return score;
   }
 
   int _score(String title, String genre, double rating, int year) {
@@ -125,6 +189,8 @@ class _Scored {
   final int score;
   final Movie? movie;
   final Series? series;
+  final Channel? radio;
+  final ReplayItem? replay;
 
-  _Scored(this.score, {this.movie, this.series});
+  _Scored(this.score, {this.movie, this.series, this.radio, this.replay});
 }

@@ -179,17 +179,23 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   }
 
   static String buildXtreamTestUrl(
-      String baseUrl, String username, String password,) {
+    String baseUrl,
+    String username,
+    String password,
+  ) {
     final uri = Uri.parse(baseUrl.trim().replaceAll(RegExp(r'/+$'), ''));
     final segments = [
       ...uri.pathSegments.where((s) => s.isNotEmpty),
       'player_api.php',
     ];
-    return uri.replace(pathSegments: segments, queryParameters: {
-      'username': username,
-      'password': password,
-      'action': 'get_live_streams',
-    },).toString();
+    return uri.replace(
+      pathSegments: segments,
+      queryParameters: {
+        'username': username,
+        'password': password,
+        'action': 'get_live_streams',
+      },
+    ).toString();
   }
 }
 

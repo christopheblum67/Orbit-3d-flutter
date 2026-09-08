@@ -52,10 +52,10 @@ class CastGrid extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: cast.length,
+            itemCount: visibleCast.length,
             separatorBuilder: (_, __) => const SizedBox(width: 16),
             itemBuilder: (context, index) {
-              final actor = cast[index];
+              final actor = visibleCast[index];
               return _ActorCard(
                 actor: actor,
                 onTap: () => onActorTap?.call(actor),

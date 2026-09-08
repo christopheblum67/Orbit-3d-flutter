@@ -27,7 +27,9 @@ class GravityFocusNode extends StatelessWidget {
     return AnimatedContainer(
       duration: duration,
       curve: Curves.easeOutCubic,
-      transform: isFocused ? (Matrix4.identity()..scale(scaleFactor)) : Matrix4.identity(),
+      transform: isFocused
+          ? (Matrix4.identity()..scale(scaleFactor))
+          : Matrix4.identity(),
       transformAlignment: Alignment.center,
       child: Stack(
         alignment: Alignment.center,

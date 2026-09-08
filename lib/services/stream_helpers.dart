@@ -138,12 +138,13 @@ List<String> streamUrlVariants(String url) {
 }
 
 String _rebuild(Uri uri, List<String> segments) {
-  return uri.replace(
-    pathSegments: segments,
-    queryParameters: uri.hasQuery ? uri.queryParameters : null,
-  ).toString();
+  return uri
+      .replace(
+        pathSegments: segments,
+        queryParameters: uri.hasQuery ? uri.queryParameters : null,
+      )
+      .toString();
 }
-
 
 Future<T> retryStream<T>(
   Future<T> Function() fn, {

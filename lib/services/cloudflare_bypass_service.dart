@@ -117,7 +117,8 @@ class CloudflareBypassService {
       if (cookies.isEmpty) return null;
       final entries = _CfEntries.fromCookies(cookies);
       _byHost[host] = entries;
-      debugPrint('[CloudflareBypass] Host=$host headers=${entries.toHeaders()}');
+      debugPrint(
+          '[CloudflareBypass] Host=$host headers=${entries.toHeaders()}');
       return entries;
     } finally {
       if (entry.mounted) entry.remove();
@@ -130,12 +131,13 @@ class CloudflareBypassService {
   ) async {
     final map = <String, String>{};
     try {
-      final cookies = await WebViewCookieManager()
-          .getCookies(domain: Uri.parse(baseUrl));
+      final cookies =
+          await WebViewCookieManager().getCookies(domain: Uri.parse(baseUrl));
       for (final c in cookies) {
         if (c.name.trim().isNotEmpty) {
           map[c.name] = c.value;
-          debugPrint('[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...');
+          debugPrint(
+              '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...');
         }
       }
       final ua = await _tryGetUserAgent(controller);
@@ -188,9 +190,8 @@ class _CfEntries {
       headers['User-Agent'] = userAgent!;
     }
     if (cookies.isNotEmpty) {
-      headers['Cookie'] = cookies.entries
-          .map((e) => '${e.key}=${e.value}')
-          .join('; ');
+      headers['Cookie'] =
+          cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
     }
     return headers;
   }
@@ -260,11 +261,12 @@ class _BypassOverlayState extends State<_BypassOverlay> {
       if (_pageLoadCount % 2 == 0) {
         debugPrint('[CloudflareBypass] Reloading page to trigger challenge...');
         try {
-          await widget.controller.loadRequest(Uri.parse('https://${widget.host}/'));
+          await widget.controller
+              .loadRequest(Uri.parse('https://${widget.host}/'));
         } catch (_) {}
       }
-    } catch (_) {}
-    finally {
+    } catch (_) {
+    } finally {
       if (mounted) {
         _checking = false;
         setState(() {});

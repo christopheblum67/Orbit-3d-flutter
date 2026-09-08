@@ -11,52 +11,50 @@ void main() {
     await notifier.load();
 
     expect(notifier.state.useTlsImpersonation, isTrue);
-    expect(notifier.state.useCustomDNS, isTrue);
-    expect(notifier.state.enableP2PHybrid, isFalse);
-    expect(notifier.state.livePlayer, 'ExoPlayer (Interne)');
-    expect(notifier.state.autoFrameRate, isTrue);
-    expect(notifier.state.enableAiUpscaling, isFalse);
-    expect(notifier.state.smartFailover, isTrue);
-    expect(notifier.state.hideCredentials, isTrue);
-    expect(notifier.state.directToLive, isFalse);
+    expect(notifier.state.dnsProvider, '1.1.1.1 (Cloudflare DoH)');
+    expect(notifier.state.zeroLagPrefetch, isTrue);
     expect(notifier.state.nightFocusEnabled, isFalse);
-    expect(notifier.state.localAiSubtitles, isFalse);
-    expect(notifier.state.sportsHighlightsDetection, isTrue);
+    expect(notifier.state.nightFocusDialogueBoost, isTrue);
+    expect(notifier.state.nightFocusBassKiller, isTrue);
+    expect(notifier.state.nightFocusVocalGainDb, 3.0);
+    expect(notifier.state.nightFocusAudioShiftMs, 0);
   });
 
   test('modifications persistées et relues', () async {
     SharedPreferences.setMockInitialValues({
       AdvancedSettings.kTlsImpersonation: true,
-      AdvancedSettings.kCustomDNS: true,
+      AdvancedSettings.kDnsProvider: '8.8.8.8 (Google DoH)',
     });
     final notifier = AdvancedSettingsNotifier();
     await notifier.load();
 
     await notifier.setTlsImpersonation(false);
-    await notifier.setCustomDNS(false);
-    await notifier.setP2PHybrid(true);
-    await notifier.setLivePlayer('VLC (Externe)');
-    await notifier.setAiUpscaling(true);
-    await notifier.setHideCredentials(false);
-    await notifier.setSportsHighlights(false);
+    await notifier.setDnsProvider('9.9.9.9 (Quad9 DoH)');
+    await notifier.setZeroLagPrefetch(false);
     await notifier.setNightFocus(true);
+    await notifier.setNightFocusDialogueBoost(false);
+    await notifier.setNightFocusVocalGainDb(6.0);
 
     expect(notifier.state.useTlsImpersonation, isFalse);
-    expect(notifier.state.useCustomDNS, isFalse);
-    expect(notifier.state.enableP2PHybrid, isTrue);
-    expect(notifier.state.livePlayer, 'VLC (Externe)');
-    expect(notifier.state.enableAiUpscaling, isTrue);
-    expect(notifier.state.hideCredentials, isFalse);
-    expect(notifier.state.sportsHighlightsDetection, isFalse);
+    expect(notifier.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
+    expect(notifier.state.zeroLagPrefetch, isFalse);
     expect(notifier.state.nightFocusEnabled, isTrue);
+    expect(notifier.state.nightFocusDialogueBoost, isFalse);
+    expect(notifier.state.nightFocusVocalGainDb, 6.0);
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(AdvancedSettings.kTlsImpersonation), isFalse);
-    expect(prefs.getBool(AdvancedSettings.kP2PHybrid), isTrue);
+    expect(prefs.getString(AdvancedSettings.kDnsProvider), '9.9.9.9 (Quad9 DoH)');
+    expect(prefs.getBool(AdvancedSettings.kZeroLagPrefetch), isFalse);
     expect(prefs.getBool(AdvancedSettings.kNightFocus), isTrue);
+    expect(prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb), 6.0);
+
     final reloaded = AdvancedSettingsNotifier();
     await reloaded.load();
-    expect(reloaded.state.enableP2PHybrid, isTrue);
+    expect(reloaded.state.useTlsImpersonation, isFalse);
+    expect(reloaded.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
+    expect(reloaded.state.zeroLagPrefetch, isFalse);
     expect(reloaded.state.nightFocusEnabled, isTrue);
+    expect(reloaded.state.nightFocusVocalGainDb, 6.0);
   });
 }

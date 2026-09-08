@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -105,7 +106,9 @@ class _ProfileSelectionScreenState
               final storage = ref.read(storageServiceProvider);
               await storage.deleteProfile(profile.id);
               if (profile.id ==
-                  ref.read(storageServiceProvider).getSetting('last_profile_id')) {
+                  ref
+                      .read(storageServiceProvider)
+                      .getSetting('last_profile_id')) {
                 await storage.setSetting('last_profile_id', null);
               }
               final current = ref.read(currentProfileProvider);
@@ -248,35 +251,37 @@ class _ProfileSelectionScreenState
   @override
   Widget build(BuildContext context) {
     final profilesAsync = ref.watch(profilesProvider);
-    return Scaffold(
-      body: SafeArea(
-        child: profilesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => EmptyState(
-            icon: Icons.cloud_off_rounded,
-            title: 'Impossible de charger les profils',
-            message: '$error',
-            action: FilledButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
-              onPressed: () => ref.invalidate(profilesProvider),
+    return ConfirmExitApp(
+      child: Scaffold(
+        body: SafeArea(
+          child: profilesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => EmptyState(
+              icon: Icons.cloud_off_rounded,
+              title: 'Impossible de charger les profils',
+              message: '$error',
+              action: FilledButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+                onPressed: () => ref.invalidate(profilesProvider),
+              ),
             ),
+            data: (profiles) {
+              final maxProfiles = _maxFor(profiles);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(profiles.length, maxProfiles),
+                  Expanded(
+                    child: profiles.isEmpty
+                        ? _buildEmptyState()
+                        : _buildProfileGrid(profiles, maxProfiles),
+                  ),
+                  _buildFooter(),
+                ],
+              );
+            },
           ),
-          data: (profiles) {
-            final maxProfiles = _maxFor(profiles);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(profiles.length, maxProfiles),
-                Expanded(
-                  child: profiles.isEmpty
-                      ? _buildEmptyState()
-                      : _buildProfileGrid(profiles, maxProfiles),
-                ),
-                _buildFooter(),
-              ],
-            );
-          },
         ),
       ),
     );
@@ -369,7 +374,7 @@ class _ProfileTypeBadge extends StatelessWidget {
   }
 }
 
-class _ProfileCard extends StatefulWidget {
+class _ProfileCard extends ConsumerStatefulWidget {
   const _ProfileCard({
     required this.profile,
     required this.index,
@@ -387,10 +392,10 @@ class _ProfileCard extends StatefulWidget {
   final VoidCallback onDelete;
 
   @override
-  State<_ProfileCard> createState() => _ProfileCardState();
+  ConsumerState<_ProfileCard> createState() => _ProfileCardState();
 }
 
-class _ProfileCardState extends State<_ProfileCard>
+class _ProfileCardState extends ConsumerState<_ProfileCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _entrance;
   late final Animation<double> _fade;
@@ -428,6 +433,9 @@ class _ProfileCardState extends State<_ProfileCard>
   Widget _buildCardContent() {
     final scheme = Theme.of(context).colorScheme;
     final profile = widget.profile;
+    final currentProfile = ref.watch(currentProfileProvider);
+    final isActive = currentProfile?.id == profile.id;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
@@ -437,8 +445,14 @@ class _ProfileCardState extends State<_ProfileCard>
         border: Border.all(
           color: _focused
               ? scheme.tertiary
-              : scheme.outlineVariant.withValues(alpha: 0.6),
-          width: _focused ? 2.5 : 1,
+              : isActive
+                  ? scheme.primary
+                  : scheme.outlineVariant.withValues(alpha: 0.6),
+          width: _focused
+              ? 2.5
+              : isActive
+                  ? 2
+                  : 1,
         ),
         boxShadow: [
           if (_focused)
@@ -447,6 +461,13 @@ class _ProfileCardState extends State<_ProfileCard>
               blurRadius: 24,
               spreadRadius: 2,
               offset: const Offset(0, 10),
+            )
+          else if (isActive)
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: 0.5),
+              blurRadius: 28,
+              spreadRadius: 4,
+              offset: const Offset(0, 12),
             )
           else
             BoxShadow(
@@ -462,7 +483,13 @@ class _ProfileCardState extends State<_ProfileCard>
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _OrbitAvatar(profile: profile, enlarged: _focused),
+              GestureDetector(
+                onTap: widget.onEdit,
+                child: _OrbitAvatar(
+                  profile: profile,
+                  enlarged: _focused || isActive,
+                ),
+              ),
               const SizedBox(height: 12),
               Text(
                 profile.firstName,
@@ -471,6 +498,7 @@ class _ProfileCardState extends State<_ProfileCard>
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: isActive ? scheme.primary : null,
                     ),
               ),
               const SizedBox(height: 6),
@@ -497,6 +525,36 @@ class _ProfileCardState extends State<_ProfileCard>
               ],
             ),
           ),
+          if (isActive)
+            Positioned(
+              top: -8,
+              left: -8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Actif',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -765,9 +823,8 @@ class _CardActionButtonState extends State<_CardActionButton> {
           child: Icon(
             widget.icon,
             size: 21,
-            color: _focused
-                ? scheme.onTertiaryContainer
-                : scheme.onSurfaceVariant,
+            color:
+                _focused ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
           ),
         ),
       ),

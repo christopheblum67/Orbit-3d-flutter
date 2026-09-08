@@ -12,11 +12,18 @@ class MultiVideoScreen extends ConsumerStatefulWidget {
   const MultiVideoScreen({super.key});
 
   @override
-  ConsumerState<MultiVideoScreen> createState() => _MultiVideoScreenState();
+  ConsumerState<MultiVideoScreen> createState() => MultiVideoScreenState();
 }
 
-class _MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
+class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   final List<Channel> _selectedChannels = [];
+
+  /// Dispose all video controllers (called by back handling).
+  void disposeAllControllers() {
+    setState(() {
+      _selectedChannels.clear();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

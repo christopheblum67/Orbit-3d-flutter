@@ -120,7 +120,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
     if (pin.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Le PIN doit contenir exactement 4 chiffres'),),
+          content: Text('Le PIN doit contenir exactement 4 chiffres'),
+        ),
       );
       return;
     }

@@ -41,9 +41,11 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
             ),
             const SizedBox(height: 20),
             ListTile(
-              title: Text(_dateOfBirth == null
-                  ? 'Date de naissance'
-                  : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0],),
+              title: Text(
+                _dateOfBirth == null
+                    ? 'Date de naissance'
+                    : 'Date: ${_dateOfBirth!.toLocal()}'.split(' ')[0],
+              ),
               subtitle: (_submitted && _dateOfBirth == null)
                   ? Text(
                       'Obligatoire',
@@ -167,8 +169,8 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content:
-                                      Text('Erreur lors de la sauvegarde'),),
+                                content: Text('Erreur lors de la sauvegarde'),
+                              ),
                             );
                           }
                           setState(() => _saving = false);

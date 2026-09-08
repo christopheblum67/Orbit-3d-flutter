@@ -13,6 +13,7 @@ class MediaCard extends StatelessWidget {
     required this.rating,
     required this.ageLabel,
     required this.fallbackIcon,
+    this.favoriteOverlay,
     this.onTap,
     this.onLongPress,
   });
@@ -24,6 +25,9 @@ class MediaCard extends StatelessWidget {
   final double rating;
   final String? ageLabel;
   final IconData fallbackIcon;
+
+  /// Widget superposé en bas-droit du poster (ex. cœur favori permanent).
+  final Widget? favoriteOverlay;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
@@ -106,6 +110,12 @@ class MediaCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (favoriteOverlay != null)
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: favoriteOverlay!,
+                  ),
               ],
             ),
           ),

@@ -19,24 +19,24 @@ class HomeShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
 
-final destinations = <NavigationDestination>[
+    final destinations = <NavigationDestination>[
       const NavigationDestination(
         icon: Icon(Icons.home_rounded),
         label: 'Accueil',
       ),
       const NavigationDestination(icon: Icon(Icons.live_tv), label: 'Live TV'),
       if (!isM3u) ...[
-            const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
-            const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
-          ],
-          const NavigationDestination(
-            icon: Icon(Icons.recommend),
-            label: 'Pour vous',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: 'Réglages',
-          ),
+        const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
+        const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
+      ],
+      const NavigationDestination(
+        icon: Icon(Icons.recommend),
+        label: 'Pour vous',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.settings),
+        label: 'Réglages',
+      ),
     ];
 
     final railDestinations = <NavigationRailDestination>[
@@ -75,103 +75,105 @@ final destinations = <NavigationDestination>[
     final railIndex = _railIndex(location, isM3u);
 
     return Scaffold(
-      drawer: isWide ? null : const _HomeMenuDrawer(),
-      appBar: AppBar(
-        title: Text(_titleForPath(location)),
-        actions: [
-          IconButton(
-            tooltip: 'Recommandations IA',
-            onPressed: () => context.go('/ai'),
-            icon: const Icon(Icons.auto_awesome),
-            color: scheme.tertiary,
-          ),
-          _ProfileSwitchButton(profile: profile),
-        ],
-      ),
-      body: Row(
-        children: [
-          if (isWide)
-            NavigationRail(
-              selectedIndex: railIndex,
-              onDestinationSelected: (index) {
-                final route = _railRoute(index, isM3u);
-                context.go(route);
-              },
-              labelType: NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
+        drawer: isWide ? null : const _HomeMenuDrawer(),
+        appBar: AppBar(
+          title: Text(_titleForPath(location)),
+          actions: [
+            IconButton(
+              tooltip: 'Recommandations IA',
+              onPressed: () => context.go('/ai'),
+              icon: const Icon(Icons.auto_awesome),
+              color: scheme.tertiary,
+            ),
+            _ProfileSwitchButton(profile: profile),
+          ],
+        ),
+        body: Row(
+          children: [
+            if (isWide)
+              NavigationRail(
+                selectedIndex: railIndex,
+                onDestinationSelected: (index) {
+                  final route = _railRoute(index, isM3u);
+                  context.go(route);
+                },
+                labelType: NavigationRailLabelType.all,
+                leading: Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
+                ),
+                trailing: Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _ProfileSwitchButton(profile: profile),
+                    ),
+                  ),
+                ),
+                backgroundColor: scheme.surfaceContainerLow,
+                indicatorColor: scheme.primaryContainer,
+                selectedIconTheme:
+                    IconThemeData(color: scheme.onPrimaryContainer),
+                unselectedIconTheme:
+                    IconThemeData(color: scheme.onSurfaceVariant),
+                selectedLabelTextStyle: TextStyle(
+                  color: scheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11,
+                ),
+                unselectedLabelTextStyle: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+                destinations: railDestinations,
               ),
-              trailing: Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _ProfileSwitchButton(profile: profile),
+            if (isWide)
+              VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: scheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            Expanded(child: child),
+          ],
+        ),
+        bottomNavigationBar: isWide
+            ? null
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainer,
+                  border: Border(
+                    top: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: NavigationBar(
+                    selectedIndex:
+                        _calculateSelectedIndex(context, destinations),
+                    onDestinationSelected: (index) {
+                      final route = switch (index) {
+                        0 => '/home',
+                        1 => '/live',
+                        2 when isM3u => '/matchmaking',
+                        2 => '/series',
+                        3 => '/vod',
+                        4 => '/matchmaking',
+                        _ => '/settings',
+                      };
+                      context.go(route);
+                    },
+                    destinations: destinations,
                   ),
                 ),
               ),
-              backgroundColor: scheme.surfaceContainerLow,
-              indicatorColor: scheme.primaryContainer,
-              selectedIconTheme: IconThemeData(color: scheme.onPrimaryContainer),
-              unselectedIconTheme:
-                  IconThemeData(color: scheme.onSurfaceVariant),
-              selectedLabelTextStyle: TextStyle(
-                color: scheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-              ),
-              unselectedLabelTextStyle: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
-              destinations: railDestinations,
-            ),
-          if (isWide)
-            VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-          Expanded(child: child),
-        ],
-      ),
-      bottomNavigationBar: isWide
-          ? null
-          : DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainer,
-          border: Border(
-            top:
-                BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: NavigationBar(
-            selectedIndex: _calculateSelectedIndex(context, destinations),
-            onDestinationSelected: (index) {
-              final route = switch (index) {
-                0 => '/home',
-                1 => '/live',
-                2 when isM3u => '/matchmaking',
-                2 => '/series',
-                3 => '/vod',
-                4 => '/matchmaking',
-                _ => '/settings',
-              };
-              context.go(route);
-            },
-            destinations: destinations,
-          ),
-        ),
-      ),
     );
   }
 
@@ -253,9 +255,15 @@ class _HomeMenuDrawer extends ConsumerWidget {
         header: 'Continuer',
         items: [
           const _MenuEntry(
-              icon: Icons.home_rounded, label: 'Accueil', route: '/home',),
+            icon: Icons.home_rounded,
+            label: 'Accueil',
+            route: '/home',
+          ),
           const _MenuEntry(
-              icon: Icons.live_tv, label: 'Live TV', route: '/live',),
+            icon: Icons.live_tv,
+            label: 'Live TV',
+            route: '/live',
+          ),
           if (!isM3u) ...[
             const _MenuEntry(icon: Icons.tv, label: 'Séries', route: '/series'),
             const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
@@ -266,9 +274,15 @@ class _HomeMenuDrawer extends ConsumerWidget {
         header: 'Découvrir',
         items: [
           const _MenuEntry(
-              icon: Icons.search, label: 'Recherche', route: '/search',),
+            icon: Icons.search,
+            label: 'Recherche',
+            route: '/search',
+          ),
           const _MenuEntry(
-              icon: Icons.calendar_today, label: 'EPG (grille)', route: '/epg',),
+            icon: Icons.calendar_today,
+            label: 'EPG (grille)',
+            route: '/epg',
+          ),
           _MenuEntry(
             icon: Icons.recommend,
             label: 'Pour vous (matchmaking)',
@@ -276,9 +290,10 @@ class _HomeMenuDrawer extends ConsumerWidget {
             color: scheme.primary,
           ),
           const _MenuEntry(
-              icon: Icons.replay_circle_filled,
-              label: 'Replay',
-              route: '/replay',),
+            icon: Icons.replay_circle_filled,
+            label: 'Replay',
+            route: '/replay',
+          ),
           _MenuEntry(
             icon: Icons.auto_awesome,
             label: 'Orbit IA',
@@ -291,9 +306,15 @@ class _HomeMenuDrawer extends ConsumerWidget {
         header: 'Mes contenus',
         items: [
           const _MenuEntry(
-              icon: Icons.favorite, label: 'Favoris', route: '/favorites',),
+            icon: Icons.favorite,
+            label: 'Favoris',
+            route: '/favorites',
+          ),
           const _MenuEntry(
-              icon: Icons.history, label: 'Historique', route: '/history',),
+            icon: Icons.history,
+            label: 'Historique',
+            route: '/history',
+          ),
           _MenuEntry(
             icon: Icons.person_outline,
             label: profile?.firstName == null
@@ -312,9 +333,15 @@ class _HomeMenuDrawer extends ConsumerWidget {
             route: '/subscriptions',
           ),
           _MenuEntry(
-              icon: Icons.settings, label: 'Réglages', route: '/settings',),
+            icon: Icons.settings,
+            label: 'Réglages',
+            route: '/settings',
+          ),
           _MenuEntry(
-              icon: Icons.tune, label: 'Configuration avancée', route: '/settings/advanced',),
+            icon: Icons.tune,
+            label: 'Configuration avancée',
+            route: '/settings/advanced',
+          ),
         ],
       ),
     ];
@@ -330,8 +357,11 @@ class _HomeMenuDrawer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(Icons.live_tv,
-                      size: 40, color: scheme.onPrimaryContainer,),
+                  Icon(
+                    Icons.live_tv,
+                    size: 40,
+                    color: scheme.onPrimaryContainer,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     AppConstants.appName,

@@ -6,20 +6,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
+import 'package:orbit_3d_flutter/services/stall_detector.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -30,6 +37,14 @@ class PlayerRouteData {
     this.progressId,
     this.initialPositionMs,
     this.contentType = PlaybackContentType.live,
+    this.favorite,
+    this.posterUrl,
+    this.subtitle,
+    this.rating,
+    this.genre,
+    this.year = 0,
+    this.seriesName,
+    this.episodeLabel,
   });
 
   final String streamUrl;
@@ -39,6 +54,18 @@ class PlayerRouteData {
   final String? progressId;
   final int? initialPositionMs;
   final PlaybackContentType contentType;
+
+  /// Favori associé au contenu lancé (utilisé pour la lecture non live).
+  /// En live, le favori est déduit de la chaîne courante.
+  final FavoriteEntry? favorite;
+
+  final String? posterUrl;
+  final String? subtitle;
+  final double? rating;
+  final String? genre;
+  final int year;
+  final String? seriesName;
+  final String? episodeLabel;
 }
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -51,6 +78,14 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.progressId,
     this.initialPositionMs,
     this.contentType = PlaybackContentType.live,
+    this.favorite,
+    this.posterUrl,
+    this.subtitle,
+    this.rating,
+    this.genre,
+    this.year = 0,
+    this.seriesName,
+    this.episodeLabel,
   });
 
   final String streamUrl;
@@ -60,9 +95,17 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final String? progressId;
   final int? initialPositionMs;
   final PlaybackContentType contentType;
+  final FavoriteEntry? favorite;
+  final String? posterUrl;
+  final String? subtitle;
+  final double? rating;
+  final String? genre;
+  final int year;
+  final String? seriesName;
+  final String? episodeLabel;
 
   @override
-  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
+  ConsumerState<PlayerScreen> createState() => PlayerScreenState();
 }
 
 enum _PlayerStatus { loading, error, ready }
@@ -71,10 +114,10 @@ enum _PlayerStatus { loading, error, ready }
 /// prochain User-Agent : évite de bloquer le zapping sur un flux muet.
 const _probTimeout = Duration(seconds: 12);
 
-/// Durée d'affichage de la barre d'info avant masquage automatique.
-const _infoBarDuration = Duration(milliseconds: 4500);
+/// Durée d'affichage de la footerbar avant masquage automatique.
+const _footerBarDuration = Duration(seconds: 5);
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen>
+class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
   List<Channel> _channels = const [];
   late int _index;
@@ -89,15 +132,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _autorecovered = false;
   String? _lastErrorDescription;
   int _generation = 0;
-  bool _showInfo = false;
-  Timer? _infoTimer;
+  bool _footerVisible = false;
+  Timer? _footerTimer;
   Timer? _saveProgressTimer;
-  Timer? _statusBarTimer;
   bool _volumeToZap = false;
   bool _immersive = false;
-  bool _statusBarVisible = false;
   bool _hasAppliedInitialPosition = false;
+  bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
+
+  // Monitoring réseau & stall
+  Timer? _monitoringTimer;
+  StallDetector? _stallDetector;
 
   bool get _canZap => _channels.length > 1;
   bool get _hasNext => _canZap && _index < _channels.length - 1;
@@ -111,6 +157,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Channel? get _currentChannel => _channels.isEmpty ? null : _channels[_index];
+
+  /// Favori associé au contenu en cours (déduit de la chaîne en live,
+  /// sinon fourni par la route).
+  FavoriteEntry? get _favoriteEntry {
+    final channel = _currentChannel;
+    if (channel != null) {
+      return FavoriteEntry(
+        type: ContentType.live,
+        id: channel.id,
+        title: channel.name,
+        posterUrl: channel.logoUrl,
+        subtitle: channel.groupLabel,
+        streamUrl: channel.streamUrl,
+      );
+    }
+    return widget.favorite;
+  }
 
   @override
   void initState() {
@@ -130,9 +193,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _restoreSystemUi();
-    _infoTimer?.cancel();
+    _footerTimer?.cancel();
     _saveProgressTimer?.cancel();
-    _statusBarTimer?.cancel();
+    _monitoringTimer?.cancel();
+    _stallDetector?.stop();
     _saveProgress();
     _focusNode.dispose();
     _generation++;
@@ -153,13 +217,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Passe en plein écran immersif (masque status bar + navbar Android)
-  /// quand la vidéo joue. Ne fait RIEN si la barre est temporairement visible
-  /// (touch/OK) — le timer la masquera après 25s.
+  /// quand la vidéo joue. Ne fait RIEN si la footerbar est visible (tap/OK) —
+  /// son timer d'auto-masquage la fera disparaître (~5s) puis on reviendra ici.
   void _syncImmersive() {
     final playing = _status == _PlayerStatus.ready &&
         _controller != null &&
         _controller!.value.isPlaying;
-    if (playing && !_immersive && !_statusBarVisible) {
+    if (playing && !_immersive && !_footerVisible) {
       _immersive = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setSystemUIOverlayStyle(
@@ -175,29 +239,47 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  /// Affiche les barres système (status + nav) pendant [duration] puis
-  /// repasse en immersiveSticky. Appelé sur tap écran ou touche OK.
-  void _showStatusBarTemporarily(
-      {Duration duration = const Duration(seconds: 25)}) {
-    if (_statusBarVisible) {
-      _statusBarTimer?.cancel();
-    } else {
-      _statusBarVisible = true;
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
-    _statusBarTimer = Timer(duration, () {
-      if (mounted) {
-        _statusBarVisible = false;
-        _statusBarTimer = null;
-        _syncImmersive(); // repasse en immersive si lecture en cours
-      }
+  /// Affiche la footerbar (et les barres système) pendant [duration] puis la
+  /// masque automatiquement. Appelé sur tap écran, touche OK ou zapping.
+  void _showFooterBar({Duration duration = _footerBarDuration}) {
+    _footerTimer?.cancel();
+    final firstShow = !_footerVisible;
+    _footerVisible = true;
+    if (mounted && firstShow) setState(() {});
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _footerTimer = Timer(duration, () {
+      if (!mounted) return;
+      _footerVisible = false;
+      _footerTimer = null;
+      setState(() {});
+      _syncImmersive(); // repasse en immersive si lecture en cours
     });
+  }
+
+  /// Masque immédiatement la footerbar (interaction utilisateur explicite).
+  void _hideFooterBar() {
+    _footerTimer?.cancel();
+    _footerTimer = null;
+    if (!_footerVisible) return;
+    _footerVisible = false;
+    if (mounted) setState(() {});
+    _syncImmersive();
+  }
+
+  /// Bascule visible/caché de la footerbar (touche Échap de la télécommande).
+  void _toggleFooter() {
+    if (_footerVisible) {
+      _hideFooterBar();
+    } else {
+      _showFooterBar();
+    }
   }
 
   /// Restaure la system UI par défaut de l'application (sortie player, pause).
   void _restoreSystemUi() {
-    _statusBarTimer?.cancel();
-    _statusBarVisible = false;
+    _footerTimer?.cancel();
+    _footerTimer = null;
+    _footerVisible = false;
     if (!_immersive) return;
     _immersive = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -263,6 +345,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
+
+    // Vérification connectivité au démarrage : si hors-ligne, afficher erreur directe
+    final connectivity = ref.read(connectivityMonitorProvider);
+    if (!connectivity.isOnline) {
+      if (gen == _generation) _setStatus(_PlayerStatus.error);
+      return;
+    }
+
     // Applique la config « Night Focus » au processeur audio natif AVANT la
     // création d'un contrôleur, pour qu'elle soit active à la configuration
     // du pipeline audio (par défaut : by-pass quand le switch maître est OFF).
@@ -392,16 +482,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     return variants;
   }
 
-  /// Construit les en-têtes HTTP pour une URL de flux, en fusionnant les
-  /// cookies Cloudflare (`cf_clearance`) déjà obtenus pour ce host, si
-  /// présents. Ceux-ci sont utilisés par ExoPlayer pour ses propres requêtes.
+  /// Construit les en-têtes HTTP pour une URL de flux, en fusionnant :
+  /// 1. Les headers de base (User-Agent rotation, etc.)
+  /// 2. Les cookies Cloudflare globaux (session unique pour tout le fournisseur)
+  /// 3. Les cookies Cloudflare spécifiques à l'hôte (CloudflareBypassService)
   Map<String, String> _resolvedHeaders(String url, int agentIndex) {
     final base = streamHeaders(url, userAgentIndex: agentIndex);
+
+    // 1. Session Cloudflare globale (init au démarrage, unique pour tout le fournisseur)
+    final globalCf = ref.read(cloudflareSessionProvider);
+    if (globalCf.isReady) {
+      base.addAll(globalCf.videoHeaders);
+    }
+
+    // 2. Cookies Cloudflare spécifiques à l'hôte (obtention à la demande via WebView)
     final host = Uri.tryParse(url)?.host;
     if (host != null) {
       final cf = CloudflareBypassService.instance.headersForHost(host);
       if (cf != null) base.addAll(cf);
     }
+
     return base;
   }
 
@@ -440,6 +540,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<bool> _tryPlay(int gen, String url) async {
+    final circuitBreaker = ref.read(hostCircuitBreakerProvider);
+    final host = Uri.tryParse(url)?.host ?? '';
+
+    // Vérifier le circuit breaker avant de tenter
+    if (host.isNotEmpty && circuitBreaker.isInCooldown(host)) {
+      final remaining = circuitBreaker.remainingCooldown(host);
+      debugPrint(
+          'HostCircuitBreaker: $host in cooldown, ${remaining.inSeconds}s remaining');
+      if (gen == _generation) {
+        _setStatus(_PlayerStatus.error);
+      }
+      return false;
+    }
+
     final userAgentOrder = _userAgentOrder();
     for (final agentIndex in userAgentOrder) {
       // Laisse un intervalle entre deux essais : marteler le panneau IPTV
@@ -462,6 +576,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         await controller.initialize().timeout(_probTimeout);
       } catch (e) {
         debugPrint('Orbit3D video error ($url): $e');
+        if (host.isNotEmpty) {
+          circuitBreaker.recordFailure(host);
+        }
         if (_controller == controller) {
           _disposeController(controller);
           _controller = null;
@@ -476,6 +593,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       if (controller.value.hasError) {
         debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+        if (host.isNotEmpty) {
+          circuitBreaker.recordFailure(host);
+        }
         _disposeController(controller);
         _controller = null;
         continue;
@@ -484,6 +604,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (!mounted || gen != _generation || _controller != controller) {
         _disposeController(controller);
         return true;
+      }
+      // Succès : reset le circuit breaker pour cet hôte
+      if (host.isNotEmpty) {
+        circuitBreaker.recordSuccess(host);
       }
       _setStatus(_PlayerStatus.ready);
       _applyInitialPosition();
@@ -497,6 +621,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _onControllerUpdate() {
     if (!mounted) return;
     _syncImmersive();
+    final playing = _controller?.value.isPlaying;
+    if (playing != null && playing != _lastKnownPlaying) {
+      _lastKnownPlaying = playing;
+      setState(() {});
+    }
     if (_status != _PlayerStatus.ready) return;
     final controller = _controller;
     if (controller == null || !controller.value.hasError) return;
@@ -512,6 +641,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     return description.contains('401') || description.contains('Source error');
   }
 
+  /// Détecte si une erreur est liée à Cloudflare (challenge, 403, cookie expiré, etc.)
+  bool _isCloudflareError(String? description) {
+    if (description == null || description.isEmpty) return false;
+    final msg = description.toLowerCase();
+    return msg.contains('403') ||
+        msg.contains('cloudflare') ||
+        msg.contains('challenge') ||
+        msg.contains('cf_clearance') ||
+        msg.contains('blocked') ||
+        msg.contains('access denied') ||
+        msg.contains('forbidden');
+  }
+
   void _handleActiveError() {
     if (!mounted || _handlingError) return;
     final gen = _generation;
@@ -521,7 +663,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _handlingError = false;
       return;
     }
+
+    final errorDesc = _lastErrorDescription;
+    final host = Uri.tryParse(_activeStreamUrl)?.host ?? '';
+    final isProviderBlockError = isProviderBlock(errorDesc);
+
+    // Enregistre l'échec dans le circuit breaker si c'est un blocage fournisseur
+    if (isProviderBlockError && host.isNotEmpty) {
+      ref.read(hostCircuitBreakerProvider).recordFailure(host);
+    }
+
     if (!_autorecovered) {
+      // Première tentative de récupération : si c'est une erreur Cloudflare,
+      // on renouvelle la session avant de retenter.
+      if (_isCloudflareError(errorDesc)) {
+        debugPrint('☁️ Cloudflare error detected, renewing session...');
+        ref.read(cloudflareSessionProvider).renewSession();
+        _autorecovered = true;
+        _handlingError = false;
+        _startAttempt();
+        return;
+      }
       _autorecovered = true;
       _handlingError = false;
       _startAttempt();
@@ -532,11 +694,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _goNext() {
-    if (_hasNext) _switchTo(_index + 1);
+    if (!_hasNext) return;
+    _showFooterBar();
+    _switchTo(_index + 1);
   }
 
   void _goPrevious() {
-    if (_hasPrevious) _switchTo(_index - 1);
+    if (!_hasPrevious) return;
+    _showFooterBar();
+    _switchTo(_index - 1);
+  }
+
+  /// Déplace la lecture de [delta] (boutons retour 10s / avance 30s).
+  void _seekBy(Duration delta) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    var position = controller.value.position + delta;
+    if (position < Duration.zero) position = Duration.zero;
+    final duration = controller.value.duration;
+    if (duration > Duration.zero && position > duration) {
+      position = duration;
+    }
+    controller.seekTo(position);
+    _showFooterBar();
   }
 
   void _switchTo(int target) {
@@ -692,8 +872,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _setStatus(_PlayerStatus status) {
     if (!mounted) return;
+    final wasReady = _status == _PlayerStatus.ready;
     setState(() => _status = status);
     _syncImmersive();
+
+    // Démarre/arrête la détection de stall selon le statut
+    if (status == _PlayerStatus.ready && !wasReady) {
+      _startStallDetection();
+    } else if (wasReady && status != _PlayerStatus.ready) {
+      _stopStallDetection();
+    }
+  }
+
+  void _startStallDetection() {
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      _stallDetector = ref.read(stallDetectorProvider);
+      _stallDetector!.start(controller);
+    }
+  }
+
+  void _stopStallDetection() {
+    _stallDetector?.stop();
+    _stallDetector = null;
   }
 
   Future<void> _retry() async {
@@ -731,44 +932,113 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _showInfoBrief() {
-    _infoTimer?.cancel();
     if (!mounted) return;
-    setState(() => _showInfo = true);
-    _infoTimer = Timer(_infoBarDuration, () {
-      if (mounted) setState(() => _showInfo = false);
-    });
+    _showFooterBar();
   }
 
   void _recordHistory() {
-    final channel = _currentChannel;
-    if (channel == null) return;
     try {
-      ref
-          .read(historyServiceProvider)
-          .addEntry('channel', channel.name, channel.streamUrl);
+      final channel = _currentChannel;
+      if (channel != null) {
+        // Live : identité = chaîne courante (suit le zapping).
+        ref.read(recentlyWatchedProvider.notifier).record(
+              ContentType.live,
+              channel.id,
+              channel.name,
+              posterUrl: channel.logoUrl,
+              subtitle: channel.groupLabel,
+              streamUrl: channel.streamUrl,
+            );
+        return;
+      }
+      final favorite = widget.favorite;
+      if (favorite != null) {
+        ref.read(recentlyWatchedProvider.notifier).record(
+              favorite.type,
+              favorite.id,
+              favorite.title,
+              posterUrl: favorite.posterUrl,
+              subtitle: favorite.subtitle,
+              streamUrl: favorite.streamUrl.isEmpty
+                  ? widget.streamUrl
+                  : favorite.streamUrl,
+            );
+      }
     } catch (_) {}
-  }
-
-  void _toggleInfo() {
-    _infoTimer?.cancel();
-    setState(() => _showInfo = !_showInfo);
   }
 
   void _openAudioControls() {
     showAudioControlsSheet(context);
   }
 
+  void _openPlayerEngineConfig() {
+    showPlayerEngineConfigSheet(context);
+  }
+
+  void _openSettings() {
+    if (!mounted) return;
+    context.go('/settings');
+  }
+
+  /// Bascule directe du maître Night Focus (icône 🌙 de la footerbar).
+  Future<void> _toggleNightFocus() async {
+    final nf = ref.read(advancedSettingsProvider);
+    final next = !nf.nightFocusEnabled;
+    await ref.read(advancedSettingsProvider.notifier).setNightFocus(next);
+    await NightFocusAudioService.push(
+      next,
+      dialogueBoostDb: nf.nightFocusDialogueBoost ? 4.0 : 0,
+      bassKillerCutoffHz: nf.nightFocusBassKiller ? 120.0 : 0,
+      vocalGainDb: nf.nightFocusDialogueBoost ? nf.nightFocusVocalGainDb : 0,
+      audioDelayMs: nf.nightFocusAudioShiftMs,
+    );
+  }
+
   void _togglePlayPause() {
     final controller = _controller;
     if (controller == null) return;
+    final playing = controller.value.isPlaying;
+    debugPrint(
+        'Orbit3D toggle: isPlaying=$playing pos=${controller.value.position}');
     setState(() {
-      controller.value.isPlaying ? controller.pause() : controller.play();
+      playing ? controller.pause() : controller.play();
     });
     _syncImmersive();
+    _showFooterBar();
   }
 
   void _toggleVolumeZap() {
     setState(() => _volumeToZap = !_volumeToZap);
+  }
+
+  /// Sortie propre du lecteur : arrêt immédiat du flux (audio + vidéo),
+  /// libération des contrôleurs, puis retour go_router.
+  void _requestExit() {
+    _cleanup();
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
+  /// Nettoyage complet sans navigation (pour back handling système/geste).
+  /// Appelé par WithBackHandling.custom() depuis la route.
+  void cleanup() {
+    _cleanup();
+  }
+
+  void _cleanup() {
+    _generation++;
+    _restoreSystemUi();
+    _footerTimer?.cancel();
+    _saveProgressTimer?.cancel();
+    _saveProgress();
+    _disposeActive();
+    _disposeCachedNext();
+    _disposeCachedPrev();
+    _preloadTarget = null;
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
@@ -798,7 +1068,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.escape) {
-      _toggleInfo();
+      _toggleFooter();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -806,18 +1076,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentTitle = _currentChannel?.name ?? widget.title ?? 'Lecture';
+    final player = _controller;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(currentTitle),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            _restoreSystemUi();
-            Navigator.of(context).pop();
-          },
-        ),
-      ),
+      backgroundColor: Colors.black,
       body: Focus(
         focusNode: _focusNode,
         autofocus: true,
@@ -852,34 +1113,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       onKeyEvent: (_, event) {
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.select ||
-                                event.logicalKey ==
-                                    LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.enter ||
                                 event.logicalKey ==
                                     LogicalKeyboardKey.numpadEnter)) {
-                          _showStatusBarTemporarily();
+                          _showFooterBar();
                         }
                         return KeyEventResult.ignored;
                       },
                       child: _ReadyPlayer(
-                        controller: _controller!,
-                        onTap: () {
-                          _toggleInfo();
-                          _showStatusBarTemporarily();
-                        },
+                        controller: player!,
+                        onTap: _showFooterBar,
+                        streamUrl: _activeStreamUrl,
+                        onRetry: _retry,
                       ),
                     ),
-                    if (_showInfo && _currentChannel != null)
+                    if (_footerVisible)
                       Positioned(
-                        top: 0,
                         left: 0,
                         right: 0,
-                        child: SafeArea(
-                          bottom: false,
-                          child: _InfoBar(
-                            channel: _currentChannel!,
-                            onClose: _toggleInfo,
-                            onAudioControls: _openAudioControls,
-                          ),
+                        bottom: 0,
+                        child: _ContentFooterBar(
+                          child: _buildFooterContent(player),
                         ),
                       ),
                   ],
@@ -888,192 +1142,715 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           ),
         ),
       ),
-      bottomNavigationBar: _canZap
-          ? _ZapBar(
-              index: _index,
-              total: _channels.length,
-              volumeToZap: _volumeToZap,
-              onPrevious: _hasPrevious ? _goPrevious : null,
-              onNext: _hasNext ? _goNext : null,
-              onToggleVolumeZap: _toggleVolumeZap,
-            )
-          : null,
-      floatingActionButton: _status == _PlayerStatus.ready
-          ? FloatingActionButton.large(
-              onPressed: _togglePlayPause,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) =>
-                    ScaleTransition(scale: animation, child: child),
-                child: Icon(
-                  _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                  key: ValueKey(_controller!.value.isPlaying),
-                ),
-              ),
-            )
-          : null,
     );
+  }
+
+  /// Construit le contenu de la footerbar selon le type de contenu en cours.
+  Widget _buildFooterContent(VideoPlayerController player) {
+    final isPlaying = player.value.isPlaying;
+    final controlsMenu = _FooterControlsMenu(
+      onOpened: () => _footerTimer?.cancel(),
+      onClosed: _showFooterBar,
+      onAudioControls: _openAudioControls,
+      onPlayerEngine: _openPlayerEngineConfig,
+      onToggleNightFocus: _toggleNightFocus,
+      onSettings: _openSettings,
+    );
+    return switch (widget.contentType) {
+      PlaybackContentType.live => _LiveFooterBar(
+          channel: _currentChannel,
+          fallbackTitle: widget.title ?? _currentChannel?.name ?? 'Live',
+          index: _index,
+          total: _channels.length,
+          volumeToZap: _volumeToZap,
+          isPlaying: isPlaying,
+          showSeek: false,
+          favoriteEntry: _favoriteEntry,
+          onExit: _requestExit,
+          onPrevious: _hasPrevious ? _goPrevious : null,
+          onNext: _hasNext ? _goNext : null,
+          onTogglePlayPause: _togglePlayPause,
+          onSeekBack: null,
+          onSeekForward: null,
+          onToggleVolumeZap: _toggleVolumeZap,
+          controlsMenu: controlsMenu,
+          onToggleNightFocus: _toggleNightFocus,
+        ),
+      PlaybackContentType.replay => _LiveFooterBar(
+          channel: _currentChannel,
+          fallbackTitle: widget.title ?? 'Replay',
+          subtitle: widget.subtitle,
+          controller: player,
+          index: _index,
+          total: _channels.length,
+          volumeToZap: _volumeToZap,
+          isPlaying: isPlaying,
+          showSeek: true,
+          favoriteEntry: _favoriteEntry,
+          onExit: _requestExit,
+          onPrevious: _hasPrevious ? _goPrevious : null,
+          onNext: _hasNext ? _goNext : null,
+          onTogglePlayPause: _togglePlayPause,
+          onSeekBack: () => _seekBy(const Duration(seconds: -10)),
+          onSeekForward: () => _seekBy(const Duration(seconds: 10)),
+          onToggleVolumeZap: _toggleVolumeZap,
+          controlsMenu: controlsMenu,
+          onToggleNightFocus: _toggleNightFocus,
+        ),
+      PlaybackContentType.vod || PlaybackContentType.series => _VodFooterBar(
+          controller: player,
+          title: widget.title ?? widget.seriesName ?? 'Lecture',
+          rating: widget.rating,
+          genre: widget.genre,
+          subtitle: widget.subtitle,
+          seriesName: widget.seriesName,
+          episodeLabel: widget.episodeLabel,
+          isPlaying: isPlaying,
+          favoriteEntry: _favoriteEntry,
+          onExit: _requestExit,
+          onTogglePlayPause: _togglePlayPause,
+          onSeekBack: () => _seekBy(const Duration(seconds: -10)),
+          onSeekForward: () => _seekBy(const Duration(seconds: 30)),
+          controlsMenu: controlsMenu,
+          onToggleNightFocus: _toggleNightFocus,
+        ),
+    };
   }
 }
 
-class _ZapBar extends StatelessWidget {
-  const _ZapBar({
-    required this.index,
-    required this.total,
-    required this.volumeToZap,
-    required this.onPrevious,
-    required this.onNext,
-    required this.onToggleVolumeZap,
-  });
+/// Conteneur commun de la footerbar unifiée : barre basse translucide
+/// arrondie, ancrée en bas (SafeArea), que l'on place en overlay du lecteur.
+class _ContentFooterBar extends StatelessWidget {
+  const _ContentFooterBar({required this.child});
 
-  final int index;
-  final int total;
-  final bool volumeToZap;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-  final VoidCallback? onToggleVolumeZap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     return SafeArea(
+      top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: Row(
-          children: [
-            IconButton.filledTonal(
-              tooltip: 'Chaîne précédente',
-              onPressed: onPrevious,
-              icon: const Icon(Icons.skip_previous_rounded),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${index + 1} / $total',
-                    style: textTheme.labelLarge?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    volumeToZap
-                        ? 'Zapping rapide · volume = chaîne'
-                        : 'Zapping rapide',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            IconButton.filledTonal(
-              tooltip: volumeToZap
-                  ? 'Volume normal'
-                  : 'Changer de chaîne avec le volume',
-              onPressed: onToggleVolumeZap,
-              icon: Icon(
-                volumeToZap ? Icons.tap_and_play : Icons.volume_up,
-              ),
-            ),
-            IconButton.filledTonal(
-              tooltip: 'Chaîne suivante',
-              onPressed: onNext,
-              icon: const Icon(Icons.skip_next_rounded),
-            ),
-          ],
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 10, 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: child,
         ),
       ),
     );
   }
 }
 
-class _InfoBar extends ConsumerWidget {
-  const _InfoBar({
-    required this.channel,
-    this.onClose,
-    this.onAudioControls,
+/// Icône compacte de la footerbar (blanche sur fond translucide).
+Widget _fbIcon(
+  IconData icon,
+  VoidCallback? onPressed, {
+  String? tooltip,
+  Color color = Colors.white,
+  double size = 22,
+}) {
+  return IconButton(
+    tooltip: tooltip,
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    onPressed: onPressed,
+    icon: Icon(icon, color: color, size: size),
+  );
+}
+
+/// Bouton pause/lecture proéminent de la footerbar.
+Widget _fbPlayPause({
+  required bool isPlaying,
+  required VoidCallback onPressed,
+}) {
+  return IconButton(
+    tooltip: isPlaying ? 'Pause' : 'Lecture',
+    style: IconButton.styleFrom(
+      backgroundColor: Colors.white.withValues(alpha: 0.22),
+    ),
+    visualDensity: VisualDensity.compact,
+    padding: const EdgeInsets.all(6),
+    constraints: const BoxConstraints(minWidth: 46, minHeight: 44),
+    onPressed: onPressed,
+    icon: Icon(
+      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+      color: Colors.white,
+      size: 28,
+    ),
+  );
+}
+
+/// Icône Night Focus de la footerbar : l'icône et la couleur changent selon
+/// l'état ON/OFF du maître (toggle direct, sans ouvrir de sous-menu).
+Widget _fbNightFocus({
+  required VoidCallback onPressed,
+  required WidgetRef ref,
+}) {
+  final enabled = ref.watch(
+    advancedSettingsProvider.select((s) => s.nightFocusEnabled),
+  );
+  return IconButton(
+    tooltip: enabled ? 'Night Focus (activé)' : 'Night Focus (désactivé)',
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    onPressed: onPressed,
+    icon: Icon(
+      enabled ? Icons.nightlight_round : Icons.nightlight_outlined,
+      color: enabled ? const Color(0xFFFFC107) : Colors.white70,
+      size: 22,
+    ),
+  );
+}
+
+/// Petit badge numéro de chaîne / étiquette genre (#num ou chip métadonnée).
+class _ChannelBadge extends StatelessWidget {
+  const _ChannelBadge({
+    required this.label,
+    this.color = const Color(0xFF4FC3F7),
   });
 
-  final Channel channel;
-  final VoidCallback? onClose;
-  final VoidCallback? onAudioControls;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// Barre de progression du programme EPG en cours : (now - start)/(end - start).
+class _LiveProgressBar extends StatelessWidget {
+  const _LiveProgressBar({required this.program});
+
+  final EPGProgram program;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final totalMs = program.end.difference(program.start).inMilliseconds;
+    var ratio = 0.0;
+    if (totalMs > 0) {
+      ratio = now.difference(program.start).inMilliseconds / totalMs;
+    }
+    ratio = ratio.clamp(0.0, 1.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(3),
+      child: LinearProgressIndicator(
+        value: ratio,
+        minHeight: 4,
+        backgroundColor: Colors.white.withValues(alpha: 0.16),
+        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4FC3F7)),
+      ),
+    );
+  }
+}
+
+/// Rangée replay10 / play-pause / avance utilisée pour Replay et VOD/Séries.
+class _SeekActionsRow extends StatelessWidget {
+  const _SeekActionsRow({
+    required this.isPlaying,
+    required this.onSeekBack,
+    required this.onSeekForward,
+    required this.onTogglePlayPause,
+    this.forwardIcon = Icons.forward_30,
+    this.forwardLabel = 'Avancer 30s',
+  });
+
+  final bool isPlaying;
+  final VoidCallback onSeekBack;
+  final VoidCallback onSeekForward;
+  final VoidCallback onTogglePlayPause;
+  final IconData forwardIcon;
+  final String forwardLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _fbIcon(Icons.replay_10, onSeekBack, tooltip: 'Reculer 10s'),
+        const SizedBox(width: 10),
+        _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+        const SizedBox(width: 10),
+        _fbIcon(forwardIcon, onSeekForward, tooltip: forwardLabel),
+      ],
+    );
+  }
+}
+
+/// Footerbar Live / Replay : nom de chaîne + #numéro + EPG (titre/horaires
+/// + progression du programme) puis actions (zapping, pause/play, seek si
+/// replay, volume-zap, menu, Night Focus, favori, retour) puis hints TV.
+class _LiveFooterBar extends ConsumerWidget {
+  const _LiveFooterBar({
+    required this.channel,
+    required this.fallbackTitle,
+    this.subtitle,
+    this.controller,
+    required this.index,
+    required this.total,
+    required this.volumeToZap,
+    required this.isPlaying,
+    required this.showSeek,
+    this.favoriteEntry,
+    required this.onExit,
+    this.onPrevious,
+    this.onNext,
+    required this.onTogglePlayPause,
+    this.onSeekBack,
+    this.onSeekForward,
+    required this.onToggleVolumeZap,
+    required this.controlsMenu,
+    required this.onToggleNightFocus,
+  });
+
+  final Channel? channel;
+  final String fallbackTitle;
+  final String? subtitle;
+  final VideoPlayerController? controller;
+  final int index;
+  final int total;
+  final bool volumeToZap;
+  final bool isPlaying;
+  final bool showSeek;
+  final FavoriteEntry? favoriteEntry;
+  final VoidCallback onExit;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final VoidCallback onTogglePlayPause;
+  final VoidCallback? onSeekBack;
+  final VoidCallback? onSeekForward;
+  final VoidCallback onToggleVolumeZap;
+  final _FooterControlsMenu controlsMenu;
+  final VoidCallback onToggleNightFocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final epgAsync = ref.watch(channelEpgProvider(channel.epgChannelId));
-    final (nowProgram, nextProgram) = _nowAndNext(epgAsync.value ?? const []);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.72),
-                Colors.black.withValues(alpha: 0.28),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+    final scheme = Theme.of(context).colorScheme;
+    final currentChannel = channel;
+    final epgAsync = currentChannel != null
+        ? ref.watch(channelEpgProvider(currentChannel.epgChannelId))
+        : null;
+    final (nowProgram, nextProgram) = currentChannel != null && epgAsync != null
+        ? _nowAndNext(epgAsync.value ?? const [])
+        : (null, null);
+    final channelName = currentChannel?.name ?? fallbackTitle;
+    final canZap = total > 1;
+    final hints = <String>[
+      if (canZap) '▲▼ chaîne',
+      if (volumeToZap) 'volume = chaîne',
+      'OK pause',
+      if (showSeek) '← → 10s',
+      '← Retour',
+    ].join(' · ');
+    final player = controller;
+    final hasEpg =
+        currentChannel != null && (nowProgram != null || nextProgram != null);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            if (currentChannel != null)
+              _ChannelBadge(
+                label:
+                    '#${currentChannel.orderNum > 0 ? currentChannel.orderNum : index + 1}',
+              ),
+            if (currentChannel != null) const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    channelName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      channel.name,
+                      subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    if (epgAsync.isLoading && nowProgram == null)
-                      Text(
-                        'Programme en cours de chargement…',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: Colors.white70,
-                        ),
-                      )
-                    else
-                      _EpgRow(now: nowProgram, next: nextProgram),
                   ],
-                ),
+                ],
               ),
-              IconButton(
-                tooltip: 'Réglages audio & sync',
-                onPressed: onAudioControls,
-                icon: const Icon(
-                  Icons.nightlight_round,
-                  color: Colors.white70,
-                  size: 20,
-                ),
+            ),
+            if (canZap)
+              Text(
+                '${index + 1} / $total',
+                style: const TextStyle(color: Colors.white60, fontSize: 11.5),
               ),
-              IconButton(
-                tooltip: 'Masquer les infos',
-                onPressed: onClose,
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: Colors.white70,
-                  size: 20,
-                ),
+          ],
+        ),
+        if (hasEpg) ...[
+          const SizedBox(height: 8),
+          _EpgRow(now: nowProgram, next: nextProgram),
+          if (nowProgram != null) ...[
+            const SizedBox(height: 8),
+            _LiveProgressBar(program: nowProgram),
+          ],
+        ] else if (currentChannel != null &&
+            epgAsync != null &&
+            epgAsync.isLoading) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Programme en cours de chargement…',
+            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+          ),
+        ] else if (showSeek && player != null) ...[
+          const SizedBox(height: 8),
+          VideoProgressIndicator(
+            player,
+            allowScrubbing: true,
+            colors: const VideoProgressColors(
+              playedColor: Colors.white,
+              bufferedColor: Colors.white30,
+              backgroundColor: Colors.white24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _SeekActionsRow(
+            isPlaying: isPlaying,
+            onSeekBack: onSeekBack!,
+            onSeekForward: onSeekForward!,
+            onTogglePlayPause: onTogglePlayPause,
+            forwardIcon: Icons.forward_10,
+            forwardLabel: 'Avancer 10s',
+          ),
+        ],
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+            if (favoriteEntry != null)
+              FavoriteToggle.overlay(entry: favoriteEntry!),
+            const Spacer(),
+            if (canZap) ...[
+              _fbIcon(
+                volumeToZap ? Icons.tap_and_play : Icons.volume_up,
+                onToggleVolumeZap,
+                tooltip: volumeToZap
+                    ? 'Volume normal'
+                    : 'Changer de chaîne avec le volume',
+                color: volumeToZap ? scheme.primary : Colors.white,
               ),
             ],
+            if (onPrevious != null)
+              _fbIcon(
+                Icons.skip_previous_rounded,
+                onPrevious,
+                tooltip: 'Chaîne précédente',
+              ),
+            if (showSeek) ...[
+              _fbIcon(
+                Icons.replay_10,
+                onSeekBack,
+                tooltip: 'Reculer 10s',
+                color: Colors.white,
+              ),
+            ],
+            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+            if (showSeek) ...[
+              _fbIcon(
+                Icons.forward_10,
+                onSeekForward,
+                tooltip: 'Avancer 10s',
+                color: Colors.white,
+              ),
+            ],
+            if (onNext != null)
+              _fbIcon(
+                Icons.skip_next_rounded,
+                onNext,
+                tooltip: 'Chaîne suivante',
+              ),
+            const SizedBox(width: 4),
+            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            controlsMenu,
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          hints,
+          style: const TextStyle(color: Colors.white60, fontSize: 10.5),
+        ),
+      ],
+    );
+  }
+}
+
+/// Footerbar VOD / Séries : titre + note ★ + genre (+ épisode) puis barre de
+/// progression de lecture + replay10/play/ff30, puis menu / Night Focus et
+/// hints TV.
+class _VodFooterBar extends ConsumerWidget {
+  const _VodFooterBar({
+    required this.controller,
+    required this.title,
+    this.rating,
+    this.genre,
+    this.subtitle,
+    this.seriesName,
+    this.episodeLabel,
+    required this.isPlaying,
+    this.favoriteEntry,
+    required this.onExit,
+    required this.onTogglePlayPause,
+    required this.onSeekBack,
+    required this.onSeekForward,
+    required this.controlsMenu,
+    required this.onToggleNightFocus,
+  });
+
+  final VideoPlayerController controller;
+  final String title;
+  final double? rating;
+  final String? genre;
+  final String? subtitle;
+  final String? seriesName;
+  final String? episodeLabel;
+  final bool isPlaying;
+  final FavoriteEntry? favoriteEntry;
+  final VoidCallback onExit;
+  final VoidCallback onTogglePlayPause;
+  final VoidCallback onSeekBack;
+  final VoidCallback onSeekForward;
+  final _FooterControlsMenu controlsMenu;
+  final VoidCallback onToggleNightFocus;
+
+  String? get _subLine {
+    if (seriesName != null && episodeLabel != null) {
+      return '$seriesName · $episodeLabel';
+    }
+    return episodeLabel ??
+        (subtitle != null && subtitle!.isNotEmpty ? subtitle : null);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final showRating = rating != null && rating! > 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (_subLine != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _subLine!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (showRating) ...[
+              const Icon(Icons.star_rounded,
+                  size: 16, color: Color(0xFFFFC107)),
+              const SizedBox(width: 4),
+              Text(
+                rating!.toStringAsFixed(1),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+            if (genre != null && genre!.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _ChannelBadge(label: genre!, color: scheme.tertiary),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        VideoProgressIndicator(
+          controller,
+          allowScrubbing: true,
+          colors: const VideoProgressColors(
+            playedColor: Colors.white,
+            bufferedColor: Colors.white30,
+            backgroundColor: Colors.white24,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        _SeekActionsRow(
+          isPlaying: isPlaying,
+          onSeekBack: onSeekBack,
+          onSeekForward: onSeekForward,
+          onTogglePlayPause: onTogglePlayPause,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+            if (favoriteEntry != null)
+              FavoriteToggle.overlay(entry: favoriteEntry!),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'OK pause · ← → 10/30s · ← Retour',
+                style: TextStyle(color: Colors.white60, fontSize: 10.5),
+              ),
+            ),
+            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            controlsMenu,
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+enum _FooterMenuAction { audioSync, nightFocus, playerEngine, settings }
+
+/// Ligne d'une entrée du menu contextuel (icône + libellé).
+class _FbMenuItem extends StatelessWidget {
+  const _FbMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon,
+            size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
+    );
+  }
+}
+
+/// Menu contextuel de la footerbar (icône ⚙️) : Réglages audio & sync,
+/// Night Focus (toggle), Qualité & lecteur, Réglages.
+///
+/// Tant que le popup est ouvert on gèle le timer d'auto-masquage (via
+/// [onOpened]) et on le relance à la fermeture ([onClosed]).
+class _FooterControlsMenu extends ConsumerWidget {
+  const _FooterControlsMenu({
+    required this.onOpened,
+    required this.onClosed,
+    required this.onAudioControls,
+    required this.onPlayerEngine,
+    required this.onToggleNightFocus,
+    required this.onSettings,
+  });
+
+  final VoidCallback onOpened;
+  final VoidCallback onClosed;
+  final VoidCallback onAudioControls;
+  final VoidCallback onPlayerEngine;
+  final VoidCallback onToggleNightFocus;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final nfEnabled = ref.watch(
+      advancedSettingsProvider.select((s) => s.nightFocusEnabled),
+    );
+    return PopupMenuButton<_FooterMenuAction>(
+      tooltip: 'Menu',
+      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
+      onOpened: onOpened,
+      onCanceled: onClosed,
+      onSelected: (action) {
+        onClosed();
+        switch (action) {
+          case _FooterMenuAction.audioSync:
+            onAudioControls();
+          case _FooterMenuAction.nightFocus:
+            onToggleNightFocus();
+          case _FooterMenuAction.playerEngine:
+            onPlayerEngine();
+          case _FooterMenuAction.settings:
+            onSettings();
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _FooterMenuAction.audioSync,
+          child: _FbMenuItem(
+            icon: Icons.tune_rounded,
+            label: 'Réglages audio & sync',
+          ),
+        ),
+        CheckedPopupMenuItem(
+          value: _FooterMenuAction.nightFocus,
+          checked: nfEnabled,
+          child: const _FbMenuItem(
+            icon: Icons.nightlight_round,
+            label: 'Night Focus',
+          ),
+        ),
+        const PopupMenuItem(
+          value: _FooterMenuAction.playerEngine,
+          child: _FbMenuItem(
+            icon: Icons.hd_rounded,
+            label: 'Qualité & lecteur',
+          ),
+        ),
+        const PopupMenuItem(
+          value: _FooterMenuAction.settings,
+          child: _FbMenuItem(
+            icon: Icons.settings_outlined,
+            label: 'Réglages',
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1180,10 +1957,17 @@ class _EpgRow extends StatelessWidget {
 String _fmt(DateTime time) => DateFormat('HH:mm').format(time);
 
 class _ReadyPlayer extends ConsumerStatefulWidget {
-  const _ReadyPlayer({required this.controller, required this.onTap});
+  const _ReadyPlayer({
+    required this.controller,
+    required this.onTap,
+    required this.streamUrl,
+    required this.onRetry,
+  });
 
   final VideoPlayerController controller;
   final VoidCallback onTap;
+  final String streamUrl;
+  final VoidCallback onRetry;
 
   @override
   ConsumerState<_ReadyPlayer> createState() => _ReadyPlayerState();
@@ -1191,20 +1975,16 @@ class _ReadyPlayer extends ConsumerStatefulWidget {
 
 class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
   bool _showBuffering = false;
-  bool _showHardwareControls = false;
-  Timer? _hideControlsTimer;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onPlayerStateChanged);
-    _startHideControlsTimer();
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onPlayerStateChanged);
-    _hideControlsTimer?.cancel();
     super.dispose();
   }
 
@@ -1216,38 +1996,20 @@ class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
     }
   }
 
-  void _startHideControlsTimer() {
-    _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted && _showHardwareControls) {
-        setState(() => _showHardwareControls = false);
-      }
-    });
-  }
-
-  void _showControls() {
-    if (!_showHardwareControls) {
-      setState(() => _showHardwareControls = true);
-    }
-    _startHideControlsTimer();
-  }
-
   void _togglePlayPause() {
     if (widget.controller.value.isPlaying) {
       widget.controller.pause();
     } else {
       widget.controller.play();
     }
-    _showControls();
+    widget.onTap();
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showControls(),
+      onTap: widget.onTap,
       onDoubleTap: _togglePlayPause,
-      onLongPress: () =>
-          setState(() => _showHardwareControls = !_showHardwareControls),
       child: AppCard(
         padding: EdgeInsets.zero,
         child: ClipRRect(
@@ -1270,68 +2032,11 @@ class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
                     ),
                   ),
                 ),
-              // Hardware controls overlay
-              if (_showHardwareControls)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // Progress bar
-                      VideoProgressIndicator(widget.controller,
-                          allowScrubbing: true),
-                      // Control buttons
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton.filledTonal(
-                                onPressed: () => widget.controller.seekTo(
-                                  widget.controller.value.position -
-                                      const Duration(seconds: 10),
-                                ),
-                                icon: const Icon(Icons.replay_10,
-                                    color: Colors.white),
-                                tooltip: 'Reculer 10s',
-                              ),
-                              IconButton.filledTonal(
-                                onPressed: () {
-                                  if (widget.controller.value.isPlaying) {
-                                    widget.controller.pause();
-                                  } else {
-                                    widget.controller.play();
-                                  }
-                                },
-                                icon: Icon(
-                                  widget.controller.value.isPlaying
-                                      ? Icons.pause
-                                      : Icons.play_arrow,
-                                  color: Colors.white,
-                                  size: 36,
-                                ),
-                                tooltip: widget.controller.value.isPlaying
-                                    ? 'Pause'
-                                    : 'Lecture',
-                              ),
-                              IconButton.filledTonal(
-                                onPressed: () => widget.controller.seekTo(
-                                  widget.controller.value.position +
-                                      const Duration(seconds: 30),
-                                ),
-                                icon: const Icon(Icons.forward_30,
-                                    color: Colors.white),
-                                tooltip: 'Avancer 30s',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Monitoring overlay (réseau, stall, cooldown)
+              PlayerMonitoringOverlay(
+                streamUrl: widget.streamUrl,
+                onRetry: widget.onRetry,
+              ),
             ],
           ),
         ),

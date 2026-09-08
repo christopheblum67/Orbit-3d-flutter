@@ -17,10 +17,12 @@ class ConstellationDualScreenView extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ConstellationDualScreenView> createState() => _ConstellationDualScreenViewState();
+  State<ConstellationDualScreenView> createState() =>
+      _ConstellationDualScreenViewState();
 }
 
-class _ConstellationDualScreenViewState extends State<ConstellationDualScreenView> {
+class _ConstellationDualScreenViewState
+    extends State<ConstellationDualScreenView> {
   int _focusedPlayer = 0;
   DualScreenLayout _layout = DualScreenLayout.splitEqual;
 
@@ -34,13 +36,17 @@ class _ConstellationDualScreenViewState extends State<ConstellationDualScreenVie
           Row(
             children: [
               Expanded(
-                flex: (_layout == DualScreenLayout.mainWithPip && _focusedPlayer == 1) ? 1 : 2,
+                flex: (_layout == DualScreenLayout.mainWithPip &&
+                        _focusedPlayer == 1)
+                    ? 1
+                    : 2,
                 child: _buildPlayerSlot(
                   index: 0,
                   title: widget.primaryTitle ?? 'Flux Principal',
                   isFocused: _focusedPlayer == 0,
                   isMain: _layout == DualScreenLayout.splitEqual ||
-                      (_layout == DualScreenLayout.mainWithPip && _focusedPlayer == 0),
+                      (_layout == DualScreenLayout.mainWithPip &&
+                          _focusedPlayer == 0),
                 ),
               ),
               Expanded(
@@ -49,7 +55,8 @@ class _ConstellationDualScreenViewState extends State<ConstellationDualScreenVie
                   index: 1,
                   title: widget.secondaryTitle ?? 'Flux Secondaire',
                   isFocused: _focusedPlayer == 1,
-                  isMain: _layout == DualScreenLayout.mainWithPip && _focusedPlayer == 1,
+                  isMain: _layout == DualScreenLayout.mainWithPip &&
+                      _focusedPlayer == 1,
                 ),
               ),
             ],
@@ -142,7 +149,8 @@ class _ConstellationDualScreenViewState extends State<ConstellationDualScreenVie
                 top: 8,
                 right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF8B5CF6),
                     borderRadius: BorderRadius.circular(12),
@@ -206,10 +214,22 @@ class _ConstellationDualScreenViewState extends State<ConstellationDualScreenVie
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _controlButton(Icons.volume_up, 'Audio 1', () => setState(() => _focusedPlayer = 0)),
-            _controlButton(Icons.volume_off, 'Audio 2', () => setState(() => _focusedPlayer = 1)),
-            _controlButton(Icons.swap_horiz, 'Swap', () => setState(() => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0)),
-            _controlButton(Icons.aspect_ratio, 'Layout', () => setState(() => _layout = _layout == DualScreenLayout.splitEqual ? DualScreenLayout.mainWithPip : DualScreenLayout.splitEqual)),
+            _controlButton(Icons.volume_up, 'Audio 1',
+                () => setState(() => _focusedPlayer = 0)),
+            _controlButton(Icons.volume_off, 'Audio 2',
+                () => setState(() => _focusedPlayer = 1)),
+            _controlButton(
+                Icons.swap_horiz,
+                'Swap',
+                () => setState(
+                    () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0)),
+            _controlButton(
+                Icons.aspect_ratio,
+                'Layout',
+                () => setState(() => _layout =
+                    _layout == DualScreenLayout.splitEqual
+                        ? DualScreenLayout.mainWithPip
+                        : DualScreenLayout.splitEqual)),
             _controlButton(Icons.fullscreen, 'Plein écran', () {}),
           ],
         ),
@@ -234,7 +254,8 @@ class _ConstellationDualScreenViewState extends State<ConstellationDualScreenVie
           ),
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(label,
+            style: const TextStyle(color: Colors.white54, fontSize: 10)),
       ],
     );
   }

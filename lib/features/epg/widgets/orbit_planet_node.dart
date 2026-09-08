@@ -61,7 +61,8 @@ class OrbitPlanetNode extends StatelessWidget {
                         : null,
                     child: planet.logoUrl.isEmpty
                         ? Text(
-                            planet.name.substring(0, math.min(3, planet.name.length)),
+                            planet.name
+                                .substring(0, math.min(3, planet.name.length)),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,

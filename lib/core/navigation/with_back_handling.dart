@@ -1,6 +1,6 @@
 /// Wraps a route's content with [PopScope] and [RestorationScope]
 /// driven by [RouteMeta] and optional [restorationId].
-/// 
+///
 /// Place inside a [GoRoute.pageBuilder] → `MaterialPage(child: WithBackHandling(...))`.
 library;
 

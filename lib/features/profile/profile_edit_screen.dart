@@ -472,7 +472,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           const SizedBox(height: 4),
           Text(
             'La tranche d\'âge sert aux réglages du profil',
-            style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            style:
+                textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -516,7 +517,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           const SizedBox(height: 4),
           Text(
             'Choisissez un ou plusieurs styles pour les recommandations',
-            style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            style:
+                textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const SizedBox(height: 12),
           Wrap(

@@ -5,10 +5,9 @@ import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('affiche les 5 onglets de la config avancée', (tester) async {
+  testWidgets('affiche les 4 onglets de la config avancée', (tester) async {
     SharedPreferences.setMockInitialValues({
       'tls_impersonation': true,
-      'custom_dns': true,
     });
 
     await tester.pumpWidget(
@@ -18,12 +17,11 @@ void main() {
     );
     await tester.pump();
 
-    // TabBar présent avec les 5 libellés.
+    // TabBar présent avec les 4 libellés.
     expect(find.text('Réseau'), findsOneWidget);
     expect(find.text('Lecteur'), findsOneWidget);
     expect(find.text('Sécurité'), findsOneWidget);
-    expect(find.text('Ergonomie'), findsOneWidget);
-    expect(find.text('IA'), findsOneWidget);
+    expect(find.text('Audio'), findsOneWidget);
   });
 
   testWidgets('bascule et rend une option de l\'onglet initial', (tester) async {

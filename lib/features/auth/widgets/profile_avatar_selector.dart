@@ -51,7 +51,9 @@ class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
 
   List<AvatarItem> get _filteredAvatars {
     if (_selectedCategory == 'Tous') return widget.avatars;
-    return widget.avatars.where((a) => a.category == _selectedCategory).toList();
+    return widget.avatars
+        .where((a) => a.category == _selectedCategory)
+        .toList();
   }
 
   @override
@@ -174,8 +176,11 @@ class _CategoryChipTVState extends State<CategoryChipTV> {
             child: Text(
               widget.label,
               style: TextStyle(
-                color: (widget.isSelected || _isFocused) ? Colors.white : Colors.white54,
-                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
+                color: (widget.isSelected || _isFocused)
+                    ? Colors.white
+                    : Colors.white54,
+                fontWeight:
+                    widget.isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 13,
               ),
             ),
@@ -255,7 +260,9 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               border: Border.all(
                 color: _isFocused
                     ? const Color(0xFF8B5CF6)
-                    : (widget.isCurrentSelection ? Colors.amber : Colors.white10),
+                    : (widget.isCurrentSelection
+                        ? Colors.amber
+                        : Colors.white10),
                 width: _isFocused ? 3 : (widget.isCurrentSelection ? 2 : 1),
               ),
               boxShadow: _isFocused
@@ -280,7 +287,8 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(20.0), // Plus d'espace pour l'image
+                    padding: const EdgeInsets.all(
+                        20.0), // Plus d'espace pour l'image
                     child: widget.avatar.assetPath.isNotEmpty
                         ? Image.asset(
                             widget.avatar.assetPath,
@@ -296,7 +304,8 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
                   style: TextStyle(
                     color: _isFocused ? Colors.white : Colors.white70,
                     fontSize: 13,
-                    fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        _isFocused ? FontWeight.bold : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

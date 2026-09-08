@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
@@ -10,9 +11,17 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Préférences')),
-      body: ListView(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && context.mounted) {
+          final router = GoRouter.of(context);
+          if (router.canPop()) router.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Préférences')),
+        body: ListView(
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined),
@@ -77,6 +86,24 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             },
           ),
           const Divider(height: 1),
+          SwitchListTile(
+            secondary: const Icon(Icons.visibility_outlined),
+            title: const Text('Profil visible'),
+            subtitle:
+                const Text('Apparaître dans les recherches et recommandations'),
+            value: prefs.profileVisible,
+            onChanged: (v) => notifier.setProfileVisible(v),
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            secondary: const Icon(Icons.video_camera_back_outlined),
+            title: const Text('Autoriser l\'enregistrement'),
+            subtitle: const Text(
+                'Permettre l\'enregistrement de mes contenus favoris'),
+            value: prefs.allowRecording,
+            onChanged: (v) => notifier.setAllowRecording(v),
+          ),
+          const Divider(height: 1),
           const SizedBox(height: 24),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -86,9 +113,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
-          ),
+),
         ],
       ),
+    ),
     );
   }
 
@@ -149,8 +177,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                   child: const Text('Annuler'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(context,
-                      (enabled: enabled, ageRestriction: ageRestriction),),
+                  onPressed: () => Navigator.pop(
+                    context,
+                    (enabled: enabled, ageRestriction: ageRestriction),
+                  ),
                   child: const Text('Valider'),
                 ),
               ],

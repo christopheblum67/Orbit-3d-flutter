@@ -82,8 +82,7 @@ class _FocusableCategoryTile extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_FocusableCategoryTile> createState() =>
-      _FocusableCategoryTileState();
+  State<_FocusableCategoryTile> createState() => _FocusableCategoryTileState();
 }
 
 class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
@@ -144,9 +143,7 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: showRing
-                  ? scheme.primary
-                  : Colors.transparent,
+              color: showRing ? scheme.primary : Colors.transparent,
               width: _hasFocus ? 2.5 : 1.5,
             ),
             boxShadow: _hasFocus

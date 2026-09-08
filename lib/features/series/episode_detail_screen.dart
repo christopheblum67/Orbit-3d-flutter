@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
@@ -34,6 +36,15 @@ class EpisodeDetailScreen extends ConsumerWidget {
     return '$number — $title';
   }
 
+  FavoriteEntry get _favoriteEntry => FavoriteEntry(
+        type: ContentType.series,
+        id: series.id,
+        title: series.title,
+        posterUrl: series.coverUrl,
+        subtitle: series.genre,
+        streamUrl: episode.streamUrl,
+      );
+
   void _openPlayer(BuildContext context, WidgetRef ref, {int? positionMs}) {
     if (episode.streamUrl.isEmpty) return;
     context.push(
@@ -44,6 +55,14 @@ class EpisodeDetailScreen extends ConsumerWidget {
         progressId: _progressId,
         initialPositionMs: positionMs,
         contentType: PlaybackContentType.series,
+        posterUrl: series.coverUrl,
+        subtitle: series.genre,
+        rating: series.rating > 0 ? series.rating : null,
+        genre: series.genre.isNotEmpty ? series.genre : null,
+        year: series.year,
+        seriesName: series.title,
+        episodeLabel: _label,
+        favorite: _favoriteEntry,
       ),
     );
   }
@@ -55,7 +74,10 @@ class EpisodeDetailScreen extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Épisode')),
+      appBar: AppBar(
+        title: const Text('Épisode'),
+        actions: [FavoriteToggle(entry: _favoriteEntry)],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -136,8 +158,11 @@ class EpisodeDetailScreen extends ConsumerWidget {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: hasProgress && episode.streamUrl.isNotEmpty
-                        ? () => _openPlayer(context, ref,
-                            positionMs: progress!.positionMs,)
+                        ? () => _openPlayer(
+                              context,
+                              ref,
+                              positionMs: progress!.positionMs,
+                            )
                         : null,
                     icon: const Icon(Icons.replay_rounded),
                     label: const Text('Reprendre'),
@@ -148,9 +173,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            if (hasProgress &&
-                progress != null &&
-                progress.durationMs > 0) ...[
+            if (hasProgress && progress != null && progress.durationMs > 0) ...[
               const SizedBox(height: 16),
               LinearProgressIndicator(value: progress.fraction),
               const SizedBox(height: 8),

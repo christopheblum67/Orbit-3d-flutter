@@ -1,5 +1,5 @@
 /// Navigation back behavior metadata attached to routes.
-/// 
+///
 /// Centralizes the "what happens on back" decision in the route definition,
 /// not in widgets. Read via [GoRouterState.meta] or [RouteMetaX].
 library;
@@ -43,21 +43,23 @@ class RouteMeta {
 
   /// Standard pop behavior.
   const RouteMeta.pop({this.restorationId})
-    : type = BackBehaviorType.pop,
-      fallback = null,
-      customHandler = null;
+      : type = BackBehaviorType.pop,
+        fallback = null,
+        customHandler = null;
 
   /// Pop if possible, otherwise go to [fallback].
   const RouteMeta.popOrFallback(String fallback, {this.restorationId})
-    : type = BackBehaviorType.popOrFallback,
-      fallback = fallback,
-      customHandler = null;
+      : type = BackBehaviorType.popOrFallback,
+        fallback = fallback,
+        customHandler = null;
 
   /// Custom back handling.
-  const RouteMeta.custom(void Function(BuildContext context, GoRouter router) handler, {this.restorationId})
-    : type = BackBehaviorType.custom,
-      fallback = null,
-      customHandler = handler;
+  const RouteMeta.custom(
+      void Function(BuildContext context, GoRouter router) handler,
+      {this.restorationId})
+      : type = BackBehaviorType.custom,
+        fallback = null,
+        customHandler = handler;
 }
 
 /// Typed accessors on [GoRouterState] for route metadata.
@@ -72,7 +74,8 @@ extension RouteMetaX on GoRouterState {
   String? get fallback => meta?.fallback;
 
   /// The custom handler, if any.
-  void Function(BuildContext context, GoRouter router)? get customHandler => meta?.customHandler;
+  void Function(BuildContext context, GoRouter router)? get customHandler =>
+      meta?.customHandler;
 
   /// The restoration ID for this route, if any.
   String? get restorationId => meta?.restorationId;

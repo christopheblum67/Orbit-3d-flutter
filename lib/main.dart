@@ -17,12 +17,14 @@ import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
+import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -56,8 +58,10 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/multivideo/multivideo_screen.dart';
 import 'package:orbit_3d_flutter/features/favorites/favorites_screen.dart';
 import 'package:orbit_3d_flutter/features/history/history_screen.dart';
+import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
+import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,6 +91,8 @@ Future<void> main() async {
   await favoritesService.init();
   final historyService = HistoryService();
   await historyService.init();
+  final recentlyWatchedService = RecentlyWatchedService();
+  await recentlyWatchedService.init();
   final playbackProgressService = PlaybackProgressService();
   await playbackProgressService.init();
   final notificationService = NotificationService();
@@ -117,6 +123,8 @@ Future<void> main() async {
         storageServiceProvider.overrideWithValue(storageService),
         favoritesServiceProvider.overrideWithValue(favoritesService),
         historyServiceProvider.overrideWithValue(historyService),
+        recentlyWatchedServiceProvider
+            .overrideWithValue(recentlyWatchedService),
         playbackProgressServiceProvider
             .overrideWithValue(playbackProgressService),
         notificationServiceProvider.overrideWithValue(notificationService),
@@ -163,15 +171,8 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profile/edit/:id',
-      pageBuilder: (context, state) => MaterialPage(
-        key: state.pageKey,
-        restorationId: 'profile_edit',
-        child: WithBackHandling(
-          meta: RouteMeta.popOrFallback('/home', restorationId: 'profile_edit'),
-          child: ProfileEditScreen(
-            profileId: state.pathParameters['id'],
-          ),
-        ),
+      builder: (context, state) => ProfileEditScreen(
+        profileId: state.pathParameters['id'],
       ),
     ),
     GoRoute(
@@ -197,83 +198,187 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/player',
+      pageBuilder: (context, state) {
+        final playerKey = GlobalKey<PlayerScreenState>();
+        return MaterialPage(
+          key: state.pageKey,
+          restorationId: 'player',
+          child: WithBackHandling(
+            meta: RouteMeta.custom(
+              (context, router) {
+                final playerState = playerKey.currentState;
+                if (playerState != null) {
+                  playerState.cleanup();
+                }
+                if (router.canPop()) {
+                  router.pop();
+                } else {
+                  router.go('/home');
+                }
+              },
+              restorationId: 'player',
+            ),
+            child: () {
+              final data = state.extra;
+              if (data is PlayerRouteData) {
+                return PlayerScreen(
+                  key: playerKey,
+                  streamUrl: data.streamUrl,
+                  title: data.title,
+                  channels: data.channels,
+                  initialIndex: data.index,
+                  progressId: data.progressId,
+                  initialPositionMs: data.initialPositionMs,
+                  contentType: data.contentType,
+                  favorite: data.favorite,
+                  posterUrl: data.posterUrl,
+                  subtitle: data.subtitle,
+                  rating: data.rating,
+                  genre: data.genre,
+                  year: data.year,
+                  seriesName: data.seriesName,
+                  episodeLabel: data.episodeLabel,
+                );
+              }
+              final url = state.uri.queryParameters['url'] ?? '';
+              final title = state.uri.queryParameters['title'] ?? 'Lecture';
+              final progressId = state.uri.queryParameters['progressId'];
+              final initialPos =
+                  int.tryParse(state.uri.queryParameters['pos'] ?? '');
+              final contentType = switch (state.uri.queryParameters['type']) {
+                'vod' => PlaybackContentType.vod,
+                'series' => PlaybackContentType.series,
+                'replay' => PlaybackContentType.replay,
+                _ => PlaybackContentType.live,
+              };
+              final typeParam = state.uri.queryParameters['type'] ?? '';
+              final queryPoster = state.uri.queryParameters['poster'];
+              final querySubtitle = state.uri.queryParameters['subtitle'];
+              final queryGenre = state.uri.queryParameters['genre'];
+              final queryYear =
+                  int.tryParse(state.uri.queryParameters['year'] ?? '') ?? 0;
+              final queryRating =
+                  double.tryParse(state.uri.queryParameters['rating'] ?? '');
+              final queryFavorite = (url.isNotEmpty && typeParam.isNotEmpty)
+                  ? FavoriteEntry(
+                      type: ContentType.fromString(typeParam),
+                      id: url,
+                      title: title,
+                      posterUrl: queryPoster ?? '',
+                      subtitle: querySubtitle ?? '',
+                      streamUrl: url,
+                    )
+                  : null;
+              return PlayerScreen(
+                key: playerKey,
+                streamUrl: url,
+                title: title,
+                progressId: progressId,
+                initialPositionMs: initialPos,
+                contentType: contentType,
+                favorite: queryFavorite,
+                posterUrl: queryPoster,
+                subtitle: querySubtitle,
+                genre: queryGenre,
+                year: queryYear,
+                rating: queryRating,
+              );
+            }(),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/multivideo',
+      pageBuilder: (context, state) {
+        final multiVideoKey = GlobalKey<MultiVideoScreenState>();
+        return MaterialPage(
+          key: state.pageKey,
+          restorationId: 'multivideo',
+          child: WithBackHandling(
+            meta: RouteMeta.custom(
+              (context, router) {
+                final state = multiVideoKey.currentState;
+                if (state != null) {
+                  state.disposeAllControllers();
+                }
+                if (router.canPop()) router.pop();
+              },
+              restorationId: 'multivideo',
+            ),
+            child: MultiVideoScreen(key: multiVideoKey),
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/vod/detail',
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
-        restorationId: 'player',
+        restorationId: 'vod_detail',
         child: WithBackHandling(
-          meta: RouteMeta.pop(restorationId: 'player'),
+          meta: RouteMeta.pop(restorationId: 'vod_detail'),
           child: () {
-            final data = state.extra;
-            if (data is PlayerRouteData) {
-              return PlayerScreen(
-                streamUrl: data.streamUrl,
-                title: data.title,
-                channels: data.channels,
-                initialIndex: data.index,
-                progressId: data.progressId,
-                initialPositionMs: data.initialPositionMs,
-                contentType: data.contentType,
-              );
-            }
-            final url = state.uri.queryParameters['url'] ?? '';
-            final title = state.uri.queryParameters['title'] ?? 'Lecture';
-            final progressId = state.uri.queryParameters['progressId'];
-            final initialPos = int.tryParse(state.uri.queryParameters['pos'] ?? '');
-            final contentType = switch (state.uri.queryParameters['type']) {
-              'vod' => PlaybackContentType.vod,
-              'series' => PlaybackContentType.series,
-              'replay' => PlaybackContentType.replay,
-              _ => PlaybackContentType.live,
-            };
-            return PlayerScreen(
-              streamUrl: url,
-              title: title,
-              progressId: progressId,
-              initialPositionMs: initialPos,
-              contentType: contentType,
-            );
+            final movie = state.extra;
+            if (movie is Movie) return MovieDetailScreen(movie: movie);
+            return const Material(child: SizedBox.shrink());
           }(),
         ),
       ),
     ),
     GoRoute(
-      path: '/vod/detail',
-      builder: (context, state) {
-        final movie = state.extra;
-        if (movie is Movie) return MovieDetailScreen(movie: movie);
-        return const Material(child: SizedBox.shrink());
-      },
-    ),
-    GoRoute(
       path: '/series/detail',
-      builder: (context, state) {
-        final id = state.uri.queryParameters['id'] ?? '';
-        final title = state.uri.queryParameters['title'] ?? '';
-        return SeriesDetailScreen(seriesId: id, title: title);
-      },
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'series_detail',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'series_detail'),
+          child: SeriesDetailScreen(
+            seriesId: state.uri.queryParameters['id'] ?? '',
+            title: state.uri.queryParameters['title'] ?? '',
+          ),
+        ),
+      ),
     ),
     GoRoute(
       path: '/episode/detail',
-      builder: (context, state) {
-        final args = state.extra;
-        if (args is (Series, Episode)) {
-          final (series, episode) = args;
-          return EpisodeDetailScreen(series: series, episode: episode);
-        }
-        return const Material(child: SizedBox.shrink());
-      },
-    ),
-    GoRoute(
-      path: '/multivideo',
-      builder: (context, state) => const MultiVideoScreen(),
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'episode_detail',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'episode_detail'),
+          child: () {
+            final args = state.extra;
+            if (args is (Series, Episode)) {
+              final (series, episode) = args;
+              return EpisodeDetailScreen(series: series, episode: episode);
+            }
+            return const Material(child: SizedBox.shrink());
+          }(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/favorites',
-      builder: (context, state) => const FavoritesScreen(),
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'favorites',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'favorites'),
+          child: const FavoritesScreen(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/history',
-      builder: (context, state) => const HistoryScreen(),
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'history',
+        child: WithBackHandling(
+          meta: RouteMeta.pop(restorationId: 'history'),
+          child: const HistoryScreen(),
+        ),
+      ),
     ),
     GoRoute(
       path: '/startup',
@@ -282,48 +387,149 @@ final GoRouter router = GoRouter(
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
       routes: [
-        GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+        GoRoute(
+          path: '/home',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'home',
+            child: ConfirmExitApp(child: const HomeScreen()),
+          ),
+        ),
         GoRoute(
           path: '/live',
-          builder: (context, state) => const LiveTvScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'live',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'live'),
+              child: const LiveTvScreen(),
+            ),
+          ),
         ),
         GoRoute(
           path: '/series',
-          builder: (context, state) => const SeriesScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'series',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'series'),
+              child: const SeriesScreen(),
+            ),
+          ),
         ),
-        GoRoute(path: '/vod', builder: (context, state) => const VodScreen()),
+        GoRoute(
+          path: '/vod',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'vod',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'vod'),
+              child: const VodScreen(),
+            ),
+          ),
+        ),
         GoRoute(
           path: '/radio',
-          builder: (context, state) => const RadioScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'radio',
+            child: WithBackHandling(
+              meta: RouteMeta.custom(
+                (context, router) {
+                  final container = ProviderScope.containerOf(
+                    context,
+                    listen: false,
+                  );
+                  container.read(radioServiceProvider).stop();
+                  if (router.canPop()) router.pop();
+                },
+                restorationId: 'radio',
+              ),
+              child: const RadioScreen(),
+            ),
+          ),
         ),
         GoRoute(
           path: '/replay',
-          builder: (context, state) => const ReplayScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'replay',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'replay'),
+              child: const ReplayScreen(),
+            ),
+          ),
         ),
-        GoRoute(path: '/epg', builder: (context, state) => const EpgScreen()),
+        GoRoute(
+          path: '/epg',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'epg',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'epg'),
+              child: const EpgScreen(),
+            ),
+          ),
+        ),
         GoRoute(
           path: '/search',
-          builder: (context, state) => const SearchScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'search',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'search'),
+              child: const SearchScreen(),
+            ),
+          ),
         ),
-        GoRoute(path: '/ai', builder: (context, state) => const AiScreen()),
+        GoRoute(
+          path: '/ai',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'ai',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'ai'),
+              child: const AiScreen(),
+            ),
+          ),
+        ),
         GoRoute(
           path: '/settings',
-          builder: (context, state) => const SettingsScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'settings',
+            child: WithBackHandling(
+              meta: RouteMeta.custom(
+                (context, router) {
+                  if (router.canPop()) router.pop();
+                },
+                restorationId: 'settings',
+              ),
+              child: const SettingsScreen(),
+            ),
+          ),
         ),
-GoRoute(
-      path: '/settings/advanced',
-      pageBuilder: (context, state) => MaterialPage(
-        key: state.pageKey,
-        restorationId: 'settings_advanced',
-        child: WithBackHandling(
-          meta: RouteMeta.pop(restorationId: 'settings_advanced'),
-          child: const AdvancedSettingsScreen(),
+        GoRoute(
+          path: '/settings/advanced',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'settings_advanced',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'settings_advanced'),
+              child: const AdvancedSettingsScreen(),
+            ),
+          ),
         ),
-      ),
-    ),
         GoRoute(
           path: '/subscriptions',
-          builder: (context, state) => const SubscriptionsScreen(),
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'subscriptions',
+            child: WithBackHandling(
+              meta: RouteMeta.pop(restorationId: 'subscriptions'),
+              child: const SubscriptionsScreen(),
+            ),
+          ),
         ),
       ],
     ),
@@ -367,11 +573,7 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) {
-            final router = GoRouter.of(context);
-            // Only show exit confirmation at root (no routes can pop)
-            if (!router.canPop()) {
-              _confirmExit();
-            }
+            _confirmExit();
           }
         },
         child: child!,

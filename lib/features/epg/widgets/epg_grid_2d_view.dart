@@ -1,8 +1,20 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 
-/// Grille EPG 2D style XCIPTV avec barre temporelle synchronisée et ligne rouge "maintenant"
+/// Grille EPG 2D haute performance avec CustomPainter (canvas unique).
+///
+/// Règles anti-ANR / anti-crash :
+/// - **Aucun `setState` pendant les gestes** : hover, ligne "maintenant" et
+///   défilement horizontal repaintent via des `ValueNotifier` écoutés par le
+///   painter (`repaint:`), pas via un rebuild du widget (l'ancien code
+///   rebuildait grille + en-têtes + cache à CHAQUE `onPointerMove`, saturant
+///   le thread UI des box TV → freeze/ANR).
+/// - **Cache de rendu recalculé uniquement si les données changent**
+///   (signature channels + nombre de programmes + zoom), pas à chaque build.
+/// - **Culling** : seules les barres visibles dans le viewport sont dessinées
+///   (pas de `TextPainter` pour les programmes hors écran).
 class EpgGrid2DView extends StatefulWidget {
   final List<String> channels;
   final Map<String, List<EPGProgram>> epgData;
@@ -31,43 +43,85 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _headerController = ScrollController();
 
+  // Repaints ciblés (pas de rebuild du widget) :
+  final ValueNotifier<DateTime> _now = ValueNotifier<DateTime>(DateTime.now());
+  final ValueNotifier<Offset?> _hoverPosition = ValueNotifier<Offset?>(null);
+  final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
+
   late DateTime _gridStartTime;
   late double _pixelsPerMinute;
+
+  // Cache des programmes rendus (index par channel -> liste de _RenderProgram)
+  Map<String, List<_RenderProgram>> _renderCache = {};
+  int _dataSignature = -1;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _gridStartTime = widget.gridStartTime ??
-        DateTime(now.year, now.month, now.day, now.hour - 1); // 1h avant
+        DateTime(now.year, now.month, now.day, now.hour - 1);
     _pixelsPerMinute = widget.pixelsPerMinute;
 
+    // Mise à jour de la ligne "maintenant" sans rebuild du widget.
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
+      _now.value = DateTime.now();
     });
 
-    // Scroll auto vers "maintenant" au démarrage
+    _horizontalController.addListener(_syncHeaderPosition);
+    _horizontalController.addListener(() {
+      if (_horizontalController.hasClients) {
+        _horizontalOffset.value = _horizontalController.offset;
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToCurrentTime();
     });
   }
 
   @override
+  void didUpdateWidget(covariant EpgGrid2DView old) {
+    super.didUpdateWidget(old);
+    _pixelsPerMinute = widget.pixelsPerMinute;
+    if (widget.gridStartTime != null &&
+        widget.gridStartTime != old.gridStartTime) {
+      _gridStartTime = widget.gridStartTime!;
+    }
+    _rebuildRenderCache();
+  }
+
+  @override
   void dispose() {
     _timer.cancel();
+    _now.dispose();
+    _hoverPosition.dispose();
+    _horizontalOffset.dispose();
     _horizontalController.dispose();
     _verticalController.dispose();
     _headerController.dispose();
     super.dispose();
   }
 
+  void _syncHeaderPosition() {
+    if (_headerController.hasClients &&
+        _horizontalController.hasClients &&
+        _headerController.offset != _horizontalController.offset) {
+      _headerController.jumpTo(_horizontalController.offset);
+    }
+  }
+
   void _scrollToCurrentTime() {
-    final offset = _getOffsetForTime(DateTime.now()) - 200; // Centrer
+    final offset = _getOffsetForTime(DateTime.now()) - 120;
     if (_horizontalController.hasClients) {
-      _horizontalController.jumpTo(offset.clamp(0.0, _horizontalController.position.maxScrollExtent));
+      _horizontalController.jumpTo(
+        offset.clamp(0.0, _horizontalController.position.maxScrollExtent),
+      );
     }
     if (_headerController.hasClients) {
-      _headerController.jumpTo(offset.clamp(0.0, _headerController.position.maxScrollExtent));
+      _headerController.jumpTo(
+        offset.clamp(0.0, _headerController.position.maxScrollExtent),
+      );
     }
   }
 
@@ -76,11 +130,57 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
     return diffInMinutes * _pixelsPerMinute;
   }
 
+  /// Signature légère (O(channels)) pour détecter un changement de données
+  /// sans comparer des listes entières : suffixée par le zoom et l'origine
+  /// temporelle car ils affectent le rendu.
+  int _computeSignature() {
+    var hash = _gridStartTime.minute * 100003;
+    hash = (hash * 31 + (_pixelsPerMinute * 1000).round()) & 0x7fffffff;
+    hash = (hash * 31 + widget.channels.length) & 0x7fffffff;
+    for (final ch in widget.channels) {
+      hash = (hash * 31 + ch.hashCode) & 0x7fffffff;
+      hash = (hash * 31 + (widget.epgData[ch]?.length ?? 0)) & 0x7fffffff;
+    }
+    return hash;
+  }
+
+  /// Reconstruit le cache uniquement quand les données changent (pas à chaque
+  /// build/geste). Les positions sont fiables : les barres débutant AVANT
+  /// l'origine de la grille gardent une `left` négative (rendues via le
+  /// culling du viewport).
+  void _rebuildRenderCache() {
+    final signature = _computeSignature();
+    if (signature == _dataSignature) return;
+    _dataSignature = signature;
+
+    final cache = <String, List<_RenderProgram>>{};
+    final ppm = _pixelsPerMinute;
+    for (final ch in widget.channels) {
+      final programs = widget.epgData[ch] ?? const <EPGProgram>[];
+      cache[ch] = [
+        for (final p in programs)
+          _RenderProgram(
+            program: p,
+            left: _getOffsetForTime(p.startTime),
+            width: _clampWidth(p.durationMinutes * ppm - 2.0),
+            isLive: p.isLive,
+          ),
+      ];
+    }
+    _renderCache = cache;
+  }
+
+  static double _clampWidth(double raw) => raw < 40.0 ? 40.0 : raw;
+
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final currentTimeOffset = _getOffsetForTime(now);
-    final totalWidth = 140 + (6 * 30 * _pixelsPerMinute); // 6h par défaut
+    _rebuildRenderCache();
+
+    const totalSlots = 48;
+    final totalWidth = totalSlots * 30 * _pixelsPerMinute;
+    const rowHeight = 60.0;
+    const channelWidth = 140.0;
+    final totalHeight = widget.channels.length * rowHeight;
 
     return Container(
       color: const Color(0xFF0D0E12),
@@ -91,9 +191,8 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
             height: 40,
             child: Row(
               children: [
-                // Coin fixe (label "En Direct")
                 Container(
-                  width: 140,
+                  width: channelWidth,
                   color: const Color(0xFF16181E),
                   alignment: Alignment.center,
                   child: const Text(
@@ -105,34 +204,33 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                     ),
                   ),
                 ),
-                // Header horizontal scrollable
                 Expanded(
                   child: SingleChildScrollView(
                     controller: _headerController,
                     scrollDirection: Axis.horizontal,
                     physics: const NeverScrollableScrollPhysics(),
-                    child: Stack(
-                      children: [
-                        // Graduations temporelles
-                        Row(
-                          children: List.generate(24, (index) {
-                            final timeLabel = _gridStartTime.add(Duration(minutes: index * 30));
-                            return Container(
-                              width: 30 * _pixelsPerMinute,
-                              padding: const EdgeInsets.only(left: 8),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  left: BorderSide(color: Colors.white12),
-                                ),
-                              ),
-                              child: Text(
-                                '${timeLabel.hour.toString().padLeft(2, '0')}:${timeLabel.minute.toString().padLeft(2, '0')}',
-                                style: const TextStyle(color: Colors.white38, fontSize: 10),
-                              ),
-                            );
-                          }),
-                        ),
-                      ],
+                    child: Row(
+                      children: List.generate(totalSlots, (index) {
+                        final timeLabel =
+                            _gridStartTime.add(Duration(minutes: index * 30));
+                        return Container(
+                          width: 30 * _pixelsPerMinute,
+                          padding: const EdgeInsets.only(left: 8),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: Colors.white12),
+                            ),
+                          ),
+                          child: Text(
+                            '${timeLabel.hour.toString().padLeft(2, '0')}:'
+                            '${timeLabel.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                            ),
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ),
@@ -140,20 +238,20 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
             ),
           ),
 
-          // Grille EPG avec scroll vertical + horizontal synchronisé
+          // Grille EPG avec CustomPainter
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Colonne fixe des noms de chaînes
+                // Colonne fixe noms chaînes
                 SizedBox(
-                  width: 140,
+                  width: channelWidth,
                   child: SingleChildScrollView(
                     controller: _verticalController,
                     child: Column(
                       children: widget.channels.map((ch) {
                         return Container(
-                          height: 60,
+                          height: rowHeight,
                           color: const Color(0xFF12141C),
                           margin: const EdgeInsets.only(bottom: 2),
                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -177,96 +275,54 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                   ),
                 ),
 
-                // Grille programmes avec scroll horizontal + vertical
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _verticalController,
-                    child: SingleChildScrollView(
-                      controller: _horizontalController,
-                      scrollDirection: Axis.horizontal,
-                      child: Stack(
-                        children: [
-                          // Grille des programmes
-                          Column(
-                            children: widget.channels.map((ch) {
-                              final programs = widget.epgData[ch] ?? [];
-                              return SizedBox(
-                                height: 60,
-                                child: Stack(
-                                  children: programs.map((prog) {
-                                    final left = _getOffsetForTime(prog.startTime);
-                                    final width = (prog.durationMinutes) * _pixelsPerMinute;
-
-                                    return Positioned(
-                                      left: left,
-                                      width: (width - 2).clamp(40.0, double.infinity),
-                                      top: 2,
-                                      bottom: 2,
-                                      child: GestureDetector(
-                                        onTap: () => widget.onProgramTap?.call(prog),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: prog.isLive
-                                                ? const Color(0xFF2D224D)
-                                                : const Color(0xFF1C1F26),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: prog.isLive
-                                                  ? const Color(0xFF8B5CF6)
-                                                  : Colors.white10,
-                                            ),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                prog.title,
-                                                style: TextStyle(
-                                                  color: prog.isLive ? Colors.white : Colors.white70,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 10,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-
-                          // Barre temps réel rouge (ligne "maintenant")
-                          Positioned(
-                            left: currentTimeOffset,
-                            top: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 2,
-                              color: Colors.redAccent,
-                              child: OverflowBox(
-                                alignment: Alignment.topCenter,
-                                maxHeight: 14,
-                                maxWidth: 14,
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.redAccent,
-                                    shape: BoxShape.circle,
+                // Zone grille : repeignable ciblée, culling viewport
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewportWidth = constraints.maxWidth;
+                    return Expanded(
+                      child: SingleChildScrollView(
+                        controller: _verticalController,
+                        child: SingleChildScrollView(
+                          controller: _horizontalController,
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: totalWidth,
+                            height: totalHeight,
+                            child: Listener(
+                              onPointerMove: (event) {
+                                // Repaint ciblé uniquement (aucun rebuild).
+                                _hoverPosition.value = event.localPosition;
+                              },
+                              onPointerUp: (_) => _hoverPosition.value = null,
+                              onPointerCancel: (_) =>
+                                  _hoverPosition.value = null,
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  size: Size(totalWidth, totalHeight),
+                                  painter: _EpgGridPainter(
+                                    channels: widget.channels,
+                                    renderCache: _renderCache,
+                                    gridStartTime: _gridStartTime,
+                                    pixelsPerMinute: _pixelsPerMinute,
+                                    rowHeight: rowHeight,
+                                    channelWidth: channelWidth,
+                                    viewportWidth: viewportWidth,
+                                    horizontalOffset: _horizontalOffset,
+                                    touchPosition: _hoverPosition,
+                                    repaint: Listenable.merge([
+                                      _hoverPosition,
+                                      _now,
+                                      _horizontalOffset,
+                                    ]),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -275,9 +331,192 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
       ),
     );
   }
+}
 
-  double get currentTimeOffset {
-    final now = DateTime.now();
-    return _getOffsetForTime(now);
+/// Programme préparé pour le rendu (positions précalculées).
+class _RenderProgram {
+  final EPGProgram program;
+  final double left;
+  final double width;
+  final bool isLive;
+
+  const _RenderProgram({
+    required this.program,
+    required this.left,
+    required this.width,
+    required this.isLive,
+  });
+}
+
+/// Peintre haute performance pour la grille EPG (canvas unique).
+/// Repeint uniquement sur les notifiers reçus (hover, "now", scroll), pas à
+/// chaque build du widget.
+class _EpgGridPainter extends CustomPainter {
+  final List<String> channels;
+  final Map<String, List<_RenderProgram>> renderCache;
+  final DateTime gridStartTime;
+  final double pixelsPerMinute;
+  final double rowHeight;
+  final double channelWidth;
+  final double viewportWidth;
+  final ValueListenable<double>? horizontalOffset;
+  final ValueListenable<Offset?>? touchPosition;
+
+  _EpgGridPainter({
+    required this.channels,
+    required this.renderCache,
+    required this.gridStartTime,
+    required this.pixelsPerMinute,
+    required this.rowHeight,
+    required this.channelWidth,
+    required this.viewportWidth,
+    required this.horizontalOffset,
+    required this.touchPosition,
+    super.repaint,
+  });
+
+  double get _currentTimeOffset {
+    final diff = DateTime.now().difference(gridStartTime).inSeconds / 60.0;
+    return diff * pixelsPerMinute;
+  }
+
+  /// Range de rendu : petit dépassement autour du viewport pour garder les
+  /// bordures des barres à cheval sur le bord visible.
+  (double, double) get _cullRange {
+    final offset = horizontalOffset?.value ?? 0.0;
+    return (offset - rowHeight, offset + viewportWidth + rowHeight);
+  }
+
+  /// Programme sous le pointeur (highlight seul, sans rebuild du widget).
+  _RenderProgram? _resolveHovered(Offset? pos) {
+    if (pos == null) return null;
+    final channelIndex = (pos.dy / rowHeight).floor();
+    if (channelIndex < 0 || channelIndex >= channels.length) return null;
+    final ch = channels[channelIndex];
+    for (final rp in renderCache[ch] ?? const <_RenderProgram>[]) {
+      if (pos.dx >= rp.left && pos.dx <= rp.left + rp.width) {
+        return rp;
+      }
+    }
+    return null;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF0D0E12),
+    );
+
+    // Lignes de séparation horizontales (entre chaînes)
+    final linePaint = Paint()
+      ..color = Colors.white12
+      ..strokeWidth = 1;
+    for (int i = 1; i < channels.length; i++) {
+      final y = i * rowHeight;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), linePaint);
+    }
+
+    final (cullMin, cullMax) = _cullRange;
+    final hovered = _resolveHovered(touchPosition?.value);
+
+    for (int chIndex = 0; chIndex < channels.length; chIndex++) {
+      final ch = channels[chIndex];
+      final programs = renderCache[ch] ?? const <_RenderProgram>[];
+      final yBase = chIndex * rowHeight;
+      final y = yBase + 2;
+      final h = rowHeight - 4;
+
+      for (final rp in programs) {
+        // Culling : on ne dessine/layout que les barres visibles dans le
+        // viewport + marge (évite ~des milliers de TextPainter hors écran).
+        if (rp.left + rp.width < cullMin || rp.left > cullMax) continue;
+
+        final isHovered = rp == hovered;
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(rp.left, y, rp.width, h),
+          const Radius.circular(6),
+        );
+
+        final bgPaint = Paint()
+          ..color = rp.isLive
+              ? const Color(0xFF2D224D)
+              : (isHovered ? const Color(0xFF2A2F3A) : const Color(0xFF1C1F26));
+        canvas.drawRRect(rect, bgPaint);
+
+        final borderPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = rp.isLive
+              ? const Color(0xFF8B5CF6)
+              : (isHovered
+                  ? const Color(0xFF8B5CF6).withValues(alpha: 0.5)
+                  : Colors.white10);
+        canvas.drawRRect(rect, borderPaint);
+
+        // Texte titre (clippé dans la barre, seulement si assez de largeur)
+        if (rp.width > 26) {
+          final textPainter = TextPainter(
+            text: TextSpan(
+              text: rp.program.title,
+              style: TextStyle(
+                color: rp.isLive ? Colors.white : Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+            ellipsis: '…',
+          );
+          textPainter.layout(maxWidth: rp.width - 12);
+          textPainter.paint(
+            canvas,
+            Offset(rp.left + 6, y + (h - textPainter.height) / 2),
+          );
+        }
+
+        // Indicateur "EN DIRECT"
+        if (rp.isLive) {
+          final livePainter = TextPainter(
+            text: const TextSpan(
+              text: '● DIRECT',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          livePainter.layout();
+          livePainter.paint(canvas, Offset(rp.left + 6, y + h - 14));
+        }
+      }
+    }
+
+    // Ligne rouge "MAINTENANT"
+    final nowOffset = _currentTimeOffset;
+    final nowPaint = Paint()
+      ..color = Colors.redAccent
+      ..strokeWidth = 2;
+    canvas.drawLine(
+      Offset(nowOffset, 0),
+      Offset(nowOffset, size.height),
+      nowPaint,
+    );
+    canvas.drawCircle(
+      Offset(nowOffset, 7),
+      7,
+      Paint()..color = Colors.redAccent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _EpgGridPainter old) {
+    return old.renderCache != renderCache ||
+        old.gridStartTime != gridStartTime ||
+        old.pixelsPerMinute != pixelsPerMinute ||
+        old.viewportWidth != viewportWidth;
   }
 }

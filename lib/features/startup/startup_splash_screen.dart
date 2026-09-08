@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
@@ -21,7 +22,8 @@ class StartupSplashScreen extends ConsumerStatefulWidget {
   const StartupSplashScreen({super.key});
 
   @override
-  ConsumerState<StartupSplashScreen> createState() => _StartupSplashScreenState();
+  ConsumerState<StartupSplashScreen> createState() =>
+      _StartupSplashScreenState();
 }
 
 class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
@@ -45,7 +47,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void initState() {
     super.initState();
     final api = ref.read(apiServiceProvider);
-    _controller = StartupRefreshController(api);
+    _controller = StartupRefreshController(
+      api,
+      epgCache: ref.read(epgDataCacheProvider),
+    );
     _controller.addListener(_onProgress);
     _pageController = PageController(viewportFraction: 0.46);
     // Lance le préchargement après le premier frame pour ne pas muter l'état
@@ -69,6 +74,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     setState(() {});
     if (_controller.isFinished && !_navigated) {
       _navigated = true;
+      // Marque la mise à jour comme faite pour que le bouton d'accueil
+      // affiche l'horodatage au lieu de « Jamais mis à jour ».
+      ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
       Future<void>.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) context.go('/home');
       });
@@ -102,6 +110,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     _recommendations = engine.build(
       movies: _controller.movies,
       series: _controller.series,
+      radios: ref.read(radioChannelsProvider).valueOrNull ?? const [],
+      replays: ref.read(replaysProvider).valueOrNull ?? const [],
       watchedTitles: watched.toList(),
     );
     if (_recommendations.isEmpty) {
@@ -129,10 +139,24 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // Rafraîchit la validité de l'abonnement Xtream actif (affichée en bas de
     // l'accueil) : évite le « Sans limite » erroné au démarrage.
     await _refreshSubscriptionValidity();
+    // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
+    // Récupère l'URL de base du fournisseur IPTV actif.
+    try {
+      final sub =
+          await ref.read(subscriptionManagerProvider).getActiveSubscription();
+      if (sub['type'] == 'xtream') {
+        final baseUrl = 'https://${Uri.parse(sub['baseUrl']!).host}';
+        await ref.read(cloudflareSessionProvider).initialize(baseUrl: baseUrl);
+      }
+    } catch (_) {
+      // Non bloquant : si le challenge échoue, on continuera sans cookies Cloudflare.
+    }
     // Après le fetch, rafraîchit les recommandations avec les contenus reçus.
     final refreshed = engine.build(
       movies: _controller.movies,
       series: _controller.series,
+      radios: ref.read(radioChannelsProvider).valueOrNull ?? const [],
+      replays: ref.read(replaysProvider).valueOrNull ?? const [],
       watchedTitles: watched.toList(),
     );
     if (mounted && refreshed.isNotEmpty) {
@@ -151,7 +175,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<void> _checkAutoResume() async {
     final progress = ref.read(playbackProgressProvider('last_session'));
-    if (progress != null && progress.positionMs > 60000 && progress.hasProgress) {
+    if (progress != null &&
+        progress.positionMs > 60000 &&
+        progress.hasProgress) {
       final title = _getResumeTitle(progress);
       final timestamp = _formatTimestamp(progress.positionMs);
       final shouldResume = await showDialog<bool>(
@@ -159,7 +185,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         barrierDismissible: true,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1E222D),
-          title: const Text('Reprendre la lecture ?', style: TextStyle(color: Colors.white)),
+          title: const Text('Reprendre la lecture ?',
+              style: TextStyle(color: Colors.white)),
           content: Text(
             'Reprendre "$title" à $timestamp ?',
             style: const TextStyle(color: Colors.white70),
@@ -167,23 +194,27 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Plus tard', style: TextStyle(color: Colors.white54)),
+              child: const Text('Plus tard',
+                  style: TextStyle(color: Colors.white54)),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00CFE8)),
-              child: const Text('Reprendre', style: TextStyle(color: Colors.black)),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF00CFE8)),
+              child: const Text('Reprendre',
+                  style: TextStyle(color: Colors.black)),
             ),
           ],
         ),
       );
       if (shouldResume == true && mounted) {
-        context.go('/player', extra: PlayerRouteData(
-          streamUrl: '',
-          title: title,
-          initialPositionMs: progress.positionMs,
-          progressId: 'last_session',
-        ));
+        context.go('/player',
+            extra: PlayerRouteData(
+              streamUrl: '',
+              title: title,
+              initialPositionMs: progress.positionMs,
+              progressId: 'last_session',
+            ));
       }
     }
   }
@@ -371,16 +402,19 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded,
-                            color: Colors.amber, size: 16,),
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           rec.rating.toStringAsFixed(1),
                           style: const TextStyle(
-                              color: Colors.amber,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            color: Colors.amber,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -412,11 +446,42 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   Widget _buildProgress(BuildContext context) {
     final percent = _controller.percent;
     final current = _controller.currentStep;
+
+    // Mini-icônes thématiques : Live / Film / Série / EPG
+    final sections = [
+      _ProgressIcon(
+          icon: Icons.live_tv,
+          label: 'Live',
+          done: _controller.doneSteps.contains(StartupStep.live),
+          active: current == StartupStep.live),
+      _ProgressIcon(
+          icon: Icons.movie_outlined,
+          label: 'Films',
+          done: _controller.doneSteps.contains(StartupStep.movies),
+          active: current == StartupStep.movies),
+      _ProgressIcon(
+          icon: Icons.video_library_outlined,
+          label: 'Séries',
+          done: _controller.doneSteps.contains(StartupStep.series),
+          active: current == StartupStep.series),
+      _ProgressIcon(
+          icon: Icons.receipt_long_outlined,
+          label: 'EPG',
+          done: _controller.doneSteps.contains(StartupStep.epg),
+          active: current == StartupStep.epg),
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Ligne mini-icônes (état de chaque playlist)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: sections.map((s) => _buildMiniIcon(s)).toList(),
+          ),
+          const SizedBox(height: 8),
           Text(
             _controller.isFinished
                 ? 'Prêt !'
@@ -430,7 +495,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               value: _controller.progress,
               minHeight: 10,
               backgroundColor: Colors.white12,
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
             ),
           ),
           const SizedBox(height: 6),
@@ -449,6 +515,60 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       ),
     );
   }
+
+  Widget _buildMiniIcon(_ProgressIcon icon) {
+    final isDone = icon.done;
+    final isActive = icon.active;
+    final color = isDone
+        ? const Color(0xFF00CFE8)
+        : isActive
+            ? const Color(0xFF8B5CF6)
+            : Colors.white24;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isDone ? 0.2 : 0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: color,
+              width: isActive ? 2 : (isDone ? 1.5 : 1),
+            ),
+          ),
+          child: Icon(icon.icon, size: 18, color: color),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          icon.label,
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight:
+                isDone || isActive ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Donnée pour l'affichage d'une mini-icône de progression
+class _ProgressIcon {
+  final IconData icon;
+  final String label;
+  final bool done;
+  final bool active;
+
+  _ProgressIcon({
+    required this.icon,
+    required this.label,
+    required this.done,
+    required this.active,
+  });
 }
 
 class _CategoryBadge extends StatelessWidget {
@@ -462,7 +582,8 @@ class _CategoryBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF00CFE8).withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF00CFE8).withValues(alpha: 0.5)),
+        border:
+            Border.all(color: const Color(0xFF00CFE8).withValues(alpha: 0.5)),
       ),
       child: Text(
         category,

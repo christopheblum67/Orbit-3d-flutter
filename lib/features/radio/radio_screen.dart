@@ -60,8 +60,9 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                           child: Text(
                             error,
                             style: TextStyle(
-                              color:
-                                  Theme.of(context).colorScheme.onErrorContainer,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
                             ),
                           ),
                         ),

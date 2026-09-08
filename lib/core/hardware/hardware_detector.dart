@@ -24,6 +24,9 @@ enum DeviceProfile {
   /// Les grilles 3D (EPG, effervescences) sont désactivées en Eco.
   bool get disable3D => this == DeviceProfile.eco;
 
+  /// La recherche vocale est disponible sur tous les profils.
+  bool get allowsVoiceSearch => true;
+
   DeviceProfile? fromStoredName(String? name) {
     for (final p in DeviceProfile.values) {
       if (p.name == name) return p;
@@ -60,7 +63,9 @@ class HardwareSpecs {
   final DeviceProfile recommendedProfile;
 
   String get memoryLabel => totalRamMb > 0
-      ? (totalRamMb >= 1024 ? '${(totalRamMb / 1024).toStringAsFixed(1)} Go' : '$totalRamMb Mo')
+      ? (totalRamMb >= 1024
+          ? '${(totalRamMb / 1024).toStringAsFixed(1)} Go'
+          : '$totalRamMb Mo')
       : 'Inconnue';
 
   String get connectionLabel => switch (connection) {
@@ -104,7 +109,8 @@ class HardwareDetectorService {
     }
 
     try {
-      final memory = await _memoryChannel.invokeMethod<Map<Object?, Object?>>('getMemory');
+      final memory =
+          await _memoryChannel.invokeMethod<Map<Object?, Object?>>('getMemory');
       if (memory != null) {
         totalRamMb = (memory['totalMb'] as num?)?.toInt() ?? 0;
         lowRam = memory['lowRam'] as bool? ?? false;

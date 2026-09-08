@@ -219,12 +219,16 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
             decoration: BoxDecoration(
               color: _isFocused
                   ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
-                  : (widget.isActive ? const Color(0xFF1C1F26) : Colors.transparent),
+                  : (widget.isActive
+                      ? const Color(0xFF1C1F26)
+                      : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _isFocused
                     ? const Color(0xFF8B5CF6)
-                    : (widget.isActive ? Colors.amber.withValues(alpha: 0.5) : const Color(0xFF262933)),
+                    : (widget.isActive
+                        ? Colors.amber.withValues(alpha: 0.5)
+                        : const Color(0xFF262933)),
                 width: _isFocused ? 2 : 1,
               ),
             ),
@@ -250,7 +254,9 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                         style: TextStyle(
                           color: _isFocused
                               ? Colors.white
-                              : (widget.isActive ? Colors.amber : Colors.white70),
+                              : (widget.isActive
+                                  ? Colors.amber
+                                  : Colors.white70),
                           fontSize: 14,
                           fontWeight: _isFocused || widget.isActive
                               ? FontWeight.bold
@@ -260,7 +266,8 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                       const SizedBox(height: 2),
                       Text(
                         widget.option.description,
-                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 11),
                       ),
                     ],
                   ),
@@ -269,7 +276,8 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                 // Badge de statut Actif
                 if (widget.isActive)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
