@@ -68,19 +68,27 @@ class AiService {
     UserProfile profile, [
     List<Movie> availableMovies = const [],
   ]) async {
+    _ensureConfigured();
+    final prompt = _buildPrompt(profile, availableMovies);
+    final content = await _chatContent(prompt);
+    return _parseContent(content);
+  }
+
+  /// Demande un objet JSON structuré (ex. enrichissement de métadonnées).
+  /// Renvoie le premier objet JSON trouvé dans la réponse, ou null si absent.
+  Future<Map<String, dynamic>?> askForJson(String prompt) async {
+    _ensureConfigured();
+    final content = await _chatContent(prompt);
+    return parseJsonObject(content);
+  }
+
+  /// Envoie un prompt au modèle et renvoie le contenu texte brut de la réponse.
+  Future<String> _chatContent(String prompt) async {
     final apiKey = _env('IA_API_KEY');
     final rawEndpoint = _env('IA_API_ENDPOINT');
     final endpoint = rawEndpoint.isEmpty
         ? 'https://api.openai.com/v1/chat/completions'
         : rawEndpoint;
-
-    if (apiKey == null || apiKey.isEmpty) {
-      throw const AIApiKeyMissingException(
-        'Aucune clé API IA configurée. Ajoute IA_API_KEY dans ton fichier .env.',
-      );
-    }
-
-    final prompt = _buildPrompt(profile, availableMovies);
 
     Object? lastError;
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
@@ -102,17 +110,50 @@ class AiService {
               'response_format': {'type': 'json_object'},
           },
         );
-        final content =
-            response.data?['choices']?[0]?['message']?['content']?.toString() ??
-                '';
-        return _parseContent(content);
+        return response
+                .data?['choices']?[0]?['message']?['content']?.toString() ??
+            '';
       } catch (error) {
         lastError = error;
         if (!_isRetriable(error) || attempt == _maxRetries - 1) break;
         await Future<void>.delayed(_retryDelay);
       }
     }
-    throw lastError ?? StateError('Aucune recommandation obtenue.');
+    throw lastError ?? StateError('Aucun contenu généré par l\'IA.');
+  }
+
+  void _ensureConfigured() {
+    final apiKey = _env('IA_API_KEY');
+    if (apiKey.isEmpty) {
+      throw const AIApiKeyMissingException(
+        'Aucune clé API IA configurée. Ajoute IA_API_KEY dans ton fichier .env.',
+      );
+    }
+  }
+
+  /// Extrait un objet JSON (auto-validé) depuis une réponse brute.
+  /// Gère les blocs ```json ... ``` et le format texte autour.
+  static Map<String, dynamic>? parseJsonObject(String content) {
+    final trimmed = content.trim();
+    if (trimmed.isEmpty) return null;
+
+    final candidates = <String>[
+      trimmed,
+      _stripCodeFences(trimmed),
+    ];
+    for (final candidate in candidates) {
+      final start = candidate.indexOf('{');
+      final end = candidate.lastIndexOf('}');
+      if (start < 0 || end <= start) continue;
+      final jsonStr = candidate.substring(start, end + 1);
+      try {
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {
+        // JSON invalide : on continue vers le repli.
+      }
+    }
+    return null;
   }
 
   bool _supportsResponseFormat(String endpoint) =>
@@ -171,7 +212,7 @@ class AiService {
     return null;
   }
 
-  String _stripCodeFences(String content) {
+  static String _stripCodeFences(String content) {
     final regex = RegExp(r'```(?:json)?\s*([\s\S]*?)```');
     final match = regex.firstMatch(content);
     if (match != null) return match.group(1)!.trim();
