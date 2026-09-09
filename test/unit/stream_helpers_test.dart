@@ -60,6 +60,22 @@ void main() {
       expect(variants, ['https://host/15548815/l3khgnaaa3mh/12345']);
     });
 
+    test('timeshift /streaming/timeshift.php proposes only the original url '
+        '(anti-leech)', () {
+      const url =
+          'https://host/streaming/timeshift.php?username=u&password=p'
+          '&stream=55&start=1785643200&duration=3600';
+      final variants = streamUrlVariants(url);
+      expect(variants, [url]);
+    });
+
+    test('player_api.php script urls are not manipulated', () {
+      final variants = streamUrlVariants(
+        'https://host/player_api.php?username=u&password=p&action=get_live_streams',
+      );
+      expect(variants.length, 1);
+    });
+
     test('live-style /u/p/id.ext proposes the extensionless form', () {
       final variants = streamUrlVariants(
         'https://host/15548815/l3khgnaaa3mh/12345.mkv',

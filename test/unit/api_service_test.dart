@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 
 void main() {
@@ -135,6 +136,41 @@ void main() {
       expect(uri.queryParameters['end'], '20260830100000');
     });
 
+    test('timeshift URL uses streaming/timeshift.php with start + duration',
+        () {
+      final url = api.buildXtreamTimeshiftUrl(
+        'http://host:8121',
+        'user',
+        'p4ss',
+        '99',
+        start: 1785643200,
+        end: 1785646800,
+      );
+      final uri = Uri.parse(url);
+      expect(uri.path, '/streaming/timeshift.php');
+      expect(uri.queryParameters['username'], 'user');
+      expect(uri.queryParameters['password'], 'p4ss');
+      expect(uri.queryParameters['stream'], '99');
+      expect(uri.queryParameters['start'], '1785643200');
+      expect(uri.queryParameters['duration'], '3600');
+    });
+
+    test('timeshift URL derives duration from end - start, and strips '
+        'player_api.php suffix', () {
+      final url = api.buildXtreamTimeshiftUrl(
+        'http://host:8121/player_api.php',
+        'u',
+        'p',
+        '7',
+        start: 100,
+        end: 400,
+      );
+      final uri = Uri.parse(url);
+      expect(uri.path, '/streaming/timeshift.php');
+      expect(uri.queryParameters['duration'], '300');
+      expect(uri.queryParameters['start'], '100');
+    });
+
     test('returns an empty string when streamId is null or empty', () {
       expect(
         api.buildXtreamStreamUrl('http://host:80', 'user', 'p4ss', null),
@@ -144,6 +180,60 @@ void main() {
         api.buildXtreamStreamUrl('http://host:80', 'user', 'p4ss', ''),
         isEmpty,
       );
+    });
+  });
+
+  group('replayProbeSet', () {
+    Channel channel(int id, {String group = 'G', bool replay = false}) =>
+        Channel(
+          id: '$id',
+          name: 'Chaîne $id',
+          logoUrl: '',
+          streamUrl: 'http://host/u/p/$id',
+          group: group,
+          supportsReplay: replay,
+        );
+
+    test('inclut toutes les chaînes marquées DVR, en premier', () {
+      final channels = [
+        channel(1, group: 'France HD'),
+        channel(2, group: 'France HD', replay: true),
+        channel(3, group: 'Sport', replay: true),
+        channel(4, group: 'Sport'),
+      ];
+      final flagged = channels.where((c) => c.supportsReplay).toList();
+      final probe = ApiService.replayProbeSet(channels, flagged);
+      final ids = probe.map((c) => c.id).toList();
+      expect(ids.take(2), ['2', '3']);
+      expect(ids, containsAll(['1', '4']));
+    });
+
+    test('ne pioche que 3 chaînes par groupe non marqué (round-robin)', () {
+      final channels = [
+        for (var g = 0; g < 10; g++)
+          for (var i = 0; i < 6; i++)
+            channel(g * 10 + i, group: 'Groupe $g'),
+      ];
+      final probe = ApiService.replayProbeSet(channels, const []);
+      // Toutes les catégories sont couvertes…
+      expect(probe.map((c) => c.group).toSet().length, 10);
+      // …mais au plus 3 chaînes par catégorie (30 = 10 × 3 < budget 40).
+      final byGroup = <String, int>{};
+      for (final c in probe) {
+        byGroup[c.group] = (byGroup[c.group] ?? 0) + 1;
+      }
+      expect(byGroup.values.every((n) => n <= 3), isTrue);
+      expect(byGroup.values.every((n) => n >= 3), isTrue);
+    });
+
+    test('respecte le budget total de chaînes sondées', () {
+      final channels = [
+        for (var g = 0; g < 20; g++)
+          for (var i = 0; i < 10; i++)
+            channel(g * 10 + i, group: 'Groupe $g'),
+      ];
+      final probe = ApiService.replayProbeSet(channels, const []);
+      expect(probe.length, lessThanOrEqualTo(40));
     });
   });
 }

@@ -9,6 +9,10 @@ class ReplayItem {
   final String endTime;
   final String categoryId;
 
+  /// Début du programme en temps réel (tri, regroupement) ; null pour les
+  /// replays sans horaire (repli live/M3U).
+  final DateTime? startDate;
+
   ReplayItem({
     required this.id,
     required this.title,
@@ -16,6 +20,7 @@ class ReplayItem {
     required this.startTime,
     required this.endTime,
     this.categoryId = '',
+    this.startDate,
   });
 
   factory ReplayItem.fromMap(Map<String, dynamic> map) {
@@ -26,6 +31,7 @@ class ReplayItem {
       startTime: map['start'] ?? '',
       endTime: map['end'] ?? '',
       categoryId: map['category_id']?.toString() ?? '',
+      startDate: DateTime.tryParse(map['start_date']?.toString() ?? ''),
     );
   }
 
@@ -37,6 +43,7 @@ class ReplayItem {
       startTime: startTime,
       endTime: endTime,
       categoryId: categoryId,
+      startDate: startDate,
     );
   }
 
