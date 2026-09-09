@@ -57,6 +57,10 @@ class PreferencesNotifier extends StateNotifier<UserPreferences> {
   Future<void> setTheme(String theme) async {
     await update(state.copyWith(theme: theme));
   }
+
+  Future<void> importFromJson(UserPreferences imported) async {
+    await update(imported);
+  }
 }
 
 final parentalPinProvider = StateProvider<String?>((ref) => null);

@@ -20,6 +20,9 @@ class Movie {
   final List<Actor> cast;
   final List<CrewMember> crew;
 
+  // Date d'ajout (Xtream: `added` en secondes Unix)
+  final DateTime? addedDate;
+
   Movie({
     required this.id,
     required this.title,
@@ -34,7 +37,15 @@ class Movie {
     this.categoryId = '',
     this.cast = const [],
     this.crew = const [],
+    this.addedDate,
   });
+
+  bool get isNew {
+    if (addedDate == null) return false;
+    final now = DateTime.now();
+    final diff = now.difference(addedDate!);
+    return diff.inDays <= 30;
+  }
 
   factory Movie.fromMap(Map<String, dynamic> map) {
     final castList = (map['cast'] as List<dynamic>? ?? [])
@@ -49,6 +60,20 @@ class Movie {
       if (deptCompare != 0) return deptCompare;
       return a.order.compareTo(b.order);
     });
+
+    DateTime? _parseAdded(dynamic value) {
+    if (value == null) return null;
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return DateTime.fromMillisecondsSinceEpoch(parsed * 1000, isUtc: true);
+      }
+    }
+    return null;
+  }
 
     return Movie(
       id: map['id']?.toString() ?? map['stream_id']?.toString() ?? '',
@@ -80,6 +105,7 @@ class Movie {
       categoryId: map['category_id']?.toString() ?? '',
       cast: castList,
       crew: crewList,
+      addedDate: _parseAdded(map['added']),
     );
   }
 
@@ -88,6 +114,7 @@ class Movie {
     String? categoryId,
     List<Actor>? cast,
     List<CrewMember>? crew,
+    DateTime? addedDate,
   }) {
     return Movie(
       id: id,

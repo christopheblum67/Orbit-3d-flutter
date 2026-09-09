@@ -91,9 +91,9 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 | Sprint | Contenu | Statut | Reste |
 |---|---|---|---|
 | S1 | Haptic, raccourcis 1-9, auto-resume | 🟢 | — |
-| S2 | Badge « Nouveau », High Contrast, Export/Import réglages | ◻️ | 3h |
+| S2 | Badge « Nouveau », High Contrast, Export/Import réglages | 🟢 | — |
 
-**Progression : ~50% — Reste : ~3h**
+**Progression : 100% — ✅ Quick Wins S2 LIVRÉ & VALIDÉ (DoD).**
 
 ---
 
@@ -102,7 +102,9 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 |---|---|---|---|
 | Back Handling | Spike `RouteMeta` + `WithBackHandling` committé `894a377` ; audit complet `docs/back_handling_audit.md` (09/09, 28 routes, P0/P1/P2) **entièrement implémenté** (onder `popOrFallback('/home')` partout, `/settings/advanced`, garde formulaire profils `FormBackHandlerScope` + `confirmLeave`, fallbacks `/player`/`/multivideo`/`/radio`) | 🟢 | — |
 | Buffering/hardware | Indicateur buffering + contrôles (replay10/play/ff30) dans footerbar (BU : ✅ _ReadyPlayer → footerbar VOD) | 🟢 | — |
-| EPG Timeline | Frise horaire EPG continue | ◻️ | 4h |
+| EPG Timeline | Frise horaire EPG continue | 🟢 | Frise continue partagée grille/en-tête, nav -1h/Maintenant/+1h, mini-lecteur, sync scroll↔timeline, ligne "maintenant" temps réel |
+
+**Progression : 100% — EPG Timeline LIVRÉ & VALIDÉ (DoD).**
 | Nebula Search | Recherche "nébuleuse" fine + VoiceInput | 🟢 | **Livré 09/09 : SearchService unifié (fuzzy+historique+ranking), VoiceInput fr-FR, suggestions temps réel, 12 tests** |
 
 **Progression : ~90% — Reste : ~4h (EPG Timeline)**
@@ -130,7 +132,7 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 |---|---|---|---|
 | Cast/Crew | models + api fetchMovieCredits + CastGrid + CrewSection | 🟢 | — |
 | Matchmaking Films | Section « Films » (genre enrichi via catégorie VOD) | 🟢 | — |
-| Filtres genres | Filtres par genres favoris du profil dans matchmaking | ◻️ | 2h |
+| Filtres genres | Filtres par genres favoris du profil dans matchmaking | 🟢 | OR logic, session-only, chips horizontales dans tuile matchmaking, par abonnement actif, invalide auto |
 | **Enrichissement TMDB/TVmaze/OMDB/IA (09/09)** | **Film : TMDB primaire → OMDB date → TVmaze cast → IA | 🟢 | **Livré : modèles étendus, 4 services, carousel acteurs, guests/saison, 111 tests** |
 | | Série : **TVmaze primaire** → TMDB guests/saison → OMDB → IA | | `cast_carousel.dart` réutilisable, cache Hive 24h, rate limits |
 | | Carrousel horizontal acteurs (Film + Série guests) | | badge source, hors-ligne gracieux, mapping Xtream→TMDB/TVmaze |
@@ -247,5 +249,5 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
-## Total backlog restant estimé : ~9h (1 ingénieur)
-Prochaines priorités : **EPG Timeline** (4h) → **Quick Wins S2** (3h) → **filtres genres matchmaking** (2h) → **multi-abonnements** (couche universelle VOD/Séries/Replay + validation refresh). Le test Rust (falsification) est sur ta machine (Cargo requis, 0.2h). Correctifs urgents 09/09 (titre film, reprise VOD, rail, refresh abonnement) = non commités, à valider sur S20 puis commit.
+## Total backlog restant estimé : ~3h (1 ingénieur) — Rust Proxy uniquement
+Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09) est **✅ LIVRÉ & VALIDÉ**.

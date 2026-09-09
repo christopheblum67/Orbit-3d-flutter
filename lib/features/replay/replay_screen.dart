@@ -22,7 +22,7 @@ class ReplayScreen extends ConsumerStatefulWidget {
 
 class _ReplayScreenState extends ConsumerState<ReplayScreen> {
   String _selectedCategoryId = '';
-  SortMode _selectedSortMode = SortMode.nameAsc;
+  SortMode _selectedSortMode = SortMode.recentlyAdded;
 
   void _openSortDialog() {
     SortOptionsDialogTV.show(

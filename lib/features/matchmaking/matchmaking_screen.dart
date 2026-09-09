@@ -164,68 +164,143 @@ class _SingleView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final profileId = profile.id;
-    final recommendationsAsync = ref.watch(matchmakingProvider(profileId));
-    final hasFavoriteGenres = profile.favoriteGenres.isNotEmpty;
 
-    return recommendationsAsync.when(
-      data: (recos) {
-        if (recos.isEmpty) {
-          return _EmptyState(
-            scheme: scheme,
-            hasFavoriteGenres: hasFavoriteGenres,
-          );
-        }
-
-        final dismissed = ref.watch(dismissedRecoIdsProvider(profileId));
-        final seen = ref.watch(seenRecoIdsProvider(profileId));
-        final movies = recos
-            .where(
-              (r) =>
-                  r.kind == RecommendationKind.movie &&
-                  !dismissed.contains(r.id) &&
-                  !seen.contains(r.id),
-            )
-            .toList();
-        final series = recos
-            .where(
-              (r) =>
-                  r.kind == RecommendationKind.series &&
-                  !dismissed.contains(r.id) &&
-                  !seen.contains(r.id),
-            )
-            .toList();
-
-        if (movies.isEmpty && series.isEmpty) {
-          return _EmptyState(
-            scheme: scheme,
-            hasFavoriteGenres: true,
-            allDismissed: true,
-          );
-        }
-
-        return CustomScrollView(
-          slivers: [
-            if (movies.isNotEmpty)
-              _RecoSectionSliver(
-                title: 'Films',
-                icon: Icons.movie_outlined,
-                items: movies,
-                profileId: profileId,
+    return Column(
+      children: [
+        // Filtres genres session (OR logic, chips horizontales)
+        Consumer(
+          builder: (context, ref, _) {
+            final selectedGenres = ref.watch(matchmakingGenreFilterProvider);
+            final availableGenres = profile.favoriteGenres
+                .map((g) => g.trim())
+                .where((g) => g.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
+            if (availableGenres.isEmpty) return const SizedBox.shrink();
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.filter_list, size: 18, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  ...availableGenres.map((genre) {
+                    final isSelected = selectedGenres.contains(genre);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(genre, style: const TextStyle(fontSize: 12)),
+                        selected: isSelected,
+                        onSelected: (_) {
+                          ref.read(matchmakingGenreFilterProvider.notifier).toggle(genre);
+                          ref.invalidate(matchmakingProvider(profileId));
+                        },
+                        backgroundColor: scheme.surfaceContainerHighest,
+                        selectedColor: scheme.primaryContainer,
+                        checkmarkColor: scheme.onPrimaryContainer,
+                        labelStyle: TextStyle(
+                          color: isSelected ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                        showCheckmark: false,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    );
+                  }),
+                  if (selectedGenres.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.clear_all, size: 16),
+                        label: const Text('Tout effacer', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          ref.read(matchmakingGenreFilterProvider.notifier).clear();
+                          ref.invalidate(matchmakingProvider(profileId));
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: scheme.error,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            if (movies.isNotEmpty && series.isNotEmpty)
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            if (series.isNotEmpty)
-              _RecoSectionSliver(
-                title: 'Séries',
-                icon: Icons.video_library_outlined,
-                items: series,
-                profileId: profileId,
-              ),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => ErrorWidget(err.toString()),
+            );
+          },
+        ),
+        // Recommandations
+        Expanded(
+          child: Consumer(
+            builder: (context, ref, _) {
+              final recommendationsAsync = ref.watch(matchmakingProvider(profile.id));
+              final hasFavoriteGenres = profile.favoriteGenres.isNotEmpty;
+              return recommendationsAsync.when(
+                data: (recos) {
+                  if (recos.isEmpty) {
+                    return _EmptyState(
+                      scheme: scheme,
+                      hasFavoriteGenres: hasFavoriteGenres,
+                    );
+                  }
+
+                  final dismissed = ref.watch(dismissedRecoIdsProvider(profile.id));
+                  final seen = ref.watch(seenRecoIdsProvider(profile.id));
+                  final movies = recos
+                      .where(
+                        (r) =>
+                            r.kind == RecommendationKind.movie &&
+                            !dismissed.contains(r.id) &&
+                            !seen.contains(r.id),
+                      )
+                      .toList();
+                  final series = recos
+                      .where(
+                        (r) =>
+                            r.kind == RecommendationKind.series &&
+                            !dismissed.contains(r.id) &&
+                            !seen.contains(r.id),
+                      )
+                      .toList();
+
+                  if (movies.isEmpty && series.isEmpty) {
+                    return _EmptyState(
+                      scheme: scheme,
+                      hasFavoriteGenres: true,
+                      allDismissed: true,
+                    );
+                  }
+
+                  return CustomScrollView(
+                    slivers: [
+                      if (movies.isNotEmpty)
+                        _RecoSectionSliver(
+                          title: 'Films',
+                          icon: Icons.movie_outlined,
+                          items: movies,
+                          profileId: profile.id,
+                        ),
+                      if (movies.isNotEmpty && series.isNotEmpty)
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      if (series.isNotEmpty)
+                        _RecoSectionSliver(
+                          title: 'Séries',
+                          icon: Icons.video_library_outlined,
+                          items: series,
+                          profileId: profile.id,
+                        ),
+                    ],
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => ErrorWidget(err.toString()),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -247,448 +322,176 @@ class _DuoView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final others = profiles.where((p) => p.id != firstProfile.id).toList();
-    final secondId = secondProfileId;
 
-    UserProfile? secondProfile;
-    if (secondId != null) {
-      for (final p in profiles) {
-        if (p.id == secondId) {
-          secondProfile = p;
-          break;
-        }
-      }
-    }
-
-    if (secondProfile == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.group_add_outlined, size: 56, color: scheme.outline),
-              const SizedBox(height: 12),
-              Text(
-                'Comparez les goûts de deux profils',
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Ajoutez un second profil (ex. « Bibi ») pour découvrir les '
-                'contenus qui plaisent aux deux, classés par % d’affinité.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                icon: const Icon(Icons.person_add_alt),
-                label: const Text('Créer un profil'),
-                onPressed: () => context.go('/profiles'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final pairAsync = ref
-        .watch(matchmakingPairProvider((a: firstProfile.id, b: secondId!)));
+    final pairProvider = secondProfileId != null
+        ? ref.watch(matchmakingPairProvider(
+              (a: firstProfile.id, b: secondProfileId!),
+            ))
+        : null;
 
     return Column(
       children: [
-        _ProfilePairPicker(
-          firstProfile: firstProfile,
-          secondProfile: secondProfile,
-          others: others,
-          onChanged: onSecondChanged,
-        ),
-        Expanded(
-          child: pairAsync.when(
-            data: (pairs) {
-              if (pairs.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.search_off, size: 56, color: scheme.outline),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Aucune affinité trouvée',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Ajoutez des genres favoris aux deux profils ou '
-                          'actualisez pour découvrir des contenus communs.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.only(top: 8, bottom: 24),
-                itemCount: pairs.length,
-                itemBuilder: (context, index) => _AffinityCard(
-                  paired: pairs[index],
-                  firstName: firstProfile.firstName,
-                  secondName: secondProfile!.firstName,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Profil 1 : ${firstProfile.firstName}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => ErrorWidget(err.toString()),
+              ),
+              if (others.isNotEmpty)
+                DropdownButton<String>(
+                  value: secondProfileId,
+                  hint: const Text('Choisir le 2e profil'),
+                  isExpanded: true,
+                  items: others
+                      .map(
+                        (p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text(p.firstName),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: onSecondChanged,
+                ),
+            ],
           ),
         ),
+        if (pairProvider == null)
+          Expanded(
+            child: Center(
+              child: Text(
+                'Sélectionnez un second profil',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: pairProvider.when(
+              data: (paired) {
+                if (paired.isEmpty) {
+                  return _EmptyState(
+                    scheme: scheme,
+                    hasFavoriteGenres: true,
+                    duo: true,
+                  );
+                }
+
+                final dismissedA = ref.watch(dismissedRecoIdsProvider(firstProfile.id));
+                final dismissedB = ref.watch(dismissedRecoIdsProvider(secondProfileId!));
+                final seenA = ref.watch(seenRecoIdsProvider(firstProfile.id));
+                final seenB = ref.watch(seenRecoIdsProvider(secondProfileId!));
+
+                final movies = paired
+                    .where(
+                      (p) =>
+                          p.reco.kind == RecommendationKind.movie &&
+                          !dismissedA.contains(p.reco.id) &&
+                          !dismissedB.contains(p.reco.id) &&
+                          !seenA.contains(p.reco.id) &&
+                          !seenB.contains(p.reco.id),
+                    )
+                    .toList();
+                final series = paired
+                    .where(
+                      (p) =>
+                          p.reco.kind == RecommendationKind.series &&
+                          !dismissedA.contains(p.reco.id) &&
+                          !dismissedB.contains(p.reco.id) &&
+                          !seenA.contains(p.reco.id) &&
+                          !seenB.contains(p.reco.id),
+                    )
+                    .toList();
+
+                if (movies.isEmpty && series.isEmpty) {
+                  return _EmptyState(scheme: scheme, hasFavoriteGenres: true, allDismissed: true);
+                }
+
+                return CustomScrollView(
+                  slivers: [
+                    if (movies.isNotEmpty)
+                      _RecoSectionSliver(
+                        title: 'Films (Duo)',
+                        icon: Icons.movie_outlined,
+                        items: movies.map((p) => p.reco).toList(),
+                        profileId: firstProfile.id,
+                        showAffinity: true,
+                        pairedItems: movies,
+                      ),
+                    if (movies.isNotEmpty && series.isNotEmpty)
+                      const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                    if (series.isNotEmpty)
+                      _RecoSectionSliver(
+                        title: 'Séries (Duo)',
+                        icon: Icons.video_library_outlined,
+                        items: series.map((p) => p.reco).toList(),
+                        profileId: firstProfile.id,
+                        showAffinity: true,
+                        pairedItems: series,
+                      ),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => ErrorWidget(err.toString()),
+            ),
+          ),
       ],
     );
   }
 }
 
-class _ProfilePairPicker extends StatelessWidget {
-  const _ProfilePairPicker({
-    required this.firstProfile,
-    required this.secondProfile,
-    required this.others,
-    required this.onChanged,
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.scheme,
+    this.hasFavoriteGenres = false,
+    this.allDismissed = false,
+    this.duo = false,
   });
 
-  final UserProfile firstProfile;
-  final UserProfile secondProfile;
-  final List<UserProfile> others;
-  final ValueChanged<String?> onChanged;
+  final ColorScheme scheme;
+  final bool hasFavoriteGenres;
+  final bool allDismissed;
+  final bool duo;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          _PairChip(
-            letter: firstProfile.firstName.isNotEmpty
-                ? firstProfile.firstName.characters.first.toUpperCase()
-                : '?',
-            label: firstProfile.firstName,
-            color: scheme.primary,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Icon(Icons.arrow_forward, size: 18, color: scheme.outline),
-          ),
-          ActionChip(
-            avatar: CircleAvatar(
-              backgroundColor: scheme.tertiary.withValues(alpha: 0.2),
-              child: Text(
-                secondProfile.firstName.isNotEmpty
-                    ? secondProfile.firstName.characters.first.toUpperCase()
-                    : '?',
-                style: TextStyle(
-                  color: scheme.tertiary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            label: Text(secondProfile.firstName),
-            onPressed: () => _showSecondProfilePicker(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showSecondProfilePicker(BuildContext context) async {
-    final scheme = Theme.of(context).colorScheme;
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        top: false,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Comparer avec un autre profil',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
+            Icon(
+              duo ? Icons.people_outline : Icons.movie_filter_outlined,
+              size: 64,
+              color: scheme.outline,
             ),
-            if (others.isEmpty)
-              const ListTile(
-                leading: Icon(Icons.info_outline),
-                title: Text('Aucun autre profil disponible'),
-              )
-            else
-              ...others.map(
-                (p) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: scheme.surfaceContainerHighest,
-                    child: Text(
-                      p.firstName.isNotEmpty
-                          ? p.firstName.characters.first.toUpperCase()
-                          : '?',
-                    ),
-                  ),
-                  title: Text(p.firstName),
-                  subtitle: p.favoriteGenres.isEmpty
-                      ? const Text('Aucun genre favori')
-                      : Text('Genres : ${p.favoriteGenres.join(' · ')}'),
-                  onTap: () => Navigator.pop(sheetContext, p.id),
-                ),
+            const SizedBox(height: 16),
+            Text(
+              duo
+                  ? 'Aucune affinité commune trouvée'
+                  : allDismissed
+                      ? 'Tout a été retiré ou vu'
+                      : hasFavoriteGenres
+                          ? 'Aucune recommandation pour ces genres'
+                          : 'Ajoutez des genres favoris au profil',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            if (!duo && !hasFavoriteGenres)
+              FilledButton.icon(
+                icon: const Icon(Icons.settings_outlined),
+                label: const Text('Configurer les genres favoris'),
+                onPressed: () => context.go('/profile/preferences'),
               ),
           ],
         ),
       ),
-    );
-
-    if (picked != null && picked != firstProfile.id) {
-      onChanged(picked);
-    }
-  }
-}
-
-class _PairChip extends StatelessWidget {
-  const _PairChip({
-    required this.letter,
-    required this.label,
-    required this.color,
-  });
-
-  final String letter;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.2),
-        child: Text(
-          letter,
-          style: TextStyle(
-            color: color,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      label: Text(label),
-      backgroundColor: color.withValues(alpha: 0.08),
-      side: BorderSide(color: color.withValues(alpha: 0.35)),
-    );
-  }
-}
-
-class _AffinityCard extends StatelessWidget {
-  const _AffinityCard({
-    required this.paired,
-    required this.firstName,
-    required this.secondName,
-  });
-
-  final PairedReco paired;
-  final String firstName;
-  final String secondName;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final reco = paired.reco;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Material(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => openRecommendation(context, reco),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    width: 84,
-                    height: 120,
-                    child: reco.posterUrl.isEmpty
-                        ? _PosterFallback(
-                            icon: reco.kind == RecommendationKind.series
-                                ? Icons.video_library_outlined
-                                : Icons.movie_outlined,
-                          )
-                        : Image.network(
-                            reco.posterUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _PosterFallback(
-                              icon: reco.kind == RecommendationKind.series
-                                  ? Icons.video_library_outlined
-                                  : Icons.movie_outlined,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              reco.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _AffinityPill(value: paired.combined),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${reco.year} · ${reco.genre}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '★ ${reco.rating.toStringAsFixed(1)}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.tertiary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          _AffinityBadge(
-                            label: firstName,
-                            value: paired.affinityA,
-                            color: scheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          _AffinityBadge(
-                            label: secondName,
-                            value: paired.affinityB,
-                            color: scheme.tertiary,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AffinityPill extends StatelessWidget {
-  const _AffinityPill({required this.value});
-
-  final double value;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final pct = (value * 100).round();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$pct %',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w800,
-            ),
-      ),
-    );
-  }
-}
-
-class _AffinityBadge extends StatelessWidget {
-  const _AffinityBadge({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final double value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = (value * 100).round();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.person, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            '$label $pct %',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PosterFallback extends StatelessWidget {
-  const _PosterFallback({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      color: scheme.surfaceContainerHighest,
-      child: Icon(icon, size: 32, color: scheme.outline),
     );
   }
 }
@@ -699,43 +502,60 @@ class _RecoSectionSliver extends ConsumerWidget {
     required this.icon,
     required this.items,
     required this.profileId,
+    this.showAffinity = false,
+    this.pairedItems,
   });
 
   final String title;
   final IconData icon;
   final List<Recommendation> items;
   final String profileId;
+  final bool showAffinity;
+  final List<PairedReco>? pairedItems;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
             child: Row(
               children: [
-                Icon(icon, size: 22),
+                Icon(icon, color: scheme.primary, size: 22),
                 const SizedBox(width: 8),
                 Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  '$title (${items.length})',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
+                        fontSize: 18,
                       ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
           SizedBox(
-            height: 280,
+            height: 220,
             child: ListView.builder(
-              scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final reco = items[index];
+                PairedReco? paired;
+                if (showAffinity && pairedItems != null) {
+                  paired = pairedItems!.firstWhere(
+                    (p) => p.reco.id == reco.id,
+                    orElse: () => PairedReco(
+                      reco: reco,
+                      affinityA: 0,
+                      affinityB: 0,
+                    ),
+                  );
+                }
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: SizedBox(
@@ -752,13 +572,13 @@ class _RecoSectionSliver extends ConsumerWidget {
                           : Icons.movie_outlined,
                       onTap: () => openRecommendation(context, reco),
                       onLongPress: () => _showRecoActions(context, ref, reco),
+                      isNew: reco.isNew,
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -784,145 +604,28 @@ class _RecoSectionSliver extends ConsumerWidget {
               onTap: () => Navigator.pop(sheetContext, 'dismiss'),
             ),
             ListTile(
-              leading: const Icon(Icons.visibility_outlined),
-              title: const Text('Déjà vu'),
-              subtitle: const Text('Marquer comme déjà vue'),
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: const Text('Marquer comme vu'),
+              subtitle: const Text('Ne plus afficher dans les suggestions'),
               onTap: () => Navigator.pop(sheetContext, 'seen'),
             ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Détails'),
+              subtitle: Text('${reco.year > 0 ? '${reco.year} · ' : ''}${reco.genre}'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                openRecommendation(context, reco);
+              },
+            ),
           ],
         ),
       ),
     );
-
-    if (action == null || !ref.context.mounted) return;
     if (action == 'dismiss') {
-      await _dismissReco(ref, reco);
-    } else {
-      await _markSeen(ref, reco);
+      ref.read(dismissedRecoIdsProvider(profileId).notifier).add(reco.id);
+    } else if (action == 'seen') {
+      ref.read(seenRecoIdsProvider(profileId).notifier).add(reco.id);
     }
-  }
-
-  Future<void> _dismissReco(WidgetRef ref, Recommendation reco) async {
-    final notifier = ref.read(dismissedRecoIdsProvider(profileId).notifier);
-    await notifier.add(reco.id);
-    ref.invalidate(matchmakingProvider(profileId));
-
-    if (ref.context.mounted) {
-      ScaffoldMessenger.of(ref.context).showSnackBar(
-        SnackBar(
-          content: Text('"${reco.title}" retiré'),
-          action: SnackBarAction(
-            label: 'Annuler',
-            onPressed: () async {
-              final current = ref.read(dismissedRecoIdsProvider(profileId));
-              final updated = {...current}..remove(reco.id);
-              final storage = ref.read(storageServiceProvider);
-              await storage.setSetting(
-                'dismissed_recos_$profileId',
-                updated.toList(),
-              );
-              ref.invalidate(dismissedRecoIdsProvider(profileId));
-              ref.invalidate(matchmakingProvider(profileId));
-            },
-          ),
-        ),
-      );
-    }
-  }
-
-  Future<void> _markSeen(WidgetRef ref, Recommendation reco) async {
-    final notifier = ref.read(seenRecoIdsProvider(profileId).notifier);
-    await notifier.add(reco.id);
-    ref.invalidate(matchmakingProvider(profileId));
-
-    if (ref.context.mounted) {
-      ScaffoldMessenger.of(ref.context).showSnackBar(
-        SnackBar(
-          content: Text('"${reco.title}" marqué « Déjà vu »'),
-          action: SnackBarAction(
-            label: 'Annuler',
-            onPressed: () async {
-              final current = ref.read(seenRecoIdsProvider(profileId));
-              final updated = {...current}..remove(reco.id);
-              final storage = ref.read(storageServiceProvider);
-              await storage.setSetting(
-                'seen_recos_$profileId',
-                updated.toList(),
-              );
-              ref.invalidate(seenRecoIdsProvider(profileId));
-              ref.invalidate(matchmakingProvider(profileId));
-            },
-          ),
-        ),
-      );
-    }
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.scheme,
-    required this.hasFavoriteGenres,
-    this.allDismissed = false,
-  });
-
-  final ColorScheme scheme;
-  final bool hasFavoriteGenres;
-  final bool allDismissed;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = allDismissed
-        ? 'Toutes les recommandations ont été retirées'
-        : hasFavoriteGenres
-            ? 'Aucun contenu ne matche vos goûts pour l’instant'
-            : 'Pas encore de recommandations';
-
-    final subtitle = allDismissed
-        ? 'Actualisez pour en découvrir de nouvelles.'
-        : hasFavoriteGenres
-            ? 'Essayez d’actualiser ou élargissez vos genres favoris.'
-            : 'Ajoutez vos genres favoris dans votre profil pour voir des '
-                'films correspondants.';
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              allDismissed
-                  ? Icons.visibility_off_outlined
-                  : hasFavoriteGenres
-                      ? Icons.movie_filter
-                      : Icons.manage_search,
-              size: 64,
-              color: scheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.person_outline),
-              label: const Text('Modifier mes genres'),
-              onPressed: () => context.go('/profiles'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

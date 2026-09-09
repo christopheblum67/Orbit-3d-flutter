@@ -172,5 +172,7 @@ class _EpgTimelinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _EpgTimelinePainter old) =>
-      old.controller != controller;
+      old.controller != controller ||
+      old.controller.now.value != controller.now.value ||
+      old.controller.gridOffset.value != controller.gridOffset.value;
 }

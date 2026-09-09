@@ -52,6 +52,12 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
   // Liste des options de tri avec métadonnées visuelles
   final List<SortOptionData> _options = [
     const SortOptionData(
+      mode: SortMode.recentlyAdded,
+      label: 'Derniers Ajouts M3U/Xtream',
+      description: 'Contenus importés récemment dans la liste',
+      icon: Icons.access_time,
+    ),
+    const SortOptionData(
       mode: SortMode.resumeFirst,
       label: 'À reprendre en priorité',
       description: 'Place les contenus commencés non terminés en haut',
@@ -68,12 +74,6 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
       label: 'Année de Sortie (Récent -> Ancien)',
       description: 'Tri chronologique par année de production',
       icon: Icons.calendar_today,
-    ),
-    const SortOptionData(
-      mode: SortMode.recentlyAdded,
-      label: 'Derniers Ajouts M3U/Xtream',
-      description: 'Contenus importés récemment dans la liste',
-      icon: Icons.access_time,
     ),
     const SortOptionData(
       mode: SortMode.nameAsc,
@@ -99,9 +99,9 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 100, vertical: 40),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
       child: Container(
-        width: 520,
+        width: 640,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: const Color(0xFF16181E),

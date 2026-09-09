@@ -15,6 +15,9 @@ class Series {
   final List<Episode> episodes;
   final String categoryId;
 
+  // Date d'ajout (Xtream: `added` en secondes Unix)
+  final DateTime? addedDate;
+
   Series({
     required this.id,
     required this.title,
@@ -27,7 +30,15 @@ class Series {
     required this.pegi,
     required this.episodes,
     this.categoryId = '',
+    this.addedDate,
   });
+
+  bool get isNew {
+    if (addedDate == null) return false;
+    final now = DateTime.now();
+    final diff = now.difference(addedDate!);
+    return diff.inDays <= 30;
+  }
 
   factory Series.fromMap(Map<String, dynamic> map) {
     final rawRating = map['rating'];
@@ -43,6 +54,20 @@ class Series {
         parsedYear = int.tryParse(digits.substring(0, 4)) ?? 0;
       }
     }
+    DateTime? _parseAdded(dynamic value) {
+    if (value == null) return null;
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return DateTime.fromMillisecondsSinceEpoch(parsed * 1000, isUtc: true);
+      }
+    }
+    return null;
+  }
+
     return Series(
       id: map['series_id']?.toString() ?? map['id']?.toString() ?? '',
       title: map['name']?.toString() ?? map['title']?.toString() ?? '',
@@ -73,6 +98,7 @@ class Series {
           .map((e) => Episode.fromMap(e as Map<String, dynamic>))
           .toList(),
       categoryId: map['category_id']?.toString() ?? '',
+      addedDate: _parseAdded(map['added']),
     );
   }
 

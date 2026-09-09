@@ -16,6 +16,7 @@ class MediaCard extends StatelessWidget {
     this.favoriteOverlay,
     this.onTap,
     this.onLongPress,
+    this.isNew = false,
   });
 
   final String title;
@@ -30,6 +31,9 @@ class MediaCard extends StatelessWidget {
   final Widget? favoriteOverlay;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// Affiche le badge "NOUVEAU" si true.
+  final bool isNew;
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +78,29 @@ class MediaCard extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: scheme.onPrimary,
                               fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ),
+                if (isNew)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'NOUVEAU',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10,
                             ),
                       ),
                     ),

@@ -86,6 +86,9 @@ class AdvancedSettings {
   final double nightFocusVocalGainDb;
   final int nightFocusAudioShiftMs;
 
+  // Accessibilité
+  final bool highContrast;
+
   const AdvancedSettings({
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
@@ -111,6 +114,7 @@ class AdvancedSettings {
     this.nightFocusBassKiller = true,
     this.nightFocusVocalGainDb = 3.0,
     this.nightFocusAudioShiftMs = 0,
+    this.highContrast = false,
   });
 
   AdvancedSettings copyWith({
@@ -126,6 +130,7 @@ class AdvancedSettings {
     bool? nightFocusBassKiller,
     double? nightFocusVocalGainDb,
     int? nightFocusAudioShiftMs,
+    bool? highContrast,
   }) {
     return AdvancedSettings(
       useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
@@ -143,6 +148,7 @@ class AdvancedSettings {
           nightFocusVocalGainDb ?? this.nightFocusVocalGainDb,
       nightFocusAudioShiftMs:
           nightFocusAudioShiftMs ?? this.nightFocusAudioShiftMs,
+      highContrast: highContrast ?? this.highContrast,
     );
   }
 
@@ -174,6 +180,7 @@ class AdvancedSettings {
   static const kNightFocusBassKiller = 'night_focus_bass_killer';
   static const kNightFocusVocalGainDb = 'night_focus_vocal_gain_db';
   static const kNightFocusAudioShiftMs = 'night_focus_audio_shift_ms';
+  static const kHighContrast = 'high_contrast';
 }
 
 class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
@@ -208,6 +215,7 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
           prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb) ?? 3.0,
       nightFocusAudioShiftMs:
           prefs.getInt(AdvancedSettings.kNightFocusAudioShiftMs) ?? 0,
+      highContrast: prefs.getBool(AdvancedSettings.kHighContrast) ?? false,
     );
   }
 
@@ -319,6 +327,32 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
   Future<void> setNightFocusAudioShiftMs(int value) async {
     state = state.copyWith(nightFocusAudioShiftMs: value);
     await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, value);
+  }
+
+  Future<void> setHighContrast(bool value) async {
+    state = state.copyWith(highContrast: value);
+    await _persistBool(AdvancedSettings.kHighContrast, value);
+  }
+
+  Future<void> importFromJson(AdvancedSettings imported) async {
+    state = imported;
+    await _persistBool(AdvancedSettings.kTlsImpersonation, imported.useTlsImpersonation);
+    await _persistString(AdvancedSettings.kDnsProvider, imported.dnsProvider);
+    await _persistBool(AdvancedSettings.kZeroLagPrefetch, imported.zeroLagPrefetch);
+    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.live), imported.playerLive.primary.name);
+    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.live), imported.playerLive.fallback.name);
+    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod), imported.playerVod.primary.name);
+    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.vod), imported.playerVod.fallback.name);
+    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.series), imported.playerSeries.primary.name);
+    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.series), imported.playerSeries.fallback.name);
+    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.replay), imported.playerReplay.primary.name);
+    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.replay), imported.playerReplay.fallback.name);
+    await _persistBool(AdvancedSettings.kNightFocus, imported.nightFocusEnabled);
+    await _persistBool(AdvancedSettings.kNightFocusDialogueBoost, imported.nightFocusDialogueBoost);
+    await _persistBool(AdvancedSettings.kNightFocusBassKiller, imported.nightFocusBassKiller);
+    await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb, imported.nightFocusVocalGainDb);
+    await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, imported.nightFocusAudioShiftMs);
+    await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
   }
 }
 
