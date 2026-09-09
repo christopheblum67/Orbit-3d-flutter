@@ -123,6 +123,17 @@ const UPSTREAM_HEADERS_TO_FORWARD: &[&str] = &[
     "content-type",
 ];
 
+/// Statuts assimilés à un blocage WAF/Cloudflare : 403 (challenge), 406,
+/// 429 (rate-limit tenant au jeton) et 503 (cf_clearance expiré / anti-bot).
+/// Ces réponses déclenchent le basculement sur l'empreinte de secours puis,
+/// si tous les essais échouent, un signal de re-bootstrap de session.
+fn is_waf_block(status: StatusCode) -> bool {
+    status == StatusCode::FORBIDDEN
+        || status == StatusCode::NOT_ACCEPTABLE
+        || status == StatusCode::TOO_MANY_REQUESTS
+        || status == StatusCode::SERVICE_UNAVAILABLE
+}
+
 /// Corps upstream complet (mis en mémoire) + méta-données utiles.
 struct UpstreamBody {
     status: StatusCode,
@@ -133,8 +144,9 @@ struct UpstreamBody {
     mode: String,
 }
 
-/// Récupère une ressource via le client impersonant ; si le WAF répond 403/406,
-/// on retente une fois avec l'empreinte de secours puis on propage une erreur claire.
+/// Récupère une ressource via le client impersonant ; si le WAF répond
+/// 403/406/429/503, on retente une fois avec l'empreinte de secours puis on
+/// propage une erreur claire (et on signale un re-bootstrap de session).
 async fn fetch_upstream_bytes(
     state: &crate::AppState,
     url: &str,
@@ -166,23 +178,27 @@ async fn fetch_upstream_bytes(
 
         let status = response.status();
 
-        if (status == StatusCode::FORBIDDEN || status == StatusCode::NOT_ACCEPTABLE)
-            && idx + 1 < attempts.len()
-        {
-            // Bloqué par le WAF : on réessaie avec l'autre empreinte TLS.
-            state.metrics.increment_upstream_fallback_retries();
-            warn!(
-                "WAF blocked {} with {} ({}) — retry with {}",
-                url,
-                status,
-                mode,
-                attempts[(idx + 1) % attempts.len()].1
-            );
-            last_blocked = Some((
-                status,
-                format!("Upstream blocked by WAF ({} {})", status.as_u16(), mode),
-            ));
-            continue;
+        if is_waf_block(status) {
+            state.metrics.increment_waf_blocks();
+            if idx + 1 < attempts.len() {
+                // Bloqué par le WAF : on réessaie avec l'autre empreinte TLS.
+                state.metrics.increment_upstream_fallback_retries();
+                warn!(
+                    "WAF blocked {} with {} ({}) — retry with {}",
+                    url,
+                    status,
+                    mode,
+                    attempts[(idx + 1) % attempts.len()].1
+                );
+                last_blocked = Some((
+                    status,
+                    format!("Upstream blocked by WAF ({} {})", status.as_u16(), mode),
+                ));
+                continue;
+            }
+            // Plus d'empreinte disponible : session invalide, on signale un
+            // re-bootstrap (le prochain segment reconstruira la session).
+            break;
         }
 
         if !status.is_success() && status != StatusCode::PARTIAL_CONTENT {
@@ -217,6 +233,11 @@ async fn fetch_upstream_bytes(
         });
     }
 
+    state.metrics.increment_session_resets();
+    error!(
+        "WAF blocage persistant sur {} (toutes empreintes) — session reset, re-bootstrap attendu",
+        url
+    );
     Err(last_blocked.unwrap_or_else(|| (StatusCode::BAD_GATEWAY, "Upstream blocked".to_string())))
 }
 
@@ -361,55 +382,107 @@ pub async fn stream_proxy(
         }
     };
 
-    let mut request = state.impersonated_client.get(target_url.clone());
+    let mut attempts: Vec<(Arc<reqwest_impersonate::async_impl::client::Client>, String)> =
+        vec![(state.impersonated_client.clone(), "chrome-120".to_string())];
+    if let Some(fallback) = state.fallback_impersonated_client.clone() {
+        attempts.push((fallback, state.config.fallback_browser.clone()));
+    }
 
-    if let Some(headers_str) = query.headers {
-        if let Ok(headers_map) = serde_json::from_str::<HashMap<String, String>>(&headers_str) {
-            for (key, value) in headers_map {
-                if FORWARDED_HEADERS.contains(&key.to_lowercase().as_str()) {
-                    request = request.header(&key, &value);
+    let mut last_blocked: Option<(StatusCode, String)> = None;
+
+    for (idx, (client, mode)) in attempts.iter().enumerate() {
+        let mut request = client.get(target_url.clone());
+
+        if let Some(headers_str) = query.headers.as_ref() {
+            if let Ok(headers_map) = serde_json::from_str::<HashMap<String, String>>(headers_str) {
+                for (key, value) in headers_map {
+                    if FORWARDED_HEADERS.contains(&key.to_lowercase().as_str()) {
+                        request = request.header(&key, &value);
+                    }
                 }
             }
         }
-    }
 
-    let response = match request.send().await {
-        Ok(resp) => resp,
-        Err(e) => {
-            state.metrics.increment_errors_total("stream_proxy", "upstream_error");
-            error!("Upstream error for {}: {}", target_url, e);
-            return error_response(StatusCode::BAD_GATEWAY, format!("Upstream error: {}", e));
+        let response = match request.send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                state.metrics.increment_errors_total("stream_proxy", "upstream_error");
+                error!("Upstream error for {}: {}", target_url, e);
+                return error_response(StatusCode::BAD_GATEWAY, format!("Upstream error: {}", e));
+            }
+        };
+
+        let status = response.status();
+
+        if is_waf_block(status) {
+            state.metrics.increment_waf_blocks();
+            if idx + 1 < attempts.len() {
+                // Bloqué par le WAF : réessai avec l'autre empreinte TLS.
+                state.metrics.increment_upstream_fallback_retries();
+                warn!(
+                    "WAF blocked stream {} with {} ({}) — retry with {}",
+                    target_url,
+                    status,
+                    mode,
+                    attempts[(idx + 1) % attempts.len()].1
+                );
+                last_blocked = Some((
+                    status,
+                    format!("Upstream blocked by WAF ({} {})", status.as_u16(), mode),
+                ));
+                continue;
+            }
+            // Plus d'empreinte disponible : signal re-bootstrap de session.
+            state.metrics.increment_session_resets();
+            error!(
+                "WAF blocage persistant sur {} — session reset, re-bootstrap attendu",
+                target_url
+            );
+            let (code, msg) = last_blocked.unwrap_or((
+                StatusCode::FORBIDDEN,
+                "Upstream blocked by WAF".to_string(),
+            ));
+            return error_response(code, msg);
         }
-    };
 
-    let status = response.status();
-    let mut response_builder = Response::builder().status(status);
+        let mut response_builder = Response::builder().status(status);
 
-    for (name, value) in response.headers() {
-        let name_str = name.as_str().to_lowercase();
-        if RESPONSE_HEADERS_TO_FORWARD.contains(&name_str.as_str()) {
-            if let Ok(val) = HeaderValue::from_bytes(value.as_bytes()) {
-                response_builder = response_builder.header(name, val);
+        for (name, value) in response.headers() {
+            let name_str = name.as_str().to_lowercase();
+            if RESPONSE_HEADERS_TO_FORWARD.contains(&name_str.as_str()) {
+                if let Ok(val) = HeaderValue::from_bytes(value.as_bytes()) {
+                    response_builder = response_builder.header(name, val);
+                }
             }
         }
+
+        response_builder = response_builder.header("x-proxy-upstream-status", status.as_str());
+        response_builder = response_builder.header("x-proxy-upstream-url", target_url);
+
+        let body = response
+            .bytes_stream()
+            .map(|chunk| chunk.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
+            .boxed();
+
+        let stream_body = Body::from_stream(body);
+
+        report(&state, "stream_proxy", start, status);
+
+        if status.is_success() {
+            state.metrics.increment_bytes_transferred(start.elapsed().as_secs_f64() * 1024.0);
+        }
+
+        return finish_response(response_builder, stream_body);
     }
 
-    response_builder = response_builder.header("x-proxy-upstream-status", status.as_str());
-    response_builder = response_builder.header("x-proxy-upstream-url", target_url);
-
-    let body = response.bytes_stream()
-        .map(|chunk| chunk.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))
-        .boxed();
-
-    let stream_body = Body::from_stream(body);
-
-    report(&state, "stream_proxy", start, status);
-
-    if status.is_success() {
-        state.metrics.increment_bytes_transferred(start.elapsed().as_secs_f64() * 1024.0);
-    }
-
-    finish_response(response_builder, stream_body)
+    error_response(
+        last_blocked
+            .map(|(c, _)| c)
+            .unwrap_or(StatusCode::FORBIDDEN),
+        last_blocked
+            .map(|(_, m)| m)
+            .unwrap_or_else(|| "Upstream blocked".to_string()),
+    )
 }
 
 pub async fn hls_proxy(

@@ -43,6 +43,8 @@ pub struct MetricsCollector {
     cache_hits_total: Counter,
     cache_misses_total: Counter,
     upstream_fallback_retries_total: Counter,
+    waf_blocks_total: Counter,
+    session_resets_total: Counter,
 }
 
 impl MetricsCollector {
@@ -147,6 +149,20 @@ impl MetricsCollector {
             upstream_fallback_retries_total.clone(),
         );
         
+        let waf_blocks_total = Counter::default();
+        registry.register(
+            "proxy_waf_blocks_total",
+            "Total number of upstream responses blocked by WAF/Cloudflare (403/406/429/503)",
+            waf_blocks_total.clone(),
+        );
+        
+        let session_resets_total = Counter::default();
+        registry.register(
+            "proxy_session_resets_total",
+            "Total number of sessions considered invalid after persistent WAF blocks (re-bootstrap signal)",
+            session_resets_total.clone(),
+        );
+        
         Self {
             registry: Arc::new(Mutex::new(registry)),
             requests_total,
@@ -163,6 +179,8 @@ impl MetricsCollector {
             cache_hits_total,
             cache_misses_total,
             upstream_fallback_retries_total,
+            waf_blocks_total,
+            session_resets_total,
         }
     }
     
@@ -238,6 +256,26 @@ impl MetricsCollector {
     
     pub fn increment_upstream_fallback_retries(&self) {
         self.upstream_fallback_retries_total.inc();
+    }
+    
+    pub fn increment_waf_blocks(&self) {
+        self.waf_blocks_total.inc();
+    }
+    
+    pub fn increment_session_resets(&self) {
+        self.session_resets_total.inc();
+    }
+    
+    pub fn waf_blocks(&self) -> u64 {
+        self.waf_blocks_total.get()
+    }
+    
+    pub fn session_resets(&self) -> u64 {
+        self.session_resets_total.get()
+    }
+    
+    pub fn upstream_fallback_retries_count(&self) -> u64 {
+        self.upstream_fallback_retries_total.get()
     }
     
     pub fn gather(&self) -> String {

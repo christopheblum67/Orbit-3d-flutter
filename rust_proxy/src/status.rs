@@ -9,7 +9,8 @@
 //!    de l'`AppState` (config / segment_cache / metrics) contre `/health`.
 //!
 //! Les clés JSON sont alignées sur `RustProxyStatus.fromJson` côté Dart :
-//! `status`, `port`, `cache_hit_ratio`, `segments_cached`, `proxy_mode`.
+//! `status`, `port`, `cache_hit_ratio`, `segments_cached`, `proxy_mode`,
+//! `waf_blocks`, `upstream_fallback_retries`, `session_resets`.
 
 use axum::{extract::State, Json};
 use serde::Serialize;
@@ -24,6 +25,12 @@ pub struct ProxyStatus {
     pub cache_hit_ratio: f64,
     pub segments_cached: usize,
     pub proxy_mode: &'static str,
+    /// Nombre de réponses upstream bloquées par le WAF (403/406/429/503).
+    pub waf_blocks: u64,
+    /// Nombre de bascules sur l'empreinte TLS de secours (déclenchées par le WAF).
+    pub upstream_fallback_retries: u64,
+    /// Nombre de sessions jugées invalides (re-bootstrap nécessaire).
+    pub session_resets: u64,
 }
 
 pub async fn proxy_status_handler(State(state): State<crate::AppState>) -> Json<ProxyStatus> {
@@ -33,6 +40,9 @@ pub async fn proxy_status_handler(State(state): State<crate::AppState>) -> Json<
         cache_hit_ratio: state.segment_cache.hit_ratio(),
         segments_cached: state.segment_cache.len(),
         proxy_mode: "cloudflare-tls-impersonation",
+        waf_blocks: state.metrics.waf_blocks(),
+        upstream_fallback_retries: state.metrics.upstream_fallback_retries_count(),
+        session_resets: state.metrics.session_resets(),
     })
 }
 
@@ -51,6 +61,9 @@ mod tests {
             cache_hit_ratio: 0.5,
             segments_cached: 3,
             proxy_mode: "cloudflare-tls-impersonation",
+            waf_blocks: 0,
+            upstream_fallback_retries: 2,
+            session_resets: 0,
         };
         assert_eq!(status.status, "running");
         assert_eq!(status.port, 8787);
@@ -66,6 +79,9 @@ mod tests {
             cache_hit_ratio: 0.25,
             segments_cached: 2,
             proxy_mode: "cloudflare-tls-impersonation",
+            waf_blocks: 3,
+            upstream_fallback_retries: 1,
+            session_resets: 1,
         };
         let json = serde_json::to_value(&status).unwrap();
         let obj = json.as_object().expect("status serializes to an object");
@@ -74,7 +90,11 @@ mod tests {
         assert!(obj.contains_key("cache_hit_ratio"));
         assert!(obj.contains_key("segments_cached"));
         assert!(obj.contains_key("proxy_mode"));
+        assert!(obj.contains_key("waf_blocks"));
+        assert!(obj.contains_key("upstream_fallback_retries"));
+        assert!(obj.contains_key("session_resets"));
         assert_eq!(obj["status"], "running");
         assert_eq!(obj["segments_cached"], 2);
+        assert_eq!(obj["waf_blocks"], 3);
     }
 }
