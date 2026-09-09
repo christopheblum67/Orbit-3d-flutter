@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
@@ -35,6 +36,7 @@ void main() {
         type: ContentType.live,
         id: 'a',
         title: 'TF1',
+        profileId: 'test_profile',
         streamUrl: 'http://cdn/live/a.ts',
         watchedAt: DateTime(2026, 9, 7, 10),
       );
@@ -42,6 +44,7 @@ void main() {
         type: ContentType.live,
         id: 'b',
         title: 'France 2',
+        profileId: 'test_profile',
         streamUrl: 'http://cdn/live/b.ts',
         watchedAt: DateTime(2026, 9, 7, 11),
       );
@@ -57,6 +60,7 @@ void main() {
         type: ContentType.vod,
         id: '1',
         title: 'Film',
+        profileId: 'test_profile',
         streamUrl: 'http://x',
         watchedAt: DateTime(2026, 9, 7),
       ));
@@ -73,6 +77,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           recentlyWatchedServiceProvider.overrideWithValue(service),
+          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);

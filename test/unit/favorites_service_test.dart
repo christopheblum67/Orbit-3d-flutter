@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
@@ -35,6 +36,7 @@ void main() {
         type: ContentType.live,
         id: '42',
         title: 'TF1',
+        profileId: 'test_profile',
         posterUrl: 'http://img/tf1.png',
         subtitle: 'Généralistes',
         streamUrl: 'http://cdn/live/42.ts',
@@ -45,35 +47,35 @@ void main() {
       expect(all, [entry]);
     });
 
-    test('isFavorite par clé canonique "type:id"', () async {
-      expect(await service.isFavorite('live:42'), isFalse);
+    test('isFavorite par clé canonique "profile:type:id"', () async {
+      expect(await service.isFavorite('test_profile:live:42'), isFalse);
 
       await service
-          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1'));
+          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
 
-      expect(await service.isFavorite('live:42'), isTrue);
-      expect(await service.isFavorite('vod:42'), isFalse);
+      expect(await service.isFavorite('test_profile:live:42'), isTrue);
+      expect(await service.isFavorite('test_profile:vod:42'), isFalse);
     });
 
     test('remove ne supprime que la clé visée', () async {
       await service
-          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1'));
+          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
       await service
-          .save(FavoriteEntry(type: ContentType.vod, id: '7', title: 'Film'));
+          .save(FavoriteEntry(type: ContentType.vod, id: '7', title: 'Film', profileId: 'test_profile'));
 
-      await service.remove('live:42');
+      await service.remove('test_profile:live:42');
 
-      expect(await service.isFavorite('live:42'), isFalse);
-      expect(await service.isFavorite('vod:7'), isTrue);
+      expect(await service.isFavorite('test_profile:live:42'), isFalse);
+      expect(await service.isFavorite('test_profile:vod:7'), isTrue);
       expect((await service.loadAll()).length, 1);
     });
 
     test('ignore les entrées corrompues ou non-mapping', () async {
       final box = Hive.box<String>('favorites');
-      await box.put('live:1', 'pas du json');
-      await box.put('live:2', jsonEncode([1, 2, 3]));
+      await box.put('test_profile:live:1', 'pas du json');
+      await box.put('test_profile:live:2', jsonEncode([1, 2, 3]));
       await box.put(
-          'live:3', jsonEncode({'type': 'live', 'id': '3', 'title': 'Bonus'}));
+          'test_profile:live:3', jsonEncode({'type': 'live', 'id': '3', 'title': 'Bonus', 'profileId': 'test_profile'}));
 
       final all = await service.loadAll();
       expect(all.length, 1);
@@ -86,12 +88,13 @@ void main() {
       final service = FavoritesService();
       await service.init();
       await service.save(
-        FavoriteEntry(type: ContentType.live, id: '1', title: 'Chaîne 1'),
+        FavoriteEntry(type: ContentType.live, id: '1', title: 'Chaîne 1', profileId: 'test_profile'),
       );
 
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
+          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);
@@ -116,12 +119,12 @@ void main() {
       await notifier.toggle(entry);
 
       expect(notifier.forType(ContentType.vod).length, 1);
-      expect(await service.isFavorite('vod:9'), isTrue);
+      expect(await service.isFavorite('test_profile:vod:9'), isTrue);
 
       await notifier.toggle(entry);
 
       expect(notifier.forType(ContentType.vod), isEmpty);
-      expect(await service.isFavorite('vod:9'), isFalse);
+      expect(await service.isFavorite('test_profile:vod:9'), isFalse);
       expect(notifier.forType(ContentType.live).length, 1);
     });
 
@@ -132,6 +135,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
+          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);
@@ -169,6 +173,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
+          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);
@@ -180,10 +185,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await notifier.toggle(
-        FavoriteEntry(type: ContentType.live, id: '1', title: 'TF1'),
+        FavoriteEntry(type: ContentType.live, id: '1', title: 'TF1', profileId: 'test_profile'),
       );
       await notifier.toggle(
-        FavoriteEntry(type: ContentType.live, id: '2', title: 'France 2'),
+        FavoriteEntry(type: ContentType.live, id: '2', title: 'France 2', profileId: 'test_profile'),
       );
 
       await notifier.clearAll();

@@ -123,4 +123,67 @@ void main() {
       expect(res.first.title, 'Bon Film');
     });
   });
+
+  group('profileAffinity', () {
+    test('genre favori présent dans le genre du contenu → affinité = 1.0', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('a', 'Aventure Alpha', 'Aventure', rating: 5),
+      );
+      expect(profileAffinity(reco, ['Aventure']), 1.0);
+    });
+
+    test('genre favori uniquement dans la description → affinité partielle', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie(
+          'b',
+          'Océan calme',
+          'Drame',
+          description: 'Une histoire de science-fiction spatiale',
+        ),
+      );
+      final affinity = profileAffinity(reco, ['Science-Fiction']);
+      expect(affinity, greaterThan(0));
+      expect(affinity, lessThan(1.0));
+    });
+
+    test('aucun genre favori → signal faible fondé sur la note uniquement', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('c', 'Excellent', 'Drame', rating: 8),
+      );
+      final affinity = profileAffinity(reco, const []);
+      expect(affinity, greaterThan(0));
+      expect(affinity, lessThan(0.5));
+    });
+
+    test('affinité élevée pour un film qui touche plusieurs favoris', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie(
+          'd',
+          'Aventure spatiale',
+          'Action',
+          description: 'science-fiction épique',
+          rating: 7,
+        ),
+      );
+      final affinity =
+          profileAffinity(reco, ['Action', 'Aventure', 'Science-fiction']);
+      expect(affinity, greaterThan(0.7));
+    });
+  });
+
+  group('PairedReco', () {
+    test('combined = moyenne des affinités, overlap = produit', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('p', 'Partage', 'Action'),
+      );
+      final paired = PairedReco(reco: reco, affinityA: 0.8, affinityB: 0.4);
+      expect(paired.combined, closeTo(0.6, 0.0001));
+      expect(paired.overlap, closeTo(0.32, 0.0001));
+    });
+  });
 }

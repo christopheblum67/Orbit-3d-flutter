@@ -27,6 +27,7 @@ class FavoriteEntry {
     required this.type,
     required this.id,
     required this.title,
+    this.profileId = '',
     this.posterUrl = '',
     this.subtitle = '',
     this.streamUrl = '',
@@ -35,16 +36,20 @@ class FavoriteEntry {
   final ContentType type;
   final String id;
   final String title;
+  final String profileId;
   final String posterUrl;
   final String subtitle;
   final String streamUrl;
 
-  String get key => '${type.name}:$id';
+  String get key => profileId.isEmpty
+      ? '${type.name}:$id'
+      : '$profileId:${type.name}:$id';
 
   Map<String, dynamic> toJson() => {
         'type': type.name,
         'id': id,
         'title': title,
+        'profileId': profileId,
         'posterUrl': posterUrl,
         'subtitle': subtitle,
         'streamUrl': streamUrl,
@@ -56,6 +61,7 @@ class FavoriteEntry {
       type: type,
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
+      profileId: (json['profileId'] ?? '').toString(),
       posterUrl: (json['posterUrl'] ?? '').toString(),
       subtitle: (json['subtitle'] ?? '').toString(),
       streamUrl: (json['streamUrl'] ?? '').toString(),
