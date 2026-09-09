@@ -28,7 +28,7 @@ class CategoriesRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final isWide = MediaQuery.sizeOf(context).width > 600;
     return Container(
-      width: isWide ? 208 : 96,
+      width: isWide ? 208 : 140,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerLow,
         border: Border(
@@ -161,8 +161,8 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
             children: [
               Text(
                 widget.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
+                overflow: TextOverflow.visible,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,

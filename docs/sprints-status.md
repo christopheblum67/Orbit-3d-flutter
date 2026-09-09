@@ -100,12 +100,12 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 ## 5. UX — Navigation & expérience
 | Chantier | Contenu | Statut | Reste |
 |---|---|---|---|
-| Back Handling | Spike `RouteMeta` + `WithBackHandling` committé `894a377` ; **audit complet `docs/back_handling_audit.md` (09/09, 28 routes, P0/P1/P2)** | 🟢 | Apply corrections P0/P1 : 3h |
+| Back Handling | Spike `RouteMeta` + `WithBackHandling` committé `894a377` ; audit complet `docs/back_handling_audit.md` (09/09, 28 routes, P0/P1/P2) **entièrement implémenté** (onder `popOrFallback('/home')` partout, `/settings/advanced`, garde formulaire profils `FormBackHandlerScope` + `confirmLeave`, fallbacks `/player`/`/multivideo`/`/radio`) | 🟢 | — |
 | Buffering/hardware | Indicateur buffering + contrôles (replay10/play/ff30) dans footerbar (BU : ✅ _ReadyPlayer → footerbar VOD) | 🟢 | — |
 | EPG Timeline | Frise horaire EPG continue | ◻️ | 4h |
 | Nebula Search | Recherche "nébuleuse" fine + VoiceInput | 🟢 | **Livré 09/09 : SearchService unifié (fuzzy+historique+ranking), VoiceInput fr-FR, suggestions temps réel, 12 tests** |
 
-**Progression : ~80% — Reste : ~7h (audit P0/P1 + EPG Timeline)**
+**Progression : ~90% — Reste : ~4h (EPG Timeline)**
 
 ---
 
@@ -143,12 +143,23 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 | Chantier | Contenu | Statut |
 |---|---|---|
 | Tests | 89/89 ✓ (15 fichiers) | 🟢 |
-| Analyze | 0 erreur | 🟢 |
+| Analyze | 0 erreur (16 erreurs `integration_test` hors scope) | 🟢 |
 | Build debug / release | ✓ / 60,3 MB ✓ | 🟢 |
 | S20 | Debug + release installés, logcat opérationnel | 🟢 |
 | Dépôt git | Nettoyé : seuls les changements réels sont stageables (anti-bruit CRLF) | 🟢 |
 
 **Progression : ~90%**
+
+---
+
+## 7b. CORRECTIFS URGENTS (09/09, non commités)
+| Correctif | Équipe | Détail |
+|---|---|---|
+| Titre film/série absent | **Mars** | `Movie.fromMap` ne lisait que `map['title']` mais Xtream `get_vod_streams` renvoie `name` → titre vide dans la grille et la fiche détail. Fix : lecture `name` puis `title` (comme `Series`), titre dans l'AppBar détail, + 2 tests unitaires |
+| Reprise lecture VOD | **Soleil** | Seek initial bloqué quand durée encore inconnue (0) → seek autorisé, + nouvelle tentative tant que non appliqué |
+| Rail catégories | **Mars** | Largeur 140px (compact) + libellés complets (maxLines 3, plus de troncature) |
+| Refresh au changement d'abonnement | **Soleil**/Terre | `setActive` invalide désormais live/VOD/séries/replay/radio/EPG/récents (import manquant corrigé) |
+| Tests | — | **182/182 verts** ; analyze 0 erreur sur `lib` ; APK debug installé S20 (0 FATAL au lancement) |
 
 ---
 
@@ -236,5 +247,5 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
-## Total backlog restant estimé : ~12h (1 ingénieur)
-Prochaines priorités : **Back Handling audit → corrections P0/P1** (3h) → **multi-abonnements** (couche universelle VOD/Séries/Replay) → **EPG Timeline** (4h). Le test Rust (falsification) est sur ta machine (Cargo requis).
+## Total backlog restant estimé : ~9h (1 ingénieur)
+Prochaines priorités : **EPG Timeline** (4h) → **Quick Wins S2** (3h) → **filtres genres matchmaking** (2h) → **multi-abonnements** (couche universelle VOD/Séries/Replay + validation refresh). Le test Rust (falsification) est sur ta machine (Cargo requis, 0.2h). Correctifs urgents 09/09 (titre film, reprise VOD, rail, refresh abonnement) = non commités, à valider sur S20 puis commit.

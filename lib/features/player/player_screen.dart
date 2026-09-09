@@ -315,7 +315,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Applique la position initiale si elle est fournie et que le controller
-  /// est prêt.
+  /// est prêt. La durée peut être encore inconnue (0) au moment du seek :
+  /// on n'empêche alors pas la reprise (ExoPlayer sait se positionner).
   void _applyInitialPosition() {
     if (_hasAppliedInitialPosition) return;
     final initialMs = widget.initialPositionMs;
@@ -328,7 +329,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _hasAppliedInitialPosition = true;
     final position = Duration(milliseconds: initialMs);
     final duration = controller.value.duration;
-    if (position < duration) {
+    if (duration.inMilliseconds <= 0 || position < duration) {
       controller.seekTo(position);
     }
   }
@@ -621,6 +622,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _onControllerUpdate() {
     if (!mounted) return;
     _syncImmersive();
+    // Nouvelle tentative tant que la position initiale n'a pas été appliquée
+    // (la durée peut n'attendre qu'après le chargement des métadonnées).
+    if (!_hasAppliedInitialPosition && widget.initialPositionMs != null) {
+      _applyInitialPosition();
+    }
     final playing = _controller?.value.isPlaying;
     if (playing != null && playing != _lastKnownPlaying) {
       _lastKnownPlaying = playing;
@@ -1170,8 +1176,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
-          onSeekBack: null,
-          onSeekForward: null,
+          onSeekBack10: null,
+          onSeekBack30: null,
+          onSeekForward10: null,
+          onSeekForward30: null,
           onToggleVolumeZap: _toggleVolumeZap,
           controlsMenu: controlsMenu,
           onToggleNightFocus: _toggleNightFocus,
@@ -1191,8 +1199,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
-          onSeekBack: () => _seekBy(const Duration(seconds: -10)),
-          onSeekForward: () => _seekBy(const Duration(seconds: 10)),
+          onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
+          onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
+          onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
+          onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
           onToggleVolumeZap: _toggleVolumeZap,
           controlsMenu: controlsMenu,
           onToggleNightFocus: _toggleNightFocus,
@@ -1209,8 +1219,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           favoriteEntry: _favoriteEntry,
           onExit: _requestExit,
           onTogglePlayPause: _togglePlayPause,
-          onSeekBack: () => _seekBy(const Duration(seconds: -10)),
-          onSeekForward: () => _seekBy(const Duration(seconds: 30)),
+          onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
+          onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
+          onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
+          onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
           controlsMenu: controlsMenu,
           onToggleNightFocus: _toggleNightFocus,
         ),
@@ -1366,34 +1378,39 @@ class _LiveProgressBar extends StatelessWidget {
   }
 }
 
-/// Rangée replay10 / play-pause / avance utilisée pour Replay et VOD/Séries.
+/// Rangée de contrôles de seek : 2x retour rapide / play-pause / 2x avance rapide.
+/// Vitesses : -10s / -30s  |  play/pause  |  +10s / +30s
 class _SeekActionsRow extends StatelessWidget {
   const _SeekActionsRow({
     required this.isPlaying,
-    required this.onSeekBack,
-    required this.onSeekForward,
+    required this.onSeekBack10,
+    required this.onSeekBack30,
+    required this.onSeekForward10,
+    required this.onSeekForward30,
     required this.onTogglePlayPause,
-    this.forwardIcon = Icons.forward_30,
-    this.forwardLabel = 'Avancer 30s',
   });
 
   final bool isPlaying;
-  final VoidCallback onSeekBack;
-  final VoidCallback onSeekForward;
+  final VoidCallback onSeekBack10;
+  final VoidCallback onSeekBack30;
+  final VoidCallback onSeekForward10;
+  final VoidCallback onSeekForward30;
   final VoidCallback onTogglePlayPause;
-  final IconData forwardIcon;
-  final String forwardLabel;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _fbIcon(Icons.replay_10, onSeekBack, tooltip: 'Reculer 10s'),
+        _fbIcon(Icons.replay_30, onSeekBack30, tooltip: 'Reculer 30s'),
+        const SizedBox(width: 6),
+        _fbIcon(Icons.replay_10, onSeekBack10, tooltip: 'Reculer 10s'),
         const SizedBox(width: 10),
         _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
         const SizedBox(width: 10),
-        _fbIcon(forwardIcon, onSeekForward, tooltip: forwardLabel),
+        _fbIcon(Icons.forward_10, onSeekForward10, tooltip: 'Avancer 10s'),
+        const SizedBox(width: 6),
+        _fbIcon(Icons.forward_30, onSeekForward30, tooltip: 'Avancer 30s'),
       ],
     );
   }
@@ -1418,8 +1435,10 @@ class _LiveFooterBar extends ConsumerWidget {
     this.onPrevious,
     this.onNext,
     required this.onTogglePlayPause,
-    this.onSeekBack,
-    this.onSeekForward,
+    this.onSeekBack10,
+    this.onSeekBack30,
+    this.onSeekForward10,
+    this.onSeekForward30,
     required this.onToggleVolumeZap,
     required this.controlsMenu,
     required this.onToggleNightFocus,
@@ -1439,8 +1458,10 @@ class _LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onTogglePlayPause;
-  final VoidCallback? onSeekBack;
-  final VoidCallback? onSeekForward;
+  final VoidCallback? onSeekBack10;
+  final VoidCallback? onSeekBack30;
+  final VoidCallback? onSeekForward10;
+  final VoidCallback? onSeekForward30;
   final VoidCallback onToggleVolumeZap;
   final _FooterControlsMenu controlsMenu;
   final VoidCallback onToggleNightFocus;
@@ -1461,7 +1482,7 @@ class _LiveFooterBar extends ConsumerWidget {
       if (canZap) '▲▼ chaîne',
       if (volumeToZap) 'volume = chaîne',
       'OK pause',
-      if (showSeek) '← → 10s',
+      if (showSeek) '← → 10/30s',
       '← Retour',
     ].join(' · ');
     final player = controller;
@@ -1545,11 +1566,11 @@ class _LiveFooterBar extends ConsumerWidget {
           const SizedBox(height: 8),
           _SeekActionsRow(
             isPlaying: isPlaying,
-            onSeekBack: onSeekBack!,
-            onSeekForward: onSeekForward!,
+            onSeekBack10: onSeekBack10!,
+            onSeekBack30: onSeekBack30!,
+            onSeekForward10: onSeekForward10!,
+            onSeekForward30: onSeekForward30!,
             onTogglePlayPause: onTogglePlayPause,
-            forwardIcon: Icons.forward_10,
-            forwardLabel: 'Avancer 10s',
           ),
         ],
         const SizedBox(height: 10),
@@ -1577,8 +1598,15 @@ class _LiveFooterBar extends ConsumerWidget {
               ),
             if (showSeek) ...[
               _fbIcon(
+                Icons.replay_30,
+                onSeekBack30,
+                tooltip: 'Reculer 30s',
+                color: Colors.white,
+              ),
+              const SizedBox(width: 4),
+              _fbIcon(
                 Icons.replay_10,
-                onSeekBack,
+                onSeekBack10,
                 tooltip: 'Reculer 10s',
                 color: Colors.white,
               ),
@@ -1587,8 +1615,15 @@ class _LiveFooterBar extends ConsumerWidget {
             if (showSeek) ...[
               _fbIcon(
                 Icons.forward_10,
-                onSeekForward,
+                onSeekForward10,
                 tooltip: 'Avancer 10s',
+                color: Colors.white,
+              ),
+              const SizedBox(width: 4),
+              _fbIcon(
+                Icons.forward_30,
+                onSeekForward30,
+                tooltip: 'Avancer 30s',
                 color: Colors.white,
               ),
             ],
@@ -1614,8 +1649,8 @@ class _LiveFooterBar extends ConsumerWidget {
 }
 
 /// Footerbar VOD / Séries : titre + note ★ + genre (+ épisode) puis barre de
-/// progression de lecture + replay10/play/ff30, puis menu / Night Focus et
-/// hints TV.
+/// progression de lecture + 2x retour / play-pause / 2x avance, puis menu /
+/// Night Focus et hints TV.
 class _VodFooterBar extends ConsumerWidget {
   const _VodFooterBar({
     required this.controller,
@@ -1629,8 +1664,10 @@ class _VodFooterBar extends ConsumerWidget {
     this.favoriteEntry,
     required this.onExit,
     required this.onTogglePlayPause,
-    required this.onSeekBack,
-    required this.onSeekForward,
+    required this.onSeekBack10,
+    required this.onSeekBack30,
+    required this.onSeekForward10,
+    required this.onSeekForward30,
     required this.controlsMenu,
     required this.onToggleNightFocus,
   });
@@ -1646,8 +1683,10 @@ class _VodFooterBar extends ConsumerWidget {
   final FavoriteEntry? favoriteEntry;
   final VoidCallback onExit;
   final VoidCallback onTogglePlayPause;
-  final VoidCallback onSeekBack;
-  final VoidCallback onSeekForward;
+  final VoidCallback onSeekBack10;
+  final VoidCallback onSeekBack30;
+  final VoidCallback onSeekForward10;
+  final VoidCallback onSeekForward30;
   final _FooterControlsMenu controlsMenu;
   final VoidCallback onToggleNightFocus;
 
@@ -1727,8 +1766,10 @@ class _VodFooterBar extends ConsumerWidget {
         const SizedBox(height: 8),
         _SeekActionsRow(
           isPlaying: isPlaying,
-          onSeekBack: onSeekBack,
-          onSeekForward: onSeekForward,
+          onSeekBack10: onSeekBack10,
+          onSeekBack30: onSeekBack30,
+          onSeekForward10: onSeekForward10,
+          onSeekForward30: onSeekForward30,
           onTogglePlayPause: onTogglePlayPause,
         ),
         const SizedBox(height: 8),

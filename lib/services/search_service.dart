@@ -157,13 +157,13 @@ class SearchService {
     return score.clamp(0.0, 1.0);
   }
 
-  Future<UnifiedSearchResult> search(String query, {int limit = 50}) async {
+  Future<UnifiedSearchResult> search(String query, {int limit = 50, SearchType? filterType}) async {
     final normalized = _normalize(query);
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
     try {
-      final localResults = await _localSearch(normalized);
-      final remoteResults = await _remoteSearch(normalized);
+      final localResults = await _localSearch(normalized, filterType: filterType);
+      final remoteResults = await _remoteSearch(normalized, filterType: filterType);
       final merged = _mergeAndRank(localResults, remoteResults, normalized);
 
       _enrichAsync(merged.items);
@@ -171,12 +171,12 @@ class SearchService {
       return merged.take(limit);
     } catch (e, stack) {
       _logger.error('Search error: $e', stackTrace: stack);
-      final localOnly = await _localSearch(normalized);
+      final localOnly = await _localSearch(normalized, filterType: filterType);
       return localOnly.take(limit).copyWith(isOffline: true);
     }
   }
 
-  Future<UnifiedSearchResult> _localSearch(String query) async {
+  Future<UnifiedSearchResult> _localSearch(String query, {SearchType? filterType}) async {
     final items = <SearchItem>[];
     final history = await getHistory();
 
@@ -197,6 +197,7 @@ class SearchService {
 
     final favorites = await _getFavorites();
     for (final fav in favorites) {
+      if (filterType != null && fav.type != filterType) continue;
       final score = _fuzzyScore(query, fav.title);
       if (score > 0.3) {
         items.add(fav.copyWith(score: score * 0.9, source: SearchSource.local));
@@ -205,6 +206,7 @@ class SearchService {
 
     final recent = await _getRecentlyWatched();
     for (final rec in recent) {
+      if (filterType != null && rec.type != filterType) continue;
       final score = _fuzzyScore(query, rec.title);
       if (score > 0.3) {
         items
@@ -216,26 +218,32 @@ class SearchService {
     return UnifiedSearchResult(items: items);
   }
 
-  Future<UnifiedSearchResult> _remoteSearch(String query) async {
+  Future<UnifiedSearchResult> _remoteSearch(String query, {SearchType? filterType}) async {
     final apiResult = await _api.search(query);
     final items = <SearchItem>[];
 
-    for (final channel
-        in apiResult.items.where((i) => i.type == SearchType.live)) {
-      items.add(channel.copyWith(
-          score: _fuzzyScore(query, channel.title),
-          source: SearchSource.xtream));
+    if (filterType == null || filterType == SearchType.live) {
+      for (final channel
+          in apiResult.items.where((i) => i.type == SearchType.live)) {
+        items.add(channel.copyWith(
+            score: _fuzzyScore(query, channel.title),
+            source: SearchSource.xtream));
+      }
     }
-    for (final movie
-        in apiResult.items.where((i) => i.type == SearchType.vod)) {
-      items.add(movie.copyWith(
-          score: _fuzzyScore(query, movie.title), source: SearchSource.xtream));
+    if (filterType == null || filterType == SearchType.vod) {
+      for (final movie
+          in apiResult.items.where((i) => i.type == SearchType.vod)) {
+        items.add(movie.copyWith(
+            score: _fuzzyScore(query, movie.title), source: SearchSource.xtream));
+      }
     }
-    for (final series
-        in apiResult.items.where((i) => i.type == SearchType.series)) {
-      items.add(series.copyWith(
-          score: _fuzzyScore(query, series.title),
-          source: SearchSource.xtream));
+    if (filterType == null || filterType == SearchType.series) {
+      for (final series
+          in apiResult.items.where((i) => i.type == SearchType.series)) {
+        items.add(series.copyWith(
+            score: _fuzzyScore(query, series.title),
+            source: SearchSource.xtream));
+      }
     }
 
     items.sort((a, b) => b.score.compareTo(a.score));

@@ -5,7 +5,6 @@ import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
-import 'package:orbit_3d_flutter/services/ai_service.dart';
 import 'package:orbit_3d_flutter/services/vpn_service.dart';
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
@@ -35,7 +34,6 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
-import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 export 'profile_type_provider.dart';
@@ -43,7 +41,6 @@ export 'profile_type_provider.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 final storageServiceProvider =
     Provider<StorageService>((ref) => StorageService());
-final aiServiceProvider = Provider<AiService>((ref) => AiService());
 final vpnServiceProvider = Provider<VpnService>((ref) => VpnService());
 final subscriptionManagerProvider =
     Provider<SubscriptionManager>((ref) => SubscriptionManager());
@@ -89,7 +86,6 @@ final enrichmentServiceProvider = Provider<MetadataEnrichmentService>((ref) {
     tmdb: ref.watch(tmdbServiceProvider),
     tvmaze: ref.watch(tvmazeServiceProvider),
     omdb: ref.watch(omdbServiceProvider),
-    ai: ref.watch(aiServiceProvider),
   );
 });
 
@@ -110,6 +106,15 @@ final searchProvider =
     FutureProvider.family<UnifiedSearchResult, String>((ref, query) async {
   if (query.trim().isEmpty) return UnifiedSearchResult.empty();
   return ref.watch(searchServiceProvider).search(query);
+});
+
+final searchFilteredProvider = FutureProvider.family<
+    UnifiedSearchResult,
+    ({String query, SearchType? filterType})>((ref, params) async {
+  if (params.query.trim().isEmpty) return UnifiedSearchResult.empty();
+  return ref
+      .watch(searchServiceProvider)
+      .search(params.query, filterType: params.filterType);
 });
 
 final searchSuggestionsProvider =
@@ -392,21 +397,6 @@ class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
     state = await AsyncValue.guard(build);
   }
 }
-
-final aiRecommendationsProvider = FutureProvider.autoDispose
-    .family<List<AIRecommendation>, String>((ref, profileId) async {
-  final aiService = ref.watch(aiServiceProvider);
-  final profile = ref.watch(currentProfileProvider);
-  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
-
-  if (profile == null || profile.id != profileId) {
-    throw const StreamAiException(
-      'Aucun profil sélectionné pour les recommandations.',
-    );
-  }
-
-  return aiService.getRecommendations(profile, movies);
-});
 
 /// Moniteur de connectivité temps réel (singleton via ChangeNotifier)
 final connectivityMonitorProvider = Provider<ConnectivityMonitor>((ref) {

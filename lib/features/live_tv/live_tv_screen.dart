@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -17,6 +18,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
+import 'package:go_router/go_router.dart';
 
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key});
@@ -34,7 +36,16 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Live TV')),
+      appBar: AppBar(
+        title: const Text('Live TV'),
+        actions: [
+          IconButton(
+            tooltip: 'Rechercher une chaîne',
+            icon: const Icon(Icons.live_tv),
+            onPressed: () => context.push('/search?type=live'),
+          ),
+        ],
+      ),
       body: channelsAsync.when(
         data: (channels) {
           if (channels.isEmpty) {

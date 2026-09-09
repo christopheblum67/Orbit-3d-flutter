@@ -80,8 +80,10 @@ class TvmazeService {
 
   // ==================== FILMS ====================
 
-  /// Recherche un film par titre (TVmaze a une base de films limitée)
-  Future<int?> searchMovieId(String title) async {
+  /// Recherche un film par titre (TVmaze a une base de films limitée).
+  /// L'année aide à désambiguïser entre un film et ses remakes/séquelles :
+  /// on préfère un résultat `Movie` dont l'année de première diffusion concorde.
+  Future<int?> searchMovieId(String title, {int? year}) async {
     await _waitForRateLimit();
 
     try {
@@ -90,14 +92,28 @@ class TvmazeService {
       });
       final results = response.data as List?;
       if (results != null && results.isNotEmpty) {
-        // Filtrer pour ne garder que les films (type: "Movie")
+        Map<String, dynamic>? firstMovie;
+        Map<String, dynamic>? yearMatch;
         for (final result in results) {
           final show = result['show'] as Map<String, dynamic>?;
-          if (show != null && show['type'] == 'Movie') {
-            return show['id'] as int;
+          if (show == null || show['type'] != 'Movie') continue;
+          firstMovie ??= show;
+          if (year != null) {
+            final premiered = show['premiered'] as String?;
+            final showYear = (premiered != null && premiered.length >= 4)
+                ? int.tryParse(premiered.substring(0, 4))
+                : null;
+            if (showYear == year) {
+              yearMatch = show;
+              break;
+            }
+          } else {
+            break;
           }
         }
-        // Fallback: premier résultat
+        final selected = yearMatch ?? firstMovie;
+        if (selected != null) return selected['id'] as int;
+        // Fallback: premier résultat (même si ce n'est pas typé "Movie")
         final firstShow = results.first['show'] as Map<String, dynamic>?;
         if (firstShow != null) return firstShow['id'] as int;
       }

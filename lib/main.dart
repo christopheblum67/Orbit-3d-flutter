@@ -50,7 +50,6 @@ import 'package:orbit_3d_flutter/features/replay/replay_screen.dart';
 import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
 import 'package:orbit_3d_flutter/features/search/search_screen.dart';
-import 'package:orbit_3d_flutter/features/ai/ai_screen.dart';
 
 import 'package:orbit_3d_flutter/features/settings/settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
@@ -534,17 +533,6 @@ final GoRouter router = GoRouter(
             child: WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'search'),
               child: const SearchScreen(),
-            ),
-          ),
-        ),
-        GoRoute(
-          path: '/ai',
-          pageBuilder: (context, state) => MaterialPage(
-            key: state.pageKey,
-            restorationId: 'ai',
-            child: WithBackHandling(
-              meta: RouteMeta.popOrFallback('/home', restorationId: 'ai'),
-              child: const AiScreen(),
             ),
           ),
         ),

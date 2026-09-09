@@ -52,7 +52,7 @@ class Movie {
 
     return Movie(
       id: map['id']?.toString() ?? map['stream_id']?.toString() ?? '',
-      title: map['title'] ?? '',
+      title: map['name']?.toString() ?? map['title']?.toString() ?? '',
       description: firstNonEmpty([
         map['plot'],
         map['overview'],

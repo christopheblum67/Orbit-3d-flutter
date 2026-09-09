@@ -250,8 +250,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case _RefreshCategory.epg:
         ref.invalidate(epgProgramsProvider);
         ref.invalidate(epgDataCacheProvider);
-      case _RefreshCategory.ai:
-        ref.invalidate(aiRecommendationsProvider);
     }
   }
 
@@ -713,7 +711,7 @@ class _NoSubscriptionChip extends StatelessWidget {
   }
 }
 
-enum _RefreshCategory { live, series, vod, radio, replay, epg, ai }
+enum _RefreshCategory { live, series, vod, radio, replay, epg }
 
 class _OrbitItem {
   final String title;
@@ -776,14 +774,6 @@ class _OrbitItem {
         color: Color(0xFFFF6FA8),
         subtitle: 'Vos chaînes & contenus',
         route: '/favorites',
-      ),
-      const _OrbitItem(
-        title: 'Recommandations IA',
-        icon: Icons.auto_awesome,
-        color: Color(0xFF4CAF50),
-        subtitle: 'Recommandations personnalisées',
-        route: '/ai',
-        refreshCategory: _RefreshCategory.ai,
       ),
       const _OrbitItem(
         title: 'Matchmaking',
