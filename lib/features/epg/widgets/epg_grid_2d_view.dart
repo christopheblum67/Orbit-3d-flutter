@@ -25,6 +25,7 @@ class EpgGrid2DView extends StatefulWidget {
   final double pixelsPerMinute;
   final Function(EPGProgram)? onProgramTap;
   final Function(String)? onChannelTap;
+  final EpgTimelineController? timelineController;
 
   const EpgGrid2DView({
     super.key,
@@ -34,6 +35,7 @@ class EpgGrid2DView extends StatefulWidget {
     this.pixelsPerMinute = 4.0,
     this.onProgramTap,
     this.onChannelTap,
+    this.timelineController,
   });
 
   @override
@@ -45,6 +47,7 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController = ScrollController();
   late EpgTimelineController _timelineController;
+  bool _ownsTimelineController = false;
 
   // Repaints ciblés (pas de rebuild du widget) :
   final ValueNotifier<Offset?> _hoverPosition = ValueNotifier<Offset?>(null);
@@ -65,10 +68,15 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
         DateTime(now.year, now.month, now.day, now.hour - 1);
     _pixelsPerMinute = widget.pixelsPerMinute;
 
-    _timelineController = EpgTimelineController(
-      gridStartTime: _gridStartTime,
-      pixelsPerMinute: _pixelsPerMinute,
-    );
+    if (widget.timelineController != null) {
+      _timelineController = widget.timelineController!;
+    } else {
+      _timelineController = EpgTimelineController(
+        gridStartTime: _gridStartTime,
+        pixelsPerMinute: _pixelsPerMinute,
+      );
+      _ownsTimelineController = true;
+    }
     _timelineController.scheduledJump.addListener(_consumeJump);
 
     // Mise à jour de la ligne "maintenant" sans rebuild du widget.
@@ -105,7 +113,9 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   void dispose() {
     _timer.cancel();
     _timelineController.scheduledJump.removeListener(_consumeJump);
-    _timelineController.dispose();
+    if (_ownsTimelineController) {
+      _timelineController.dispose();
+    }
     _hoverPosition.dispose();
     _horizontalOffset.dispose();
     _horizontalController.dispose();
@@ -189,7 +199,7 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   Widget build(BuildContext context) {
     _rebuildRenderCache();
 
-    final totalWidth = 48 * 30 * _pixelsPerMinute;
+    final totalWidth = (24 * 60 * _pixelsPerMinute).clamp(1440.0, 2880.0);
     const rowHeight = 60.0;
     const channelWidth = 140.0;
     final totalHeight = widget.channels.length * rowHeight;

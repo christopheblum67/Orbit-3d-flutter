@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/api_service.dart';
@@ -162,11 +163,15 @@ final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
 });
 
 final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
+  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchLiveChannels();
 });
 
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
+  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  if (sub == null) return const <Movie>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchMovies();
 });
@@ -174,8 +179,8 @@ final moviesProvider = FutureProvider<List<Movie>>((ref) async {
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
 final liveCategoriesFromM3UProvider = FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
-  if (sub['type'] != 'm3u') return const [];
+  final sub = await ref.watch(activeSubscriptionProvider.future);
+  if (sub == null || sub.type != SubscriptionType.m3u) return const [];
   final channels = await api.fetchLiveChannels();
   final groups = <String>{};
   for (final c in channels) {
@@ -189,21 +194,22 @@ final liveCategoriesFromM3UProvider = FutureProvider<List<MediaCategory>>((ref) 
 
 final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
-  if (sub['type'] == 'xtream') {
-    return api.fetchVodCategories();
-  }
-  // Pour M3U : pas de catégories VOD natives
-  return const [];
+  // Dépend de l'abonnement actif pour recharger les catégories VOD
+  final sub = await ref.watch(activeSubscriptionProvider.future);
+  if (sub == null || sub.type != SubscriptionType.xtream) return const [];
+  return api.fetchVodCategories();
 });
 
 final seriesCategoriesProvider =
     FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
+  ref.watch(activeSubscriptionProvider.future);
   return api.fetchSeriesCategories();
 });
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {
+  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  if (sub == null) return const <Series>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchSeries();
 });
@@ -229,6 +235,8 @@ final seriesDetailProvider =
 });
 
 final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
+  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();
 });

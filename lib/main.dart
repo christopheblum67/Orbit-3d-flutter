@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -583,11 +585,18 @@ class OrbitApp extends ConsumerStatefulWidget {
 
 class _OrbitAppState extends ConsumerState<OrbitApp> {
   @override
+  void initState() {
+    super.initState();
+    unawaited(ref.read(advancedSettingsProvider.notifier).load());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final advancedSettings = ref.watch(advancedSettingsProvider);
     return MaterialApp.router(
       title: 'Orbit IPTV',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
+      darkTheme: AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
       themeMode: ThemeMode.system,
       routerConfig: router,
     );

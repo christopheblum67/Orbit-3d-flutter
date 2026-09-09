@@ -9,6 +9,9 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
 /// Guide TV (EPG) : affiche la grille 2D seule.
 ///
@@ -25,6 +28,24 @@ class EpgScreen extends ConsumerStatefulWidget {
 
 class _EpgScreenState extends ConsumerState<EpgScreen> {
   String? _gridCategory;
+  late final EpgTimelineController _timelineController;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final gridStartTime = DateTime(now.year, now.month, now.day, now.hour - 1);
+    _timelineController = EpgTimelineController(
+      gridStartTime: gridStartTime,
+      pixelsPerMinute: 4.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _timelineController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +71,6 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             categories.add(c.groupLabel);
           }
         }
-        // Démarre sur la 1re catégorie de chaînes (perf : pas de tout-chargement).
         final effective =
             _gridCategory ?? (categories.isNotEmpty ? categories.first : null);
         final favIds = favoriteEntries.values
@@ -73,6 +93,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         }
         return Column(
           children: [
+            // Frise temporelle continue (EPG Timeline)
+            _EpgTimelineHeader(controller: _timelineController),
+            // Mini-lecteur programme de la chaîne ciblée
+            EpgMiniProgramBar(
+              controller: _timelineController,
+              epgData: {}, // sera mis à jour via le wrapper
+            ),
             _CategoryFilterBar(
               categories: categories,
               selected: effective,
@@ -95,6 +122,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                       key: ValueKey(effective),
                       channels: visible.map((c) => c.name).toList(),
                       channelObjects: visible,
+                      timelineController: _timelineController,
                     ),
             ),
           ],
@@ -177,15 +205,97 @@ class _CategoryFilterBar extends StatelessWidget {
   }
 }
 
+/// En-tête EPG avec frise temporelle + navigation.
+class _EpgTimelineHeader extends StatelessWidget {
+  final EpgTimelineController controller;
+
+  const _EpgTimelineHeader({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      color: const Color(0xFF0D0E12),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 140,
+            alignment: Alignment.center,
+            child: const Text(
+              'En Direct',
+              style: TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.remove, size: 18),
+            tooltip: '-1h',
+            color: Colors.white70,
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              final t = controller
+                  .pixelsToTime(controller.gridOffset.value)
+                  .add(const Duration(hours: -1));
+              controller.jumpTo(t);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.access_time, size: 18),
+            tooltip: 'Maintenant',
+            color: const Color(0xFF8B5CF6),
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              controller.jumpTo(DateTime.now());
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, size: 18),
+            tooltip: '+1h',
+            color: Colors.white70,
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              final t = controller
+                  .pixelsToTime(controller.gridOffset.value)
+                  .add(const Duration(hours: 1));
+              controller.jumpTo(t);
+            },
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: EpgTimeline(
+                controller: controller,
+                onScrub: (time) {
+                  controller.jumpTo(time);
+                },
+                onTimeSelected: (time) {
+                  controller.jumpTo(time);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Wrapper pour la grille 2D avec chargement EPG par chaîne.
 class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
   final List<String> channels;
   final List<Channel> channelObjects;
+  final EpgTimelineController timelineController;
 
   const _EpgGrid2DWrapper({
     super.key,
     required this.channels,
     required this.channelObjects,
+    required this.timelineController,
   });
 
   @override
@@ -276,6 +386,8 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
             },
           );
         },
+        // Use shared timeline controller
+        timelineController: widget.timelineController,
       ),
     );
   }

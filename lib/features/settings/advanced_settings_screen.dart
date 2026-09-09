@@ -22,7 +22,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(advancedSettingsProvider.notifier).load();
     });
@@ -47,6 +47,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
             Tab(icon: Icon(Icons.play_circle), text: 'Lecteur'),
             Tab(icon: Icon(Icons.shield), text: 'Sécurité'),
             Tab(icon: Icon(Icons.equalizer), text: 'Audio'),
+            Tab(icon: Icon(Icons.accessibility), text: 'Accessibilité'),
           ],
         ),
       ),
@@ -57,6 +58,7 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
           _PlayerTab(),
           _SecurityTab(),
           _AudioTab(),
+          _AccessibilityTab(),
         ],
       ),
     );
@@ -227,6 +229,30 @@ class _AudioTab extends ConsumerWidget {
               );
             }
           },
+        ),
+      ],
+    );
+  }
+}
+
+class _AccessibilityTab extends ConsumerWidget {
+  const _AccessibilityTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(advancedSettingsProvider);
+    final n = ref.read(advancedSettingsProvider.notifier);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const SettingsSectionTitle('Affichage'),
+        SettingsSwitchTile(
+          title: 'Contraste Élevé',
+          subtitle:
+              'Augmente le contraste des couleurs pour une meilleure lisibilité',
+          value: s.highContrast,
+          onChanged: n.setHighContrast,
+          icon: Icons.contrast_outlined,
         ),
       ],
     );

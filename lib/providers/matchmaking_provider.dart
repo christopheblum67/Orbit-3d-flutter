@@ -96,7 +96,7 @@ List<Recommendation> rankRecommendations({
   return chosen;
 }
 
-/// Provider Riverpod qui combine films + séries avec scoring.
+/// Provider Riverpod qui combine films + séries avec scoring + filtre genres session.
 final matchmakingProvider = FutureProvider.autoDispose
     .family<List<Recommendation>, String>((ref, profileId) async {
   final profile = ref.watch(currentProfileProvider);
@@ -113,11 +113,52 @@ final matchmakingProvider = FutureProvider.autoDispose
       .where((g) => g.isNotEmpty)
       .toList();
 
-  return rankRecommendations(
+  // Filtre genres session (OR logic)
+  final sessionFilters = ref.watch(matchmakingGenreFilterProvider)
+      .map((g) => g.trim().toLowerCase())
+      .where((g) => g.isNotEmpty)
+      .toSet();
+
+  final ranked = rankRecommendations(
     movies: movies,
     series: series,
     favorites: favorites,
   );
+
+  // Si pas de filtre session, on retourne tout le classement
+  if (sessionFilters.isEmpty) return ranked;
+
+  // Filtre OR : au moins un genre sélectionné correspond au genre du contenu
+  return ranked.where((reco) {
+    final recoGenre = reco.genre.toLowerCase();
+    return sessionFilters.any((f) => recoGenre.contains(f));
+  }).toList();
+});
+
+// ---------------------------------------------------------------------------
+// Session genre filters (OR logic, per-subscription, session-only)
+// ---------------------------------------------------------------------------
+
+/// Genres sélectionnés pour filtrer les recommandations (session-only, OR logic).
+class MatchmakingGenreFilterNotifier extends StateNotifier<Set<String>> {
+  MatchmakingGenreFilterNotifier() : super(const <String>{});
+
+  void toggle(String genre) {
+    if (state.contains(genre)) {
+      state = {...state}..remove(genre);
+    } else {
+      state = {...state, genre};
+    }
+  }
+
+  void clear() {
+    state = const <String>{};
+  }
+}
+
+final matchmakingGenreFilterProvider =
+    StateNotifierProvider<MatchmakingGenreFilterNotifier, Set<String>>((ref) {
+  return MatchmakingGenreFilterNotifier();
 });
 
 // ---------------------------------------------------------------------------

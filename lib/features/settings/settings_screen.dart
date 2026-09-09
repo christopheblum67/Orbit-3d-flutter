@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -7,8 +8,10 @@ import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 
 /// Menu de configuration organisé en onglets, inspiré de la concurrence
 /// (XCIPTV). Réunit les réglages standard (compte, sécurité, notification)
@@ -131,6 +134,22 @@ class _AccountTab extends ConsumerWidget {
               'Ceci est une notification test',
             );
           },
+          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        const SettingsSectionTitle('Sauvegarde'),
+        _NavTile(
+          icon: Icons.upload_outlined,
+          title: 'Exporter les réglages',
+          subtitle: 'Copie la config (réseau, lecteur, audio, accessibilité) dans le presse-papiers',
+          onTap: () => _exportSettings(context, ref),
+          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+        ),
+        _NavTile(
+          icon: Icons.download_outlined,
+          title: 'Importer les réglages',
+          subtitle: 'Restaure depuis le presse-papiers (JSON)',
+          onTap: () => _importSettings(context, ref),
           trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
         ),
       ],
@@ -291,6 +310,56 @@ class _ContentTab extends ConsumerWidget {
           onTap: () => context.go('/matchmaking'),
         ),
       ],
+    );
+  }
+}
+
+Future<void> _exportSettings(BuildContext context, WidgetRef ref) async {
+  final backupService = SettingsBackupService();
+  final advancedSettings = ref.read(advancedSettingsProvider);
+  final userPreferences = ref.read(preferencesProvider);
+  final json = await backupService.exportToJson(
+    advancedSettings: advancedSettings,
+    userPreferences: userPreferences,
+  );
+  await backupService.copyToClipboard(json);
+  await backupService.writeToFile(json);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Réglages exportés (presse-papiers + Documents/orbit_settings_backup.json)'),
+        backgroundColor: Color(0xFF00CFE8),
+      ),
+    );
+  }
+}
+
+Future<void> _importSettings(BuildContext context, WidgetRef ref) async {
+  final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+  if (clipboard?.text == null || clipboard!.text!.trim().isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Presse-papiers vide'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+    return;
+  }
+
+  final backupService = SettingsBackupService();
+  final result = await backupService.importFromJson(
+    clipboard.text!,
+    ref.read(advancedSettingsProvider.notifier),
+    ref.read(preferencesProvider.notifier),
+  );
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message),
+        backgroundColor: result.success ? const Color(0xFF00CFE8) : Colors.redAccent,
+      ),
     );
   }
 }

@@ -25,7 +25,7 @@ class SeriesScreen extends ConsumerStatefulWidget {
 
 class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   String _selectedCategoryId = '';
-  SortMode _selectedSortMode = SortMode.nameAsc;
+  SortMode _selectedSortMode = SortMode.recentlyAdded;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
@@ -243,32 +243,33 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             );
                                         }
 
-                                        return TvFocus(
-                                          onActivate: onOpen,
-                                          child: MediaCard(
-                                            title: series.title,
-                                            posterUrl: series.coverUrl,
-                                            year: series.year,
-                                            genre: series.genre,
-                                            rating: series.rating,
-                                            ageLabel: series.pegiLabel,
-                                            fallbackIcon: Icons.tv,
-                                            favoriteOverlay:
-                                                FavoriteToggle.overlay(
-                                              entry: FavoriteEntry(
-                                                type: ContentType.series,
-                                                id: series.id,
-                                                title: series.title,
-                                                posterUrl: series.coverUrl,
-                                                subtitle: series.year > 0
-                                                    ? '${series.year}'
-                                                    : series.genre,
-                                              ),
-                                            ),
-                                            onTap: onOpen,
-                                            onLongPress: onLongPress,
-                                          ),
-                                        );
+return TvFocus(
+                                           onActivate: onOpen,
+                                           child: MediaCard(
+                                             title: series.title,
+                                             posterUrl: series.coverUrl,
+                                             year: series.year,
+                                             genre: series.genre,
+                                             rating: series.rating,
+                                             ageLabel: series.pegiLabel,
+                                             fallbackIcon: Icons.tv,
+                                             favoriteOverlay:
+                                                 FavoriteToggle.overlay(
+                                               entry: FavoriteEntry(
+                                                 type: ContentType.series,
+                                                 id: series.id,
+                                                 title: series.title,
+                                                 posterUrl: series.coverUrl,
+                                                 subtitle: series.year > 0
+                                                     ? '${series.year}'
+                                                     : series.genre,
+                                               ),
+                                             ),
+                                             onTap: onOpen,
+                                             onLongPress: onLongPress,
+                                             isNew: series.isNew,
+                                           ),
+                                         );
                                       },
                                       childCount: visibleSeries.length,
                                     ),

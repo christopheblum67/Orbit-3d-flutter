@@ -264,6 +264,7 @@ class _VodFavoritesTab extends ConsumerWidget {
             fallbackIcon: Icons.movie_outlined,
             favoriteOverlay: FavoriteToggle.overlay(entry: entry),
             onTap: () => _openMovie(context, entry, movie),
+            isNew: movie?.isNew ?? false,
           ),
         );
       },
@@ -339,6 +340,7 @@ class _SeriesFavoritesTab extends ConsumerWidget {
             fallbackIcon: Icons.tv,
             favoriteOverlay: FavoriteToggle.overlay(entry: entry),
             onTap: () => _openSeries(context, entry, series),
+            isNew: series?.isNew ?? false,
           ),
         );
       },

@@ -30,7 +30,7 @@ class BrowseScreen extends ConsumerStatefulWidget {
 class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   _BrowseTab _tab = _BrowseTab.films;
   String _selectedCategoryId = '';
-  SortMode _selectedSortMode = SortMode.nameAsc;
+  SortMode _selectedSortMode = SortMode.recentlyAdded;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
@@ -436,6 +436,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     final ageLabel = isSeries
         ? (item as Series).pegiLabel
         : (item as Movie).pegiLabel;
+    final isNew = isSeries
+        ? (item as Series).isNew
+        : (item as Movie).isNew;
 
     return TvFocus(
       onActivate: onOpen,
@@ -458,6 +461,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         ),
         onTap: onOpen,
         onLongPress: onLongPress,
+        isNew: isNew,
       ),
     );
   }

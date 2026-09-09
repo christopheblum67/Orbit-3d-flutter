@@ -25,7 +25,7 @@ class VodScreen extends ConsumerStatefulWidget {
 
 class _VodScreenState extends ConsumerState<VodScreen> {
   String _selectedCategoryId = '';
-  SortMode _selectedSortMode = SortMode.nameAsc;
+  SortMode _selectedSortMode = SortMode.recentlyAdded;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
@@ -258,6 +258,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     ),
                                     onTap: onOpen,
                                     onLongPress: onLongPress,
+                                    isNew: movie.isNew,
                                   ),
                                 );
                               },
