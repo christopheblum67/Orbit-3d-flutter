@@ -91,90 +91,53 @@ class StartupRefreshController extends ChangeNotifier {
   Future<void> start() async {
     if (_started) return;
     _started = true;
-    final futures = <Future<void>>[];
 
+    // Séquencement STRICT : les étapes s'exécutent une à une (avec un court
+    // répit entre deux). En lançant tout en parallèle (catalogues + EPG +
+    // sondages replay), on fait saturer le rate-limit (429) du panel et
+    // l'ENSEMBLE échoue (catégories/flux indisponibles à l'arrivée).
     for (final step in _todo) {
-      switch (step) {
-        case StartupStep.live:
-          futures.add(
-            _run(
-              step,
-              () async {
-                await _api.fetchLiveChannels();
-              },
-            ),
-          );
-        case StartupStep.movies:
-          futures.add(
-            _run(
-              step,
-              () async {
-                final list = await _api.fetchMovies();
-                movies = list;
-              },
-            ),
-          );
-        case StartupStep.series:
-          futures.add(
-            _run(
-              step,
-              () async {
-                final list = await _api.fetchSeries();
-                series = list;
-              },
-            ),
-          );
-        case StartupStep.radio:
-          futures.add(
-            _run(
-              step,
-              () async {
-                await _api.fetchRadioChannels();
-              },
-            ),
-          );
-        case StartupStep.replay:
-          futures.add(
-            _run(
-              step,
-              () async {
-                await _api.fetchReplays();
-              },
-            ),
-          );
-        case StartupStep.epg:
-          futures.add(
-            _run(
-              step,
-              () async {
-                try {
-                  // Précharge le guide dans le cache partagé, une seule fois :
-                  // la grille EPG l'utilise ensuite sans re-télécharger le XMLTV.
-                  final cache = _epgCache;
-                  if (cache != null) {
-                    await cache.loadFull(_api);
-                  } else {
-                    await _api.fetchEpg();
-                  }
-                } finally {
-                  // Marqué comme traité même en erreur (non bloquant).
+      await _run(
+        step,
+        () async {
+          switch (step) {
+            case StartupStep.live:
+              await _api.fetchLiveChannels();
+            case StartupStep.movies:
+              final list = await _api.fetchMovies();
+              movies = list;
+            case StartupStep.series:
+              final list = await _api.fetchSeries();
+              series = list;
+            case StartupStep.radio:
+              await _api.fetchRadioChannels();
+            case StartupStep.replay:
+              // Passe par le cache partagé (TTL 5 min + déduction en vol)
+              // pour ne jamais sonder le panel deux fois d'affilée.
+              await replaysCache.fetch(_api.fetchReplays);
+            case StartupStep.epg:
+              try {
+                // Précharge le guide dans le cache partagé, une seule fois :
+                // la grille EPG l'utilise ensuite sans re-télécharger le XMLTV.
+                final cache = _epgCache;
+                if (cache != null) {
+                  await cache.loadFull(_api);
+                } else {
+                  await _api.fetchEpg();
                 }
-              },
-            ),
-          );
-        case StartupStep.ai:
-          // L'étape IA est purement indicative : on la marque instantanément
-          // comme faite pour que la progression reste fluide sans latence.
-          futures.add(
-            _run(
-              step,
-              () async {},
-            ),
-          );
-      }
+              } finally {
+                // Marqué comme traité même en erreur (non bloquant).
+              }
+            case StartupStep.ai:
+              // Étape purement indicative : marquée instantanément comme faite
+              // pour que la progression reste fluide sans latence.
+          }
+        },
+      );
+      // Petit répit fixe entre deux salves : laisse respirer le panel.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
 
-    await Future.wait(futures);
     _finished = true;
     _current = null;
     notifyListeners();

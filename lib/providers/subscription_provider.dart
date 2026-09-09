@@ -23,12 +23,14 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> _loadSubscriptions() async {
     await _storage.migrateFromSharedPreferences();
     final subs = await _storage.getSubscriptions();
+    if (!mounted) return;
     state = subs;
   }
 
   Future<void> addSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
+    if (!mounted) return;
     state = [...state, subscription];
     if (subscription.type == SubscriptionType.xtream) {
       refreshValidity(subscription.id);
@@ -38,6 +40,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> updateSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
+    if (!mounted) return;
     state =
         state.map((s) => s.id == subscription.id ? subscription : s).toList();
     if (subscription.type == SubscriptionType.xtream) {
@@ -48,6 +51,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> deleteSubscription(String id) async {
     await _ensureLoaded();
     await _storage.deleteSubscription(id);
+    if (!mounted) return;
     state = state.where((s) => s.id != id).toList();
   }
 
@@ -65,6 +69,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     for (final sub in subscriptions) {
       await _storage.saveSubscription(sub);
     }
+    if (!mounted) return;
     state = subscriptions;
     _ref.invalidate(activeSubscriptionProvider);
     // Rafraîchit la validité du serveur activé (Xtream) à la volée.
@@ -98,6 +103,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     );
 
     await _storage.saveSubscription(updated);
+    if (!mounted) return;
     state = [
       ...state.sublist(0, index),
       updated,
@@ -110,6 +116,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   /// Sans effet pour les playlists M3U (aucune validité serveur).
   Future<void> refreshValidity(String id, {ApiService? api}) async {
     await _ensureLoaded();
+    if (!mounted) return;
     final index = state.indexWhere((s) => s.id == id);
     if (index == -1) return;
     final sub = state[index];
@@ -117,10 +124,11 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
 
     final apiService = api ?? ApiService();
     final expiry = await apiService.fetchExpiration();
-    if (expiry == null) return;
+    if (!mounted || expiry == null) return;
 
     final updated = sub.copyWith(validUntil: expiry);
     await _storage.saveSubscription(updated);
+    if (!mounted) return;
     state = [
       ...state.sublist(0, index),
       updated,
