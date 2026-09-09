@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/watched_episode.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
@@ -77,7 +79,7 @@ class SeriesDetailScreen extends ConsumerWidget {
   }
 }
 
-class _SeriesDetailContent extends StatelessWidget {
+class _SeriesDetailContent extends ConsumerWidget {
   const _SeriesDetailContent({
     required this.detail,
     required this.baseSeries,
@@ -87,74 +89,175 @@ class _SeriesDetailContent extends StatelessWidget {
   final Series baseSeries;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final watched = ref.watch(watchedEpisodesProvider).values;
     final episodesBySeason = <int, List<Episode>>{};
     for (final episode in baseSeries.episodes) {
       episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
     }
     final seasons = episodesBySeason.keys.toList()..sort();
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: _SeriesHeader(series: detail, baseSeries: baseSeries),
-        ),
-        if (seasons.isEmpty)
+    final header = SliverToBoxAdapter(
+      child: _SeriesHeader(series: detail, baseSeries: baseSeries),
+    );
+
+    if (seasons.isEmpty) {
+      return CustomScrollView(
+        slivers: [
+          header,
           const SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.video_library_outlined,
               title: 'Aucun épisode',
               message: 'Cette série ne propose pas encore d\'épisodes.',
             ),
-          )
-        else
-          for (final season in seasons) ...[
-            SliverToBoxAdapter(
-              child: SectionHeader(
-                icon: Icons.play_circle_outline,
-                title: 'Saison $season',
-                subtitle: '${episodesBySeason[season]!.length} épisodes',
-              ),
+          ),
+        ],
+      );
+    }
+
+    if (seasons.length == 1) {
+      final season = seasons.first;
+      return CustomScrollView(
+        slivers: [
+          header,
+          ..._seasonSlivers(
+            context,
+            season: season,
+            episodes: episodesBySeason[season]!,
+            total: episodesBySeason[season]!.length,
+            seen: _seenCountFor(watched, season),
+            compact: false,
+          ),
+        ],
+      );
+    }
+
+    // Plusieurs saisons : TabBar horizontale pour alléger la liste, une seule
+    // saison visible à la fois (au lieu de les empiler verticalement).
+    return DefaultTabController(
+      length: seasons.length,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: scheme.surface,
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                for (final season in seasons) Tab(text: 'Saison $season'),
+              ],
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              sliver: SliverList.builder(
-                itemCount: episodesBySeason[season]!.length,
-                itemBuilder: (context, index) {
-                  final episode = episodesBySeason[season]![index];
-                  return _EpisodeTile(
-                    series: baseSeries,
-                    episode: episode,
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                for (final season in seasons)
+                  CustomScrollView(
+                    slivers: [
+                      header,
+                      ..._seasonSlivers(
+                        context,
+                        season: season,
+                        episodes: episodesBySeason[season]!,
+                        total: episodesBySeason[season]!.length,
+                        seen: _seenCountFor(watched, season),
+                        compact: true,
+                      ),
+                    ],
+                  ),
+              ],
             ),
-            //Invités spéciaux pour cette saison
-            if (detail.getGuestStarsForSeason(season).isNotEmpty)
-              SliverToBoxAdapter(
-                child: CastCarousel(
-                  actors: detail.getGuestStarsForSeason(season),
-                  title: 'Invités spéciaux - Saison $season',
-                  maxVisible: 10,
-                  showCharacter: true,
-                  itemWidth: 120,
-                  imageSize: 80,
-                ),
-              ),
-          ],
-      ],
+          ),
+        ],
+      ),
     );
+  }
+
+  int _seenCountFor(Iterable<WatchedEpisodeEntry> watched, int season) {
+    return watched
+        .where((e) => e.seriesId == baseSeries.id && e.season == season)
+        .length;
+  }
+
+  /// Slivers d'une saison :
+  ///  - `compact` (mode onglets) : simple rappel « X/Y vus », pas de gros
+  ///    titre de section redondant avec l'onglet ;
+  ///  - sinon : en-tête de section classique « Saison N ».
+  List<Widget> _seasonSlivers(
+    BuildContext context, {
+    required int season,
+    required List<Episode> episodes,
+    required int total,
+    required int seen,
+    required bool compact,
+  }) {
+    final guests = detail.getGuestStarsForSeason(season);
+    return [
+      if (compact)
+        seen > 0
+            ? SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                  child: Text(
+                    '$seen/$total vus',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: _watchedGreen),
+                  ),
+                ),
+              )
+            : const SliverToBoxAdapter(child: SizedBox.shrink())
+      else
+        SliverToBoxAdapter(
+          child: SectionHeader(
+            icon: Icons.play_circle_outline,
+            title: 'Saison $season',
+            subtitle: _seasonSubtitle(total: total, seen: seen),
+          ),
+        ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        sliver: SliverList.builder(
+          itemCount: episodes.length,
+          itemBuilder: (context, index) => _EpisodeTile(
+            series: baseSeries,
+            episode: episodes[index],
+          ),
+        ),
+      ),
+      //Invités spéciaux pour cette saison
+      if (guests.isNotEmpty)
+        SliverToBoxAdapter(
+          child: CastCarousel(
+            actors: guests,
+            title: 'Invités spéciaux - Saison $season',
+            maxVisible: 10,
+            showCharacter: true,
+            itemWidth: 120,
+            imageSize: 80,
+          ),
+        ),
+    ];
+  }
+
+  String _seasonSubtitle({required int total, required int seen}) {
+    if (seen == 0) return '$total épisodes';
+    return '$seen/$total vus';
   }
 }
 
-class _SeriesHeader extends StatelessWidget {
+class _SeriesHeader extends ConsumerWidget {
   const _SeriesHeader({required this.series, required this.baseSeries});
 
   final SeriesDetail series;
   final Series baseSeries;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -186,19 +289,24 @@ class _SeriesHeader extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 112,
-                  height: 168,
-                  child: series.coverUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: series.coverUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) =>
-                              Icon(Icons.tv, color: scheme.primary),
-                          errorWidget: (_, __, ___) =>
-                              Icon(Icons.tv, color: scheme.primary),
-                        )
-                      : Icon(Icons.tv, color: scheme.primary),
+                child: GestureDetector(
+                  // Pression longue sur la série = « retour en arrière » :
+                  // propose de tout retirer des déjà vus.
+                  onLongPress: () => _confirmResetSeries(context, ref),
+                  child: SizedBox(
+                    width: 112,
+                    height: 168,
+                    child: series.coverUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: series.coverUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                Icon(Icons.tv, color: scheme.primary),
+                            errorWidget: (_, __, ___) =>
+                                Icon(Icons.tv, color: scheme.primary),
+                          )
+                        : Icon(Icons.tv, color: scheme.primary),
+                  ),
                 ),
               ),
               const SizedBox(width: 14),
@@ -310,6 +418,47 @@ class _SeriesHeader extends StatelessWidget {
     );
   }
 
+  void _confirmResetSeries(BuildContext context, WidgetRef ref) {
+    final seen = ref.read(watchedEpisodesProvider.notifier).countForSeries(baseSeries.id);
+    if (seen == 0) return;
+    showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tout retirer des déjà vus ?'),
+        content: Text(
+          'Les $seen épisodes vus de « ${baseSeries.title} » seront marqués '
+          'comme non vus pour ce profil.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Tout retirer'),
+          ),
+        ],
+      ),
+    ).then((confirmed) async {
+      if (confirmed != true) return;
+      await ref
+          .read(watchedEpisodesProvider.notifier)
+          .clearForSeries(baseSeries.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '« ${baseSeries.title} » retiré des déjà vus.',
+            ),
+            duration: const Duration(milliseconds: 1200),
+          ),
+        );
+    });
+  }
+
   Color _getSourceColor(String source) {
     switch (source.toLowerCase()) {
       case 'tvmaze':
@@ -336,14 +485,16 @@ class _SeriesHeader extends StatelessWidget {
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
+const Color _watchedGreen = Color(0xFF66BB6A);
+
+class _EpisodeTile extends ConsumerWidget {
   const _EpisodeTile({required this.series, required this.episode});
 
   final Series series;
   final Episode episode;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
         'E${episode.episodeNumber.toString().padLeft(2, '0')}';
@@ -358,13 +509,55 @@ class _EpisodeTile extends StatelessWidget {
         ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
         : 'Épisode $number';
     final canPlay = episode.streamUrl.isNotEmpty;
+    final profileId = ref.read(currentProfileProvider)?.id ?? '';
+    final watched = ref.watch(watchedEpisodesProvider).containsKey(
+          WatchedEpisodeEntry.keyFor(
+            profileId: profileId,
+            seriesId: series.id,
+            season: episode.season,
+            episodeNumber: episode.episodeNumber,
+            episodeId: episode.id,
+          ),
+        );
     void onOpen() {
       if (!canPlay) return;
       context.push('/episode/detail', extra: (series, episode));
     }
 
+    // Pression longue = « retour en arrière » : retire l'épisode des déjà vus
+    // (après confirmation). Si l'épisode n'est pas « vu », rien à retirer.
+    void onLongPress() {
+      if (!watched) return;
+      showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Retirer des déjà vus ?'),
+          content: Text(
+            '« $label » sera marqué comme non vu pour ce profil.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Retirer'),
+            ),
+          ],
+        ),
+      ).then((confirmed) {
+        if (confirmed == true) {
+          ref
+              .read(watchedEpisodesProvider.notifier)
+              .toggle(series, episode);
+        }
+      });
+    }
+
     return TvFocus(
       onActivate: onOpen,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: AppCard(
@@ -383,14 +576,43 @@ class _EpisodeTile extends StatelessWidget {
                   label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: watched ? scheme.onSurfaceVariant : null,
+                      ),
                 ),
               ),
-              if (canPlay)
-                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              if (watched) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _watchedGreen.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Vu',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: _watchedGreen,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: watched
+                    ? 'Marquer comme non vu'
+                    : 'Marquer comme vu',
+                onPressed: () => ref
+                    .read(watchedEpisodesProvider.notifier)
+                    .toggle(series, episode),
+                icon: Icon(
+                  watched ? Icons.check_circle : Icons.check_circle_outline,
+                  color: watched ? _watchedGreen : scheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),
