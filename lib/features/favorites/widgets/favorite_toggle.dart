@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 const Color _favoriteActive = Color(0xFFFF5252);
 
@@ -31,7 +32,9 @@ class FavoriteToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider);
-    final isFavorite = favorites.containsKey(entry.key);
+    final profile = ref.watch(currentProfileProvider);
+    final isFavorite =
+        favorites.containsKey(_canonicalKey(entry, profile?.id));
 
     Future<void> onToggle() async {
       final wasFavorite = isFavorite;
@@ -80,5 +83,13 @@ class FavoriteToggle extends ConsumerWidget {
       ),
       onPressed: onToggle,
     );
+  }
+
+  /// Clé canonique alignée sur [FavoritesNotifier] : les entrées construites à
+  /// la volée (écrans détail/cartes) n'ont pas de `profileId` ; on résout le
+  /// profil courant pour retrouver la clé persistée `"<profileId>:<type>:<id>"`.
+  String _canonicalKey(FavoriteEntry favorite, String? profileId) {
+    if (profileId == null || profileId.isEmpty) return favorite.key;
+    return '$profileId:${favorite.type.name}:${favorite.id}';
   }
 }
