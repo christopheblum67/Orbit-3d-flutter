@@ -27,10 +27,10 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
   final String? profileId;
 
   @override
-  ConsumerState<ProfileEditScreen> createState() => _ProfileEditScreenState();
+  ConsumerState<ProfileEditScreen> createState() => ProfileEditScreenState();
 }
 
-class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
+class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   ProfileType _type = ProfileType.adult;
@@ -43,6 +43,82 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   bool _saving = false;
   bool _submitted = false;
   UserProfile? _loadedTarget;
+
+  /// Valeurs initiales du formulaire (pour la détection de modifications).
+  String _baseName = '';
+  ProfileType _baseType = ProfileType.adult;
+  int _baseGradientIndex = 0;
+  String? _baseRemoteAvatarUrl;
+  String? _basePinHash;
+  DateTime? _baseDateOfBirth;
+  String _baseGender = 'Non spécifié';
+  final List<String> _baseFavoriteGenres = [];
+
+  /// `true` si le formulaire contient des modifications non sauvegardées
+  /// (utilisé par la garde de retour « quitter sans sauvegarder ? »).
+  bool get isDirty {
+    if (_isEdit && _loadedTarget == null) return false;
+    return _nameController.text.trim() != _baseName ||
+        _type != _baseType ||
+        _gradientIndex != _baseGradientIndex ||
+        _remoteAvatarUrl != _baseRemoteAvatarUrl ||
+        _pinHash != _basePinHash ||
+        _dateOfBirth != _baseDateOfBirth ||
+        _gender != _baseGender ||
+        !_listEquals(_favoriteGenres, _baseFavoriteGenres);
+  }
+
+  static bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// Propose la garde « quitter sans sauvegarder ? » si le formulaire est sale,
+  /// puis quitte via [router.pop] si confirmé.
+  Future<void> handleBack() async {
+    if (!await confirmLeave() || !mounted) return;
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+    }
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitter sans sauvegarder ?'),
+        content: const Text(
+          'Des modifications non sauvegardées seront perdues. Quitter quand même ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Quitter'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// Montre la boîte de dialogue « quitter sans sauvegarder ? » si le
+  /// formulaire est sale et retourne si l'utilisateur confirme le départ.
+  Future<bool> confirmLeave() async {
+    if (!isDirty) return true;
+    return _confirmDiscard();
+  }
 
   static const _ageRanges = [
     (label: '- 12 ans', min: 0, max: 12),
@@ -135,6 +211,20 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         : -1;
     _gradientIndex = (idx >= 0 && idx < orbitGradientOptions.length) ? idx : 0;
     _pinHash = profile.pinHash;
+    _captureBaseline();
+  }
+
+  void _captureBaseline() {
+    _baseName = _nameController.text.trim();
+    _baseType = _type;
+    _baseGradientIndex = _gradientIndex;
+    _baseRemoteAvatarUrl = _remoteAvatarUrl;
+    _basePinHash = _pinHash;
+    _baseDateOfBirth = _dateOfBirth;
+    _baseGender = _gender;
+    _baseFavoriteGenres
+      ..clear()
+      ..addAll(_favoriteGenres);
   }
 
   UserProfile _avatarPreviewProfile() {
@@ -323,7 +413,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Retour',
-          onPressed: () => context.pop(),
+          onPressed: handleBack,
         ),
       ),
       body: SafeArea(
@@ -631,7 +721,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _saving ? null : () => context.pop(),
+              onPressed: _saving ? null : handleBack,
               icon: const Icon(Icons.close_rounded),
               label: const Text('Annuler'),
             ),

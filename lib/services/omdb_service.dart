@@ -14,6 +14,15 @@ class OmdbService {
   static const Duration _cacheTtl = Duration(hours: 24);
   static const Duration _minRequestInterval = Duration(seconds: 1); // 1 req/s
 
+  /// Accès sûr à dotenv : renvoie '' si dotenv n'est pas initialisé.
+  static String _env(String key) {
+    try {
+      return dotenv.env[key] ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   final Dio _dio;
   final LoggerService _logger = LoggerService.instance;
   Box? _cacheBox;
@@ -41,7 +50,7 @@ class OmdbService {
     }
   }
 
-  String get _apiKey => dotenv.env['OMDB_API_KEY'] ?? '';
+  String get _apiKey => _env('OMDB_API_KEY');
 
   bool get hasApiKey => _apiKey.isNotEmpty;
 

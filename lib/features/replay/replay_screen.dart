@@ -124,7 +124,9 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                             leading: const Icon(Icons.replay),
                             title: Text(replay.title),
                             subtitle: Text(
-                              '${replay.startTime} - ${replay.endTime}',
+                              replay.startTime.isEmpty
+                                  ? 'Replay disponible'
+                                  : '${replay.startTime} - ${replay.endTime}',
                             ),
                             trailing: FavoriteToggle(
                               entry: FavoriteEntry(
