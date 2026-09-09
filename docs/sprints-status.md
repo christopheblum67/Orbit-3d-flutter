@@ -46,9 +46,32 @@ XP : sprint propre +40 · DoD +20 · leçon +10 · bug capté avant push +10 · 
 | S2 | HLS/DASH rewriter (URLs → proxy), cache LRU 256Mo, purge /cache, retry browser fallback | 🟢* | *unit test only — jamais exécuté |
 | S3 | Bridge Flutter: RustProxyManager (ProcessManager + ping) + stream_relay (rebase via /proxy/hls?url=) | 🟢* | *unit test only — jamais exécuté |
 | S4 | Fallback auto (proxy → direct), logs/diagnostics UI, binaire Android | ◻️ | 3h |
-| ⚠️ | **HYPOTHÈSE À FALSIFIER** : `cargo run --example smoke -- "<URL>"` (machine avec Cargo). 200 = proxy validé ; 403/406 = hypothèse TLS fausse → pivoter | 🔴 | 0.2h |
+| ⚠️ | **HYPOTHÈSE À FALSIFIER** (machine avec Cargo) : `cargo run --example smoke -- "<URL_FLUX_406>"` → voir « Instructions cargo » ci-dessous | 🔴 | 0.2h |
 
 **Progression réelle : ~15% livré (65% écrit)** — **Reste : ~3h + preuve d'exécution.**
+
+### Instructions cargo (à exécuter côté équipe — machine avec Cargo)
+Dans `rust_proxy/` — la falsification `smoke` n'utilise AUCUN code du proxy (seulement `reqwest-impersonate`) :
+
+```powershell
+cd rust_proxy
+cargo fmt --check             # style
+cargo check                   # compilation (deps + code)
+cargo clippy --all-targets     # lints
+cargo test                    # tests unitaires (S2 : HLS/DASH, cache ; S3 : bridge à re-falsifier en conditions réelles)
+cargo build --release         # binaire + cibles Android (cf. Cargo.toml)
+```
+
+Falsification TLS (point décisif, ~0.2h) :
+
+```powershell
+cargo run --example smoke -- "<URL_FLUX_406_reel>"
+```
+
+* ⚠️ Lancer depuis un **poste sur le MÊME réseau que le téléphone** (réseau qui subit le 406).
+* 🔴 `200` = **HYPOTHÈSE CONFIRMÉE** : l'empreinte Chrome 120/131 suffit → le proxy a un sens.
+* 🔴 `403/406` même avec Chrome 120/131 = **HYPOTHÈSE FALSIFIÉE** : le blocage n'est pas (que) le fingerprint TLS → pivoter (pistes listées dans `examples/smoke.rs`).
+* 🟢 Commits déjà poussés : `fa8dc48` (pooling strict + WAF 403/406/429/503 + renewal session + status étendu).
 
 ---
 
