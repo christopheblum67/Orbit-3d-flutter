@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
 /// et « Reprendre » (si une progression de lecture existe pour l'épisode).
@@ -47,6 +48,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
 
   void _openPlayer(BuildContext context, WidgetRef ref, {int? positionMs}) {
     if (episode.streamUrl.isEmpty) return;
+    // Lancement d'un épisode = marqué « vu » pour le profil courant.
+    ref.read(watchedEpisodesProvider.notifier).record(series, episode);
     context.push(
       '/player',
       extra: PlayerRouteData(

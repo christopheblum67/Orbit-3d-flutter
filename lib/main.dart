@@ -24,6 +24,7 @@ import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
+import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -96,6 +97,8 @@ Future<void> main() async {
   await historyService.init();
   final recentlyWatchedService = RecentlyWatchedService();
   await recentlyWatchedService.init();
+  final watchedEpisodesService = WatchedEpisodesService();
+  await watchedEpisodesService.init();
   final playbackProgressService = PlaybackProgressService();
   await playbackProgressService.init();
   final notificationService = NotificationService();
@@ -128,6 +131,7 @@ Future<void> main() async {
         historyServiceProvider.overrideWithValue(historyService),
         recentlyWatchedServiceProvider
             .overrideWithValue(recentlyWatchedService),
+        watchedEpisodesServiceProvider.overrideWithValue(watchedEpisodesService),
         playbackProgressServiceProvider
             .overrideWithValue(playbackProgressService),
         notificationServiceProvider.overrideWithValue(notificationService),

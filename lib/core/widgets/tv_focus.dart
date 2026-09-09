@@ -5,6 +5,7 @@ class TvFocus extends StatelessWidget {
   final Widget child;
   final FocusNode? focusNode;
   final void Function()? onActivate;
+  final void Function()? onLongPress;
   final void Function(bool focused)? onFocusChange;
 
   const TvFocus({
@@ -12,6 +13,7 @@ class TvFocus extends StatelessWidget {
     required this.child,
     this.focusNode,
     this.onActivate,
+    this.onLongPress,
     this.onFocusChange,
   });
 
@@ -36,6 +38,7 @@ class TvFocus extends StatelessWidget {
       },
       child: GestureDetector(
         onTap: onActivate,
+        onLongPress: onLongPress,
         child: child,
       ),
     );

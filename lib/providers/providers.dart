@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
+import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
@@ -51,6 +52,8 @@ final historyServiceProvider =
     Provider<HistoryService>((ref) => HistoryService());
 final recentlyWatchedServiceProvider =
     Provider<RecentlyWatchedService>((ref) => RecentlyWatchedService());
+final watchedEpisodesServiceProvider =
+    Provider<WatchedEpisodesService>((ref) => WatchedEpisodesService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
