@@ -31,6 +31,12 @@ impl ClientFactory {
             .impersonate(version)
             .cookie_store(true)
             .cookie_provider(cookie_jar.clone())
+            // Pooling strict : on réutilise la MÊME connexion TCP/TLS entre
+            // les segments (.ts/.m4s) au lieu de re-ouvrir un handshake TLS
+            // à chaque requête (déclencheur anti-bot Cloudflare).
+            .pool_max_idle_per_host(10)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .tcp_keepalive(Duration::from_secs(30))
             .redirect(Policy::limited(self.config.max_redirects))
             .timeout(self.config.request_timeout())
             .connect_timeout(self.config.connect_timeout())
@@ -71,6 +77,9 @@ impl ClientFactory {
         let client = reqwest::Client::builder()
             .cookie_store(true)
             .cookie_provider(cookie_jar)
+            .pool_max_idle_per_host(10)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .tcp_keepalive(Duration::from_secs(30))
             .redirect(Policy::limited(self.config.max_redirects))
             .timeout(self.config.request_timeout())
             .connect_timeout(self.config.connect_timeout())

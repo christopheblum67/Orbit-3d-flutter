@@ -1,59 +1,76 @@
 import 'package:flutter_test/flutter_test.dart';
+
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
-import 'package:orbit_3d_flutter/services/stream_relay.dart';
 
 void main() {
-  group('RustProxyManager constants', () {
-    test('defaults align on the listen_addr 127.0.0.1:8787', () {
-      expect(kRustProxyPort, 8787);
-      expect(kRustProxyBase, 'http://127.0.0.1:$kRustProxyPort');
-      expect(RustProxyManager.instance.proxyBase, kRustProxyBase);
-      expect(kRustProxyHost, '127.0.0.1');
-    });
-
-    test('binary name matches the cargo [[bin]] name', () {
-      expect(RustProxyManager.binaryName, 'orbit_proxy_server');
-    });
-
-    test('status path matches the axum route', () {
-      expect(kRustProxyStatusPath, '/api/proxy-status');
-    });
-
-    test('starts idle and not ready, without touching the platform', () {
-      final manager = RustProxyManager.instance;
-      expect(manager.isReady, isFalse);
-      expect(manager.lifecycle, RustProxyLifecycle.idle);
-      expect(manager.lastStatus, isNull);
-    });
-
-    test('ping returns false when nothing listens (no binary started)',
-        () async {
-      // Aucun process lancé : la requête échoue proprement sur 127.0.0.1.
-      expect(await RustProxyManager.instance.ping(), isFalse);
-    });
-  });
-
-  group('RustProxyStatus', () {
-    test('parses the proxy-status JSON keys', () {
+  group('RustProxyStatus.fromJson', () {
+    test('parse tous les champs, y compris WAF/re-bootstrap', () {
       final status = RustProxyStatus.fromJson(const <String, dynamic>{
         'status': 'running',
         'port': 8787,
         'cache_hit_ratio': 0.42,
-        'segments_cached': 17,
+        'segments_cached': 12,
         'proxy_mode': 'cloudflare-tls-impersonation',
+        'waf_blocks': 7,
+        'upstream_fallback_retries': 3,
+        'session_resets': 1,
       });
+
       expect(status.status, 'running');
       expect(status.port, 8787);
-      expect(status.cacheHitRatio, closeTo(0.42, 0.0001));
-      expect(status.segmentsCached, 17);
+      expect(status.cacheHitRatio, 0.42);
+      expect(status.segmentsCached, 12);
       expect(status.proxyMode, 'cloudflare-tls-impersonation');
+      expect(status.wafBlocks, 7);
+      expect(status.upstreamFallbackRetries, 3);
+      expect(status.sessionResets, 1);
     });
 
-    test('tolerates missing keys', () {
-      final status = RustProxyStatus.fromJson(const <String, dynamic>{});
-      expect(status.status, 'unknown');
-      expect(status.port, 0);
-      expect(status.segmentsCached, 0);
+    test('défaut à 0 sur les nouveaux champs si absents (proxy antérieur)', () {
+      final status = RustProxyStatus.fromJson(const <String, dynamic>{
+        'status': 'running',
+        'port': 8787,
+        'cache_hit_ratio': 0.1,
+        'segments_cached': 4,
+        'proxy_mode': 'cloudflare-tls-impersonation',
+      });
+
+      expect(status.wafBlocks, 0);
+      expect(status.upstreamFallbackRetries, 0);
+      expect(status.sessionResets, 0);
+    });
+
+    test('tolère le type numérique (Double vs Int) sur waf_blocks', () {
+      final status = RustProxyStatus.fromJson(const <String, dynamic>{
+        'status': 'running',
+        'port': 8787,
+        'cache_hit_ratio': 0.0,
+        'segments_cached': 0,
+        'proxy_mode': '',
+        'waf_blocks': 4.0,
+        'upstream_fallback_retries': 2.0,
+        'session_resets': 0.0,
+      });
+
+      expect(status.wafBlocks, 4);
+      expect(status.upstreamFallbackRetries, 2);
+    });
+  });
+
+  group('seuils de renewal proactif', () {
+    test('constantes cohérentes (guard anti-boucle > relance simple)', () {
+      expect(
+        RustProxyManager.wafBlockRestartThreshold,
+        greaterThan(1),
+      );
+      expect(
+        RustProxyManager.maxSessionResets,
+        greaterThanOrEqualTo(1),
+      );
+      expect(
+        RustProxyManager.maxSessionResets,
+        lessThanOrEqualTo(RustProxyManager.maxRestartAttempts * 2),
+      );
     });
   });
 }

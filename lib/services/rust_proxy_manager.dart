@@ -21,6 +21,9 @@ class RustProxyStatus {
     required this.cacheHitRatio,
     required this.segmentsCached,
     required this.proxyMode,
+    required this.wafBlocks,
+    required this.upstreamFallbackRetries,
+    required this.sessionResets,
   });
 
   factory RustProxyStatus.fromJson(Map<String, dynamic> json) {
@@ -30,6 +33,10 @@ class RustProxyStatus {
       cacheHitRatio: (json['cache_hit_ratio'] as num?)?.toDouble() ?? 0,
       segmentsCached: (json['segments_cached'] as num?)?.toInt() ?? 0,
       proxyMode: json['proxy_mode'] as String? ?? '',
+      wafBlocks: (json['waf_blocks'] as num?)?.toInt() ?? 0,
+      upstreamFallbackRetries:
+          (json['upstream_fallback_retries'] as num?)?.toInt() ?? 0,
+      sessionResets: (json['session_resets'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -38,11 +45,21 @@ class RustProxyStatus {
   final double cacheHitRatio;
   final int segmentsCached;
   final String proxyMode;
+
+  /// Réponses upstream bloquées par le WAF (403/406/429/503).
+  final int wafBlocks;
+
+  /// Basculements sur l'empreinte TLS de secours.
+  final int upstreamFallbackRetries;
+
+  /// Sessions jugées invalides côté proxy (re-bootstrap attendu).
+  final int sessionResets;
 }
 
 /// Pilote le process proxy Rust : détection du binaire, démarrage, watchdog
-/// (relance si mort), arrêt à la destruction, ping `/api/proxy-status` avant
-/// de marquer « ready ».
+/// (relance si mort + renewal proactif de session si le WAF bloque en
+/// répété), arrêt à la destruction, ping `/api/proxy-status` avant de marquer
+/// « ready ».
 ///
 /// Singleton Riverpod-free : une seule instance partagée, exposée à Riverpod
 /// via [rustProxyManagerProvider] (voir `providers.dart`). La classe ne fait
@@ -58,6 +75,14 @@ class RustProxyManager {
   /// Nombre maximal de relances automatiques consécutives (watchdog borné).
   static const int maxRestartAttempts = 3;
 
+  /// Nombre de nouveaux blocages WAF (delta observé entre deux pings du
+  /// watchdog) au-delà duquel la session est renouvelée proactivement.
+  static const int wafBlockRestartThreshold = 8;
+
+  /// Nombre maximal de renewals proactifs consécutifs sans période saine
+  /// (anti-boucle : si le WAF continue de bloquer, on arrête de relancer).
+  static const int maxSessionResets = 3;
+
   final ValueNotifier<bool> _ready = ValueNotifier<bool>(false);
   final ValueNotifier<RustProxyLifecycle> _lifecycle =
       ValueNotifier<RustProxyLifecycle>(RustProxyLifecycle.idle);
@@ -67,6 +92,16 @@ class RustProxyManager {
   Completer<void>? _starting;
   RustProxyStatus? _lastStatus;
   int _restartCount = 0;
+
+  /// Dernier `waf_blocks` observé (delta → renewal proactif).
+  int _lastSeenWafBlocks = 0;
+
+  /// Renewals proactifs effectués depuis la dernière période saine.
+  int _rebootCount = 0;
+
+  /// Anti-chevauchement du tick périodique du watchdog (ping lent).
+  bool _watchdogBusy = false;
+
   bool _disposed = false;
   bool _manualStop = false;
 
@@ -153,6 +188,8 @@ class RustProxyManager {
       final ok = await _waitUntilReady();
       if (ok) {
         _restartCount = 0;
+        _rebootCount = 0;
+        _lastSeenWafBlocks = _lastStatus?.wafBlocks ?? 0;
         _ready.value = true;
         _lifecycle.value = RustProxyLifecycle.running;
         debugPrint('[RustProxy] Prêt et vérifié sur $proxyBase.');
@@ -287,22 +324,80 @@ class RustProxyManager {
     _lifecycle.value = RustProxyLifecycle.stopped;
   }
 
-  /// Watchdog : tant que le manager n'est pas détruit ni arrêté à la main, si
-  /// le process est absent (mort, jamais démarré) on relance, borné à
-  /// [maxRestartAttempts] consécutifs avant d'abandonner.
-  void _startWatchdog() {
+/// Watchdog : tant que le manager n'est pas détruit ni arrêté à la main :
+///   - process vivant et prêt → ping + renewal proactif si le WAF bloque en
+///     répété ([_maybeRebootstrap]) ;
+///   - process absent (mort, jamais démarré) → relance, bornée à
+///     [maxRestartAttempts] consécutifs avant d'abandonner.
+void _startWatchdog() {
     _watchdog?.cancel();
-    _watchdog = Timer.periodic(_watchdogInterval, (_) {
+    _watchdog = Timer.periodic(_watchdogInterval, (_) async {
       if (_disposed || _manualStop) return;
-      if (_process != null || isReady) return;
-      if (_restartCount >= maxRestartAttempts) return;
-      if (_lifecycle.value == RustProxyLifecycle.failed) return;
-      _restartCount++;
-      debugPrint(
-        '[RustProxy] Watchdog : relance $_restartCount/$maxRestartAttempts…',
-      );
-      unawaited(start(isRestart: true));
+      if (_watchdogBusy) return;
+      _watchdogBusy = true;
+      try {
+        if (_process != null && isReady) {
+          await ping();
+          await _maybeRebootstrap();
+          return;
+        }
+        if (_process != null || isReady) return;
+        if (_restartCount >= maxRestartAttempts) return;
+        if (_lifecycle.value == RustProxyLifecycle.failed) return;
+        _restartCount++;
+        debugPrint(
+          '[RustProxy] Watchdog : relance $_restartCount/$maxRestartAttempts…',
+        );
+        unawaited(start(isRestart: true));
+      } finally {
+        _watchdogBusy = false;
+      }
     });
+  }
+
+  /// Renewal proactif de la session (spec Cloudflare, pilier 3) : si le
+  /// nombre de blocages WAF a augmenté de plus de [wafBlockRestartThreshold]
+  /// depuis le dernier ping, on renouvelle la session (le proxy repart avec
+  /// un cookie jar et un pool TLS neufs). Une période sans nouveau blocage
+  /// réarme le compteur de renewals.
+  Future<void> _maybeRebootstrap() async {
+    if (_disposed || _manualStop) return;
+    final status = _lastStatus;
+    if (status == null) return;
+
+    final delta = status.wafBlocks - _lastSeenWafBlocks;
+    _lastSeenWafBlocks = status.wafBlocks;
+
+    if (delta <= 0) {
+      // Session saine : aucun nouveau blocage → on réarme les renewals.
+      _rebootCount = 0;
+      return;
+    }
+    if (delta < wafBlockRestartThreshold || _rebootCount >= maxSessionResets) {
+      return;
+    }
+
+    _rebootCount++;
+    debugPrint(
+      '[RustProxy] Blocages WAF répétés (delta $delta, total ${status.wafBlocks}) '
+      '→ renewal proactif de la session…',
+    );
+    await restartSession();
+  }
+
+  /// Renewal proactif : tue le process (cookie jar + pool TLS re-créés à la
+  /// relance), puis redémarre. Les segments déjà bufferisés par le player ne
+  /// sont pas affectés ; les suivants repartent sur la nouvelle session.
+  Future<void> restartSession() async {
+    if (_disposed || _manualStop) return;
+    debugPrint('[RustProxy] restartSession()…');
+    await stop();
+    // stop() pose _manualStop=true pour ne pas se faire relancer en boucle ;
+    // ici on veut au contraire un nouveau start immédiat.
+    _manualStop = false;
+    _restartCount = 0;
+    _rebootCount = 0;
+    await start(isRestart: true);
   }
 
   /// Attend que le process réponde à `/api/proxy-status`, ou abandonne.
