@@ -122,12 +122,16 @@ List<String> streamUrlVariants(String url) {
     // Pour les flux retransmis, les chemins /movie/ et /series/ n'existent pas
     // et déclenchent l'anti-leech du panneau (401 et blocage IP temporaire).
     final id = segments.last;
-    final dotIdx = id.lastIndexOf('.');
-    final baseId = dotIdx > 0 ? id.substring(0, dotIdx) : id;
-    if (dotIdx > 0) {
-      final noExt = [...segments];
-      noExt[noExt.length - 1] = baseId;
-      variants.add(_rebuild(uri, noExt));
+    // Les chemins de scripts (timeshift.php, player_api.php, …) ne sont pas
+    // des fichiers média : AUCUNE variante (anti-leech ~90 s sur draap).
+    if (!id.toLowerCase().endsWith('.php')) {
+      final dotIdx = id.lastIndexOf('.');
+      final baseId = dotIdx > 0 ? id.substring(0, dotIdx) : id;
+      if (dotIdx > 0) {
+        final noExt = [...segments];
+        noExt[noExt.length - 1] = baseId;
+        variants.add(_rebuild(uri, noExt));
+      }
     }
     // Ne PAS ajouter d'extension ici : sur ce type de panneau, seul le
     // chemin nu /live/{u}/{p}/{id} (ou l'URL d'origine avec son extension)

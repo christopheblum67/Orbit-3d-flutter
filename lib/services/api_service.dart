@@ -636,8 +636,9 @@ class ApiService {
 
   // ---------- Replays ----------
 
-  /// Nombre maximal de chaînes DVR interrogées pour lister leurs programmes.
-  static const int _maxReplayEpgChannels = 25;
+  /// Nombre d'interrogations EPG courtes exécutées en parallèle (ne pas
+  /// marteler le panel d'un coup ; 6-8 est un bon compromis temps/politesse).
+  static const int _probeConcurrency = 8;
 
   /// Fenêtre de replay : on ne remonte pas au-delà de 48h.
   static const Duration _replayWindow = Duration(hours: 48);
@@ -671,42 +672,130 @@ class ApiService {
       return const <ReplayItem>[];
     }
 
-    final replayChannels = channels
-        .where((c) =>
-            c.supportsReplay || c.name.toLowerCase().contains('replay'))
-        .take(_maxReplayEpgChannels)
+    final flagged = channels
+        .where(
+          (c) =>
+              c.supportsReplay || c.name.toLowerCase().contains('replay'),
+        )
         .toList();
-    if (replayChannels.isEmpty) return const <ReplayItem>[];
+
+    // Découverte large : beaucoup de panels ne marquent `tv_archive` que sur
+    // une poignée de chaînes (ex. une catégorie) alors que le timeshift est
+    // global. On sonde donc TOUJOURS un échantillon diversifié :
+    //   1. toutes les chaînes explicitement DVR (« Seulement France HD » est
+    //      le symptôme typique d'une marque partielle) ;
+    //   2. complété par un échantillon STRATIFIÉ par catégorie (un même
+    //      groupe n'apparaîtra qu'en petit nombre dans la sonde) pour couvrir
+    //      le reste de la grille, sans marteler le panel (budget plafonné).
+    final probeChannels = replayProbeSet(channels, flagged);
+    if (probeChannels.isEmpty) return const <ReplayItem>[];
 
     final now = DateTime.now();
+    final results = List<List<ReplayItem>?>.filled(probeChannels.length, null);
+    var nextIndex = 0;
+    final workerCount = probeChannels.length < _probeConcurrency
+        ? probeChannels.length
+        : _probeConcurrency;
+    final workers = <Future<void>>[
+      for (var w = 0; w < workerCount; w++)
+        () async {
+          while (true) {
+            final i = nextIndex++;
+            if (i >= probeChannels.length) break;
+            results[i] = await _fetchChannelReplayPrograms(
+              baseUrl: baseUrl,
+              username: username,
+              password: password,
+              channel: probeChannels[i],
+              now: now,
+            );
+          }
+        }(),
+    ];
+    await Future.wait(workers);
+
     final replayItems = <ReplayItem>[];
-    for (final channel in replayChannels) {
-      final programs = await _fetchChannelReplayPrograms(
-        baseUrl: baseUrl,
-        username: username,
-        password: password,
-        channel: channel,
-        now: now,
-      );
+    for (var i = 0; i < probeChannels.length; i++) {
+      final programs = results[i] ?? const <ReplayItem>[];
       if (programs.isNotEmpty) {
         replayItems.addAll(programs);
-      } else if (channel.supportsReplay) {
+      } else if (probeChannels[i].supportsReplay) {
         // Repli : la chaîne est replayable mais aucun programme terminé
         // n'est exposé par le panel ; on propose quand même la lecture live.
         replayItems.add(
           ReplayItem(
-            id: 'ch_${channel.id}',
-            title: 'Replay · ${channel.name}',
-            streamUrl: channel.streamUrl,
+            id: 'ch_${probeChannels[i].id}',
+            title: 'Replay · ${probeChannels[i].name}',
+            streamUrl: probeChannels[i].streamUrl,
             startTime: '',
             endTime: '',
-            categoryId: channel.groupLabel,
+            categoryId: probeChannels[i].groupLabel,
           ),
         );
       }
     }
+
+    // Programmes les plus récents d'abord.
+    replayItems.sort((a, b) {
+      final ta = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final tb = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return tb.compareTo(ta);
+    });
+
+    debugPrint('Orbit3D replays=${replayItems.length} '
+        'probed=${probeChannels.length} '
+        'flagged=${flagged.length}');
     return replayItems;
   }
+
+  /// Constitution de l'ensemble des chaînes à sonder pour le replay :
+  ///
+  /// 1. Toutes les chaînes explicitement DVR ([flagged]), dans l'ordre de la
+  ///    grille (l'ordre du panel met souvent France HD en tête ;
+  ///    `take(25)` brut ne garderait QUE cette catégorie).
+  /// 2. Complété par un échantillon stratifié par catégorie : au plus
+  ///    `_replayProbePerGroup` chaînes NON marquées par groupe, choisis en
+  ///    round-robin pour couvrir toutes les catégories jusqu'à épuisement du
+  ///    budget (le DVR du panel est souvent global, la marque partielle).
+  static List<Channel> replayProbeSet(
+    List<Channel> channels,
+    List<Channel> flagged,
+  ) {
+    const budget = 40;
+    const perGroup = 3;
+    if (channels.isEmpty) return const <Channel>[];
+
+    final candidates = <Channel>[...flagged];
+    final seen = candidates.map((c) => c.id).toSet();
+    if (candidates.length >= budget) return candidates;
+
+    final byGroup = <String, List<Channel>>{};
+    for (final c in channels) {
+      if (seen.contains(c.id)) continue;
+      final g = c.groupLabel.isNotEmpty ? c.groupLabel : _unknownGroupLabel;
+      byGroup.putIfAbsent(g, () => []).add(c);
+    }
+
+    final groupNames = byGroup.keys.toList();
+    final takenByGroup = <String, int>{};
+    var allExhausted = false;
+    while (candidates.length < budget && !allExhausted) {
+      allExhausted = true;
+      for (final group in groupNames) {
+        if (candidates.length >= budget) break;
+        final list = byGroup[group]!;
+        final taken = takenByGroup[group] ?? 0;
+        if (taken >= perGroup) continue;
+        if (taken >= list.length) continue;
+        candidates.add(list[taken]);
+        takenByGroup[group] = taken + 1;
+        allExhausted = false;
+      }
+    }
+    return candidates;
+  }
+
+  static const String _unknownGroupLabel = '(sans groupe)';
 
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
   Future<List<ReplayItem>> _fetchChannelReplayPrograms({
@@ -746,16 +835,18 @@ class ApiService {
           ReplayItem(
             id: '${channel.id}_$startEpoch',
             title: title,
-            streamUrl: buildXtreamStreamUrl(
+            streamUrl: buildXtreamTimeshiftUrl(
               baseUrl,
               username,
               password,
               channel.id,
-              extra: {'start': '$startEpoch', 'end': '$endEpoch'},
+              start: startEpoch,
+              end: endEpoch,
             ),
             startTime: _formatReplayTime(start, now),
             endTime: _formatReplayTime(end, now),
             categoryId: channel.groupLabel,
+            startDate: start,
           ),
         );
       }
@@ -911,6 +1002,34 @@ class ApiService {
     final query = extra.isEmpty ? null : extra;
     return uri
         .replace(pathSegments: segments, queryParameters: query)
+        .toString();
+  }
+
+  /// URL de lecture timeshift Xtream (`/streaming/timeshift.php`) : rejoue la
+  /// tranche [start, end] (secondes Unix) d'une chaîne DVR. C'est la forme
+  /// réellement servie par les panels Xtream (contrairement au fichier live
+  /// `/u/{u}/{p}/{id}` qui n'accepte pas de replay de manière fiable).
+  String buildXtreamTimeshiftUrl(
+    String baseUrl,
+    String username,
+    String password,
+    String streamId, {
+    required int start,
+    required int end,
+  }) {
+    final uri = Uri.parse(_trimBaseUrl(baseUrl));
+    final segments = <String>['streaming', 'timeshift.php'];
+    return uri
+        .replace(
+          pathSegments: segments,
+          queryParameters: {
+            'username': username,
+            'password': password,
+            'stream': streamId,
+            'start': '$start',
+            'duration': '${end - start}',
+          },
+        )
         .toString();
   }
 
