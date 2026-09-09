@@ -1,15 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
-import 'package:orbit_3d_flutter/services/ai_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
-import 'package:orbit_3d_flutter/services/omdb_service.dart';
-import 'package:orbit_3d_flutter/services/tmdb_service.dart';
-import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 
 void main() {
   setUpAll(() async {
@@ -121,6 +116,40 @@ void main() {
     test('pegiLabel returns formatted label', () {
       final detail = SeriesDetail.fromSeries(baseSeries);
       expect(detail.pegiLabel, isNotNull);
+    });
+  });
+
+  group('Avatar IA', () {
+    test('avatarUrlFor est déterministe pour un même nom', () {
+      final url1 = MetadataEnrichmentService.avatarUrlFor('Emma Stone');
+      final url2 = MetadataEnrichmentService.avatarUrlFor('Emma Stone');
+      expect(url1, url2);
+      expect(url1, startsWith('https://i.pravatar.cc/300?img='));
+    });
+
+    test('avatarUrlFor produit des portraits différents pour des noms différents', () {
+      final a = MetadataEnrichmentService.avatarUrlFor('Emma Stone');
+      final b = MetadataEnrichmentService.avatarUrlFor('Tom Cruise');
+      expect(a, isNot(equals(b)));
+    });
+
+    test('avatarUrlFor normalise la casse (stable quel que soit l\'écriture)', () {
+      expect(
+        MetadataEnrichmentService.avatarUrlFor('Emma Stone'),
+        MetadataEnrichmentService.avatarUrlFor('emma stone'),
+      );
+    });
+
+    test('avatarUrlFor renvoie une URL vide pour un nom vide', () {
+      expect(MetadataEnrichmentService.avatarUrlFor('   '), '');
+    });
+
+    test('avatarUrlFor reste dans la plage d\'images valides (1..70)', () {
+      final url = MetadataEnrichmentService.avatarUrlFor('Helene Roldan');
+      final imgArg = RegExp(r'img=(\d+)$').firstMatch(url);
+      expect(imgArg, isNotNull);
+      final img = int.parse(imgArg!.group(1)!);
+      expect(img, inInclusiveRange(1, 70));
     });
   });
 

@@ -37,6 +37,7 @@ import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/ai_recommendation.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
+import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 export 'profile_type_provider.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
@@ -84,6 +85,7 @@ final omdbServiceProvider = Provider<OmdbService>((ref) {
 
 final enrichmentServiceProvider = Provider<MetadataEnrichmentService>((ref) {
   return MetadataEnrichmentService(
+    api: ref.watch(apiServiceProvider),
     tmdb: ref.watch(tmdbServiceProvider),
     tvmaze: ref.watch(tvmazeServiceProvider),
     omdb: ref.watch(omdbServiceProvider),
@@ -226,9 +228,58 @@ final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   return api.fetchRadioChannels();
 });
 
+/// Cache partagé des replays, avec expiration : relister les chaînes DVR
+/// (get_short_epg) à chaque ouverture de l'écran Replay martèlerait le panel
+/// et rendrait l'écran lent (25 chaînes × plusieurs appels).
+class ReplaysCache {
+  ReplaysCache();
+
+  static const _ttl = Duration(minutes: 5);
+
+  List<ReplayItem>? _all;
+  DateTime? _fetchedAt;
+  Future<List<ReplayItem>>? _inFlight;
+
+  bool get isFresh {
+    final fetched = _fetchedAt;
+    return _all != null &&
+        fetched != null &&
+        DateTime.now().difference(fetched) < _ttl;
+  }
+
+  /// Renvoie la valeur en cache si fraîche, sinon charge via [loader] (un
+  /// seul chargement à la fois, partagé entre tous les appelants).
+  Future<List<ReplayItem>> fetch(
+    Future<List<ReplayItem>> Function() loader,
+  ) {
+    if (isFresh) return Future.value(_all!);
+    return _inFlight ??= loader().then((items) {
+      _all = items;
+      _fetchedAt = DateTime.now();
+      _inFlight = null;
+      return items;
+    }, onError: (Object error, StackTrace stackTrace) {
+      // Un échec n'est pas mis en cache : la prochaine ouverture retenté.
+      _inFlight = null;
+      throw error;
+    },
+  );
+  }
+
+  void invalidate() {
+    _all = null;
+    _fetchedAt = null;
+  }
+}
+
+final ReplaysCache replaysCache = ReplaysCache();
+
 final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  return api.fetchReplays();
+  // Changement d'abonnement actif => le cache n'est plus valable
+  // (dépendance de re-fetch, la valeur elle-même ne nous sert pas ici).
+  ref.watch(activeSubscriptionProvider.future);
+  return replaysCache.fetch(api.fetchReplays);
 });
 
 final epgProgramsProvider =

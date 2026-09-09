@@ -1,33 +1,50 @@
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/services/ai_service.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 
 /// Orchestrateur principal d'enrichissement des métadonnées
-/// Chaîne les fallbacks : TMDB/TVmaze → OMDB → IA
+/// Chaîne les fallbacks : Xtream → TMDB/TVmaze → OMDB → IA
 class MetadataEnrichmentService {
+  final ApiService _api;
   final TmdbService _tmdb;
   final TvmazeService _tvmaze;
   final OmdbService _omdb;
   final AiService _ai;
 
   MetadataEnrichmentService({
+    required ApiService api,
     required TmdbService tmdb,
     required TvmazeService tvmaze,
     required OmdbService omdb,
     required AiService ai,
-  })  : _tmdb = tmdb,
+  })  : _api = api,
+        _tmdb = tmdb,
         _tvmaze = tvmaze,
         _omdb = omdb,
         _ai = ai;
 
   /// Enrichit un film (VOD) avec toutes les métadonnées disponibles
   Future<MovieDetail> enrichMovie(Movie movie) async {
-    var detail = MovieDetail.fromMovie(movie);
+    // 0. XTREAM BASE (sans clé) : `get_vod_info` du panel fournit déjà
+    //    synopsis, année, genre, réalisateur, note, PEGI et parfois cast/crew
+    //    réels (format TMDB-like) en plus des données de liste.
+    final xtreamMovie = await _api.fetchMovieDetail(movie);
+    var detail = MovieDetail.fromMovie(xtreamMovie);
+    final credits = await _api.fetchMovieCredits(xtreamMovie.id);
+    if (credits != null &&
+        (credits.cast.isNotEmpty || credits.crew.isNotEmpty)) {
+      detail = detail.copyWith(
+        cast: credits.cast,
+        crew: credits.crew,
+      );
+    }
 
     // 1. TMDB PRIMAIRE (recherche par titre + année si pas d'ID connu)
     if (_tmdb.hasApiKey) {
@@ -36,7 +53,7 @@ class MetadataEnrichmentService {
       // Si on a déjà un IMDB ID dans les données Xtream, on pourrait le mapper
       // Sinon, recherche par titre + année
       tmdbId = await _tmdb.searchMovieId(movie.title,
-          year: movie.year > 0 ? movie.year : null);
+          year: movie.year > 0 ? movie.year : null,);
 
       if (tmdbId != null) {
         final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
@@ -91,7 +108,7 @@ class MetadataEnrichmentService {
     var detail = SeriesDetail.fromSeries(series);
 
     // 1. TVMAZE PRIMAIRE (le meilleur pour les séries)
-    int? tvmazeId = await _tvmaze.searchShowId(series.title);
+    final int? tvmazeId = await _tvmaze.searchShowId(series.title);
 
     if (tvmazeId != null) {
       final tvmazeDetail = await _tvmaze.getShowDetail(tvmazeId);
@@ -107,7 +124,7 @@ class MetadataEnrichmentService {
         tmdbId = detail.tmdbId;
       } else {
         tmdbId = await _tmdb.searchTvId(series.title,
-            year: series.year > 0 ? series.year : null);
+            year: series.year > 0 ? series.year : null,);
       }
 
       if (tmdbId != null) {
@@ -237,10 +254,111 @@ class MetadataEnrichmentService {
   // ==================== IA FALLBACK ====================
 
   Future<MovieDetail?> _enrichMovieWithAi(
-      MovieDetail detail, Movie originalMovie) async {
+      MovieDetail detail, Movie originalMovie,) async {
     try {
-      final prompt = '''
-Tu es un expert cinéma. Génère des métadonnées manquantes pour ce film VOD.
+      final prompt = _movieAiPrompt(detail, originalMovie);
+      final data = await _ai.askForJson(prompt);
+      if (data == null) return null;
+
+      final aiCast = <Actor>[];
+      final rawCast = data['cast'];
+      if (rawCast is List) {
+        for (var i = 0; i < rawCast.length; i++) {
+          final e = rawCast[i];
+          if (e is! Map) continue;
+          final map = Map<String, dynamic>.from(e);
+          final name = (map['name'] ?? '').toString().trim();
+          if (name.isEmpty) continue;
+          aiCast.add(
+            Actor(
+              id: 'ai-${detail.id}-$i',
+              name: name,
+              character: (map['character'] ?? '').toString().trim(),
+              profilePath: avatarUrlFor(name),
+              order: i,
+              source: ActorSource.ai,
+            ),
+          );
+        }
+      }
+
+      final aiCrew = <CrewMember>[];
+      final rawCrew = data['crew'];
+      if (rawCrew is List) {
+        for (var i = 0; i < rawCrew.length; i++) {
+          final e = rawCrew[i];
+          if (e is! Map) continue;
+          final map = Map<String, dynamic>.from(e);
+          final name = (map['name'] ?? '').toString().trim();
+          if (name.isEmpty) continue;
+          aiCrew.add(
+            CrewMember(
+              id: 'ai-crew-${detail.id}-$i',
+              name: name,
+              job: (map['job'] ?? '').toString().trim(),
+              department: (map['department'] ?? '').toString().trim(),
+              profilePath: '',
+              order: i,
+            ),
+          );
+        }
+      }
+
+      final aiGenre = (data['genre']?.toString().trim() ?? '');
+      final aiDirector = (data['director']?.toString().trim() ?? '');
+      final aiYear = _asInt(data['year']);
+      final aiRuntime = _asInt(data['runtime']);
+
+      return detail.copyWith(
+        year: aiYear ?? detail.year,
+        genre: aiGenre.isNotEmpty ? aiGenre : detail.genre,
+        director: aiDirector.isNotEmpty ? aiDirector : detail.director,
+        runtime: aiRuntime ?? detail.runtime,
+        keywords: _asStringList(data['keywords']),
+        originCountry: _asStringList(data['originCountry']),
+        spokenLanguages: _asStringList(data['spokenLanguages']),
+        cast: aiCast.isNotEmpty ? aiCast : detail.cast,
+        crew: aiCrew.isNotEmpty ? aiCrew : detail.crew,
+        aiGenerated: true,
+        dataSource: 'ai',
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Photo déterministe générée à partir du nom d'un acteur (aucune clé API).
+  /// i.pravatar.cc sert des portraits stables indexés 1..70 (CDN libre, sans clé).
+  static String avatarUrlFor(String actorName) {
+    final clean = actorName.trim().toLowerCase();
+    if (clean.isEmpty) return '';
+    final seed = clean.codeUnits
+        .fold<int>(0, (acc, u) => (acc * 31 + u) & 0x7fffffff);
+    final img = seed % 70 + 1;
+    return 'https://i.pravatar.cc/300?img=$img';
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  static List<String> _asStringList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map((e) => e?.toString().trim() ?? '')
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  String _movieAiPrompt(MovieDetail detail, Movie originalMovie) {
+    return '''
+Tu es un expert cinéma. Enrichis les métadonnées de ce film pour une application IPTV.
+Le fournisseur ne communique aucune donnée fiable : appuie-toi UNIQUEMENT sur ton savoir.
 
 Film: "${originalMovie.title}"
 Année connue: ${originalMovie.year > 0 ? originalMovie.year : 'inconnue'}
@@ -248,34 +366,34 @@ Genre connu: ${originalMovie.genre.isNotEmpty ? originalMovie.genre : 'inconnu'}
 Réalisateur connu: ${originalMovie.director.isNotEmpty ? originalMovie.director : 'inconnu'}
 Synopsis: ${originalMovie.description.isNotEmpty ? originalMovie.description : 'inconnu'}
 
-Réponds UNIQUEMENT en JSON valide (sans texte autour) :
+Réponds UNIQUEMENT en JSON strict (sans texte autour, sans balises), au format suivant :
 {
   "year": 2023,
   "genre": "Action, Thriller",
   "director": "John Doe",
   "runtime": 120,
+  "keywords": ["action", "thriller", "poursuite"],
   "originCountry": ["US"],
   "spokenLanguages": ["English"],
-  "keywords": ["action", "thriller", "pursuit"],
   "cast": [
-    {"id": "1", "name": "Actor Name", "character": "Character Name", "order": 1}
+    {"name": "Acteur 1", "character": "Personnage 1"}
+  ],
+  "crew": [
+    {"name": "John Doe", "job": "Réalisateur", "department": "Directing"}
   ]
 }
 
-Si une info est inconnue, mets null ou tableau vide. Ne pas inventer.
+Règles :
+- Le champ "year" est un nombre (ou null si inconnue), "runtime" un nombre de minutes (ou null).
+- "cast" : 3 à 15 acteurs principaux, un seul objet par acteur, avec le rôle joué.
+- "crew" : réalisateur et principaux chefs de poste ; "department" parmi Directing, Writing, Production, Sound, Camera, Editing, Art.
+- "originCountry" : codes ISO 3166-1 alpha-2 (["US", "FR", ...]).
+- Ne laisse AUCUNE clé du JSON absente et ne mets aucune chaîne vide : null si inconnu.
 ''';
-
-      // L'AiService actuel est fait pour les recommandations, pas pour ce format
-      // On ferait un appel direct ici ou on étendrait AiService
-      // Pour l'instant, on retourne null (IA non implémentée pour ce cas)
-      return null;
-    } catch (e) {
-      return null;
-    }
   }
 
   Future<SeriesDetail?> _enrichSeriesWithAi(
-      SeriesDetail detail, Series originalSeries) async {
+      SeriesDetail detail, Series originalSeries,) async {
     try {
       // Même logique que pour les films
       return null;
