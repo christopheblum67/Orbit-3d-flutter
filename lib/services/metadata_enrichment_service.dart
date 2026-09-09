@@ -3,32 +3,28 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
-import 'package:orbit_3d_flutter/services/ai_service.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 
 /// Orchestrateur principal d'enrichissement des métadonnées
-/// Chaîne les fallbacks : Xtream → TMDB/TVmaze → OMDB → IA
+/// Chaîne les fallbacks : Xtream → TMDB/TVmaze → OMDB
 class MetadataEnrichmentService {
   final ApiService _api;
   final TmdbService _tmdb;
   final TvmazeService _tvmaze;
   final OmdbService _omdb;
-  final AiService _ai;
 
   MetadataEnrichmentService({
     required ApiService api,
     required TmdbService tmdb,
     required TvmazeService tvmaze,
     required OmdbService omdb,
-    required AiService ai,
   })  : _api = api,
         _tmdb = tmdb,
         _tvmaze = tvmaze,
-        _omdb = omdb,
-        _ai = ai;
+        _omdb = omdb;
 
   /// Enrichit un film (VOD) avec toutes les métadonnées disponibles
   Future<MovieDetail> enrichMovie(Movie movie) async {
@@ -68,7 +64,7 @@ class MetadataEnrichmentService {
         detail.runtime == 0 ||
         detail.director.isEmpty ||
         detail.imdbId.isEmpty) {
-      final omdbDetail = await _omdb.fillMissingMovie(detail);
+final omdbDetail = await _omdb.fillMissingMovie(detail);
       if (omdbDetail != detail) {
         detail = _mergeMovieDetail(detail, omdbDetail);
       }
@@ -78,8 +74,12 @@ class MetadataEnrichmentService {
     if (detail.cast.isEmpty) {
       int? tvmazeId;
       if (_tvmaze.hasApiKey || true) {
-        // TVmaze n'a pas besoin de clé
-        tvmazeId = await _tvmaze.searchMovieId(movie.title);
+        // TVmaze n'a pas besoin de clé ; on passe l'année pour désambiguïser
+        // (remakes, séquelles) dans la recherche de films.
+        tvmazeId = await _tvmaze.searchMovieId(
+          movie.title,
+          year: movie.year > 0 ? movie.year : null,
+        );
         if (tvmazeId != null) {
           final tvmazeDetail = await _tvmaze.getMovieDetail(tvmazeId);
           if (tvmazeDetail != null && tvmazeDetail.cast.isNotEmpty) {
@@ -89,14 +89,6 @@ class MetadataEnrichmentService {
             );
           }
         }
-      }
-    }
-
-    // 4. IA DERNIER RECOURS (si champs critiques encore manquants)
-    if (detail.needsAiFallback) {
-      final aiDetail = await _enrichMovieWithAi(detail, movie);
-      if (aiDetail != null) {
-        detail = aiDetail;
       }
     }
 
@@ -150,14 +142,6 @@ class MetadataEnrichmentService {
       final omdbDetail = await _omdb.fillMissingSeries(detail);
       if (omdbDetail != detail) {
         detail = _mergeSeriesDetail(detail, omdbDetail);
-      }
-    }
-
-    // 4. IA DERNIER RECOURS
-    if (detail.needsAiFallback) {
-      final aiDetail = await _enrichSeriesWithAi(detail, series);
-      if (aiDetail != null) {
-        detail = aiDetail;
       }
     }
 
@@ -251,82 +235,6 @@ class MetadataEnrichmentService {
     );
   }
 
-  // ==================== IA FALLBACK ====================
-
-  Future<MovieDetail?> _enrichMovieWithAi(
-      MovieDetail detail, Movie originalMovie,) async {
-    try {
-      final prompt = _movieAiPrompt(detail, originalMovie);
-      final data = await _ai.askForJson(prompt);
-      if (data == null) return null;
-
-      final aiCast = <Actor>[];
-      final rawCast = data['cast'];
-      if (rawCast is List) {
-        for (var i = 0; i < rawCast.length; i++) {
-          final e = rawCast[i];
-          if (e is! Map) continue;
-          final map = Map<String, dynamic>.from(e);
-          final name = (map['name'] ?? '').toString().trim();
-          if (name.isEmpty) continue;
-          aiCast.add(
-            Actor(
-              id: 'ai-${detail.id}-$i',
-              name: name,
-              character: (map['character'] ?? '').toString().trim(),
-              profilePath: avatarUrlFor(name),
-              order: i,
-              source: ActorSource.ai,
-            ),
-          );
-        }
-      }
-
-      final aiCrew = <CrewMember>[];
-      final rawCrew = data['crew'];
-      if (rawCrew is List) {
-        for (var i = 0; i < rawCrew.length; i++) {
-          final e = rawCrew[i];
-          if (e is! Map) continue;
-          final map = Map<String, dynamic>.from(e);
-          final name = (map['name'] ?? '').toString().trim();
-          if (name.isEmpty) continue;
-          aiCrew.add(
-            CrewMember(
-              id: 'ai-crew-${detail.id}-$i',
-              name: name,
-              job: (map['job'] ?? '').toString().trim(),
-              department: (map['department'] ?? '').toString().trim(),
-              profilePath: '',
-              order: i,
-            ),
-          );
-        }
-      }
-
-      final aiGenre = (data['genre']?.toString().trim() ?? '');
-      final aiDirector = (data['director']?.toString().trim() ?? '');
-      final aiYear = _asInt(data['year']);
-      final aiRuntime = _asInt(data['runtime']);
-
-      return detail.copyWith(
-        year: aiYear ?? detail.year,
-        genre: aiGenre.isNotEmpty ? aiGenre : detail.genre,
-        director: aiDirector.isNotEmpty ? aiDirector : detail.director,
-        runtime: aiRuntime ?? detail.runtime,
-        keywords: _asStringList(data['keywords']),
-        originCountry: _asStringList(data['originCountry']),
-        spokenLanguages: _asStringList(data['spokenLanguages']),
-        cast: aiCast.isNotEmpty ? aiCast : detail.cast,
-        crew: aiCrew.isNotEmpty ? aiCrew : detail.crew,
-        aiGenerated: true,
-        dataSource: 'ai',
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
   /// Photo déterministe générée à partir du nom d'un acteur (aucune clé API).
   /// i.pravatar.cc sert des portraits stables indexés 1..70 (CDN libre, sans clé).
   static String avatarUrlFor(String actorName) {
@@ -353,52 +261,5 @@ class MetadataEnrichmentService {
         .map((e) => e?.toString().trim() ?? '')
         .where((e) => e.isNotEmpty)
         .toList();
-  }
-
-  String _movieAiPrompt(MovieDetail detail, Movie originalMovie) {
-    return '''
-Tu es un expert cinéma. Enrichis les métadonnées de ce film pour une application IPTV.
-Le fournisseur ne communique aucune donnée fiable : appuie-toi UNIQUEMENT sur ton savoir.
-
-Film: "${originalMovie.title}"
-Année connue: ${originalMovie.year > 0 ? originalMovie.year : 'inconnue'}
-Genre connu: ${originalMovie.genre.isNotEmpty ? originalMovie.genre : 'inconnu'}
-Réalisateur connu: ${originalMovie.director.isNotEmpty ? originalMovie.director : 'inconnu'}
-Synopsis: ${originalMovie.description.isNotEmpty ? originalMovie.description : 'inconnu'}
-
-Réponds UNIQUEMENT en JSON strict (sans texte autour, sans balises), au format suivant :
-{
-  "year": 2023,
-  "genre": "Action, Thriller",
-  "director": "John Doe",
-  "runtime": 120,
-  "keywords": ["action", "thriller", "poursuite"],
-  "originCountry": ["US"],
-  "spokenLanguages": ["English"],
-  "cast": [
-    {"name": "Acteur 1", "character": "Personnage 1"}
-  ],
-  "crew": [
-    {"name": "John Doe", "job": "Réalisateur", "department": "Directing"}
-  ]
-}
-
-Règles :
-- Le champ "year" est un nombre (ou null si inconnue), "runtime" un nombre de minutes (ou null).
-- "cast" : 3 à 15 acteurs principaux, un seul objet par acteur, avec le rôle joué.
-- "crew" : réalisateur et principaux chefs de poste ; "department" parmi Directing, Writing, Production, Sound, Camera, Editing, Art.
-- "originCountry" : codes ISO 3166-1 alpha-2 (["US", "FR", ...]).
-- Ne laisse AUCUNE clé du JSON absente et ne mets aucune chaîne vide : null si inconnu.
-''';
-  }
-
-  Future<SeriesDetail?> _enrichSeriesWithAi(
-      SeriesDetail detail, Series originalSeries,) async {
-    try {
-      // Même logique que pour les films
-      return null;
-    } catch (e) {
-      return null;
-    }
   }
 }

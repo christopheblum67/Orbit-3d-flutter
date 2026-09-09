@@ -3,6 +3,7 @@ import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 
 class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   final StorageService _storage;
@@ -72,6 +73,16 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     if (!mounted) return;
     state = subscriptions;
     _ref.invalidate(activeSubscriptionProvider);
+    // Invalide TOUS les fournisseurs de données pour forcer un rechargement
+    // complet au changement d'abonnement (changement de serveur/catalogue).
+    _ref.invalidate(liveChannelsProvider);
+    _ref.invalidate(moviesProvider);
+    _ref.invalidate(seriesProvider);
+    _ref.invalidate(replaysProvider);
+    _ref.invalidate(radioChannelsProvider);
+    _ref.invalidate(epgProgramsProvider);
+    _ref.invalidate(epgDataCacheProvider);
+    _ref.invalidate(recentlyWatchedProvider);
     // Rafraîchit la validité du serveur activé (Xtream) à la volée.
     Subscription? activated;
     for (final s in subscriptions) {

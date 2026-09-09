@@ -79,12 +79,6 @@ class HomeShell extends ConsumerWidget {
         appBar: AppBar(
           title: Text(_titleForPath(location)),
           actions: [
-            IconButton(
-              tooltip: 'Recommandations IA',
-              onPressed: () => context.go('/ai'),
-              icon: const Icon(Icons.auto_awesome),
-              color: scheme.tertiary,
-            ),
             _ProfileSwitchButton(profile: profile),
           ],
         ),
@@ -207,7 +201,6 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/replay')) return 'Replay';
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
-    if (path.startsWith('/ai')) return 'Orbit IA';
     if (path.startsWith('/subscriptions')) return 'Abonnements';
     if (path.startsWith('/settings/advanced')) return 'Configuration Avancée';
     if (path.startsWith('/settings')) return 'Réglages';
@@ -300,12 +293,6 @@ class _HomeMenuDrawer extends ConsumerWidget {
             icon: Icons.replay_circle_filled,
             label: 'Replay',
             route: '/replay',
-          ),
-          _MenuEntry(
-            icon: Icons.auto_awesome,
-            label: 'Orbit IA',
-            route: '/ai',
-            color: scheme.tertiary,
           ),
         ],
       ),

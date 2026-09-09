@@ -126,7 +126,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final query = _searchController.text.trim();
-    final searchAsync = ref.watch(searchProvider(query));
+    final uri = GoRouterState.of(context).uri;
+    final typeParam = uri.queryParameters['type'];
+    final filterType = typeParam != null
+        ? SearchType.values.byName(typeParam)
+        : null;
+
+    final searchAsync = filterType != null
+        ? ref.watch(searchFilteredProvider((
+            query: query,
+            filterType: filterType,
+          )))
+        : ref.watch(searchProvider(query));
     final suggestionsAsync = ref.watch(searchSuggestionsProvider(query));
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
 
@@ -134,11 +145,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildSearchBar(query, suggestionsAsync, historyAsync),
+            _buildSearchBar(query, suggestionsAsync, historyAsync, filterType),
             Expanded(
               child: query.isEmpty
-                  ? _buildEmptyState(historyAsync)
-                  : _buildResults(searchAsync, query),
+                  ? _buildEmptyState(historyAsync, filterType)
+                  : _buildResults(searchAsync, query, filterType),
             ),
           ],
         ),
@@ -150,6 +161,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     String query,
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
+    SearchType? filterType,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final searchController = SearchController();
@@ -159,7 +171,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: SearchAnchor(
         searchController: searchController,
         viewBackgroundColor: scheme.surface,
-        viewHintText: 'Rechercher Live, Films, Séries, Replay, EPG...',
+        viewHintText: filterType != null
+            ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
+            : 'Rechercher Live, Films, Séries, Replay, EPG...',
         viewTrailing: query.isNotEmpty
             ? <Widget>[
                 IconButton(
@@ -176,7 +190,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           return SearchBar(
             controller: controller,
             focusNode: _focusNode,
-            hintText: 'Rechercher...',
+            hintText: filterType != null
+                ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
+                : 'Rechercher...',
             leading: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -321,7 +337,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildEmptyState(Future<List<String>> historyFuture) {
+  Widget _buildEmptyState(Future<List<String>> historyFuture, SearchType? filterType) {
     return FutureBuilder<List<String>>(
       future: historyFuture,
       builder: (context, snapshot) {
@@ -339,15 +355,31 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Recherche unifiée',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                Row(
+                  children: [
+                    Text(
+                      filterType != null
+                          ? 'Recherche dans ${_typeLabel(filterType)}'
+                          : 'Recherche unifiée',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    if (filterType != null) ...[
+                      const SizedBox(width: 12),
+                      Chip(
+                        label: Text(_typeLabel(filterType)),
+                        avatar: Icon(_typeIcon(filterType), size: 18),
+                        visualDensity: VisualDensity.compact,
                       ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tapez ou dictez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
+                  filterType != null
+                      ? 'Tapez ou dictez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.'
+                      : 'Tapez ou dictez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -401,7 +433,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildResults(
-      AsyncValue<UnifiedSearchResult> searchAsync, String query) {
+      AsyncValue<UnifiedSearchResult> searchAsync, String query, SearchType? filterType) {
     return searchAsync.when(
       data: (result) {
         if (result.items.isEmpty) {
@@ -409,14 +441,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
         return RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(searchProvider(query));
+            if (filterType != null) {
+              ref.invalidate(searchFilteredProvider((
+                query: query,
+                filterType: filterType,
+              )));
+            } else {
+              ref.invalidate(searchProvider(query));
+            }
             await ref.read(searchServiceProvider).addToHistory(query);
           },
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               if (result.isOffline) _buildOfflineBanner(),
-              _buildResultsHeader(result),
+              _buildResultsHeader(result, filterType),
               ..._buildGroupedResults(result, query),
             ],
           ),
@@ -454,7 +493,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsHeader(UnifiedSearchResult result) {
+  Widget _buildResultsHeader(UnifiedSearchResult result, SearchType? filterType) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -466,6 +505,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
           ),
           const Spacer(),
+          if (filterType != null)
+            Chip(
+              label: Text(_typeLabel(filterType)),
+              avatar: Icon(_typeIcon(filterType), size: 14),
+              visualDensity: VisualDensity.compact,
+            ),
           if (result.isOffline)
             Chip(
               label: const Text('Hors ligne'),

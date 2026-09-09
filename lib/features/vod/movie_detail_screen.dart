@@ -26,7 +26,7 @@ class MovieDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Détail'),
+        title: Text(movie.title.isEmpty ? 'Détail' : movie.title),
         actions: [
           FavoriteToggle(
             entry: FavoriteEntry(

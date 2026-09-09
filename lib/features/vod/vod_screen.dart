@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -13,6 +14,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:go_router/go_router.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
   const VodScreen({super.key});
@@ -51,6 +53,11 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       appBar: AppBar(
         title: const Text('Films (VOD)'),
         actions: [
+          IconButton(
+            tooltip: 'Rechercher un film',
+            icon: const Icon(Icons.movie_outlined),
+            onPressed: () => context.push('/search?type=vod'),
+          ),
           IconButton(
             tooltip: 'Trier',
             icon: const Icon(Icons.sort),
