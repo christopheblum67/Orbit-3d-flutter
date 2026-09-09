@@ -161,9 +161,30 @@ final moviesProvider = FutureProvider<List<Movie>>((ref) async {
   return api.fetchMovies();
 });
 
+/// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
+final liveCategoriesFromM3UProvider = FutureProvider<List<MediaCategory>>((ref) async {
+  final api = ref.watch(apiServiceProvider);
+  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
+  if (sub['type'] != 'm3u') return const [];
+  final channels = await api.fetchLiveChannels();
+  final groups = <String>{};
+  for (final c in channels) {
+    if (c.group.isNotEmpty) groups.add(c.group);
+  }
+  return groups
+      .map((g) => MediaCategory(id: g, name: g))
+      .toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+});
+
 final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  return api.fetchVodCategories();
+  final sub = await ref.watch(subscriptionManagerProvider).getActiveSubscription();
+  if (sub['type'] == 'xtream') {
+    return api.fetchVodCategories();
+  }
+  // Pour M3U : pas de catégories VOD natives
+  return const [];
 });
 
 final seriesCategoriesProvider =

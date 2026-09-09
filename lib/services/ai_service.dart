@@ -52,6 +52,15 @@ class AiService {
     ),
   );
 
+  /// Accès sûr à dotenv : renvoie '' si dotenv n'est pas initialisé.
+  static String _env(String key) {
+    try {
+      return dotenv.env[key] ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   static const int _maxRetries = 2;
   static const Duration _retryDelay = Duration(milliseconds: 900);
 
@@ -59,9 +68,11 @@ class AiService {
     UserProfile profile, [
     List<Movie> availableMovies = const [],
   ]) async {
-    final apiKey = dotenv.env['IA_API_KEY'];
-    final endpoint = dotenv.env['IA_API_ENDPOINT'] ??
-        'https://api.openai.com/v1/chat/completions';
+    final apiKey = _env('IA_API_KEY');
+    final rawEndpoint = _env('IA_API_ENDPOINT');
+    final endpoint = rawEndpoint.isEmpty
+        ? 'https://api.openai.com/v1/chat/completions'
+        : rawEndpoint;
 
     if (apiKey == null || apiKey.isEmpty) {
       throw const AIApiKeyMissingException(

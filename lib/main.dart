@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -45,6 +44,7 @@ import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/movie_detail_screen.dart';
+import 'package:orbit_3d_flutter/features/browse/browse_screen.dart';
 import 'package:orbit_3d_flutter/features/replay/replay_screen.dart';
 import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
@@ -68,11 +68,14 @@ Future<void> main() async {
   // L'import de webview_flutter_android enregistre (dartPluginClass) la
   // plateforme Android WebView automatiquement, nécessaire au déblocage
   // Cloudflare. Ne pas supprimer cet import.
-  // Le fichier .env est optionnel : son absence ne doit pas bloquer le d�marrage.
+  // Le fichier .env est optionnel : son absence ne doit pas bloquer le démarrage.
+  // isOptional=true : sans .env (asset non embarqué), dotenv reste initialisé
+  // avec une carte vide. Autrement dotenv.env lèverait NotInitializedError et
+  // ferait échouer toute construction de service d'enrichissement métadonnées.
   try {
-    await dotenv.load();
+    await dotenv.load(isOptional: true);
   } catch (_) {
-    // Pas de fichier .env embarqu� : on continue avec les valeurs par d�faut.
+    // Pas de fichier .env embarqué : on continue avec les valeurs par défaut.
   }
   await Hive.initFlutter();
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
@@ -159,7 +162,7 @@ final GoRouter router = GoRouter(
   routes: [
     GoRoute(
       path: '/onboarding',
-      builder: (context, state) => const OnboardingConfigScreen(),
+      builder: (context, state) => ConfirmExitApp(child: const OnboardingConfigScreen()),
     ),
     GoRoute(
       path: '/profiles',
@@ -167,34 +170,63 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profile/create',
-      builder: (context, state) => const ProfileEditScreen(),
+      builder: (context, state) {
+        final editKey = GlobalKey<ProfileEditScreenState>();
+        return FormBackHandlerScope(
+          onWillPop: () async {
+            return (await editKey.currentState?.confirmLeave()) ?? true;
+          },
+          child: ProfileEditScreen(key: editKey),
+        );
+      },
     ),
     GoRoute(
       path: '/profile/edit/:id',
-      builder: (context, state) => ProfileEditScreen(
-        profileId: state.pathParameters['id'],
-      ),
+      builder: (context, state) {
+        final editKey = GlobalKey<ProfileEditScreenState>();
+        return FormBackHandlerScope(
+          onWillPop: () async {
+            return (await editKey.currentState?.confirmLeave()) ?? true;
+          },
+          child: ProfileEditScreen(
+            key: editKey,
+            profileId: state.pathParameters['id'],
+          ),
+        );
+      },
     ),
     GoRoute(
       path: '/profile/pin',
       builder: (context, state) {
         final args = state.extra;
-        return PinPadScreen(
-          args: args is PinPadArgs ? args : const PinPadArgs.set(),
+        return ModalBackHandling(
+          meta: RouteMeta.pop(),
+          child: PinPadScreen(
+            args: args is PinPadArgs ? args : const PinPadArgs.set(),
+          ),
         );
       },
     ),
     GoRoute(
       path: '/profile/preferences',
-      builder: (context, state) => const ProfilePreferencesScreen(),
+      builder: (context, state) => ModalBackHandling(
+        meta: RouteMeta.pop(),
+        child: const ProfilePreferencesScreen(),
+      ),
     ),
     GoRoute(
       path: '/parental',
-      builder: (context, state) => const ParentalControlScreen(),
+      builder: (context, state) => ModalBackHandling(
+        meta: RouteMeta.pop(),
+        child: const ParentalControlScreen(),
+      ),
     ),
     GoRoute(
       path: '/matchmaking',
-      builder: (context, state) => const MatchmakingScreen(),
+      builder: (context, state) => ModalBackHandling(
+        meta: RouteMeta.popOrFallback('/home'),
+        child: const MatchmakingScreen(),
+      ),
     ),
     GoRoute(
       path: '/player',
@@ -302,7 +334,11 @@ final GoRouter router = GoRouter(
                 if (state != null) {
                   state.disposeAllControllers();
                 }
-                if (router.canPop()) router.pop();
+                if (router.canPop()) {
+                  router.pop();
+                } else {
+                  router.go('/home');
+                }
               },
               restorationId: 'multivideo',
             ),
@@ -401,7 +437,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'live',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'live'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'live'),
               child: const LiveTvScreen(),
             ),
           ),
@@ -412,7 +448,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'series',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'series'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'series'),
               child: const SeriesScreen(),
             ),
           ),
@@ -423,8 +459,19 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'vod',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'vod'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'vod'),
               child: const VodScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/browse',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'browse',
+            child: WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'browse'),
+              child: const BrowseScreen(),
             ),
           ),
         ),
@@ -441,7 +488,11 @@ final GoRouter router = GoRouter(
                     listen: false,
                   );
                   container.read(radioServiceProvider).stop();
-                  if (router.canPop()) router.pop();
+                  if (router.canPop()) {
+                    router.pop();
+                  } else {
+                    router.go('/home');
+                  }
                 },
                 restorationId: 'radio',
               ),
@@ -455,7 +506,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'replay',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'replay'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'replay'),
               child: const ReplayScreen(),
             ),
           ),
@@ -466,7 +517,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'epg',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'epg'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'epg'),
               child: const EpgScreen(),
             ),
           ),
@@ -477,7 +528,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'search',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'search'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'search'),
               child: const SearchScreen(),
             ),
           ),
@@ -488,7 +539,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'ai',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'ai'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'ai'),
               child: const AiScreen(),
             ),
           ),
@@ -499,12 +550,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'settings',
             child: WithBackHandling(
-              meta: RouteMeta.custom(
-                (context, router) {
-                  if (router.canPop()) router.pop();
-                },
-                restorationId: 'settings',
-              ),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
               child: const SettingsScreen(),
             ),
           ),
@@ -515,7 +561,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'settings_advanced',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'settings_advanced'),
+              meta: RouteMeta.popOrFallback('/settings', restorationId: 'settings_advanced'),
               child: const AdvancedSettingsScreen(),
             ),
           ),
@@ -526,7 +572,7 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'subscriptions',
             child: WithBackHandling(
-              meta: RouteMeta.pop(restorationId: 'subscriptions'),
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'subscriptions'),
               child: const SubscriptionsScreen(),
             ),
           ),
@@ -544,23 +590,6 @@ class OrbitApp extends ConsumerStatefulWidget {
 }
 
 class _OrbitAppState extends ConsumerState<OrbitApp> {
-  bool _dialogOpen = false;
-
-  Future<void> _confirmExit() async {
-    if (_dialogOpen) return;
-    _dialogOpen = true;
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (context) => const _ExitConfirmDialog(),
-    );
-    _dialogOpen = false;
-    if (shouldExit == true && context.mounted) {
-      SystemNavigator.pop();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
@@ -569,80 +598,6 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       routerConfig: router,
-      builder: (context, child) => PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) {
-            _confirmExit();
-          }
-        },
-        child: child!,
-      ),
-    );
-  }
-}
-
-class _ExitConfirmDialog extends StatelessWidget {
-  const _ExitConfirmDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFF16181E),
-      title: const Row(
-        children: [
-          Icon(
-            Icons.power_settings_new_rounded,
-            color: Color(0xFFFF6B6B),
-            size: 26,
-          ),
-          SizedBox(width: 10),
-          Text(
-            'Quitter Orbit IPTV',
-            style: TextStyle(color: Colors.white, fontSize: 18),
-          ),
-        ],
-      ),
-      content: const Text(
-        'Voulez-vous vraiment fermer l\'application ?',
-        style: TextStyle(color: Colors.white70, fontSize: 15),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Non',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B6B),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Oui',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

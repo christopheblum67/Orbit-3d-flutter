@@ -635,52 +635,185 @@ class ApiService {
   }
 
   // ---------- Replays ----------
+
+  /// Nombre maximal de chaînes DVR interrogées pour lister leurs programmes.
+  static const int _maxReplayEpgChannels = 25;
+
+  /// Fenêtre de replay : on ne remonte pas au-delà de 48h.
+  static const Duration _replayWindow = Duration(hours: 48);
+
   Future<List<ReplayItem>> fetchReplays() async {
     final sub = await _subscriptionManager.getActiveSubscription();
+
     if (sub['type'] == 'xtream') {
-      final baseUrl = sub['baseUrl']!;
-      final username = sub['username']!;
-      final password = sub['password']!;
+      return _fetchXtreamReplays(sub);
+    }
+    if (sub['type'] == 'm3u') {
+      return _fetchM3uReplays(sub);
+    }
+    throw StreamNetworkException('Aucun abonnement configuré.');
+  }
+
+  /// Replay Xtream : les chaînes DVR (tv_archive / timeshift) exposent leurs
+  /// programmes passés via l'EPG court ; chaque programme est joué avec une
+  /// URL timeshift (start/end en secondes Unix) sur le flux de la chaîne.
+  Future<List<ReplayItem>> _fetchXtreamReplays(
+    Map<String, String?> sub,
+  ) async {
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+
+    final List<Channel> channels;
+    try {
+      channels = await fetchLiveChannels();
+    } catch (_) {
+      return const <ReplayItem>[];
+    }
+
+    final replayChannels = channels
+        .where((c) =>
+            c.supportsReplay || c.name.toLowerCase().contains('replay'))
+        .take(_maxReplayEpgChannels)
+        .toList();
+    if (replayChannels.isEmpty) return const <ReplayItem>[];
+
+    final now = DateTime.now();
+    final replayItems = <ReplayItem>[];
+    for (final channel in replayChannels) {
+      final programs = await _fetchChannelReplayPrograms(
+        baseUrl: baseUrl,
+        username: username,
+        password: password,
+        channel: channel,
+        now: now,
+      );
+      if (programs.isNotEmpty) {
+        replayItems.addAll(programs);
+      } else if (channel.supportsReplay) {
+        // Repli : la chaîne est replayable mais aucun programme terminé
+        // n'est exposé par le panel ; on propose quand même la lecture live.
+        replayItems.add(
+          ReplayItem(
+            id: 'ch_${channel.id}',
+            title: 'Replay · ${channel.name}',
+            streamUrl: channel.streamUrl,
+            startTime: '',
+            endTime: '',
+            categoryId: channel.groupLabel,
+          ),
+        );
+      }
+    }
+    return replayItems;
+  }
+
+  /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
+  Future<List<ReplayItem>> _fetchChannelReplayPrograms({
+    required String baseUrl,
+    required String username,
+    required String password,
+    required Channel channel,
+    required DateTime now,
+  }) async {
+    try {
       final url = _playerApiUrl(baseUrl, 'player_api.php', {
         'username': username,
         'password': password,
-        'action': 'get_simple_data_table',
-        'stream_id': 'replay',
+        'action': 'get_short_epg',
+        'stream_id': channel.id,
       });
       final response = await _get(url);
       final data = response.data;
-      List<dynamic> list;
-      if (data is List) {
-        list = data;
-      } else if (data is Map) {
-        final inner = data['epg_listings'] ?? data['replay'] ?? data['data'];
-        list = inner is List ? inner : const [];
-      } else {
-        list = const [];
-      }
-      return list.map((e) {
+      final list = data is List
+          ? data
+          : (data is Map
+              ? (data['epg_listings'] as List? ?? const <dynamic>[])
+              : const <dynamic>[]);
+      final items = <ReplayItem>[];
+      for (final e in list.whereType<Map>()) {
         final map = Map<String, dynamic>.from(e);
-        final id = map['stream_id']?.toString() ?? '';
-        final streamUrl = id.isEmpty
-            ? ''
-            : buildXtreamStreamUrl(
-                baseUrl,
-                username,
-                password,
-                id,
-                extra: {
-                  'start': '${map['start'] ?? ''}',
-                  'end': '${map['end'] ?? ''}',
-                },
-              );
-        final replay = ReplayItem.fromMap(map).copyWith(streamUrl: streamUrl);
-        replay.requireStreamUrl();
-        return replay;
-      }).toList();
+        final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+        final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
+        if (start == null || end == null) continue;
+        if (!end.isBefore(now)) continue; // programme pas encore terminé
+        if (now.difference(start) > _replayWindow) continue; // trop ancien
+        final title = map['title']?.toString().trim() ?? '';
+        if (title.isEmpty) continue;
+        final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
+        final endEpoch = end.millisecondsSinceEpoch ~/ 1000;
+        items.add(
+          ReplayItem(
+            id: '${channel.id}_$startEpoch',
+            title: title,
+            streamUrl: buildXtreamStreamUrl(
+              baseUrl,
+              username,
+              password,
+              channel.id,
+              extra: {'start': '$startEpoch', 'end': '$endEpoch'},
+            ),
+            startTime: _formatReplayTime(start, now),
+            endTime: _formatReplayTime(end, now),
+            categoryId: channel.groupLabel,
+          ),
+        );
+      }
+      return items;
+    } catch (_) {
+      return const <ReplayItem>[];
     }
-    throw StreamNetworkException(
-      'Ce mode n\'est pas encore disponible pour cette section.',
-    );
+  }
+
+  /// Replay M3U : les chaînes portant un attribut `catchup`/`timeshift`
+  /// apparaissent directement comme rejouables.
+  Future<List<ReplayItem>> _fetchM3uReplays(Map<String, String?> sub) async {
+    try {
+      final url = sub['url']!;
+      final response = await _get(url);
+      final channels = parseM3u(response.data.toString());
+      return [
+        for (final c in channels.where((c) => c.supportsReplay))
+          ReplayItem(
+            id: 'ch_${c.id}',
+            title: 'Replay · ${c.name}',
+            streamUrl: c.streamUrl,
+            startTime: '',
+            endTime: '',
+            categoryId: '',
+          ),
+      ];
+    } catch (_) {
+      return const <ReplayItem>[];
+    }
+  }
+
+  /// Parse un horaire EPG : timestamp Unix (secondes) ou « yyyy-MM-dd HH:mm:ss ».
+  static DateTime? _parseReplayDate(Object? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.toString().trim();
+    if (trimmed.isEmpty) return null;
+    final seconds = int.tryParse(trimmed);
+    if (seconds != null && seconds > 0) {
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    }
+    return DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
+  }
+
+  /// « HH:mm » si même jour, sinon « d mois HH:mm » (ex. « 5 févr. 18:30 »).
+  String _formatReplayTime(DateTime dt, DateTime now) {
+    final local = dt.toLocal();
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    final sameDay = local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+    if (sameDay) return '$h:$m';
+    const months = [
+      'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.',
+      'août', 'sept.', 'oct.', 'nov.', 'déc.',
+    ];
+    return '${local.day} ${months[local.month - 1]} $h:$m';
   }
 
   // ---------- EPG (XMLTV) ----------
@@ -790,14 +923,19 @@ class ApiService {
     final lines = content.split('\n');
     final channels = <Channel>[];
     String? currentName;
+    String? currentGroup;
     for (final line in lines) {
       if (line.startsWith('#EXTINF')) {
         final nameMatch = RegExp(r',(.+)$').firstMatch(line);
         if (nameMatch != null) {
           currentName = nameMatch.group(1)!.trim();
         }
+        currentGroup = _m3uAttr(line, 'group-title').trim();
       } else if (line.isNotEmpty && !line.startsWith('#')) {
         if (currentName != null) {
+          final catchup = _m3uAttr(line, 'catchup').trim().toLowerCase();
+          final catchupDays = int.tryParse(_m3uAttr(line, 'catchup-days')) ?? 0;
+          final timeshift = int.tryParse(_m3uAttr(line, 'timeshift')) ?? 0;
           channels.add(
             Channel(
               id: channels.length.toString(),
@@ -807,14 +945,26 @@ class ApiService {
                 line.trim(),
                 label: currentName,
               ),
-              group: '',
+              group: currentGroup ?? '',
+              supportsReplay:
+                  (catchup.isNotEmpty && catchup != 'none') ||
+                      catchupDays > 0 ||
+                      timeshift > 0,
+              timeshift: Duration(seconds: timeshift),
             ),
           );
           currentName = null;
+          currentGroup = null;
         }
       }
     }
     return channels;
+  }
+
+  /// Lit un attribut `clé="valeur"` dans une ligne M3U (#EXTINF).
+  static String _m3uAttr(String line, String key) {
+    final match = RegExp('$key="([^"]*)"').firstMatch(line);
+    return match?.group(1) ?? '';
   }
 
   // ---------- Parseur XMLTV basique ----------

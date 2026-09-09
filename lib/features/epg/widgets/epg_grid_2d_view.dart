@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
 /// Grille EPG 2D haute performance avec CustomPainter (canvas unique).
 ///
@@ -41,10 +44,9 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   late Timer _timer;
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController = ScrollController();
-  final ScrollController _headerController = ScrollController();
+  late EpgTimelineController _timelineController;
 
   // Repaints ciblés (pas de rebuild du widget) :
-  final ValueNotifier<DateTime> _now = ValueNotifier<DateTime>(DateTime.now());
   final ValueNotifier<Offset?> _hoverPosition = ValueNotifier<Offset?>(null);
   final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
 
@@ -63,15 +65,21 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
         DateTime(now.year, now.month, now.day, now.hour - 1);
     _pixelsPerMinute = widget.pixelsPerMinute;
 
+    _timelineController = EpgTimelineController(
+      gridStartTime: _gridStartTime,
+      pixelsPerMinute: _pixelsPerMinute,
+    );
+    _timelineController.scheduledJump.addListener(_consumeJump);
+
     // Mise à jour de la ligne "maintenant" sans rebuild du widget.
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _now.value = DateTime.now();
+      _timelineController.now.value = DateTime.now();
     });
 
-    _horizontalController.addListener(_syncHeaderPosition);
     _horizontalController.addListener(() {
       if (_horizontalController.hasClients) {
         _horizontalOffset.value = _horizontalController.offset;
+        _timelineController.onGridScroll(_horizontalController.offset);
       }
     });
 
@@ -87,27 +95,37 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
     if (widget.gridStartTime != null &&
         widget.gridStartTime != old.gridStartTime) {
       _gridStartTime = widget.gridStartTime!;
+      _timelineController.gridStartTime = _gridStartTime;
     }
+    _timelineController.pixelsPerMinute = _pixelsPerMinute;
     _rebuildRenderCache();
   }
 
   @override
   void dispose() {
     _timer.cancel();
-    _now.dispose();
+    _timelineController.scheduledJump.removeListener(_consumeJump);
+    _timelineController.dispose();
     _hoverPosition.dispose();
     _horizontalOffset.dispose();
     _horizontalController.dispose();
     _verticalController.dispose();
-    _headerController.dispose();
     super.dispose();
   }
 
-  void _syncHeaderPosition() {
-    if (_headerController.hasClients &&
-        _horizontalController.hasClients &&
-        _headerController.offset != _horizontalController.offset) {
-      _headerController.jumpTo(_horizontalController.offset);
+  void _consumeJump() {
+    final target = _timelineController.scheduledJump.value;
+    if (target == null) return;
+    _timelineController.clearJump();
+    _scrollToTime(target);
+  }
+
+  void _scrollToTime(DateTime time) {
+    final offset = _getOffsetForTime(time) - 120;
+    if (_horizontalController.hasClients) {
+      _horizontalController.jumpTo(
+        offset.clamp(0.0, _horizontalController.position.maxScrollExtent),
+      );
     }
   }
 
@@ -116,11 +134,6 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
     if (_horizontalController.hasClients) {
       _horizontalController.jumpTo(
         offset.clamp(0.0, _horizontalController.position.maxScrollExtent),
-      );
-    }
-    if (_headerController.hasClients) {
-      _headerController.jumpTo(
-        offset.clamp(0.0, _headerController.position.maxScrollExtent),
       );
     }
   }
@@ -176,8 +189,7 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   Widget build(BuildContext context) {
     _rebuildRenderCache();
 
-    const totalSlots = 48;
-    final totalWidth = totalSlots * 30 * _pixelsPerMinute;
+    final totalWidth = 48 * 30 * _pixelsPerMinute;
     const rowHeight = 60.0;
     const channelWidth = 140.0;
     final totalHeight = widget.channels.length * rowHeight;
@@ -186,14 +198,15 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
       color: const Color(0xFF0D0E12),
       child: Column(
         children: [
-          // En-tête temporel synchronisé
-          SizedBox(
-            height: 40,
+          // Frise temporelle + barre de navigation
+          Container(
+            height: 44,
+            color: const Color(0xFF0D0E12),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
                 Container(
                   width: channelWidth,
-                  color: const Color(0xFF16181E),
                   alignment: Alignment.center,
                   child: const Text(
                     'En Direct',
@@ -204,38 +217,62 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                     ),
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.remove, size: 18),
+                  tooltip: '-1h',
+                  color: Colors.white70,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final t = _timelineController
+                        .pixelsToTime(_timelineController.gridOffset.value)
+                        .add(const Duration(hours: -1));
+                    _timelineController.jumpTo(t);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.access_time, size: 18),
+                  tooltip: 'Maintenant',
+                  color: const Color(0xFF8B5CF6),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    _timelineController.jumpTo(DateTime.now());
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, size: 18),
+                  tooltip: '+1h',
+                  color: Colors.white70,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final t = _timelineController
+                        .pixelsToTime(_timelineController.gridOffset.value)
+                        .add(const Duration(hours: 1));
+                    _timelineController.jumpTo(t);
+                  },
+                ),
+                const SizedBox(width: 4),
                 Expanded(
-                  child: SingleChildScrollView(
-                    controller: _headerController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Row(
-                      children: List.generate(totalSlots, (index) {
-                        final timeLabel =
-                            _gridStartTime.add(Duration(minutes: index * 30));
-                        return Container(
-                          width: 30 * _pixelsPerMinute,
-                          padding: const EdgeInsets.only(left: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: Colors.white12),
-                            ),
-                          ),
-                          child: Text(
-                            '${timeLabel.hour.toString().padLeft(2, '0')}:'
-                            '${timeLabel.minute.toString().padLeft(2, '0')}',
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                            ),
-                          ),
-                        );
-                      }),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: EpgTimeline(
+                      controller: _timelineController,
+                      onScrub: (time) {
+                        _timelineController.jumpTo(time);
+                      },
+                      onTimeSelected: (time) {
+                        _timelineController.jumpTo(time);
+                      },
                     ),
                   ),
                 ),
               ],
             ),
+          ),
+
+          // Mini-lecteur programme de la chaîne ciblée
+          EpgMiniProgramBar(
+            controller: _timelineController,
+            epgData: widget.epgData,
           ),
 
           // Grille EPG avec CustomPainter
@@ -257,7 +294,10 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           alignment: Alignment.centerLeft,
                           child: GestureDetector(
-                            onTap: () => widget.onChannelTap?.call(ch),
+                            onTap: () {
+                              _timelineController.setTargetedChannel(ch);
+                              widget.onChannelTap?.call(ch);
+                            },
                             child: Text(
                               ch,
                               style: const TextStyle(
@@ -311,7 +351,7 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                                     touchPosition: _hoverPosition,
                                     repaint: Listenable.merge([
                                       _hoverPosition,
-                                      _now,
+                                      _timelineController.now,
                                       _horizontalOffset,
                                     ]),
                                   ),

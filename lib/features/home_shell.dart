@@ -30,8 +30,8 @@ class HomeShell extends ConsumerWidget {
         const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
       ],
       const NavigationDestination(
-        icon: Icon(Icons.recommend),
-        label: 'Pour vous',
+        icon: Icon(Icons.explore_rounded),
+        label: 'Contenus',
       ),
       const NavigationDestination(
         icon: Icon(Icons.settings),
@@ -59,8 +59,8 @@ class HomeShell extends ConsumerWidget {
         ),
       ],
       const NavigationRailDestination(
-        icon: Icon(Icons.recommend),
-        label: Text('Pour vous'),
+        icon: Icon(Icons.explore_rounded),
+        label: Text('Contenus'),
       ),
       const NavigationRailDestination(
         icon: Icon(Icons.calendar_today),
@@ -162,10 +162,10 @@ class HomeShell extends ConsumerWidget {
                       final route = switch (index) {
                         0 => '/home',
                         1 => '/live',
-                        2 when isM3u => '/matchmaking',
+                        2 when isM3u => '/browse',
                         2 => '/series',
                         3 => '/vod',
-                        4 => '/matchmaking',
+                        4 => '/browse',
                         _ => '/settings',
                       };
                       context.go(route);
@@ -189,6 +189,9 @@ class HomeShell extends ConsumerWidget {
     if (location.startsWith('/matchmaking')) {
       return destinations.length == 4 ? 2 : 4;
     }
+    if (location.startsWith('/browse')) {
+      return destinations.length == 4 ? 2 : 4;
+    }
     if (location.startsWith('/settings')) {
       return destinations.length - 1;
     }
@@ -200,6 +203,7 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/series')) return 'Séries';
     if (path.startsWith('/vod')) return 'VOD';
     if (path.startsWith('/matchmaking')) return 'Pour vous';
+    if (path.startsWith('/browse')) return 'Contenus';
     if (path.startsWith('/replay')) return 'Replay';
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
@@ -217,6 +221,9 @@ class HomeShell extends ConsumerWidget {
     if (location.startsWith('/matchmaking')) {
       return isM3u ? 2 : 4;
     }
+    if (location.startsWith('/browse')) {
+      return isM3u ? 2 : 4;
+    }
     if (location.startsWith('/epg')) {
       return isM3u ? 3 : 5;
     }
@@ -230,12 +237,12 @@ class HomeShell extends ConsumerWidget {
     return switch (index) {
       0 => '/home',
       1 => '/live',
-      2 when isM3u => '/matchmaking',
+      2 when isM3u => '/browse',
       2 => '/series',
       3 when isM3u => '/epg',
       3 => '/vod',
       4 when isM3u => '/settings',
-      4 => '/matchmaking',
+      4 => '/browse',
       5 => '/epg',
       _ => '/settings',
     };

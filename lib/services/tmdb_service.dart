@@ -16,6 +16,15 @@ class TmdbService {
   static const Duration _cacheTtl = Duration(hours: 24);
   static const int _maxRequestsPer10Seconds = 40;
 
+  /// Accès sûr à dotenv : renvoie '' si dotenv n'est pas initialisé.
+  static String _env(String key) {
+    try {
+      return dotenv.env[key] ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   final Dio _dio;
   final LoggerService _logger = LoggerService.instance;
   Box? _cacheBox;
@@ -29,7 +38,7 @@ class TmdbService {
           receiveTimeout: const Duration(seconds: 20),
           queryParameters: {
             'language': 'fr-FR',
-            'api_key': dotenv.env['TMDB_API_KEY'] ?? '',
+            'api_key': _env('TMDB_API_KEY'),
           },
         )) {
     _initCache();
@@ -48,7 +57,7 @@ class TmdbService {
     }
   }
 
-  String get _apiKey => dotenv.env['TMDB_API_KEY'] ?? '';
+  String get _apiKey => _env('TMDB_API_KEY');
 
   bool get hasApiKey => _apiKey.isNotEmpty;
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
@@ -11,15 +10,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
 
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && context.mounted) {
-          final router = GoRouter.of(context);
-          if (router.canPop()) router.pop();
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(title: const Text('Préférences')),
         body: ListView(
         children: [
@@ -116,7 +107,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
 ),
         ],
       ),
-    ),
     );
   }
 

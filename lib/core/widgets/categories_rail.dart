@@ -161,7 +161,7 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
             children: [
               Text(
                 widget.name,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
