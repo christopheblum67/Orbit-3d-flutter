@@ -5,9 +5,8 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 
 /// Stockage local des favoris (Hive).
 ///
-/// Une entrée = un JSON [FavoriteEntry] sous la clé canonique
-/// `"<type>:<id>"` (par ex. `live:42`). Le service est délibérément sans état :
-/// la réactivité est portée par `favoritesProvider` (`FavoritesNotifier`).
+/// Une entrée = un JSON [FavoriteEntry] sous la clé `"<profileId>:<type>:<id>"`.
+/// Le service est sans état : la réactivité est portée par `favoritesProvider`.
 class FavoritesService {
   static const String _boxName = 'favorites';
 
@@ -30,8 +29,7 @@ class FavoritesService {
     return box.containsKey(key);
   }
 
-  /// Charge toutes les entrées favorites persistées (la liste n'est pas triée,
-  /// l'ordre d'affichage est géré par l'écran).
+  /// Charge toutes les entrées favorites persistées (tous profils).
   Future<List<FavoriteEntry>> loadAll() async {
     final box = Hive.box<String>(_boxName);
     final entries = <FavoriteEntry>[];
@@ -46,5 +44,11 @@ class FavoritesService {
       }
     }
     return entries;
+  }
+
+  /// Charge les favoris d'un profil spécifique.
+  Future<List<FavoriteEntry>> loadForProfile(String profileId) async {
+    final all = await loadAll();
+    return all.where((e) => e.profileId == profileId).toList();
   }
 }

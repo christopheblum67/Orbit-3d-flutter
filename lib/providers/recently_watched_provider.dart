@@ -4,7 +4,7 @@ import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 
-/// État réactif « récemment regardé » : clé canonique `"<type>:<id>"` -> entrée.
+/// État réactif « récemment regardé » : clé canonique `"<profileId>:<type>:<id>"` -> entrée.
 ///
 /// Chaque nouvelle lecture remplace l'entrée du même contenu et la fait
 /// remonter en tête. Les widgets écoutent [recentlyWatchedProvider] pour
@@ -19,12 +19,22 @@ class RecentlyWatchedNotifier extends StateNotifier<Map<String, RecentEntry>> {
   DateTime? _lastWatchedAt;
 
   RecentlyWatchedNotifier(this._ref) : super(const {}) {
+    _ref.listen(currentProfileProvider, (_, __) => _load());
     _load();
   }
 
-  Future<void> _load() async {
+  void _load() {
+    final profile = _ref.read(currentProfileProvider);
+    if (profile == null) {
+      state = const {};
+      return;
+    }
+    _loadForProfile(profile.id);
+  }
+
+  Future<void> _loadForProfile(String profileId) async {
     final service = _ref.read(recentlyWatchedServiceProvider);
-    final entries = await service.loadAll();
+    final entries = await service.loadForProfile(profileId);
     state = {for (final e in entries) e.key: e};
     if (entries.isNotEmpty) {
       _lastWatchedAt = entries
@@ -42,9 +52,8 @@ class RecentlyWatchedNotifier extends StateNotifier<Map<String, RecentEntry>> {
     String subtitle = '',
     String streamUrl = '',
   }) async {
-    if (id.isEmpty) return;
-    // Estampille strictement croissante : garantit un ordre déterministe
-    // même pour plusieurs lectures dans la même milliseconde.
+    final profile = _ref.read(currentProfileProvider);
+    if (profile == null || id.isEmpty) return;
     var watchedAt = DateTime.now();
     if (_lastWatchedAt != null && !watchedAt.isAfter(_lastWatchedAt!)) {
       watchedAt = _lastWatchedAt!.add(const Duration(microseconds: 1));
@@ -54,6 +63,7 @@ class RecentlyWatchedNotifier extends StateNotifier<Map<String, RecentEntry>> {
       type: type,
       id: id,
       title: title,
+      profileId: profile.id,
       posterUrl: posterUrl,
       subtitle: subtitle,
       streamUrl: streamUrl,
@@ -61,7 +71,6 @@ class RecentlyWatchedNotifier extends StateNotifier<Map<String, RecentEntry>> {
     );
     final next = Map<String, RecentEntry>.from(state)..[entry.key] = entry;
 
-    // Bornage à 50 éléments, les plus récents d'abord.
     final sorted = next.values.toList()
       ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
     var keysToDrop = <String>{};
@@ -84,7 +93,11 @@ class RecentlyWatchedNotifier extends StateNotifier<Map<String, RecentEntry>> {
 
   /// Récemment regardés d'un type, du plus récent au plus ancien.
   List<RecentEntry> forType(ContentType type) {
-    return state.values.where((e) => e.type == type).toList()
+    final profile = _ref.read(currentProfileProvider);
+    if (profile == null) return const [];
+    return state.values
+        .where((e) => e.type == type && e.profileId == profile.id)
+        .toList()
       ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
   }
 
