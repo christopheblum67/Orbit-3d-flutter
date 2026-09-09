@@ -11,7 +11,6 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
@@ -136,9 +135,11 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     });
     _startAutoAdvance();
     await _controller.start();
+    if (!mounted) return;
     // Rafraîchit la validité de l'abonnement Xtream actif (affichée en bas de
     // l'accueil) : évite le « Sans limite » erroné au démarrage.
     await _refreshSubscriptionValidity();
+    if (!mounted) return;
     // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
     // Récupère l'URL de base du fournisseur IPTV actif.
     try {
@@ -151,6 +152,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     } catch (_) {
       // Non bloquant : si le challenge échoue, on continuera sans cookies Cloudflare.
     }
+    if (!mounted) return;
     // Après le fetch, rafraîchit les recommandations avec les contenus reçus.
     final refreshed = engine.build(
       movies: _controller.movies,

@@ -46,7 +46,10 @@ class ApiService {
   Future<Response<dynamic>> _get(String url) {
     return stream_helpers.retryStream(
       () => _performGet(url),
-      attempts: 2,
+      // Le panel applique un rate-limit (429) sous charge : on retente 3 fois
+      // avec 1,2 s d'écart avant d'abandonner (démarrage séquentiel en plus).
+      attempts: 3,
+      delay: const Duration(milliseconds: 1200),
       shouldRetry: (error) {
         if (error is StreamNetworkException) return error.isRetriable;
         return true;
@@ -748,15 +751,16 @@ class ApiService {
     return replayItems;
   }
 
-  /// Constitution de l'ensemble des chaînes à sonder pour le replay :
+  /// Constitution de l'ensemble des chaînes à sonder pour le replay.
   ///
-  /// 1. Toutes les chaînes explicitement DVR ([flagged]), dans l'ordre de la
-  ///    grille (l'ordre du panel met souvent France HD en tête ;
-  ///    `take(25)` brut ne garderait QUE cette catégorie).
-  /// 2. Complété par un échantillon stratifié par catégorie : au plus
-  ///    `_replayProbePerGroup` chaînes NON marquées par groupe, choisis en
-  ///    round-robin pour couvrir toutes les catégories jusqu'à épuisement du
-  ///    budget (le DVR du panel est souvent global, la marque partielle).
+  /// Le budget est GLOBAL ([budget]) : certains panels marquent TOUT le
+  /// catalogue DVR (tv_archive partout) — sonder les ~200 chaînes martèlerait
+  /// le panel et déclencherait l'anti-leech (blocage IP temporaire qui fait
+  /// ensuite échouer le catalogue VOD). Le budget est donc réparti en
+  /// round-robin PAR CATÉGORIE (au plus [perGroup] chaînes par groupe), en
+  /// donnant la priorité aux chaînes explicitement DVR afin que toutes les
+  /// catégories soient couvertes (pas de cluster « Seulement France HD » : le
+  /// `take(25)` brut ne garderait que la première catégorie).
   static List<Channel> replayProbeSet(
     List<Channel> channels,
     List<Channel> flagged,
@@ -765,33 +769,49 @@ class ApiService {
     const perGroup = 3;
     if (channels.isEmpty) return const <Channel>[];
 
-    final candidates = <Channel>[...flagged];
-    final seen = candidates.map((c) => c.id).toSet();
-    if (candidates.length >= budget) return candidates;
-
-    final byGroup = <String, List<Channel>>{};
-    for (final c in channels) {
-      if (seen.contains(c.id)) continue;
-      final g = c.groupLabel.isNotEmpty ? c.groupLabel : _unknownGroupLabel;
-      byGroup.putIfAbsent(g, () => []).add(c);
-    }
-
-    final groupNames = byGroup.keys.toList();
+    final flaggedIds = flagged.map((c) => c.id).toSet();
+    final candidates = <Channel>[];
+    final seen = <String>{};
     final takenByGroup = <String, int>{};
-    var allExhausted = false;
-    while (candidates.length < budget && !allExhausted) {
-      allExhausted = true;
-      for (final group in groupNames) {
-        if (candidates.length >= budget) break;
-        final list = byGroup[group]!;
-        final taken = takenByGroup[group] ?? 0;
-        if (taken >= perGroup) continue;
-        if (taken >= list.length) continue;
-        candidates.add(list[taken]);
-        takenByGroup[group] = taken + 1;
-        allExhausted = false;
+
+    void fillRoundRobin(List<Channel> source) {
+      final byGroup = <String, List<Channel>>{};
+      for (final c in source) {
+        final g = c.groupLabel.isNotEmpty ? c.groupLabel : _unknownGroupLabel;
+        byGroup.putIfAbsent(g, () => []).add(c);
+      }
+      final groupNames = byGroup.keys.toList();
+      var allExhausted = false;
+      while (candidates.length < budget && !allExhausted) {
+        allExhausted = true;
+        for (final group in groupNames) {
+          if (candidates.length >= budget) break;
+          final list = byGroup[group]!;
+          final taken = takenByGroup[group] ?? 0;
+          if (taken >= perGroup) continue;
+          Channel? next;
+          for (final c in list) {
+            if (!seen.contains(c.id)) {
+              next = c;
+              break;
+            }
+          }
+          if (next == null) continue;
+          seen.add(next.id);
+          candidates.add(next);
+          takenByGroup[group] = taken + 1;
+          allExhausted = false;
+        }
       }
     }
+
+    // 1. Chaînes explicitement DVR d'abord — réparties par catégorie pour
+    //    ne jamais dépasser le budget total (anti-leech) ni clusteriser.
+    fillRoundRobin(flagged);
+    if (candidates.length >= budget) return candidates;
+    // 2. Complétion du budget avec le reste de la grille (marquage partiel :
+    //    le DVR du panel est souvent global, la marque elle ne l'est pas).
+    fillRoundRobin(channels.where((c) => !flaggedIds.contains(c.id)).toList());
     return candidates;
   }
 

@@ -235,5 +235,25 @@ void main() {
       final probe = ApiService.replayProbeSet(channels, const []);
       expect(probe.length, lessThanOrEqualTo(40));
     });
+
+    test('borne le budget même quand TOUT le catalogue est DVR', () {
+      // Cas réel draap.online : tv_archive est marqué sur toutes les chaînes.
+      // Sonder les ~200 chaînes martèlerait le panel (anti-leech → films KO).
+      final channels = [
+        for (var g = 0; g < 5; g++)
+          for (var i = 0; i < 60; i++)
+            channel(g * 100 + i, group: 'Groupe $g', replay: true),
+      ];
+      final flagged = channels.where((c) => c.supportsReplay).toList();
+      final probe = ApiService.replayProbeSet(channels, flagged);
+      expect(probe.length, lessThanOrEqualTo(40));
+      // Toutes les catégories restent couvertes (pas de cluster 1re catégorie).
+      expect(probe.map((c) => c.group).toSet().length, 5);
+      final byGroup = <String, int>{};
+      for (final c in probe) {
+        byGroup[c.group] = (byGroup[c.group] ?? 0) + 1;
+      }
+      expect(byGroup.values.every((n) => n <= 3), isTrue);
+    });
   });
 }

@@ -169,13 +169,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
 
-    // Lance les rechargements en parallèle.
-    final liveFut = ref.read(liveChannelsProvider.future);
-    final moviesFut = ref.read(moviesProvider.future);
-    final seriesFut = ref.read(seriesProvider.future);
-    final radioFut = ref.read(radioChannelsProvider.future);
-    final replayFut = ref.read(replaysProvider.future);
-    final epgFut = ref.read(epgProgramsProvider.future);
+    // Lance les rechargements. `eagerError: false` + repli par source : un
+    // échec isolé (ex. rate-limit 429 du panel) ne doit PAS faire échouer
+    // tout le lot ni empêcher d'horodater la mise à jour réelle.
+    final liveFut = ref
+        .read(liveChannelsProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
+    final moviesFut = ref
+        .read(moviesProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
+    final seriesFut = ref
+        .read(seriesProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
+    final radioFut = ref
+        .read(radioChannelsProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
+    final replayFut = ref
+        .read(replaysProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
+    final epgFut = ref
+        .read(epgProgramsProvider.future)
+        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
 
     // Attend la fin de tous les fournisseurs (timeout sécurité 60 s).
     final results = await Future.wait([
@@ -185,21 +199,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       radioFut,
       replayFut,
       epgFut,
-    ]).timeout(const Duration(seconds: 60), onTimeout: () {
-      throw TimeoutException('Certains flux n\'ont pas répondu à temps');
-    });
+    ], eagerError: false).timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        throw TimeoutException('Certains flux n\'ont pas répondu à temps');
+      },
+    );
 
-    final liveCount = (results[0] as List).length;
-    final moviesCount = (results[1] as List).length;
-    final seriesCount = (results[2] as List).length;
-    final radioCount = (results[3] as List).length;
-    final replayCount = (results[4] as List).length;
-    final epgCount = (results[5] as List).length;
+    final liveCount = results[0].length;
+    final moviesCount = results[1].length;
+    final seriesCount = results[2].length;
+    final radioCount = results[3].length;
+    final replayCount = results[4].length;
+    final epgCount = results[5].length;
 
     // Invalide le cache EPG pour forcer le re-trim à la prochaine ouverture grille.
     ref.invalidate(epgDataCacheProvider);
 
-    // Horodate la mise à jour.
+    // Horodate la mise à jour (même en succès partiel : la donnée affichée
+    // « Mis à jour il y a X min » reflète le dernier rechargement réel).
     ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
 
     if (!mounted) return;
