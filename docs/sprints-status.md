@@ -183,10 +183,10 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 | **Perf recherche programme (10/09)**  | 🟢 | `epg_lookup.dart` : **recherche dichotomique O(log N)** en cours/suivant (mini-bar + player) ; **index par chaîne** dans `EPGDataCache` (plus de re-parcours global à chaque `channelEpgProvider`) — 196 tests |
 | Parsing XMLTV hors thread UI | 🟢 | `fetchEpg` → `compute(parseXmltvIsolate)` — aucun blocage UI, même sur 94 k entrées |
 | Crash « déconnexion » S20 | 🟡 | 2 captures logcat sans FATAL : gel Samsung `FreecessController FZ reason: LEV` ; whitelist deviceidle + standby active appliqués — à re-validator sur la durée |
-| EpgHeadbar (live + fiches) | 🟡 | `epg_headbar.dart` : **0 erreur analyzer** (corrigé 07/09 : context passé en paramètre, retraits références `posterUrl`/`channelName` inexistantes) ; à intégrer à la reprise |
+| EpgHeadbar (live + fiches) | 🟢 | `epg_headbar.dart` : **0 erreur analyzer** (corrigé 07/09 : context passé en paramètre, retraits références `posterUrl`/`channelName` inexistantes) ; **intégrée dans la grille 2D 10/09** (`_EpgHeadbarSection` : programme en cours/suivant via dichotomie + actions favori/lecture/info chaîne ciblée) — 200 tests |
 | Analyse globale `lib` | 🟢 | `dart analyze lib` : **0 erreur** sur tout le projet |
 
-**Progression : ~55% — Reste : validation S20 longue durée + intégration headbar + (S4) Rust EPG streaming quick-xml/SQLite.**
+**Progression : ~60% — Reste : validation S20 longue durée + (S4) Rust EPG streaming quick-xml/SQLite.**
 
 ---
 
@@ -251,5 +251,22 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
+## 12. FLIXPATROL → API TRAKT (Terre/Polaris) — 10/09
+**Décision utilisateur** : remplacer le scraping flixpatrol.com (403 Cloudflare) et l'API payante par l'**API publique Trakt** (client_id gratuit, sans OAuth). Sources éliminées avec preuves : flixpatrol.com 403 CF partout + API officielle payante ; mdblist API clé 401 + OAuth requis pour une app distribuée. Attribution exigée et respectée (logo officiel `Powered by Trakt` dark/light embarqué + « Affiches © TMDB »).
+
+| Élément | Statut | Détail |
+|---|---|---|
+| `TraktRankEntry` (film/série/populaires/tendances) | 🟢 | `lib/models/trakt_rank_entry.dart` : parsing `extended=full` (ids croisés, genres, runtime, certification, tagline, trailer, images, `watchers` trending) |
+| `TraktService` | 🟢 | `lib/services/trakt_service.dart` calqué sur TmdbService : headers `trakt-api-key`/`trakt-api-version:2`, cache Hive 24h, rate limit, 4 endpoints `/movies|/shows popular|trending?extended=full&limit=` |
+| Providers | 🟢 | `flixPatrol*` → `trakt*` (Popular/Trending × Films/Séries), `traktServiceProvider` |
+| Onglet Parcourir | 🟢 | `_FlixPatrolView`/`_RankCard`/`_RankEntrySheet` basculés : fiche détail enrichie (genres, durée, certif, tagline, watchers, bande-annonce), message erreur `TRAKT_CLIENT_ID` |
+| Attribution | 🟢 | `_TraktAttributionFooter` (logo + Powered by Trakt + Affiches © TMDB) dans l'onglet et la fiche |
+| Env | 🟢 | `TRAKT_CLIENT_ID` ajouté à `.env` (vide) et `.env.example` (création sur trakt.tv/oauth/applications) |
+| Tests | 🟢 | `trakt_rank_entry_test.dart` 4/4 ; **200/200** ; analyze 0 erreur `lib` ; APK debug installé S20 |
+
+**Progression : 100% — FLIXPATROL/TRAKT LIVRÉ (commit `76421d4`).** Reste : clé à renseigner par l'utilisateur + validation visuelle S20.
+
+---
+
 ## Total backlog restant estimé : ~3h (1 ingénieur) — Rust Proxy uniquement
-Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09) est **✅ LIVRÉ & VALIDÉ**.
+Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09, **EPG headbar 10/09, FlixPatrol→Trakt 10/09**) est **✅ LIVRÉ & VALIDÉ**.
