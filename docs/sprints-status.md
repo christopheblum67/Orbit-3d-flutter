@@ -180,11 +180,13 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 | Perf grille 2D | 🟢 | `epg_grid_2d_view.dart` : repaints via ValueNotifier, cache sur signature, culling hors viewport, RepaintBoundary |
 | Cache EPG unifié | 🟢 | `EPGDataCache` `_inFlight` partagé (1 téléchargement XMLTV) + `epgProgramsProvider` → `cache.loadFull` |
 | Charges EPG par lots | 🟢 | `_loadAllEpg` : 1 `setState` / lot de 8 chaînes au lieu de 1 / chaîne |
+| **Perf recherche programme (10/09)**  | 🟢 | `epg_lookup.dart` : **recherche dichotomique O(log N)** en cours/suivant (mini-bar + player) ; **index par chaîne** dans `EPGDataCache` (plus de re-parcours global à chaque `channelEpgProvider`) — 196 tests |
+| Parsing XMLTV hors thread UI | 🟢 | `fetchEpg` → `compute(parseXmltvIsolate)` — aucun blocage UI, même sur 94 k entrées |
 | Crash « déconnexion » S20 | 🟡 | 2 captures logcat sans FATAL : gel Samsung `FreecessController FZ reason: LEV` ; whitelist deviceidle + standby active appliqués — à re-validator sur la durée |
 | EpgHeadbar (live + fiches) | 🟡 | `epg_headbar.dart` : **0 erreur analyzer** (corrigé 07/09 : context passé en paramètre, retraits références `posterUrl`/`channelName` inexistantes) ; à intégrer à la reprise |
 | Analyse globale `lib` | 🟢 | `dart analyze lib` : **0 erreur** sur tout le projet |
 
-**Progression : ~45% — Terre fait une pause (consigne utilisateur). Reste : validation S20 longue durée + headbar.**
+**Progression : ~55% — Reste : validation S20 longue durée + intégration headbar + (S4) Rust EPG streaming quick-xml/SQLite.**
 
 ---
 
