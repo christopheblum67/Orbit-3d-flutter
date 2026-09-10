@@ -8,10 +8,11 @@ import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
+import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
-import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
 /// Guide TV (EPG) : affiche la grille 2D seule.
 ///
@@ -95,10 +96,11 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
           children: [
             // Frise temporelle continue (EPG Timeline)
             _EpgTimelineHeader(controller: _timelineController),
-            // Mini-lecteur programme de la chaîne ciblée
-            EpgMiniProgramBar(
+            // Barre d'en-tête unifiée : programme en cours + programme suivant
+            // + actions (favori, lecture, info) pour la chaîne ciblée.
+            _EpgHeadbarSection(
+              channels: channels,
               controller: _timelineController,
-              epgData: {}, // sera mis à jour via le wrapper
             ),
             _CategoryFilterBar(
               categories: categories,
@@ -447,4 +449,181 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
 
   String _formatTime(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:'
       '${dt.minute.toString().padLeft(2, '0')}';
+}
+
+/// Section en-tête EPG unifiée : affiche [EpgHeadbar] pour la chaîne ciblée
+/// dans la grille (row temps + toolbar du bas).
+///
+/// - Chaîne ciblée : cliquée dans la colonne de gauche de la grille
+///   ([EpgTimelineController.targetedChannel]).
+/// - Programme en cours / suivant : calculés via la recherche dichotomique
+///   (O(log N)) sur l'EPG chargé par [channelEpgProvider].
+class _EpgHeadbarSection extends ConsumerWidget {
+  const _EpgHeadbarSection({
+    required this.channels,
+    required this.controller,
+  });
+
+  final List<Channel> channels;
+  final EpgTimelineController controller;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: controller.targetedChannel,
+      builder: (context, channelName, _) {
+        if (channelName == null) {
+          // Aucune chaîne ciblée : bandeau discret au lieu d'une headbar vide.
+          return Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            color: const Color(0xFF13151B),
+            alignment: Alignment.centerLeft,
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.live_tv,
+                  color: Colors.white38,
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Sélectionnez une chaîne pour voir son programme',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final channel = _byName[channelName];
+        if (channel == null) {
+          return const SizedBox.shrink();
+        }
+        return EpgHeadbar(
+          key: ValueKey(channel.id),
+          type: EpgHeadbarType.live,
+          channel: channel,
+          isLive: true,
+          isFavorite: _isFavorite(ref, 'live', channel),
+          currentProgram: ref
+              .watch(channelEpgProvider(channel.epgChannelId))
+              .maybeWhen(
+                data: (programs) => epgCurrentProgram(programs, DateTime.now()),
+                orElse: () => null,
+              ),
+          nextProgram: ref
+              .watch(channelEpgProvider(channel.epgChannelId))
+              .maybeWhen(
+                data: (programs) => epgNextProgram(programs, DateTime.now()),
+                orElse: () => null,
+              ),
+          onPlay: () {
+            Navigator.pushNamed(
+              context,
+              '/player',
+              arguments: {
+                'streamUrl': channel.streamUrl,
+                'title': channel.name,
+                'contentType': 'live',
+              },
+            );
+          },
+          onFavoriteToggle: () {
+            final entry = FavoriteEntry(
+              type: ContentType.live,
+              id: channel.id,
+              title: channel.name,
+              posterUrl: channel.logoUrl,
+              subtitle: channel.groupLabel,
+              streamUrl: channel.streamUrl,
+            );
+            ref.read(favoritesProvider.notifier).toggle(entry);
+          },
+          onInfo: () {
+            final programs = ref
+                .read(channelEpgProvider(channel.epgChannelId))
+                .value;
+            final current = programs == null
+                ? null
+                : epgCurrentProgram(programs, DateTime.now());
+            if (current != null) {
+              _showProgramBottomSheet(context, current);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Aucune information de programme disponible'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Map<String, Channel> get _byName => {for (final c in channels) c.name: c};
+
+  bool _isFavorite(WidgetRef ref, String type, Channel channel) {
+    final favorites = ref.watch(favoritesProvider);
+    // Clé canonique alignée sur FavoritesNotifier (profil courant).
+    final profile = ref.watch(currentProfileProvider);
+    final key = profile == null || profile.id.isEmpty
+        ? '$type:${channel.id}'
+        : '${profile.id}:$type:${channel.id}';
+    return favorites.containsKey(key);
+  }
+
+  void _showProgramBottomSheet(BuildContext context, EPGProgram program) {
+    final scheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16181E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              program.title,
+              style: TextStyle(
+                color: scheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${_hhmm(program.start)} - ${_hhmm(program.end)}',
+              style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
+            ),
+            if (program.description.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                program.description,
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Regarder'),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:'
+      '${t.minute.toString().padLeft(2, '0')}';
 }
