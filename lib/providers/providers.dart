@@ -330,6 +330,20 @@ class EPGDataCache {
   DateTime? _fetchedAt;
   Future<List<EPGProgram>>? _inFlight;
 
+  /// Index par `channelId` → programmes triés par horaire croissant, construit
+  /// UNE seule fois au premier chargement complet (O(N)) et réutilisé par tous
+  /// les appels `channelEpgProvider` : évite de re-parcourir la liste globale
+  /// (48 h) à chaque chaîne demandée.
+  final Map<String, List<EPGProgram>> _byChannel = {};
+
+  /// Retourne les programmes (triés par horaire) d'une chaîne, sans aucun
+  /// re-parcours de la liste globale. Vide si le cache n'est pas encore chargé
+  /// ou si la chaîne n'a pas d'entrées EPG.
+  List<EPGProgram> programsForChannel(String channelId) =>
+      _byChannel[channelId] ?? const <EPGProgram>[];
+
+  /// Charge l'intégralité du guide (filtre 48 h) UNE seule fois à la fois via
+
   bool get isFresh {
     final fetched = _fetchedAt;
     return _all != null &&
@@ -364,6 +378,14 @@ class EPGDataCache {
             p.end.isAfter(now) &&
             p.end.isBefore(now.add(const Duration(hours: 48))))
         .toList();
+    // Index par chaîne, trié par horaire : recherches dichotomiques O(log N).
+    _byChannel.clear();
+    for (final p in _all!) {
+      (_byChannel[p.channelId] ??= <EPGProgram>[]).add(p);
+    }
+    for (final list in _byChannel.values) {
+      list.sort((a, b) => a.start.compareTo(b.start));
+    }
     _fetchedAt = now;
     return _all!;
   }
@@ -371,6 +393,7 @@ class EPGDataCache {
   void invalidate() {
     _all = null;
     _fetchedAt = null;
+    _byChannel.clear();
   }
 }
 
@@ -387,12 +410,14 @@ final channelEpgProvider =
     if (epgChannelId.isEmpty) return const <EPGProgram>[];
     final api = ref.watch(apiServiceProvider);
     final cache = ref.watch(epgDataCacheProvider);
-    final all = await cache.loadFull(api);
+    await cache.loadFull(api);
     final now = DateTime.now();
-    return all
-        .where((p) => p.channelId == epgChannelId && p.end.isAfter(now))
-        .toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
+    // L'index construit par le cache (trié par horaire) évite un re-parcours
+    // de la liste globale (48 h) à chaque chaîne demandée.
+    return cache
+        .programsForChannel(epgChannelId)
+        .where((p) => p.end.isAfter(now))
+        .toList();
   },
 );
 

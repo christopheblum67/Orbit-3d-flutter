@@ -8,6 +8,7 @@ import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -1971,29 +1972,8 @@ class _EpgRow extends StatelessWidget {
   }
 }
 
-(EPGProgram?, EPGProgram?) _nowAndNext(List<EPGProgram> programs) {
-  final now = DateTime.now();
-  EPGProgram? current;
-  EPGProgram? next;
-  for (final program in programs) {
-    if (!program.start.isAfter(now) && program.end.isAfter(now)) {
-      current = program;
-      break;
-    }
-  }
-  if (current != null) {
-    final index = programs.indexOf(current);
-    if (index + 1 < programs.length && programs[index + 1].start.isAfter(now)) {
-      next = programs[index + 1];
-    }
-  } else if (programs.isNotEmpty) {
-    next = programs.firstWhere(
-      (p) => p.start.isAfter(now),
-      orElse: () => programs.last,
-    );
-  }
-  return (current, next);
-}
+(EPGProgram?, EPGProgram?) _nowAndNext(List<EPGProgram> programs) =>
+    epgCurrentAndNext(programs, DateTime.now());
 
 String _fmt(DateTime time) => DateFormat('HH:mm').format(time);
 

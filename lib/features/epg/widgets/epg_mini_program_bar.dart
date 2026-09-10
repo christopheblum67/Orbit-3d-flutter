@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 
@@ -29,8 +30,8 @@ class EpgMiniProgramBar extends StatelessWidget {
           builder: (context, channelName, _) {
             final programs =
                 channelName == null ? const <EPGProgram>[] : (epgData[channelName] ?? const <EPGProgram>[]);
-            final current = _currentProgram(programs, now);
-            final next = _nextProgram(programs, now);
+            final current = epgCurrentProgram(programs, now);
+            final next = epgNextProgram(programs, now);
             return Container(
               height: height,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -118,23 +119,6 @@ class EpgMiniProgramBar extends StatelessWidget {
       },
     );
   }
-}
-
-EPGProgram? _currentProgram(List<EPGProgram> programs, DateTime now) {
-  for (final p in programs) {
-    if (!p.start.isAfter(now) && p.end.isAfter(now)) return p;
-  }
-  return null;
-}
-
-EPGProgram? _nextProgram(List<EPGProgram> programs, DateTime now) {
-  EPGProgram? next;
-  for (final p in programs) {
-    if (p.start.isAfter(now)) {
-      if (next == null || p.start.isBefore(next.start)) next = p;
-    }
-  }
-  return next;
 }
 
 double _progress(EPGProgram program, DateTime now) {
