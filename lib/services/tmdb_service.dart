@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 
 /// Client TMDB (TheMovieDB) avec rate limiting, cache Hive et gestion d'erreurs
 class TmdbService {
@@ -431,6 +432,68 @@ class TmdbService {
     // TMDB certification est dans release_dates ou content_ratings
     // Pour simplifier, on retourne vide - sera complété par OMDB si nécessaire
     return '';
+  }
+
+  // ==================== CLASSEMENTS (FlixPatrol / Popular) ====================
+
+  /// Films populaires (Top tendance TMDB mondial).
+  Future<List<TmdbRankEntry>> getPopularMovies({int page = 1}) async {
+    return _getRankings('/movie/popular', page: page, isTv: false);
+  }
+
+  /// Séries populaires (Top tendance TMDB mondial).
+  Future<List<TmdbRankEntry>> getPopularTv({int page = 1}) async {
+    return _getRankings('/tv/popular', page: page, isTv: true);
+  }
+
+  /// Films en tendance cette semaine.
+  Future<List<TmdbRankEntry>> getTrendingMovies() async {
+    return _getRankings('/trending/movie/week', isTv: false);
+  }
+
+  /// Séries en tendance cette semaine.
+  Future<List<TmdbRankEntry>> getTrendingTv() async {
+    return _getRankings('/trending/tv/week', isTv: true);
+  }
+
+  /// Charge un endpoint de classement (popular ou trending), via le cache
+  /// partagé (TTL 24 h) et le rate limiter.
+  Future<List<TmdbRankEntry>> _getRankings(
+    String path, {
+    int page = 1,
+    required bool isTv,
+  }) async {
+    if (!hasApiKey) return const <TmdbRankEntry>[];
+    final cacheKey = _cacheKey(isTv ? 'rank_tv' : 'rank_movie', '$path:$page');
+    final cached = _getCached(cacheKey, (d) {
+      final results = d['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => isTv
+              ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
+              : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(path, queryParameters: {
+        if (page > 1) 'page': '$page',
+        'region': 'FR',
+      });
+      if (response.data == null) return const <TmdbRankEntry>[];
+      await _setCache(cacheKey, response.data);
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => isTv
+              ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
+              : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      _logger.warning('TMDB $path error: $e');
+      return const <TmdbRankEntry>[];
+    }
   }
 
   /// Ferme le cache
