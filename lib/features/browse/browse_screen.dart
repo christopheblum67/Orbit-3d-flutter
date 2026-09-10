@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
@@ -82,7 +84,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           ),
           Expanded(
             child: switch (_tab) {
-              _BrowseTab.flixpatrol => const _FlixPatrolPlaceholder(),
+              _BrowseTab.flixpatrol => const _FlixPatrolView(),
               _BrowseTab.films => _buildMovieView(),
               _BrowseTab.series => _buildSeriesView(),
             },
@@ -629,58 +631,401 @@ class _BrowseTabPill extends StatelessWidget {
   }
 }
 
-/// Emplacement réservé pour FlixPatrol (classements populaires).
-class _FlixPatrolPlaceholder extends StatelessWidget {
-  const _FlixPatrolPlaceholder();
+/// Classements populaires TMDB (équivalent FlixPatrol) : films + séries.
+class _FlixPatrolView extends ConsumerStatefulWidget {
+  const _FlixPatrolView();
+
+  @override
+  ConsumerState<_FlixPatrolView> createState() => _FlixPatrolViewState();
+}
+
+class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
+  _RankSource _mode = _RankSource.popular;
+
+  FutureProvider<List<TmdbRankEntry>> get _provider => switch (_mode) {
+        _RankSource.popular => flixPatrolMoviesProvider,
+        _RankSource.trending => flixPatrolTrendingMoviesProvider,
+      };
+
+  FutureProvider<List<TmdbRankEntry>> get _providerTv => switch (_mode) {
+        _RankSource.popular => flixPatrolTvProvider,
+        _RankSource.trending => flixPatrolTrendingTvProvider,
+      };
+
+  void _switchMode(_RankSource mode) {
+    if (mode == _mode) return;
+    setState(() {
+      _mode = mode;
+    });
+  }
+
+  Future<void> _openEntry(TmdbRankEntry entry) async {
+    // Tente de retrouver le même titre dans le catalogue de l'abonnement
+    // actif pour permettre la lecture (sinon on reste sur le classement).
+    final normalized = entry.title.trim().toLowerCase();
+    if (entry.isTv) {
+      final series = ref.read(seriesProvider).valueOrNull ?? const <Series>[];
+      Series? match;
+      for (final s in series) {
+        if (s.title.trim().toLowerCase() == normalized) {
+          match = s;
+          break;
+        }
+      }
+      if (match != null) {
+        context.push(
+          '/series/detail?id=${Uri.encodeComponent(match.id)}'
+          '&title=${Uri.encodeComponent(match.title)}',
+        );
+        return;
+      }
+    } else {
+      final movies = ref.read(moviesProvider).valueOrNull ?? const <Movie>[];
+      Movie? match;
+      for (final m in movies) {
+        if (m.title.trim().toLowerCase() == normalized) {
+          match = m;
+          break;
+        }
+      }
+      if (match != null) {
+        context.push('/vod/detail', extra: match);
+        return;
+      }
+    }
+    // Pas dans le catalogue : on affiche une fiche d'info TMDB légère.
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      isScrollControlled: true,
+      builder: (_) => _RankEntrySheet(entry: entry),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Classements populaires',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              SegmentedButton<_RankSource>(
+                segments: const [
+                  ButtonSegment(
+                    value: _RankSource.popular,
+                    label: Text('Populaire'),
+                    icon: Icon(Icons.trending_up),
+                  ),
+                  ButtonSegment(
+                    value: _RankSource.trending,
+                    label: Text('Tendance de la semaine'),
+                    icon: Icon(Icons.local_fire_department_outlined),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (s) => _switchMode(s.first),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildRankList(title: 'Films', provider: _provider, isTv: false)),
+              Expanded(child: _buildRankList(title: 'Séries', provider: _providerTv, isTv: true)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRankList({
+    required String title,
+    required FutureProvider<List<TmdbRankEntry>> provider,
+    required bool isTv,
+  }) {
+    final async = ref.watch(provider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: SectionHeader(
+            icon: isTv ? Icons.tv : Icons.movie_outlined,
+            title: title,
+          ),
+        ),
+        Expanded(
+          child: async.when(
+            data: (entries) => entries.isEmpty
+                ? const EmptyState(
+                    icon: Icons.leaderboard_outlined,
+                    title: 'Aucun classement',
+                    message:
+                        'Les tendances TMDB ne sont pas disponibles. '
+                        'Vérifiez la clé API dans .env.',
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200,
+                      childAspectRatio: 0.55,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: entries.length,
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      return _RankCard(
+                        entry: entry,
+                        rank: index + 1,
+                        onOpen: () => _openEntry(entry),
+                      );
+                    },
+                  ),
+            loading: () => const LoadingState(message: 'Chargement…'),
+            error: (err, _) => ErrorState(
+              icon: isTv ? Icons.tv : Icons.movie_outlined,
+              title: 'Classement indisponible',
+              message: userFriendlyError(err),
+              onRetry: () => ref.invalidate(provider),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _RankSource { popular, trending }
+
+/// Carte d'un élément du classement, avec numéro de rang et note TMDB.
+class _RankCard extends StatelessWidget {
+  const _RankCard({
+    required this.entry,
+    required this.rank,
+    required this.onOpen,
+  });
+
+  final TmdbRankEntry entry;
+  final int rank;
+  final VoidCallback onOpen;
+
+  Color _rankColor(ThemeData theme) {
+    switch (rank) {
+      case 1:
+        return const Color(0xFFFFD700); // Or
+      case 2:
+        return const Color(0xFFC0C0C0); // Argent
+      case 3:
+        return const Color(0xFFCD7F32); // Bronze
+      default:
+        return theme.colorScheme.primary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rankColor = _rankColor(Theme.of(context));
+    return TvFocus(
+      onActivate: onOpen,
+      child: MediaCard(
+        title: entry.title,
+        posterUrl: entry.posterUrl,
+        year: entry.year,
+        genre: '',
+        rating: entry.rating,
+        ageLabel: null,
+        fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
+        onTap: onOpen,
+        topBadge: Container(
+          alignment: Alignment.center,
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: rankColor,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Text(
+            '$rank',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fiche d'information légère pour un élément du classement non présent
+/// dans le catalogue de l'abonnement actif.
+class _RankEntrySheet extends StatelessWidget {
+  const _RankEntrySheet({required this.entry});
+
+  final TmdbRankEntry entry;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Center(
+    final textTheme = Theme.of(context).textTheme;
+    return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.leaderboard, size: 72, color: scheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              'FlixPatrol',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 110,
+                      height: 165,
+                      child: entry.posterUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: entry.posterUrl,
+                              fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => Icon(
+                                entry.isTv
+                                    ? Icons.tv
+                                    : Icons.movie_outlined,
+                                color: scheme.primary,
+                              ),
+                            )
+                          : Icon(
+                              entry.isTv ? Icons.tv : Icons.movie_outlined,
+                              color: scheme.primary,
+                            ),
+                    ),
                   ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Classements des films & séries les plus regardés '
-              'arrivent bientôt.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.title,
+                          style: textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            if (entry.year > 0)
+                              _infoChip(context, '${entry.year}'),
+                            _infoChip(
+                              context,
+                              '★ ${entry.rating.toStringAsFixed(1)}',
+                            ),
+                            _infoChip(
+                              context,
+                              '${_formatCount(entry.voteCount)} votes',
+                            ),
+                            _infoChip(
+                              context,
+                              entry.isTv ? 'Série' : 'Film',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
+                ],
               ),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'Bientôt disponible',
-                style: TextStyle(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
+              if (entry.overview.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Synopsis',
+                  style:
+                      textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  entry.overview,
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: scheme.secondary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Cette œuvre n\'est pas présente dans votre '
+                        'abonnement actif. Découvrez-la sur l\'une des '
+                        'plateformes référencées par TMDB.',
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSecondaryContainer),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _infoChip(BuildContext context, String label) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
+
+  static String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return '$count';
   }
 }
 

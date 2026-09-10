@@ -35,6 +35,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 export 'profile_type_provider.dart';
@@ -74,6 +75,24 @@ final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
   ref.onDispose(service.dispose);
   return service;
 });
+
+/// Classements populaires TMDB (onglet FlixPatrol de Parcourir).
+/// `sync: false` : l'onglet ne doit rien bloquer au démarrage.
+final flixPatrolMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) => ref.watch(tmdbServiceProvider).getPopularMovies(),
+);
+
+final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) => ref.watch(tmdbServiceProvider).getPopularTv(),
+);
+
+final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) => ref.watch(tmdbServiceProvider).getTrendingMovies(),
+);
+
+final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) => ref.watch(tmdbServiceProvider).getTrendingTv(),
+);
 
 final omdbServiceProvider = Provider<OmdbService>((ref) {
   final service = OmdbService();

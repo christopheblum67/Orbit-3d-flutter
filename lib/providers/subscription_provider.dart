@@ -58,6 +58,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
 
   Future<void> setActive(String id) async {
     await _ensureLoaded();
+    final previouslyActive = state.where((s) => s.isActive).firstOrNull?.id;
     final subscriptions = state.map((s) {
       if (s.id == id) {
         return s.copyWith(isActive: true);
@@ -72,6 +73,13 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     }
     if (!mounted) return;
     state = subscriptions;
+
+    // N'invalide les données que si l'abonnement actif change réellement :
+    // chaque changement = refresh complet (même Xtream→Xtream ou M3U→M3U),
+    // ce qui outrepasse les TTL des caches (EPG 30 min, replays 5 min).
+    final actualChange = id != previouslyActive;
+    if (!actualChange) return;
+
     _ref.invalidate(activeSubscriptionProvider);
     // Invalide TOUS les fournisseurs de données pour forcer un rechargement
     // complet au changement d'abonnement (changement de serveur/catalogue).
@@ -83,6 +91,14 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     _ref.invalidate(epgProgramsProvider);
     _ref.invalidate(epgDataCacheProvider);
     _ref.invalidate(recentlyWatchedProvider);
+    // Cache REPLAYS : c'est un singleton GLOBAL (pas un provider) → il faut
+    // l'invalider explicitement, sinon le TTL 5 min sert les replays de
+    // l'ancien abonnement au nouveau.
+    replaysCache.invalidate();
+    // Outrepasse la règle des 30 min : on marque les données comme non
+    // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
+    // re-autorisé immédiatement après un changement d'abonnement.
+    _ref.read(lastRefreshTimestampProvider.notifier).state = null;
     // Rafraîchit la validité du serveur activé (Xtream) à la volée.
     Subscription? activated;
     for (final s in subscriptions) {

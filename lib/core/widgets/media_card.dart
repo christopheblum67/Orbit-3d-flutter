@@ -17,6 +17,7 @@ class MediaCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.isNew = false,
+    this.topBadge,
   });
 
   final String title;
@@ -34,6 +35,9 @@ class MediaCard extends StatelessWidget {
 
   /// Affiche le badge "NOUVEAU" si true.
   final bool isNew;
+
+  /// Widget superposé en haut-gauche du poster (ex. numéro de rang FlixPatrol).
+  final Widget? topBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -104,6 +108,12 @@ class MediaCard extends StatelessWidget {
                             ),
                       ),
                     ),
+                  ),
+                if (topBadge != null)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: topBadge!,
                   ),
                 Positioned(
                   right: 8,
