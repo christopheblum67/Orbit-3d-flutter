@@ -18,6 +18,7 @@ import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
+import 'package:orbit_3d_flutter/services/trakt_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
@@ -35,7 +36,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
-import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
+import 'package:orbit_3d_flutter/models/trakt_rank_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 export 'profile_type_provider.dart';
@@ -76,22 +77,28 @@ final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
   return service;
 });
 
-/// Classements populaires TMDB (onglet FlixPatrol de Parcourir).
-/// `sync: false` : l'onglet ne doit rien bloquer au démarrage.
-final flixPatrolMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
-  (ref) => ref.watch(tmdbServiceProvider).getPopularMovies(),
+final traktServiceProvider = Provider<TraktService>((ref) {
+  final service = TraktService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Classements Trakt (onglet FlixPatrol de Parcourir).
+/// API publique gratuite, client_id partagé, sans OAuth. Aucun blocage au démarrage.
+final traktMoviesProvider = FutureProvider<List<TraktRankEntry>>(
+  (ref) => ref.watch(traktServiceProvider).getPopularMovies(),
 );
 
-final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
-  (ref) => ref.watch(tmdbServiceProvider).getPopularTv(),
+final traktTvProvider = FutureProvider<List<TraktRankEntry>>(
+  (ref) => ref.watch(traktServiceProvider).getPopularShows(),
 );
 
-final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
-  (ref) => ref.watch(tmdbServiceProvider).getTrendingMovies(),
+final traktTrendingMoviesProvider = FutureProvider<List<TraktRankEntry>>(
+  (ref) => ref.watch(traktServiceProvider).getTrendingMovies(),
 );
 
-final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
-  (ref) => ref.watch(tmdbServiceProvider).getTrendingTv(),
+final traktTrendingTvProvider = FutureProvider<List<TraktRankEntry>>(
+  (ref) => ref.watch(traktServiceProvider).getTrendingShows(),
 );
 
 final omdbServiceProvider = Provider<OmdbService>((ref) {

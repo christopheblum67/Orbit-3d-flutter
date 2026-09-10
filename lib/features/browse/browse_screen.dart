@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
@@ -10,12 +11,13 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
-import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
+import 'package:orbit_3d_flutter/models/trakt_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Nombre maximal d'éléments affichés par grille (Films / Séries).
 const int kBrowseGridCap = 50;
@@ -631,7 +633,7 @@ class _BrowseTabPill extends StatelessWidget {
   }
 }
 
-/// Classements populaires TMDB (équivalent FlixPatrol) : films + séries.
+/// Classements populaires Trakt (onglet FlixPatrol) : films + séries.
 class _FlixPatrolView extends ConsumerStatefulWidget {
   const _FlixPatrolView();
 
@@ -642,14 +644,14 @@ class _FlixPatrolView extends ConsumerStatefulWidget {
 class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
   _RankSource _mode = _RankSource.popular;
 
-  FutureProvider<List<TmdbRankEntry>> get _provider => switch (_mode) {
-        _RankSource.popular => flixPatrolMoviesProvider,
-        _RankSource.trending => flixPatrolTrendingMoviesProvider,
+  FutureProvider<List<TraktRankEntry>> get _provider => switch (_mode) {
+        _RankSource.popular => traktMoviesProvider,
+        _RankSource.trending => traktTrendingMoviesProvider,
       };
 
-  FutureProvider<List<TmdbRankEntry>> get _providerTv => switch (_mode) {
-        _RankSource.popular => flixPatrolTvProvider,
-        _RankSource.trending => flixPatrolTrendingTvProvider,
+  FutureProvider<List<TraktRankEntry>> get _providerTv => switch (_mode) {
+        _RankSource.popular => traktTvProvider,
+        _RankSource.trending => traktTrendingTvProvider,
       };
 
   void _switchMode(_RankSource mode) {
@@ -659,7 +661,7 @@ class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
     });
   }
 
-  Future<void> _openEntry(TmdbRankEntry entry) async {
+  Future<void> _openEntry(TraktRankEntry entry) async {
     // Tente de retrouver le même titre dans le catalogue de l'abonnement
     // actif pour permettre la lecture (sinon on reste sur le classement).
     final normalized = entry.title.trim().toLowerCase();
@@ -693,7 +695,7 @@ class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
         return;
       }
     }
-    // Pas dans le catalogue : on affiche une fiche d'info TMDB légère.
+    // Pas dans le catalogue : on affiche une fiche d'info Trakt enrichie.
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -748,13 +750,14 @@ class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
             ],
           ),
         ),
+        const _TraktAttributionFooter(),
       ],
     );
   }
 
   Widget _buildRankList({
     required String title,
-    required FutureProvider<List<TmdbRankEntry>> provider,
+    required FutureProvider<List<TraktRankEntry>> provider,
     required bool isTv,
   }) {
     final async = ref.watch(provider);
@@ -775,8 +778,8 @@ class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
                     icon: Icons.leaderboard_outlined,
                     title: 'Aucun classement',
                     message:
-                        'Les tendances TMDB ne sont pas disponibles. '
-                        'Vérifiez la clé API dans .env.',
+                        'Les classements Trakt ne sont pas disponibles. '
+                        'Vérifiez TRAKT_CLIENT_ID dans .env.',
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -810,9 +813,41 @@ class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
   }
 }
 
+/// Pied d'attribution exigée par Trakt et TMDB.
+class _TraktAttributionFooter extends StatelessWidget {
+  const _TraktAttributionFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: scheme.onSurfaceVariant,
+        );
+    return Container(
+      color: scheme.surfaceContainerLow,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            dark
+                ? 'assets/icons/trakt_logo_light.svg'
+                : 'assets/icons/trakt_logo_dark.svg',
+            height: 16,
+          ),
+          const SizedBox(width: 8),
+          Text('Powered by Trakt', style: style),
+          const Spacer(),
+          Text('Affiches © TMDB', style: style),
+        ],
+      ),
+    );
+  }
+}
+
 enum _RankSource { popular, trending }
 
-/// Carte d'un élément du classement, avec numéro de rang et note TMDB.
+/// Carte d'un élément du classement, avec numéro de rang et note Trakt.
 class _RankCard extends StatelessWidget {
   const _RankCard({
     required this.entry,
@@ -820,7 +855,7 @@ class _RankCard extends StatelessWidget {
     required this.onOpen,
   });
 
-  final TmdbRankEntry entry;
+  final TraktRankEntry entry;
   final int rank;
   final VoidCallback onOpen;
 
@@ -846,7 +881,7 @@ class _RankCard extends StatelessWidget {
         title: entry.title,
         posterUrl: entry.posterUrl,
         year: entry.year,
-        genre: '',
+        genre: entry.genres.take(2).join(', '),
         rating: entry.rating,
         ageLabel: null,
         fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
@@ -878,17 +913,18 @@ class _RankCard extends StatelessWidget {
   }
 }
 
-/// Fiche d'information légère pour un élément du classement non présent
+/// Fiche d'information enrichie pour un élément du classement non présent
 /// dans le catalogue de l'abonnement actif.
 class _RankEntrySheet extends StatelessWidget {
   const _RankEntrySheet({required this.entry});
 
-  final TmdbRankEntry entry;
+  final TraktRankEntry entry;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -931,6 +967,16 @@ class _RankEntrySheet extends StatelessWidget {
                           style: textTheme.titleLarge
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
+                        if (entry.tagline.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            entry.tagline,
+                            style: textTheme.bodySmall?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
@@ -946,12 +992,32 @@ class _RankEntrySheet extends StatelessWidget {
                               context,
                               '${_formatCount(entry.voteCount)} votes',
                             ),
+                            if (entry.watchers > 0)
+                              _infoChip(
+                                context,
+                                '${_formatCount(entry.watchers)} regardent',
+                              ),
+                            if (entry.runtime > 0)
+                              _infoChip(context, '${entry.runtime} min'),
+                            if (entry.certification.isNotEmpty)
+                              _infoChip(context, entry.certification),
                             _infoChip(
                               context,
                               entry.isTv ? 'Série' : 'Film',
                             ),
                           ],
                         ),
+                        if (entry.genres.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              for (final genre in entry.genres)
+                                _infoChip(context, genre, emphasized: false),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -971,6 +1037,17 @@ class _RankEntrySheet extends StatelessWidget {
                       ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
                 ),
               ],
+              if (entry.trailerUrl.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _openTrailer(entry.trailerUrl),
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Voir la bande-annonce'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               Container(
                 width: double.infinity,
@@ -987,13 +1064,32 @@ class _RankEntrySheet extends StatelessWidget {
                       child: Text(
                         'Cette œuvre n\'est pas présente dans votre '
                         'abonnement actif. Découvrez-la sur l\'une des '
-                        'plateformes référencées par TMDB.',
+                        'plateformes référencées par Trakt.',
                         style: textTheme.bodySmall
                             ?.copyWith(color: scheme.onSecondaryContainer),
                       ),
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  SvgPicture.asset(
+                    dark
+                        ? 'assets/icons/trakt_logo_light.svg'
+                        : 'assets/icons/trakt_logo_dark.svg',
+                    height: 14,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      'Powered by Trakt · Affiches © TMDB',
+                      style: textTheme.labelSmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1002,12 +1098,24 @@ class _RankEntrySheet extends StatelessWidget {
     );
   }
 
-  Widget _infoChip(BuildContext context, String label) {
+  Future<void> _openTrailer(String url) async {
+    try {
+      await launchUrl(Uri.parse(url),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Ignorer : l'ouverture peut échouer sans navigateur disponible.
+    }
+  }
+
+  Widget _infoChip(BuildContext context, String label,
+      {bool emphasized = true}) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: emphasized
+            ? scheme.surfaceContainerHighest
+            : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
