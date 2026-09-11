@@ -18,7 +18,6 @@ import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
-import 'package:orbit_3d_flutter/services/trakt_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
@@ -36,9 +35,10 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
-import 'package:orbit_3d_flutter/models/trakt_rank_entry.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 export 'profile_type_provider.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
@@ -77,28 +77,77 @@ final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
   return service;
 });
 
-final traktServiceProvider = Provider<TraktService>((ref) {
-  final service = TraktService();
-  ref.onDispose(service.dispose);
-  return service;
-});
-
-/// Classements Trakt (onglet FlixPatrol de Parcourir).
-/// API publique gratuite, client_id partagé, sans OAuth. Aucun blocage au démarrage.
-final traktMoviesProvider = FutureProvider<List<TraktRankEntry>>(
-  (ref) => ref.watch(traktServiceProvider).getPopularMovies(),
+/// Classements populaires TMDB (onglet FlixPatrol de Parcourir).
+/// Changement de clé API (Réglages → override) ⇒ invalidation automatique.
+/// Un provider par couple (mode, film/série) pour stockage indépendant.
+final flixPatrolMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/movie/popular', isTv: false);
+  },
 );
 
-final traktTvProvider = FutureProvider<List<TraktRankEntry>>(
-  (ref) => ref.watch(traktServiceProvider).getPopularShows(),
+final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/tv/popular', isTv: true);
+  },
 );
 
-final traktTrendingMoviesProvider = FutureProvider<List<TraktRankEntry>>(
-  (ref) => ref.watch(traktServiceProvider).getTrendingMovies(),
+final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/trending/movie/week', isTv: false);
+  },
 );
 
-final traktTrendingTvProvider = FutureProvider<List<TraktRankEntry>>(
-  (ref) => ref.watch(traktServiceProvider).getTrendingShows(),
+final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/trending/tv/week', isTv: true);
+  },
+);
+
+final flixPatrolTopRatedMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/movie/top_rated', isTv: false);
+  },
+);
+
+final flixPatrolTopRatedTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/tv/top_rated', isTv: true);
+  },
+);
+
+final flixPatrolNowPlayingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/movie/now_playing', isTv: false);
+  },
+);
+
+final flixPatrolUpcomingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/movie/upcoming', isTv: false);
+  },
+);
+
+final flixPatrolOnTheAirTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/tv/on_the_air', isTv: true);
+  },
+);
+
+final flixPatrolAiringTodayTvProvider = FutureProvider<List<TmdbRankEntry>>(
+  (ref) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getRankings('/tv/airing_today', isTv: true);
+  },
 );
 
 final omdbServiceProvider = Provider<OmdbService>((ref) {

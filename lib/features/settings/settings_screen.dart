@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 
 /// Menu de configuration organisé en onglets, inspiré de la concurrence
@@ -289,6 +290,15 @@ class _SecurityTab extends ConsumerWidget {
           subtitle: 'Ajouter un code PIN et restreindre le contenu',
           onTap: () => context.go('/parental'),
         ),
+        const SizedBox(height: 8),
+        const SettingsSectionTitle('Informations légales'),
+        _NavTile(
+          icon: Icons.balance_outlined,
+          title: 'Lisez-moi · Mentions légales',
+          subtitle:
+              'Usage de l\'application, ayants droit et confidentialité',
+          onTap: () => context.go('/legal?flow=settings'),
+        ),
       ],
     );
   }
@@ -302,6 +312,9 @@ class _ContentTab extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const SettingsSectionTitle('Classements (TMDB)'),
+        const _TmdbApiKeyTile(),
+        const SizedBox(height: 8),
         const SettingsSectionTitle('Recommandations'),
         _NavTile(
           icon: Icons.recommend,
@@ -310,6 +323,134 @@ class _ContentTab extends ConsumerWidget {
           onTap: () => context.go('/matchmaking'),
         ),
       ],
+    );
+  }
+}
+
+/// Saisie de la clé API TMDB optionnelle (override utilisateur).
+/// La clé partagée embarquée sert de valeur par défaut ; la saisie d'une clé
+/// personnelle la remplace pour cet utilisateur (validée via /configuration).
+class _TmdbApiKeyTile extends ConsumerStatefulWidget {
+  const _TmdbApiKeyTile();
+
+  @override
+  ConsumerState<_TmdbApiKeyTile> createState() => _TmdbApiKeyTileState();
+}
+
+class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
+  final TextEditingController _controller = TextEditingController();
+  bool _validating = false;
+  bool? _valid;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = ref.read(tmdbApiKeyOverrideProvider);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _validate() async {
+    final key = _controller.text.trim();
+    if (key.isEmpty) {
+      setState(() => _valid = null);
+      return;
+    }
+    setState(() {
+      _validating = true;
+      _valid = null;
+    });
+    final service = ref.read(tmdbServiceProvider);
+    final ok = await service.validateApiKey(key);
+    if (!mounted) return;
+    setState(() {
+      _validating = false;
+      _valid = ok;
+    });
+    if (ok) {
+      await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride(key);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Clé API TMDB validée et enregistrée'),
+              backgroundColor: Color(0xFF00CFE8),
+            ),
+          );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.key_outlined, color: scheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Clé API TMDB (optionnelle)',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              if (_validating)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_valid == true)
+                const Icon(Icons.check_circle,
+                    color: Colors.green, size: 20)
+              else if (_valid == false)
+                const Icon(Icons.cancel,
+                    color: Colors.redAccent, size: 20),
+            ],
+          ),
+          TextField(
+            controller: _controller,
+            onChanged: (_) => setState(() => _valid = null),
+            style: const TextStyle(fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Laisser vide pour utiliser la clé intégrée',
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: scheme.onSurfaceVariant,
+              ),
+              isDense: true,
+              filled: true,
+              fillColor: scheme.surfaceContainerHighest,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: TextButton.icon(
+              onPressed: _validating ? null : _validate,
+              icon: const Icon(Icons.verified_outlined, size: 18),
+              label: const Text('Valider la clé'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

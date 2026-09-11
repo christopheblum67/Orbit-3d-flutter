@@ -251,22 +251,58 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
-## 12. FLIXPATROL → API TRAKT (Terre/Polaris) — 10/09
-**Décision utilisateur** : remplacer le scraping flixpatrol.com (403 Cloudflare) et l'API payante par l'**API publique Trakt** (client_id gratuit, sans OAuth). Sources éliminées avec preuves : flixpatrol.com 403 CF partout + API officielle payante ; mdblist API clé 401 + OAuth requis pour une app distribuée. Attribution exigée et respectée (logo officiel `Powered by Trakt` dark/light embarqué + « Affiches © TMDB »).
+## 12. CLASSEMENTS FLIXPATROL → API TMDB (Option A) — 10/09
+**Décision utilisateur** : Trakt abandonné (création d'app API **réservée aux membres VIP**), retour sur **TMDB** avec une **clé partagée** créée par l'utilisateur + **override par utilisateur** dans Réglages (Option A). Sources éliminées avec preuves : flixpatrol.com 403 CF partout + API payante ; mdblist API clé 401 + OAuth requis. Attribution TMDB officielle respectée (footer « This product uses the TMDB API but is not endorsed or certified by TMDB »).
 
 | Élément | Statut | Détail |
 |---|---|---|
-| `TraktRankEntry` (film/série/populaires/tendances) | 🟢 | `lib/models/trakt_rank_entry.dart` : parsing `extended=full` (ids croisés, genres, runtime, certification, tagline, trailer, images, `watchers` trending) |
-| `TraktService` | 🟢 | `lib/services/trakt_service.dart` calqué sur TmdbService : headers `trakt-api-key`/`trakt-api-version:2`, cache Hive 24h, rate limit, 4 endpoints `/movies|/shows popular|trending?extended=full&limit=` |
-| Providers | 🟢 | `flixPatrol*` → `trakt*` (Popular/Trending × Films/Séries), `traktServiceProvider` |
-| Onglet Parcourir | 🟢 | `_FlixPatrolView`/`_RankCard`/`_RankEntrySheet` basculés : fiche détail enrichie (genres, durée, certif, tagline, watchers, bande-annonce), message erreur `TRAKT_CLIENT_ID` |
-| Attribution | 🟢 | `_TraktAttributionFooter` (logo + Powered by Trakt + Affiches © TMDB) dans l'onglet et la fiche |
-| Env | 🟢 | `TRAKT_CLIENT_ID` ajouté à `.env` (vide) et `.env.example` (création sur trakt.tv/oauth/applications) |
-| Tests | 🟢 | `trakt_rank_entry_test.dart` 4/4 ; **200/200** ; analyze 0 erreur `lib` ; APK debug installé S20 |
+| `TmdbApiKeyStore` | 🟢 | `lib/services/tmdb_api_key_store.dart` : override persistant SharedPreferences (`tmdb_api_key_override`), clé effective = override sinon `TMDB_API_KEY` `.env`, `setOverride`/`load` avec trim |
+| `TmdbApiKeyOverrideNotifier` | 🟢 | `lib/providers/tmdb_api_key_provider.dart` : `tmdbApiKeyOverrideProvider`, `load()` au boot (main.dart), `setOverride` ré-invalide les providers FlixPatrol |
+| `TmdbService` | 🟢 | clé retirée de `BaseOptions` → **intercepteur** injectant la clé effective à chaque requête ; `validateApiKey()` (GET `/configuration`, extra `tmdb_validate`) ; attente clé pour la mise en route |
+| Providers | 🟢 | `flixPatrol*` (Popular/Trending × Films/Séries) rebranchés TMDB + `ref.watch(tmdbApiKeyOverrideProvider)` |
+| Onglet Parcourir | 🟢 | `_FlixPatrolView`/`_RankCard`/`_RankEntrySheet` TMDB restaurés, message erreur « Ajoutez une clé API TMDB dans Réglages (ou TMDB_API_KEY dans .env) » |
+| Attribution | 🟢 | `_TmdbAttributionFooter` dans l'onglet |
+| Réglages | 🟢 | section « Classements (TMDB) » : champ clé + bouton Valider (icône ✔/✖, spinner, SnackBar) |
+| Env | 🟢 | `TRAKT_CLIENT_ID` retiré de `.env.example` ; `TMDB_API_KEY` documentée (Option A) — clé partagée à créer sur themoviedb.org → Settings → API |
+| Tests | 🟢 | `tmdb_api_key_store_test.dart` 3/3 ; Trakt supprimé (service, modèle, test, logos, `flutter_svg`) ; **199/199** ; analyze 0 erreur `lib` |
+| Catégories étendues | 🟢 | Films : Populaire · En salle · Mieux notés · À venir · Tendance (semaine). Séries : Populaire · En diffusion · Diffusion aujourd'hui · Mieux notées · Tendance. Soit **10 providers** (`flixPatrolMoviesProvider`, `flixPatrolTvProvider`, `flixPatrolTrendingMoviesProvider`, `flixPatrolTrendingTvProvider`, `flixPatrolTopRatedMoviesProvider`, `flixPatrolTopRatedTvProvider`, `flixPatrolNowPlayingMoviesProvider`, `flixPatrolUpcomingMoviesProvider`, `flixPatrolOnTheAirTvProvider`, `flixPatrolAiringTodayTvProvider`) via `getRankings(path)` public |
+| Rail de catégories | 🟢 | `_RankSource` enum (label + paths film/série + disponibilité) ; une **rangée horizontale de pills focusables** par colonne (Films / Séries) en remplacement du `SegmentedButton` qui écrasait le titre sur TV |
 
-**Progression : 100% — FLIXPATROL/TRAKT LIVRÉ (commit `76421d4`).** Reste : clé à renseigner par l'utilisateur + validation visuelle S20.
+**Progression : 100% — CLASSEMENTS TMDB (Option A) IMPLÉMENTÉS + CATÉGORIES ÉTENDUES (10 sources) — working tree, non commité.** Reste : validation visuelle S20 (appareil actuellement déconnecté).
+
+---
+
+## 13. LISEZ-MOI AU DÉMARRAGE + AUDIT SÉCURITÉ/JURIDIQUE (Équipe Polaris) — 11/09
+**Mandat utilisateur** : intégrer le fichier lisez-moi (existant : `LEGAL_README.md`) au démarrage pour usage + ayants droit, puis audit juridique & sécurité de l'app.
+
+| Élément | Statut | Détail |
+|---|---|---|
+| Écran mentions légales | 🟢 | `lib/features/legal/legal_notice_screen.dart` : nature du service, ayants droit (fournisseur IPTV + TMDB), usage, données & confidentialité, avertissement. Focus TV (d-pad) |
+| Flag premier lancement | 🟢 | `legal_notice_seen` (Hive) : au 1er démarrage la route `/legal?flow=first` précède `/onboarding` ; le bouton « J'ai lu et j'accepte » bascule le flag puis continue |
+| Accès permanente | 🟢 | Réglages → Sécurité → « Lisez-moi · Mentions légales » (`/legal?flow=settings`, bouton Retour) |
+| Route | 🟢 | `GoRoute /legal` dans `main.dart` ; `firstLaunch` déduit de `?flow=first` |
+| Tests | 🟢 | analyze 0 erreur ; **199/199** tests |
+| Fuite d'identifiants (P0) | 🟢 | `test/unit/series_info_parse_test.dart:34` : credentials `draap.online` réels → **placeholder** (test OK) |
+| Audit sécurité documenté | 🟢 | `LEGAL_README.md` §4.1bis : fuites git historique à purger (`publish-beta.yml`), clé Admin Firebase à déplacer hors dépôt, data at rest chiffrement → `flutter_secure_storage`, `usesCleartextTraffic` documenté, tokens FCM à ne pas logger, cache images |
+
+**Progression : 100% — LISEZ-MOI AU DÉMARRAGE LIVRÉ (working tree, non commité) + AUDIT SÉCURITÉ COMMENCÉ.** Reste : purge historique git P0 et validation visuelle S20.
+
+---
+
+## 14. SWITCH ABONNEMENT → /STARTUP + SÉCURITÉ RETOUR (Mars) — 11/09
+**Mandat utilisateur** : après une bascule d'abonnement, régénérer les flux via l'écran de démarrage ; consolider la sortie/retour.
+
+| Élément | Statut | Détail |
+|---|---|---|
+| Switch → `/startup` | 🟢 | `subscriptions_screen.dart` : `onTap` attend `setActive` (qui invalide déjà tous les providers) puis `context.go('/startup')` — bouton SnackBar et invalidations redondantes de l'écran supprimés ; import `go_router` ajouté |
+| Import inutilisé | 🟢 | `providers.dart` retiré de `subscriptions_screen.dart` ; `context.mounted` après l'await (0 warning) |
+| Sécurité `/legal` | 🟢 | `main.dart` : premier lancement (`flow=first`) enveloppé dans `ConfirmExitApp` (sortie confirmée) ; consultation (`flow=settings`) inchangée avec bouton Retour |
+| Back-handling (audit 28 routes) | 🟢 | déjà intégré en working tree : `popOrFallback('/home')` sur tous les onglets shell, `/settings/advanced` → `/settings`, `FormBackHandlerScope` sur `/profile/create` + `/profile/edit/:id`, `_hasModalRoute` fiabilisé (`isCurrent`), fallbacks `/player`·`/multivideo`·`/radio`, PopScope racine inactif retiré |
+| Tests | 🟢 | analyzer 0 warning/erreur sur les fichiers touchés · **199/199** tests |
+
+**Progression : 100% — SWITCH ABONNEMENT RÉGÉNÈRE LE /STARTUP + ROUTES DE SORTIE SÉCURISÉES (working tree, non commité).** Reste : validation visuelle S20 (appareil déconnecté).
 
 ---
 
 ## Total backlog restant estimé : ~3h (1 ingénieur) — Rust Proxy uniquement
-Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09, **EPG headbar 10/09, FlixPatrol→Trakt 10/09**) est **✅ LIVRÉ & VALIDÉ**.
+Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Ajouté au 11/09 : **purge historique git** (`git filter-repo`, commits `f0f80a1`/`eeb5d69`) + écrans lisez-moi/mentions légales livrés à valider sur S20. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09, **EPG headbar 10/09, Classements TMDB Option A 10/09**, **Catégories étendues + Lisez-moi 11/09**) est **✅ LIVRÉ & VALIDÉ**.
