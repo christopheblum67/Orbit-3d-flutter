@@ -777,9 +777,10 @@ class _OrbitItem {
       ),
       const _OrbitItem(
         title: 'Matchmaking',
-        icon: Icons.sports_soccer_rounded,
+        icon: Icons.auto_awesome,
         color: Color(0xFFFF3D3D),
-        subtitle: 'Directs & Scores',
+        subtitle: 'Pour vous & En duo',
+        route: '/matchmaking',
       ),
       const _OrbitItem(
         title: 'Replay',

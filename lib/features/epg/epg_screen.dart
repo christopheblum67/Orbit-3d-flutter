@@ -14,7 +14,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 
-/// Guide TV (EPG) : affiche la grille 2D seule.
+/// Guide TV (EPG) : affiche la Grille EPG seule.
 ///
 /// Les vues lourdes (Orbite 3D) et annexes (Favoris, Recherche) ont été
 /// retirées de cet écran pour éliminer la latence : l'Orbite 3D (canvas,
@@ -287,7 +287,7 @@ class _EpgTimelineHeader extends StatelessWidget {
   }
 }
 
-/// Wrapper pour la grille 2D avec chargement EPG par chaîne.
+/// Wrapper pour la Grille EPG avec chargement EPG par chaîne.
 class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
   final List<String> channels;
   final List<Channel> channelObjects;

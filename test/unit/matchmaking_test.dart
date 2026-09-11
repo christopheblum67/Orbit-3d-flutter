@@ -186,4 +186,41 @@ void main() {
       expect(paired.overlap, closeTo(0.32, 0.0001));
     });
   });
+
+  group('profileAffinityWithSignals', () {
+    final reco = Recommendation(
+      kind: RecommendationKind.movie,
+      movie: _movie('pp', 'Action Fort', 'Action', rating: 7),
+    );
+
+    test('favori → bonus d\'affinité', () {
+      final base = profileAffinity(reco, ['Action', 'Drame']);
+      final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
+          favoriteIds: {'pp'});
+      expect(boosted, greaterThan(base));
+    });
+
+    test('déjà vu → exclusion (affinité nulle)', () {
+      final aff =
+          profileAffinityWithSignals(reco, ['Action'], seenIds: {'pp'});
+      expect(aff, 0.0);
+    });
+
+    test('titre présent dans TMDB recommandation → léger boost', () {
+      final base = profileAffinity(reco, ['Action', 'Drame']);
+      final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
+          tmdbTitles: {'action fort'});
+      expect(boosted, greaterThan(base));
+    });
+
+    test('les signaux se cumulent sans dépasser 1.0', () {
+      final aff = profileAffinityWithSignals(
+        reco,
+        ['Action', 'Drame'],
+        favoriteIds: {'pp'},
+        tmdbTitles: {'Action Fort'},
+      );
+      expect(aff, lessThanOrEqualTo(1.0));
+    });
+  });
 }
