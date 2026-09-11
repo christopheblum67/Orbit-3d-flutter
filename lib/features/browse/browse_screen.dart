@@ -84,7 +84,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           ),
           Expanded(
             child: switch (_tab) {
-              _BrowseTab.flixpatrol => const _FlixPatrolView(),
+              _BrowseTab.flixpatrol => const FlixPatrolView(),
               _BrowseTab.films => _buildMovieView(),
               _BrowseTab.series => _buildSeriesView(),
             },
@@ -632,14 +632,14 @@ class _BrowseTabPill extends StatelessWidget {
 }
 
 /// Classements populaires TMDB (équivalent FlixPatrol) : films + séries.
-class _FlixPatrolView extends ConsumerStatefulWidget {
-  const _FlixPatrolView();
+class FlixPatrolView extends ConsumerStatefulWidget {
+  const FlixPatrolView();
 
   @override
-  ConsumerState<_FlixPatrolView> createState() => _FlixPatrolViewState();
+  ConsumerState<FlixPatrolView> createState() => FlixPatrolViewState();
 }
 
-class _FlixPatrolViewState extends ConsumerState<_FlixPatrolView> {
+class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
   _RankSource _movieMode = _RankSource.popular;
   _RankSource _tvMode = _RankSource.popular;
 

@@ -291,6 +291,8 @@ final GoRouter router = GoRouter(
                   year: data.year,
                   seriesName: data.seriesName,
                   episodeLabel: data.episodeLabel,
+                  series: data.series,
+                  episode: data.episode,
                 );
               }
               final url = state.uri.queryParameters['url'] ?? '';
