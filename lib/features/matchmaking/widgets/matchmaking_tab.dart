@@ -15,7 +15,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 enum _TabMode { single, duo }
 
 // ---------------------------------------------------------------------------
-// Widget racine utilisé par VodScreen et SeriesScreen
+// Widget racine des onglets Films / Séries du Matchmaking
 // ---------------------------------------------------------------------------
 
 /// Contenu matchmaking d'un onglet Films ou Séries : mode Pour vous / En duo,

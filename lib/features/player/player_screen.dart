@@ -17,10 +17,12 @@ import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.da
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
+import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
@@ -46,6 +48,8 @@ class PlayerRouteData {
     this.year = 0,
     this.seriesName,
     this.episodeLabel,
+    this.series,
+    this.episode,
   });
 
   final String streamUrl;
@@ -67,6 +71,11 @@ class PlayerRouteData {
   final int year;
   final String? seriesName;
   final String? episodeLabel;
+
+  /// Contexte série (lecture d'un épisode) : permet au player de poser le
+  /// statut « vu » quand l'épisode atteint 80 % de progression.
+  final Series? series;
+  final Episode? episode;
 }
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -87,6 +96,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.year = 0,
     this.seriesName,
     this.episodeLabel,
+    this.series,
+    this.episode,
   });
 
   final String streamUrl;
@@ -104,6 +115,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final int year;
   final String? seriesName;
   final String? episodeLabel;
+  final Series? series;
+  final Episode? episode;
 
   @override
   ConsumerState<PlayerScreen> createState() => PlayerScreenState();
@@ -117,6 +130,9 @@ const _probTimeout = Duration(seconds: 12);
 
 /// Durée d'affichage de la footerbar avant masquage automatique.
 const _footerBarDuration = Duration(seconds: 5);
+
+/// Seuil (fraction lue) au-delà duquel un épisode de série est posé « vu ».
+const double _seriesWatchedThreshold = 0.8;
 
 class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
@@ -305,6 +321,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final duration = controller.value.duration;
     final positionMs = position.inMilliseconds;
     final durationMs = duration.inMilliseconds;
+
+    // Épisode de série : dès que 80 % sont regardés, l'épisode est posé
+    // comme « vu » pour le profil courant (tout en restant reprenable).
+    final fraction = durationMs > 0 ? positionMs / durationMs : 0.0;
+    if (fraction >= _seriesWatchedThreshold) {
+      final series = widget.series;
+      final episode = widget.episode;
+      if (series != null && episode != null) {
+        ref.read(watchedEpisodesProvider.notifier).record(series, episode);
+      }
+    }
+
     // Si la lecture est terminée (> 95 %), on efface la progression.
     if (durationMs > 0 && positionMs > durationMs * 0.95) {
       ref.read(playbackProgressServiceProvider).clear(id);

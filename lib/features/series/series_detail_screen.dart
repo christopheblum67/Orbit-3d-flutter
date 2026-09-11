@@ -91,7 +91,6 @@ class _SeriesDetailContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final watched = ref.watch(watchedEpisodesProvider).values;
     final episodesBySeason = <int, List<Episode>>{};
     for (final episode in baseSeries.episodes) {
       episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
@@ -102,10 +101,23 @@ class _SeriesDetailContent extends ConsumerWidget {
       child: _SeriesHeader(series: detail, baseSeries: baseSeries),
     );
 
+    // Section « Reprendre » : épisodes avec une progression en cours
+    // (0 < % regardé < 80 %), affichée au-dessus des saisons.
+    final resumeEpisodes = _resumeEpisodesFor(ref);
+    final resumeSliver = resumeEpisodes.isEmpty
+        ? const SliverToBoxAdapter(child: SizedBox.shrink())
+        : SliverToBoxAdapter(
+            child: _ResumeSection(
+              series: baseSeries,
+              episodes: resumeEpisodes,
+            ),
+          );
+
     if (seasons.isEmpty) {
       return CustomScrollView(
         slivers: [
           header,
+          resumeSliver,
           const SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.video_library_outlined,
@@ -122,12 +134,13 @@ class _SeriesDetailContent extends ConsumerWidget {
       return CustomScrollView(
         slivers: [
           header,
+          resumeSliver,
           ..._seasonSlivers(
             context,
+            ref: ref,
             season: season,
             episodes: episodesBySeason[season]!,
             total: episodesBySeason[season]!.length,
-            seen: _seenCountFor(watched, season),
             compact: false,
           ),
         ],
@@ -158,12 +171,13 @@ class _SeriesDetailContent extends ConsumerWidget {
                   CustomScrollView(
                     slivers: [
                       header,
+                      resumeSliver,
                       ..._seasonSlivers(
                         context,
+                        ref: ref,
                         season: season,
                         episodes: episodesBySeason[season]!,
                         total: episodesBySeason[season]!.length,
-                        seen: _seenCountFor(watched, season),
                         compact: true,
                       ),
                     ],
@@ -176,10 +190,50 @@ class _SeriesDetailContent extends ConsumerWidget {
     );
   }
 
-  int _seenCountFor(Iterable<WatchedEpisodeEntry> watched, int season) {
-    return watched
-        .where((e) => e.seriesId == baseSeries.id && e.season == season)
-        .length;
+  /// Épisodes « à reprendre » : une progression de lecture existe et est
+  /// inférieure au seuil de 80 % (au-delà, l'épisode est considéré « vu »).
+  List<Episode> _resumeEpisodesFor(WidgetRef ref) {
+    final result = <Episode>[];
+    for (final episode in baseSeries.episodes) {
+      final progress = ref.watch(
+        playbackProgressProvider('episode-${episode.id}'),
+      );
+      if (progress != null &&
+          progress.hasProgress &&
+          progress.fraction > 0 &&
+          progress.fraction < _autoWatchedThreshold) {
+        result.add(episode);
+      }
+    }
+    return result;
+  }
+
+  int _seenCountFor(WidgetRef ref, List<Episode> episodes) {
+    final profile = ref.read(currentProfileProvider);
+    if (episodes.isEmpty) return 0;
+    var seen = 0;
+    for (final episode in episodes) {
+      final isVu = ref.read(watchedEpisodesProvider).containsKey(
+        WatchedEpisodeEntry.keyFor(
+          profileId: profile?.id ?? '',
+          seriesId: baseSeries.id,
+          season: episode.season,
+          episodeNumber: episode.episodeNumber,
+          episodeId: episode.id,
+        ),
+      );
+      if (isVu) {
+        seen++;
+        continue;
+      }
+      final progress = ref.watch(
+        playbackProgressProvider('episode-${episode.id}'),
+      );
+      if (progress != null && progress.fraction >= _autoWatchedThreshold) {
+        seen++;
+      }
+    }
+    return seen;
   }
 
   /// Slivers d'une saison :
@@ -188,12 +242,13 @@ class _SeriesDetailContent extends ConsumerWidget {
   ///  - sinon : en-tête de section classique « Saison N ».
   List<Widget> _seasonSlivers(
     BuildContext context, {
+    required WidgetRef ref,
     required int season,
     required List<Episode> episodes,
     required int total,
-    required int seen,
     required bool compact,
   }) {
+    final seen = _seenCountFor(ref, episodes);
     final guests = detail.getGuestStarsForSeason(season);
     return [
       if (compact)
@@ -487,6 +542,43 @@ class _SeriesHeader extends ConsumerWidget {
 
 const Color _watchedGreen = Color(0xFF66BB6A);
 
+/// Seuil au-delà duquel un épisode est considéré « vu » (80 % regardés),
+/// tout en restant reprenable.
+const double _autoWatchedThreshold = 0.8;
+
+/// Section « Reprendre » : liste les épisodes de la série dont la lecture est
+/// en cours (0 % < regardés < 80 %), pour relancer facilement.
+class _ResumeSection extends ConsumerWidget {
+  const _ResumeSection({required this.series, required this.episodes});
+
+  final Series series;
+  final List<Episode> episodes;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          icon: Icons.replay_rounded,
+          title: 'Reprendre',
+          subtitle: '${episodes.length} '
+              '${episodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Column(
+            children: [
+              for (final episode in episodes)
+                _EpisodeTile(series: series, episode: episode),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EpisodeTile extends ConsumerWidget {
   const _EpisodeTile({required this.series, required this.episode});
 
@@ -519,21 +611,38 @@ class _EpisodeTile extends ConsumerWidget {
             episodeId: episode.id,
           ),
         );
+    final progress =
+        ref.watch(playbackProgressProvider('episode-${episode.id}'));
+    final progressFraction = progress?.fraction ?? 0;
+    // Épisode auto-vu (>= 80 % regardés) : « Vu », mais toujours reprenable.
+    final autoWatched =
+        progress?.hasProgress == true && progressFraction >= _autoWatchedThreshold;
+    final isVu = watched || autoWatched;
+    // En cours : progression existante, sous le seuil de 80 %.
+    final inProgress =
+        progress?.hasProgress == true && progressFraction > 0 && !autoWatched;
+
     void onOpen() {
       if (!canPlay) return;
       context.push('/episode/detail', extra: (series, episode));
     }
 
-    // Pression longue = « retour en arrière » : retire l'épisode des déjà vus
-    // (après confirmation). Si l'épisode n'est pas « vu », rien à retirer.
+    // Pression longue = « réinitialiser » : efface la progression de lecture
+    // en cours et/ou retire le statut « vu » (après confirmation).
     void onLongPress() {
-      if (!watched) return;
+      final hasProgress = progress?.hasProgress == true;
+      if (!isVu && !hasProgress) return;
       showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Retirer des déjà vus ?'),
+          title: const Text('Réinitialiser l\'épisode ?'),
           content: Text(
-            '« $label » sera marqué comme non vu pour ce profil.',
+            isVu && hasProgress
+                ? '« $label » sera marqué comme non vu et sa progression '
+                    'de lecture sera effacée.'
+                : isVu
+                    ? '« $label » sera marqué comme non vu pour ce profil.'
+                    : 'La progression de lecture de « $label » sera effacée.',
           ),
           actions: [
             TextButton(
@@ -542,15 +651,21 @@ class _EpisodeTile extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Retirer'),
+              child: const Text('Réinitialiser'),
             ),
           ],
         ),
       ).then((confirmed) {
-        if (confirmed == true) {
+        if (confirmed != true) return;
+        if (isVu) {
           ref
               .read(watchedEpisodesProvider.notifier)
               .toggle(series, episode);
+        }
+        if (hasProgress) {
+          final progressId = 'episode-${episode.id}';
+          ref.read(playbackProgressServiceProvider).clear(progressId);
+          ref.invalidate(playbackProgressProvider(progressId));
         }
       });
     }
@@ -572,17 +687,53 @@ class _EpisodeTile extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: watched ? scheme.onSurfaceVariant : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isVu ? scheme.onSurfaceVariant : null,
+                          ),
+                    ),
+                    if (inProgress && progress != null && progress.durationMs > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progress.fraction,
+                            minHeight: 3,
+                            backgroundColor:
+                                scheme.onSurfaceVariant.withValues(alpha: 0.15),
+                          ),
+                        ),
                       ),
+                  ],
                 ),
               ),
-              if (watched) ...[
+              if (inProgress) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Reprendre',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ] else if (isVu) ...[
                 const SizedBox(width: 8),
                 Container(
                   padding:
@@ -602,15 +753,15 @@ class _EpisodeTile extends ConsumerWidget {
               ],
               const SizedBox(width: 4),
               IconButton(
-                tooltip: watched
+                tooltip: isVu
                     ? 'Marquer comme non vu'
                     : 'Marquer comme vu',
                 onPressed: () => ref
                     .read(watchedEpisodesProvider.notifier)
                     .toggle(series, episode),
                 icon: Icon(
-                  watched ? Icons.check_circle : Icons.check_circle_outline,
-                  color: watched ? _watchedGreen : scheme.onSurfaceVariant,
+                  isVu ? Icons.check_circle : Icons.check_circle_outline,
+                  color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
                 ),
               ),
             ],
