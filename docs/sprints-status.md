@@ -171,19 +171,19 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
-## 8. EPG & ORBITE (Terre) — décision 07/09 : Grille 2D seule
+## 8. EPG & ORBITE (Terre) — décision 07/09 : Grille EPG seule
 **Décision utilisateur** : l'Orbite 3D est la cause principale présumée de latence/freeze → retirée de l'EPG avec Favoris et Recherche (ils seront repositionnés dans d'autres sections dédiées).
 
 | Élément | Statut | Détail |
 |---|---|---|
-| EpgScreen = Grille 2D seule (Orbite/Favoris/Recherche retirés) | 🟢 | `epg_screen.dart` réécrit : AppBar + filtre catégories + grille ; classes 3D/speech supprimées |
-| Perf grille 2D | 🟢 | `epg_grid_2d_view.dart` : repaints via ValueNotifier, cache sur signature, culling hors viewport, RepaintBoundary |
+| EpgScreen = Grille EPG seule (Orbite/Favoris/Recherche retirés) | 🟢 | `epg_screen.dart` réécrit : AppBar + filtre catégories + grille ; classes 3D/speech supprimées |
+| Perf Grille EPG | 🟢 | `epg_grid_2d_view.dart` : repaints via ValueNotifier, cache sur signature, culling hors viewport, RepaintBoundary |
 | Cache EPG unifié | 🟢 | `EPGDataCache` `_inFlight` partagé (1 téléchargement XMLTV) + `epgProgramsProvider` → `cache.loadFull` |
 | Charges EPG par lots | 🟢 | `_loadAllEpg` : 1 `setState` / lot de 8 chaînes au lieu de 1 / chaîne |
 | **Perf recherche programme (10/09)**  | 🟢 | `epg_lookup.dart` : **recherche dichotomique O(log N)** en cours/suivant (mini-bar + player) ; **index par chaîne** dans `EPGDataCache` (plus de re-parcours global à chaque `channelEpgProvider`) — 196 tests |
 | Parsing XMLTV hors thread UI | 🟢 | `fetchEpg` → `compute(parseXmltvIsolate)` — aucun blocage UI, même sur 94 k entrées |
 | Crash « déconnexion » S20 | 🟡 | 2 captures logcat sans FATAL : gel Samsung `FreecessController FZ reason: LEV` ; whitelist deviceidle + standby active appliqués — à re-validator sur la durée |
-| EpgHeadbar (live + fiches) | 🟢 | `epg_headbar.dart` : **0 erreur analyzer** (corrigé 07/09 : context passé en paramètre, retraits références `posterUrl`/`channelName` inexistantes) ; **intégrée dans la grille 2D 10/09** (`_EpgHeadbarSection` : programme en cours/suivant via dichotomie + actions favori/lecture/info chaîne ciblée) — 200 tests |
+| EpgHeadbar (live + fiches) | 🟢 | `epg_headbar.dart` : **0 erreur analyzer** (corrigé 07/09 : context passé en paramètre, retraits références `posterUrl`/`channelName` inexistantes) ; **intégrée dans la Grille EPG 10/09** (`_EpgHeadbarSection` : programme en cours/suivant via dichotomie + actions favori/lecture/info chaîne ciblée) — 200 tests |
 | Analyse globale `lib` | 🟢 | `dart analyze lib` : **0 erreur** sur tout le projet |
 
 **Progression : ~60% — Reste : validation S20 longue durée + (S4) Rust EPG streaming quick-xml/SQLite.**

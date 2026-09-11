@@ -6,7 +6,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
-/// Grille EPG 2D haute performance avec CustomPainter (canvas unique).
+/// Grille EPG haute performance avec CustomPainter (canvas unique).
 ///
 /// Règles anti-ANR / anti-crash :
 /// - **Aucun `setState` pendant les gestes** : hover, ligne "maintenant" et
