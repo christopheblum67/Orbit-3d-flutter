@@ -31,7 +31,7 @@ void main() {
           final id = em['id']?.toString() ?? '';
           em['url'] = id.isEmpty
               ? ''
-              : 'https://draap.online/169503400638842/1593574628/$id';
+              : 'https://example.com/000000000000000/0000000000/$id';
           episodeMaps.add(em);
         }
       }

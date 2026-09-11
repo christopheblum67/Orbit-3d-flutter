@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
+import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
 
 /// Client TMDB (TheMovieDB) avec rate limiting, cache Hive et gestion d'erreurs
 class TmdbService {
@@ -17,20 +16,10 @@ class TmdbService {
   static const Duration _cacheTtl = Duration(hours: 24);
   static const int _maxRequestsPer10Seconds = 40;
 
-  /// Accès sûr à dotenv : renvoie '' si dotenv n'est pas initialisé.
-  static String _env(String key) {
-    try {
-      return dotenv.env[key] ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
   final Dio _dio;
   final LoggerService _logger = LoggerService.instance;
   Box? _cacheBox;
   final _requestTimestamps = <int>[];
-  final _rateLimitLock = Completer<void>();
 
   TmdbService()
       : _dio = Dio(BaseOptions(
@@ -39,10 +28,27 @@ class TmdbService {
           receiveTimeout: const Duration(seconds: 20),
           queryParameters: {
             'language': 'fr-FR',
-            'api_key': _env('TMDB_API_KEY'),
           },
         )) {
     _initCache();
+    // La clé API est injectée à la volée : un override saisi dans Réglages
+    // (clé personnelle) prime sur la clé partagée embarquée (`.env`).
+    // La requête de validation (`tmdb_validate`) court-circuite l'injection
+    // pour tester précisément la clé saisie.
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (options.extra['tmdb_validate'] == true) {
+          return handler.next(options);
+        }
+        final key = TmdbApiKeyStore.instance.effectiveKey;
+        if (key.isNotEmpty) {
+          options.queryParameters['api_key'] = key;
+        } else {
+          options.queryParameters.remove('api_key');
+        }
+        handler.next(options);
+      },
+    ));
     _dio.interceptors.add(LogInterceptor(
       requestBody: false,
       responseBody: false,
@@ -58,9 +64,26 @@ class TmdbService {
     }
   }
 
-  String get _apiKey => _env('TMDB_API_KEY');
+  bool get hasApiKey => TmdbApiKeyStore.instance.hasEffectiveKey;
 
-  bool get hasApiKey => _apiKey.isNotEmpty;
+  /// Vérifie qu'une clé est valide via l'endpoint `/configuration`.
+  Future<bool> validateApiKey(String key) async {
+    final candidate = key.trim();
+    if (candidate.isEmpty) return false;
+    try {
+      final response = await _dio.get(
+        '/configuration',
+        // On désactive l'injection de la clé effective (extra `tmdb_validate`)
+        // pour tester précisément la clé saisie.
+        queryParameters: {'api_key': candidate},
+        options: Options(extra: const {'tmdb_validate': true}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      _logger.warning('TMDB validateApiKey error: $e');
+      return false;
+    }
+  }
 
   /// Rate limiter : max 40 req/10s (token bucket simple)
   Future<void> _waitForRateLimit() async {
@@ -436,29 +459,9 @@ class TmdbService {
 
   // ==================== CLASSEMENTS (FlixPatrol / Popular) ====================
 
-  /// Films populaires (Top tendance TMDB mondial).
-  Future<List<TmdbRankEntry>> getPopularMovies({int page = 1}) async {
-    return _getRankings('/movie/popular', page: page, isTv: false);
-  }
-
-  /// Séries populaires (Top tendance TMDB mondial).
-  Future<List<TmdbRankEntry>> getPopularTv({int page = 1}) async {
-    return _getRankings('/tv/popular', page: page, isTv: true);
-  }
-
-  /// Films en tendance cette semaine.
-  Future<List<TmdbRankEntry>> getTrendingMovies() async {
-    return _getRankings('/trending/movie/week', isTv: false);
-  }
-
-  /// Séries en tendance cette semaine.
-  Future<List<TmdbRankEntry>> getTrendingTv() async {
-    return _getRankings('/trending/tv/week', isTv: true);
-  }
-
-  /// Charge un endpoint de classement (popular ou trending), via le cache
-  /// partagé (TTL 24 h) et le rate limiter.
-  Future<List<TmdbRankEntry>> _getRankings(
+  /// Charge un endpoint de classement (popular, trending, top_rated, etc.),
+  /// via le cache partagé (TTL 24 h) et le rate limiter.
+  Future<List<TmdbRankEntry>> getRankings(
     String path, {
     int page = 1,
     required bool isTv,

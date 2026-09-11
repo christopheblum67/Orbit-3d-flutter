@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 
 class SubscriptionsScreen extends ConsumerStatefulWidget {
@@ -64,19 +64,17 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             return _SubscriptionCard(
               subscription: sub,
               isActive: isActive,
-              onTap: () {
+              onTap: () async {
                 if (!isActive) {
-                  ref.read(subscriptionsProvider.notifier).setActive(sub.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Bascul� vers "${sub.name}"')),
-                  );
-                  ref.invalidate(liveChannelsProvider);
-                  ref.invalidate(moviesProvider);
-                  ref.invalidate(seriesProvider);
-                  ref.invalidate(radioChannelsProvider);
-                  ref.invalidate(replaysProvider);
-                  ref.invalidate(epgProgramsProvider);
-                  ref.invalidate(epgDataCacheProvider);
+                  await ref
+                      .read(subscriptionsProvider.notifier)
+                      .setActive(sub.id);
+                  if (!context.mounted) return;
+                  // Régénère complètement les flux (catalogue, EPG, replays)
+                  // via l'écran de démarrage, comme au lancement de l'app :
+                  // après la bascule on arrive sur l'accueil avec les données
+                  // du nouvel abonnement.
+                  context.go('/startup');
                 }
               },
               onTest: () =>

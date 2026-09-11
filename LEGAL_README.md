@@ -113,11 +113,33 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 
 | Mesure | Statut |
 |--------|--------|
-| **Chiffrement stockage** | ✅ Hive chiffré (AES-256) |
+| **Chiffrement stockage** | ⚠️ Hive **non chiffré** (masse) : mots de passe Xtream en clair (`subscription.dart` @HiveField(5)), PIN parental en clair, profils (naissance, genres) non chiffrés. Migration `flutter_secure_storage` à prévoir (cf. `docs/global-analysis.md`). |
 | **TLS 1.3** | ✅ ExoPlayer + reqwest-impersonate (Rust proxy) |
-| **PIN / Biométrie** | ⚠️ Prévu (ProfileType.child/expert) |
+| **PIN / Biométrie** | ⚠️ Prévu (ProfileType.child/expert) — actuellement PIN parental stocké en clair |
 | **Certificate Pinning** | ⚠️ À implémenter (API backend) |
 | **Code Obfuscation** | ✅ Flutter release + ProGuard/R8 |
+| **Approvisionnement secrets** | ⚠️ Clés dans `.env` embarqué dans l'APK (TMDB/OMDB/Firebase) — risque connu lié au modèle client ; recyclement des clés en cas de fuite, protect sur le backend pour du production |
+
+### 4.1bis Constats de l'audit sécurité (docs/global-analysis.md)
+
+| Constat | Sévérité | Statut |
+|---------|----------|--------|
+| Fuite active d'identifiants Xtream (`test/unit/series_info_parse_test.dart:34`) | **P0** | ✅ Corrigé (placeholder, test OK) |
+| Fuites dans l'historique git (`.github/workflows/publish-beta.yml` commits `f0f80a1`/`eeb5d69`) | P0 | ⏳ Purge `git filter-repo` + révocation comptes à faire |
+| Clé Admin Firebase gitignorée sur disque | P0 | ⏳ À déplacer hors du dépôt (secret CI) |
+| `google-services.json` suivi (API key Firebase) | P1 | ⚠️ Clé publique Google de config — à bord de la politique de rotation |
+| `android:usesCleartextTraffic="true"` | P1 | ⚠️ Souvent requis pour fournisseurs TPV/Xtream — documenter le périmètre ou restreindre via `networkSecurityConfig` |
+| `debugPrint` des tokens FCM | P1 | ⚠️ En release seulement si kDebugMode ; retirer les logs de tokens sensibles |
+| Data at rest non chiffrée (ci-dessus) | P1 | ⏳ `flutter_secure_storage` |
+| Images sans cache (`Image.network` × 4 vs `cached_network_image`) | P2 | ⏳ Activer le cache (perf + vie privée) |
+| EPG jamais invalidé au changement de serveur | P1 | ⏳ `ref.invalidate(epgDataCacheProvider)` + `epgProgramsProvider` |
+
+### 4.1ter Mentions légales in-app (intégrées au démarrage)
+
+Un écran **« Lisez-moi · Mentions légales »** (```lib/features/legal/legal_notice_screen.dart```) résume l'usage de l'application et les ayants droit :
+- affiché **au premier lancement** (obligation « J'ai lu et j'accepte ») avant le diagnostic ;
+- accessible ensuite dans **Réglages → Sécurité → Lisez-moi · Mentions légales** ;
+- consulvable pendant toute la vie de l'app (pas de délégation à un flux interne, aucune donnée transmise).
 
 ### 4.2 Accessibilité (WCAG 2.1 AA / EN 301 549)
 

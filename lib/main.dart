@@ -22,6 +22,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
@@ -36,6 +37,7 @@ import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
+import 'package:orbit_3d_flutter/features/legal/legal_notice_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/auth/profile_preferences_screen.dart';
@@ -116,8 +118,13 @@ Future<void> main() async {
   final hasActiveServer = await storageService.getActiveSubscription() != null;
   final hasDefaultConfig = restoredProfile != null && hasActiveServer;
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
+  final legalNoticeDone =
+      storageService.getSetting(kLegalNoticeDoneKey) == true;
   routerInitialLocation = !onboardingDone
-      ? '/onboarding'
+      // Premier lancement : le lisez-moi (usage + ayants droit) précède le
+      // diagnostic. S'il a déjà été accepté, on passe directement à la
+      // configuration.
+      ? (legalNoticeDone ? '/onboarding' : '/legal?flow=first')
       : hasDefaultConfig
           ? '/startup'
           : '/profiles';
@@ -165,6 +172,15 @@ String routerInitialLocation = '/profiles';
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
   routes: [
+    GoRoute(
+      path: '/legal',
+      builder: (context, state) {
+        final firstLaunch = state.uri.queryParameters['flow'] == 'first';
+        return firstLaunch
+            ? ConfirmExitApp(child: const LegalNoticeScreen(firstLaunch: true))
+            : const LegalNoticeScreen();
+      },
+    ),
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => ConfirmExitApp(child: const OnboardingConfigScreen()),
@@ -588,6 +604,7 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   void initState() {
     super.initState();
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
+    unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
   }
 
   @override
