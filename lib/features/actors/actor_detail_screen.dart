@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -107,7 +107,7 @@ class _ActorDetailBody extends ConsumerWidget {
                   width: 140,
                   height: 210,
                   child: person.profileUrl.isNotEmpty
-                      ? CachedNetworkImage(
+                      ? OrbitCachedImage(
                           imageUrl: person.profileUrl,
                           fit: BoxFit.cover,
                           placeholder: (_, __) =>
@@ -288,10 +288,10 @@ class _FilmographyCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
+ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: credit.posterUrl.isNotEmpty
-                  ? CachedNetworkImage(
+                  ? OrbitCachedImage(
                       imageUrl: credit.posterUrl,
                       width: 130,
                       height: 195,

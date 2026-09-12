@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 
@@ -132,7 +132,7 @@ class _ActorCard extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: actor.hasProfile
-                        ? CachedNetworkImage(
+                        ? OrbitCachedImage(
                             imageUrl: actor.profileUrl,
                             fit: BoxFit.cover,
                             width: imageSize,
@@ -307,7 +307,7 @@ class _CompactActorCard extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: actor.hasProfile
-                        ? CachedNetworkImage(
+                        ? OrbitCachedImage(
                             imageUrl: actor.profileUrl,
                             fit: BoxFit.cover,
                             width: 60,

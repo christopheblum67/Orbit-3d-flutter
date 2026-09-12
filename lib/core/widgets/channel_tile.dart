@@ -1,5 +1,5 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 /// Ligne de contenu (chaîne / série / radio) avec artwork dégradé.
@@ -108,7 +108,7 @@ class _Artwork extends StatelessWidget {
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: CachedNetworkImage(
+      child: OrbitCachedImage(
         imageUrl: imageUrl!,
         width: 52,
         height: 52,

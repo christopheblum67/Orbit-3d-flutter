@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -96,7 +96,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                     width: 140,
                     height: 210,
                     child: series.coverUrl.isNotEmpty
-                        ? CachedNetworkImage(
+                        ? OrbitCachedImage(
                             imageUrl: series.coverUrl,
                             fit: BoxFit.cover,
                             placeholder: (_, __) =>

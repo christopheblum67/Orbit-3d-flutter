@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,12 +26,12 @@ class SeriesDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // D'abord charger la série de base depuis Xtream
+    // D'abord charger la sÃ©rie de base depuis Xtream
     final baseSeriesAsync = ref.watch(seriesInfoProvider(seriesId));
 
     return baseSeriesAsync.when(
       data: (baseSeries) {
-        // Puis enrichir avec les métadonnées externes
+        // Puis enrichir avec les mÃ©tadonnÃ©es externes
         final detailAsync = ref.watch(seriesDetailProvider(baseSeries));
 
         return Scaffold(
@@ -58,20 +58,20 @@ class SeriesDetailScreen extends ConsumerWidget {
               baseSeries: baseSeries,
             ),
             loading: () =>
-                const LoadingState(message: 'Enrichissement des métadonnées…'),
+                const LoadingState(message: 'Enrichissement des mÃ©tadonnÃ©esâ€¦'),
             error: (err, _) => ErrorState(
               icon: Icons.tv,
-              title: 'Détail indisponible',
+              title: 'DÃ©tail indisponible',
               message: userFriendlyError(err),
               onRetry: () => ref.invalidate(seriesDetailProvider(baseSeries)),
             ),
           ),
         );
       },
-      loading: () => const LoadingState(message: 'Chargement de la série…'),
+      loading: () => const LoadingState(message: 'Chargement de la sÃ©rieâ€¦'),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
-        title: 'Série introuvable',
+        title: 'SÃ©rie introuvable',
         message: userFriendlyError(err),
         onRetry: () => ref.invalidate(seriesInfoProvider(seriesId)),
       ),
@@ -101,8 +101,8 @@ class _SeriesDetailContent extends ConsumerWidget {
       child: _SeriesHeader(series: detail, baseSeries: baseSeries),
     );
 
-    // Section « Reprendre » : épisodes avec une progression en cours
-    // (0 < % regardé < 80 %), affichée au-dessus des saisons.
+    // Section Â« Reprendre Â» : Ã©pisodes avec une progression en cours
+    // (0 < % regardÃ© < 80 %), affichÃ©e au-dessus des saisons.
     final resumeEpisodes = _resumeEpisodesFor(ref);
     final resumeSliver = resumeEpisodes.isEmpty
         ? const SliverToBoxAdapter(child: SizedBox.shrink())
@@ -121,8 +121,8 @@ class _SeriesDetailContent extends ConsumerWidget {
           const SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.video_library_outlined,
-              title: 'Aucun épisode',
-              message: 'Cette série ne propose pas encore d\'épisodes.',
+              title: 'Aucun Ã©pisode',
+              message: 'Cette sÃ©rie ne propose pas encore d\'Ã©pisodes.',
             ),
           ),
         ],
@@ -147,8 +147,8 @@ class _SeriesDetailContent extends ConsumerWidget {
       );
     }
 
-    // Plusieurs saisons : TabBar horizontale pour alléger la liste, une seule
-    // saison visible à la fois (au lieu de les empiler verticalement).
+    // Plusieurs saisons : TabBar horizontale pour allÃ©ger la liste, une seule
+    // saison visible Ã  la fois (au lieu de les empiler verticalement).
     return DefaultTabController(
       length: seasons.length,
       child: Column(
@@ -190,8 +190,8 @@ class _SeriesDetailContent extends ConsumerWidget {
     );
   }
 
-  /// Épisodes « à reprendre » : une progression de lecture existe et est
-  /// inférieure au seuil de 80 % (au-delà, l'épisode est considéré « vu »).
+  /// Ã‰pisodes Â« Ã  reprendre Â» : une progression de lecture existe et est
+  /// infÃ©rieure au seuil de 80 % (au-delÃ , l'Ã©pisode est considÃ©rÃ© Â« vu Â»).
   List<Episode> _resumeEpisodesFor(WidgetRef ref) {
     final result = <Episode>[];
     for (final episode in baseSeries.episodes) {
@@ -237,9 +237,9 @@ class _SeriesDetailContent extends ConsumerWidget {
   }
 
   /// Slivers d'une saison :
-  ///  - `compact` (mode onglets) : simple rappel « X/Y vus », pas de gros
+  ///  - `compact` (mode onglets) : simple rappel Â« X/Y vus Â», pas de gros
   ///    titre de section redondant avec l'onglet ;
-  ///  - sinon : en-tête de section classique « Saison N ».
+  ///  - sinon : en-tÃªte de section classique Â« Saison N Â».
   List<Widget> _seasonSlivers(
     BuildContext context, {
     required WidgetRef ref,
@@ -284,12 +284,12 @@ class _SeriesDetailContent extends ConsumerWidget {
           ),
         ),
       ),
-      //Invités spéciaux pour cette saison
+      //InvitÃ©s spÃ©ciaux pour cette saison
       if (guests.isNotEmpty)
         SliverToBoxAdapter(
           child: CastCarousel(
             actors: guests,
-            title: 'Invités spéciaux - Saison $season',
+            title: 'InvitÃ©s spÃ©ciaux - Saison $season',
             maxVisible: 10,
             showCharacter: true,
             itemWidth: 120,
@@ -300,7 +300,7 @@ class _SeriesDetailContent extends ConsumerWidget {
   }
 
   String _seasonSubtitle({required int total, required int seen}) {
-    if (seen == 0) return '$total épisodes';
+    if (seen == 0) return '$total Ã©pisodes';
     return '$seen/$total vus';
   }
 }
@@ -318,21 +318,21 @@ class _SeriesHeader extends ConsumerWidget {
 
     final metaParts = <String>[
       if (series.year > 0) '${series.year}',
-      if (series.runtime > 0) '${series.runtime} min/ép',
+      if (series.runtime > 0) '${series.runtime} min/Ã©p',
       if (series.genre.isNotEmpty) series.genre,
-      if (series.rating > 0) '★ ${series.rating.toStringAsFixed(1)}',
+      if (series.rating > 0) 'â˜… ${series.rating.toStringAsFixed(1)}',
     ];
-    final meta = metaParts.join('  •  ');
+    final meta = metaParts.join('  â€¢  ');
 
     final extraMetaParts = <String>[
       if (series.status.isNotEmpty) series.status,
-      if (series.networks.isNotEmpty) 'Réseau: ${series.networks.join(', ')}',
+      if (series.networks.isNotEmpty) 'RÃ©seau: ${series.networks.join(', ')}',
       if (series.firstAirDate.isNotEmpty)
-        '1ʳᵉ diffusion: ${_formatDate(series.firstAirDate)}',
+        '1Ê³áµ‰ diffusion: ${_formatDate(series.firstAirDate)}',
       if (series.numberOfSeasons > 0) '${series.numberOfSeasons} saisons',
-      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} épisodes',
+      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} Ã©pisodes',
     ];
-    final extraMeta = extraMetaParts.join('  •  ');
+    final extraMeta = extraMetaParts.join('  â€¢  ');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -345,14 +345,14 @@ class _SeriesHeader extends ConsumerWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: GestureDetector(
-                  // Pression longue sur la série = « retour en arrière » :
-                  // propose de tout retirer des déjà vus.
+                  // Pression longue sur la sÃ©rie = Â« retour en arriÃ¨re Â» :
+                  // propose de tout retirer des dÃ©jÃ  vus.
                   onLongPress: () => _confirmResetSeries(context, ref),
                   child: SizedBox(
                     width: 112,
                     height: 168,
                     child: series.coverUrl.isNotEmpty
-                        ? OrbitCachedImage(
+                        ? CachedNetworkImage(
                             imageUrl: series.coverUrl,
                             fit: BoxFit.cover,
                             placeholder: (_, __) =>
@@ -408,7 +408,7 @@ class _SeriesHeader extends ConsumerWidget {
                         ),
                       ),
                     ],
-                    // Badge source de données
+                    // Badge source de donnÃ©es
                     if (series.dataSource != 'xtream') ...[
                       const SizedBox(height: 8),
                       Container(
@@ -435,8 +435,8 @@ class _SeriesHeader extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               series.aiGenerated
-                                  ? 'Données générées par IA'
-                                  : 'Données ${series.dataSource.toUpperCase()}',
+                                  ? 'DonnÃ©es gÃ©nÃ©rÃ©es par IA'
+                                  : 'DonnÃ©es ${series.dataSource.toUpperCase()}',
                               style: textTheme.labelSmall?.copyWith(
                                 color: _getSourceColor(series.dataSource),
                                 fontWeight: FontWeight.w600,
@@ -479,9 +479,9 @@ class _SeriesHeader extends ConsumerWidget {
     showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Tout retirer des déjà vus ?'),
+        title: const Text('Tout retirer des dÃ©jÃ  vus ?'),
         content: Text(
-          'Les $seen épisodes vus de « ${baseSeries.title} » seront marqués '
+          'Les $seen Ã©pisodes vus de Â« ${baseSeries.title} Â» seront marquÃ©s '
           'comme non vus pour ce profil.',
         ),
         actions: [
@@ -506,7 +506,7 @@ class _SeriesHeader extends ConsumerWidget {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              '« ${baseSeries.title} » retiré des déjà vus.',
+              'Â« ${baseSeries.title} Â» retirÃ© des dÃ©jÃ  vus.',
             ),
             duration: const Duration(milliseconds: 1200),
           ),
@@ -542,12 +542,12 @@ class _SeriesHeader extends ConsumerWidget {
 
 const Color _watchedGreen = Color(0xFF66BB6A);
 
-/// Seuil au-delà duquel un épisode est considéré « vu » (80 % regardés),
+/// Seuil au-delÃ  duquel un Ã©pisode est considÃ©rÃ© Â« vu Â» (80 % regardÃ©s),
 /// tout en restant reprenable.
 const double _autoWatchedThreshold = 0.8;
 
-/// Section « Reprendre » : liste les épisodes de la série dont la lecture est
-/// en cours (0 % < regardés < 80 %), pour relancer facilement.
+/// Section Â« Reprendre Â» : liste les Ã©pisodes de la sÃ©rie dont la lecture est
+/// en cours (0 % < regardÃ©s < 80 %), pour relancer facilement.
 class _ResumeSection extends ConsumerWidget {
   const _ResumeSection({required this.series, required this.episodes});
 
@@ -563,7 +563,7 @@ class _ResumeSection extends ConsumerWidget {
           icon: Icons.replay_rounded,
           title: 'Reprendre',
           subtitle: '${episodes.length} '
-              '${episodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
+              '${episodes.length > 1 ? 'Ã©pisodes en cours' : 'Ã©pisode en cours'}',
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -594,12 +594,12 @@ class _EpisodeTile extends ConsumerWidget {
     if (episodeTitle.startsWith(series.title)) {
       episodeTitle = episodeTitle
           .substring(series.title.length)
-          .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
+          .replaceFirst(RegExp(r'^\s*[-â€“â€”]\s*'), '');
     }
-    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)').hasMatch(episodeTitle);
+    final hasNumber = RegExp(r'^S\d+E\d+([\s\-â€“â€”]|$)').hasMatch(episodeTitle);
     final label = episodeTitle.isNotEmpty
-        ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
-        : 'Épisode $number';
+        ? (hasNumber ? episodeTitle : '$number â€” $episodeTitle')
+        : 'Ã‰pisode $number';
     final canPlay = episode.streamUrl.isNotEmpty;
     final profileId = ref.read(currentProfileProvider)?.id ?? '';
     final watched = ref.watch(watchedEpisodesProvider).containsKey(
@@ -614,7 +614,7 @@ class _EpisodeTile extends ConsumerWidget {
     final progress =
         ref.watch(playbackProgressProvider('episode-${episode.id}'));
     final progressFraction = progress?.fraction ?? 0;
-    // Épisode auto-vu (>= 80 % regardés) : « Vu », mais toujours reprenable.
+    // Ã‰pisode auto-vu (>= 80 % regardÃ©s) : Â« Vu Â», mais toujours reprenable.
     final autoWatched =
         progress?.hasProgress == true && progressFraction >= _autoWatchedThreshold;
     final isVu = watched || autoWatched;
@@ -627,22 +627,22 @@ class _EpisodeTile extends ConsumerWidget {
       context.push('/episode/detail', extra: (series, episode));
     }
 
-    // Pression longue = « réinitialiser » : efface la progression de lecture
-    // en cours et/ou retire le statut « vu » (après confirmation).
+    // Pression longue = Â« rÃ©initialiser Â» : efface la progression de lecture
+    // en cours et/ou retire le statut Â« vu Â» (aprÃ¨s confirmation).
     void onLongPress() {
       final hasProgress = progress?.hasProgress == true;
       if (!isVu && !hasProgress) return;
       showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Réinitialiser l\'épisode ?'),
+          title: const Text('RÃ©initialiser l\'Ã©pisode ?'),
           content: Text(
             isVu && hasProgress
-                ? '« $label » sera marqué comme non vu et sa progression '
-                    'de lecture sera effacée.'
+                ? 'Â« $label Â» sera marquÃ© comme non vu et sa progression '
+                    'de lecture sera effacÃ©e.'
                 : isVu
-                    ? '« $label » sera marqué comme non vu pour ce profil.'
-                    : 'La progression de lecture de « $label » sera effacée.',
+                    ? 'Â« $label Â» sera marquÃ© comme non vu pour ce profil.'
+                    : 'La progression de lecture de Â« $label Â» sera effacÃ©e.',
           ),
           actions: [
             TextButton(
@@ -651,7 +651,7 @@ class _EpisodeTile extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Réinitialiser'),
+              child: const Text('RÃ©initialiser'),
             ),
           ],
         ),
@@ -771,3 +771,4 @@ class _EpisodeTile extends ConsumerWidget {
     );
   }
 }
+

@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 
 /// Carte média (film / série) : poster, badge d'âge, note, méta.
 class MediaCard extends StatelessWidget {
@@ -59,7 +59,7 @@ class MediaCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 posterUrl.isNotEmpty
-                    ? CachedNetworkImage(
+                    ? OrbitCachedImage(
                         imageUrl: posterUrl,
                         fit: BoxFit.cover,
                         placeholder: (context, url) =>

@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -1070,7 +1070,7 @@ class _RankEntrySheet extends StatelessWidget {
                       width: 110,
                       height: 165,
                       child: entry.posterUrl.isNotEmpty
-                          ? CachedNetworkImage(
+                          ? OrbitCachedImage(
                               imageUrl: entry.posterUrl,
                               fit: BoxFit.cover,
                               errorWidget: (_, __, ___) => Icon(
