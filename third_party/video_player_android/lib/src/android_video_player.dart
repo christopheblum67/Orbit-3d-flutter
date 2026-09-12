@@ -15,6 +15,10 @@ import 'messages.g.dart';
 class AndroidVideoPlayer extends VideoPlayerPlatform {
   final AndroidVideoPlayerApi _api = AndroidVideoPlayerApi();
 
+  static const MethodChannel _tracksChannel = MethodChannel(
+    'flutter.io/videoPlayer/tracks',
+  );
+
   /// Registers this class as the default instance of [PathProviderPlatform].
   static void registerWith() {
     VideoPlayerPlatform.instance = AndroidVideoPlayer();
@@ -149,6 +153,92 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) {
     return _api.setMixWithOthers(mixWithOthers);
+  }
+
+  @override
+  bool isAudioTrackSupportAvailable() => true;
+
+  @override
+  bool isVideoTrackSupportAvailable() => true;
+
+  @override
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async {
+    final List<dynamic>? raw = await _tracksChannel
+        .invokeMethod<List<dynamic>>('getAudioTracks', <String, dynamic>{
+      'playerId': playerId,
+    });
+    if (raw == null) {
+      return <VideoAudioTrack>[];
+    }
+    return raw.map<VideoAudioTrack>((dynamic entry) {
+      final Map<Object?, Object?> map = entry as Map<Object?, Object?>;
+      return VideoAudioTrack(
+        id: map['id']! as String,
+        label: map['label'] as String?,
+        language: map['language'] as String?,
+        isSelected: map['isSelected'] as bool? ?? false,
+        bitrate: map['bitrate'] as int?,
+        sampleRate: map['sampleRate'] as int?,
+        channelCount: map['channelCount'] as int?,
+        codec: map['codec'] as String?,
+      );
+    }).toList();
+  }
+
+  @override
+  Future<void> selectAudioTrack(int playerId, String trackId) {
+    return _tracksChannel.invokeMethod<void>(
+      'selectAudioTrack',
+      <String, dynamic>{
+        'playerId': playerId,
+        'trackId': trackId,
+      },
+    );
+  }
+
+  @override
+  Future<List<VideoTrack>> getVideoTracks(int playerId) async {
+    final List<dynamic>? raw = await _tracksChannel
+        .invokeMethod<List<dynamic>>('getVideoTracks', <String, dynamic>{
+      'playerId': playerId,
+    });
+    if (raw == null) {
+      return <VideoTrack>[];
+    }
+    return raw.map<VideoTrack>((dynamic entry) {
+      final Map<Object?, Object?> map = entry as Map<Object?, Object?>;
+      return VideoTrack(
+        id: map['id']! as String,
+        isSelected: map['isSelected'] as bool? ?? false,
+        label: map['label'] as String?,
+        bitrate: map['bitrate'] as int?,
+        width: map['width'] as int?,
+        height: map['height'] as int?,
+        frameRate: map['frameRate'] as double?,
+        codec: map['codec'] as String?,
+      );
+    }).toList();
+  }
+
+  @override
+  Future<void> selectVideoTrack(int playerId, VideoTrack? track) {
+    return _tracksChannel.invokeMethod<void>(
+      'selectVideoTrack',
+      <String, dynamic>{
+        'playerId': playerId,
+        if (track != null)
+          'track': <String, dynamic>{
+            'id': track.id,
+            'isSelected': track.isSelected,
+            'label': track.label,
+            'bitrate': track.bitrate,
+            'width': track.width,
+            'height': track.height,
+            'frameRate': track.frameRate,
+            'codec': track.codec,
+          },
+      },
+    );
   }
 
   EventChannel _eventChannelFor(int textureId) {

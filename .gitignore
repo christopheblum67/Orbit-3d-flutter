@@ -5,6 +5,10 @@
 # FVM Version Cache
 .fvm/
 
+# Artefacts du fork video_player_android (dépendance analysée)
+third_party/video_player_android/.dart_tool/
+third_party/video_player_android/pubspec.lock
+
 # Artefacts de build / plugin générés
 .flutter-plugins
 .flutter-plugins-dependencies

@@ -12,15 +12,20 @@ import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
+import io.flutter.plugin.common.MethodCall;
+import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugins.videoplayer.Messages.AndroidVideoPlayerApi;
 import io.flutter.plugins.videoplayer.Messages.CreateMessage;
 import io.flutter.view.TextureRegistry;
+import java.util.Map;
 
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private static final String TAG = "VideoPlayerPlugin";
+  private static final String TRACK_CHANNEL = "flutter.io/videoPlayer/tracks";
   private final LongSparseArray<VideoPlayer> videoPlayers = new LongSparseArray<>();
   private FlutterState flutterState;
+  private MethodChannel trackChannel;
   private final VideoPlayerOptions options = new VideoPlayerOptions();
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
@@ -37,6 +42,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             injector.flutterLoader()::getLookupKeyForAsset,
             binding.getTextureRegistry());
     flutterState.startListening(this, binding.getBinaryMessenger());
+    trackChannel = new MethodChannel(binding.getBinaryMessenger(), TRACK_CHANNEL);
+    trackChannel.setMethodCallHandler(this::onTrackMethodCall);
   }
 
   @Override
@@ -46,6 +53,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     }
     flutterState.stopListening(binding.getBinaryMessenger());
     flutterState = null;
+    if (trackChannel != null) {
+      trackChannel.setMethodCallHandler(null);
+      trackChannel = null;
+    }
     onDestroy();
   }
 
@@ -189,6 +200,47 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   @Override
   public void setMixWithOthers(@NonNull Boolean mixWithOthers) {
     options.mixWithOthers = mixWithOthers;
+  }
+
+  /** Dispatches the audio/video track commands from the Dart layer. */
+  private void onTrackMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
+    try {
+      Number playerIdNumber = call.argument("playerId");
+      if (playerIdNumber == null) {
+        result.error("MissingArgument", "playerId is required.", null);
+        return;
+      }
+      long playerId = playerIdNumber.longValue();
+      switch (call.method) {
+        case "getAudioTracks":
+          result.success(getPlayer(playerId).getAudioTracks());
+          break;
+        case "getVideoTracks":
+          result.success(getPlayer(playerId).getVideoTracks());
+          break;
+        case "selectAudioTrack":
+          String audioTrackId = call.argument("trackId");
+          if (audioTrackId == null) {
+            result.error("MissingArgument", "trackId is required.", null);
+            return;
+          }
+          getPlayer(playerId).selectAudioTrack(audioTrackId);
+          result.success(null);
+          break;
+        case "selectVideoTrack":
+          @SuppressWarnings("unchecked")
+          Map<String, Object> videoTrack = (Map<String, Object>) call.argument("track");
+          getPlayer(playerId).selectVideoTrack(videoTrack);
+          result.success(null);
+          break;
+        default:
+          result.notImplemented();
+      }
+    } catch (IllegalArgumentException e) {
+      result.error("InvalidTrack", e.getMessage(), null);
+    } catch (IllegalStateException e) {
+      result.error("NoPlayer", e.getMessage(), null);
+    }
   }
 
   private interface KeyForAssetFn {
