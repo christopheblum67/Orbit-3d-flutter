@@ -21,7 +21,7 @@ class NotificationService {
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const settings = InitializationSettings(android: androidSettings);
       await _localPlugin.initialize(
-        settings,
+        settings: settings,
         onDidReceiveNotificationResponse: (_) {},
       );
 
@@ -77,7 +77,7 @@ class NotificationService {
       const androidSettings =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const settings = InitializationSettings(android: androidSettings);
-      await plugin.initialize(settings);
+      await plugin.initialize(settings: settings);
       const androidDetails = AndroidNotificationDetails(
         'orbit_channel',
         'Orbit Notifications',
@@ -86,10 +86,10 @@ class NotificationService {
       );
       const details = NotificationDetails(android: androidDetails);
       await plugin.show(
-        0,
-        notification.title ?? 'Orbit IPTV',
-        notification.body ?? '',
-        details,
+        id: 0,
+        title: notification.title ?? 'Orbit IPTV',
+        body: notification.body ?? '',
+        notificationDetails: details,
       );
     }
   }
@@ -111,6 +111,11 @@ class NotificationService {
       priority: Priority.high,
     );
     const details = NotificationDetails(android: androidDetails);
-    await _localPlugin.show(0, title, body, details);
+    await _localPlugin.show(
+      id: 0,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
   }
 }
