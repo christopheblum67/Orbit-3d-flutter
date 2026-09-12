@@ -25,6 +25,7 @@ dependencies:
   collection: ^1.18.0
   just_audio: ^0.10.6
   cached_network_image: ^4.0.0
+  flutter_cache_manager: ^3.4.2
   flutter_local_notifications: ^22.3.0
   firebase_core: ^4.14.0
   firebase_messaging: ^16.6.0

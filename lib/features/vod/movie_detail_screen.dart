@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -135,7 +135,7 @@ class _MovieDetailContent extends ConsumerWidget {
           if (detail.backdropUrl != null && detail.backdropUrl!.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: CachedNetworkImage(
+              child: OrbitCachedImage(
                 imageUrl: detail.backdropUrl!,
                 height: 180,
                 width: double.infinity,
@@ -161,7 +161,7 @@ class _MovieDetailContent extends ConsumerWidget {
                   width: 140,
                   height: 210,
                   child: detail.posterUrl.isNotEmpty
-                      ? CachedNetworkImage(
+                      ? OrbitCachedImage(
                           imageUrl: detail.posterUrl,
                           fit: BoxFit.cover,
                           placeholder: (_, __) => Icon(
@@ -656,7 +656,7 @@ class _SimilarCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: entry.posterUrl.isNotEmpty
-                  ? CachedNetworkImage(
+                  ? OrbitCachedImage(
                       imageUrl: entry.posterUrl,
                       width: 130,
                       height: 195,
@@ -750,7 +750,7 @@ class _SimilarEntrySheet extends StatelessWidget {
                 Center(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: CachedNetworkImage(
+                    child: OrbitCachedImage(
                       imageUrl: entry.posterUrl,
                       width: 180,
                       height: 270,

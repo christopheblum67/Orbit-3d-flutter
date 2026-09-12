@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 
 /// Section équipe technique - groupée par département
@@ -148,10 +148,24 @@ class _CrewMemberChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (member.hasProfile) ...[
-            CircleAvatar(
-              radius: 12,
-              backgroundImage: CachedNetworkImageProvider(member.profileUrl),
-              backgroundColor: Colors.grey[800],
+            ClipOval(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: OrbitCachedImage(
+                  imageUrl: member.profileUrl,
+                  fit: BoxFit.cover,
+                  width: 24,
+                  height: 24,
+                  placeholder: (context, url) => Container(
+                    color: Colors.grey[800],
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: Colors.grey[800],
+                    child: const Icon(Icons.person, size: 12, color: Colors.white54),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 6),
           ],

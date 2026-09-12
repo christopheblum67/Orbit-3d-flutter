@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 
 /// Grille d'acteurs style Allociné - photos circulaires avec nom et rôle
@@ -104,24 +104,24 @@ class _ActorCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: ClipOval(
-                  child: actor.hasProfile
-                      ? CachedNetworkImage(
-                          imageUrl: actor.profileUrl,
-                          fit: BoxFit.cover,
-                          width: 100,
-                          height: 100,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[800],
-                            child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
+child: ClipOval(
+                    child: actor.hasProfile
+                        ? OrbitCachedImage(
+                            imageUrl: actor.profileUrl,
+                            fit: BoxFit.cover,
+                            width: 100,
+                            height: 100,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[800],
+                              child: const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
                             ),
-                          ),
-                          errorWidget: (context, url, error) =>
-                              _buildPlaceholder(),
-                        )
-                      : _buildPlaceholder(),
-                ),
+                            errorWidget: (context, url, error) =>
+                                _buildPlaceholder(),
+                          )
+                        : _buildPlaceholder(),
+                  ),
               ),
             ),
             const SizedBox(height: 8),

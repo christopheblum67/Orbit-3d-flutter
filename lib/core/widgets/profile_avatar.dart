@@ -1,5 +1,5 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 
@@ -167,7 +167,7 @@ class ProfileAvatar extends StatelessWidget {
     if (option != null) {
       content = Icon(option.icon, size: size * 0.5, color: Colors.white);
     } else if (isRemote) {
-      content = CachedNetworkImage(
+      content = OrbitCachedImage(
         imageUrl: avatarUrl,
         fit: BoxFit.cover,
         width: size,
