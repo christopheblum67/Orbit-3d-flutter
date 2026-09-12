@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -18,7 +17,6 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
-import 'package:go_router/go_router.dart';
 
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key});
@@ -57,11 +55,21 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
           }
           final groups = buildLiveChannelGroups(channels);
           final grouped = groups.length > 1 || groups.first.name.isNotEmpty;
-          final categoryGroups = _groupToCategories(groups);
           final favIds = favoriteEntries.values
               .where((e) => e.type == ContentType.live)
               .map((e) => e.id)
               .toSet();
+          final liveRecentIds = recentEntries.values
+              .where((e) => e.type == ContentType.live)
+              .map((e) => e.id)
+              .toSet();
+          final categoryGroups = _groupToCategories(
+            groups,
+            totalCount: channels.length,
+            favCount: channels.where((c) => favIds.contains(c.id)).length,
+            recentCount:
+                channels.where((c) => liveRecentIds.contains(c.id)).length,
+          );
 
           final List<Channel> visibleChannels;
           if (_selectedGroup == 'fav') {
@@ -139,15 +147,21 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     );
   }
 
-  static List<MediaCategory> _groupToCategories(List<ChannelGroup> groups) {
+  static List<MediaCategory> _groupToCategories(
+    List<ChannelGroup> groups, {
+    required int totalCount,
+    required int favCount,
+    required int recentCount,
+  }) {
     final categories = <MediaCategory>[
-      const MediaCategory(id: '', name: 'Tous'),
-      const MediaCategory(id: 'fav', name: 'Favoris'),
-      const MediaCategory(id: 'recent', name: 'Récemment'),
+      MediaCategory(id: '', name: 'Tous', count: totalCount),
+      MediaCategory(id: 'fav', name: 'Favoris', count: favCount),
+      MediaCategory(id: 'recent', name: 'Récemment', count: recentCount),
       for (var i = 0; i < groups.length; i++)
         MediaCategory(
           id: 'g$i',
           name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
+          count: groups[i].channels.length,
         ),
     ];
     return categories;

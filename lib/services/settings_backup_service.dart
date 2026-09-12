@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';

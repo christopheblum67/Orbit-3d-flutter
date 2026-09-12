@@ -18,6 +18,7 @@ class MediaCard extends StatelessWidget {
     this.onLongPress,
     this.isNew = false,
     this.topBadge,
+    this.matchPercent, // % d'affinité matchmaking (affiché sur la ligne méta)
   });
 
   final String title;
@@ -38,6 +39,9 @@ class MediaCard extends StatelessWidget {
 
   /// Widget superposé en haut-gauche du poster (ex. numéro de rang FlixPatrol).
   final Widget? topBadge;
+
+  /// % d'affinité matchmaking (ex: 87%). Si fourni, affiché sur la ligne méta.
+  final int? matchPercent;
 
   @override
   Widget build(BuildContext context) {
@@ -171,11 +175,12 @@ class MediaCard extends StatelessWidget {
                       ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const SizedBox(height: 4),
-                if (year > 0 || genre.isNotEmpty)
+                if (year > 0 || genre.isNotEmpty || matchPercent != null)
                   Text(
                     [
                       if (year > 0) '$year',
                       if (genre.isNotEmpty) genre,
+                      if (matchPercent != null) '♥ $matchPercent%',
                     ].join(' • '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

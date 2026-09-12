@@ -1,4 +1,3 @@
-import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -48,8 +47,10 @@ class MetadataEnrichmentService {
 
       // Si on a déjà un IMDB ID dans les données Xtream, on pourrait le mapper
       // Sinon, recherche par titre + année
-      tmdbId = await _tmdb.searchMovieId(movie.title,
-          year: movie.year > 0 ? movie.year : null,);
+      tmdbId = await _tmdb.searchMovieId(
+        movie.title,
+        year: movie.year > 0 ? movie.year : null,
+      );
 
       if (tmdbId != null) {
         final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
@@ -64,7 +65,7 @@ class MetadataEnrichmentService {
         detail.runtime == 0 ||
         detail.director.isEmpty ||
         detail.imdbId.isEmpty) {
-final omdbDetail = await _omdb.fillMissingMovie(detail);
+      final omdbDetail = await _omdb.fillMissingMovie(detail);
       if (omdbDetail != detail) {
         detail = _mergeMovieDetail(detail, omdbDetail);
       }
@@ -115,8 +116,10 @@ final omdbDetail = await _omdb.fillMissingMovie(detail);
       if (detail.tmdbId > 0) {
         tmdbId = detail.tmdbId;
       } else {
-        tmdbId = await _tmdb.searchTvId(series.title,
-            year: series.year > 0 ? series.year : null,);
+        tmdbId = await _tmdb.searchTvId(
+          series.title,
+          year: series.year > 0 ? series.year : null,
+        );
       }
 
       if (tmdbId != null) {
@@ -181,6 +184,17 @@ final omdbDetail = await _omdb.fillMissingMovie(detail);
       budget: incoming.budget > 0 ? incoming.budget : base.budget,
       revenue: incoming.revenue > 0 ? incoming.revenue : base.revenue,
       status: incoming.status.isNotEmpty ? incoming.status : base.status,
+      tagline: (incoming.tagline != null && incoming.tagline!.isNotEmpty)
+          ? incoming.tagline
+          : base.tagline,
+      voteCount: incoming.voteCount > 0 ? incoming.voteCount : base.voteCount,
+      productionCompanies: incoming.productionCompanies.isNotEmpty
+          ? incoming.productionCompanies
+          : base.productionCompanies,
+      certification:
+          (incoming.certification != null && incoming.certification!.isNotEmpty)
+              ? incoming.certification
+              : base.certification,
       trailerUrl: incoming.trailerUrl ?? base.trailerUrl,
       backdropUrl: incoming.backdropUrl ?? base.backdropUrl,
       originalLanguage: incoming.originalLanguage ?? base.originalLanguage,
@@ -240,8 +254,8 @@ final omdbDetail = await _omdb.fillMissingMovie(detail);
   static String avatarUrlFor(String actorName) {
     final clean = actorName.trim().toLowerCase();
     if (clean.isEmpty) return '';
-    final seed = clean.codeUnits
-        .fold<int>(0, (acc, u) => (acc * 31 + u) & 0x7fffffff);
+    final seed =
+        clean.codeUnits.fold<int>(0, (acc, u) => (acc * 31 + u) & 0x7fffffff);
     final img = seed % 70 + 1;
     return 'https://i.pravatar.cc/300?img=$img';
   }

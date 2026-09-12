@@ -85,10 +85,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12)),
+                          color: Colors.white.withValues(alpha: 0.12),),
                     ),
                     child: const Icon(Icons.settings,
-                        color: Colors.white, size: 22),
+                        color: Colors.white, size: 22,),
                   ),
                 ),
               ),
@@ -199,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       radioFut,
       replayFut,
       epgFut,
-    ], eagerError: false).timeout(
+    ], eagerError: false,).timeout(
       const Duration(seconds: 60),
       onTimeout: () {
         throw TimeoutException('Certains flux n\'ont pas répondu à temps');

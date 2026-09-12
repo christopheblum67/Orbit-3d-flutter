@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 
 /// Thème global "Orbit IPTV" — refonte moderne : palette seed indigo/violet,
@@ -195,7 +195,6 @@ class AppTheme {
       return scheme.copyWith(
         onSurface: Colors.white,
         onSurfaceVariant: Colors.white70,
-        onBackground: Colors.white,
         onError: Colors.white,
         surface: Colors.black,
         surfaceContainerLowest: Colors.black,
@@ -212,7 +211,6 @@ class AppTheme {
       return scheme.copyWith(
         onSurface: Colors.black,
         onSurfaceVariant: Colors.black54,
-        onBackground: Colors.black,
         onError: Colors.white,
         surface: Colors.white,
         surfaceContainerLowest: Colors.white,

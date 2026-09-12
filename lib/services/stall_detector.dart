@@ -68,7 +68,7 @@ class StallDetector extends ChangeNotifier {
       final elapsed = now.difference(_lastCheckTime);
       if (kDebugMode) {
         debugPrint(
-            'StallDetector: position unchanged ($_stallChecks checks, ${elapsed.inSeconds}s)');
+            'StallDetector: position unchanged ($_stallChecks checks, ${elapsed.inSeconds}s)',);
       }
       if (_stallChecks >= minChecksForStall && elapsed >= stallThreshold) {
         if (!_isStalling) {
@@ -76,7 +76,7 @@ class StallDetector extends ChangeNotifier {
           notifyListeners();
           if (kDebugMode) {
             debugPrint(
-                'StallDetector: STALL DETECTED after ${elapsed.inSeconds}s');
+                'StallDetector: STALL DETECTED after ${elapsed.inSeconds}s',);
           }
         }
       }

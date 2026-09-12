@@ -327,7 +327,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                         secondary: const Icon(Icons.visibility_outlined),
                         title: const Text('Profil visible'),
                         subtitle: const Text(
-                            'Apparaître dans les recherches et recommandations'),
+                            'Apparaître dans les recherches et recommandations',),
                         value: _profileVisible,
                         onChanged: (v) => setState(() => _profileVisible = v),
                       ),
@@ -336,7 +336,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                         secondary: const Icon(Icons.video_camera_back_outlined),
                         title: const Text('Autoriser l\'enregistrement'),
                         subtitle: const Text(
-                            'Permettre l\'enregistrement de mes contenus favoris'),
+                            'Permettre l\'enregistrement de mes contenus favoris',),
                         value: _allowRecording,
                         onChanged: (v) => setState(() => _allowRecording = v),
                       ),
@@ -354,7 +354,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    'Sélectionnez au moins un genre favori'),
+                                    'Sélectionnez au moins un genre favori',),
                               ),
                             );
                             return;
@@ -370,7 +370,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                               dob.day.clamp(
                                 1,
                                 DateTime(now.year - age,
-                                        dob.month.clamp(1, 12) + 1, 0)
+                                        dob.month.clamp(1, 12) + 1, 0,)
                                     .day,
                               ),
                             );

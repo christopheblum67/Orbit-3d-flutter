@@ -32,7 +32,7 @@ void main() {
     });
 
     test('round-trip save / loadAll', () async {
-      final entry = FavoriteEntry(
+      const entry = FavoriteEntry(
         type: ContentType.live,
         id: '42',
         title: 'TF1',
@@ -51,7 +51,7 @@ void main() {
       expect(await service.isFavorite('test_profile:live:42'), isFalse);
 
       await service
-          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
+          .save(const FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
 
       expect(await service.isFavorite('test_profile:live:42'), isTrue);
       expect(await service.isFavorite('test_profile:vod:42'), isFalse);
@@ -59,9 +59,9 @@ void main() {
 
     test('remove ne supprime que la clé visée', () async {
       await service
-          .save(FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
+          .save(const FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
       await service
-          .save(FavoriteEntry(type: ContentType.vod, id: '7', title: 'Film', profileId: 'test_profile'));
+          .save(const FavoriteEntry(type: ContentType.vod, id: '7', title: 'Film', profileId: 'test_profile'));
 
       await service.remove('test_profile:live:42');
 
@@ -75,7 +75,7 @@ void main() {
       await box.put('test_profile:live:1', 'pas du json');
       await box.put('test_profile:live:2', jsonEncode([1, 2, 3]));
       await box.put(
-          'test_profile:live:3', jsonEncode({'type': 'live', 'id': '3', 'title': 'Bonus', 'profileId': 'test_profile'}));
+          'test_profile:live:3', jsonEncode({'type': 'live', 'id': '3', 'title': 'Bonus', 'profileId': 'test_profile'}),);
 
       final all = await service.loadAll();
       expect(all.length, 1);
@@ -88,7 +88,7 @@ void main() {
       final service = FavoritesService();
       await service.init();
       await service.save(
-        FavoriteEntry(type: ContentType.live, id: '1', title: 'Chaîne 1', profileId: 'test_profile'),
+        const FavoriteEntry(type: ContentType.live, id: '1', title: 'Chaîne 1', profileId: 'test_profile'),
       );
 
       final container = ProviderContainer(
@@ -110,7 +110,7 @@ void main() {
       expect(container.read(favoritesProvider).length, 1);
       expect(notifier.isFavorite(ContentType.live, '1'), isTrue);
 
-      final entry = FavoriteEntry(
+      const entry = FavoriteEntry(
         type: ContentType.vod,
         id: '9',
         title: 'Un film',
@@ -147,13 +147,13 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 
-      final first = FavoriteEntry(
+      const first = FavoriteEntry(
         type: ContentType.vod,
         id: 'a',
         title: 'Ajouté en premier',
         streamUrl: 'http://cdn/vod/a.mkv',
       );
-      final second = FavoriteEntry(
+      const second = FavoriteEntry(
         type: ContentType.vod,
         id: 'b',
         title: 'Ajouté ensuite',
@@ -185,10 +185,10 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await notifier.toggle(
-        FavoriteEntry(type: ContentType.live, id: '1', title: 'TF1', profileId: 'test_profile'),
+        const FavoriteEntry(type: ContentType.live, id: '1', title: 'TF1', profileId: 'test_profile'),
       );
       await notifier.toggle(
-        FavoriteEntry(type: ContentType.live, id: '2', title: 'France 2', profileId: 'test_profile'),
+        const FavoriteEntry(type: ContentType.live, id: '2', title: 'France 2', profileId: 'test_profile'),
       );
 
       await notifier.clearAll();

@@ -27,7 +27,9 @@ void openRecommendation(BuildContext context, Recommendation reco) {
 /// Matchmaking : recommandations d'affinité (Films / Séries, solo & duo)
 /// + classements populaires TMDB (onglet FlixPatrol).
 class MatchmakingScreen extends ConsumerStatefulWidget {
-  const MatchmakingScreen({super.key});
+  const MatchmakingScreen({super.key, this.initialGroup});
+
+  final List<String>? initialGroup;
 
   @override
   ConsumerState<MatchmakingScreen> createState() => _MatchmakingScreenState();
@@ -36,11 +38,23 @@ class MatchmakingScreen extends ConsumerStatefulWidget {
 class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  List<String>? _initialGroup;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _initialGroup = widget.initialGroup;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Auto-switch to group mode if initialGroup is provided
+    if (_initialGroup != null && _initialGroup!.length >= 2) {
+      // The MatchmakingTab will handle the group via its own state
+      // We could set a flag here to indicate group mode should be default
+    }
   }
 
   @override
@@ -70,10 +84,12 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          MatchmakingTab(kind: RecommendationKind.movie),
-          MatchmakingTab(kind: RecommendationKind.series),
-          FlixPatrolView(),
+        children: [
+          MatchmakingTab(
+              kind: RecommendationKind.movie, initialGroup: _initialGroup,),
+          MatchmakingTab(
+              kind: RecommendationKind.series, initialGroup: _initialGroup,),
+          const FlixPatrolView(),
         ],
       ),
     );

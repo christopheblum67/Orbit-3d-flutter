@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vector_math/vector_math_64.dart' as vm;
 
 /// Focus gravitationnel : grossissement + aura lumineuse au focus télécommande
 class GravityFocusNode extends StatelessWidget {
@@ -28,7 +29,7 @@ class GravityFocusNode extends StatelessWidget {
       duration: duration,
       curve: Curves.easeOutCubic,
       transform: isFocused
-          ? (Matrix4.identity()..scale(scaleFactor))
+          ? (Matrix4.identity()..scaleByVector3(vm.Vector3(scaleFactor, scaleFactor, scaleFactor)))
           : Matrix4.identity(),
       transformAlignment: Alignment.center,
       child: Stack(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -14,7 +13,6 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
-import 'package:go_router/go_router.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
   const VodScreen({super.key});
@@ -76,6 +74,29 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           }
           final categories =
               categoriesAsync.value ?? _categoriesFromMovies(movies);
+          final vodFavIds = favoriteEntries.values
+              .where((e) => e.type == ContentType.vod)
+              .map((e) => e.id)
+              .toSet();
+          final vodRecentIds = recentEntries.values
+              .where((e) => e.type == ContentType.vod)
+              .map((e) => e.id)
+              .toSet();
+          final railCategories = <MediaCategory>[
+            MediaCategory(id: '', name: 'Tous', count: movies.length),
+            MediaCategory(
+              id: 'fav',
+              name: 'Favoris',
+              count: movies.where((m) => vodFavIds.contains(m.id)).length,
+            ),
+            MediaCategory(
+              id: 'recent',
+              name: 'Récemment',
+              count:
+                  movies.where((m) => vodRecentIds.contains(m.id)).length,
+            ),
+            ...categories,
+          ];
           final q = _query.trim().toLowerCase();
           final List<Movie> filteredMovies;
           if (_selectedCategoryId == 'fav') {
@@ -141,12 +162,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               CategoriesRail(
-                categories: [
-                  const MediaCategory(id: '', name: 'Tous'),
-                  const MediaCategory(id: 'fav', name: 'Favoris'),
-                  const MediaCategory(id: 'recent', name: 'Récemment'),
-                  ...categories,
-                ],
+                categories: railCategories,
                 selectedId: _selectedCategoryId,
                 onSelected: (id) => setState(() => _selectedCategoryId = id),
               ),
@@ -283,17 +299,20 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
   static List<MediaCategory> _categoriesFromMovies(List<Movie> movies) {
     final map = <String, List<String>>{};
+    final counts = <String, int>{};
     for (final movie in movies) {
       final id = movie.categoryId;
       final name = movie.genre.trim();
       if (id.isEmpty) continue;
       map.putIfAbsent(id, () => []).add(name);
+      counts[id] = (counts[id] ?? 0) + 1;
     }
     return map.entries.map((e) {
       final names = e.value.where((n) => n.isNotEmpty).toSet().toList();
       return MediaCategory(
         id: e.key,
         name: names.isEmpty ? e.key : names.join(', '),
+        count: counts[e.key] ?? 0,
       );
     }).toList();
   }

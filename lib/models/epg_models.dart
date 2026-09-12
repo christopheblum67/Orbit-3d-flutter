@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'channel.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 
 /// Catégorie d'abonnement (pour orbite par genre/thème)
 class SubscriptionCategory {

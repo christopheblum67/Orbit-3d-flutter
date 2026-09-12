@@ -84,7 +84,7 @@ class EpgQueryParser {
     } else if (text.contains('demain soir')) {
       referenceTime = now.add(const Duration(days: 1));
       referenceTime = DateTime(
-          referenceTime.year, referenceTime.month, referenceTime.day, 21, 0);
+          referenceTime.year, referenceTime.month, referenceTime.day, 21, 0,);
       text = text.replaceAll('demain soir', ' ');
     } else if (text.contains('demain')) {
       final tomorrow = now.add(const Duration(days: 1));
@@ -102,10 +102,10 @@ class EpgQueryParser {
     } else if (_containsAny(text, const ['serie', 'series'])) {
       contentTypeIntent = 'serie';
     } else if (_containsAny(
-        text, const ['sport', 'match', 'foot', 'tennis', 'rugby'])) {
+        text, const ['sport', 'match', 'foot', 'tennis', 'rugby'],)) {
       contentTypeIntent = 'sport';
     } else if (_containsAny(
-        text, const ['info', 'journal', 'actualite', 'news'])) {
+        text, const ['info', 'journal', 'actualite', 'news'],)) {
       contentTypeIntent = 'info';
     } else if (_containsAny(text, const ['docu', 'documentaire'])) {
       contentTypeIntent = 'documentaire';
@@ -248,7 +248,7 @@ class EpgAiEngine {
           program: program,
           channel: channel,
           relevance: (score / 8.0).clamp(0.0, 1.0),
-        ));
+        ),);
       }
     }
 

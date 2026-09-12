@@ -2,8 +2,6 @@
 // Exécuter : flutter test test_stream_flow.dart
 // Ou copier-coller dans une session dart run
 
-import 'dart:async';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +25,7 @@ void main() {
         maxRedirects: 5,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 30),
-      ));
+      ),);
     });
 
     tearDownAll(() => dio.close());
@@ -36,7 +34,7 @@ void main() {
       final resp = await dio.head(testUrl, options: Options(
         headers: {'User-Agent': userAgents[0]},
         validateStatus: (s) => true,
-      ));
+      ),);
       print('HEAD: ${resp.statusCode}');
       expect(resp.statusCode, equals(200));
     });
@@ -50,7 +48,7 @@ void main() {
             'Referer': 'https://draap.online/',
           },
           validateStatus: (s) => true,
-        ));
+        ),);
         print('GET Chrome UA: ${resp.statusCode}');
         print('  Headers: ${resp.headers.map}');
       } on DioException catch (e) {
@@ -67,7 +65,7 @@ void main() {
             'Referer': 'https://draap.online/',
           },
           validateStatus: (s) => true,
-        ));
+        ),);
         print('GET ExoPlayer UA: ${resp.statusCode}');
       } on DioException catch (e) {
         print('GET ExoPlayer UA ERROR: ${e.response?.statusCode}');
@@ -81,7 +79,7 @@ void main() {
         maxRedirects: 5,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 30),
-      ));
+      ),);
 
       // Intercept cookies
       client.interceptors.add(InterceptorsWrapper(
@@ -95,14 +93,14 @@ void main() {
           }
           return handler.next(resp);
         },
-      ));
+      ),);
 
       // 1. Load homepage
       print('Loading homepage...');
       await client.get('https://draap.online/', options: Options(
         headers: {'User-Agent': userAgents[0]},
         validateStatus: (s) => true,
-      ));
+      ),);
       print('Cookies after homepage: ${cookieJar.keys.join(", ")}');
 
       // 2. Try stream with cookies
@@ -116,7 +114,7 @@ void main() {
             if (cookieJar.isNotEmpty) 'Cookie': cookieJar.entries.map((e) => '${e.key}=${e.value}').join('; '),
           },
           validateStatus: (s) => true,
-        ));
+        ),);
         print('GET with cookies: ${resp.statusCode}');
         if (resp.statusCode == 200) {
           print('SUCCESS! Content-Type: ${resp.headers.value('content-type')}');
@@ -133,7 +131,7 @@ void main() {
         maxRedirects: 10,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 60),
-      ));
+      ),);
 
       final cookies = <String, String>{};
       client.interceptors.add(InterceptorsWrapper(
@@ -147,7 +145,7 @@ void main() {
           }
           return handler.next(resp);
         },
-      ));
+      ),);
 
       // Multiple requests to trigger challenge resolution
       for (int i = 0; i < 5; i++) {
@@ -156,7 +154,7 @@ void main() {
           await client.get('https://draap.online/', options: Options(
             headers: {'User-Agent': userAgents[0]},
             validateStatus: (s) => true,
-          ));
+          ),);
           await Future.delayed(const Duration(seconds: 3));
           
           if (cookies.containsKey('cf_clearance')) {
@@ -193,7 +191,7 @@ void main() {
             'Cookie': 'cf_clearance=$cfClearance',
           },
           validateStatus: (s) => true,
-        ));
+        ),);
         print('GET with cf_clearance: ${resp.statusCode}');
         if (resp.statusCode == 200) {
           print('SUCCESS! Stream accessible with cookie');

@@ -68,7 +68,7 @@ class PersonalizedRecommendations {
       scoredMovies,
       scoredSeries,
       scoredRadios,
-      scoredReplays
+      scoredReplays,
     ];
     var poolIndex = 0;
     while (result.length < count) {
@@ -84,21 +84,21 @@ class PersonalizedRecommendations {
               result.add(StartupRecommendation.fromMovie(
                 scored.movie!,
                 _reasonForMovie(scored.movie!, genref),
-              ));
+              ),);
               break;
             case 1:
               si++;
               result.add(StartupRecommendation.fromSeries(
                 scored.series!,
                 _reasonForSeries(scored.series!, genref),
-              ));
+              ),);
               break;
             case 2:
               ri++;
               result.add(StartupRecommendation.fromRadio(
                 scored.radio!,
                 'Station radio${scored.radio!.group.isNotEmpty ? " · ${scored.radio!.group}" : ""}',
-              ));
+              ),);
               break;
             case 3:
               rpi++;
@@ -109,7 +109,7 @@ class PersonalizedRecommendations {
                 scored.replay!.streamUrl,
                 rating: 0,
                 id: scored.replay!.id,
-              ));
+              ),);
               break;
           }
           added = true;

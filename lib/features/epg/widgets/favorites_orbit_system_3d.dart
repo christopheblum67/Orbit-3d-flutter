@@ -10,11 +10,11 @@ class FavoritesOrbitSystem3D extends StatefulWidget {
   final Function(FavoriteChannelNode) onSelectChannel;
 
   const FavoritesOrbitSystem3D({
-    Key? key,
+    super.key,
     required this.favorites,
     required this.onZoomOutToCategories,
     required this.onSelectChannel,
-  }) : super(key: key);
+  });
 
   @override
   State<FavoritesOrbitSystem3D> createState() => _FavoritesOrbitSystem3DState();
@@ -72,16 +72,16 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
 
     return Focus(
       autofocus: true,
-      onKey: (node, event) {
-        if (event is RawKeyDownEvent) {
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
             setState(() =>
-                _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length);
+                _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length,);
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
             setState(() => _focusedIndex =
                 (_focusedIndex - 1 + orbitFavorites.length) %
-                    orbitFavorites.length);
+                    orbitFavorites.length,);
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
             widget.onZoomOutToCategories();
@@ -111,12 +111,12 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.25),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                     blurRadius: 40,
                     spreadRadius: 10,
                   ),
@@ -139,7 +139,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                       border: Border.all(color: Colors.amber, width: 3),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.amber.withOpacity(0.4),
+                          color: Colors.amber.withValues(alpha: 0.4),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
@@ -162,7 +162,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
+                      color: Colors.amber.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.amber),
                     ),
@@ -215,7 +215,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                                 ? [
                                     BoxShadow(
                                       color: const Color(0xFF8B5CF6)
-                                          .withOpacity(0.5),
+                                          .withValues(alpha: 0.5),
                                       blurRadius: 15,
                                       spreadRadius: 3,
                                     ),
@@ -255,29 +255,29 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white24),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.keyboard_arrow_up,
-                        color: Colors.white38, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Sélectionner',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_left,
-                        color: Colors.white38, size: 18),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.keyboard_arrow_right,
-                        color: Colors.white38, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Naviguer',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_down,
-                        color: Colors.white38, size: 18),
-                    const SizedBox(width: 8),
-                    const Text('Catégories',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    Icon(Icons.keyboard_arrow_up,
+                        color: Colors.white38, size: 18,),
+                    SizedBox(width: 8),
+                    Text('Sélectionner',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),),
+                    SizedBox(width: 16),
+                    Icon(Icons.keyboard_arrow_left,
+                        color: Colors.white38, size: 18,),
+                    SizedBox(width: 8),
+                    Icon(Icons.keyboard_arrow_right,
+                        color: Colors.white38, size: 18,),
+                    SizedBox(width: 8),
+                    Text('Naviguer',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),),
+                    SizedBox(width: 16),
+                    Icon(Icons.keyboard_arrow_down,
+                        color: Colors.white38, size: 18,),
+                    SizedBox(width: 8),
+                    Text('Catégories',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),),
                   ],
                 ),
               ),

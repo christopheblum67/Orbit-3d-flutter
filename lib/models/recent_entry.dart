@@ -1,4 +1,4 @@
-import 'favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 
 /// Entrée « récemment regardé » : suffisante pour afficher et rouvrir le
 /// contenu (mêmes champs qu'un favori) + l'horodatage de la dernière lecture.

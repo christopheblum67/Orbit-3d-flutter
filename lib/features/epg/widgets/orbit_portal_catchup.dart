@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vector_math/vector_math_64.dart' as vm;
 
 /// Navigation temporelle 3D "Orbit Portal" pour le Catch-up / Replay
 class OrbitPortalCatchUpView extends StatefulWidget {
@@ -9,13 +10,13 @@ class OrbitPortalCatchUpView extends StatefulWidget {
   final Function(DateTime)? onPlayLive;
 
   const OrbitPortalCatchUpView({
-    Key? key,
+    super.key,
     required this.channelName,
     required this.availableDays,
     this.initialDayIndex = 0,
     this.onDaySelected,
     this.onPlayLive,
-  }) : super(key: key);
+  });
 
   @override
   State<OrbitPortalCatchUpView> createState() => _OrbitPortalCatchUpViewState();
@@ -123,7 +124,7 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.keyboard_arrow_left,
-                          color: Colors.white70, size: 28),
+                          color: Colors.white70, size: 28,),
                       onPressed: _selectedDayIndex > 0
                           ? () => _pageController.previousPage(
                                 duration: const Duration(milliseconds: 400),
@@ -138,15 +139,15 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                         widget.availableDays[_selectedDayIndex] ==
                                 widget.availableDays.first
                             ? 'EN DIRECT'
-                            : 'REPLAY J-${_selectedDayIndex}',
+                            : 'REPLAY J-$_selectedDayIndex',
                         style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.bold),
+                            fontSize: 14, fontWeight: FontWeight.bold,),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8B5CF6),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
+                            horizontal: 24, vertical: 12,),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -163,7 +164,7 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                     const SizedBox(width: 24),
                     IconButton(
                       icon: const Icon(Icons.keyboard_arrow_right,
-                          color: Colors.white70, size: 28),
+                          color: Colors.white70, size: 28,),
                       onPressed:
                           _selectedDayIndex < widget.availableDays.length - 1
                               ? () => _pageController.nextPage(
@@ -184,7 +185,7 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: const Color(0xFF8B5CF6), width: 2),
               ),
@@ -218,8 +219,8 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
     return Transform(
       transform: Matrix4.identity()
         ..setEntry(3, 2, 0.001) // Perspective
-        ..translate(0.0, 0.0, zOffset)
-        ..scale(scale),
+        ..translateByVector3(vm.Vector3(0.0, 0.0, zOffset))
+        ..scaleByVector3(vm.Vector3(scale, scale, scale)),
       alignment: Alignment.center,
       child: Opacity(
         opacity: opacity,
@@ -241,8 +242,8 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
               gradient: RadialGradient(
                 colors: isSelected
                     ? [
-                        const Color(0xFF8B5CF6).withOpacity(0.3),
-                        Colors.transparent
+                        const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                        Colors.transparent,
                       ]
                     : [Colors.white10, Colors.transparent],
               ),
@@ -253,7 +254,7 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -284,12 +285,12 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                          horizontal: 16, vertical: 8,),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: const Color(0xFF8B5CF6), width: 1),
+                            color: const Color(0xFF8B5CF6), width: 1,),
                       ),
                       child: Text(
                         isLive

@@ -216,7 +216,7 @@ class MovieCredits {
   List<CrewMember> get directors => crew
       .where((m) =>
           m.department.toLowerCase() == 'directing' &&
-          m.job.toLowerCase().contains('director'))
+          m.job.toLowerCase().contains('director'),)
       .toList();
 
   /// Scénaristes

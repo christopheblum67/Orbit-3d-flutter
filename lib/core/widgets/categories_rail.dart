@@ -58,6 +58,7 @@ class CategoriesRail extends StatelessWidget {
           for (final category in categories)
             _FocusableCategoryTile(
               name: category.name,
+              count: category.count,
               selected: category.id == selectedId,
               compact: !isWide,
               onTap: () => onSelected(category.id),
@@ -74,12 +75,14 @@ class _FocusableCategoryTile extends StatefulWidget {
     required this.selected,
     required this.compact,
     required this.onTap,
+    this.count = 0,
   });
 
   final String name;
   final bool selected;
   final bool compact;
   final VoidCallback onTap;
+  final int count;
 
   @override
   State<_FocusableCategoryTile> createState() => _FocusableCategoryTileState();
@@ -159,8 +162,17 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                widget.name,
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: widget.name),
+                    if (widget.count > 0)
+                      TextSpan(
+                        text: ' (${widget.count})',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                  ],
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.visible,
                 textAlign: TextAlign.center,

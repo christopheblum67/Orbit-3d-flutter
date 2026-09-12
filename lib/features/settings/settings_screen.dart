@@ -204,7 +204,7 @@ class _DnsProviderTile extends ConsumerWidget {
         child: ListTile(
           contentPadding: EdgeInsets.zero,
           leading: Icon(Icons.dns_outlined,
-              color: Theme.of(context).colorScheme.primary),
+              color: Theme.of(context).colorScheme.primary,),
           title: const Text('Fournisseur DNS', style: TextStyle(fontSize: 14)),
           subtitle: const Text(
             'Serveur utilisé pour les requêtes DoH',
@@ -398,10 +398,10 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
             children: [
               Icon(Icons.key_outlined, color: scheme.primary),
               const SizedBox(width: 10),
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Clé API TMDB (optionnelle)',
-                  style: const TextStyle(fontSize: 14),
+                  style: TextStyle(fontSize: 14),
                 ),
               ),
               if (_validating)
@@ -412,10 +412,10 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
                 )
               else if (_valid == true)
                 const Icon(Icons.check_circle,
-                    color: Colors.green, size: 20)
+                    color: Colors.green, size: 20,)
               else if (_valid == false)
                 const Icon(Icons.cancel,
-                    color: Colors.redAccent, size: 20),
+                    color: Colors.redAccent, size: 20,),
             ],
           ),
           TextField(

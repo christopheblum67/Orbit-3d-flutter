@@ -577,7 +577,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (host.isNotEmpty && circuitBreaker.isInCooldown(host)) {
       final remaining = circuitBreaker.remainingCooldown(host);
       debugPrint(
-          'HostCircuitBreaker: $host in cooldown, ${remaining.inSeconds}s remaining');
+          'HostCircuitBreaker: $host in cooldown, ${remaining.inSeconds}s remaining',);
       if (gen == _generation) {
         _setStatus(_PlayerStatus.error);
       }
@@ -1034,7 +1034,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (controller == null) return;
     final playing = controller.value.isPlaying;
     debugPrint(
-        'Orbit3D toggle: isPlaying=$playing pos=${controller.value.position}');
+        'Orbit3D toggle: isPlaying=$playing pos=${controller.value.position}',);
     setState(() {
       playing ? controller.pause() : controller.play();
     });
@@ -1769,7 +1769,7 @@ class _VodFooterBar extends ConsumerWidget {
             ),
             if (showRating) ...[
               const Icon(Icons.star_rounded,
-                  size: 16, color: Color(0xFFFFC107)),
+                  size: 16, color: Color(0xFFFFC107),),
               const SizedBox(width: 4),
               Text(
                 rating!.toStringAsFixed(1),
@@ -1837,7 +1837,7 @@ class _FbMenuItem extends StatelessWidget {
     return Row(
       children: [
         Icon(icon,
-            size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant,),
         const SizedBox(width: 12),
         Text(label),
       ],

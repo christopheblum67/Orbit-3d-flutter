@@ -27,7 +27,7 @@ void main() {
   testWidgets(
       'cœur rempli et rouge quand l\'entrée (sans profileId) est déjà favorite du profil courant',
       (tester) async {
-    final entry = const FavoriteEntry(
+    const entry = FavoriteEntry(
       type: ContentType.vod,
       id: '42',
       title: 'Le Film',
@@ -66,7 +66,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: const MaterialApp(
           home: Scaffold(body: FavoriteToggle(entry: entry)),
         ),
       ),

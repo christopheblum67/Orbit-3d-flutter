@@ -195,11 +195,11 @@ class MediaLibraryManager extends ChangeNotifier {
     switch (mode) {
       case SortMode.nameAsc:
         sorted.sort(
-            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),);
         break;
       case SortMode.nameDesc:
         sorted.sort(
-            (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+            (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),);
         break;
       case SortMode.ratingDesc:
         sorted.sort((a, b) => b.rating.compareTo(a.rating));

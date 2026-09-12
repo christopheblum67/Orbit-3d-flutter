@@ -66,7 +66,7 @@ class StartupRecommendation {
 
   factory StartupRecommendation.fromReplay(
       String title, String posterUrl, String reason, String streamUrl,
-      {double rating = 0, String? id}) {
+      {double rating = 0, String? id,}) {
     return StartupRecommendation(
       title: title,
       category: 'Replay',

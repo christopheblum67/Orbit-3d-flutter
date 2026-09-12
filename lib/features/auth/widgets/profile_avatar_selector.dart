@@ -288,7 +288,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.all(
-                        20.0), // Plus d'espace pour l'image
+                        20.0,), // Plus d'espace pour l'image
                     child: widget.avatar.assetPath.isNotEmpty
                         ? Image.asset(
                             widget.avatar.assetPath,

@@ -72,7 +72,7 @@ class MemorySettingsPanel extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Historique de lecture effacé.')),
+                          content: Text('Historique de lecture effacé.'),),
                     );
                   }
                 },

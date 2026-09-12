@@ -73,6 +73,10 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
             );
           }
           final categories = _categoriesFromReplays(replays);
+          final railCategories = <MediaCategory>[
+            MediaCategory(id: '', name: 'Tous', count: replays.length),
+            ...categories,
+          ];
           final filteredReplays = _selectedCategoryId.isEmpty
               ? replays
               : replays
@@ -104,10 +108,7 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
             children: [
               if (categories.isNotEmpty)
                 CategoriesRail(
-                  categories: [
-                    const MediaCategory(id: '', name: 'Tous'),
-                    ...categories,
-                  ],
+                  categories: railCategories,
                   selectedId: _selectedCategoryId,
                   onSelected: (id) => setState(() => _selectedCategoryId = id),
                 ),
@@ -177,15 +178,17 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
   }
 
   static List<MediaCategory> _categoriesFromReplays(List<ReplayItem> replays) {
-    final map = <String, String>{};
+    final ids = <String>[];
+    final counts = <String, int>{};
     for (final replay in replays) {
       final id = replay.categoryId;
       if (id.isEmpty) continue;
-      map.putIfAbsent(id, () => id);
+      if (!counts.containsKey(id)) ids.add(id);
+      counts[id] = (counts[id] ?? 0) + 1;
     }
     return [
-      for (final entry in map.entries)
-        MediaCategory(id: entry.key, name: entry.value),
+      for (final id in ids)
+        MediaCategory(id: id, name: id, count: counts[id] ?? 0),
     ];
   }
 }

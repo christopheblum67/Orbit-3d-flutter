@@ -188,7 +188,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1E222D),
           title: const Text('Reprendre la lecture ?',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: Colors.white),),
           content: Text(
             'Reprendre "$title" à $timestamp ?',
             style: const TextStyle(color: Colors.white70),
@@ -197,14 +197,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Plus tard',
-                  style: TextStyle(color: Colors.white54)),
+                  style: TextStyle(color: Colors.white54),),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF00CFE8)),
+                  backgroundColor: const Color(0xFF00CFE8),),
               child: const Text('Reprendre',
-                  style: TextStyle(color: Colors.black)),
+                  style: TextStyle(color: Colors.black),),
             ),
           ],
         ),
@@ -216,7 +216,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               title: title,
               initialPositionMs: progress.positionMs,
               progressId: 'last_session',
-            ));
+            ),);
       }
     }
   }
@@ -455,22 +455,22 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           icon: Icons.live_tv,
           label: 'Live',
           done: _controller.doneSteps.contains(StartupStep.live),
-          active: current == StartupStep.live),
+          active: current == StartupStep.live,),
       _ProgressIcon(
           icon: Icons.movie_outlined,
           label: 'Films',
           done: _controller.doneSteps.contains(StartupStep.movies),
-          active: current == StartupStep.movies),
+          active: current == StartupStep.movies,),
       _ProgressIcon(
           icon: Icons.video_library_outlined,
           label: 'Séries',
           done: _controller.doneSteps.contains(StartupStep.series),
-          active: current == StartupStep.series),
+          active: current == StartupStep.series,),
       _ProgressIcon(
           icon: Icons.receipt_long_outlined,
           label: 'EPG',
           done: _controller.doneSteps.contains(StartupStep.epg),
-          active: current == StartupStep.epg),
+          active: current == StartupStep.epg,),
     ];
 
     return Padding(

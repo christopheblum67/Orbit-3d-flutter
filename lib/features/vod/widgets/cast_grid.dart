@@ -145,7 +145,7 @@ class _ActorCard extends StatelessWidget {
             // Rôle/personnage
             Text(
               actor.character,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 11,
                 fontStyle: FontStyle.italic,

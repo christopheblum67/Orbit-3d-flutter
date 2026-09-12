@@ -108,8 +108,12 @@ int _levenshteinDistance(String a, String b) {
   if (b.isEmpty) return a.length;
 
   final matrix = List.generate(a.length + 1, (i) => List.filled(b.length + 1, 0));
-  for (var i = 0; i <= a.length; i++) matrix[i][0] = i;
-  for (var j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (var i = 0; i <= a.length; i++) {
+    matrix[i][0] = i;
+  }
+  for (var j = 0; j <= b.length; j++) {
+    matrix[0][j] = j;
+  }
 
   for (var i = 1; i <= a.length; i++) {
     for (var j = 1; j <= b.length; j++) {

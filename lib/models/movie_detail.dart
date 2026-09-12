@@ -30,6 +30,10 @@ class MovieDetail {
   final int budget; // en USD
   final int revenue; // en USD
   final String status; // Released, Rumored, etc.
+  final String? tagline;
+  final int voteCount;
+  final List<String> productionCompanies;
+  final String? certification;
   final String? trailerUrl; // YouTube URL
   final String? backdropUrl;
   final String? originalLanguage;
@@ -61,6 +65,10 @@ class MovieDetail {
     this.budget = 0,
     this.revenue = 0,
     this.status = '',
+    this.tagline,
+    this.voteCount = 0,
+    this.productionCompanies = const [],
+    this.certification,
     this.trailerUrl,
     this.backdropUrl,
     this.originalLanguage,
@@ -133,6 +141,10 @@ class MovieDetail {
     int? budget,
     int? revenue,
     String? status,
+    String? tagline,
+    int? voteCount,
+    List<String>? productionCompanies,
+    String? certification,
     String? trailerUrl,
     String? backdropUrl,
     String? originalLanguage,
@@ -164,6 +176,10 @@ class MovieDetail {
       budget: budget ?? this.budget,
       revenue: revenue ?? this.revenue,
       status: status ?? this.status,
+      tagline: tagline ?? this.tagline,
+      voteCount: voteCount ?? this.voteCount,
+      productionCompanies: productionCompanies ?? this.productionCompanies,
+      certification: certification ?? this.certification,
       trailerUrl: trailerUrl ?? this.trailerUrl,
       backdropUrl: backdropUrl ?? this.backdropUrl,
       originalLanguage: originalLanguage ?? this.originalLanguage,

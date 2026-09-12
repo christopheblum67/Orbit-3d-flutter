@@ -116,12 +116,12 @@ class _ProfileSelectionScreenState
                                                   .withValues(alpha: 0.5),
                                               blurRadius: 20,
                                               spreadRadius: 4,
-                                            )
+                                            ),
                                           ]
                                         : null,
                                   ),
                                   child: ProfileAvatar(
-                                      profile: profile, size: 100),
+                                      profile: profile, size: 100,),
                                 ),
                               ),
                               Positioned(
@@ -162,7 +162,7 @@ class _ProfileSelectionScreenState
                                   left: -8,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
+                                        horizontal: 8, vertical: 3,),
                                     decoration: BoxDecoration(
                                       color:
                                           Theme.of(context).colorScheme.primary,

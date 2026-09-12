@@ -39,7 +39,7 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
           duration: const Duration(milliseconds: 300),
           child: Container(
             key: ValueKey(
-                'overlay_${connectivity.isOnline}_${stallDetector.isStalling}_$isInCooldown'),
+                'overlay_${connectivity.isOnline}_${stallDetector.isStalling}_$isInCooldown',),
             color: Colors.black.withValues(alpha: 0.5),
             child: Center(
               child: ConstrainedBox(

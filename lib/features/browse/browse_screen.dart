@@ -116,6 +116,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
               categoriesAsync.value ?? _categoriesFromMovies(movies),
           items: filtered,
           isSeries: false,
+          allItems: movies,
         );
       },
       loading: () => const LoadingState(message: 'Chargement…'),
@@ -181,6 +182,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
               categoriesAsync.value ?? _categoriesFromSeries(seriesList),
           items: filtered,
           isSeries: true,
+          allItems: seriesList,
         );
       },
       loading: () => const LoadingState(message: 'Chargement…'),
@@ -234,6 +236,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     required List<MediaCategory> categories,
     required List<dynamic> items,
     required bool isSeries,
+    required List<dynamic> allItems,
   }) {
     final libraryManager = ref.read(mediaLibraryManagerProvider);
     final mediaItems = items
@@ -250,16 +253,39 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         .map<dynamic>((item) => byId[item.id] ?? items.first)
         .toList();
 
+    final contentType = isSeries ? ContentType.series : ContentType.vod;
+    final favIds = ref
+        .read(favoritesProvider)
+        .values
+        .where((e) => e.type == contentType)
+        .map((e) => e.id)
+        .toSet();
+    final recentIds = ref
+        .read(recentlyWatchedProvider)
+        .values
+        .where((e) => e.type == contentType)
+        .map((e) => e.id)
+        .toSet();
+    final railCategories = <MediaCategory>[
+      MediaCategory(id: '', name: 'Tous', count: allItems.length),
+      MediaCategory(
+        id: 'fav',
+        name: 'Favoris',
+        count: allItems.where((e) => favIds.contains(e.id)).length,
+      ),
+      MediaCategory(
+        id: 'recent',
+        name: 'Récemment',
+        count: allItems.where((e) => recentIds.contains(e.id)).length,
+      ),
+      ...categories,
+    ];
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CategoriesRail(
-          categories: [
-            const MediaCategory(id: '', name: 'Tous'),
-            const MediaCategory(id: 'fav', name: 'Favoris'),
-            const MediaCategory(id: 'recent', name: 'Récemment'),
-            ...categories,
-          ],
+          categories: railCategories,
           selectedId: _selectedCategoryId,
           onSelected: (id) => setState(() => _selectedCategoryId = id),
         ),
@@ -485,10 +511,22 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 
     final vodList = vod.value ?? _categoriesFromMovies(movies);
     final seriesCats = series.value ?? _categoriesFromSeries(seriesList);
-    final merged = <String, MediaCategory>{
-      for (final c in [...vodList, ...seriesCats])
-        if (c.id.isNotEmpty) c.id: c,
-    };
+    final merged = <String, MediaCategory>{};
+    void add(MediaCategory c) {
+      if (c.id.isEmpty) return;
+      final existing = merged[c.id];
+      merged[c.id] = existing == null
+          ? c
+          : MediaCategory(
+              id: c.id,
+              name: existing.name,
+              count: existing.count + c.count,
+            );
+    }
+
+    for (final c in [...vodList, ...seriesCats]) {
+      add(c);
+    }
     return merged.values.toList();
   }
 
@@ -520,15 +558,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   static List<MediaCategory> _categoriesFrom(
     Iterable<(String, String)> items,
   ) {
-    final map = <String, Set<String>>{};
+    final map = <String, List<String>>{};
+    final counts = <String, int>{};
     for (final (id, name) in items) {
       if (id.isEmpty) continue;
-      map.putIfAbsent(id, () => {}).add(name);
+      map.putIfAbsent(id, () => []).add(name);
+      counts[id] = (counts[id] ?? 0) + 1;
     }
     return map.entries.map((e) {
       return MediaCategory(
         id: e.key,
         name: e.value.where((n) => n.isNotEmpty).join(', '),
+        count: counts[e.key] ?? 0,
       );
     }).toList();
   }
@@ -633,7 +674,7 @@ class _BrowseTabPill extends StatelessWidget {
 
 /// Classements populaires TMDB (équivalent FlixPatrol) : films + séries.
 class FlixPatrolView extends ConsumerStatefulWidget {
-  const FlixPatrolView();
+  const FlixPatrolView({super.key});
 
   @override
   ConsumerState<FlixPatrolView> createState() => FlixPatrolViewState();
@@ -1211,8 +1252,19 @@ class _UniversalCategoryRail extends StatelessWidget {
                         ),
                         constraints:
                             const BoxConstraints(maxWidth: 220),
-                        child: Text(
-                          cat.name,
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: cat.name),
+                              if (cat.count > 0)
+                                TextSpan(
+                                  text: ' (${cat.count})',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                            ],
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)

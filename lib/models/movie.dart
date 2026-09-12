@@ -1,7 +1,7 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
-import 'cast.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 
 class Movie {
   final String id;
@@ -61,7 +61,7 @@ class Movie {
       return a.order.compareTo(b.order);
     });
 
-    DateTime? _parseAdded(dynamic value) {
+    DateTime? parseAdded(dynamic value) {
     if (value == null) return null;
     if (value is int) {
       return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
@@ -105,7 +105,7 @@ class Movie {
       categoryId: map['category_id']?.toString() ?? '',
       cast: castList,
       crew: crewList,
-      addedDate: _parseAdded(map['added']),
+      addedDate: parseAdded(map['added']),
     );
   }
 

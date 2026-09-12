@@ -87,8 +87,12 @@ class SearchService {
 
     final matrix =
         List.generate(a.length + 1, (i) => List.filled(b.length + 1, 0));
-    for (var i = 0; i <= a.length; i++) matrix[i][0] = i;
-    for (var j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (var i = 0; i <= a.length; i++) {
+      matrix[i][0] = i;
+    }
+    for (var j = 0; j <= b.length; j++) {
+      matrix[0][j] = j;
+    }
 
     for (var i = 1; i <= a.length; i++) {
       for (var j = 1; j <= b.length; j++) {
@@ -191,7 +195,7 @@ class SearchService {
           posterUrl: '',
           score: score * 0.8,
           source: SearchSource.local,
-        ));
+        ),);
       }
     }
 
@@ -227,14 +231,14 @@ class SearchService {
           in apiResult.items.where((i) => i.type == SearchType.live)) {
         items.add(channel.copyWith(
             score: _fuzzyScore(query, channel.title),
-            source: SearchSource.xtream));
+            source: SearchSource.xtream,),);
       }
     }
     if (filterType == null || filterType == SearchType.vod) {
       for (final movie
           in apiResult.items.where((i) => i.type == SearchType.vod)) {
         items.add(movie.copyWith(
-            score: _fuzzyScore(query, movie.title), source: SearchSource.xtream));
+            score: _fuzzyScore(query, movie.title), source: SearchSource.xtream,),);
       }
     }
     if (filterType == null || filterType == SearchType.series) {
@@ -242,7 +246,7 @@ class SearchService {
           in apiResult.items.where((i) => i.type == SearchType.series)) {
         items.add(series.copyWith(
             score: _fuzzyScore(query, series.title),
-            source: SearchSource.xtream));
+            source: SearchSource.xtream,),);
       }
     }
 

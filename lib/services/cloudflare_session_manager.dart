@@ -17,7 +17,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36';
 
-  String _userAgent = _defaultUserAgent;
+  final String _userAgent = _defaultUserAgent;
   String _cookies = '';
   String _baseUrl = '';
   DateTime? _cookieExpiry;
@@ -95,13 +95,14 @@ class CloudflareSessionManager extends ChangeNotifier {
       },
       onHttpError: (error) {
         // Erreur HTTP pendant le challenge
-        if (!completer.isCompleted)
+        if (!completer.isCompleted) {
           completer.completeError(
             Exception(
-                'Cloudflare challenge failed: ${error.response?.statusCode}'),
+                'Cloudflare challenge failed: ${error.response?.statusCode}',),
           );
+        }
       },
-    ));
+    ),);
 
     _webViewController = controller;
 
@@ -112,7 +113,7 @@ class CloudflareSessionManager extends ChangeNotifier {
 
   /// Extrait les cookies Cloudflare (cf_clearance, etc.) après le challenge.
   Future<void> _extractCookies(
-      WebViewCookieManager cookieManager, String url) async {
+      WebViewCookieManager cookieManager, String url,) async {
     final uri = Uri.parse(url);
     final cookies = await cookieManager.getCookies(domain: uri);
     if (cookies.isEmpty) return;
@@ -133,7 +134,7 @@ class CloudflareSessionManager extends ChangeNotifier {
       // Estimer l'expiration (Cloudflare ~ quelques heures)
       _cookieExpiry = DateTime.now().add(const Duration(hours: 3));
       debugPrint(
-          '☁️ Cloudflare session cookies updated: ${_cookies.length} chars');
+          '☁️ Cloudflare session cookies updated: ${_cookies.length} chars',);
     }
 
     // Aussi récupérer tous les cookies en fallback

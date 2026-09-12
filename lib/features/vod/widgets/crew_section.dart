@@ -101,7 +101,6 @@ class _DepartmentSection extends StatelessWidget {
       'costume & make-up' => 'Costumes & Maquillage',
       'visual effects' => 'Effets visuels',
       'lighting' => 'Éclairage',
-      'editing' => 'Montage',
       _ => department,
     };
 
@@ -175,7 +174,7 @@ class _CrewMemberChip extends StatelessWidget {
               ),
               Text(
                 member.job,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 10,
                   fontStyle: FontStyle.italic,
