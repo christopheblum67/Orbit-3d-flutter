@@ -72,8 +72,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               message: 'La bibliothèque VOD est vide pour le moment.',
             );
           }
-          final categories =
-              categoriesAsync.value ?? _categoriesFromMovies(movies);
+          final serverCategories = categoriesAsync.value ?? <MediaCategory>[];
+          final categories = _withRealCounts(serverCategories, movies.map((m) => m.categoryId));
           final vodFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.vod)
               .map((e) => e.id)
@@ -295,6 +295,20 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ),
       ),
     );
+  }
+
+  static List<MediaCategory> _withRealCounts(
+    List<MediaCategory> serverCategories,
+    Iterable<String> itemCategoryIds,
+  ) {
+    final counts = <String, int>{};
+    for (final id in itemCategoryIds) {
+      if (id.isNotEmpty) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return serverCategories
+        .where((c) => c.id.isNotEmpty && (counts[c.id] ?? 0) > 0)
+        .map((c) => c.copyWith(count: counts[c.id] ?? 0))
+        .toList();
   }
 
   static List<MediaCategory> _categoriesFromMovies(List<Movie> movies) {
