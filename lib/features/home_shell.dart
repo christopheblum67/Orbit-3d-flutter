@@ -111,6 +111,18 @@ class HomeShell extends ConsumerWidget {
                     onDestinationSelected: (index) {
                       context.go(entries[index].route);
                     },
+                    labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
+                      (states) => TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            states.contains(WidgetState.selected)
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                        color: states.contains(WidgetState.selected)
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
                     destinations: [
                       for (final e in entries)
                         NavigationDestination(
