@@ -42,23 +42,33 @@ class RouteMeta {
   });
 
   /// Standard pop behavior.
-  const RouteMeta.pop({this.restorationId})
-      : type = BackBehaviorType.pop,
-        fallback = null,
-        customHandler = null;
+  const RouteMeta.pop({String? restorationId})
+      : this._(
+          type: BackBehaviorType.pop,
+          fallback: null,
+          customHandler: null,
+          restorationId: restorationId,
+        );
 
   /// Pop if possible, otherwise go to [fallback].
-  const RouteMeta.popOrFallback(this.fallback, {this.restorationId})
-      : type = BackBehaviorType.popOrFallback,
-        customHandler = null;
+  const RouteMeta.popOrFallback(String fallback, {String? restorationId})
+      : this._(
+          type: BackBehaviorType.popOrFallback,
+          fallback: fallback,
+          customHandler: null,
+          restorationId: restorationId,
+        );
 
   /// Custom back handling.
   const RouteMeta.custom(
     void Function(BuildContext context, GoRouter router) handler, {
-    this.restorationId,
-  }) : type = BackBehaviorType.custom,
-       fallback = null,
-       customHandler = handler;
+    String? restorationId,
+  }) : this._(
+          type: BackBehaviorType.custom,
+          fallback: null,
+          customHandler: handler,
+          restorationId: restorationId,
+        );
 }
 
 /// Typed accessors on [GoRouterState] for route metadata.
