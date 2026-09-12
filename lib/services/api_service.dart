@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
+import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
 
 class StreamNetworkException implements Exception {
   StreamNetworkException(
@@ -31,15 +32,36 @@ class StreamNetworkException implements Exception {
 }
 
 class ApiService {
-  final Dio _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 15),
-      sendTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-      followRedirects: true,
-      maxRedirects: 5,
-    ),
-  );
+  static Set<String>? _certificateFingerprints;
+
+  /// Configure les fingerprints SHA-256 autorisés pour le certificate pinning.
+  /// Si null ou vide, le pinning est désactivé.
+  static void setCertificateFingerprints(Set<String>? fingerprints) {
+    _certificateFingerprints = fingerprints?.isNotEmpty == true ? fingerprints : null;
+  }
+
+  Dio _createDio() {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        followRedirects: true,
+        maxRedirects: 5,
+      ),
+    );
+
+    // Certificate pinning si des fingerprints sont configurés
+    if (_certificateFingerprints != null && _certificateFingerprints!.isNotEmpty) {
+      dio.httpClientAdapter = createPinningHttpClientAdapter(
+        allowedFingerprints: _certificateFingerprints!,
+        logger: _logger,
+      );
+    }
+    return dio;
+  }
+
+  late final Dio _dio = _createDio();
   final SubscriptionManager _subscriptionManager = SubscriptionManager();
   final LoggerService _logger = LoggerService.instance;
 
