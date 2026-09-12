@@ -52,6 +52,11 @@ class MetadataEnrichmentService {
         year: movie.year > 0 ? movie.year : null,
       );
 
+      // Nouveau : si l'ajout de l'année fait échouer la recherche (TMDb
+      // renvoie 404 pour certains titres combinés à une année), on retente
+      // sans contrainte d'année pour ne pas perdre l'enrichissement.
+      tmdbId ??= await _tmdb.searchMovieId(movie.title);
+
       if (tmdbId != null) {
         final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
         if (tmdbDetail != null) {
@@ -71,24 +76,20 @@ class MetadataEnrichmentService {
       }
     }
 
-    // 3. TVMAZE FALLBACK CAST (si pas de casting)
-    if (detail.cast.isEmpty) {
-      int? tvmazeId;
-      if (_tvmaze.hasApiKey || true) {
-        // TVmaze n'a pas besoin de clé ; on passe l'année pour désambiguïser
-        // (remakes, séquelles) dans la recherche de films.
-        tvmazeId = await _tvmaze.searchMovieId(
-          movie.title,
-          year: movie.year > 0 ? movie.year : null,
-        );
-        if (tvmazeId != null) {
-          final tvmazeDetail = await _tvmaze.getMovieDetail(tvmazeId);
-          if (tvmazeDetail != null && tvmazeDetail.cast.isNotEmpty) {
-            detail = detail.copyWith(
-              cast: tvmazeDetail.cast,
-              tvmazeId: tvmazeId,
-            );
-          }
+    // 3. TVMAZE FALLBACK COMPLET (si cast/année/genre manquants) :
+    //    comble aussi les métadonnées (année, genre, affiche, pays, langues)
+    //    comme pour les séries, pas seulement le casting.
+    if (detail.cast.isEmpty || detail.year == 0 || detail.genre.isEmpty) {
+      // TVmaze n'a pas besoin de clé ; on passe l'année pour désambiguïser
+      // (remakes, séquelles) dans la recherche de films.
+      final tvmazeId = await _tvmaze.searchMovieId(
+        movie.title,
+        year: movie.year > 0 ? movie.year : null,
+      );
+      if (tvmazeId != null) {
+        final tvmazeDetail = await _tvmaze.getMovieDetail(tvmazeId);
+        if (tvmazeDetail != null) {
+          detail = _mergeMovieDetail(detail, tvmazeDetail);
         }
       }
     }

@@ -1,10 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
@@ -138,6 +137,14 @@ class _ProfileSelectionScreenState
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () {
+              Scaffold.of(context).openEndDrawer();
+            },
+            tooltip: 'Menu',
+          ),
+          const SizedBox(width: 4),
           if (context.canPop()) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
@@ -168,7 +175,7 @@ class _ProfileSelectionScreenState
             ),
           ),
           const SizedBox(width: 12),
-          _ProfilesCountBadge(current: current, max: max),
+          ProfilesCountBadge(current: current, max: max),
         ],
       ),
     );
@@ -253,6 +260,7 @@ class _ProfileSelectionScreenState
     final profilesAsync = ref.watch(profilesProvider);
     return ConfirmExitApp(
       child: Scaffold(
+        endDrawer: const HomeMenuDrawer(),
         body: SafeArea(
           child: profilesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -283,92 +291,6 @@ class _ProfileSelectionScreenState
             },
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ProfilesCountBadge extends StatelessWidget {
-  const _ProfilesCountBadge({required this.current, required this.max});
-
-  final int current;
-  final int max;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.primary.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.person_outline,
-            size: 16,
-            color: scheme.onPrimaryContainer,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$current / $max',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileTypeBadge extends StatelessWidget {
-  const _ProfileTypeBadge({required this.profileType});
-
-  final ProfileType profileType;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, icon, color) = switch (profileType) {
-      ProfileType.child => (
-          'Enfant',
-          Icons.child_care,
-          const Color(0xFF00CFE8)
-        ),
-      ProfileType.expert => (
-          'Expert',
-          Icons.psychology_rounded,
-          const Color(0xFF8A72FF)
-        ),
-      ProfileType.adult => (
-          'Adulte',
-          Icons.sentiment_satisfied_alt,
-          const Color(0xFFFF4D8D),
-        ),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -485,7 +407,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
             children: [
               GestureDetector(
                 onTap: widget.onEdit,
-                child: _OrbitAvatar(
+                child: OrbitAvatar(
                   profile: profile,
                   enlarged: _focused || isActive,
                 ),
@@ -502,7 +424,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                     ),
               ),
               const SizedBox(height: 6),
-              _ProfileTypeBadge(profileType: profile.profileType),
+              ProfileTypeBadge(profileType: profile.profileType),
             ],
           ),
           Positioned(
@@ -828,87 +750,6 @@ class _CardActionButtonState extends State<_CardActionButton> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Carte « + » : anneau orbital tournant autour de l'avatar généré.
-class _OrbitAvatar extends StatefulWidget {
-  const _OrbitAvatar({required this.profile, required this.enlarged});
-
-  final UserProfile profile;
-  final bool enlarged;
-
-  @override
-  State<_OrbitAvatar> createState() => _OrbitAvatarState();
-}
-
-class _OrbitAvatarState extends State<_OrbitAvatar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _spin;
-
-  @override
-  void initState() {
-    super.initState();
-    _spin = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 9),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _spin.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const base = 108.0;
-    final diameter = widget.enlarged ? base + 10 : base;
-    final disc = diameter - 8;
-    final avatarSize = disc - 12;
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        AnimatedBuilder(
-          animation: _spin,
-          builder: (context, _) => Transform.rotate(
-            angle: _spin.value * 2 * math.pi,
-            child: Container(
-              width: diameter,
-              height: diameter,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: SweepGradient(
-                  colors: [
-                    scheme.tertiary,
-                    scheme.primary,
-                    scheme.secondary,
-                    scheme.tertiary,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Container(
-          width: disc,
-          height: disc,
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: scheme.surfaceContainerLow,
-          ),
-          alignment: Alignment.center,
-          child: ProfileAvatar(
-            profile: widget.profile,
-            size: avatarSize,
-          ),
-        ),
-      ],
     );
   }
 }
