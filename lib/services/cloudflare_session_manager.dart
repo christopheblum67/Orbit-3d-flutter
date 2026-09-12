@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:orbit_3d_flutter/services/api_service.dart';
 
 /// Gestionnaire de session Cloudflare pour le zapping IPTV.
 ///
@@ -23,9 +22,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   DateTime? _cookieExpiry;
   bool _isInitialized = false;
   bool _isChallenging = false;
-  WebViewController? _webViewController;
   Timer? _renewalTimer;
-  final ApiService _api = ApiService();
 
   String get userAgent => _userAgent;
   String get cookies => _cookies;
@@ -65,7 +62,8 @@ class CloudflareSessionManager extends ChangeNotifier {
 
   /// Effectue le challenge Cloudflare via WebView headless.
   Future<void> _performChallenge() async {
-    final controller = WebViewController()
+    final controller = WebViewController();
+    controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(_userAgent);
 
@@ -77,43 +75,51 @@ class CloudflareSessionManager extends ChangeNotifier {
     }
 
     final cookieManager = WebViewCookieManager();
-
     final completer = Completer<void>();
 
+    void onPageStarted(String url) {
+      // Page de challenge Cloudflare chargee
+    }
+
+    Future<void> onPageFinished(String url) async {
+      // Challenge reussi, on recupere les cookies
+      await _extractCookies(cookieManager, url);
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    NavigationDecision onNavigationRequest(NavigationRequest request) {
+      // Suivre les redirections Cloudflare
+      return NavigationDecision.navigate;
+    }
+
+    void onHttpError(HttpResponseError error) {
+      // Erreur HTTP pendant le challenge
+      if (!completer.isCompleted) {
+        completer.completeError(
+          Exception(
+            'Cloudflare challenge failed: ${error.response?.statusCode}',
+          ),
+        );
+      }
+    }
+
     controller.setNavigationDelegate(NavigationDelegate(
-      onPageStarted: (url) {
-        // Page de challenge Cloudflare chargée
-      },
-      onPageFinished: (url) async {
-        // Challenge réussi, on récupère les cookies
-        await _extractCookies(cookieManager, url);
-        if (!completer.isCompleted) completer.complete();
-      },
-      onNavigationRequest: (request) {
-        // Suivre les redirections Cloudflare
-        return NavigationDecision.navigate;
-      },
-      onHttpError: (error) {
-        // Erreur HTTP pendant le challenge
-        if (!completer.isCompleted) {
-          completer.completeError(
-            Exception(
-                'Cloudflare challenge failed: ${error.response?.statusCode}',),
-          );
-        }
-      },
-    ),);
+      onPageStarted: onPageStarted,
+      onPageFinished: onPageFinished,
+      onNavigationRequest: onNavigationRequest,
+      onHttpError: onHttpError,
+    ),
+    );
 
-    _webViewController = controller;
-
-    // Charger l'URL de base du fournisseur IPTV
     await controller.loadRequest(Uri.parse(_baseUrl));
     await completer.future;
   }
 
   /// Extrait les cookies Cloudflare (cf_clearance, etc.) après le challenge.
   Future<void> _extractCookies(
-      WebViewCookieManager cookieManager, String url,) async {
+    WebViewCookieManager cookieManager,
+    String url,
+  ) async {
     final uri = Uri.parse(url);
     final cookies = await cookieManager.getCookies(domain: uri);
     if (cookies.isEmpty) return;
@@ -134,7 +140,8 @@ class CloudflareSessionManager extends ChangeNotifier {
       // Estimer l'expiration (Cloudflare ~ quelques heures)
       _cookieExpiry = DateTime.now().add(const Duration(hours: 3));
       debugPrint(
-          '☁️ Cloudflare session cookies updated: ${_cookies.length} chars',);
+        '☁️ Cloudflare session cookies updated: ${_cookies.length} chars',
+      );
     }
 
     // Aussi récupérer tous les cookies en fallback
@@ -192,7 +199,6 @@ class CloudflareSessionManager extends ChangeNotifier {
   @override
   void dispose() {
     _renewalTimer?.cancel();
-    _webViewController = null;
     super.dispose();
   }
 }

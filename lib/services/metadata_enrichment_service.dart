@@ -260,21 +260,4 @@ class MetadataEnrichmentService {
     final img = seed % 70 + 1;
     return 'https://i.pravatar.cc/300?img=$img';
   }
-
-  static int? _asInt(dynamic value) {
-    if (value is num) return value.toInt();
-    if (value is String) {
-      final parsed = int.tryParse(value.trim());
-      if (parsed != null) return parsed;
-    }
-    return null;
-  }
-
-  static List<String> _asStringList(dynamic value) {
-    if (value is! List) return const [];
-    return value
-        .map((e) => e?.toString().trim() ?? '')
-        .where((e) => e.isNotEmpty)
-        .toList();
-  }
 }

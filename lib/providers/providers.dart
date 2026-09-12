@@ -242,7 +242,6 @@ final enrichmentServiceProvider = Provider<MetadataEnrichmentService>((ref) {
 final searchServiceProvider = Provider<SearchService>((ref) {
   final service = SearchService(
     api: ref.watch(apiServiceProvider),
-    storage: ref.watch(storageServiceProvider),
     tmdb: ref.watch(tmdbServiceProvider),
     tvmaze: ref.watch(tvmazeServiceProvider),
   );

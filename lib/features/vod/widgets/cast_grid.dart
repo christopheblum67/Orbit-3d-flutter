@@ -77,10 +77,6 @@ class _ActorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final hasPhoto = actor.hasProfile;
-
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(

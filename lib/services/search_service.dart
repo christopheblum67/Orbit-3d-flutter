@@ -1,26 +1,12 @@
 import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
-import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
-import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-
-class _XtreamSearchResult {
-  final List<Channel> live;
-  final List<Movie> vod;
-  final List<Series> series;
-
-  _XtreamSearchResult({
-    required this.live,
-    required this.vod,
-    required this.series,
-  });
-}
 
 class SearchService {
   static const String _historyBoxName = 'search_history';
@@ -28,7 +14,6 @@ class SearchService {
   static const Duration _historyTtl = Duration(days: 30);
 
   final ApiService _api;
-  final StorageService _storage;
   final TmdbService _tmdb;
   final TvmazeService _tvmaze;
   final LoggerService _logger = LoggerService.instance;
@@ -37,11 +22,9 @@ class SearchService {
 
   SearchService({
     required ApiService api,
-    required StorageService storage,
     required TmdbService tmdb,
     required TvmazeService tvmaze,
   })  : _api = api,
-        _storage = storage,
         _tmdb = tmdb,
         _tvmaze = tvmaze {
     _initHistoryBox();

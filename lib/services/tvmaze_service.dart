@@ -174,8 +174,6 @@ class TvmazeService {
     }
 
     final genres = (data['genres'] as List<dynamic>? ?? []).join(', ');
-    final network =
-        data['network']?['name'] ?? data['webChannel']?['name'] ?? '';
     final country = data['network']?['country']?['name'] ??
         data['webChannel']?['country']?['name'] ??
         '';
