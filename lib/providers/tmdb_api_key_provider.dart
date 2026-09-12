@@ -6,12 +6,13 @@ import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
 /// L'état est une chaîne vide tant que l'utilisateur n'a pas saisi sa propre
 /// clé : dans ce cas l'app retombe sur la clé partagée (`.env` / build).
 final tmdbApiKeyOverrideProvider =
-    StateNotifierProvider<TmdbApiKeyOverrideNotifier, String>(
-  (ref) => TmdbApiKeyOverrideNotifier(),
+    NotifierProvider<TmdbApiKeyOverrideNotifier, String>(
+  TmdbApiKeyOverrideNotifier.new,
 );
 
-class TmdbApiKeyOverrideNotifier extends StateNotifier<String> {
-  TmdbApiKeyOverrideNotifier() : super('');
+class TmdbApiKeyOverrideNotifier extends Notifier<String> {
+  @override
+  String build() => '';
 
   Future<void> load() async {
     await TmdbApiKeyStore.instance.load();

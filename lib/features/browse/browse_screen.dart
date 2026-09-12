@@ -505,9 +505,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   List<MediaCategory> _universalCategories() {
     final vod = ref.watch(vodCategoriesProvider);
     final series = ref.watch(seriesCategoriesProvider);
-    final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
+    final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
     final seriesList =
-        ref.watch(seriesProvider).valueOrNull ?? const <Series>[];
+        ref.watch(seriesProvider).value ?? const <Series>[];
 
     final vodList = vod.value ?? _categoriesFromMovies(movies);
     final seriesCats = series.value ?? _categoriesFromSeries(seriesList);
@@ -534,9 +534,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   /// si elle y existe, sinon on bascule sur l'autre onglet.
   void _selectUniversalCategory(MediaCategory cat) {
     final currentCats = _tab == _BrowseTab.series
-        ? (ref.read(seriesCategoriesProvider).valueOrNull ??
+        ? (ref.read(seriesCategoriesProvider).value ??
             const <MediaCategory>[])
-        : (ref.read(vodCategoriesProvider).valueOrNull ??
+        : (ref.read(vodCategoriesProvider).value ??
             const <MediaCategory>[]);
     if (currentCats.any((c) => c.id == cat.id)) {
       setState(() => _selectedCategoryId = cat.id);
@@ -749,7 +749,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
     // actif pour permettre la lecture (sinon on reste sur le classement).
     final normalized = entry.title.trim().toLowerCase();
     if (entry.isTv) {
-      final series = ref.read(seriesProvider).valueOrNull ?? const <Series>[];
+      final series = ref.read(seriesProvider).value ?? const <Series>[];
       Series? match;
       for (final s in series) {
         if (s.title.trim().toLowerCase() == normalized) {
@@ -765,7 +765,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
         return;
       }
     } else {
-      final movies = ref.read(moviesProvider).valueOrNull ?? const <Movie>[];
+      final movies = ref.read(moviesProvider).value ?? const <Movie>[];
       Movie? match;
       for (final m in movies) {
         if (m.title.trim().toLowerCase() == normalized) {

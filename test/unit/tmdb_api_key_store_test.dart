@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
@@ -8,7 +9,10 @@ void main() {
 
   test('override vide => on retombe sur la clé partagée (sans .env en test)', () async {
     SharedPreferences.setMockInitialValues({});
-    final notifier = TmdbApiKeyOverrideNotifier();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(tmdbApiKeyOverrideProvider);
+    final notifier = container.read(tmdbApiKeyOverrideProvider.notifier);
     await notifier.load();
 
     expect(notifier.state, isEmpty);
@@ -20,7 +24,10 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'tmdb_api_key_override': 'ma-cle-tmdb',
     });
-    final notifier = TmdbApiKeyOverrideNotifier();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(tmdbApiKeyOverrideProvider);
+    final notifier = container.read(tmdbApiKeyOverrideProvider.notifier);
     await notifier.load();
 
     expect(notifier.state, 'ma-cle-tmdb');
@@ -29,7 +36,10 @@ void main() {
 
   test('setOverride enregistre puis vide le réglage', () async {
     SharedPreferences.setMockInitialValues({});
-    final notifier = TmdbApiKeyOverrideNotifier();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(tmdbApiKeyOverrideProvider);
+    final notifier = container.read(tmdbApiKeyOverrideProvider.notifier);
     await notifier.load();
 
     await notifier.setOverride('  abc123  ');

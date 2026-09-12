@@ -246,7 +246,7 @@ class _ActorDetailBody extends ConsumerWidget {
   void _openMovie(BuildContext context, WidgetRef ref, MovieCredit credit) {
     if (credit.tmdbId <= 0) return;
     final normalized = credit.title.trim().toLowerCase();
-    final movies = ref.read(moviesProvider).valueOrNull ?? const <Movie>[];
+    final movies = ref.read(moviesProvider).value ?? const <Movie>[];
     Movie? match;
     for (final m in movies) {
       if (m.title.trim().toLowerCase() == normalized) {

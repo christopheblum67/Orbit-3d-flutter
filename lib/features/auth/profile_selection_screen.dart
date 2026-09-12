@@ -75,7 +75,7 @@ class _ProfileSelectionScreenState
                       vertical: 16,
                     ),
                     onTap: () {
-                      ref.read(currentProfileProvider.notifier).state = profile;
+                      ref.read(currentProfileProvider.notifier).setUserProfile(profile);
                       ref
                           .read(storageServiceProvider)
                           .setSetting('last_profile_id', profile.id);

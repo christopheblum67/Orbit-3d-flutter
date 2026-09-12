@@ -293,7 +293,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         await ref.read(storageServiceProvider).saveProfile(updated);
         final current = ref.read(currentProfileProvider);
         if (current?.id == updated.id) {
-          ref.read(currentProfileProvider.notifier).state = updated;
+          ref.read(currentProfileProvider.notifier).setUserProfile(updated);
           ref.read(profileTypeProvider.notifier).loadFromProfile(updated);
         }
         ref.invalidate(profilesProvider);
@@ -302,7 +302,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       }
 
       final profiles =
-          ref.read(profilesProvider).valueOrNull ?? const <UserProfile>[];
+          ref.read(profilesProvider).value ?? const <UserProfile>[];
       final maxAllowed =
           profiles.isEmpty ? 5 : profiles.first.maxProfilesAllowed;
       if (profiles.length >= maxAllowed) {

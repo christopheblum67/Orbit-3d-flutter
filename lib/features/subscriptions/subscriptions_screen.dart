@@ -18,7 +18,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {
     final subs = ref.watch(subscriptionsProvider);
-    final activeId = ref.watch(activeSubscriptionProvider).valueOrNull?.id;
+    final activeId = ref.watch(activeSubscriptionProvider).value?.id;
 
     return Scaffold(
       appBar: AppBar(

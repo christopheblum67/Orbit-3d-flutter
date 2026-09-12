@@ -509,7 +509,7 @@ class _MovieDetailContent extends ConsumerWidget {
   void _openSimilarMovie(
       BuildContext context, WidgetRef ref, TmdbRankEntry entry,) {
     final normalized = entry.title.trim().toLowerCase();
-    final movies = ref.read(moviesProvider).valueOrNull ?? const <Movie>[];
+    final movies = ref.read(moviesProvider).value ?? const <Movie>[];
     Movie? match;
     for (final m in movies) {
       if (m.title.trim().toLowerCase() == normalized) {

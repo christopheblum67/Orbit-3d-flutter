@@ -3,25 +3,25 @@ import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 final preferencesProvider =
-    StateNotifierProvider<PreferencesNotifier, UserPreferences>(
-  (ref) => PreferencesNotifier(ref),
+    NotifierProvider<PreferencesNotifier, UserPreferences>(
+  PreferencesNotifier.new,
 );
 
-class PreferencesNotifier extends StateNotifier<UserPreferences> {
-  final Ref _ref;
-
-  PreferencesNotifier(this._ref) : super(const UserPreferences()) {
+class PreferencesNotifier extends Notifier<UserPreferences> {
+  @override
+  UserPreferences build() {
     _load();
+    return const UserPreferences();
   }
 
   Future<void> _load() async {
-    final storage = _ref.read(storageServiceProvider);
+    final storage = ref.read(storageServiceProvider);
     final prefs = await storage.getPreferences();
     state = prefs;
   }
 
   Future<void> update(UserPreferences prefs) async {
-    final storage = _ref.read(storageServiceProvider);
+    final storage = ref.read(storageServiceProvider);
     await storage.savePreferences(prefs);
     state = prefs;
   }
@@ -63,7 +63,16 @@ class PreferencesNotifier extends StateNotifier<UserPreferences> {
   }
 }
 
-final parentalPinProvider = StateProvider<String?>((ref) => null);
+final parentalPinProvider = NotifierProvider<ParentalPinNotifier, String?>(
+  ParentalPinNotifier.new,
+);
+
+class ParentalPinNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? pin) => state = pin;
+}
 
 final parentalPinControllerProvider = Provider<ParentalPinController>((ref) {
   return ParentalPinController(ref);
@@ -76,19 +85,19 @@ class ParentalPinController {
   Future<void> setPin(String pin) async {
     final storage = _ref.read(storageServiceProvider);
     await storage.setParentalPin(pin);
-    _ref.read(parentalPinProvider.notifier).state = pin;
+    _ref.read(parentalPinProvider.notifier).set(pin);
   }
 
   Future<void> clearPin() async {
     final storage = _ref.read(storageServiceProvider);
     await storage.clearParentalPin();
-    _ref.read(parentalPinProvider.notifier).state = null;
+    _ref.read(parentalPinProvider.notifier).set(null);
   }
 
   Future<String?> getPin() async {
     final storage = _ref.read(storageServiceProvider);
     final pin = await storage.getParentalPin();
-    _ref.read(parentalPinProvider.notifier).state = pin;
+    _ref.read(parentalPinProvider.notifier).set(pin);
     return pin;
   }
 }

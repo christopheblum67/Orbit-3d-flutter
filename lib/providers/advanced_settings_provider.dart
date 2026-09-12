@@ -183,8 +183,9 @@ class AdvancedSettings {
   static const kHighContrast = 'high_contrast';
 }
 
-class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
-  AdvancedSettingsNotifier() : super(const AdvancedSettings());
+class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
+  @override
+  AdvancedSettings build() => const AdvancedSettings();
 
   SharedPreferences? _prefs;
 
@@ -357,8 +358,8 @@ class AdvancedSettingsNotifier extends StateNotifier<AdvancedSettings> {
 }
 
 final advancedSettingsProvider =
-    StateNotifierProvider<AdvancedSettingsNotifier, AdvancedSettings>(
-  (ref) => AdvancedSettingsNotifier(),
+    NotifierProvider<AdvancedSettingsNotifier, AdvancedSettings>(
+  AdvancedSettingsNotifier.new,
 );
 
 PlayerPerTypeConfig _readPlayerConfig(

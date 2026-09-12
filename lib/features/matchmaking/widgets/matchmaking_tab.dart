@@ -134,7 +134,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
 
   Widget _buildGroupHeader(UserProfile profile) {
     final profiles =
-        ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
+        ref.watch(profilesProvider).value ?? const <UserProfile>[];
     final others = profiles.where((p) => p.id != profile.id).toList();
 
     // Validation : max 4 profils (incluant le profil courant)

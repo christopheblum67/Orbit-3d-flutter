@@ -389,8 +389,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                                 .saveProfile(updated);
                             final current = ref.read(currentProfileProvider);
                             if (current?.id == updated.id) {
-                              ref.read(currentProfileProvider.notifier).state =
-                                  updated;
+                              ref.read(currentProfileProvider.notifier)
+                                  .setUserProfile(updated);
                             }
                             ref.invalidate(profilesProvider);
                             if (context.mounted) context.pop();

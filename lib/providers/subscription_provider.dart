@@ -5,13 +5,15 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 
-class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
-  final StorageService _storage;
-  final Ref _ref;
+class SubscriptionsNotifier extends Notifier<List<Subscription>> {
+  late StorageService _storage;
   Future<void>? _initialLoad;
 
-  SubscriptionsNotifier(this._storage, this._ref) : super([]) {
+  @override
+  List<Subscription> build() {
+    _storage = ref.watch(storageServiceProvider);
     _initialLoad = _loadSubscriptions();
+    return [];
   }
 
   Future<void> _ensureLoaded() async {
@@ -24,14 +26,14 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> _loadSubscriptions() async {
     await _storage.migrateFromSharedPreferences();
     final subs = await _storage.getSubscriptions();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = subs;
   }
 
   Future<void> addSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = [...state, subscription];
     if (subscription.type == SubscriptionType.xtream) {
       refreshValidity(subscription.id);
@@ -41,7 +43,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> updateSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state =
         state.map((s) => s.id == subscription.id ? subscription : s).toList();
     if (subscription.type == SubscriptionType.xtream) {
@@ -52,7 +54,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   Future<void> deleteSubscription(String id) async {
     await _ensureLoaded();
     await _storage.deleteSubscription(id);
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = state.where((s) => s.id != id).toList();
   }
 
@@ -71,7 +73,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     for (final sub in subscriptions) {
       await _storage.saveSubscription(sub);
     }
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = subscriptions;
 
     // N'invalide les données que si l'abonnement actif change réellement :
@@ -80,17 +82,17 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     final actualChange = id != previouslyActive;
     if (!actualChange) return;
 
-    _ref.invalidate(activeSubscriptionProvider);
+    ref.invalidate(activeSubscriptionProvider);
     // Invalide TOUS les fournisseurs de données pour forcer un rechargement
     // complet au changement d'abonnement (changement de serveur/catalogue).
-    _ref.invalidate(liveChannelsProvider);
-    _ref.invalidate(moviesProvider);
-    _ref.invalidate(seriesProvider);
-    _ref.invalidate(replaysProvider);
-    _ref.invalidate(radioChannelsProvider);
-    _ref.invalidate(epgProgramsProvider);
-    _ref.invalidate(epgDataCacheProvider);
-    _ref.invalidate(recentlyWatchedProvider);
+    ref.invalidate(liveChannelsProvider);
+    ref.invalidate(moviesProvider);
+    ref.invalidate(seriesProvider);
+    ref.invalidate(replaysProvider);
+    ref.invalidate(radioChannelsProvider);
+    ref.invalidate(epgProgramsProvider);
+    ref.invalidate(epgDataCacheProvider);
+    ref.invalidate(recentlyWatchedProvider);
     // Cache REPLAYS : c'est un singleton GLOBAL (pas un provider) → il faut
     // l'invalider explicitement, sinon le TTL 5 min sert les replays de
     // l'ancien abonnement au nouveau.
@@ -98,7 +100,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     // Outrepasse la règle des 30 min : on marque les données comme non
     // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
     // re-autorisé immédiatement après un changement d'abonnement.
-    _ref.read(lastRefreshTimestampProvider.notifier).state = null;
+    ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
     // Rafraîchit la validité du serveur activé (Xtream) à la volée.
     Subscription? activated;
     for (final s in subscriptions) {
@@ -130,7 +132,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
     );
 
     await _storage.saveSubscription(updated);
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = [
       ...state.sublist(0, index),
       updated,
@@ -143,7 +145,7 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
   /// Sans effet pour les playlists M3U (aucune validité serveur).
   Future<void> refreshValidity(String id, {ApiService? api}) async {
     await _ensureLoaded();
-    if (!mounted) return;
+    if (!ref.mounted) return;
     final index = state.indexWhere((s) => s.id == id);
     if (index == -1) return;
     final sub = state[index];
@@ -151,24 +153,24 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
 
     final apiService = api ?? ApiService();
     final expiry = await apiService.fetchExpiration();
-    if (!mounted || expiry == null) return;
+    if (!ref.mounted || expiry == null) return;
 
     final updated = sub.copyWith(validUntil: expiry);
     await _storage.saveSubscription(updated);
-    if (!mounted) return;
+    if (!ref.mounted) return;
     state = [
       ...state.sublist(0, index),
       updated,
       ...state.sublist(index + 1),
     ];
-    _ref.invalidate(activeSubscriptionProvider);
+    ref.invalidate(activeSubscriptionProvider);
   }
 
   Future<void> testConnection(Subscription sub, {ApiService? api}) async {
-    _ref.read(subscriptionsTestingProvider.notifier).state = {
-      ..._ref.read(subscriptionsTestingProvider),
+    ref.read(subscriptionsTestingProvider.notifier).set({
+      ...ref.read(subscriptionsTestingProvider),
       sub.id,
-    };
+    });
     final apiService = api ?? ApiService();
     final stopwatch = Stopwatch()..start();
 
@@ -207,9 +209,10 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
         error: e.toString(),
       );
     } finally {
-      final current = _ref.read(subscriptionsTestingProvider);
-      _ref.read(subscriptionsTestingProvider.notifier).state = {...current}
-        ..remove(sub.id);
+      final current = ref.read(subscriptionsTestingProvider);
+      ref
+          .read(subscriptionsTestingProvider.notifier)
+          .set({...current}..remove(sub.id));
     }
   }
 
@@ -235,11 +238,8 @@ class SubscriptionsNotifier extends StateNotifier<List<Subscription>> {
 }
 
 final subscriptionsProvider =
-    StateNotifierProvider<SubscriptionsNotifier, List<Subscription>>(
-  (ref) {
-    final storage = ref.watch(storageServiceProvider);
-    return SubscriptionsNotifier(storage, ref);
-  },
+    NotifierProvider<SubscriptionsNotifier, List<Subscription>>(
+  SubscriptionsNotifier.new,
 );
 
 final activeSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
@@ -247,4 +247,14 @@ final activeSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
   return storage.getActiveSubscription();
 });
 
-final subscriptionsTestingProvider = StateProvider<Set<String>>((ref) => {});
+final subscriptionsTestingProvider =
+    NotifierProvider<SubscriptionsTestingNotifier, Set<String>>(
+  SubscriptionsTestingNotifier.new,
+);
+
+class SubscriptionsTestingNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  void set(Set<String> value) => state = value;
+}

@@ -94,7 +94,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);
@@ -135,7 +135,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);
@@ -173,7 +173,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
         ],
       );
       addTearDown(container.dispose);

@@ -148,8 +148,10 @@ Future<void> main() async {
             .overrideWithValue(playbackProgressService),
         notificationServiceProvider.overrideWithValue(notificationService),
         mediaLibraryManagerProvider.overrideWithValue(mediaLibraryManager),
-        currentProfileProvider.overrideWith((ref) => restoredProfile),
-        lastRefreshTimestampProvider.overrideWith((ref) => lastRefresh),
+        currentProfileProvider
+            .overrideWithBuild((ref, notifier) => restoredProfile),
+        lastRefreshTimestampProvider
+            .overrideWithBuild((ref, notifier) => lastRefresh),
       ],
       child: const OrbitApp(),
     ),
@@ -641,6 +643,9 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   @override
   void initState() {
     super.initState();
+    // Riverpod 3 : build() doit être passé avant toute utilisation du notifier.
+    ref.read(advancedSettingsProvider);
+    ref.read(tmdbApiKeyOverrideProvider);
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
     unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
   }
