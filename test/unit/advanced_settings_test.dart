@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +8,10 @@ void main() {
 
   test('valeurs par défaut appliquées quand rien n\'est persisté', () async {
     SharedPreferences.setMockInitialValues({});
-    final notifier = AdvancedSettingsNotifier();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(advancedSettingsProvider);
+    final notifier = container.read(advancedSettingsProvider.notifier);
     await notifier.load();
 
     expect(notifier.state.useTlsImpersonation, isTrue);
@@ -25,7 +29,10 @@ void main() {
       AdvancedSettings.kTlsImpersonation: true,
       AdvancedSettings.kDnsProvider: '8.8.8.8 (Google DoH)',
     });
-    final notifier = AdvancedSettingsNotifier();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(advancedSettingsProvider);
+    final notifier = container.read(advancedSettingsProvider.notifier);
     await notifier.load();
 
     await notifier.setTlsImpersonation(false);
@@ -49,7 +56,11 @@ void main() {
     expect(prefs.getBool(AdvancedSettings.kNightFocus), isTrue);
     expect(prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb), 6.0);
 
-    final reloaded = AdvancedSettingsNotifier();
+    final reloadedContainer = ProviderContainer();
+    addTearDown(reloadedContainer.dispose);
+    reloadedContainer.read(advancedSettingsProvider);
+    final reloaded =
+        reloadedContainer.read(advancedSettingsProvider.notifier);
     await reloaded.load();
     expect(reloaded.state.useTlsImpersonation, isFalse);
     expect(reloaded.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');

@@ -295,7 +295,16 @@ final playbackProgressProvider =
   return ref.watch(playbackProgressServiceProvider).get(id);
 });
 
-final currentProfileProvider = StateProvider<UserProfile?>((ref) => null);
+final currentProfileProvider = NotifierProvider<CurrentProfileNotifier, UserProfile?>(
+  CurrentProfileNotifier.new,
+);
+
+class CurrentProfileNotifier extends Notifier<UserProfile?> {
+  @override
+  UserProfile? build() => null;
+
+  void setUserProfile(UserProfile? profile) => state = profile;
+}
 
 final sourceTypeProvider = FutureProvider<String?>((ref) async {
   final sub =
@@ -618,7 +627,17 @@ class StreamAiException implements Exception {
 
 /// Horodatage de la dernière mise à jour des flux (UTC), durabilisé afin
 /// d'afficher « Dernière mise à jour : … » dans la barre supérieure.
-final lastRefreshTimestampProvider = StateProvider<DateTime?>((ref) => null);
+final lastRefreshTimestampProvider =
+    NotifierProvider<LastRefreshTimestampNotifier, DateTime?>(
+  LastRefreshTimestampNotifier.new,
+);
+
+class LastRefreshTimestampNotifier extends Notifier<DateTime?> {
+  @override
+  DateTime? build() => null;
+
+  void setTimestamp(DateTime? value) => state = value;
+}
 
 Future<void> persistLastRefresh(DateTime timestamp) async {
   try {

@@ -45,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
+    final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final items = _OrbitItem.buildAll(isM3u: isM3u);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
@@ -218,7 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Horodate la mise à jour (même en succès partiel : la donnée affichée
     // « Mis à jour il y a X min » reflète le dernier rechargement réel).
-    ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
+    ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(DateTime.now());
 
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -469,7 +469,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 _buildProfileAvatar(
                   context,
                   current,
-                  profilesAsync.valueOrNull ?? const <UserProfile>[],
+                  profilesAsync.value ?? const <UserProfile>[],
                 ),
               ],
             ),
@@ -579,7 +579,7 @@ class _SubStatusChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sub = ref.watch(activeSubscriptionProvider).valueOrNull;
+    final sub = ref.watch(activeSubscriptionProvider).value;
     final scheme = Theme.of(context).colorScheme;
     final name = sub?.name ?? '';
     final validity = sub?.validityLabel ?? '';

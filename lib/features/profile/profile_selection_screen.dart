@@ -29,14 +29,14 @@ class _ProfileSelectionScreenState
   Future<void> _selectProfile(UserProfile profile) async {
     // Enfant/Expert protégé par PIN : vérification avant de continuer.
     if ((profile.isChild || profile.isExpert) && profile.hasPin) {
-      ref.read(currentProfileProvider.notifier).state = profile;
+      ref.read(currentProfileProvider.notifier).setUserProfile(profile);
       final ok = await context.push<bool>(
         '/profile/pin',
         extra: PinPadArgs.verify(profile),
       );
       if (!mounted) return;
       if (ok != true) {
-        ref.read(currentProfileProvider.notifier).state = null;
+        ref.read(currentProfileProvider.notifier).setUserProfile(null);
         ref.read(profileTypeProvider.notifier).clear();
         return;
       }
@@ -46,7 +46,7 @@ class _ProfileSelectionScreenState
 
   Future<void> _finishSelect(UserProfile profile) async {
     final refreshed = profile.copyWith(lastActiveAt: DateTime.now());
-    ref.read(currentProfileProvider.notifier).state = refreshed;
+    ref.read(currentProfileProvider.notifier).setUserProfile(refreshed);
     ref.read(profileTypeProvider.notifier).loadFromProfile(refreshed);
     final storage = ref.read(storageServiceProvider);
     await storage.saveProfile(refreshed);
@@ -73,7 +73,7 @@ class _ProfileSelectionScreenState
   }
 
   void _openDelete(UserProfile profile) {
-    final profiles = ref.read(profilesProvider).valueOrNull ?? const [];
+    final profiles = ref.read(profilesProvider).value ?? const [];
     if (profiles.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -112,7 +112,7 @@ class _ProfileSelectionScreenState
               }
               final current = ref.read(currentProfileProvider);
               if (current?.id == profile.id) {
-                ref.read(currentProfileProvider.notifier).state = null;
+                ref.read(currentProfileProvider.notifier).setUserProfile(null);
                 ref.read(profileTypeProvider.notifier).clear();
               }
               ref.invalidate(profilesProvider);

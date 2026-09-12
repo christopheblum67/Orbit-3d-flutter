@@ -90,7 +90,7 @@ class _AccountTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final sub = ref.watch(activeSubscriptionProvider).valueOrNull;
+    final sub = ref.watch(activeSubscriptionProvider).value;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [

@@ -15,7 +15,7 @@ class HomeMenuDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
+    final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final profile = ref.watch(currentProfileProvider);
     final sections = <_MenuSection>[
       _MenuSection(

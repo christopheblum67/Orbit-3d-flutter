@@ -76,7 +76,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       _navigated = true;
       // Marque la mise à jour comme faite pour que le bouton d'accueil
       // affiche l'horodatage au lieu de « Jamais mis à jour ».
-      ref.read(lastRefreshTimestampProvider.notifier).state = DateTime.now();
+      ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(DateTime.now());
       Future<void>.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) context.go('/home');
       });
@@ -110,8 +110,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     _recommendations = engine.build(
       movies: _controller.movies,
       series: _controller.series,
-      radios: ref.read(radioChannelsProvider).valueOrNull ?? const [],
-      replays: ref.read(replaysProvider).valueOrNull ?? const [],
+      radios: ref.read(radioChannelsProvider).value ?? const [],
+      replays: ref.read(replaysProvider).value ?? const [],
       watchedTitles: watched.toList(),
     );
     if (_recommendations.isEmpty) {
@@ -158,8 +158,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     final refreshed = engine.build(
       movies: _controller.movies,
       series: _controller.series,
-      radios: ref.read(radioChannelsProvider).valueOrNull ?? const [],
-      replays: ref.read(replaysProvider).valueOrNull ?? const [],
+      radios: ref.read(radioChannelsProvider).value ?? const [],
+      replays: ref.read(replaysProvider).value ?? const [],
       watchedTitles: watched.toList(),
     );
     if (mounted && refreshed.isNotEmpty) {

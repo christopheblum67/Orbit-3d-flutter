@@ -170,7 +170,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           watchedEpisodesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => profile),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
         ],
       );
       addTearDown(container.dispose);
@@ -204,7 +204,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           watchedEpisodesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => profile),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
         ],
       );
       addTearDown(container.dispose);
@@ -235,7 +235,7 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           watchedEpisodesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith((ref) => profile),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
         ],
       );
       addTearDown(container.dispose);

@@ -7,7 +7,6 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:collection/collection.dart';
 
 const int kMatchmakingLimit = 50;
@@ -124,8 +123,8 @@ final matchmakingProvider = FutureProvider.autoDispose
     return const <Recommendation>[];
   }
 
-  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
-  final series = ref.watch(seriesProvider).valueOrNull ?? const <Series>[];
+  final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
+  final series = ref.watch(seriesProvider).value ?? const <Series>[];
   if (movies.isEmpty && series.isEmpty) return const <Recommendation>[];
 
   final favorites = profile.favoriteGenres
@@ -160,8 +159,9 @@ final matchmakingProvider = FutureProvider.autoDispose
 // ---------------------------------------------------------------------------
 
 /// Genres sélectionnés pour filtrer les recommandations (session-only, OR logic).
-class MatchmakingGenreFilterNotifier extends StateNotifier<Set<String>> {
-  MatchmakingGenreFilterNotifier() : super(const <String>{});
+class MatchmakingGenreFilterNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const <String>{};
 
   void toggle(String genre) {
     if (state.contains(genre)) {
@@ -177,51 +177,47 @@ class MatchmakingGenreFilterNotifier extends StateNotifier<Set<String>> {
 }
 
 final matchmakingGenreFilterProvider =
-    StateNotifierProvider<MatchmakingGenreFilterNotifier, Set<String>>((ref) {
-  return MatchmakingGenreFilterNotifier();
-});
+    NotifierProvider<MatchmakingGenreFilterNotifier, Set<String>>(
+  MatchmakingGenreFilterNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
 // Dismissed / seen recommendations (persisted per profile via StorageService)
 // ---------------------------------------------------------------------------
 
 /// Ensemble d'ids de recommandations marquées (retirées ou déjà vues) par profil.
-class RecoFlagIdsNotifier extends StateNotifier<Set<String>> {
-  RecoFlagIdsNotifier(this._storage, this._profileId, this._flagKey)
-      : super(const <String>{}) {
-    final raw = _storage.getSetting('${_flagKey}_$_profileId');
-    if (raw is List) {
-      state = raw.cast<String>().toSet();
-    }
-  }
+class RecoFlagIdsNotifier extends Notifier<Set<String>> {
+  RecoFlagIdsNotifier(this.profileId, this.flagKey);
 
-  final StorageService _storage;
-  final String _profileId;
-  final String _flagKey;
+  final String profileId;
+  final String flagKey;
+
+  @override
+  Set<String> build() {
+    final storage = ref.watch(storageServiceProvider);
+    final raw = storage.getSetting('${flagKey}_$profileId');
+    return raw is List ? raw.cast<String>().toSet() : const <String>{};
+  }
 
   Future<void> add(String id) async {
     if (state.contains(id)) return;
     state = {...state, id};
-    await _storage.setSetting('${_flagKey}_$_profileId', state.toList());
+    final storage = ref.read(storageServiceProvider);
+    await storage.setSetting('${flagKey}_$profileId', state.toList());
   }
 }
 
-AutoDisposeStateNotifierProviderFamily<RecoFlagIdsNotifier, Set<String>, String>
-    _recoFlagProvider(String flagKey) {
-  return StateNotifierProvider.autoDispose
-      .family<RecoFlagIdsNotifier, Set<String>, String>(
-    (ref, profileId) {
-      final storage = ref.watch(storageServiceProvider);
-      return RecoFlagIdsNotifier(storage, profileId, flagKey);
-    },
-  );
-}
-
 /// Recommandations retirées par l'utilisateur (long-press → « Retirer »).
-final dismissedRecoIdsProvider = _recoFlagProvider('dismissed_recos');
+final dismissedRecoIdsProvider = NotifierProvider.autoDispose
+    .family<RecoFlagIdsNotifier, Set<String>, String>(
+  (profileId) => RecoFlagIdsNotifier(profileId, 'dismissed_recos'),
+);
 
 /// Recommandations marquées « Déjà vu » par l'utilisateur.
-final seenRecoIdsProvider = _recoFlagProvider('seen_recos');
+final seenRecoIdsProvider = NotifierProvider.autoDispose
+    .family<RecoFlagIdsNotifier, Set<String>, String>(
+  (profileId) => RecoFlagIdsNotifier(profileId, 'seen_recos'),
+);
 
 // ---------------------------------------------------------------------------
 // Matchmaking multi-profil (comparaison « En duo » avec % d'affinité)
@@ -348,7 +344,7 @@ final recommendationTitlesProvider = Provider<Set<String>>((ref) {
     flixPatrolTopRatedTvProvider,
   ];
   for (final p in providers) {
-    final list = ref.watch(p).valueOrNull ?? const <TmdbRankEntry>[];
+    final list = ref.watch(p).value ?? const <TmdbRankEntry>[];
     for (final e in list) {
       final t = _normTitle(e.title);
       if (t.isNotEmpty) titles.add(t);
@@ -418,8 +414,8 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     return (movies: const <ScoredReco>[], series: const <ScoredReco>[]);
   }
 
-  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
-  final series = ref.watch(seriesProvider).valueOrNull ?? const <Series>[];
+  final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
+  final series = ref.watch(seriesProvider).value ?? const <Series>[];
   if (movies.isEmpty && series.isEmpty) {
     return (movies: const <ScoredReco>[], series: const <ScoredReco>[]);
   }
@@ -467,7 +463,7 @@ List<GroupReco> _computeGroupScored(Ref ref, ProfileGroup group) {
   if (group.length < 2 || group.length > 4) return const [];
 
   final profiles =
-      ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
+      ref.watch(profilesProvider).value ?? const <UserProfile>[];
   final selectedProfiles = <UserProfile>[];
   for (final id in group) {
     final p = profiles.firstWhereOrNull((p) => p.id == id);
@@ -491,8 +487,8 @@ List<GroupReco> _computeGroupScored(Ref ref, ProfileGroup group) {
   }
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
 
-  final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
-  final series = ref.watch(seriesProvider).valueOrNull ?? const <Series>[];
+  final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
+  final series = ref.watch(seriesProvider).value ?? const <Series>[];
   if (movies.isEmpty && series.isEmpty) return const [];
 
   final scored = <GroupReco>[];

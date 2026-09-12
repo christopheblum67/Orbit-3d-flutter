@@ -42,8 +42,8 @@ void main() {
       container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWith(
-            (ref) => UserProfile(
+          currentProfileProvider.overrideWithBuild(
+            (ref, notifier) => UserProfile(
               id: 'test_profile',
               firstName: 'Test',
               dateOfBirth: DateTime(2000, 1, 1),

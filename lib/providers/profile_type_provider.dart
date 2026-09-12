@@ -16,10 +16,9 @@ class ProfileTypeState {
   }
 }
 
-class ProfileTypeNotifier extends StateNotifier<ProfileTypeState> {
-  final Ref _ref;
-
-  ProfileTypeNotifier(this._ref) : super(ProfileTypeState());
+class ProfileTypeNotifier extends Notifier<ProfileTypeState> {
+  @override
+  ProfileTypeState build() => ProfileTypeState();
 
   void loadFromProfile(UserProfile? profile) {
     if (profile != null) {
@@ -30,7 +29,7 @@ class ProfileTypeNotifier extends StateNotifier<ProfileTypeState> {
   Future<void> setType(ProfileType type, {String? pin}) async {
     state = state.copyWith(isLoading: true);
 
-    final currentProfile = _ref.read(currentProfileProvider);
+    final currentProfile = ref.read(currentProfileProvider);
     if (currentProfile == null) {
       state = state.copyWith(isLoading: false);
       return;
@@ -52,15 +51,15 @@ class ProfileTypeNotifier extends StateNotifier<ProfileTypeState> {
       updatedAt: DateTime.now(),
     );
 
-    final storage = _ref.read(storageServiceProvider);
+    final storage = ref.read(storageServiceProvider);
     await storage.saveProfile(updatedProfile);
 
-    _ref.read(currentProfileProvider.notifier).state = updatedProfile;
+    ref.read(currentProfileProvider.notifier).setUserProfile(updatedProfile);
     state = state.copyWith(currentType: type, isLoading: false);
   }
 
   bool verifyPin(String input) {
-    final currentProfile = _ref.read(currentProfileProvider);
+    final currentProfile = ref.read(currentProfileProvider);
     if (currentProfile == null || currentProfile.pinHash == null) {
       return false;
     }
@@ -78,6 +77,6 @@ class ProfileTypeNotifier extends StateNotifier<ProfileTypeState> {
 }
 
 final profileTypeProvider =
-    StateNotifierProvider<ProfileTypeNotifier, ProfileTypeState>(
-  (ref) => ProfileTypeNotifier(ref),
+    NotifierProvider<ProfileTypeNotifier, ProfileTypeState>(
+  ProfileTypeNotifier.new,
 );
