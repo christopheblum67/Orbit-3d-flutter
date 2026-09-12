@@ -72,8 +72,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               message: 'La bibliothèque de séries est vide pour le moment.',
             );
           }
-          final categories =
-              categoriesAsync.value ?? _categoriesFromSeries(seriesList);
+          final serverCategories = categoriesAsync.value ?? <MediaCategory>[];
+          final categories = _withRealCounts(serverCategories, seriesList.map((s) => s.categoryId));
           final seriesFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.series)
               .map((e) => e.id)
@@ -309,6 +309,20 @@ return TvFocus(
         ),
       ),
     );
+  }
+
+  static List<MediaCategory> _withRealCounts(
+    List<MediaCategory> serverCategories,
+    Iterable<String> itemCategoryIds,
+  ) {
+    final counts = <String, int>{};
+    for (final id in itemCategoryIds) {
+      if (id.isNotEmpty) counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return serverCategories
+        .where((c) => c.id.isNotEmpty && (counts[c.id] ?? 0) > 0)
+        .map((c) => c.copyWith(count: counts[c.id] ?? 0))
+        .toList();
   }
 
   static List<MediaCategory> _categoriesFromSeries(List<Series> seriesList) {
