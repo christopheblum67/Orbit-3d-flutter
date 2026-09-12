@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 /// Drawer applicatif réutilisable (« chevalet » ☰) : menu de sous-navigation
@@ -117,11 +118,7 @@ class HomeMenuDrawer extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Icon(
-                    Icons.live_tv,
-                    size: 40,
-                    color: scheme.onPrimaryContainer,
-                  ),
+                  const OrbitLogoIcon(size: 40),
                   const SizedBox(height: 8),
                   Text(
                     AppConstants.appName,

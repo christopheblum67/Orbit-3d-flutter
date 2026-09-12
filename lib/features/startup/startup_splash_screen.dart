@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/core/services/personalized_recommendations.dart';
+import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -289,6 +290,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     return Column(
       children: [
         const SizedBox(height: 24),
+        const OrbitLogoIcon(size: 56),
+        const SizedBox(height: 16),
         const Text(
           'Pour vous',
           style: TextStyle(

@@ -44,6 +44,7 @@ dev_dependencies:
   hive_generator: ^2.0.1
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 dependency_overrides:
   video_player_android:
     path: third_party/video_player_android
@@ -57,4 +58,18 @@ flutter:
     # .env embarqué : clé partagée TMDB_API_KEY (Option A) lue par dotenv au
     # boot. Fichier gitignoré : la clé ne part jamais sur le repo.
     - .env
+
+# Icônes du lanceur Android + bannière Android TV (Leanback). Nécessite des
+# fichiers rectangulaires préparés :
+#   - assets/icons/app_icon.png  (1024x1024, symbole centré, fond transparent)
+#   - assets/icons/tv_banner.png (320x180, bandeau Leanback)
+# Génération : `dart run flutter_launcher_icons`.
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  banner_image_path: "assets/icons/tv_banner.png"
+  adaptive_icon_background: "#0F172A"
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
 
