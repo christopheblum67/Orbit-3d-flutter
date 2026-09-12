@@ -29,7 +29,10 @@ class StallDetector extends ChangeNotifier {
 
   /// Démarre la surveillance pour le controller donné.
   void start(VideoPlayerController controller) {
-    if (_isRunning) return;
+    // Sécurité : annuler tout timer existant avant d'en démarrer un nouveau
+    if (_isRunning) {
+      stop();
+    }
     _controller = controller;
     _lastPosition = controller.value.position;
     _lastCheckTime = DateTime.now();

@@ -1,11 +1,9 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Clé API TMDB pour les classements FlixPatrol.
 ///
-/// Priorité à l'override saisi dans Réglages (option A validée), repli sur la
-/// clé de build `TMDB_API_KEY` (`.env`). Pas de blocage réseau au démarrage :
-/// la clé est lue à chaque requête (intercepteur Dio).
+/// **L'utilisateur doit saisir sa propre clé dans Réglages → Contenu.**
+/// Plus de clé de build partagée (`.env`) : évite exposition accidentelle.
 class TmdbApiKeyStore {
   TmdbApiKeyStore._();
 
@@ -15,25 +13,13 @@ class TmdbApiKeyStore {
 
   String _override = '';
 
-  /// Override saisi par l'utilisateur (Réglages → Classements TMDB).
+  /// Override saisi par l'utilisateur (Réglages → Contenu → Clé API TMDB).
   String get override => _override;
 
-  /// Clé effective à injecter dans les requêtes : override sinon `.env`.
-  String get effectiveKey {
-    final overridden = _override.trim();
-    if (overridden.isNotEmpty) return overridden;
-    return _env('TMDB_API_KEY');
-  }
+  /// Clé effective à injecter dans les requêtes : **uniquement l'override utilisateur**.
+  String get effectiveKey => _override.trim();
 
   bool get hasEffectiveKey => effectiveKey.isNotEmpty;
-
-  static String _env(String key) {
-    try {
-      return dotenv.env[key] ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
 
   /// Charge l'override persistant (appelé au démarrage de l'app).
   Future<void> load() async {

@@ -34,10 +34,8 @@ class TmdbService {
           ),
         ) {
     _initCache();
-    // La clé API est injectée à la volée : un override saisi dans Réglages
-    // (clé personnelle) prime sur la clé partagée embarquée (`.env`).
-    // La requête de validation (`tmdb_validate`) court-circuite l'injection
-    // pour tester précisément la clé saisie.
+    // La clé API est injectée à la volée : **uniquement l'override utilisateur**
+    /// (Réglages → Contenu → Clé API TMDB). Pas de clé de build partagée.
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
