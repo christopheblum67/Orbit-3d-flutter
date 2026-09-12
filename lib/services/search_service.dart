@@ -4,9 +4,8 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
-import 'package:orbit_3d_flutter/models/movie.dart';
-import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 class SearchService {
   static const String _historyBoxName = 'search_history';
@@ -17,8 +16,6 @@ class SearchService {
   final TmdbService _tmdb;
   final TvmazeService _tvmaze;
   final LoggerService _logger = LoggerService.instance;
-
-  Box<SearchHistoryEntry>? _historyBox;
 
   SearchService({
     required ApiService api,
@@ -32,26 +29,25 @@ class SearchService {
 
   Future<void> _initHistoryBox() async {
     if (!Hive.isBoxOpen(_historyBoxName)) {
-      _historyBox = await Hive.openBox<SearchHistoryEntry>(_historyBoxName);
-    } else {
-      _historyBox = Hive.box<SearchHistoryEntry>(_historyBoxName);
+      await Hive.openBox<SearchHistoryEntry>(_historyBoxName);
     }
     _cleanupHistory();
   }
 
   void _cleanupHistory() {
-    if (_historyBox == null) return;
-    final now = DateTime.now();
-    final keysToDelete = <dynamic>[];
-    for (final key in _historyBox!.keys) {
-      final entry = _historyBox!.get(key);
-      if (entry != null && now.difference(entry.timestamp) > _historyTtl) {
-        keysToDelete.add(key);
+    HiveSync.readBox<SearchHistoryEntry, void>(_historyBoxName, (box) {
+      final now = DateTime.now();
+      final keysToDelete = <dynamic>[];
+      for (final key in box.keys) {
+        final entry = box.get(key);
+        if (entry != null && now.difference(entry.timestamp) > _historyTtl) {
+          keysToDelete.add(key);
+        }
       }
-    }
-    for (final key in keysToDelete) {
-      _historyBox!.delete(key);
-    }
+      for (final key in keysToDelete) {
+        box.delete(key);
+      }
+    });
   }
 
   String _normalize(String query) {
@@ -147,267 +143,182 @@ class SearchService {
     final normalized = _normalize(query);
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
-    try {
-      final localResults = await _localSearch(normalized, filterType: filterType);
-      final remoteResults = await _remoteSearch(normalized, filterType: filterType);
-      final merged = _mergeAndRank(localResults, remoteResults, normalized);
+    // 1. Recherche locale (historique + favoris + récemment regardé)
+    final localResults = await _searchLocal(normalized);
 
-      _enrichAsync(merged.items);
+    // 2. Recherche distante (TMDB, TVmaze, API Xtream)
+    final remoteResults = await _searchRemote(normalized, filterType: filterType);
 
-      return merged.take(limit);
-    } catch (e, stack) {
-      _logger.error('Search error: $e', stackTrace: stack);
-      final localOnly = await _localSearch(normalized, filterType: filterType);
-      return localOnly.take(limit).copyWith(isOffline: true);
-    }
-  }
+    // 3. Fusion & déduplication
+    final allItems = <SearchItem>[];
+    allItems.addAll(localResults);
+    allItems.addAll(remoteResults);
 
-  Future<UnifiedSearchResult> _localSearch(String query, {SearchType? filterType}) async {
-    final items = <SearchItem>[];
-    final history = await getHistory();
-
-    for (final h in history) {
-      final score = _fuzzyScore(query, h);
-      if (score > 0.3) {
-        items.add(SearchItem(
-          id: 'history_$h',
-          type: SearchType.vod,
-          title: h,
-          subtitle: 'Historique',
-          posterUrl: '',
-          score: score * 0.8,
-          source: SearchSource.local,
-        ),);
-      }
-    }
-
-    final favorites = await _getFavorites();
-    for (final fav in favorites) {
-      if (filterType != null && fav.type != filterType) continue;
-      final score = _fuzzyScore(query, fav.title);
-      if (score > 0.3) {
-        items.add(fav.copyWith(score: score * 0.9, source: SearchSource.local));
-      }
-    }
-
-    final recent = await _getRecentlyWatched();
-    for (final rec in recent) {
-      if (filterType != null && rec.type != filterType) continue;
-      final score = _fuzzyScore(query, rec.title);
-      if (score > 0.3) {
-        items
-            .add(rec.copyWith(score: score * 0.85, source: SearchSource.local));
-      }
-    }
-
-    items.sort((a, b) => b.score.compareTo(a.score));
-    return UnifiedSearchResult(items: items);
-  }
-
-  Future<UnifiedSearchResult> _remoteSearch(String query, {SearchType? filterType}) async {
-    final apiResult = await _api.search(query);
-    final items = <SearchItem>[];
-
-    if (filterType == null || filterType == SearchType.live) {
-      for (final channel
-          in apiResult.items.where((i) => i.type == SearchType.live)) {
-        items.add(channel.copyWith(
-            score: _fuzzyScore(query, channel.title),
-            source: SearchSource.xtream,),);
-      }
-    }
-    if (filterType == null || filterType == SearchType.vod) {
-      for (final movie
-          in apiResult.items.where((i) => i.type == SearchType.vod)) {
-        items.add(movie.copyWith(
-            score: _fuzzyScore(query, movie.title), source: SearchSource.xtream,),);
-      }
-    }
-    if (filterType == null || filterType == SearchType.series) {
-      for (final series
-          in apiResult.items.where((i) => i.type == SearchType.series)) {
-        items.add(series.copyWith(
-            score: _fuzzyScore(query, series.title),
-            source: SearchSource.xtream,),);
-      }
-    }
-
-    items.sort((a, b) => b.score.compareTo(a.score));
-    return UnifiedSearchResult(items: items);
-  }
-
-  UnifiedSearchResult _mergeAndRank(
-    UnifiedSearchResult local,
-    UnifiedSearchResult remote,
-    String query,
-  ) {
-    final allItems = <SearchItem>[
-      ...local.items,
-      ...remote.items,
-    ];
-
-    final seenIds = <String>{};
-    final uniqueItems = <SearchItem>[];
-
+    // Déduplication par ID + type
+    final seen = <String>{};
+    final unique = <SearchItem>[];
     for (final item in allItems) {
-      final key = '${item.type}_${item.id}';
-      if (!seenIds.contains(key)) {
-        seenIds.add(key);
-        final scoredItem = item.copyWith(score: _calculateScore(query, item));
-        uniqueItems.add(scoredItem);
-      }
+      final key = '${item.type}:${item.id}';
+      if (seen.add(key)) unique.add(item);
     }
 
-    uniqueItems.sort((a, b) => b.score.compareTo(a.score));
-    return UnifiedSearchResult(items: uniqueItems);
+    // Scoring & tri
+    unique.sort((a, b) => _calculateScore(normalized, b).compareTo(_calculateScore(normalized, a)));
+
+    // Historique
+    await addToHistory(normalized);
+
+    return UnifiedSearchResult(
+      items: unique.take(limit).toList(),
+      timestamp: DateTime.now(),
+    );
   }
 
-  void _enrichAsync(List<SearchItem> items) {
-    unawaited(_enrichItems(items));
+  Future<List<SearchItem>> _searchLocal(String query) async {
+    final items = <SearchItem>[];
+
+    // Historique de recherche - on ajoute comme suggestions textuelles
+    try {
+      final history = await getHistory();
+      for (final h in history) {
+        items.add(SearchItem(
+          id: 'history-$h',
+          type: SearchType.vod, // type par défaut pour l'affichage
+          title: h,
+          subtitle: 'Recherche récente',
+          posterUrl: '',
+          score: 0.5,
+          source: SearchSource.local,
+        ));
+      }
+    } catch (_) {}
+
+    // Favoris
+    try {
+      items.addAll(await _getFavorites());
+    } catch (_) {}
+
+    // Récemment regardé
+    try {
+      items.addAll(await _getRecentlyWatched());
+    } catch (_) {}
+
+    return items;
   }
 
-  Future<void> _enrichItems(List<SearchItem> items) async {
-    for (final item in items.take(10)) {
+  Future<List<SearchItem>> _searchRemote(String query, {SearchType? filterType}) async {
+    final results = <SearchItem>[];
+
+    // TMDB (films + séries)
+    if (filterType == null || filterType == SearchType.vod || filterType == SearchType.series) {
       try {
-        if (item.type == SearchType.vod && item.originalObject is Movie) {
-          final movie = item.originalObject as Movie;
-          if (movie.year > 0) {
-            final tmdbId =
-                await _tmdb.searchMovieId(movie.title, year: movie.year);
-            if (tmdbId != null) {
-              final detail = await _tmdb.getMovieDetail(tmdbId);
-              if (detail != null && detail.posterUrl.isNotEmpty) {
-                final index = items.indexOf(item);
-                if (index != -1) {
-                  items[index] = item.copyWith(posterUrl: detail.posterUrl);
-                }
-              }
+        // Recherche films
+        if (filterType == null || filterType == SearchType.vod) {
+          final movieId = await _tmdb.searchMovieId(query);
+          if (movieId != null) {
+            final movie = await _tmdb.getMovieDetail(movieId);
+            if (movie != null) {
+              results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
             }
           }
-        } else if (item.type == SearchType.series &&
-            item.originalObject is Series) {
-          final series = item.originalObject as Series;
-          if (series.year > 0) {
-            final tvmazeId = await _tvmaze.searchShowId(series.title);
-            if (tvmazeId != null) {
-              final detail = await _tvmaze.getShowDetail(tvmazeId);
-              if (detail != null && detail.coverUrl.isNotEmpty) {
-                final index = items.indexOf(item);
-                if (index != -1) {
-                  items[index] = item.copyWith(posterUrl: detail.coverUrl);
-                }
-              }
+        }
+        // Recherche séries
+        if (filterType == null || filterType == SearchType.series) {
+          final tvId = await _tmdb.searchTvId(query);
+          if (tvId != null) {
+            final series = await _tmdb.getTvDetail(tvId);
+            if (series != null) {
+              results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
             }
           }
         }
       } catch (e) {
-        _logger.warning('Enrichment failed for ${item.title}: $e');
+        _logger.warning('TMDB search failed: $e');
       }
     }
-  }
 
-  Stream<List<SearchSuggestion>> suggestions(String query) async* {
-    if (query.trim().length < 2) {
-      yield [];
-      return;
+    // TVmaze (séries)
+    if (filterType == null || filterType == SearchType.series) {
+      try {
+        final showId = await _tvmaze.searchShowId(query);
+        if (showId != null) {
+          final show = await _tvmaze.getShowDetail(showId);
+          if (show != null) {
+            results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+          }
+        }
+      } catch (e) {
+        _logger.warning('TVmaze search failed: $e');
+      }
     }
 
-    final normalized = _normalize(query);
-    final history = await getHistory();
-
-    final historySuggestions = history
-        .where((h) => _normalize(h).contains(normalized))
-        .take(5)
-        .map((h) => SearchSuggestion(text: h, isHistory: true))
-        .toList();
-
-    yield historySuggestions;
-
-    try {
-      final apiResult = await _api.search(normalized);
-      final apiSuggestions = <SearchSuggestion>[];
-
-      for (final item
-          in apiResult.items.where((i) => i.type == SearchType.live).take(3)) {
-        apiSuggestions
-            .add(SearchSuggestion(text: item.title, type: SearchType.live));
+    // API Xtream (live + VOD + séries)
+    if (filterType == null || filterType == SearchType.live || filterType == SearchType.vod || filterType == SearchType.series) {
+      try {
+        final xtreamResults = await _api.search(query);
+        results.addAll(xtreamResults.items);
+      } catch (e) {
+        _logger.warning('API search failed: $e');
       }
-      for (final item
-          in apiResult.items.where((i) => i.type == SearchType.vod).take(3)) {
-        apiSuggestions
-            .add(SearchSuggestion(text: item.title, type: SearchType.vod));
-      }
-      for (final item in apiResult.items
-          .where((i) => i.type == SearchType.series)
-          .take(3)) {
-        apiSuggestions
-            .add(SearchSuggestion(text: item.title, type: SearchType.series));
-      }
-
-      if (apiSuggestions.isNotEmpty) {
-        yield [...historySuggestions, ...apiSuggestions];
-      }
-    } catch (_) {
-      yield historySuggestions;
     }
+
+    return results;
   }
 
   Future<void> addToHistory(String query) async {
-    if (_historyBox == null) await _initHistoryBox();
-    if (_historyBox == null) return;
+    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName, (box) async {
+      final normalized = _normalize(query);
+      if (normalized.length < 2) return;
 
-    final normalized = _normalize(query);
-    if (normalized.length < 2) return;
-
-    final existingKeys = <dynamic>[];
-    for (final key in _historyBox!.keys) {
-      final entry = _historyBox!.get(key);
-      if (entry != null && entry.query == normalized) {
-        existingKeys.add(key);
-      }
-    }
-    for (final key in existingKeys) {
-      await _historyBox!.delete(key);
-    }
-
-    final entry = SearchHistoryEntry(
-      query: normalized,
-      timestamp: DateTime.now(),
-      resultCount: 0,
-    );
-
-    await _historyBox!.add(entry);
-
-    if (_historyBox!.length > _maxHistoryEntries) {
-      var oldestKey = _historyBox!.keys.first;
-      var oldestEntry = _historyBox!.get(oldestKey);
-      for (final key in _historyBox!.keys) {
-        final entry = _historyBox!.get(key);
-        if (entry != null &&
-            oldestEntry != null &&
-            entry.timestamp.isBefore(oldestEntry.timestamp)) {
-          oldestKey = key;
-          oldestEntry = entry;
+      final existingKeys = <dynamic>[];
+      for (final key in box.keys) {
+        final entry = box.get(key);
+        if (entry != null && entry.query == normalized) {
+          existingKeys.add(key);
         }
       }
-      await _historyBox!.delete(oldestKey);
-    }
+      for (final key in existingKeys) {
+        box.delete(key);
+      }
+
+      final entry = SearchHistoryEntry(
+        query: normalized,
+        timestamp: DateTime.now(),
+        resultCount: 0,
+      );
+
+      await box.add(entry);
+
+      if (box.length > _maxHistoryEntries) {
+        var oldestKey = box.keys.first;
+        var oldestEntry = box.get(oldestKey);
+        for (final key in box.keys) {
+          final entry = box.get(key);
+          if (entry != null &&
+              oldestEntry != null &&
+              entry.timestamp.isBefore(oldestEntry.timestamp)) {
+            oldestKey = key;
+            oldestEntry = entry;
+          }
+        }
+        await box.delete(oldestKey);
+      }
+    });
   }
 
   Future<List<String>> getHistory() async {
-    if (_historyBox == null) await _initHistoryBox();
-    if (_historyBox == null) return [];
+    return HiveSync.readBox<SearchHistoryEntry, List<String>>(_historyBoxName, (box) {
+      final entries = box.values.toList()
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    final entries = _historyBox!.values.toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    return entries.map((e) => e.query).toList();
+      return entries.map((e) => e.query).toList();
+    });
   }
 
   Future<void> clearHistory() async {
-    if (_historyBox != null) {
-      await _historyBox!.clear();
-    }
+    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName, (box) async {
+      await box.clear();
+    });
   }
 
   Future<List<SearchItem>> _getFavorites() async {
@@ -427,9 +338,29 @@ class SearchService {
   }
 
   void dispose() {
-    if (_historyBox != null && _historyBox!.isOpen) {
-      _historyBox!.close();
+    HiveSync.readBox<SearchHistoryEntry, void>(_historyBoxName, (box) {
+      if (box.isOpen) {
+        box.close();
+      }
+    });
+  }
+
+  /// Fournit des suggestions de recherche en temps réel (pour l'autocomplétion).
+  Stream<List<SearchSuggestion>> suggestions(String query) async* {
+    if (query.trim().length < 2) {
+      yield [];
+      return;
     }
+
+    final history = await getHistory();
+    final normalized = _normalize(query);
+    final suggestions = history
+        .where((h) => _normalize(h).contains(normalized))
+        .take(5)
+        .map((h) => SearchSuggestion(text: h, isHistory: true))
+        .toList();
+
+    yield suggestions;
   }
 }
 
@@ -457,20 +388,6 @@ extension SearchItemCopyWith on SearchItem {
       score: score ?? this.score,
       source: source ?? this.source,
       originalObject: originalObject ?? this.originalObject,
-    );
-  }
-}
-
-extension UnifiedSearchResultCopyWith on UnifiedSearchResult {
-  UnifiedSearchResult copyWith({
-    List<SearchItem>? items,
-    bool? isOffline,
-    DateTime? timestamp,
-  }) {
-    return UnifiedSearchResult(
-      items: items ?? this.items,
-      isOffline: isOffline ?? this.isOffline,
-      timestamp: timestamp ?? this.timestamp,
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 /// Progression de lecture enregistrée pour un média (film / épisode de série).
 class PlaybackProgress {
@@ -35,10 +36,11 @@ class PlaybackProgressService {
     int positionMs,
     int durationMs,
   ) async {
-    final box = Hive.box<String>(_boxName);
-    final value =
-        '$positionMs|$durationMs|${DateTime.now().millisecondsSinceEpoch}';
-    await box.put(id, value);
+    await HiveSync.write(_boxName, (box) {
+      final value =
+          '$positionMs|$durationMs|${DateTime.now().millisecondsSinceEpoch}';
+      box.put(id, value);
+    });
   }
 
   PlaybackProgress? get(String id) {
@@ -58,7 +60,6 @@ class PlaybackProgressService {
   }
 
   Future<void> clear(String id) async {
-    final box = Hive.box<String>(_boxName);
-    await box.delete(id);
+    await HiveSync.write(_boxName, (box) => box.delete(id));
   }
 }

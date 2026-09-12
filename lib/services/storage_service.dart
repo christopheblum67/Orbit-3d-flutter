@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 class StorageService {
   static const String _profilesBox = 'profiles';
@@ -17,58 +18,53 @@ class StorageService {
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    final box = Hive.box(_profilesBox);
-    await box.put(profile.id, profile.toMap());
+    await HiveSync.write(_profilesBox, (box) => box.put(profile.id, profile.toMap()));
   }
 
   Future<List<UserProfile>> getProfiles() async {
-    final box = Hive.box(_profilesBox);
-    return box.values
-        .whereType<Map>()
-        .map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e)))
-        .toList();
+    return HiveSync.read(_profilesBox, (box) {
+      return box.values
+          .whereType<Map>()
+          .map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
+    });
   }
 
   Future<void> deleteProfile(String id) async {
-    final box = Hive.box(_profilesBox);
-    await box.delete(id);
+    await HiveSync.write(_profilesBox, (box) => box.delete(id));
   }
 
   static const String _prefsKey = 'user_preferences';
   static const String _parentalPinKey = 'parental_pin';
 
   Future<void> savePreferences(UserPreferences prefs) async {
-    final box = Hive.box(_settingsBox);
-    await box.put(_prefsKey, prefs.toMap());
+    await HiveSync.write(_settingsBox, (box) => box.put(_prefsKey, prefs.toMap()));
   }
 
   Future<UserPreferences> getPreferences() async {
-    final box = Hive.box(_settingsBox);
-    final map = box.get(_prefsKey);
-    if (map is Map) {
-      return UserPreferences.fromMap(Map<String, dynamic>.from(map));
-    }
-    return const UserPreferences();
+    return HiveSync.read(_settingsBox, (box) {
+      final map = box.get(_prefsKey);
+      if (map is Map) {
+        return UserPreferences.fromMap(Map<String, dynamic>.from(map));
+      }
+      return const UserPreferences();
+    });
   }
 
   Future<void> setParentalPin(String pin) async {
-    final box = Hive.box(_settingsBox);
-    await box.put(_parentalPinKey, pin);
+    await HiveSync.write(_settingsBox, (box) => box.put(_parentalPinKey, pin));
   }
 
   Future<String?> getParentalPin() async {
-    final box = Hive.box(_settingsBox);
-    return box.get(_parentalPinKey);
+    return HiveSync.read(_settingsBox, (box) => box.get(_parentalPinKey));
   }
 
   Future<void> clearParentalPin() async {
-    final box = Hive.box(_settingsBox);
-    await box.delete(_parentalPinKey);
+    await HiveSync.write(_settingsBox, (box) => box.delete(_parentalPinKey));
   }
 
   Future<void> setSetting(String key, dynamic value) async {
-    final box = Hive.box(_settingsBox);
-    await box.put(key, value);
+    await HiveSync.write(_settingsBox, (box) => box.put(key, value));
   }
 
   dynamic getSetting(String key) {
@@ -79,39 +75,37 @@ class StorageService {
   // --- Subscriptions ---
 
   Future<void> saveSubscription(Subscription subscription) async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    await box.put(subscription.id, subscription);
+    await HiveSync.write(_subscriptionsBox, (box) => box.put(subscription.id, subscription));
   }
 
   Future<List<Subscription>> getSubscriptions() async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    return box.values.toList();
+    return HiveSync.read(_subscriptionsBox, (box) => box.values.cast<Subscription>().toList());
   }
 
   Future<Subscription?> getActiveSubscription() async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    for (final s in box.values) {
-      if (s.isActive) return s;
-    }
-    return null;
+    return HiveSync.read(_subscriptionsBox, (box) {
+      for (final s in box.values) {
+        if (s.isActive) return s;
+      }
+      return null;
+    });
   }
 
   Future<void> deleteSubscription(String id) async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    await box.delete(id);
+    await HiveSync.write(_subscriptionsBox, (box) => box.delete(id));
   }
 
   Future<void> clearSubscriptions() async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    await box.clear();
+    await HiveSync.write(_subscriptionsBox, (box) => box.clear());
   }
 
   Future<void> setActiveSubscription(String id) async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    for (final sub in box.values) {
-      final updated = sub.copyWith(isActive: sub.id == id);
-      await box.put(sub.id, updated);
-    }
+    await HiveSync.write(_subscriptionsBox, (box) {
+      for (final sub in box.values) {
+        final updated = sub.copyWith(isActive: sub.id == id);
+        box.put(sub.id, updated);
+      }
+    });
   }
 
   Future<void> migrateFromSharedPreferences() async {

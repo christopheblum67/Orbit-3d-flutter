@@ -23,6 +23,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   bool _isInitialized = false;
   bool _isChallenging = false;
   Timer? _renewalTimer;
+  Completer<void>? _challengeLock; // Mutex pour éviter race conditions
 
   String get userAgent => _userAgent;
   String get cookies => _cookies;
@@ -43,11 +44,14 @@ class CloudflareSessionManager extends ChangeNotifier {
   Future<void> initialize({required String baseUrl}) async {
     if (_isInitialized && _cookies.isNotEmpty) return;
 
-    _baseUrl = baseUrl;
-    _isChallenging = true;
-    notifyListeners();
+    // Acquérir le lock pour éviter race condition initialize/renew/getFreshHeaders
+    await _acquireChallengeLock();
 
     try {
+      _baseUrl = baseUrl;
+      _isChallenging = true;
+      notifyListeners();
+
       await _performChallenge();
       _isInitialized = true;
       _isChallenging = false;
@@ -57,7 +61,23 @@ class CloudflareSessionManager extends ChangeNotifier {
       _isChallenging = false;
       notifyListeners();
       rethrow;
+    } finally {
+      _releaseChallengeLock();
     }
+  }
+
+  /// Acquiert le mutex pour challenge Cloudflare (évite appels parallèles).
+  Future<void> _acquireChallengeLock() async {
+    if (_challengeLock != null) {
+      await _challengeLock!.future;
+    }
+    _challengeLock = Completer<void>();
+  }
+
+  /// Libère le mutex.
+  void _releaseChallengeLock() {
+    _challengeLock?.complete();
+    _challengeLock = null;
   }
 
   /// Effectue le challenge Cloudflare via WebView headless.
@@ -153,11 +173,21 @@ class CloudflareSessionManager extends ChangeNotifier {
 
   /// Renouvelle la session (re-challenge) si cookies expirés ou invalides.
   Future<void> renewSession() async {
+    // Attendre si un challenge est en cours (mutex)
+    if (_challengeLock != null) {
+      await _challengeLock!.future;
+    }
     if (_isChallenging) return;
-    debugPrint('☁️ Renewing Cloudflare session...');
-    _cookies = '';
-    _cookieExpiry = null;
-    await initialize(baseUrl: _baseUrl);
+    
+    await _acquireChallengeLock();
+    try {
+      debugPrint('☁️ Renewing Cloudflare session...');
+      _cookies = '';
+      _cookieExpiry = null;
+      await initialize(baseUrl: _baseUrl);
+    } finally {
+      _releaseChallengeLock();
+    }
   }
 
   /// Vérifie si les cookies sont encore valides.
@@ -179,7 +209,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   /// Force le rafraîchissement des headers (appelé avant chaque zapping).
   Map<String, String> getFreshHeaders() {
     if (!_cookiesValid) {
-      // Trigger renewal asynchrone, mais on retourne les headers actuels
+      // Trigger renewal asynchrone sans bloquer (fire-and-forget)
       unawaited(renewSession());
     }
     return videoHeaders;
@@ -199,12 +229,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   @override
   void dispose() {
     _renewalTimer?.cancel();
+    _challengeLock?.complete();
     super.dispose();
   }
-}
-
-/// Extension pour `unawaited` sans import `dart:async` partout.
-T unawaited<T>(Future<T> future) {
-  // Ignore le futur intentionnellement
-  return future as T;
 }

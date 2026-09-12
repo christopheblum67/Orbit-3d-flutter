@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 
@@ -79,8 +81,44 @@ class SearchItem {
     );
   }
 
+  factory SearchItem.fromMovieDetail(MovieDetail movie,
+      {double score = 1.0, SearchSource source = SearchSource.tmdb,}) {
+    return SearchItem(
+      id: movie.id,
+      type: SearchType.vod,
+      title: movie.title,
+      subtitle:
+          '${movie.year > 0 ? movie.year : ''} ${movie.genre.isNotEmpty ? '· ${movie.genre}' : ''}'
+              .trim(),
+      posterUrl: movie.posterUrl,
+      streamUrl: null,
+      categoryId: movie.categoryId,
+      score: score,
+      source: source,
+      originalObject: movie,
+    );
+  }
+
   factory SearchItem.fromSeries(Series series,
       {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
+    return SearchItem(
+      id: series.id,
+      type: SearchType.series,
+      title: series.title,
+      subtitle:
+          '${series.year > 0 ? series.year : ''} ${series.genre.isNotEmpty ? '· ${series.genre}' : ''}'
+              .trim(),
+      posterUrl: series.coverUrl,
+      streamUrl: null,
+      categoryId: series.categoryId,
+      score: score,
+      source: source,
+      originalObject: series,
+    );
+  }
+
+  factory SearchItem.fromSeriesDetail(SeriesDetail series,
+      {double score = 1.0, SearchSource source = SearchSource.tmdb,}) {
     return SearchItem(
       id: series.id,
       type: SearchType.series,
