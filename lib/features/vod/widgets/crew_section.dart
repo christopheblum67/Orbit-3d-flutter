@@ -12,8 +12,6 @@ class CrewSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (crew.isEmpty) return const SizedBox.shrink();
 
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     final crewByDept = <String, List<CrewMember>>{};
 
     for (final member in crew) {
@@ -83,8 +81,6 @@ class _DepartmentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     final firstMember = members.first;
     final deptColor = firstMember.departmentColor;
     final deptIcon = firstMember.departmentIcon;
@@ -139,7 +135,6 @@ class _CrewMemberChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final deptColor = member.departmentColor;
 
     return Container(

@@ -324,26 +324,6 @@ return TvFocus(
         .map((c) => c.copyWith(count: counts[c.id] ?? 0))
         .toList();
   }
-
-  static List<MediaCategory> _categoriesFromSeries(List<Series> seriesList) {
-    final map = <String, List<String>>{};
-    final counts = <String, int>{};
-    for (final series in seriesList) {
-      final id = series.categoryId;
-      final name = series.genre.trim();
-      if (id.isEmpty) continue;
-      map.putIfAbsent(id, () => []).add(name);
-      counts[id] = (counts[id] ?? 0) + 1;
-    }
-    return map.entries.map((e) {
-      final names = e.value.where((n) => n.isNotEmpty).toSet().toList();
-      return MediaCategory(
-        id: e.key,
-        name: names.isEmpty ? e.key : names.join(', '),
-        count: counts[e.key] ?? 0,
-      );
-    }).toList();
-  }
 }
 
 /// Champ de recherche large, avec police lisible pour la TV.

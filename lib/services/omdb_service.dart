@@ -186,14 +186,9 @@ class OmdbService {
     final genre = data['Genre'] as String? ?? '';
     final director = data['Director'] as String? ?? '';
     final imdbRating = data['imdbRating'] as String? ?? '';
-    final imdbVotes = data['imdbVotes'] as String? ?? '';
     final country = data['Country'] as String? ?? '';
     final language = data['Language'] as String? ?? '';
-    final awards = data['Awards'] as String? ?? '';
     final boxOffice = data['BoxOffice'] as String? ?? '';
-    final production = data['Production'] as String? ?? '';
-    final website = data['Website'] as String? ?? '';
-    final dvd = data['DVD'] as String? ?? '';
     final imdbId = data['imdbID'] as String? ?? '';
 
     return detail.copyWith(

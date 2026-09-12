@@ -47,8 +47,8 @@ class OrbitChannelPlanet {
     return OrbitChannelPlanet(
       id: channel.id,
       name: channel.name,
-      categoryId: channel.categoryId ?? '',
-      logoUrl: channel.logoUrl ?? '',
+      categoryId: channel.categoryId,
+      logoUrl: channel.logoUrl,
       userPreferenceScore: preference,
       currentProgramTitle: currentProgram,
       currentProgramProgress: progress,

@@ -310,26 +310,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         .map((c) => c.copyWith(count: counts[c.id] ?? 0))
         .toList();
   }
-
-  static List<MediaCategory> _categoriesFromMovies(List<Movie> movies) {
-    final map = <String, List<String>>{};
-    final counts = <String, int>{};
-    for (final movie in movies) {
-      final id = movie.categoryId;
-      final name = movie.genre.trim();
-      if (id.isEmpty) continue;
-      map.putIfAbsent(id, () => []).add(name);
-      counts[id] = (counts[id] ?? 0) + 1;
-    }
-    return map.entries.map((e) {
-      final names = e.value.where((n) => n.isNotEmpty).toSet().toList();
-      return MediaCategory(
-        id: e.key,
-        name: names.isEmpty ? e.key : names.join(', '),
-        count: counts[e.key] ?? 0,
-      );
-    }).toList();
-  }
 }
 
 /// Champ de recherche large, avec police lisible pour la TV.

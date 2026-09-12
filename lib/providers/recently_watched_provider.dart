@@ -77,7 +77,7 @@ class RecentlyWatchedNotifier extends Notifier<Map<String, RecentEntry>> {
       ..sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
     var keysToDrop = <String>{};
     if (sorted.length > RecentlyWatchedService.maxEntries) {
-      final kept = sorted.sublist(0, RecentlyWatchedService.maxEntries);
+      sorted.sublist(0, RecentlyWatchedService.maxEntries);
       keysToDrop = sorted
           .skip(RecentlyWatchedService.maxEntries)
           .map((e) => e.key)

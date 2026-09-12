@@ -101,8 +101,6 @@ class _ActorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return TvFocus(
       onActivate: onTap,
       child: GestureDetector(
@@ -242,7 +240,6 @@ class CompactCastCarousel extends StatelessWidget {
     if (actors.isEmpty) return const SizedBox.shrink();
 
     final visibleActors = actors.take(maxVisible).toList();
-    final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return Column(
