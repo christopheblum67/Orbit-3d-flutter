@@ -14,8 +14,10 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 // ignore: unused_import
 import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
@@ -49,6 +51,7 @@ import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/movie_detail_screen.dart';
+import 'package:orbit_3d_flutter/features/actors/actor_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart';
 import 'package:orbit_3d_flutter/features/replay/replay_screen.dart';
 import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
@@ -139,7 +142,8 @@ Future<void> main() async {
         historyServiceProvider.overrideWithValue(historyService),
         recentlyWatchedServiceProvider
             .overrideWithValue(recentlyWatchedService),
-        watchedEpisodesServiceProvider.overrideWithValue(watchedEpisodesService),
+        watchedEpisodesServiceProvider
+            .overrideWithValue(watchedEpisodesService),
         playbackProgressServiceProvider
             .overrideWithValue(playbackProgressService),
         notificationServiceProvider.overrideWithValue(notificationService),
@@ -177,13 +181,14 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final firstLaunch = state.uri.queryParameters['flow'] == 'first';
         return firstLaunch
-            ? ConfirmExitApp(child: const LegalNoticeScreen(firstLaunch: true))
+            ? const ConfirmExitApp(child: LegalNoticeScreen(firstLaunch: true))
             : const LegalNoticeScreen();
       },
     ),
     GoRoute(
       path: '/onboarding',
-      builder: (context, state) => ConfirmExitApp(child: const OnboardingConfigScreen()),
+      builder: (context, state) =>
+          const ConfirmExitApp(child: OnboardingConfigScreen()),
     ),
     GoRoute(
       path: '/profiles',
@@ -221,7 +226,7 @@ final GoRouter router = GoRouter(
       builder: (context, state) {
         final args = state.extra;
         return ModalBackHandling(
-          meta: RouteMeta.pop(),
+          meta: const RouteMeta.pop(),
           child: PinPadScreen(
             args: args is PinPadArgs ? args : const PinPadArgs.set(),
           ),
@@ -230,23 +235,37 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profile/preferences',
-      builder: (context, state) => ModalBackHandling(
+      builder: (context, state) => const ModalBackHandling(
         meta: RouteMeta.pop(),
-        child: const ProfilePreferencesScreen(),
+        child: ProfilePreferencesScreen(),
       ),
     ),
     GoRoute(
       path: '/parental',
-      builder: (context, state) => ModalBackHandling(
+      builder: (context, state) => const ModalBackHandling(
         meta: RouteMeta.pop(),
-        child: const ParentalControlScreen(),
+        child: ParentalControlScreen(),
       ),
     ),
     GoRoute(
       path: '/matchmaking',
-      builder: (context, state) => ModalBackHandling(
+      builder: (context, state) => const ModalBackHandling(
         meta: RouteMeta.popOrFallback('/home'),
-        child: const MatchmakingScreen(),
+        child: MatchmakingScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/duo',
+      builder: (context, state) => const ModalBackHandling(
+        meta: RouteMeta.popOrFallback('/home'),
+        child: DuoProfileSelectionScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/matchmaking/duo',
+      builder: (context, state) => ModalBackHandling(
+        meta: const RouteMeta.popOrFallback('/home'),
+        child: MatchmakingScreen(initialGroup: state.extra as List<String>?),
       ),
     ),
     GoRoute(
@@ -371,12 +390,27 @@ final GoRouter router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/actor/detail',
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'actor_detail',
+        child: WithBackHandling(
+          meta: const RouteMeta.pop(restorationId: 'actor_detail'),
+          child: () {
+            final actor = state.extra;
+            if (actor is Actor) return ActorDetailScreen(actor: actor);
+            return const Material(child: SizedBox.shrink());
+          }(),
+        ),
+      ),
+    ),
+    GoRoute(
       path: '/vod/detail',
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
         restorationId: 'vod_detail',
         child: WithBackHandling(
-          meta: RouteMeta.pop(restorationId: 'vod_detail'),
+          meta: const RouteMeta.pop(restorationId: 'vod_detail'),
           child: () {
             final movie = state.extra;
             if (movie is Movie) return MovieDetailScreen(movie: movie);
@@ -391,7 +425,7 @@ final GoRouter router = GoRouter(
         key: state.pageKey,
         restorationId: 'series_detail',
         child: WithBackHandling(
-          meta: RouteMeta.pop(restorationId: 'series_detail'),
+          meta: const RouteMeta.pop(restorationId: 'series_detail'),
           child: SeriesDetailScreen(
             seriesId: state.uri.queryParameters['id'] ?? '',
             title: state.uri.queryParameters['title'] ?? '',
@@ -405,7 +439,7 @@ final GoRouter router = GoRouter(
         key: state.pageKey,
         restorationId: 'episode_detail',
         child: WithBackHandling(
-          meta: RouteMeta.pop(restorationId: 'episode_detail'),
+          meta: const RouteMeta.pop(restorationId: 'episode_detail'),
           child: () {
             final args = state.extra;
             if (args is (Series, Episode)) {
@@ -422,9 +456,9 @@ final GoRouter router = GoRouter(
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
         restorationId: 'favorites',
-        child: WithBackHandling(
+        child: const WithBackHandling(
           meta: RouteMeta.pop(restorationId: 'favorites'),
-          child: const FavoritesScreen(),
+          child: FavoritesScreen(),
         ),
       ),
     ),
@@ -433,9 +467,9 @@ final GoRouter router = GoRouter(
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
         restorationId: 'history',
-        child: WithBackHandling(
+        child: const WithBackHandling(
           meta: RouteMeta.pop(restorationId: 'history'),
-          child: const HistoryScreen(),
+          child: HistoryScreen(),
         ),
       ),
     ),
@@ -451,7 +485,7 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'home',
-            child: ConfirmExitApp(child: const HomeScreen()),
+            child: const ConfirmExitApp(child: HomeScreen()),
           ),
         ),
         GoRoute(
@@ -459,9 +493,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'live',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'live'),
-              child: const LiveTvScreen(),
+              child: LiveTvScreen(),
             ),
           ),
         ),
@@ -470,9 +504,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'series',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'series'),
-              child: const SeriesScreen(),
+              child: SeriesScreen(),
             ),
           ),
         ),
@@ -481,9 +515,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'vod',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'vod'),
-              child: const VodScreen(),
+              child: VodScreen(),
             ),
           ),
         ),
@@ -492,9 +526,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'browse',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'browse'),
-              child: const BrowseScreen(),
+              child: BrowseScreen(),
             ),
           ),
         ),
@@ -528,9 +562,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'replay',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'replay'),
-              child: const ReplayScreen(),
+              child: ReplayScreen(),
             ),
           ),
         ),
@@ -539,9 +573,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'epg',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'epg'),
-              child: const EpgScreen(),
+              child: EpgScreen(),
             ),
           ),
         ),
@@ -550,9 +584,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'search',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'search'),
-              child: const SearchScreen(),
+              child: SearchScreen(),
             ),
           ),
         ),
@@ -561,9 +595,9 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'settings',
-            child: WithBackHandling(
+            child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
-              child: const SettingsScreen(),
+              child: SettingsScreen(),
             ),
           ),
         ),
@@ -572,9 +606,10 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'settings_advanced',
-            child: WithBackHandling(
-              meta: RouteMeta.popOrFallback('/settings', restorationId: 'settings_advanced'),
-              child: const AdvancedSettingsScreen(),
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/settings',
+                  restorationId: 'settings_advanced',),
+              child: AdvancedSettingsScreen(),
             ),
           ),
         ),
@@ -583,9 +618,10 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'subscriptions',
-            child: WithBackHandling(
-              meta: RouteMeta.popOrFallback('/home', restorationId: 'subscriptions'),
-              child: const SubscriptionsScreen(),
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home',
+                  restorationId: 'subscriptions',),
+              child: SubscriptionsScreen(),
             ),
           ),
         ),
@@ -615,7 +651,8 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     return MaterialApp.router(
       title: 'Orbit IPTV',
       theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
-      darkTheme: AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
+      darkTheme:
+          AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
       themeMode: ThemeMode.system,
       routerConfig: router,
     );

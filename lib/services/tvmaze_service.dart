@@ -23,13 +23,13 @@ class TvmazeService {
           baseUrl: _baseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 20),
-        )) {
+        ),) {
     _initCache();
     _dio.interceptors.add(LogInterceptor(
       requestBody: false,
       responseBody: false,
       logPrint: (msg) => _logger.debug('[TVmaze] $msg'),
-    ));
+    ),);
   }
 
   Future<void> _initCache() async {
@@ -89,7 +89,7 @@ class TvmazeService {
     try {
       final response = await _dio.get('/search/shows', queryParameters: {
         'q': title,
-      });
+      },);
       final results = response.data as List?;
       if (results != null && results.isNotEmpty) {
         Map<String, dynamic>? firstMovie;
@@ -136,7 +136,7 @@ class TvmazeService {
         _dio.get('/shows/$tvmazeId'),
         _dio.get('/shows/$tvmazeId/cast'),
         _dio.get('/shows/$tvmazeId/images'),
-      ], eagerError: false);
+      ], eagerError: false,);
 
       final showData = futures[0].data;
       final castData = futures[1].data as List<dynamic>? ?? [];
@@ -153,7 +153,7 @@ class TvmazeService {
   }
 
   MovieDetail _parseMovieDetail(Map<String, dynamic> data, int tvmazeId,
-      [List<dynamic>? castData, List<dynamic>? imagesData]) {
+      [List<dynamic>? castData, List<dynamic>? imagesData,]) {
     final externals = data['externals'] as Map<String, dynamic>? ?? {};
     final imdbId = externals['imdb'] as String? ?? '';
     final tmdbId = externals['themoviedb'] as int? ?? 0;
@@ -215,7 +215,7 @@ class TvmazeService {
     try {
       final response = await _dio.get('/search/shows', queryParameters: {
         'q': title,
-      });
+      },);
       final results = response.data as List?;
       if (results != null && results.isNotEmpty) {
         // Filtrer pour ne garder que les séries (type: "Scripted", "Documentary", etc.)
@@ -248,7 +248,7 @@ class TvmazeService {
         _dio.get('/shows/$tvmazeId', queryParameters: {'embed': 'cast'}),
         _dio.get('/shows/$tvmazeId/seasons'),
         _dio.get('/shows/$tvmazeId/episodes'),
-      ], eagerError: false);
+      ], eagerError: false,);
 
       final showData = futures[0].data;
       final seasonsData = futures[1].data as List<dynamic>? ?? [];
@@ -279,7 +279,7 @@ class TvmazeService {
   }
 
   SeriesDetail _parseShowDetail(Map<String, dynamic> data, int tvmazeId,
-      [List<dynamic>? seasonsData, List<dynamic>? episodesData]) {
+      [List<dynamic>? seasonsData, List<dynamic>? episodesData,]) {
     final externals = data['externals'] as Map<String, dynamic>? ?? {};
     final imdbId = externals['imdb'] as String? ?? '';
     final tmdbId = externals['themoviedb'] as int? ?? 0;

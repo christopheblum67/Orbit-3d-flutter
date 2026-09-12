@@ -9,21 +9,18 @@ import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 // ---------------------------------------------------------------------------
-// Mode d'affichage (Pour vous / En duo)
+// Mode d'affichage (Pour vous / En groupe 2-4 profils)
 // ---------------------------------------------------------------------------
 
-enum _TabMode { single, duo }
+enum _TabMode { single, group }
 
-// ---------------------------------------------------------------------------
-// Widget racine des onglets Films / Séries du Matchmaking
-// ---------------------------------------------------------------------------
-
-/// Contenu matchmaking d'un onglet Films ou Séries : mode Pour vous / En duo,
-/// grille avec chargement infini (paquets de 50), badge % d'affinité en duo.
+/// Contenu matchmaking d'un onglet Films ou Séries : mode Pour vous / En groupe,
+/// grille avec chargement infini (paquets de 50), badge % d'affinité en groupe.
 class MatchmakingTab extends ConsumerStatefulWidget {
-  const MatchmakingTab({super.key, required this.kind});
+  const MatchmakingTab({super.key, required this.kind, this.initialGroup});
 
   final RecommendationKind kind;
+  final List<String>? initialGroup;
 
   @override
   ConsumerState<MatchmakingTab> createState() => _MatchmakingTabState();
@@ -31,18 +28,28 @@ class MatchmakingTab extends ConsumerStatefulWidget {
 
 class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   _TabMode _mode = _TabMode.single;
-  String? _secondProfileId;
+  final Set<String> _selectedProfileIds = {}; // 2-4 profils
   int _visibleCount = kMatchmakingPageSize;
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
-
-  bool get _isMovie => widget.kind == RecommendationKind.movie;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Auto-switch to group mode if initialGroup is provided
+    if (widget.initialGroup != null && widget.initialGroup!.length >= 2) {
+      final profile = ref.read(currentProfileProvider);
+      if (profile != null && widget.initialGroup!.contains(profile.id)) {
+        final others =
+            widget.initialGroup!.where((id) => id != profile.id).toSet();
+        _selectedProfileIds.addAll(others);
+        _mode = _TabMode.group;
+      }
+    }
   }
+
+  bool get _isMovie => widget.kind == RecommendationKind.movie;
 
   @override
   void dispose() {
@@ -75,12 +82,11 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     return Column(
       children: [
         _buildModeSwitcher(profile),
-        if (_mode == _TabMode.duo)
-          _buildDuoHeader(profile),
+        if (_mode == _TabMode.group) _buildGroupHeader(profile),
         Expanded(
           child: _mode == _TabMode.single
               ? _buildSingle(profile)
-              : _buildDuo(profile),
+              : _buildGroup(profile),
         ),
       ],
     );
@@ -104,9 +110,9 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
                   icon: Icon(Icons.person_outline),
                 ),
                 ButtonSegment(
-                  value: _TabMode.duo,
-                  label: Text('En duo'),
-                  icon: Icon(Icons.people_outline),
+                  value: _TabMode.group,
+                  label: Text('En groupe'),
+                  icon: Icon(Icons.groups_outlined),
                 ),
               ],
               selected: {_mode},
@@ -123,59 +129,86 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   }
 
   // ---------------------------------------------------------------------------
-  // En duo – sélection du second profil
+  // En groupe – sélection de 2 à 4 profils
   // ---------------------------------------------------------------------------
 
-  Widget _buildDuoHeader(UserProfile profile) {
-    final profiles = ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
+  Widget _buildGroupHeader(UserProfile profile) {
+    final profiles =
+        ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
     final others = profiles.where((p) => p.id != profile.id).toList();
 
-    final secondId = _secondProfileId != null &&
-            _secondProfileId != profile.id &&
-            profiles.any((p) => p.id == _secondProfileId)
-        ? _secondProfileId!
-        : _defaultSecondId(profile, profiles);
-
-    // Met à jour silencieusement le state si le default a changé
-    if (_secondProfileId == null && secondId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _secondProfileId = secondId);
-      });
-    }
+    // Validation : max 4 profils (incluant le profil courant)
+    const maxAdditional = 3; // 1 courant + 3 autres = 4 max
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              'Profil 1 : ${profile.firstName}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+          Text(
+            'Profil courant : ${profile.firstName}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
-          if (others.isNotEmpty)
-            DropdownButton<String>(
-              value: secondId,
-              hint: const Text('Choisir le 2e profil'),
-              isExpanded: true,
-              items: others
-                  .map((p) => DropdownMenuItem(value: p.id, child: Text(p.firstName)))
-                  .toList(),
-              onChanged: (id) {
-                setState(() => _secondProfileId = id);
-                _reset();
-              },
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: others.map((p) {
+              final selected = _selectedProfileIds.contains(p.id);
+              final disabled =
+                  !selected && _selectedProfileIds.length >= maxAdditional;
+              return FilterChip(
+                label: Text(p.firstName),
+                selected: selected,
+                onSelected: disabled
+                    ? null
+                    : (sel) {
+                        setState(() {
+                          if (sel) {
+                            _selectedProfileIds.add(p.id);
+                          } else {
+                            _selectedProfileIds.remove(p.id);
+                          }
+                        });
+                        _reset();
+                      },
+                showCheckmark: true,
+                selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                checkmarkColor: Theme.of(context).colorScheme.primary,
+                labelStyle: TextStyle(
+                  color: disabled
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+          if (_selectedProfileIds.length < 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Sélectionnez au moins 2 profils au total (${_selectedProfileIds.length + 1}/4)',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '${_selectedProfileIds.length + 1} profils sélectionnés',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
         ],
       ),
     );
-  }
-
-  String? _defaultSecondId(UserProfile current, List<UserProfile> profiles) {
-    for (final p in profiles) {
-      if (p.id != current.id) return p.id;
-    }
-    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -216,29 +249,29 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   }
 
   // ---------------------------------------------------------------------------
-  // En duo
+  // En groupe (2-4 profils)
   // ---------------------------------------------------------------------------
 
-  Widget _buildDuo(UserProfile profile) {
-    final profiles = ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
-    final secondId = _secondProfileId ?? _defaultSecondId(profile, profiles);
-    if (secondId == null) {
+  Widget _buildGroup(UserProfile profile) {
+    if (_selectedProfileIds.length < 2) {
       return Center(
         child: Text(
-          'Sélectionnez un second profil',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          'Sélectionnez au moins 2 profils supplémentaires',
+          style:
+              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       );
     }
 
-    final async = ref.watch(matchmakingPairTabProvider((a: profile.id, b: secondId)));
+    final group = [profile.id, ..._selectedProfileIds];
+    final async = ref.watch(matchmakingGroupTabProvider(group));
     return async.when(
       data: (tab) {
         final list = _isMovie ? tab.movies : tab.series;
-        if (list.isEmpty) return _emptyState(duo: true);
+        if (list.isEmpty) return _emptyState(group: true);
         _hasMore = _visibleCount < list.length;
         final shown = list.take(_visibleCount).toList();
-        return _buildPairGrid(list: shown, hasMore: _hasMore);
+        return _buildGroupGrid(list: shown, hasMore: _hasMore);
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(e.toString())),
@@ -265,14 +298,17 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       ),
       itemCount: totalShown,
       itemBuilder: (context, index) {
-        final reco = list[index].reco;
-        return _buildCard(reco);
+        final scored = list[index];
+        return _buildCard(
+          scored.reco,
+          matchPercent: (scored.affinity * 100).round(),
+        );
       },
     );
   }
 
-  Widget _buildPairGrid({
-    required List<PairedReco> list,
+  Widget _buildGroupGrid({
+    required List<GroupReco> list,
     required bool hasMore,
   }) {
     return GridView.builder(
@@ -286,84 +322,48 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       ),
       itemCount: list.length,
       itemBuilder: (context, index) {
-        final paired = list[index];
+        final grouped = list[index];
         return _buildCard(
-          paired.reco,
-          affinityPercent: (paired.combined * 100).round(),
+          grouped.reco,
+          matchPercent: (grouped.combined * 100).round(),
         );
       },
     );
   }
 
-  Widget _buildCard(Recommendation reco, {int? affinityPercent}) {
+  Widget _buildCard(Recommendation reco, {int? matchPercent}) {
     return MediaCard(
       title: reco.title,
       posterUrl: reco.posterUrl,
       year: reco.year,
       genre: reco.genre,
       rating: reco.rating,
-      ageLabel: affinityPercent != null ? null : reco.pegiLabel,
-      fallbackIcon: _isMovie ? Icons.movie_outlined : Icons.video_library_outlined,
+      ageLabel: matchPercent != null ? null : reco.pegiLabel,
+      fallbackIcon:
+          _isMovie ? Icons.movie_outlined : Icons.video_library_outlined,
       isNew: reco.isNew,
-      topBadge: affinityPercent != null ? _AffinityBadge(percent: affinityPercent) : null,
+      matchPercent: matchPercent,
       onTap: () => openRecommendation(context, reco),
     );
   }
 
-  Widget _emptyState({bool duo = false}) {
+  Widget _emptyState({bool group = false}) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            duo ? Icons.people_outline : Icons.movie_filter_outlined,
+            group ? Icons.groups_outlined : Icons.movie_filter_outlined,
             size: 64,
             color: scheme.outline,
           ),
           const SizedBox(height: 16),
           Text(
-            duo
+            group
                 ? 'Aucune affinité commune trouvée'
                 : 'Aucune recommandation disponible',
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 16),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Badge affinité (en haut à gauche, utilisant topBadge de MediaCard)
-// ---------------------------------------------------------------------------
-
-class _AffinityBadge extends StatelessWidget {
-  const _AffinityBadge({required this.percent});
-
-  final int percent;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: scheme.primary,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.favorite, size: 12, color: Colors.white),
-          const SizedBox(width: 4),
-          Text(
-            '$percent%',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-            ),
           ),
         ],
       ),

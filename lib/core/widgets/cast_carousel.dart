@@ -171,7 +171,7 @@ class _ActorCard extends StatelessWidget {
                 // Rôle/personnage
                 Text(
                   actor.character,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
@@ -193,7 +193,7 @@ class _ActorCard extends StatelessWidget {
                     border:
                         Border.all(color: Colors.amber.withValues(alpha: 0.5)),
                   ),
-                  child: Text(
+                  child: const Text(
                     'Invité',
                     style: TextStyle(
                       color: Colors.amber,
@@ -322,20 +322,20 @@ class _CompactActorCard extends StatelessWidget {
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 1.5),
+                                      strokeWidth: 1.5,),
                                 ),
                               ),
                             ),
                             errorWidget: (_, __, ___) => Container(
                               color: Colors.grey[800],
                               child: const Icon(Icons.person_outline,
-                                  size: 24, color: Colors.white54),
+                                  size: 24, color: Colors.white54,),
                             ),
                           )
                         : Container(
                             color: Colors.grey[800],
                             child: const Icon(Icons.person_outline,
-                                size: 24, color: Colors.white54),
+                                size: 24, color: Colors.white54,),
                           ),
                   ),
                 ),
@@ -356,7 +356,7 @@ class _CompactActorCard extends StatelessWidget {
                 const SizedBox(height: 1),
                 Text(
                   actor.character,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white60,
                     fontSize: 9,
                     fontStyle: FontStyle.italic,

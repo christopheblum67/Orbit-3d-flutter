@@ -90,7 +90,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             secondary: const Icon(Icons.video_camera_back_outlined),
             title: const Text('Autoriser l\'enregistrement'),
             subtitle: const Text(
-                'Permettre l\'enregistrement de mes contenus favoris'),
+                'Permettre l\'enregistrement de mes contenus favoris',),
             value: prefs.allowRecording,
             onChanged: (v) => notifier.setAllowRecording(v),
           ),

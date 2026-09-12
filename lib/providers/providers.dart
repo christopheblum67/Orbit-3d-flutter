@@ -36,6 +36,7 @@ import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
+import 'package:orbit_3d_flutter/models/person.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
@@ -83,70 +84,141 @@ final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
 final flixPatrolMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/movie/popular', isTv: false);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/movie/popular', isTv: false);
   },
 );
 
 final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/tv/popular', isTv: true);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/tv/popular', isTv: true);
   },
 );
 
 final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/trending/movie/week', isTv: false);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/trending/movie/week', isTv: false);
   },
 );
 
 final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/trending/tv/week', isTv: true);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/trending/tv/week', isTv: true);
   },
 );
 
 final flixPatrolTopRatedMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/movie/top_rated', isTv: false);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/movie/top_rated', isTv: false);
   },
 );
 
 final flixPatrolTopRatedTvProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/tv/top_rated', isTv: true);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/tv/top_rated', isTv: true);
   },
 );
 
 final flixPatrolNowPlayingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/movie/now_playing', isTv: false);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/movie/now_playing', isTv: false);
   },
 );
 
 final flixPatrolUpcomingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/movie/upcoming', isTv: false);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/movie/upcoming', isTv: false);
   },
 );
 
 final flixPatrolOnTheAirTvProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/tv/on_the_air', isTv: true);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/tv/on_the_air', isTv: true);
   },
 );
 
 final flixPatrolAiringTodayTvProvider = FutureProvider<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
-    return ref.watch(tmdbServiceProvider).getRankings('/tv/airing_today', isTv: true);
+    return ref
+        .watch(tmdbServiceProvider)
+        .getRankings('/tv/airing_today', isTv: true);
+  },
+);
+
+/// Films similaires TMDB (pour page détail film)
+final tmdbSimilarMoviesProvider =
+    FutureProvider.family<List<TmdbRankEntry>, int>(
+  (ref, tmdbId) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getSimilarMovies(tmdbId);
+  },
+);
+
+/// Séries similaires TMDB (pour page détail série)
+final tmdbSimilarTvProvider = FutureProvider.family<List<TmdbRankEntry>, int>(
+  (ref, tmdbId) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getSimilarTv(tmdbId);
+  },
+);
+
+/// Recommandations films TMDB
+final tmdbMovieRecommendationsProvider =
+    FutureProvider.family<List<TmdbRankEntry>, int>(
+  (ref, tmdbId) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getMovieRecommendations(tmdbId);
+  },
+);
+
+/// Recommandations séries TMDB
+final tmdbTvRecommendationsProvider =
+    FutureProvider.family<List<TmdbRankEntry>, int>(
+  (ref, tmdbId) {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    return ref.watch(tmdbServiceProvider).getTvRecommendations(tmdbId);
+  },
+);
+
+/// Détail d'une personne TMDB (bio + filmographie) pour l'écran acteur
+final tmdbPersonDetailProvider =
+    FutureProvider.family<PersonDetail?, int>((ref, personId) {
+  ref.watch(tmdbApiKeyOverrideProvider);
+  return ref.watch(tmdbServiceProvider).getPersonDetail(personId);
+});
+
+/// Recherche TMDB d'une personne par nom (acteurs hors TMDB) → ID (0 si absent)
+final tmdbPersonSearchProvider = FutureProvider.family<int, String>(
+  (ref, name) async {
+    ref.watch(tmdbApiKeyOverrideProvider);
+    final id = await ref.watch(tmdbServiceProvider).searchPerson(name);
+    return id ?? 0;
   },
 );
 
@@ -184,8 +256,7 @@ final searchProvider =
   return ref.watch(searchServiceProvider).search(query);
 });
 
-final searchFilteredProvider = FutureProvider.family<
-    UnifiedSearchResult,
+final searchFilteredProvider = FutureProvider.family<UnifiedSearchResult,
     ({String query, SearchType? filterType})>((ref, params) async {
   if (params.query.trim().isEmpty) return UnifiedSearchResult.empty();
   return ref
@@ -238,21 +309,26 @@ final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
 });
 
 final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  final sub = await ref
+      .watch(activeSubscriptionProvider.future)
+      .catchError((_) => null);
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchLiveChannels();
 });
 
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
-  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  final sub = await ref
+      .watch(activeSubscriptionProvider.future)
+      .catchError((_) => null);
   if (sub == null) return const <Movie>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchMovies();
 });
 
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
-final liveCategoriesFromM3UProvider = FutureProvider<List<MediaCategory>>((ref) async {
+final liveCategoriesFromM3UProvider =
+    FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   final sub = await ref.watch(activeSubscriptionProvider.future);
   if (sub == null || sub.type != SubscriptionType.m3u) return const [];
@@ -261,9 +337,7 @@ final liveCategoriesFromM3UProvider = FutureProvider<List<MediaCategory>>((ref) 
   for (final c in channels) {
     if (c.group.isNotEmpty) groups.add(c.group);
   }
-  return groups
-      .map((g) => MediaCategory(id: g, name: g))
-      .toList()
+  return groups.map((g) => MediaCategory(id: g, name: g)).toList()
     ..sort((a, b) => a.name.compareTo(b.name));
 });
 
@@ -283,7 +357,9 @@ final seriesCategoriesProvider =
 });
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {
-  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  final sub = await ref
+      .watch(activeSubscriptionProvider.future)
+      .catchError((_) => null);
   if (sub == null) return const <Series>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchSeries();
@@ -310,7 +386,9 @@ final seriesDetailProvider =
 });
 
 final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final sub = await ref.watch(activeSubscriptionProvider.future).catchError((_) => null);
+  final sub = await ref
+      .watch(activeSubscriptionProvider.future)
+      .catchError((_) => null);
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();
@@ -341,17 +419,19 @@ class ReplaysCache {
     Future<List<ReplayItem>> Function() loader,
   ) {
     if (isFresh) return Future.value(_all!);
-    return _inFlight ??= loader().then((items) {
-      _all = items;
-      _fetchedAt = DateTime.now();
-      _inFlight = null;
-      return items;
-    }, onError: (Object error, StackTrace stackTrace) {
-      // Un échec n'est pas mis en cache : la prochaine ouverture retenté.
-      _inFlight = null;
-      throw error;
-    },
-  );
+    return _inFlight ??= loader().then(
+      (items) {
+        _all = items;
+        _fetchedAt = DateTime.now();
+        _inFlight = null;
+        return items;
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        // Un échec n'est pas mis en cache : la prochaine ouverture retenté.
+        _inFlight = null;
+        throw error;
+      },
+    );
   }
 
   void invalidate() {
@@ -430,9 +510,11 @@ class EPGDataCache {
     // ~94 000 entrées, inutile de les garder toutes en mémoire pour la grille.
     final now = DateTime.now();
     _all = programs
-        .where((p) =>
-            p.end.isAfter(now) &&
-            p.end.isBefore(now.add(const Duration(hours: 48))))
+        .where(
+          (p) =>
+              p.end.isAfter(now) &&
+              p.end.isBefore(now.add(const Duration(hours: 48))),
+        )
         .toList();
     // Index par chaîne, trié par horaire : recherches dichotomiques O(log N).
     _byChannel.clear();

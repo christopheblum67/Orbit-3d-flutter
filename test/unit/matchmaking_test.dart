@@ -175,15 +175,16 @@ void main() {
     });
   });
 
-  group('PairedReco', () {
-    test('combined = moyenne des affinités, overlap = produit', () {
+  group('GroupReco', () {
+    test('combined = moyenne des affinités, overlap = produit, minAffinity = min', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie('p', 'Partage', 'Action'),
       );
-      final paired = PairedReco(reco: reco, affinityA: 0.8, affinityB: 0.4);
-      expect(paired.combined, closeTo(0.6, 0.0001));
-      expect(paired.overlap, closeTo(0.32, 0.0001));
+      final grouped = GroupReco(reco: reco, affinities: [0.8, 0.4, 0.6]);
+      expect(grouped.combined, closeTo(0.6, 0.0001));
+      expect(grouped.overlap, closeTo(0.192, 0.0001));
+      expect(grouped.minAffinity, closeTo(0.4, 0.0001));
     });
   });
 
@@ -196,7 +197,7 @@ void main() {
     test('favori → bonus d\'affinité', () {
       final base = profileAffinity(reco, ['Action', 'Drame']);
       final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
-          favoriteIds: {'pp'});
+          favoriteIds: {'pp'},);
       expect(boosted, greaterThan(base));
     });
 
@@ -209,7 +210,7 @@ void main() {
     test('titre présent dans TMDB recommandation → léger boost', () {
       final base = profileAffinity(reco, ['Action', 'Drame']);
       final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
-          tmdbTitles: {'action fort'});
+          tmdbTitles: {'action fort'},);
       expect(boosted, greaterThan(base));
     });
 

@@ -48,18 +48,17 @@ class RouteMeta {
         customHandler = null;
 
   /// Pop if possible, otherwise go to [fallback].
-  const RouteMeta.popOrFallback(String fallback, {this.restorationId})
+  const RouteMeta.popOrFallback(this.fallback, {this.restorationId})
       : type = BackBehaviorType.popOrFallback,
-        fallback = fallback,
         customHandler = null;
 
   /// Custom back handling.
   const RouteMeta.custom(
-      void Function(BuildContext context, GoRouter router) handler,
-      {this.restorationId})
-      : type = BackBehaviorType.custom,
-        fallback = null,
-        customHandler = handler;
+    void Function(BuildContext context, GoRouter router) handler, {
+    this.restorationId,
+  }) : type = BackBehaviorType.custom,
+       fallback = null,
+       customHandler = handler;
 }
 
 /// Typed accessors on [GoRouterState] for route metadata.

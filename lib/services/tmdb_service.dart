@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
+import 'package:orbit_3d_flutter/models/person.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
@@ -22,38 +23,44 @@ class TmdbService {
   final _requestTimestamps = <int>[];
 
   TmdbService()
-      : _dio = Dio(BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 20),
-          queryParameters: {
-            'language': 'fr-FR',
-          },
-        )) {
+      : _dio = Dio(
+          BaseOptions(
+            baseUrl: _baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 20),
+            queryParameters: {
+              'language': 'fr-FR',
+            },
+          ),
+        ) {
     _initCache();
     // La clé API est injectée à la volée : un override saisi dans Réglages
     // (clé personnelle) prime sur la clé partagée embarquée (`.env`).
     // La requête de validation (`tmdb_validate`) court-circuite l'injection
     // pour tester précisément la clé saisie.
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
-        if (options.extra['tmdb_validate'] == true) {
-          return handler.next(options);
-        }
-        final key = TmdbApiKeyStore.instance.effectiveKey;
-        if (key.isNotEmpty) {
-          options.queryParameters['api_key'] = key;
-        } else {
-          options.queryParameters.remove('api_key');
-        }
-        handler.next(options);
-      },
-    ));
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: false,
-      responseBody: false,
-      logPrint: (msg) => _logger.debug('[TMDB] $msg'),
-    ));
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.extra['tmdb_validate'] == true) {
+            return handler.next(options);
+          }
+          final key = TmdbApiKeyStore.instance.effectiveKey;
+          if (key.isNotEmpty) {
+            options.queryParameters['api_key'] = key;
+          } else {
+            options.queryParameters.remove('api_key');
+          }
+          handler.next(options);
+        },
+      ),
+    );
+    _dio.interceptors.add(
+      LogInterceptor(
+        requestBody: false,
+        responseBody: false,
+        logPrint: (msg) => _logger.debug('[TMDB] $msg'),
+      ),
+    );
   }
 
   Future<void> _initCache() async {
@@ -169,11 +176,18 @@ class TmdbService {
 
     try {
       // Paralléliser detail + credits + images + videos + external_ids
-      final futures = await Future.wait([
-        _dio.get('/movie/$tmdbId', queryParameters: {
-          'append_to_response': 'credits,images,videos,external_ids,keywords'
-        }),
-      ], eagerError: false);
+      final futures = await Future.wait(
+        [
+          _dio.get(
+            '/movie/$tmdbId',
+            queryParameters: {
+              'append_to_response':
+                  'credits,images,videos,external_ids,keywords,release_dates',
+            },
+          ),
+        ],
+        eagerError: false,
+      );
 
       final detailResponse = futures[0];
       if (detailResponse.data == null) return null;
@@ -237,6 +251,11 @@ class TmdbService {
         .map((l) => l['english_name'] as String)
         .toList();
 
+    final productionCompanies =
+        (data['production_companies'] as List<dynamic>? ?? [])
+            .map((p) => p['name'] as String)
+            .toList();
+
     return MovieDetail(
       id: data['id'].toString(),
       title: data['title'] ?? '',
@@ -260,6 +279,10 @@ class TmdbService {
       budget: data['budget'] as int? ?? 0,
       revenue: data['revenue'] as int? ?? 0,
       status: data['status'] ?? '',
+      tagline: data['tagline'] as String?,
+      voteCount: data['vote_count'] as int? ?? 0,
+      productionCompanies: productionCompanies,
+      certification: _parseCertification(data),
       trailerUrl: trailerUrl,
       backdropUrl: backdropUrl,
       originalLanguage: data['original_language'],
@@ -268,6 +291,82 @@ class TmdbService {
       crew: crewList,
       dataSource: 'tmdb',
     );
+  }
+
+  // ==================== PERSONNES (TMDB People) ====================
+
+  /// Recherche une personne par nom, renvoie son ID TMDB (0 si introuvable)
+  Future<int?> searchPerson(String name) async {
+    if (!hasApiKey) return null;
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(
+        '/search/person',
+        queryParameters: {
+          'query': name,
+          'include_adult': 'false',
+        },
+      );
+      final results = response.data['results'] as List?;
+      if (results != null && results.isNotEmpty) {
+        return results.first['id'] as int;
+      }
+    } catch (e) {
+      _logger.warning('TMDB searchPerson error: $e');
+    }
+    return null;
+  }
+
+  /// Détail complet d'une personne TMDB (bio + filmographie)
+  Future<PersonDetail?> getPersonDetail(int personId) async {
+    if (!hasApiKey) return null;
+
+    final cacheKey = _cacheKey('person', personId.toString());
+    final cached = _getCached(cacheKey, (d) {
+      final person = d['person'] as Map<String, dynamic>? ?? {};
+      final credits = d['credits'] as Map<String, dynamic>?;
+      return PersonDetail.fromTmdbJson(person, creditsJson: credits);
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+    try {
+      final detailResponse = await _dio.get('/person/$personId');
+      if (detailResponse.data == null) return null;
+      final creditsResponse = await _dio.get('/person/$personId/movie_credits');
+      final credits = creditsResponse.data as Map<String, dynamic>? ??
+          const <String, dynamic>{};
+      final detail = PersonDetail.fromTmdbJson(
+        detailResponse.data,
+        creditsJson: creditsResponse.data,
+      );
+      await _setCache(cacheKey, {
+        'person': detailResponse.data,
+        'credits': credits,
+      });
+      return detail;
+    } catch (e) {
+      _logger.warning('TMDB getPersonDetail error: $e');
+      return null;
+    }
+  }
+
+  /// Filmographie connue d'une personne (titre, année, note, affiche)
+  Future<List<TmdbRankEntry>> getPersonKnownFor(int personId) async {
+    final person = await getPersonDetail(personId);
+    if (person == null) return const <TmdbRankEntry>[];
+    return person.knownFor
+        .map(
+          (c) => TmdbRankEntry(
+            tmdbId: c.tmdbId,
+            title: c.title,
+            posterPath: c.posterPath,
+            year: c.year,
+            rating: c.voteAverage,
+          ),
+        )
+        .toList();
   }
 
   // ==================== SÉRIES (TMDB TV) ====================
@@ -309,9 +408,13 @@ class TmdbService {
     await _waitForRateLimit();
 
     try {
-      final response = await _dio.get('/tv/$tmdbId', queryParameters: {
-        'append_to_response': 'aggregate_credits,external_ids,keywords,videos',
-      });
+      final response = await _dio.get(
+        '/tv/$tmdbId',
+        queryParameters: {
+          'append_to_response':
+              'aggregate_credits,external_ids,keywords,videos',
+        },
+      );
 
       final detail = _parseTvDetail(response.data, tmdbId);
       await _setCache(cacheKey, response.data);
@@ -324,7 +427,9 @@ class TmdbService {
 
   /// Détails d'une saison (pour guest stars)
   Future<Map<int, List<Actor>>?> getSeasonGuestStars(
-      int tmdbId, List<int> seasonNumbers) async {
+    int tmdbId,
+    List<int> seasonNumbers,
+  ) async {
     if (!hasApiKey) return null;
 
     final guestStarsMap = <int, List<Actor>>{};
@@ -355,7 +460,8 @@ class TmdbService {
         }
       } catch (e) {
         _logger.warning(
-            'TMDB getSeasonGuestStars error for season $seasonNum: $e');
+          'TMDB getSeasonGuestStars error for season $seasonNum: $e',
+        );
       }
     }
 
@@ -444,17 +550,32 @@ class TmdbService {
 
   String _extractDirector(List<CrewMember> crew) {
     final directors = crew
-        .where((m) =>
-            m.department.toLowerCase() == 'directing' &&
-            m.job.toLowerCase().contains('director'))
+        .where(
+          (m) =>
+              m.department.toLowerCase() == 'directing' &&
+              m.job.toLowerCase().contains('director'),
+        )
         .toList();
     return directors.isNotEmpty ? directors.first.name : '';
   }
 
   String _parseCertification(Map<String, dynamic> data) {
-    // TMDB certification est dans release_dates ou content_ratings
-    // Pour simplifier, on retourne vide - sera complété par OMDB si nécessaire
-    return '';
+    final releaseDates = data['release_dates'] as Map<String, dynamic>?;
+    if (releaseDates == null) return '';
+    final results = releaseDates['results'] as List<dynamic>? ?? [];
+    String? usCertification;
+    for (final entry in results) {
+      final country = entry['iso_3166_1'] as String? ?? '';
+      final dates = entry['release_dates'] as List<dynamic>? ?? [];
+      if (dates.isEmpty) continue;
+      final certification = dates.first['certification'] as String? ?? '';
+      if (certification.trim().isEmpty) continue;
+      if (country == 'FR') return certification.trim();
+      if (country == 'US' && usCertification == null) {
+        usCertification = certification.trim();
+      }
+    }
+    return usCertification ?? '';
   }
 
   // ==================== CLASSEMENTS (FlixPatrol / Popular) ====================
@@ -471,9 +592,11 @@ class TmdbService {
     final cached = _getCached(cacheKey, (d) {
       final results = d['results'] as List<dynamic>? ?? [];
       return results
-          .map((r) => isTv
-              ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
-              : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .map(
+            (r) => isTv
+                ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
+                : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),
+          )
           .toList();
     });
     if (cached != null) return cached;
@@ -481,17 +604,22 @@ class TmdbService {
     await _waitForRateLimit();
 
     try {
-      final response = await _dio.get(path, queryParameters: {
-        if (page > 1) 'page': '$page',
-        'region': 'FR',
-      });
+      final response = await _dio.get(
+        path,
+        queryParameters: {
+          if (page > 1) 'page': '$page',
+          'region': 'FR',
+        },
+      );
       if (response.data == null) return const <TmdbRankEntry>[];
       await _setCache(cacheKey, response.data);
       final results = response.data['results'] as List<dynamic>? ?? [];
       return results
-          .map((r) => isTv
-              ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
-              : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .map(
+            (r) => isTv
+                ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
+                : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),
+          )
           .toList();
     } catch (e) {
       _logger.warning('TMDB $path error: $e');
@@ -503,6 +631,147 @@ class TmdbService {
   Future<void> dispose() async {
     if (_cacheBox != null && _cacheBox!.isOpen) {
       await _cacheBox!.close();
+    }
+  }
+
+  // ==================== SIMILAIRES / RECOMMANDATIONS ====================
+
+  /// Films similaires (endpoint TMDB /movie/{id}/similar)
+  Future<List<TmdbRankEntry>> getSimilarMovies(int tmdbId,
+      {int page = 1,}) async {
+    if (!hasApiKey) return const <TmdbRankEntry>[];
+    final cacheKey = _cacheKey('similar_movie', '$tmdbId:$page');
+    final cached = _getCached(cacheKey, (d) {
+      final results = d['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(
+        '/movie/$tmdbId/similar',
+        queryParameters: {
+          if (page > 1) 'page': '$page',
+          'region': 'FR',
+        },
+      );
+      if (response.data == null) return const <TmdbRankEntry>[];
+      await _setCache(cacheKey, response.data);
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      _logger.warning('TMDB getSimilarMovies error: $e');
+      return const <TmdbRankEntry>[];
+    }
+  }
+
+  /// Séries similaires (endpoint TMDB /tv/{id}/similar)
+  Future<List<TmdbRankEntry>> getSimilarTv(int tmdbId, {int page = 1}) async {
+    if (!hasApiKey) return const <TmdbRankEntry>[];
+    final cacheKey = _cacheKey('similar_tv', '$tmdbId:$page');
+    final cached = _getCached(cacheKey, (d) {
+      final results = d['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
+          .toList();
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(
+        '/tv/$tmdbId/similar',
+        queryParameters: {
+          if (page > 1) 'page': '$page',
+          'region': 'FR',
+        },
+      );
+      if (response.data == null) return const <TmdbRankEntry>[];
+      await _setCache(cacheKey, response.data);
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      _logger.warning('TMDB getSimilarTv error: $e');
+      return const <TmdbRankEntry>[];
+    }
+  }
+
+  /// Recommandations films (endpoint TMDB /movie/{id}/recommendations)
+  Future<List<TmdbRankEntry>> getMovieRecommendations(int tmdbId,
+      {int page = 1,}) async {
+    if (!hasApiKey) return const <TmdbRankEntry>[];
+    final cacheKey = _cacheKey('rec_movie', '$tmdbId:$page');
+    final cached = _getCached(cacheKey, (d) {
+      final results = d['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(
+        '/movie/$tmdbId/recommendations',
+        queryParameters: {
+          if (page > 1) 'page': '$page',
+          'region': 'FR',
+        },
+      );
+      if (response.data == null) return const <TmdbRankEntry>[];
+      await _setCache(cacheKey, response.data);
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      _logger.warning('TMDB getMovieRecommendations error: $e');
+      return const <TmdbRankEntry>[];
+    }
+  }
+
+  /// Recommandations séries (endpoint TMDB /tv/{id}/recommendations)
+  Future<List<TmdbRankEntry>> getTvRecommendations(int tmdbId,
+      {int page = 1,}) async {
+    if (!hasApiKey) return const <TmdbRankEntry>[];
+    final cacheKey = _cacheKey('rec_tv', '$tmdbId:$page');
+    final cached = _getCached(cacheKey, (d) {
+      final results = d['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
+          .toList();
+    });
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final response = await _dio.get(
+        '/tv/$tmdbId/recommendations',
+        queryParameters: {
+          if (page > 1) 'page': '$page',
+          'region': 'FR',
+        },
+      );
+      if (response.data == null) return const <TmdbRankEntry>[];
+      await _setCache(cacheKey, response.data);
+      final results = response.data['results'] as List<dynamic>? ?? [];
+      return results
+          .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
+          .toList();
+    } catch (e) {
+      _logger.warning('TMDB getTvRecommendations error: $e');
+      return const <TmdbRankEntry>[];
     }
   }
 }

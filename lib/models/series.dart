@@ -54,7 +54,7 @@ class Series {
         parsedYear = int.tryParse(digits.substring(0, 4)) ?? 0;
       }
     }
-    DateTime? _parseAdded(dynamic value) {
+    DateTime? parseAdded(dynamic value) {
     if (value == null) return null;
     if (value is int) {
       return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
@@ -98,7 +98,7 @@ class Series {
           .map((e) => Episode.fromMap(e as Map<String, dynamic>))
           .toList(),
       categoryId: map['category_id']?.toString() ?? '',
-      addedDate: _parseAdded(map['added']),
+      addedDate: parseAdded(map['added']),
     );
   }
 

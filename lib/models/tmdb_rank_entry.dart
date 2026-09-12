@@ -11,6 +11,7 @@ class TmdbRankEntry {
   final String overview;
   final bool isTv;
   final double popularity;
+  final List<int> genreIds; // IDs des genres TMDB
 
   const TmdbRankEntry({
     required this.tmdbId,
@@ -23,6 +24,7 @@ class TmdbRankEntry {
     this.overview = '',
     this.isTv = false,
     this.popularity = 0,
+    this.genreIds = const [],
   });
 
   static const String _imageBase = 'https://image.tmdb.org/t/p';
@@ -45,6 +47,10 @@ class TmdbRankEntry {
       overview: json['overview'] as String? ?? '',
       isTv: false,
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
+      genreIds: (json['genre_ids'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          const [],
     );
   }
 
@@ -60,6 +66,10 @@ class TmdbRankEntry {
       overview: json['overview'] as String? ?? '',
       isTv: true,
       popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
+      genreIds: (json['genre_ids'] as List<dynamic>?)
+              ?.map((e) => e as int)
+              .toList() ??
+          const [],
     );
   }
 

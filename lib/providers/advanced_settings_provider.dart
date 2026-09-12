@@ -20,7 +20,7 @@ extension PlayerEngineX on PlayerEngine {
 
   static PlayerEngine fromLabel(String? label) =>
       PlayerEngine.values.firstWhere((e) => e.label == label,
-          orElse: () => PlayerEngine.exoPlayer);
+          orElse: () => PlayerEngine.exoPlayer,);
 }
 
 enum PlaybackContentType { live, vod, series, replay }

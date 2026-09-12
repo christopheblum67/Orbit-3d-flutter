@@ -136,7 +136,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ? ref.watch(searchFilteredProvider((
             query: query,
             filterType: filterType,
-          )))
+          ),),)
         : ref.watch(searchProvider(query));
     final suggestionsAsync = ref.watch(searchSuggestionsProvider(query));
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
@@ -221,11 +221,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               _focusNode.unfocus();
             },
             padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 12)),
+                EdgeInsets.symmetric(horizontal: 12),),
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             ),
-            elevation: WidgetStatePropertyAll(0),
+            elevation: const WidgetStatePropertyAll(0),
           );
         },
       ),
@@ -286,13 +286,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Iterable<Widget> _buildHistorySuggestions(
-      Future<List<String>> historyFuture) {
+      Future<List<String>> historyFuture,) {
     return [
       FutureBuilder<List<String>>(
         future: historyFuture,
         builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.isEmpty)
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const SizedBox.shrink();
+          }
           final history = snapshot.data!.take(5).toList();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,10 +301,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text('Récents',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
+                    style: TextStyle(fontWeight: FontWeight.w600),),
               ),
               ...history.map((h) => _buildSuggestionTile(
-                  SearchSuggestion(text: h, isHistory: true))),
+                  SearchSuggestion(text: h, isHistory: true),),),
             ],
           );
         },
@@ -392,7 +393,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700)),
+                              ?.copyWith(fontWeight: FontWeight.w700),),
                       const Spacer(),
                       TextButton(
                         onPressed: () async {
@@ -433,7 +434,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildResults(
-      AsyncValue<UnifiedSearchResult> searchAsync, String query, SearchType? filterType) {
+      AsyncValue<UnifiedSearchResult> searchAsync, String query, SearchType? filterType,) {
     return searchAsync.when(
       data: (result) {
         if (result.items.isEmpty) {
@@ -445,7 +446,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ref.invalidate(searchFilteredProvider((
                 query: query,
                 filterType: filterType,
-              )));
+              ),),);
             } else {
               ref.invalidate(searchProvider(query));
             }
@@ -512,9 +513,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               visualDensity: VisualDensity.compact,
             ),
           if (result.isOffline)
-            Chip(
-              label: const Text('Hors ligne'),
-              avatar: const Icon(Icons.wifi_off, size: 14),
+            const Chip(
+              label: Text('Hors ligne'),
+              avatar: Icon(Icons.wifi_off, size: 14),
               visualDensity: VisualDensity.compact,
             ),
         ],
@@ -523,7 +524,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Iterable<Widget> _buildGroupedResults(
-      UnifiedSearchResult result, String query) {
+      UnifiedSearchResult result, String query,) {
     final grouped = result.groupedByType;
     final typeOrder = [
       SearchType.live,
@@ -550,7 +551,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Row(
         children: [
           Icon(_typeIcon(type),
-              size: 20, color: Theme.of(context).colorScheme.primary),
+              size: 20, color: Theme.of(context).colorScheme.primary,),
           const SizedBox(width: 8),
           Text(
             '${_typeLabel(type)} ($count)',
@@ -585,10 +586,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 )
               : _placeholderIcon(item.type),
           title: Text.rich(highlightedTitle,
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+              maxLines: 1, overflow: TextOverflow.ellipsis,),
           subtitle: item.subtitle.isNotEmpty
               ? Text.rich(highlightedSubtitle,
-                  maxLines: 1, overflow: TextOverflow.ellipsis)
+                  maxLines: 1, overflow: TextOverflow.ellipsis,)
               : null,
           trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
               ? const Icon(Icons.play_circle_filled, size: 28)
@@ -609,7 +610,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(_typeIcon(type),
-          size: 28, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          size: 28, color: Theme.of(context).colorScheme.onSurfaceVariant,),
     );
   }
 
@@ -711,10 +712,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(program.title,
-                style: Theme.of(context).textTheme.headlineSmall),
+                style: Theme.of(context).textTheme.headlineSmall,),
             const SizedBox(height: 8),
             Text(
-                '${program.channelId} · ${program.start.toString().substring(11, 16)}–${program.end.toString().substring(11, 16)}'),
+                '${program.channelId} · ${program.start.toString().substring(11, 16)}–${program.end.toString().substring(11, 16)}',),
             if (program.description.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(program.description),
@@ -743,7 +744,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               color: Theme.of(context)
                   .colorScheme
                   .onSurfaceVariant
-                  .withValues(alpha: 0.5)),
+                  .withValues(alpha: 0.5),),
           const SizedBox(height: 16),
           Text(
             'Aucun résultat pour "$query"',
@@ -769,10 +770,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.error_outline,
-              size: 64, color: Theme.of(context).colorScheme.error),
+              size: 64, color: Theme.of(context).colorScheme.error,),
           const SizedBox(height: 16),
           Text('Erreur de recherche',
-              style: Theme.of(context).textTheme.titleMedium),
+              style: Theme.of(context).textTheme.titleMedium,),
           const SizedBox(height: 8),
           Text(
             error,

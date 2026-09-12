@@ -53,7 +53,7 @@ class StartupRefreshController extends ChangeNotifier {
   List<Series> series = const [];
 
   StartupRefreshController(this._api,
-      {Set<StartupStep>? steps, EPGDataCache? epgCache})
+      {Set<StartupStep>? steps, EPGDataCache? epgCache,})
       : _epgCache = epgCache,
         _todo = steps ??
             {

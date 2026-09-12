@@ -11,13 +11,13 @@ class OrbitPlanetNode extends StatelessWidget {
   final VoidCallback onTap;
 
   const OrbitPlanetNode({
-    Key? key,
+    super.key,
     required this.planet,
     required this.angleRadians,
     required this.baseRadius,
     this.isFocused = false,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +87,7 @@ class OrbitPlanetNode extends StatelessWidget {
                   boxShadow: isFocused
                       ? [
                           BoxShadow(
-                            color: Colors.amber.withOpacity(0.4),
+                            color: Colors.amber.withValues(alpha: 0.4),
                             blurRadius: 8,
                             spreadRadius: 2,
                           ),

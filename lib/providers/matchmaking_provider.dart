@@ -3,11 +3,12 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
-import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
+import 'package:collection/collection.dart';
 
 const int kMatchmakingLimit = 50;
 
@@ -276,36 +277,39 @@ double profileAffinityWithSignals(
 /// Normalise un titre pour la correspondance TMDB (cas, espaces).
 String _normTitle(String title) => title.trim().toLowerCase();
 
-/// Paire de profils à comparer (identifiants).
-typedef ProfilePair = ({String a, String b});
+/// Groupe de profils à comparer (2 à 4 identifiants).
+typedef ProfileGroup = List<String>;
 
-/// Contenu scoré pour une paire de profils.
-class PairedReco {
-  PairedReco({
+/// Contenu scoré pour un groupe de profils.
+class GroupReco {
+  GroupReco({
     required this.reco,
-    required this.affinityA,
-    required this.affinityB,
+    required this.affinities,
   });
 
   final Recommendation reco;
-  final double affinityA;
-  final double affinityB;
+  final List<double> affinities; // Une affinité par profil
 
-  /// Affinité moyenne des deux profils.
-  double get combined => (affinityA + affinityB) / 2;
+  /// Affinité moyenne de tous les profils.
+  double get combined => affinities.isEmpty
+      ? 0.0
+      : affinities.reduce((a, b) => a + b) / affinities.length;
 
-  /// Chevauchement des goûts : élevé quand LES DEUX apprécient le contenu.
-  double get overlap => affinityA * affinityB;
+  /// Chevauchement des goûts : produit des affinités (élevé si TOUS apprécient).
+  double get overlap => affinities.fold(1.0, (a, b) => a * b);
+
+  /// Affinité minimale (le maillon faible du groupe).
+  double get minAffinity => affinities.isEmpty ? 0.0 : affinities.reduce((a, b) => a < b ? a : b);
 }
 
-/// Classement « En duo » : films + séries scorés par affinité pour deux profils.
+/// Classement « En groupe » : films + séries scorés par affinité pour N profils.
 ///
-/// La paire est identifiée par un record `(a: idA, b: idB)`. Les contenus déjà
-/// retirés ou marqués « Déjà vu » par l'un des deux profils sont exclus.
-/// Tri : affinité moyenne, puis chevauchement, puis note.
-final matchmakingPairProvider = FutureProvider.autoDispose
-    .family<List<PairedReco>, ProfilePair>((ref, pair) async {
-  return _computePairScored(ref, pair).take(kMatchmakingLimit).toList();
+/// Le groupe est identifié par une liste d'ids. Les contenus déjà
+/// retirés ou marqués « Déjà vu » par l'un des profils sont exclus.
+/// Tri : affinité moyenne, puis chevauchement, puis affinité min, puis note.
+final matchmakingGroupProvider = FutureProvider.autoDispose
+    .family<List<GroupReco>, ProfileGroup>((ref, group) async {
+  return _computeGroupScored(ref, group).take(kMatchmakingLimit).toList();
 });
 
 // ---------------------------------------------------------------------------
@@ -381,7 +385,7 @@ List<ScoredReco> _rankByAffinity({
       0,
       r.rating,
       affinity: aff,
-    ));
+    ),);
   }
   scored.sort((a, b) {
     final c = b.affinity.compareTo(a.affinity);
@@ -397,10 +401,10 @@ typedef TabMatchmaking = ({
   List<ScoredReco> series,
 });
 
-/// Résultat paginé pour un onglet « En duo » : films et séries avec affinité duo.
-typedef PairTabMatchmaking = ({
-  List<PairedReco> movies,
-  List<PairedReco> series,
+/// Résultat paginé pour un onglet « En groupe » : films et séries avec affinité groupe.
+typedef GroupTabMatchmaking = ({
+  List<GroupReco> movies,
+  List<GroupReco> series,
 });
 
 /// Films + séries classés par affinité profil (onglets Films / Séries, mode « Pour vous »).
@@ -454,54 +458,60 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   return (movies: scoredMovies, series: scoredSeries);
 });
 
-/// Score complet « duo » : version non tronquée pour les onglets (pagination 50).
-List<PairedReco> _computePairScored(Ref ref, ProfilePair pair) {
+/// Score complet « groupe » : version non tronquée pour les onglets (pagination 50).
+/// Supporte 2 à 4 profils.
+List<GroupReco> _computeGroupScored(Ref ref, ProfileGroup group) {
+  if (group.length < 2 || group.length > 4) return const [];
+
   final profiles =
       ref.watch(profilesProvider).valueOrNull ?? const <UserProfile>[];
-  UserProfile? profileA;
-  UserProfile? profileB;
-  for (final p in profiles) {
-    if (p.id == pair.a) profileA = p;
-    if (p.id == pair.b) profileB = p;
+  final selectedProfiles = <UserProfile>[];
+  for (final id in group) {
+    final p = profiles.firstWhereOrNull((p) => p.id == id);
+    if (p != null) {
+      selectedProfiles.add(p);
+    }
   }
-  if (profileA == null || profileB == null) return const [];
+  if (selectedProfiles.length != group.length) return const [];
 
   List<String> favoritesOf(UserProfile p) => p.favoriteGenres
       .map((g) => g.trim().toLowerCase())
       .where((g) => g.isNotEmpty)
       .toList();
 
-  final favsA = favoritesOf(profileA);
-  final favsB = favoritesOf(profileB);
-
-  final dismissedA = ref.watch(dismissedRecoIdsProvider(pair.a));
-  final dismissedB = ref.watch(dismissedRecoIdsProvider(pair.b));
-  final seenA = ref.watch(seenRecoIdsProvider(pair.a));
-  final seenB = ref.watch(seenRecoIdsProvider(pair.b));
-  final seenAll = {...seenA, ...seenB};
+  // Collecter tous les IDs dismiss/seen du groupe
+  final allDismissed = <String>{};
+  final allSeen = <String>{};
+  for (final id in group) {
+    allDismissed.addAll(ref.watch(dismissedRecoIdsProvider(id)));
+    allSeen.addAll(ref.watch(seenRecoIdsProvider(id)));
+  }
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
 
   final movies = ref.watch(moviesProvider).valueOrNull ?? const <Movie>[];
   final series = ref.watch(seriesProvider).valueOrNull ?? const <Series>[];
   if (movies.isEmpty && series.isEmpty) return const [];
 
-  final scored = <PairedReco>[];
+  final scored = <GroupReco>[];
   void consider(Recommendation reco) {
-    if (dismissedA.contains(reco.id) || dismissedB.contains(reco.id)) return;
-    final a = profileAffinityWithSignals(
-      reco,
-      favsA,
-      seenIds: seenAll,
-      tmdbTitles: tmdbTitles,
-    );
-    final b = profileAffinityWithSignals(
-      reco,
-      favsB,
-      seenIds: seenAll,
-      tmdbTitles: tmdbTitles,
-    );
-    if (a + b <= 0) return;
-    scored.add(PairedReco(reco: reco, affinityA: a, affinityB: b));
+    if (allDismissed.contains(reco.id)) return;
+
+    final affinities = <double>[];
+    for (final profile in selectedProfiles) {
+      final favs = favoritesOf(profile);
+      final aff = profileAffinityWithSignals(
+        reco,
+        favs,
+        seenIds: allSeen,
+        tmdbTitles: tmdbTitles,
+      );
+      affinities.add(aff);
+    }
+
+    // Exclure si toutes les affinités sont nulles
+    if (affinities.every((a) => a <= 0)) return;
+
+    scored.add(GroupReco(reco: reco, affinities: affinities));
   }
 
   for (final m in movies) {
@@ -516,16 +526,18 @@ List<PairedReco> _computePairScored(Ref ref, ProfilePair pair) {
     if (c != 0) return c;
     final o = y.overlap.compareTo(x.overlap);
     if (o != 0) return o;
+    final m = y.minAffinity.compareTo(x.minAffinity);
+    if (m != 0) return m;
     return y.reco.rating.compareTo(x.reco.rating);
   });
 
   return scored;
 }
 
-/// Films + séries « En duo » avec affinité (mode onglet, pagination 50).
-final matchmakingPairTabProvider = FutureProvider.autoDispose
-    .family<PairTabMatchmaking, ProfilePair>((ref, pair) async {
-  final scored = _computePairScored(ref, pair);
+/// Films + séries « En groupe » avec affinité (mode onglet, pagination 50).
+final matchmakingGroupTabProvider = FutureProvider.autoDispose
+    .family<GroupTabMatchmaking, ProfileGroup>((ref, group) async {
+  final scored = _computeGroupScored(ref, group);
   final movies = scored
       .where((p) => p.reco.kind == RecommendationKind.movie)
       .toList();

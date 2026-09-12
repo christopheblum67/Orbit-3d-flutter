@@ -9,12 +9,12 @@ class ConstellationDualScreenView extends StatefulWidget {
   final String? secondaryTitle;
 
   const ConstellationDualScreenView({
-    Key? key,
+    super.key,
     required this.primaryStreamUrl,
     required this.secondaryStreamUrl,
     this.primaryTitle,
     this.secondaryTitle,
-  }) : super(key: key);
+  });
 
   @override
   State<ConstellationDualScreenView> createState() =>
@@ -101,7 +101,7 @@ class _ConstellationDualScreenViewState
           boxShadow: isFocused
               ? [
                   BoxShadow(
-                    color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                     blurRadius: 15,
                     spreadRadius: 2,
                   ),
@@ -182,7 +182,7 @@ class _ConstellationDualScreenViewState
         _pipButton(Icons.aspect_ratio, 'Layout', () {
           setState(() => _layout = _layout == DualScreenLayout.splitEqual
               ? DualScreenLayout.mainWithPip
-              : DualScreenLayout.splitEqual);
+              : DualScreenLayout.splitEqual,);
         }),
       ],
     );
@@ -206,8 +206,8 @@ class _ConstellationDualScreenViewState
   Widget _buildBottomControls() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B0C10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0B0C10),
         border: Border(top: BorderSide(color: Colors.white12)),
       ),
       child: SafeArea(
@@ -215,21 +215,21 @@ class _ConstellationDualScreenViewState
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _controlButton(Icons.volume_up, 'Audio 1',
-                () => setState(() => _focusedPlayer = 0)),
+                () => setState(() => _focusedPlayer = 0),),
             _controlButton(Icons.volume_off, 'Audio 2',
-                () => setState(() => _focusedPlayer = 1)),
+                () => setState(() => _focusedPlayer = 1),),
             _controlButton(
                 Icons.swap_horiz,
                 'Swap',
                 () => setState(
-                    () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0)),
+                    () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0,),),
             _controlButton(
                 Icons.aspect_ratio,
                 'Layout',
                 () => setState(() => _layout =
                     _layout == DualScreenLayout.splitEqual
                         ? DualScreenLayout.mainWithPip
-                        : DualScreenLayout.splitEqual)),
+                        : DualScreenLayout.splitEqual,),),
             _controlButton(Icons.fullscreen, 'Plein écran', () {}),
           ],
         ),
@@ -255,7 +255,7 @@ class _ConstellationDualScreenViewState
         ),
         const SizedBox(height: 4),
         Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            style: const TextStyle(color: Colors.white54, fontSize: 10),),
       ],
     );
   }

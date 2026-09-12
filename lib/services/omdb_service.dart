@@ -33,13 +33,13 @@ class OmdbService {
           baseUrl: _baseUrl,
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 20),
-        )) {
+        ),) {
     _initCache();
     _dio.interceptors.add(LogInterceptor(
       requestBody: false,
       responseBody: false,
       logPrint: (msg) => _logger.debug('[OMDB] $msg'),
-    ));
+    ),);
   }
 
   Future<void> _initCache() async {
@@ -106,7 +106,7 @@ class OmdbService {
         'i': imdbId,
         'plot': 'full',
         'apikey': _apiKey,
-      });
+      },);
 
       if (response.data['Response'] == 'True') {
         await _setCache(cacheKey, response.data);
@@ -172,7 +172,7 @@ class OmdbService {
     // Fallback par titre + année
     if (data == null && detail.title.isNotEmpty) {
       data = await searchByTitle(detail.title,
-          year: detail.year > 0 ? detail.year : null);
+          year: detail.year > 0 ? detail.year : null,);
     }
 
     if (data == null) return detail;
@@ -230,7 +230,7 @@ class OmdbService {
 
     if (data == null && detail.title.isNotEmpty) {
       data = await searchByTitle(detail.title,
-          year: detail.year > 0 ? detail.year : null);
+          year: detail.year > 0 ? detail.year : null,);
     }
 
     if (data == null) return detail;
@@ -239,7 +239,7 @@ class OmdbService {
   }
 
   SeriesDetail _mergeOmdbSeriesData(
-      SeriesDetail detail, Map<String, dynamic> data) {
+      SeriesDetail detail, Map<String, dynamic> data,) {
     final year = _parseYear(data['Year']);
     final runtime = _parseRuntime(data['Runtime']);
     final genre = data['Genre'] as String? ?? '';

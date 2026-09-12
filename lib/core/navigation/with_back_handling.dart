@@ -7,7 +7,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'route_meta.dart';
+import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 
 /// Wraps [child] with back handling per [meta] and restoration per [restorationId].
 class WithBackHandling extends StatelessWidget {

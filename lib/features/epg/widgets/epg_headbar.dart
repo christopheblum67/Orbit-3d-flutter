@@ -110,7 +110,7 @@ class EpgHeadbar extends StatelessWidget {
                             if (isLive)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                    horizontal: 8, vertical: 2,),
                                 decoration: BoxDecoration(
                                   color: Colors.redAccent,
                                   borderRadius: BorderRadius.circular(10),
@@ -162,7 +162,7 @@ class EpgHeadbar extends StatelessWidget {
                               color: scheme.onSurfaceVariant,
                               fontSize: 10,
                               fontFeatures: const [
-                                FontFeature.tabularFigures()
+                                FontFeature.tabularFigures(),
                               ],
                             ),
                           ),
@@ -180,7 +180,7 @@ class EpgHeadbar extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                   top: BorderSide(
-                      color: scheme.outlineVariant.withValues(alpha: 0.1))),
+                      color: scheme.outlineVariant.withValues(alpha: 0.1),),),
             ),
             child: Row(
               children: [
@@ -212,7 +212,7 @@ class EpgHeadbar extends StatelessWidget {
 
   Widget _buildLeadingImage(BuildContext context) {
     String? imageUrl;
-    final size = 56.0;
+    const size = 56.0;
 
     if (channel?.logoUrl.isNotEmpty == true) {
       imageUrl = channel!.logoUrl;
@@ -287,16 +287,19 @@ class EpgHeadbar extends StatelessWidget {
         final parts = <String>[];
         if (movie?.year != null && movie!.year > 0) parts.add('${movie!.year}');
         if (movie?.genre.isNotEmpty == true) parts.add(movie!.genre);
-        if (movie?.rating != null && movie!.rating! > 0)
-          parts.add('★ ${movie!.rating!.toStringAsFixed(1)}');
+        if (movie?.rating != null && movie!.rating > 0) {
+          parts.add('★ ${movie!.rating.toStringAsFixed(1)}');
+        }
         return parts.join('  •  ');
       case EpgHeadbarType.series:
         final parts = <String>[];
-        if (series?.year != null && series!.year > 0)
+        if (series?.year != null && series!.year > 0) {
           parts.add('${series!.year}');
+        }
         if (series?.genre.isNotEmpty == true) parts.add(series!.genre);
-        if (series?.rating != null && series!.rating! > 0)
-          parts.add('★ ${series!.rating!.toStringAsFixed(1)}');
+        if (series?.rating != null && series!.rating > 0) {
+          parts.add('★ ${series!.rating.toStringAsFixed(1)}');
+        }
         return parts.join('  •  ');
       case EpgHeadbarType.replay:
         final parts = <String>[];
@@ -315,7 +318,9 @@ class EpgHeadbar extends StatelessWidget {
   double _getProgress() {
     if (playbackPosition == null ||
         totalDuration == null ||
-        totalDuration!.inSeconds == 0) return 0.0;
+        totalDuration!.inSeconds == 0) {
+      return 0.0;
+    }
     return (playbackPosition!.inSeconds / totalDuration!.inSeconds)
         .clamp(0.0, 1.0);
   }
@@ -384,7 +389,7 @@ class _NextProgramWidget extends StatelessWidget {
             style: TextStyle(
                 color: scheme.onSurface,
                 fontSize: 12,
-                fontWeight: FontWeight.w600),
+                fontWeight: FontWeight.w600,),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -502,7 +507,7 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon,
                 size: 18,
-                color: isActive ? activeColor : scheme.onSurfaceVariant),
+                color: isActive ? activeColor : scheme.onSurfaceVariant,),
             const SizedBox(width: 6),
             Text(
               label,

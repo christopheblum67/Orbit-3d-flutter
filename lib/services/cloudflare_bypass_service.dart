@@ -118,7 +118,7 @@ class CloudflareBypassService {
       final entries = _CfEntries.fromCookies(cookies);
       _byHost[host] = entries;
       debugPrint(
-          '[CloudflareBypass] Host=$host headers=${entries.toHeaders()}');
+          '[CloudflareBypass] Host=$host headers=${entries.toHeaders()}',);
       return entries;
     } finally {
       if (entry.mounted) entry.remove();
@@ -137,7 +137,7 @@ class CloudflareBypassService {
         if (c.name.trim().isNotEmpty) {
           map[c.name] = c.value;
           debugPrint(
-              '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...');
+              '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...',);
         }
       }
       final ua = await _tryGetUserAgent(controller);

@@ -24,7 +24,7 @@ class _HostBreakerState {
       cooldownUntil = DateTime.now().add(cooldown);
       if (kDebugMode) {
         debugPrint(
-            'HostCircuitBreaker: host entered cooldown until $cooldownUntil');
+            'HostCircuitBreaker: host entered cooldown until $cooldownUntil',);
       }
     }
   }
@@ -63,7 +63,7 @@ class HostCircuitBreaker extends ChangeNotifier {
   /// Enregistre un échec pour l'hôte (401, Source error, timeout, etc.).
   /// Si failureCount >= 2, met l'hôte en cooldown pour [cooldown] durée.
   void recordFailure(String host,
-      {Duration cooldown = const Duration(seconds: 90)}) {
+      {Duration cooldown = const Duration(seconds: 90),}) {
     _getState(host).recordFailure(cooldown: cooldown);
     notifyListeners();
   }

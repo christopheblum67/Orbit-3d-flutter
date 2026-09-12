@@ -1137,7 +1137,7 @@ class ApiService {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] != 'xtream') {
       throw StreamNetworkException(
-          'Recherche non disponible pour ce type d\'abonnement.');
+          'Recherche non disponible pour ce type d\'abonnement.',);
     }
     final baseUrl = sub['baseUrl']!;
     final username = sub['username']!;
@@ -1169,11 +1169,11 @@ class ApiService {
       return UnifiedSearchResult(
         items: [
           ...live.map(
-              (c) => SearchItem.fromChannel(c, source: SearchSource.xtream)),
+              (c) => SearchItem.fromChannel(c, source: SearchSource.xtream),),
           ...vod
               .map((m) => SearchItem.fromMovie(m, source: SearchSource.xtream)),
           ...series.map(
-              (s) => SearchItem.fromSeries(s, source: SearchSource.xtream)),
+              (s) => SearchItem.fromSeries(s, source: SearchSource.xtream),),
         ],
       );
     } catch (e) {

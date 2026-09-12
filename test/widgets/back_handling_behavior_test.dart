@@ -8,7 +8,7 @@ import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 
 class _ShellHome extends StatelessWidget {
-  const _ShellHome({super.key, required this.child});
+  const _ShellHome({required this.child});
   final Widget child;
   @override
   Widget build(BuildContext context) => child;
@@ -38,9 +38,9 @@ void main() {
                 path: '/live',
                 pageBuilder: (context, state) => MaterialPage(
                   key: state.pageKey,
-                  child: WithBackHandling(
+                  child: const WithBackHandling(
                     meta: RouteMeta.popOrFallback('/home', restorationId: 'live'),
-                    child: const Scaffold(
+                    child: Scaffold(
                       body: Center(child: Text('LIVE')),
                     ),
                   ),

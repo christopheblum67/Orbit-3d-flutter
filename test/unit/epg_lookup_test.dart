@@ -15,9 +15,9 @@ void main() {
   // 'a' se termine à base+60, 'b' commence à base+90 → vrai gap de 30 min.
   final sorted = [
     _program('a', base, base.add(const Duration(minutes: 60))),
-    _program('b', base.add(Duration(minutes: 90)), base.add(const Duration(minutes: 150))),
-    _program('c', base.add(Duration(minutes: 150)), base.add(const Duration(minutes: 210))),
-    _program('d', base.add(Duration(minutes: 210)), base.add(const Duration(minutes: 270))),
+    _program('b', base.add(const Duration(minutes: 90)), base.add(const Duration(minutes: 150))),
+    _program('c', base.add(const Duration(minutes: 150)), base.add(const Duration(minutes: 210))),
+    _program('d', base.add(const Duration(minutes: 210)), base.add(const Duration(minutes: 270))),
   ];
 
   group('epgCurrentProgram (dichotomie)', () {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -19,63 +20,13 @@ class HomeShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
 
-    final destinations = <NavigationDestination>[
-      const NavigationDestination(
-        icon: Icon(Icons.home_rounded),
-        label: 'Accueil',
-      ),
-      const NavigationDestination(icon: Icon(Icons.live_tv), label: 'Live TV'),
-      if (!isM3u) ...[
-        const NavigationDestination(icon: Icon(Icons.tv), label: 'Séries'),
-        const NavigationDestination(icon: Icon(Icons.movie), label: 'VOD'),
-      ],
-      const NavigationDestination(
-        icon: Icon(Icons.explore_rounded),
-        label: 'Contenus',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.settings),
-        label: 'Réglages',
-      ),
-    ];
-
-    final railDestinations = <NavigationRailDestination>[
-      const NavigationRailDestination(
-        icon: Icon(Icons.home_rounded),
-        label: Text('Accueil'),
-      ),
-      const NavigationRailDestination(
-        icon: Icon(Icons.live_tv),
-        label: Text('Live TV'),
-      ),
-      if (!isM3u) ...[
-        const NavigationRailDestination(
-          icon: Icon(Icons.tv),
-          label: Text('Séries'),
-        ),
-        const NavigationRailDestination(
-          icon: Icon(Icons.movie),
-          label: Text('VOD'),
-        ),
-      ],
-      const NavigationRailDestination(
-        icon: Icon(Icons.explore_rounded),
-        label: Text('Contenus'),
-      ),
-      const NavigationRailDestination(
-        icon: Icon(Icons.calendar_today),
-        label: Text('EPG'),
-      ),
-      const NavigationRailDestination(
-        icon: Icon(Icons.settings),
-        label: Text('Réglages'),
-      ),
-    ];
-
-    final railIndex = _railIndex(location, isM3u);
+    final entries = _navEntries(isM3u);
+    final railEntries = _railEntries(isM3u);
+    final selectedIndex = _indexFor(location, entries);
+    final railIndex = _indexFor(location, railEntries);
 
     return Scaffold(
-        drawer: isWide ? null : const _HomeMenuDrawer(),
+        drawer: isWide ? null : const HomeMenuDrawer(),
         appBar: AppBar(
           title: Text(_titleForPath(location)),
           actions: [
@@ -88,8 +39,7 @@ class HomeShell extends ConsumerWidget {
               NavigationRail(
                 selectedIndex: railIndex,
                 onDestinationSelected: (index) {
-                  final route = _railRoute(index, isM3u);
-                  context.go(route);
+                  context.go(railEntries[index].route);
                 },
                 labelType: NavigationRailLabelType.all,
                 leading: Padding(
@@ -120,7 +70,13 @@ class HomeShell extends ConsumerWidget {
                   color: scheme.onSurfaceVariant,
                   fontSize: 11,
                 ),
-                destinations: railDestinations,
+                destinations: [
+                  for (final e in railEntries)
+                    NavigationRailDestination(
+                      icon: Icon(e.icon),
+                      label: Text(e.label),
+                    ),
+                ],
               ),
             if (isWide)
               VerticalDivider(
@@ -138,7 +94,8 @@ class HomeShell extends ConsumerWidget {
                   color: scheme.surfaceContainer,
                   border: Border(
                     top: BorderSide(
-                        color: scheme.outlineVariant.withValues(alpha: 0.5)),
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -150,52 +107,96 @@ class HomeShell extends ConsumerWidget {
                 ),
                 child: SafeArea(
                   child: NavigationBar(
-                    selectedIndex:
-                        _calculateSelectedIndex(context, destinations),
+                    selectedIndex: selectedIndex,
                     onDestinationSelected: (index) {
-                      final route = switch (index) {
-                        0 => '/home',
-                        1 => '/live',
-                        2 when isM3u => '/browse',
-                        2 => '/series',
-                        3 => '/vod',
-                        4 => '/browse',
-                        _ => '/settings',
-                      };
-                      context.go(route);
+                      context.go(entries[index].route);
                     },
-                    destinations: destinations,
+                    destinations: [
+                      for (final e in entries)
+                        NavigationDestination(
+                          icon: Icon(e.icon),
+                          label: e.label,
+                        ),
+                    ],
                   ),
                 ),
               ),
     );
   }
 
-  int _calculateSelectedIndex(
-    BuildContext context,
-    List<NavigationDestination> destinations,
-  ) {
-    final location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/home')) return 0;
-    if (location.startsWith('/live')) return 1;
-    if (location.startsWith('/series')) return 2;
-    if (location.startsWith('/vod')) return 3;
-    if (location.startsWith('/matchmaking')) {
-      return destinations.length == 4 ? 2 : 4;
-    }
-    if (location.startsWith('/browse')) {
-      return destinations.length == 4 ? 2 : 4;
-    }
-    if (location.startsWith('/settings')) {
-      return destinations.length - 1;
+  /// Entrées de la barre inférieure (navigation mobile).
+  /// Ordre non-M3U : Accueil, Chaînes TV, Films, Séries, Matchmaking, Réglages.
+  /// En mode M3U (pas de VOD/Séries dédiées) : Contenus à la place.
+  static List<_NavEntry> _navEntries(bool isM3u) => [
+        const _NavEntry(
+          icon: Icons.home_rounded,
+          label: 'Accueil',
+          route: '/home',
+        ),
+        const _NavEntry(
+          icon: Icons.live_tv,
+          label: 'Chaînes TV',
+          route: '/live',
+        ),
+        if (!isM3u) ...[
+          const _NavEntry(
+            icon: Icons.movie,
+            label: 'Films',
+            route: '/vod',
+          ),
+          const _NavEntry(
+            icon: Icons.tv,
+            label: 'Séries',
+            route: '/series',
+          ),
+        ],
+        if (isM3u)
+          const _NavEntry(
+            icon: Icons.explore_rounded,
+            label: 'Contenus',
+            route: '/browse',
+          ),
+        if (!isM3u)
+          const _NavEntry(
+            icon: Icons.recommend,
+            label: 'Matchmaking',
+            route: '/matchmaking',
+          ),
+        const _NavEntry(
+          icon: Icons.settings,
+          label: 'Réglages',
+          route: '/settings',
+        ),
+      ];
+
+  /// Entrées du rail (navigation large) : même base que la barre inférieure,
+  /// avec l'accès EPG inséré après « Chaînes TV ».
+  static List<_NavEntry> _railEntries(bool isM3u) {
+    final base = _navEntries(isM3u);
+    return [
+      ...base.take(2),
+      const _NavEntry(
+        icon: Icons.calendar_today,
+        label: 'EPG',
+        route: '/epg',
+      ),
+      ...base.skip(2),
+    ];
+  }
+
+  /// Index de l'entrée dont la route est un préfixe de la position courante.
+  /// Repli sur la première entrée (Accueil) si rien ne correspond.
+  static int _indexFor(String location, List<_NavEntry> entries) {
+    for (var i = 0; i < entries.length; i++) {
+      if (location.startsWith(entries[i].route)) return i;
     }
     return 0;
   }
 
   String _titleForPath(String path) {
-    if (path.startsWith('/live')) return 'Live TV';
+    if (path.startsWith('/live')) return 'Chaînes TV';
     if (path.startsWith('/series')) return 'Séries';
-    if (path.startsWith('/vod')) return 'VOD';
+    if (path.startsWith('/vod')) return 'Films';
     if (path.startsWith('/matchmaking')) return 'Pour vous';
     if (path.startsWith('/browse')) return 'Contenus';
     if (path.startsWith('/replay')) return 'Replay';
@@ -206,245 +207,21 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/settings')) return 'Réglages';
     return AppConstants.appName;
   }
-
-  static int _railIndex(String location, bool isM3u) {
-    if (location.startsWith('/live')) return 1;
-    if (location.startsWith('/series')) return 2;
-    if (location.startsWith('/vod')) return 3;
-    if (location.startsWith('/matchmaking')) {
-      return isM3u ? 2 : 4;
-    }
-    if (location.startsWith('/browse')) {
-      return isM3u ? 2 : 4;
-    }
-    if (location.startsWith('/epg')) {
-      return isM3u ? 3 : 5;
-    }
-    if (location.startsWith('/settings')) {
-      return isM3u ? 4 : 6;
-    }
-    return 0;
-  }
-
-  static String _railRoute(int index, bool isM3u) {
-    return switch (index) {
-      0 => '/home',
-      1 => '/live',
-      2 when isM3u => '/browse',
-      2 => '/series',
-      3 when isM3u => '/epg',
-      3 => '/vod',
-      4 when isM3u => '/settings',
-      4 => '/browse',
-      5 => '/epg',
-      _ => '/settings',
-    };
-  }
 }
 
-class _HomeMenuDrawer extends ConsumerWidget {
-  const _HomeMenuDrawer();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final isM3u = ref.watch(sourceTypeProvider).valueOrNull == 'm3u';
-    final profile = ref.watch(currentProfileProvider);
-    final sections = <_MenuSection>[
-      _MenuSection(
-        header: 'Continuer',
-        items: [
-          const _MenuEntry(
-            icon: Icons.home_rounded,
-            label: 'Accueil',
-            route: '/home',
-          ),
-          const _MenuEntry(
-            icon: Icons.live_tv,
-            label: 'Live TV',
-            route: '/live',
-          ),
-          if (!isM3u) ...[
-            const _MenuEntry(icon: Icons.tv, label: 'Séries', route: '/series'),
-            const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
-          ],
-        ],
-      ),
-      _MenuSection(
-        header: 'Découvrir',
-        items: [
-          const _MenuEntry(
-            icon: Icons.search,
-            label: 'Recherche',
-            route: '/search',
-          ),
-          const _MenuEntry(
-            icon: Icons.calendar_today,
-            label: 'EPG (grille)',
-            route: '/epg',
-          ),
-          _MenuEntry(
-            icon: Icons.recommend,
-            label: 'Pour vous (matchmaking)',
-            route: '/matchmaking',
-            color: scheme.primary,
-          ),
-          const _MenuEntry(
-            icon: Icons.replay_circle_filled,
-            label: 'Replay',
-            route: '/replay',
-          ),
-        ],
-      ),
-      _MenuSection(
-        header: 'Mes contenus',
-        items: [
-          const _MenuEntry(
-            icon: Icons.favorite,
-            label: 'Favoris',
-            route: '/favorites',
-          ),
-          const _MenuEntry(
-            icon: Icons.history,
-            label: 'Historique',
-            route: '/history',
-          ),
-          _MenuEntry(
-            icon: Icons.person_outline,
-            label: profile?.firstName == null
-                ? 'Profil'
-                : 'Profil : ${profile!.firstName}',
-            route: '/profiles',
-          ),
-        ],
-      ),
-      const _MenuSection(
-        header: 'Configuration',
-        items: [
-          _MenuEntry(
-            icon: Icons.dns_outlined,
-            label: 'Abonnements',
-            route: '/subscriptions',
-          ),
-          _MenuEntry(
-            icon: Icons.settings,
-            label: 'Réglages',
-            route: '/settings',
-          ),
-          _MenuEntry(
-            icon: Icons.tune,
-            label: 'Configuration avancée',
-            route: '/settings/advanced',
-          ),
-        ],
-      ),
-    ];
-
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: scheme.primaryContainer),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Icon(
-                    Icons.live_tv,
-                    size: 40,
-                    color: scheme.onPrimaryContainer,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppConstants.appName,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  Text(
-                    'Sélectionnez un sous-menu',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              scheme.onPrimaryContainer.withValues(alpha: 0.8),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            for (final section in sections) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-                child: Text(
-                  section.header,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                      ),
-                ),
-              ),
-              for (final item in section.items) _MenuTile(item: item),
-            ],
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MenuSection {
-  const _MenuSection({required this.header, required this.items});
-
-  final String header;
-  final List<_MenuEntry> items;
-}
-
-class _MenuEntry {
-  const _MenuEntry({
+/// Entrée de navigation partagée (barre inférieure / rail) : icône, libellé
+/// et route associée. L'index sélectionné et la route cible se déduisent de
+/// cette table, évitant les switchs fragiles index -> route.
+class _NavEntry {
+  const _NavEntry({
     required this.icon,
     required this.label,
     required this.route,
-    this.color,
   });
 
   final IconData icon;
   final String label;
   final String route;
-  final Color? color;
-}
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.item});
-
-  final _MenuEntry item;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final location = GoRouterState.of(context).uri.path;
-    final selected = location.startsWith(item.route);
-    return ListTile(
-      leading: Icon(item.icon, color: item.color ?? scheme.primary),
-      title: Text(
-        item.label,
-        style: TextStyle(
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? scheme.primary : scheme.onSurface,
-        ),
-      ),
-      selected: selected,
-      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: () {
-        Navigator.of(context).pop();
-        context.go(item.route);
-      },
-    );
-  }
 }
 
 class _ProfileSwitchButton extends StatelessWidget {

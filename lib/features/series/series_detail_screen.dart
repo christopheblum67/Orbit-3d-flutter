@@ -394,7 +394,7 @@ class _SeriesHeader extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 8, vertical: 4,),
                         decoration: BoxDecoration(
                           color: scheme.primary,
                           borderRadius: BorderRadius.circular(10),
@@ -413,14 +413,14 @@ class _SeriesHeader extends ConsumerWidget {
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                            horizontal: 8, vertical: 3,),
                         decoration: BoxDecoration(
                           color: _getSourceColor(series.dataSource)
                               .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                               color: _getSourceColor(series.dataSource)
-                                  .withValues(alpha: 0.3)),
+                                  .withValues(alpha: 0.3),),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,

@@ -46,7 +46,7 @@ class SearchItem {
   });
 
   factory SearchItem.fromChannel(Channel channel,
-      {double score = 1.0, SearchSource source = SearchSource.xtream}) {
+      {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
     return SearchItem(
       id: channel.id,
       type: SearchType.live,
@@ -62,7 +62,7 @@ class SearchItem {
   }
 
   factory SearchItem.fromMovie(Movie movie,
-      {double score = 1.0, SearchSource source = SearchSource.xtream}) {
+      {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
     return SearchItem(
       id: movie.id,
       type: SearchType.vod,
@@ -80,7 +80,7 @@ class SearchItem {
   }
 
   factory SearchItem.fromSeries(Series series,
-      {double score = 1.0, SearchSource source = SearchSource.xtream}) {
+      {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
     return SearchItem(
       id: series.id,
       type: SearchType.series,
@@ -98,7 +98,7 @@ class SearchItem {
   }
 
   factory SearchItem.fromReplay(ReplayItem replay,
-      {double score = 1.0, SearchSource source = SearchSource.xtream}) {
+      {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
     return SearchItem(
       id: replay.id,
       type: SearchType.replay,
@@ -114,7 +114,7 @@ class SearchItem {
   }
 
   factory SearchItem.fromEpg(EPGProgram program,
-      {double score = 1.0, SearchSource source = SearchSource.xtream}) {
+      {double score = 1.0, SearchSource source = SearchSource.xtream,}) {
     return SearchItem(
       id: '${program.channelId}_${program.start.millisecondsSinceEpoch}',
       type: SearchType.epg,

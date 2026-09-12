@@ -63,7 +63,7 @@ void main() {
         profileId: 'test_profile',
         streamUrl: 'http://x',
         watchedAt: DateTime(2026, 9, 7),
-      ));
+      ),);
       await service.clearAll();
       expect(await service.loadAll(), isEmpty);
     });

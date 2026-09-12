@@ -4,6 +4,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
@@ -66,14 +67,21 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         if (channels.isEmpty) {
           return const Center(child: Text('Aucune chaîne disponible'));
         }
-        final categories = <String>[];
+        final groupCounts = <String, int>{};
         for (final c in channels) {
-          if (c.groupLabel.isNotEmpty && !categories.contains(c.groupLabel)) {
-            categories.add(c.groupLabel);
-          }
+          if (c.groupLabel.isEmpty) continue;
+          groupCounts[c.groupLabel] = (groupCounts[c.groupLabel] ?? 0) + 1;
         }
+        final categories = [
+          for (final entry in groupCounts.entries)
+            MediaCategory(
+              id: entry.key,
+              name: entry.key,
+              count: entry.value,
+            ),
+        ];
         final effective =
-            _gridCategory ?? (categories.isNotEmpty ? categories.first : null);
+            _gridCategory ?? (categories.isNotEmpty ? categories.first.id : null);
         final favIds = favoriteEntries.values
             .where((e) => e.type == ContentType.live)
             .map((e) => e.id)
@@ -82,6 +90,9 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             .where((e) => e.type == ContentType.live)
             .map((e) => e.id)
             .toSet();
+        final favCount = channels.where((c) => favIds.contains(c.id)).length;
+        final recentCount =
+            channels.where((c) => recentIds.contains(c.id)).length;
         final List<Channel> visible;
         if (effective == 'fav') {
           visible = channels.where((c) => favIds.contains(c.id)).toList();
@@ -105,6 +116,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             _CategoryFilterBar(
               categories: categories,
               selected: effective,
+              favCount: favCount,
+              recentCount: recentCount,
               onSelected: (category) =>
                   setState(() => _gridCategory = category),
             ),
@@ -147,11 +160,15 @@ class _CategoryFilterBar extends StatelessWidget {
     required this.categories,
     required this.selected,
     required this.onSelected,
+    this.favCount = 0,
+    this.recentCount = 0,
   });
 
-  final List<String> categories;
+  final List<MediaCategory> categories;
   final String? selected;
   final ValueChanged<String?> onSelected;
+  final int favCount;
+  final int recentCount;
 
   @override
   Widget build(BuildContext context) {
@@ -164,19 +181,22 @@ class _CategoryFilterBar extends StatelessWidget {
         children: [
           _chip(
             label: 'Favoris',
+            count: favCount,
             selected: selected == 'fav',
             onTap: () => onSelected('fav'),
           ),
           _chip(
             label: 'Récemment',
+            count: recentCount,
             selected: selected == 'recent',
             onTap: () => onSelected('recent'),
           ),
           for (final category in categories)
             _chip(
-              label: category,
-              selected: selected == category,
-              onTap: () => onSelected(category),
+              label: category.name,
+              count: category.count,
+              selected: selected == category.id,
+              onTap: () => onSelected(category.id),
             ),
         ],
       ),
@@ -187,11 +207,13 @@ class _CategoryFilterBar extends StatelessWidget {
     required String label,
     required bool selected,
     required VoidCallback onTap,
+    int count = 0,
   }) {
+    final labelled = count > 0 ? '$label ($count)' : label;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        label: Text(label),
+        label: Text(labelled),
         selected: selected,
         onSelected: (_) => onTap(),
         backgroundColor: const Color(0xFF16181E),
