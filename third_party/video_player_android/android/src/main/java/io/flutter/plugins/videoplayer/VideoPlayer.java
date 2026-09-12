@@ -14,12 +14,19 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import io.flutter.view.TextureRegistry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   @NonNull private final ExoPlayerProvider exoPlayerProvider;
@@ -197,6 +204,181 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
 
   long getPosition() {
     return exoPlayer.getCurrentPosition();
+  }
+
+  /**
+   * Lists the audio tracks currently exposed by the player.
+   *
+   * <p>Each entry carries the metadata understood by the Dart layer (id is
+   * {@code "<groupIndex>_<trackIndex>"}).
+   */
+  List<Map<String, Object>> getAudioTracks() {
+    List<Map<String, Object>> tracks = new ArrayList<>();
+    Tracks currentTracks = exoPlayer.getCurrentTracks();
+    if (currentTracks == null) {
+      return tracks;
+    }
+    int groupIndex = 0;
+    for (Tracks.Group group : currentTracks.getGroups()) {
+      if (group.getType() == C.TRACK_TYPE_AUDIO) {
+        for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+          if (!group.isTrackSupported(trackIndex)) {
+            continue;
+          }
+          Format format = group.getTrackFormat(trackIndex);
+          Map<String, Object> track = new HashMap<>();
+          track.put("id", groupIndex + "_" + trackIndex);
+          track.put("label", audioTrackLabel(format));
+          track.put("language", format.language);
+          track.put("isSelected", group.isTrackSelected(trackIndex));
+          track.put("bitrate", format.bitrate > 0 ? format.bitrate : null);
+          track.put("sampleRate", format.sampleRate > 0 ? format.sampleRate : null);
+          track.put("channelCount", format.channelCount > 0 ? format.channelCount : null);
+          track.put("codec", format.codecs);
+          tracks.add(track);
+        }
+      }
+      groupIndex++;
+    }
+    return tracks;
+  }
+
+  /** Lists the video quality variants currently exposed by the player. */
+  List<Map<String, Object>> getVideoTracks() {
+    List<Map<String, Object>> tracks = new ArrayList<>();
+    Tracks currentTracks = exoPlayer.getCurrentTracks();
+    if (currentTracks == null) {
+      return tracks;
+    }
+    int groupIndex = 0;
+    for (Tracks.Group group : currentTracks.getGroups()) {
+      if (group.getType() == C.TRACK_TYPE_VIDEO) {
+        for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+          if (!group.isTrackSupported(trackIndex)) {
+            continue;
+          }
+          Format format = group.getTrackFormat(trackIndex);
+          Map<String, Object> track = new HashMap<>();
+          track.put("id", groupIndex + "_" + trackIndex);
+          track.put("label", videoTrackLabel(format));
+          track.put("isSelected", group.isTrackSelected(trackIndex));
+          track.put("bitrate", format.bitrate > 0 ? format.bitrate : null);
+          track.put("width", format.width > 0 ? format.width : null);
+          track.put("height", format.height > 0 ? format.height : null);
+          track.put("frameRate", format.frameRate > 0 ? (double) format.frameRate : null);
+          track.put("codec", format.codecs);
+          tracks.add(track);
+        }
+      }
+      groupIndex++;
+    }
+    return tracks;
+  }
+
+  /** Forces the audio track identified by {@code "<groupIndex>_<trackIndex>"}. */
+  void selectAudioTrack(String trackId) {
+    applyTrackSelection(trackId, C.TRACK_TYPE_AUDIO);
+  }
+
+  /**
+   * Forces the video quality variant identified by {@code "<groupIndex>_<trackIndex>"}, or
+   * restores automatic selection when {@code track} is {@code null}.
+   */
+  void selectVideoTrack(Map<String, Object> track) {
+    if (track == null) {
+      DefaultTrackSelector trackSelector = trackSelectorOrNull();
+      if (trackSelector != null) {
+        DefaultTrackSelector.Parameters parameters =
+            trackSelector
+                .getParameters()
+                .buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+                .build();
+        trackSelector.setParameters(parameters);
+      }
+      return;
+    }
+    Object id = track.get("id");
+    if (!(id instanceof String)) {
+      throw new IllegalArgumentException("selectVideoTrack requires a non-null track id.");
+    }
+    String[] parts = ((String) id).split("_");
+    if (parts.length != 2) {
+      throw new IllegalArgumentException("Invalid video track id: " + id);
+    }
+    int groupIndex = Integer.parseInt(parts[0]);
+    int trackIndex = Integer.parseInt(parts[1]);
+    applyTrackSelection(groupIndex, trackIndex, C.TRACK_TYPE_VIDEO);
+  }
+
+  private void applyTrackSelection(String trackId, @C.TrackType int trackType) {
+    String[] parts = trackId.split("_");
+    if (parts.length != 2) {
+      throw new IllegalArgumentException("Invalid track id: " + trackId);
+    }
+    int groupIndex = Integer.parseInt(parts[0]);
+    int trackIndex = Integer.parseInt(parts[1]);
+    applyTrackSelection(groupIndex, trackIndex, trackType);
+  }
+
+  private void applyTrackSelection(int groupIndex, int trackIndex, @C.TrackType int trackType) {
+    Tracks currentTracks = exoPlayer.getCurrentTracks();
+    if (currentTracks == null) {
+      throw new IllegalArgumentException("No tracks available.");
+    }
+    if (groupIndex < 0 || groupIndex >= currentTracks.getGroups().size()) {
+      throw new IllegalArgumentException("Invalid track group: " + groupIndex);
+    }
+    Tracks.Group selectedGroup = currentTracks.getGroups().get(groupIndex);
+    if (selectedGroup.getType() != trackType) {
+      throw new IllegalArgumentException(
+          "Group " + groupIndex + " is not of type " + trackType);
+    }
+    if (trackIndex < 0 || trackIndex >= selectedGroup.length) {
+      throw new IllegalArgumentException("Invalid track index: " + trackIndex);
+    }
+    DefaultTrackSelector trackSelector = trackSelectorOrNull();
+    if (trackSelector == null) {
+      return;
+    }
+    TrackSelectionOverride override =
+        new TrackSelectionOverride(selectedGroup.getMediaTrackGroup(), trackIndex);
+    DefaultTrackSelector.Parameters parameters =
+        trackSelector.getParameters().buildUpon().setOverrideForType(override).build();
+    trackSelector.setParameters(parameters);
+  }
+
+  private DefaultTrackSelector trackSelectorOrNull() {
+    if (!(exoPlayer.getTrackSelector() instanceof DefaultTrackSelector)) {
+      return null;
+    }
+    return (DefaultTrackSelector) exoPlayer.getTrackSelector();
+  }
+
+  private static String audioTrackLabel(Format format) {
+    StringBuilder label = new StringBuilder();
+    if (format.language != null && !format.language.isEmpty() && !"und".equals(format.language)) {
+      label.append(format.language);
+    } else {
+      label.append("Audio");
+    }
+    if (format.channelCount > 0) {
+      label.append(" · ").append(format.channelCount).append(" can.");
+    }
+    if (format.codecs != null && !format.codecs.isEmpty()) {
+      label.append(" · ").append(format.codecs);
+    }
+    return label.toString();
+  }
+
+  private static String videoTrackLabel(Format format) {
+    if (format.width > 0 && format.height > 0) {
+      return format.width + "×" + format.height;
+    }
+    if (format.bitrate > 0) {
+      return (format.bitrate / 1000) + " kbps";
+    }
+    return "Vidéo";
   }
 
   void dispose() {

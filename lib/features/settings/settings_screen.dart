@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
@@ -243,6 +244,15 @@ class _PlaybackTab extends ConsumerWidget {
       children: [
         const SettingsSectionTitle('Moteur de lecture'),
         const _PlayerEngineTile(),
+        const SettingsSectionTitle('Audio'),
+        SettingsNavTile(
+          icon: Icons.nightlight_outlined,
+          title: 'Audio & Night Focus',
+          subtitle:
+              'Optimisation nocturne, dialogue boost, synchronisation A/V',
+          onTap: () => showAudioControlsSheet(context),
+        ),
+        const SizedBox(height: 8),
         const SettingsSectionTitle('Rendu Vidéo et Zapping'),
         SettingsSwitchTile(
           title: 'Zapping Instantané (Prefetching)',

@@ -13,9 +13,8 @@ import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
-import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -29,7 +28,6 @@ import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
-import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -152,7 +150,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _footerVisible = false;
   Timer? _footerTimer;
   Timer? _saveProgressTimer;
-  bool _volumeToZap = false;
   bool _immersive = false;
   bool _hasAppliedInitialPosition = false;
   bool? _lastKnownPlaying;
@@ -174,23 +171,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Channel? get _currentChannel => _channels.isEmpty ? null : _channels[_index];
-
-  /// Favori associé au contenu en cours (déduit de la chaîne en live,
-  /// sinon fourni par la route).
-  FavoriteEntry? get _favoriteEntry {
-    final channel = _currentChannel;
-    if (channel != null) {
-      return FavoriteEntry(
-        type: ContentType.live,
-        id: channel.id,
-        title: channel.name,
-        posterUrl: channel.logoUrl,
-        subtitle: channel.groupLabel,
-        streamUrl: channel.streamUrl,
-      );
-    }
-    return widget.favorite;
-  }
 
   @override
   void initState() {
@@ -1002,19 +982,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     } catch (_) {}
   }
 
-  void _openAudioControls() {
-    showAudioControlsSheet(context);
-  }
-
-  void _openPlayerEngineConfig() {
-    showPlayerEngineConfigSheet(context);
-  }
-
-  void _openSettings() {
-    if (!mounted) return;
-    context.go('/settings');
-  }
-
   /// Bascule directe du maître Night Focus (icône 🌙 de la footerbar).
   Future<void> _toggleNightFocus() async {
     final nf = ref.read(advancedSettingsProvider);
@@ -1040,10 +1007,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     });
     _syncImmersive();
     _showFooterBar();
-  }
-
-  void _toggleVolumeZap() {
-    setState(() => _volumeToZap = !_volumeToZap);
   }
 
   /// Sortie propre du lecteur : arrêt immédiat du flux (audio + vidéo),
@@ -1087,16 +1050,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         key == LogicalKeyboardKey.pageDown) {
       _goNext();
       return KeyEventResult.handled;
-    }
-    if (_volumeToZap) {
-      if (key == LogicalKeyboardKey.audioVolumeUp) {
-        _goNext();
-        return KeyEventResult.handled;
-      }
-      if (key == LogicalKeyboardKey.audioVolumeDown) {
-        _goPrevious();
-        return KeyEventResult.handled;
-      }
     }
     if (key == LogicalKeyboardKey.space) {
       _togglePlayPause();
@@ -1183,13 +1136,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Construit le contenu de la footerbar selon le type de contenu en cours.
   Widget _buildFooterContent(VideoPlayerController player) {
     final isPlaying = player.value.isPlaying;
-    final controlsMenu = _FooterControlsMenu(
+    final streamDetails = _FooterStreamDetails(
+      controller: player,
       onOpened: () => _footerTimer?.cancel(),
       onClosed: _showFooterBar,
-      onAudioControls: _openAudioControls,
-      onPlayerEngine: _openPlayerEngineConfig,
-      onToggleNightFocus: _toggleNightFocus,
-      onSettings: _openSettings,
     );
     return switch (widget.contentType) {
       PlaybackContentType.live => _LiveFooterBar(
@@ -1197,10 +1147,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           fallbackTitle: widget.title ?? _currentChannel?.name ?? 'Live',
           index: _index,
           total: _channels.length,
-          volumeToZap: _volumeToZap,
           isPlaying: isPlaying,
           showSeek: false,
-          favoriteEntry: _favoriteEntry,
           onExit: _requestExit,
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
@@ -1209,8 +1157,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onSeekBack30: null,
           onSeekForward10: null,
           onSeekForward30: null,
-          onToggleVolumeZap: _toggleVolumeZap,
-          controlsMenu: controlsMenu,
+          streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
       PlaybackContentType.replay => _LiveFooterBar(
@@ -1220,10 +1167,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           controller: player,
           index: _index,
           total: _channels.length,
-          volumeToZap: _volumeToZap,
           isPlaying: isPlaying,
           showSeek: true,
-          favoriteEntry: _favoriteEntry,
           onExit: _requestExit,
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
@@ -1232,8 +1177,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
-          onToggleVolumeZap: _toggleVolumeZap,
-          controlsMenu: controlsMenu,
+          streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
       PlaybackContentType.vod || PlaybackContentType.series => _VodFooterBar(
@@ -1245,14 +1189,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           seriesName: widget.seriesName,
           episodeLabel: widget.episodeLabel,
           isPlaying: isPlaying,
-          favoriteEntry: _favoriteEntry,
           onExit: _requestExit,
           onTogglePlayPause: _togglePlayPause,
           onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
-          controlsMenu: controlsMenu,
+          streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
     };
@@ -1409,45 +1352,9 @@ class _LiveProgressBar extends StatelessWidget {
 
 /// Rangée de contrôles de seek : 2x retour rapide / play-pause / 2x avance rapide.
 /// Vitesses : -10s / -30s  |  play/pause  |  +10s / +30s
-class _SeekActionsRow extends StatelessWidget {
-  const _SeekActionsRow({
-    required this.isPlaying,
-    required this.onSeekBack10,
-    required this.onSeekBack30,
-    required this.onSeekForward10,
-    required this.onSeekForward30,
-    required this.onTogglePlayPause,
-  });
-
-  final bool isPlaying;
-  final VoidCallback onSeekBack10;
-  final VoidCallback onSeekBack30;
-  final VoidCallback onSeekForward10;
-  final VoidCallback onSeekForward30;
-  final VoidCallback onTogglePlayPause;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _fbIcon(Icons.replay_30, onSeekBack30, tooltip: 'Reculer 30s'),
-        const SizedBox(width: 6),
-        _fbIcon(Icons.replay_10, onSeekBack10, tooltip: 'Reculer 10s'),
-        const SizedBox(width: 10),
-        _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-        const SizedBox(width: 10),
-        _fbIcon(Icons.forward_10, onSeekForward10, tooltip: 'Avancer 10s'),
-        const SizedBox(width: 6),
-        _fbIcon(Icons.forward_30, onSeekForward30, tooltip: 'Avancer 30s'),
-      ],
-    );
-  }
-}
-
 /// Footerbar Live / Replay : nom de chaîne + #numéro + EPG (titre/horaires
 /// + progression du programme) puis actions (zapping, pause/play, seek si
-/// replay, volume-zap, menu, Night Focus, favori, retour) puis hints TV.
+/// replay, menu détails du flux, Night Focus, retour).
 class _LiveFooterBar extends ConsumerWidget {
   const _LiveFooterBar({
     required this.channel,
@@ -1456,10 +1363,8 @@ class _LiveFooterBar extends ConsumerWidget {
     this.controller,
     required this.index,
     required this.total,
-    required this.volumeToZap,
     required this.isPlaying,
     required this.showSeek,
-    this.favoriteEntry,
     required this.onExit,
     this.onPrevious,
     this.onNext,
@@ -1468,8 +1373,7 @@ class _LiveFooterBar extends ConsumerWidget {
     this.onSeekBack30,
     this.onSeekForward10,
     this.onSeekForward30,
-    required this.onToggleVolumeZap,
-    required this.controlsMenu,
+    required this.streamDetails,
     required this.onToggleNightFocus,
   });
 
@@ -1479,10 +1383,8 @@ class _LiveFooterBar extends ConsumerWidget {
   final VideoPlayerController? controller;
   final int index;
   final int total;
-  final bool volumeToZap;
   final bool isPlaying;
   final bool showSeek;
-  final FavoriteEntry? favoriteEntry;
   final VoidCallback onExit;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
@@ -1491,13 +1393,11 @@ class _LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onSeekBack30;
   final VoidCallback? onSeekForward10;
   final VoidCallback? onSeekForward30;
-  final VoidCallback onToggleVolumeZap;
-  final _FooterControlsMenu controlsMenu;
+  final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
     final currentChannel = channel;
     final epgAsync = currentChannel != null
         ? ref.watch(channelEpgProvider(currentChannel.epgChannelId))
@@ -1507,13 +1407,6 @@ class _LiveFooterBar extends ConsumerWidget {
         : (null, null);
     final channelName = currentChannel?.name ?? fallbackTitle;
     final canZap = total > 1;
-    final hints = <String>[
-      if (canZap) '▲▼ chaîne',
-      if (volumeToZap) 'volume = chaîne',
-      'OK pause',
-      if (showSeek) '← → 10/30s',
-      '← Retour',
-    ].join(' · ');
     final player = controller;
     final hasEpg =
         currentChannel != null && (nowProgram != null || nextProgram != null);
@@ -1592,33 +1485,12 @@ class _LiveFooterBar extends ConsumerWidget {
               backgroundColor: Colors.white24,
             ),
           ),
-          const SizedBox(height: 8),
-          _SeekActionsRow(
-            isPlaying: isPlaying,
-            onSeekBack10: onSeekBack10!,
-            onSeekBack30: onSeekBack30!,
-            onSeekForward10: onSeekForward10!,
-            onSeekForward30: onSeekForward30!,
-            onTogglePlayPause: onTogglePlayPause,
-          ),
         ],
         const SizedBox(height: 10),
         Row(
           children: [
             _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            if (favoriteEntry != null)
-              FavoriteToggle.overlay(entry: favoriteEntry!),
             const Spacer(),
-            if (canZap) ...[
-              _fbIcon(
-                volumeToZap ? Icons.tap_and_play : Icons.volume_up,
-                onToggleVolumeZap,
-                tooltip: volumeToZap
-                    ? 'Volume normal'
-                    : 'Changer de chaîne avec le volume',
-                color: volumeToZap ? scheme.primary : Colors.white,
-              ),
-            ],
             if (onPrevious != null)
               _fbIcon(
                 Icons.skip_previous_rounded,
@@ -1662,24 +1534,19 @@ class _LiveFooterBar extends ConsumerWidget {
                 onNext,
                 tooltip: 'Chaîne suivante',
               ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            controlsMenu,
+            streamDetails,
           ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          hints,
-          style: const TextStyle(color: Colors.white60, fontSize: 10.5),
         ),
       ],
     );
   }
 }
 
-/// Footerbar VOD / Séries : titre + note ★ + genre (+ épisode) puis barre de
-/// progression de lecture + 2x retour / play-pause / 2x avance, puis menu /
-/// Night Focus et hints TV.
+/// Footerbar VOD / Séries : titre + note ★ + genre (+ épisode), barre de
+/// progression de lecture puis 2x retour / play-pause / 2x avance, et menu
+/// détails du flux / Night Focus.
 class _VodFooterBar extends ConsumerWidget {
   const _VodFooterBar({
     required this.controller,
@@ -1690,14 +1557,13 @@ class _VodFooterBar extends ConsumerWidget {
     this.seriesName,
     this.episodeLabel,
     required this.isPlaying,
-    this.favoriteEntry,
     required this.onExit,
     required this.onTogglePlayPause,
     required this.onSeekBack10,
     required this.onSeekBack30,
     required this.onSeekForward10,
     required this.onSeekForward30,
-    required this.controlsMenu,
+    required this.streamDetails,
     required this.onToggleNightFocus,
   });
 
@@ -1709,14 +1575,13 @@ class _VodFooterBar extends ConsumerWidget {
   final String? seriesName;
   final String? episodeLabel;
   final bool isPlaying;
-  final FavoriteEntry? favoriteEntry;
   final VoidCallback onExit;
   final VoidCallback onTogglePlayPause;
   final VoidCallback onSeekBack10;
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward10;
   final VoidCallback onSeekForward30;
-  final _FooterControlsMenu controlsMenu;
+  final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
 
   String? get _subLine {
@@ -1793,29 +1658,40 @@ class _VodFooterBar extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _SeekActionsRow(
-          isPlaying: isPlaying,
-          onSeekBack10: onSeekBack10,
-          onSeekBack30: onSeekBack30,
-          onSeekForward10: onSeekForward10,
-          onSeekForward30: onSeekForward30,
-          onTogglePlayPause: onTogglePlayPause,
-        ),
-        const SizedBox(height: 8),
         Row(
           children: [
             _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            if (favoriteEntry != null)
-              FavoriteToggle.overlay(entry: favoriteEntry!),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'OK pause · ← → 10/30s · ← Retour',
-                style: TextStyle(color: Colors.white60, fontSize: 10.5),
-              ),
+            const Spacer(),
+            _fbIcon(
+              Icons.replay_30,
+              onSeekBack30,
+              tooltip: 'Reculer 30s',
+              color: Colors.white,
             ),
+            const SizedBox(width: 4),
+            _fbIcon(
+              Icons.replay_10,
+              onSeekBack10,
+              tooltip: 'Reculer 10s',
+              color: Colors.white,
+            ),
+            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+            _fbIcon(
+              Icons.forward_10,
+              onSeekForward10,
+              tooltip: 'Avancer 10s',
+              color: Colors.white,
+            ),
+            const SizedBox(width: 4),
+            _fbIcon(
+              Icons.forward_30,
+              onSeekForward30,
+              tooltip: 'Avancer 30s',
+              color: Colors.white,
+            ),
+            const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            controlsMenu,
+            streamDetails,
           ],
         ),
       ],
@@ -1823,104 +1699,35 @@ class _VodFooterBar extends ConsumerWidget {
   }
 }
 
-enum _FooterMenuAction { audioSync, nightFocus, playerEngine, settings }
+/// Icône ⚙️ de la footerbar : ouvre le panneau « Détails du flux » (pistes
+/// audio / qualité vidéo / sous-titres).
+///
+/// Tant que la sous-fenêtre est ouverte on gèle le timer d'auto-masquage (via
+/// [onOpened]) et on le relance à la fermeture ([onClosed]).
+class _FooterStreamDetails extends StatelessWidget {
+  const _FooterStreamDetails({
+    required this.controller,
+    required this.onOpened,
+    required this.onClosed,
+  });
 
-/// Ligne d'une entrée du menu contextuel (icône + libellé).
-class _FbMenuItem extends StatelessWidget {
-  const _FbMenuItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
+  final VideoPlayerController controller;
+  final VoidCallback onOpened;
+  final VoidCallback onClosed;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon,
-            size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant,),
-        const SizedBox(width: 12),
-        Text(label),
-      ],
-    );
-  }
-}
-
-/// Menu contextuel de la footerbar (icône ⚙️) : Réglages audio & sync,
-/// Night Focus (toggle), Qualité & lecteur, Réglages.
-///
-/// Tant que le popup est ouvert on gèle le timer d'auto-masquage (via
-/// [onOpened]) et on le relance à la fermeture ([onClosed]).
-class _FooterControlsMenu extends ConsumerWidget {
-  const _FooterControlsMenu({
-    required this.onOpened,
-    required this.onClosed,
-    required this.onAudioControls,
-    required this.onPlayerEngine,
-    required this.onToggleNightFocus,
-    required this.onSettings,
-  });
-
-  final VoidCallback onOpened;
-  final VoidCallback onClosed;
-  final VoidCallback onAudioControls;
-  final VoidCallback onPlayerEngine;
-  final VoidCallback onToggleNightFocus;
-  final VoidCallback onSettings;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final nfEnabled = ref.watch(
-      advancedSettingsProvider.select((s) => s.nightFocusEnabled),
-    );
-    return PopupMenuButton<_FooterMenuAction>(
-      tooltip: 'Menu',
-      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
-      onOpened: onOpened,
-      onCanceled: onClosed,
-      onSelected: (action) {
-        onClosed();
-        switch (action) {
-          case _FooterMenuAction.audioSync:
-            onAudioControls();
-          case _FooterMenuAction.nightFocus:
-            onToggleNightFocus();
-          case _FooterMenuAction.playerEngine:
-            onPlayerEngine();
-          case _FooterMenuAction.settings:
-            onSettings();
-        }
+    return IconButton(
+      tooltip: 'Détails du flux',
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      onPressed: () async {
+        onOpened();
+        await showStreamDetailsSheet(context, controller);
+        if (context.mounted) onClosed();
       },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: _FooterMenuAction.audioSync,
-          child: _FbMenuItem(
-            icon: Icons.tune_rounded,
-            label: 'Réglages audio & sync',
-          ),
-        ),
-        CheckedPopupMenuItem(
-          value: _FooterMenuAction.nightFocus,
-          checked: nfEnabled,
-          child: const _FbMenuItem(
-            icon: Icons.nightlight_round,
-            label: 'Night Focus',
-          ),
-        ),
-        const PopupMenuItem(
-          value: _FooterMenuAction.playerEngine,
-          child: _FbMenuItem(
-            icon: Icons.hd_rounded,
-            label: 'Qualité & lecteur',
-          ),
-        ),
-        const PopupMenuItem(
-          value: _FooterMenuAction.settings,
-          child: _FbMenuItem(
-            icon: Icons.settings_outlined,
-            label: 'Réglages',
-          ),
-        ),
-      ],
+      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
     );
   }
 }
