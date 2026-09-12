@@ -264,8 +264,8 @@ final searchFilteredProvider = FutureProvider.family<UnifiedSearchResult,
       .search(params.query, filterType: params.filterType);
 });
 
-final searchSuggestionsProvider =
-    StreamProvider.family<List<SearchSuggestion>, String>((ref, query) async* {
+final searchSuggestionsProvider = StreamProvider.autoDispose
+    .family<List<SearchSuggestion>, String>((ref, query) async* {
   if (query.trim().length < 2) {
     yield [];
     return;

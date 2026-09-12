@@ -26,7 +26,6 @@ class SearchService {
   static const String _historyBoxName = 'search_history';
   static const int _maxHistoryEntries = 100;
   static const Duration _historyTtl = Duration(days: 30);
-  static const Duration _debounceDelay = Duration(milliseconds: 300);
 
   final ApiService _api;
   final StorageService _storage;
