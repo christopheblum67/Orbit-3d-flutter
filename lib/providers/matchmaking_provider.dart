@@ -118,6 +118,7 @@ List<Recommendation> rankRecommendations({
 /// Provider Riverpod qui combine films + séries avec scoring + filtre genres session.
 final matchmakingProvider = FutureProvider.autoDispose
     .family<List<Recommendation>, String>((ref, profileId) async {
+  ref.keepAlive();
   final profile = ref.watch(currentProfileProvider);
   if (profile == null || profile.id != profileId) {
     return const <Recommendation>[];
@@ -309,6 +310,7 @@ class GroupReco {
 /// Tri : affinité moyenne, puis chevauchement, puis affinité min, puis note.
 final matchmakingGroupProvider = FutureProvider.autoDispose
     .family<List<GroupReco>, ProfileGroup>((ref, group) async {
+  ref.keepAlive();
   return _computeGroupScored(ref, group).take(kMatchmakingLimit).toList();
 });
 
@@ -410,6 +412,7 @@ typedef GroupTabMatchmaking = ({
 /// Films + séries classés par affinité profil (onglets Films / Séries, mode « Pour vous »).
 final matchmakingTabProvider = FutureProvider.autoDispose
     .family<TabMatchmaking, String>((ref, profileId) async {
+  ref.keepAlive();
   final profile = ref.watch(currentProfileProvider);
   if (profile == null || profile.id != profileId) {
     return (movies: const <ScoredReco>[], series: const <ScoredReco>[]);
@@ -537,6 +540,7 @@ List<GroupReco> _computeGroupScored(Ref ref, ProfileGroup group) {
 /// Films + séries « En groupe » avec affinité (mode onglet, pagination 50).
 final matchmakingGroupTabProvider = FutureProvider.autoDispose
     .family<GroupTabMatchmaking, ProfileGroup>((ref, group) async {
+  ref.keepAlive();
   final scored = _computeGroupScored(ref, group);
   final movies = scored
       .where((p) => p.reco.kind == RecommendationKind.movie)
