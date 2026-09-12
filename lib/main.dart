@@ -274,6 +274,58 @@ final GoRouter router = GoRouter(
       path: '/player',
       pageBuilder: (context, state) {
         final playerKey = GlobalKey<PlayerScreenState>();
+
+        // Normaliser les paramètres vers PlayerRouteData (extra prioritaire, sinon queryParams)
+        PlayerRouteData routeData;
+        final extra = state.extra;
+        if (extra is PlayerRouteData) {
+          routeData = extra;
+        } else {
+          // Fallback pour deep links externes (query parameters)
+          final url = state.uri.queryParameters['url'] ?? '';
+          final title = state.uri.queryParameters['title'] ?? 'Lecture';
+          final progressId = state.uri.queryParameters['progressId'];
+          final initialPos =
+              int.tryParse(state.uri.queryParameters['pos'] ?? '');
+          final contentType = switch (state.uri.queryParameters['type']) {
+            'vod' => PlaybackContentType.vod,
+            'series' => PlaybackContentType.series,
+            'replay' => PlaybackContentType.replay,
+            _ => PlaybackContentType.live,
+          };
+          final typeParam = state.uri.queryParameters['type'] ?? '';
+          final queryPoster = state.uri.queryParameters['poster'];
+          final querySubtitle = state.uri.queryParameters['subtitle'];
+          final queryGenre = state.uri.queryParameters['genre'];
+          final queryYear =
+              int.tryParse(state.uri.queryParameters['year'] ?? '') ?? 0;
+          final queryRating =
+              double.tryParse(state.uri.queryParameters['rating'] ?? '');
+          final queryFavorite = (url.isNotEmpty && typeParam.isNotEmpty)
+              ? FavoriteEntry(
+                  type: ContentType.fromString(typeParam),
+                  id: url,
+                  title: title,
+                  posterUrl: queryPoster ?? '',
+                  subtitle: querySubtitle ?? '',
+                  streamUrl: url,
+                )
+              : null;
+          routeData = PlayerRouteData(
+            streamUrl: url,
+            title: title,
+            progressId: progressId,
+            initialPositionMs: initialPos,
+            contentType: contentType,
+            favorite: queryFavorite,
+            posterUrl: queryPoster,
+            subtitle: querySubtitle,
+            genre: queryGenre,
+            year: queryYear,
+            rating: queryRating,
+          );
+        }
+
         return MaterialPage(
           key: state.pageKey,
           restorationId: 'player',
@@ -292,74 +344,26 @@ final GoRouter router = GoRouter(
               },
               restorationId: 'player',
             ),
-            child: () {
-              final data = state.extra;
-              if (data is PlayerRouteData) {
-                return PlayerScreen(
-                  key: playerKey,
-                  streamUrl: data.streamUrl,
-                  title: data.title,
-                  channels: data.channels,
-                  initialIndex: data.index,
-                  progressId: data.progressId,
-                  initialPositionMs: data.initialPositionMs,
-                  contentType: data.contentType,
-                  favorite: data.favorite,
-                  posterUrl: data.posterUrl,
-                  subtitle: data.subtitle,
-                  rating: data.rating,
-                  genre: data.genre,
-                  year: data.year,
-                  seriesName: data.seriesName,
-                  episodeLabel: data.episodeLabel,
-                  series: data.series,
-                  episode: data.episode,
-                );
-              }
-              final url = state.uri.queryParameters['url'] ?? '';
-              final title = state.uri.queryParameters['title'] ?? 'Lecture';
-              final progressId = state.uri.queryParameters['progressId'];
-              final initialPos =
-                  int.tryParse(state.uri.queryParameters['pos'] ?? '');
-              final contentType = switch (state.uri.queryParameters['type']) {
-                'vod' => PlaybackContentType.vod,
-                'series' => PlaybackContentType.series,
-                'replay' => PlaybackContentType.replay,
-                _ => PlaybackContentType.live,
-              };
-              final typeParam = state.uri.queryParameters['type'] ?? '';
-              final queryPoster = state.uri.queryParameters['poster'];
-              final querySubtitle = state.uri.queryParameters['subtitle'];
-              final queryGenre = state.uri.queryParameters['genre'];
-              final queryYear =
-                  int.tryParse(state.uri.queryParameters['year'] ?? '') ?? 0;
-              final queryRating =
-                  double.tryParse(state.uri.queryParameters['rating'] ?? '');
-              final queryFavorite = (url.isNotEmpty && typeParam.isNotEmpty)
-                  ? FavoriteEntry(
-                      type: ContentType.fromString(typeParam),
-                      id: url,
-                      title: title,
-                      posterUrl: queryPoster ?? '',
-                      subtitle: querySubtitle ?? '',
-                      streamUrl: url,
-                    )
-                  : null;
-              return PlayerScreen(
-                key: playerKey,
-                streamUrl: url,
-                title: title,
-                progressId: progressId,
-                initialPositionMs: initialPos,
-                contentType: contentType,
-                favorite: queryFavorite,
-                posterUrl: queryPoster,
-                subtitle: querySubtitle,
-                genre: queryGenre,
-                year: queryYear,
-                rating: queryRating,
-              );
-            }(),
+            child: PlayerScreen(
+              key: playerKey,
+              streamUrl: routeData.streamUrl,
+              title: routeData.title,
+              channels: routeData.channels,
+              initialIndex: routeData.index,
+              progressId: routeData.progressId,
+              initialPositionMs: routeData.initialPositionMs,
+              contentType: routeData.contentType,
+              favorite: routeData.favorite,
+              posterUrl: routeData.posterUrl,
+              subtitle: routeData.subtitle,
+              rating: routeData.rating,
+              genre: routeData.genre,
+              year: routeData.year,
+              seriesName: routeData.seriesName,
+              episodeLabel: routeData.episodeLabel,
+              series: routeData.series,
+              episode: routeData.episode,
+            ),
           ),
         );
       },
