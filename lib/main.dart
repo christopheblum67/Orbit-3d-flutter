@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 // ignore: unused_import
 import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:orbit_3d_flutter/features/kids/kids_screen.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -21,8 +23,10 @@ import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/home_widget_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
@@ -32,6 +36,7 @@ import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
+import 'package:orbit_3d_flutter/services/home_widget_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/beta_config.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
@@ -60,6 +65,7 @@ import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
 import 'package:orbit_3d_flutter/features/settings/settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/downloads/downloads_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/multivideo/multivideo_screen.dart';
@@ -88,6 +94,9 @@ Future<void> main() async {
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
   Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
+  Hive.registerAdapter<DownloadProgress>(DownloadProgressAdapter());
+  Hive.registerAdapter<DownloadConfig>(DownloadConfigAdapter());
+  Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
   try {
@@ -175,8 +184,40 @@ Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
 
 String routerInitialLocation = '/profiles';
 
+/// Journalise un `screen_view` à chaque changement de route (Firebase Analytics).
+/// Fire-and-forget : aucun échec ne doit perturber la navigation.
+class AnalyticsRouteObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _log(route);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _log(previousRoute);
+  }
+
+  void _log(Route<dynamic>? route) {
+    final settings = route?.settings;
+    if (settings == null) return;
+    final name = settings.name ?? 'route';
+    // Ignore: journaliser un écran ne doit jamais bloquer ni échouer la navigation.
+    // ignore: avoid_slow_async_io
+    unawaited(_safeScreenView(name));
+  }
+
+  Future<void> _safeScreenView(String name) async {
+    try {
+      await FirebaseAnalytics.instance.logScreenView(screenName: name);
+    } catch (_) {
+      // Firebase non initialisé (pas de google-services.json) : rien à faire.
+    }
+  }
+}
+
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
+  observers: <NavigatorObserver>[AnalyticsRouteObserver()],
   routes: [
     GoRoute(
       path: '/legal',
@@ -247,6 +288,13 @@ final GoRouter router = GoRouter(
       builder: (context, state) => const ModalBackHandling(
         meta: RouteMeta.pop(),
         child: ParentalControlScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/kids',
+      builder: (context, state) => const ModalBackHandling(
+        meta: RouteMeta.popOrFallback('/home'),
+        child: KidsScreen(),
       ),
     ),
     GoRoute(
@@ -608,6 +656,17 @@ final GoRouter router = GoRouter(
           ),
         ),
         GoRoute(
+          path: '/downloads',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'downloads',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
+              child: DownloadsScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
           path: '/settings/advanced',
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
@@ -652,6 +711,29 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     ref.read(tmdbApiKeyOverrideProvider);
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
     unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
+    // Analytics : init non bloquante (fire-and-forget après le premier frame).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(analyticsServiceProvider).init());
+    });
+    // Garde le widget d'accueil Android synchronisé (profil + favoris) tant que
+    // l'app vit. Lecture volontaire à l'initialisation pour installer les écouteurs.
+    ref.watch(homeWidgetSyncProvider);
+    // Lancement possible depuis le widget d'accueil (tap/action) : on y répond.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleWidgetLaunch();
+    });
+  }
+
+  Future<void> _handleWidgetLaunch() async {
+    try {
+      final uri = await HomeWidgetService.instance.initiallyLaunched();
+      final route = routeForWidgetUri(uri);
+      if (route != null) {
+        router.go(route);
+      }
+    } catch (_) {
+      // Widget indisponible : on ignore silencieusement.
+    }
   }
 
   @override

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
+import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
@@ -394,8 +397,14 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
         channels: widget.channels,
         epgData: _epgData,
         pixelsPerMinute: 4.0,
-        onProgramTap: (program) {
-          _showProgramDetails(context, program);
+        replayChannels: {
+          for (final c in widget.channelObjects)
+            if (c.supportsReplay) c.name,
+        },
+        onProgramTap: (program, channelName) {
+          final channel = widget.channelObjects
+              .firstWhere((c) => c.name == channelName);
+          _showProgramDetails(context, program, channel);
         },
         onChannelTap: (channelName) {
           final channel =
@@ -416,7 +425,16 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     );
   }
 
-  void _showProgramDetails(BuildContext context, EPGProgram program) {
+  void _showProgramDetails(
+    BuildContext context,
+    EPGProgram program,
+    Channel channel,
+  ) {
+    final replayable = isReplayableProgram(
+      program,
+      now: DateTime.now(),
+      channelSupportsReplay: channel.supportsReplay,
+    );
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF16181E),
@@ -442,6 +460,27 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
               '${_formatTime(program.start)} - ${_formatTime(program.end)}',
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
+            if (channel.supportsReplay) ...[
+              const SizedBox(height: 6),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    color: Color(0xFF6EE7B7),
+                    size: 14,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'Replay disponible sur cette chaîne',
+                    style: TextStyle(
+                      color: Color(0xFF6EE7B7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (program.description.isNotEmpty) ...[
               const SizedBox(height: 16),
               Text(
@@ -455,17 +494,89 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
                 Expanded(
                   child: FilledButton.icon(
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Regarder'),
+                    label: const Text('Regarder en direct'),
                     onPressed: () {
                       Navigator.pop(context);
+                      Navigator.pushNamed(
+                        context,
+                        '/player',
+                        arguments: {
+                          'streamUrl': channel.streamUrl,
+                          'title': channel.name,
+                          'contentType': 'live',
+                        },
+                      );
                     },
                   ),
                 ),
+                if (replayable) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonalIcon(
+                      icon: const Icon(Icons.replay),
+                      label: const Text('Replay'),
+                      onPressed: () => _playReplay(context, program, channel),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Lance la lecture du replay (timeshift Xtream) d'un programme terminé.
+  void _playReplay(
+    BuildContext context,
+    EPGProgram program,
+    Channel channel,
+  ) async {
+    final sub = await ref.read(activeSubscriptionProvider.future);
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (sub == null ||
+        sub.type != SubscriptionType.xtream ||
+        sub.baseUrl == null ||
+        sub.username == null ||
+        sub.password == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Replay indisponible : non pris en charge par cet abonnement (M3U).',
+          ),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    final url = buildXtreamReplayUrl(
+      baseUrl: sub.baseUrl!,
+      username: sub.username!,
+      password: sub.password!,
+      channelId: channel.id,
+      start: program.start,
+      end: program.end,
+    );
+    if (url == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text("Impossible de construire l'URL du replay."),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    Navigator.pushNamed(
+      context,
+      '/player',
+      arguments: {
+        'streamUrl': url,
+        'title': '${program.title} (replay)',
+        'contentType': 'replay',
+        'channelId': channel.id,
+      },
     );
   }
 

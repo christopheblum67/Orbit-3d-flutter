@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="8dp"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp"
+    android:id="@+id/widget_container">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Orbit IPTV"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        tools:text="Orbit IPTV" />
+
+    <TextView
+        android:id="@+id/widget_profile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="#93C5FD"
+        android:textSize="14sp"
+        tools:text="Profil : Pierre" />
+
+    <TextView
+        android:id="@+id/widget_favorites"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#E2E8F0"
+        android:textSize="13sp"
+        tools:text="5 favoris" />
+
+    <TextView
+        android:id="@+id/widget_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="#64748B"
+        android:textSize="11sp"
+        tools:text="Touchez pour ouvrir" />
+</LinearLayout>

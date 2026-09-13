@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
@@ -26,6 +28,11 @@ import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';
 import 'package:orbit_3d_flutter/services/host_circuit_breaker.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
+import 'package:orbit_3d_flutter/services/download_manager.dart';
+import 'package:orbit_3d_flutter/services/analytics_service.dart';
+import 'package:orbit_3d_flutter/models/download.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -40,9 +47,30 @@ import 'package:orbit_3d_flutter/models/person.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 export 'profile_type_provider.dart';
-
+export 'content_filter_provider.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+
+final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
+  final service = AnalyticsService();
+  ref.onDispose(service.init);
+  return service;
+});
+
+// Certificate Pinning - applique la config des réglages avancés au service API
+final certificatePinningInitializerProvider = Provider<void>((ref) {
+  final settings = ref.watch(advancedSettingsProvider);
+  if (settings.certificatePinningEnabled &&
+      settings.certificatePinningFingerprints.isNotEmpty) {
+    ApiService.setCertificateFingerprints(
+      settings.certificatePinningFingerprints.toSet(),
+    );
+  } else {
+    ApiService.setCertificateFingerprints(null);
+  }
+});
+
 final storageServiceProvider =
     Provider<StorageService>((ref) => StorageService());
 final vpnServiceProvider = Provider<VpnService>((ref) => VpnService());
@@ -244,6 +272,19 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     api: ref.watch(apiServiceProvider),
     tmdb: ref.watch(tmdbServiceProvider),
     tvmaze: ref.watch(tvmazeServiceProvider),
+    // Recherche locale : favoris + récemment regardé (profil courant).
+    loadFavorites: () async {
+      final profile = ref.read(currentProfileProvider);
+      if (profile == null) return <FavoriteEntry>[];
+      return ref.read(favoritesServiceProvider).loadForProfile(profile.id);
+    },
+    loadRecentlyWatched: () async {
+      final profile = ref.read(currentProfileProvider);
+      if (profile == null) return <RecentEntry>[];
+      return ref
+          .read(recentlyWatchedServiceProvider)
+          .loadForProfile(profile.id);
+    },
   );
   ref.onDispose(service.dispose);
   return service;
@@ -613,6 +654,25 @@ final stallDetectorProvider = Provider<StallDetector>((ref) {
   final detector = StallDetector();
   ref.onDispose(detector.dispose);
   return detector;
+});
+
+/// Gestionnaire de téléchargements hors-ligne
+final downloadManagerProvider = Provider<DownloadManager>((ref) {
+  final manager = DownloadManager();
+  ref.onDispose(manager.dispose);
+  return manager;
+});
+
+/// Stream des tâches de téléchargement
+final downloadTasksStreamProvider = StreamProvider<List<DownloadTask>>((ref) {
+  final manager = ref.watch(downloadManagerProvider);
+  return manager.tasksStream;
+});
+
+/// Nombre de téléchargements actifs
+final activeDownloadsCountProvider = StreamProvider<int>((ref) {
+  final manager = ref.watch(downloadManagerProvider);
+  return manager.tasksStream.map((tasks) => tasks.where((t) => t.isActive).length);
 });
 
 class StreamAiException implements Exception {

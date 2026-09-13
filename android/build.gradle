@@ -12,6 +12,22 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(":app")
 }
+// Les plugins natifs (ex. bonsoir_android) pinent un compileSdk trop bas
+// pour les AndroidX récents (fragment/window/activity 1.x) résolus au build.
+// On force compileSdk >= 35 (36, plateforme installée) pour tous les modules
+// Android library avant l'exécution des tâches de métadonnées.
+subprojects {
+    def applyCompileSdk = { Project p ->
+        if (p.plugins.hasPlugin("com.android.library")) {
+            p.android.compileSdk = 36
+        }
+    }
+    if (project.state.executed) {
+        applyCompileSdk(project)
+    } else {
+        project.afterEvaluate { applyCompileSdk(project) }
+    }
+}
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir

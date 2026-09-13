@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 
 /// Configuration Avancée (Next-Gen) organisée en onglets, conforme à la
@@ -135,11 +136,83 @@ class _SecurityTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(advancedSettingsProvider);
+    final n = ref.read(advancedSettingsProvider.notifier);
+    final TextEditingController fingerprintController = TextEditingController();
+
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: const [
-        SettingsSectionTitle('Résilience du Service'),
-        // Options déplacées (smartFailover, hideCredentials) : non consommées par le code métier
+      children: [
+        const SettingsSectionTitle('Certificate Pinning (SHA-256)'),
+        SettingsSwitchTile(
+          title: 'Activer Certificate Pinning',
+          subtitle:
+              'Vérifie l\'empreinte SHA-256 du certificat SSL du serveur (anti-MITM)',
+          value: s.certificatePinningEnabled,
+          onChanged: n.setCertificatePinningEnabled,
+          icon: Icons.security_outlined,
+        ),
+        if (s.certificatePinningEnabled) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Empreintes autorisées (une par ligne, format hex uppercase) :',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: fingerprintController,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'A1B2C3D4E5F6...\n7890ABCDEF1234...\n...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+            onSubmitted: (value) {
+              final fps = value
+                  .split('\n')
+                  .map((e) => e.trim().toUpperCase())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+              n.setCertificatePinningFingerprints(fps);
+            },
+          ),
+          const SizedBox(height: 8),
+          if (s.certificatePinningFingerprints.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: s.certificatePinningFingerprints
+                  .map((fp) => Chip(
+                        label: Text(
+                          fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          final updated = [...s.certificatePinningFingerprints]..remove(fp);
+                          n.setCertificatePinningFingerprints(updated);
+                        },
+                      ))
+                  .toList(),
+            ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              final fps = fingerprintController.text
+                  .split('\n')
+                  .map((e) => e.trim().toUpperCase())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+              n.setCertificatePinningFingerprints(fps);
+              fingerprintController.clear();
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter les empreintes ci-dessus'),
+          ),
+        ],
+        const SettingsSectionTitle('Résilience du Service'),
       ],
     );
   }
@@ -242,6 +315,8 @@ class _AccessibilityTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
+    final prefs = ref.watch(preferencesProvider);
+    final prefsNotifier = ref.read(preferencesProvider.notifier);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -253,6 +328,22 @@ class _AccessibilityTab extends ConsumerWidget {
           value: s.highContrast,
           onChanged: n.setHighContrast,
           icon: Icons.contrast_outlined,
+        ),
+        const SettingsSectionTitle('Taille de police'),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            'Échelle : ${prefs.fontScale.toStringAsFixed(1)}x',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        Slider(
+          value: prefs.fontScale,
+          min: 0.8,
+          max: 1.5,
+          divisions: 7,
+          label: '${prefs.fontScale.toStringAsFixed(1)}x',
+          onChanged: (v) => prefsNotifier.setFontScale(v),
         ),
       ],
     );

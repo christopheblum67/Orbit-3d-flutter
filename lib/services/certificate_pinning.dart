@@ -118,7 +118,6 @@ class _PinningHttpClientAdapter implements HttpClientAdapter {
     response.headers.forEach((k, v) {
       headersMap[k] = v.toList();
     });
-    final headers = Headers.fromMap(headersMap);
 
     return ResponseBody.fromBytes(bytes, response.statusCode);
   }

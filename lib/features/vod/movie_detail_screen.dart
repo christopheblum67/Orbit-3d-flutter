@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
@@ -38,6 +39,13 @@ class MovieDetailScreen extends ConsumerWidget {
               subtitle: movie.year > 0 ? '${movie.year}' : '',
               streamUrl: movie.streamUrl,
             ),
+          ),
+          DownloadButton(
+            mediaItemId: movie.id,
+            title: movie.title,
+            streamUrl: movie.streamUrl,
+            posterUrl: movie.posterUrl,
+            contentType: 'vod',
           ),
         ],
       ),

@@ -3,6 +3,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
@@ -17,13 +19,23 @@ class SearchService {
   final TvmazeService _tvmaze;
   final LoggerService _logger = LoggerService.instance;
 
+  /// Charge les favoris du profil courant, ou une liste vide si absent.
+  final Future<List<FavoriteEntry>> Function()? _loadFavorites;
+
+  /// Charge le « récemment regardé » du profil courant, ou vide si absent.
+  final Future<List<RecentEntry>> Function()? _loadRecentlyWatched;
+
   SearchService({
     required ApiService api,
     required TmdbService tmdb,
     required TvmazeService tvmaze,
+    Future<List<FavoriteEntry>> Function()? loadFavorites,
+    Future<List<RecentEntry>> Function()? loadRecentlyWatched,
   })  : _api = api,
         _tmdb = tmdb,
-        _tvmaze = tvmaze {
+        _tvmaze = tvmaze,
+        _loadFavorites = loadFavorites,
+        _loadRecentlyWatched = loadRecentlyWatched {
     _initHistoryBox();
   }
 
@@ -322,17 +334,59 @@ class SearchService {
   }
 
   Future<List<SearchItem>> _getFavorites() async {
+    final loader = _loadFavorites;
+    if (loader == null) return [];
     try {
-      return [];
-    } catch (_) {
+      final favorites = await loader();
+      return favorites
+          .map((f) => SearchItem(
+                id: f.id,
+                type: switch (f.type) {
+                  ContentType.live => SearchType.live,
+                  ContentType.vod => SearchType.vod,
+                  ContentType.series => SearchType.series,
+                  ContentType.replay => SearchType.replay,
+                },
+                title: f.title,
+                subtitle: f.subtitle,
+                posterUrl: f.posterUrl,
+                streamUrl: f.streamUrl,
+                score: 0.6,
+                source: SearchSource.local,
+                originalObject: f,
+              ))
+          .toList();
+    } catch (e) {
+      _logger.warning('Favorites search failed: $e');
       return [];
     }
   }
 
   Future<List<SearchItem>> _getRecentlyWatched() async {
+    final loader = _loadRecentlyWatched;
+    if (loader == null) return [];
     try {
-      return [];
-    } catch (_) {
+      final recents = await loader();
+      return recents
+          .map((r) => SearchItem(
+                id: r.id,
+                type: switch (r.type) {
+                  ContentType.live => SearchType.live,
+                  ContentType.vod => SearchType.vod,
+                  ContentType.series => SearchType.series,
+                  ContentType.replay => SearchType.replay,
+                },
+                title: r.title,
+                subtitle: r.subtitle,
+                posterUrl: r.posterUrl,
+                streamUrl: r.streamUrl,
+                score: 0.5,
+                source: SearchSource.local,
+                originalObject: r,
+              ))
+          .toList();
+    } catch (e) {
+      _logger.warning('Recently watched search failed: $e');
       return [];
     }
   }

@@ -89,6 +89,10 @@ class AdvancedSettings {
   // Accessibilité
   final bool highContrast;
 
+  // Certificate Pinning
+  final bool certificatePinningEnabled;
+  final List<String> certificatePinningFingerprints;
+
   const AdvancedSettings({
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
@@ -115,6 +119,8 @@ class AdvancedSettings {
     this.nightFocusVocalGainDb = 3.0,
     this.nightFocusAudioShiftMs = 0,
     this.highContrast = false,
+    this.certificatePinningEnabled = false,
+    this.certificatePinningFingerprints = const [],
   });
 
   AdvancedSettings copyWith({
@@ -131,6 +137,8 @@ class AdvancedSettings {
     double? nightFocusVocalGainDb,
     int? nightFocusAudioShiftMs,
     bool? highContrast,
+    bool? certificatePinningEnabled,
+    List<String>? certificatePinningFingerprints,
   }) {
     return AdvancedSettings(
       useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
@@ -149,6 +157,8 @@ class AdvancedSettings {
       nightFocusAudioShiftMs:
           nightFocusAudioShiftMs ?? this.nightFocusAudioShiftMs,
       highContrast: highContrast ?? this.highContrast,
+      certificatePinningEnabled: certificatePinningEnabled ?? this.certificatePinningEnabled,
+      certificatePinningFingerprints: certificatePinningFingerprints ?? this.certificatePinningFingerprints,
     );
   }
 
@@ -181,6 +191,8 @@ class AdvancedSettings {
   static const kNightFocusVocalGainDb = 'night_focus_vocal_gain_db';
   static const kNightFocusAudioShiftMs = 'night_focus_audio_shift_ms';
   static const kHighContrast = 'high_contrast';
+  static const kCertificatePinningEnabled = 'certificate_pinning_enabled';
+  static const kCertificatePinningFingerprints = 'certificate_pinning_fingerprints';
 }
 
 class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
@@ -217,6 +229,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       nightFocusAudioShiftMs:
           prefs.getInt(AdvancedSettings.kNightFocusAudioShiftMs) ?? 0,
       highContrast: prefs.getBool(AdvancedSettings.kHighContrast) ?? false,
+      certificatePinningEnabled:
+          prefs.getBool(AdvancedSettings.kCertificatePinningEnabled) ?? false,
+      certificatePinningFingerprints:
+          prefs.getStringList(AdvancedSettings.kCertificatePinningFingerprints) ??
+              const <String>[],
     );
   }
 
@@ -335,6 +352,20 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kHighContrast, value);
   }
 
+  Future<void> setCertificatePinningEnabled(bool value) async {
+    state = state.copyWith(certificatePinningEnabled: value);
+    await _persistBool(AdvancedSettings.kCertificatePinningEnabled, value);
+  }
+
+  Future<void> setCertificatePinningFingerprints(List<String> fingerprints) async {
+    state = state.copyWith(certificatePinningFingerprints: fingerprints);
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setStringList(
+      AdvancedSettings.kCertificatePinningFingerprints,
+      fingerprints,
+    );
+  }
+
   Future<void> importFromJson(AdvancedSettings imported) async {
     state = imported;
     await _persistBool(AdvancedSettings.kTlsImpersonation, imported.useTlsImpersonation);
@@ -354,6 +385,12 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb, imported.nightFocusVocalGainDb);
     await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, imported.nightFocusAudioShiftMs);
     await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
+    await _persistBool(AdvancedSettings.kCertificatePinningEnabled, imported.certificatePinningEnabled);
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setStringList(
+      AdvancedSettings.kCertificatePinningFingerprints,
+      imported.certificatePinningFingerprints,
+    );
   }
 }
 

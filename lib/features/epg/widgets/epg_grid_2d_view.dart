@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
@@ -18,14 +19,19 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart'
 ///   (signature channels + nombre de programmes + zoom), pas à chaque build.
 /// - **Culling** : seules les barres visibles dans le viewport sont dessinées
 ///   (pas de `TextPainter` pour les programmes hors écran).
+/// - Les programmes terminés des chaînes DVR affichent un badge « ↺ REPLAY »,
+///   et un **appui court** sur une barre émet `onProgramTap(program, channel)`.
 class EpgGrid2DView extends StatefulWidget {
   final List<String> channels;
   final Map<String, List<EPGProgram>> epgData;
   final DateTime? gridStartTime;
   final double pixelsPerMinute;
-  final Function(EPGProgram)? onProgramTap;
+  final Function(EPGProgram, String)? onProgramTap;
   final Function(String)? onChannelTap;
   final EpgTimelineController? timelineController;
+  /// Noms des chaînes supportant le replay/DVR : leurs programmes terminés
+  /// affichent un badge « ↺ replay » dans la grille.
+  final Set<String> replayChannels;
 
   const EpgGrid2DView({
     super.key,
@@ -36,6 +42,7 @@ class EpgGrid2DView extends StatefulWidget {
     this.onProgramTap,
     this.onChannelTap,
     this.timelineController,
+    this.replayChannels = const {},
   });
 
   @override
@@ -52,6 +59,8 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   // Repaints ciblés (pas de rebuild du widget) :
   final ValueNotifier<Offset?> _hoverPosition = ValueNotifier<Offset?>(null);
   final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
+  Offset? _tapDownPos;
+  DateTime? _tapDownTime;
 
   late DateTime _gridStartTime;
   late double _pixelsPerMinute;
@@ -164,6 +173,9 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
       hash = (hash * 31 + ch.hashCode) & 0x7fffffff;
       hash = (hash * 31 + (widget.epgData[ch]?.length ?? 0)) & 0x7fffffff;
     }
+    for (final ch in widget.replayChannels) {
+      hash = (hash * 31 + ch.hashCode) & 0x7fffffff;
+    }
     return hash;
   }
 
@@ -178,8 +190,10 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
 
     final cache = <String, List<_RenderProgram>>{};
     final ppm = _pixelsPerMinute;
+    final now = DateTime.now();
     for (final ch in widget.channels) {
       final programs = widget.epgData[ch] ?? const <EPGProgram>[];
+      final channelHasReplay = widget.replayChannels.contains(ch);
       cache[ch] = [
         for (final p in programs)
           _RenderProgram(
@@ -187,6 +201,11 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
             left: _getOffsetForTime(p.startTime),
             width: _clampWidth(p.durationMinutes * ppm - 2.0),
             isLive: p.isLive,
+            replayable: isReplayableProgram(
+              p,
+              now: now,
+              channelSupportsReplay: channelHasReplay,
+            ),
           ),
       ];
     }
@@ -194,6 +213,37 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   }
 
   static double _clampWidth(double raw) => raw < 40.0 ? 40.0 : raw;
+
+  /// Appui court (peu de déplacement, < 400 ms) sur la grille : ouvre le
+  /// programme sous le doigt. Un appui hors programme sélectionne la chaîne
+  /// de la ligne (comme un appui sur la colonne des noms).
+  void _consumeGridTap(Offset pos) {
+    final down = _tapDownPos;
+    final downTime = _tapDownTime;
+    if (down == null || downTime == null) return;
+    if ((pos - down).distance > 12) return; // c'est un scroll, pas un tap
+    if (DateTime.now().difference(downTime).inMilliseconds >= 400) return;
+
+    const rowHeight = 60.0;
+    final channelIndex = (pos.dy / rowHeight).floor();
+    if (channelIndex < 0 || channelIndex >= widget.channels.length) return;
+    final ch = widget.channels[channelIndex];
+    _timelineController.setTargetedChannel(ch);
+
+    final rp = _programAt(pos.dx, ch);
+    if (rp != null) {
+      widget.onProgramTap?.call(rp.program, ch);
+    } else {
+      widget.onChannelTap?.call(ch);
+    }
+  }
+
+  _RenderProgram? _programAt(double dx, String channelName) {
+    for (final rp in _renderCache[channelName] ?? const <_RenderProgram>[]) {
+      if (dx >= rp.left && dx <= rp.left + rp.width) return rp;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -339,13 +389,24 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                             width: totalWidth,
                             height: totalHeight,
                             child: Listener(
+                              onPointerDown: (event) {
+                                _tapDownPos = event.localPosition;
+                                _tapDownTime = DateTime.now();
+                                _hoverPosition.value = null;
+                              },
                               onPointerMove: (event) {
                                 // Repaint ciblé uniquement (aucun rebuild).
                                 _hoverPosition.value = event.localPosition;
                               },
-                              onPointerUp: (_) => _hoverPosition.value = null,
-                              onPointerCancel: (_) =>
-                                  _hoverPosition.value = null,
+                              onPointerUp: (event) {
+                                _hoverPosition.value = null;
+                                _consumeGridTap(event.localPosition);
+                                _tapDownPos = null;
+                              },
+                              onPointerCancel: (_) {
+                                _hoverPosition.value = null;
+                                _tapDownPos = null;
+                              },
                               child: RepaintBoundary(
                                 child: CustomPaint(
                                   size: Size(totalWidth, totalHeight),
@@ -389,12 +450,14 @@ class _RenderProgram {
   final double left;
   final double width;
   final bool isLive;
+  final bool replayable;
 
   const _RenderProgram({
     required this.program,
     required this.left,
     required this.width,
     required this.isLive,
+    this.replayable = false,
   });
 }
 
@@ -541,6 +604,30 @@ class _EpgGridPainter extends CustomPainter {
           );
           livePainter.layout();
           livePainter.paint(canvas, Offset(rp.left + 6, y + h - 14));
+        }
+
+        // Badge "replay" pour les programmes terminés des chaînes DVR
+        if (rp.replayable && rp.width > 34) {
+          final replayPainter = TextPainter(
+            text: const TextSpan(
+              text: '↺ REPLAY',
+              style: TextStyle(
+                color: Color(0xFF6EE7B7),
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.4,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          );
+          replayPainter.layout();
+          replayPainter.paint(
+            canvas,
+            Offset(
+              rp.left + rp.width - replayPainter.width - 6,
+              y + h - 14,
+            ),
+          );
         }
       }
     }

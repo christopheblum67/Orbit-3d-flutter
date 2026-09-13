@@ -776,6 +776,13 @@ class _OrbitItem {
         route: '/favorites',
       ),
       const _OrbitItem(
+        title: 'Enfants',
+        icon: Icons.child_care_rounded,
+        color: Color(0xFF4CAF50),
+        subtitle: 'Contenus adaptés aux enfants',
+        route: '/kids',
+      ),
+      const _OrbitItem(
         title: 'Matchmaking',
         icon: Icons.auto_awesome,
         color: Color(0xFFFF3D3D),

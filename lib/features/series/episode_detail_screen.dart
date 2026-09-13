@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
@@ -80,7 +81,16 @@ class EpisodeDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Épisode'),
-        actions: [FavoriteToggle(entry: _favoriteEntry)],
+        actions: [
+          FavoriteToggle(entry: _favoriteEntry),
+          DownloadButton(
+            mediaItemId: episode.id,
+            title: _label,
+            streamUrl: episode.streamUrl,
+            posterUrl: series.coverUrl,
+            contentType: 'series',
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

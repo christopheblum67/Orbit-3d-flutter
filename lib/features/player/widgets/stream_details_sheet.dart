@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 
 /// Sous-fenêtre « Détails du flux » ouverte depuis la footerbar (icône ⚙️).
 ///
@@ -11,19 +12,28 @@ import 'package:video_player/video_player.dart';
 Future<void> showStreamDetailsSheet(
   BuildContext context,
   VideoPlayerController controller,
+  String mediaKey,
 ) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => StreamDetailsSheet(controller: controller),
+    builder: (_) => StreamDetailsSheet(
+      controller: controller,
+      mediaKey: mediaKey,
+    ),
   );
 }
 
 class StreamDetailsSheet extends ConsumerStatefulWidget {
-  const StreamDetailsSheet({super.key, required this.controller});
+  const StreamDetailsSheet({
+    super.key,
+    required this.controller,
+    required this.mediaKey,
+  });
 
   final VideoPlayerController controller;
+  final String mediaKey;
 
   @override
   ConsumerState<StreamDetailsSheet> createState() => _StreamDetailsSheetState();
@@ -77,6 +87,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
   Future<void> _selectAudio(String id) async {
     setState(() => _audioSelection = id);
+    // Mémorise la piste pour la prochaine lecture de ce contenu.
+    await PlayerTrackPrefs.setAudioTrack(widget.mediaKey, id);
     try {
       await widget.controller.selectAudioTrack(id);
     } catch (_) {}

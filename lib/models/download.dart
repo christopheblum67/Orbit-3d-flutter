@@ -318,4 +318,7 @@ class DownloadTask extends HiveObject {
 
   /// Vérifie si le téléchargement a échoué.
   bool get isFailed => status == DownloadStatus.failed;
+
+  /// Vérifie si le téléchargement est annulé.
+  bool get isCancelled => status == DownloadStatus.cancelled;
 }

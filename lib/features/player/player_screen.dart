@@ -15,6 +15,7 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -24,6 +25,7 @@ import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
+import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
@@ -134,12 +136,14 @@ const double _seriesWatchedThreshold = 0.8;
 
 class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
-  List<Channel> _channels = const [];
+List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
   VideoPlayerController? _cachedNext;
   int? _cachedNextIndex;
   VideoPlayerController? _cachedPrev;
+  /// Piste audio préférée ré-appliquée après l'initialisation du contrôleur.
+  bool _appliedAudioPref = false;
   int? _cachedPrevIndex;
   int? _preloadTarget;
   _PlayerStatus _status = _PlayerStatus.loading;
@@ -388,6 +392,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (prewarmed != null) {
       _controller = prewarmed;
       prewarmed.addListener(_onControllerUpdate);
+      _appliedAudioPref = false;
       prewarmed.play();
       if (!mounted || gen != _generation || _controller != prewarmed) {
         _disposeController(prewarmed);
@@ -582,6 +587,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       );
       _controller = controller;
       controller.addListener(_onControllerUpdate);
+      _appliedAudioPref = false;
       try {
         await controller.initialize().timeout(_probTimeout);
       } catch (e) {
@@ -631,6 +637,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _onControllerUpdate() {
     if (!mounted) return;
     _syncImmersive();
+    // Ré-applique la piste audio mémorisée une fois le flux initialisé (ne
+    // bloque pas la lecture : la sélection est best-effort).
+    final active = _controller;
+    if (active != null &&
+        active.value.isInitialized &&
+        !_appliedAudioPref) {
+      _appliedAudioPref = true;
+      _applySavedAudioTrack(active);
+    }
     // Nouvelle tentative tant que la position initiale n'a pas été appliquée
     // (la durée peut n'attendre qu'après le chargement des métadonnées).
     if (!_hasAppliedInitialPosition && widget.initialPositionMs != null) {
@@ -647,6 +662,24 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
     _lastErrorDescription = controller.value.errorDescription;
     _handleActiveError();
+  }
+
+  /// Ré-applique la piste audio choisie précédemment pour ce contenu
+  /// (préférence mémorisée via [PlayerTrackPrefs]). Best-effort.
+  Future<void> _applySavedAudioTrack(VideoPlayerController controller) async {
+    final mediaKey = widget.progressId ?? widget.streamUrl;
+    try {
+      final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
+      if (pref == null || pref.isEmpty) return;
+      if (!mounted || _controller != controller) return;
+      final tracks = await controller.getAudioTracks();
+      final known = tracks.any((t) => t.id == pref);
+      if (!known) return;
+      await controller.selectAudioTrack(pref);
+    } catch (_) {
+      // La sélection de piste peut échouer sur certains flux (pas de piste
+      // extraite, API indisponible) : on ignore et on garde la lecture.
+    }
   }
 
   /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
@@ -755,6 +788,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _index = target;
     _preloadTarget = null;
     _controller = newActive;
+    _appliedAudioPref = false;
     if (oldActive != null) {
       oldActive.removeListener(_onControllerUpdate);
       if (oldActive.value.isInitialized && !oldActive.value.hasError) {
@@ -1136,8 +1170,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Construit le contenu de la footerbar selon le type de contenu en cours.
   Widget _buildFooterContent(VideoPlayerController player) {
     final isPlaying = player.value.isPlaying;
+    final castButton = CastButton(
+      streamUrl: widget.streamUrl,
+      isLive: widget.contentType == PlaybackContentType.live,
+    );
     final streamDetails = _FooterStreamDetails(
       controller: player,
+      mediaKey: widget.progressId ?? widget.streamUrl,
       onOpened: () => _footerTimer?.cancel(),
       onClosed: _showFooterBar,
     );
@@ -1157,6 +1196,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onSeekBack30: null,
           onSeekForward10: null,
           onSeekForward30: null,
+          castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
@@ -1177,6 +1217,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
+          castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
@@ -1195,6 +1236,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
+          castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
         ),
@@ -1373,6 +1415,7 @@ class _LiveFooterBar extends ConsumerWidget {
     this.onSeekBack30,
     this.onSeekForward10,
     this.onSeekForward30,
+    this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
   });
@@ -1393,6 +1436,7 @@ class _LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onSeekBack30;
   final VoidCallback? onSeekForward10;
   final VoidCallback? onSeekForward30;
+  final Widget? castButton;
   final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
 
@@ -1536,6 +1580,7 @@ class _LiveFooterBar extends ConsumerWidget {
               ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            if (castButton != null) castButton!,
             streamDetails,
           ],
         ),
@@ -1563,6 +1608,7 @@ class _VodFooterBar extends ConsumerWidget {
     required this.onSeekBack30,
     required this.onSeekForward10,
     required this.onSeekForward30,
+    this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
   });
@@ -1581,6 +1627,7 @@ class _VodFooterBar extends ConsumerWidget {
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward10;
   final VoidCallback onSeekForward30;
+  final Widget? castButton;
   final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
 
@@ -1691,6 +1738,7 @@ class _VodFooterBar extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            if (castButton != null) castButton!,
             streamDetails,
           ],
         ),
@@ -1707,11 +1755,13 @@ class _VodFooterBar extends ConsumerWidget {
 class _FooterStreamDetails extends StatelessWidget {
   const _FooterStreamDetails({
     required this.controller,
+    required this.mediaKey,
     required this.onOpened,
     required this.onClosed,
   });
 
   final VideoPlayerController controller;
+  final String? mediaKey;
   final VoidCallback onOpened;
   final VoidCallback onClosed;
 
@@ -1724,7 +1774,7 @@ class _FooterStreamDetails extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
       onPressed: () async {
         onOpened();
-        await showStreamDetailsSheet(context, controller);
+        await showStreamDetailsSheet(context, controller, mediaKey ?? '');
         if (context.mounted) onClosed();
       },
       icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),

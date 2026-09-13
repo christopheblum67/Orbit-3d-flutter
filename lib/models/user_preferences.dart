@@ -6,6 +6,7 @@ class UserPreferences {
   final String theme;
   final bool profileVisible;
   final bool allowRecording;
+  final double fontScale;
 
   const UserPreferences({
     this.parentalControlEnabled = false,
@@ -15,6 +16,7 @@ class UserPreferences {
     this.theme = 'system',
     this.profileVisible = true,
     this.allowRecording = true,
+    this.fontScale = 1.0,
   });
 
   UserPreferences copyWith({
@@ -25,6 +27,7 @@ class UserPreferences {
     String? theme,
     bool? profileVisible,
     bool? allowRecording,
+    double? fontScale,
   }) {
     return UserPreferences(
       parentalControlEnabled:
@@ -35,6 +38,7 @@ class UserPreferences {
       theme: theme ?? this.theme,
       profileVisible: profileVisible ?? this.profileVisible,
       allowRecording: allowRecording ?? this.allowRecording,
+      fontScale: fontScale ?? this.fontScale,
     );
   }
 
@@ -47,6 +51,7 @@ class UserPreferences {
       'theme': theme,
       'profileVisible': profileVisible,
       'allowRecording': allowRecording,
+      'fontScale': fontScale,
     };
   }
 
@@ -59,6 +64,7 @@ class UserPreferences {
       theme: map['theme'] ?? 'system',
       profileVisible: map['profileVisible'] ?? true,
       allowRecording: map['allowRecording'] ?? true,
+      fontScale: (map['fontScale'] as num?)?.toDouble() ?? 1.0,
     );
   }
 }

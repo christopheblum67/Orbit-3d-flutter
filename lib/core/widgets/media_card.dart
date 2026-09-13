@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 /// Carte média (film / série) : poster, badge d'âge, note, méta.
-class MediaCard extends StatelessWidget {
+class MediaCard extends ConsumerWidget {
   const MediaCard({
     super.key,
     required this.title,
@@ -44,8 +46,9 @@ class MediaCard extends StatelessWidget {
   final int? matchPercent;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final fontScale = ref.watch(preferencesProvider).fontScale;
     return AppCard(
       padding: EdgeInsets.zero,
       borderRadius: BorderRadius.circular(16),
@@ -186,7 +189,7 @@ class MediaCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
-                          fontSize: 12,
+                          fontSize: 12 * fontScale,
                         ),
                   ),
               ],

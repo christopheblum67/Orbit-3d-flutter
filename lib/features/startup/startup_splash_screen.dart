@@ -85,6 +85,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Initialise le certificate pinning depuis les réglages avancés
+    ref.watch(certificatePinningInitializerProvider);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
       body: SafeArea(

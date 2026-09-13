@@ -8,7 +8,9 @@ plugins {
 
 android {
     namespace = "com.example.orbit_3d_flutter"
-    compileSdk = flutter.compileSdkVersion
+    // AndroidX (window/fragment/activity) poussés par les plugins natifs
+    // exigent compileSdk >= 35 ; on verrouille sur 36 (platform installée).
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

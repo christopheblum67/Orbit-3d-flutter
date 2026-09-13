@@ -29,12 +29,16 @@ dependencies:
   flutter_local_notifications: ^22.3.0
   firebase_core: ^4.14.0
   firebase_messaging: ^16.6.0
+  firebase_analytics: ^12.5.0
   webview_flutter: ^4.10.0
   webview_flutter_android: ^4.14.1
   device_info_plus: ^13.2.0
   connectivity_plus: ^7.3.1
   speech_to_text: ^7.4.0
   vector_math: ^2.1.4
+  home_widget: ^0.9.4
+  cast: ^2.1.0
+  bonsoir: 5.1.2
   
 dev_dependencies:
   flutter_test:

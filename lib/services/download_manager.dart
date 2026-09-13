@@ -7,8 +7,6 @@ import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/services/stream_helpers.dart'
-    as stream_helpers;
 
 /// Commandes envoyées au worker isolate.
 enum DownloadWorkerCommand {
@@ -611,14 +609,12 @@ Future<void> _runDownload(
       final sink = file.openWrite(mode: mode);
       onSinkCreated(sink);
       
-      int totalBytes = response.contentLength ?? 0;
+      int totalBytes = response.contentLength;
       if (response.statusCode == 206 && response.headers.value('content-range') != null) {
-        final contentRange = response.headers.value('content-range');
-        if (contentRange != null) {
-          final parts = contentRange.split('/');
-          if (parts.length == 2) {
-            totalBytes = int.tryParse(parts[1]) ?? 0;
-          }
+        final contentRange = response.headers.value('content-range')!;
+        final parts = contentRange.split('/');
+        if (parts.length == 2) {
+          totalBytes = int.tryParse(parts[1]) ?? 0;
         }
       }
       
