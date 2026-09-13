@@ -13,15 +13,15 @@ class WatchedEpisodesService {
   static const String _boxName = 'watched_episodes';
 
   Future<void> init() async {
-    await Hive.openBox<String>(_boxName);
+    await Hive.openBox(_boxName);
   }
 
   Future<void> save(WatchedEpisodeEntry entry) async {
-    await HiveSync.write(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
+    await HiveSync.writeAsync(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
   }
 
   Future<void> remove(String key) async {
-    await HiveSync.write(_boxName, (box) => box.delete(key));
+    await HiveSync.writeAsync(_boxName, (box) => box.delete(key));
   }
 
   Future<bool> isWatched(String key) async {

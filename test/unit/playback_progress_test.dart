@@ -21,10 +21,10 @@ void main() {
     final service = PlaybackProgressService();
     await service.init();
 
-    expect(service.get('movie-1'), isNull);
+    expect(await service.get('movie-1'), isNull);
 
     await service.save('movie-1', 45000, 600000);
-    final progress = service.get('movie-1');
+    final progress = await service.get('movie-1');
     expect(progress, isNotNull);
     expect(progress!.positionMs, 45000);
     expect(progress.durationMs, 600000);
@@ -36,10 +36,10 @@ void main() {
     await service.init();
 
     await service.save('movie-1', 590000, 600000);
-    expect(service.get('movie-1')!.hasProgress, isTrue);
+    expect((await service.get('movie-1'))!.hasProgress, isTrue);
 
     await service.save('movie-2', 620000, 600000);
-    expect(service.get('movie-2')!.hasProgress, isFalse);
+    expect((await service.get('movie-2'))!.hasProgress, isFalse);
   });
 
   test('clear efface la progression', () async {
@@ -47,10 +47,10 @@ void main() {
     await service.init();
 
     await service.save('movie-1', 10000, 600000);
-    expect(service.get('movie-1'), isNotNull);
+    expect(await service.get('movie-1'), isNotNull);
 
     await service.clear('movie-1');
-    expect(service.get('movie-1'), isNull);
+    expect(await service.get('movie-1'), isNull);
   });
 
   test('fraction borne la progression entre 0 et 1', () async {
@@ -58,9 +58,9 @@ void main() {
     await service.init();
 
     await service.save('movie-1', 150000, 600000);
-    expect(service.get('movie-1')!.fraction, closeTo(0.25, 0.001));
+    expect((await service.get('movie-1'))!.fraction, closeTo(0.25, 0.001));
 
     await service.save('movie-2', 900000, 600000);
-    expect(service.get('movie-2')!.fraction, 1.0);
+    expect((await service.get('movie-2'))!.fraction, 1.0);
   });
 }

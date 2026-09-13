@@ -7,9 +7,9 @@ import 'package:orbit_3d_flutter/services/storage_service.dart';
 class SubscriptionManager {
   static const String _subscriptionsBox = 'subscriptions';
 
-  Future<void> _ensureBoxOpen() async {
+Future<void> _ensureBoxOpen() async {
     if (!Hive.isBoxOpen(_subscriptionsBox)) {
-      await Hive.openBox<Subscription>(_subscriptionsBox);
+      await Hive.openBox(_subscriptionsBox);
     }
   }
 

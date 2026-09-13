@@ -24,6 +24,7 @@ import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
 import 'package:orbit_3d_flutter/services/search_service.dart';
+import 'package:orbit_3d_flutter/services/search_index_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';
 import 'package:orbit_3d_flutter/services/host_circuit_breaker.dart';
@@ -267,6 +268,12 @@ final enrichmentServiceProvider = Provider<MetadataEnrichmentService>((ref) {
 
 // ==================== RECHERCHE UNIFIÉE ====================
 
+/// Index plein-texte local du catalogue (VOD + Séries + Live), re-indexé
+/// à chaque chargement complet des providers correspondants.
+final searchIndexServiceProvider = Provider<SearchIndexService>(
+  (ref) => SearchIndexService(),
+);
+
 final searchServiceProvider = Provider<SearchService>((ref) {
   final service = SearchService(
     api: ref.watch(apiServiceProvider),
@@ -284,6 +291,52 @@ final searchServiceProvider = Provider<SearchService>((ref) {
       return ref
           .read(recentlyWatchedServiceProvider)
           .loadForProfile(profile.id);
+    },
+    // Plein-texte local : index tokenisé du catalogue (VOD + Séries + Live).
+    searchIndex: ref.watch(searchIndexServiceProvider),
+    loadCatalogue: () async {
+      final entries = <SearchIndexEntry>[];
+      try {
+        for (final c in ref.read(liveChannelsProvider).value ?? const <Channel>[]) {
+          entries.add(
+            SearchIndexEntry(
+              type: SearchType.live,
+              id: c.id,
+              title: c.name,
+              subtitle: c.groupLabel,
+              streamUrl: c.streamUrl,
+              posterUrl: c.logoUrl,
+              categoryId: c.categoryId,
+            ),
+          );
+        }
+        for (final m in ref.read(moviesProvider).value ?? const <Movie>[]) {
+          entries.add(
+            SearchIndexEntry(
+              type: SearchType.vod,
+              id: m.id,
+              title: m.title,
+              subtitle: m.genre,
+              streamUrl: m.streamUrl,
+              posterUrl: m.posterUrl,
+              categoryId: m.categoryId,
+            ),
+          );
+        }
+        for (final s in ref.read(seriesProvider).value ?? const <Series>[]) {
+          entries.add(
+            SearchIndexEntry(
+              type: SearchType.series,
+              id: s.id,
+              title: s.title,
+              subtitle: s.genre,
+              posterUrl: s.coverUrl,
+              categoryId: s.categoryId,
+            ),
+          );
+        }
+      } catch (_) {}
+      return entries;
     },
   );
   ref.onDispose(service.dispose);

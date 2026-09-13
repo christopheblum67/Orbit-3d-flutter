@@ -11,9 +11,9 @@ class HiveSync {
 
   /// Acquiert le lock exclusif pour une boîte.
   static Future<void> _acquire(String boxName) async {
-    final lock = _locks.putIfAbsent(boxName, () => Completer<void>());
-    if (!lock.isCompleted) {
-      await lock.future;
+    final existing = _locks[boxName];
+    if (existing != null && !existing.isCompleted) {
+      await existing.future;
     }
     _locks[boxName] = Completer<void>();
   }
@@ -21,14 +21,13 @@ class HiveSync {
   /// Libère le lock.
   static void _release(String boxName) {
     _locks[boxName]?.complete();
-    _locks.remove(boxName);
   }
 
   /// Exécute une opération de lecture thread-safe.
   static Future<T> read<T>(String boxName, T Function(Box) operation) async {
     await _acquire(boxName);
     try {
-      final box = Hive.box(boxName);
+      final box = Hive.box<dynamic>(boxName);
       return operation(box);
     } finally {
       _release(boxName);
@@ -39,7 +38,7 @@ class HiveSync {
   static Future<T> write<T>(String boxName, T Function(Box) operation) async {
     await _acquire(boxName);
     try {
-      final box = Hive.box(boxName);
+      final box = Hive.box<dynamic>(boxName);
       return operation(box);
     } finally {
       _release(boxName);
@@ -50,7 +49,7 @@ class HiveSync {
   static Future<T> writeAsync<T>(String boxName, Future<T> Function(Box) operation) async {
     await _acquire(boxName);
     try {
-      final box = Hive.box(boxName);
+      final box = Hive.box<dynamic>(boxName);
       return await operation(box);
     } finally {
       _release(boxName);

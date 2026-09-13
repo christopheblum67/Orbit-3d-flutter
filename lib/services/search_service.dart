@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
+import 'package:orbit_3d_flutter/services/search_index_service.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
@@ -25,23 +26,36 @@ class SearchService {
   /// Charge le « récemment regardé » du profil courant, ou vide si absent.
   final Future<List<RecentEntry>> Function()? _loadRecentlyWatched;
 
+  /// Index plein-texte local du catalogue (VOD/Séries/Live), optionnel.
+  final SearchIndexService? _index;
+
+  /// Charge les entrées du catalogue à indexer (toute la VOD/Séries/Live),
+  /// ou null si absent. Appelé une seule fois (mémorisé).
+  final Future<List<SearchIndexEntry>> Function()? _loadCatalogue;
+
+  Future<void>? _indexingJob;
+
   SearchService({
     required ApiService api,
     required TmdbService tmdb,
     required TvmazeService tvmaze,
     Future<List<FavoriteEntry>> Function()? loadFavorites,
     Future<List<RecentEntry>> Function()? loadRecentlyWatched,
+    SearchIndexService? searchIndex,
+    Future<List<SearchIndexEntry>> Function()? loadCatalogue,
   })  : _api = api,
         _tmdb = tmdb,
         _tvmaze = tvmaze,
         _loadFavorites = loadFavorites,
-        _loadRecentlyWatched = loadRecentlyWatched {
+        _loadRecentlyWatched = loadRecentlyWatched,
+        _index = searchIndex,
+        _loadCatalogue = loadCatalogue {
     _initHistoryBox();
   }
 
   Future<void> _initHistoryBox() async {
     if (!Hive.isBoxOpen(_historyBoxName)) {
-      await Hive.openBox<SearchHistoryEntry>(_historyBoxName);
+      await Hive.openBox(_historyBoxName);
     }
     _cleanupHistory();
   }
@@ -156,14 +170,19 @@ class SearchService {
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
     // 1. Recherche locale (historique + favoris + récemment regardé)
+    await _ensureCatalogueIndexed();
     final localResults = await _searchLocal(normalized);
 
-    // 2. Recherche distante (TMDB, TVmaze, API Xtream)
+    // 2. Recherche plein-texte locale (index catalogue VOD/Séries/Live)
+    final ftsResults = _searchIndex(normalized, filterType: filterType);
+
+    // 3. Recherche distante (TMDB, TVmaze, API Xtream)
     final remoteResults = await _searchRemote(normalized, filterType: filterType);
 
-    // 3. Fusion & déduplication
+    // 4. Fusion & déduplication
     final allItems = <SearchItem>[];
     allItems.addAll(localResults);
+    allItems.addAll(ftsResults);
     allItems.addAll(remoteResults);
 
     // Déduplication par ID + type
@@ -216,6 +235,50 @@ class SearchService {
     } catch (_) {}
 
     return items;
+  }
+
+  /// Construit l'index plein-texte du catalogue une seule fois (mémorisé).
+  Future<void> _ensureCatalogueIndexed() async {
+    if (_index == null) return;
+    if (_index!.isBuilt) return;
+    final job = _indexingJob;
+    if (job != null) return job;
+    final loader = _loadCatalogue;
+    if (loader == null) return;
+    final future = () async {
+      try {
+        final entries = await loader();
+        _index!.build(entries);
+      } catch (e) {
+        _logger.warning('Catalogue index failed: $e');
+      } finally {
+        _indexingJob = null;
+      }
+    }();
+    _indexingJob = future;
+    return future;
+  }
+
+  /// Recherche plein-texte dans l'index local du catalogue, mappée en
+  /// [SearchItem] (source locale) avec un score dérivé du rang.
+  List<SearchItem> _searchIndex(String query, {SearchType? filterType}) {
+    final index = _index;
+    if (index == null) return const [];
+    final hits = index.search(query, type: filterType);
+    return [
+      for (final hit in hits)
+        SearchItem(
+          id: hit.entry.id,
+          type: hit.entry.type,
+          title: hit.entry.title,
+          subtitle: hit.entry.subtitle,
+          posterUrl: hit.entry.posterUrl,
+          streamUrl: hit.entry.streamUrl.isEmpty ? null : hit.entry.streamUrl,
+          categoryId: hit.entry.categoryId.isEmpty ? null : hit.entry.categoryId,
+          score: (0.3 + 0.6 * hit.rank).clamp(0.0, 1.0),
+          source: SearchSource.local,
+        ),
+    ];
   }
 
   Future<List<SearchItem>> _searchRemote(String query, {SearchType? filterType}) async {

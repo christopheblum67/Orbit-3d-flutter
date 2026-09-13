@@ -133,7 +133,7 @@ Future<void> main() async {
   final legalNoticeDone =
       storageService.getSetting(kLegalNoticeDoneKey) == true;
   routerInitialLocation = !onboardingDone
-      // Premier lancement : le lisez-moi (usage + ayants droit) précède le
+      // Premier lancement : le lisez-moi (usage + ayants droits) précède le
       // diagnostic. S'il a déjà été accepté, on passe directement à la
       // configuration.
       ? (legalNoticeDone ? '/onboarding' : '/legal?flow=first')

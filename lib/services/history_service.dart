@@ -5,11 +5,11 @@ class HistoryService {
   static const String _boxName = 'history';
 
   Future<void> init() async {
-    await Hive.openBox<String>(_boxName);
+    await Hive.openBox(_boxName);
   }
 
   Future<void> addEntry(String type, String title, String url) async {
-    await HiveSync.write(_boxName, (box) {
+    await HiveSync.writeAsync(_boxName, (box) async {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       box.put('$type-$timestamp', '$title|$url');
     });

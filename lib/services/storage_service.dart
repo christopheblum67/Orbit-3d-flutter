@@ -14,11 +14,11 @@ class StorageService {
   Future<void> init() async {
     await Hive.openBox(_profilesBox);
     await Hive.openBox(_settingsBox);
-    await Hive.openBox<Subscription>(_subscriptionsBox);
+    await Hive.openBox(_subscriptionsBox);
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    await HiveSync.write(_profilesBox, (box) => box.put(profile.id, profile.toMap()));
+    await HiveSync.writeAsync(_profilesBox, (box) => box.put(profile.id, profile.toMap()));
   }
 
   Future<List<UserProfile>> getProfiles() async {
@@ -31,14 +31,14 @@ class StorageService {
   }
 
   Future<void> deleteProfile(String id) async {
-    await HiveSync.write(_profilesBox, (box) => box.delete(id));
+    await HiveSync.writeAsync(_profilesBox, (box) => box.delete(id));
   }
 
   static const String _prefsKey = 'user_preferences';
   static const String _parentalPinKey = 'parental_pin';
 
   Future<void> savePreferences(UserPreferences prefs) async {
-    await HiveSync.write(_settingsBox, (box) => box.put(_prefsKey, prefs.toMap()));
+    await HiveSync.writeAsync(_settingsBox, (box) => box.put(_prefsKey, prefs.toMap()));
   }
 
   Future<UserPreferences> getPreferences() async {
@@ -52,7 +52,7 @@ class StorageService {
   }
 
   Future<void> setParentalPin(String pin) async {
-    await HiveSync.write(_settingsBox, (box) => box.put(_parentalPinKey, pin));
+    await HiveSync.writeAsync(_settingsBox, (box) => box.put(_parentalPinKey, pin));
   }
 
   Future<String?> getParentalPin() async {
@@ -60,11 +60,11 @@ class StorageService {
   }
 
   Future<void> clearParentalPin() async {
-    await HiveSync.write(_settingsBox, (box) => box.delete(_parentalPinKey));
+    await HiveSync.writeAsync(_settingsBox, (box) => box.delete(_parentalPinKey));
   }
 
   Future<void> setSetting(String key, dynamic value) async {
-    await HiveSync.write(_settingsBox, (box) => box.put(key, value));
+    await HiveSync.writeAsync(_settingsBox, (box) => box.put(key, value));
   }
 
   dynamic getSetting(String key) {
@@ -75,7 +75,7 @@ class StorageService {
   // --- Subscriptions ---
 
   Future<void> saveSubscription(Subscription subscription) async {
-    await HiveSync.write(_subscriptionsBox, (box) => box.put(subscription.id, subscription));
+    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.put(subscription.id, subscription));
   }
 
   Future<List<Subscription>> getSubscriptions() async {
@@ -92,15 +92,15 @@ class StorageService {
   }
 
   Future<void> deleteSubscription(String id) async {
-    await HiveSync.write(_subscriptionsBox, (box) => box.delete(id));
+    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.delete(id));
   }
 
   Future<void> clearSubscriptions() async {
-    await HiveSync.write(_subscriptionsBox, (box) => box.clear());
+    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.clear());
   }
 
   Future<void> setActiveSubscription(String id) async {
-    await HiveSync.write(_subscriptionsBox, (box) {
+    await HiveSync.writeAsync(_subscriptionsBox, (box) async {
       for (final sub in box.values) {
         final updated = sub.copyWith(isActive: sub.id == id);
         box.put(sub.id, updated);
@@ -108,9 +108,9 @@ class StorageService {
     });
   }
 
-  Future<void> migrateFromSharedPreferences() async {
-    final box = Hive.box<Subscription>(_subscriptionsBox);
-    if (box.isNotEmpty) return;
+Future<void> migrateFromSharedPreferences() async {
+    final hasExisting = await HiveSync.read(_subscriptionsBox, (box) => box.isNotEmpty);
+    if (hasExisting) return;
 
     final prefs = await SharedPreferences.getInstance();
     final activeSource = prefs.getString('active_source');
@@ -145,7 +145,8 @@ class StorageService {
     }
 
     if (sub != null) {
-      await box.put(sub.id, sub);
+      final s = sub;
+      await HiveSync.writeAsync(_subscriptionsBox, (box) => box.put(s.id, s));
     }
   }
 }

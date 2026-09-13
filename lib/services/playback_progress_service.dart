@@ -28,7 +28,7 @@ class PlaybackProgressService {
   static const String _boxName = 'playback_progress';
 
   Future<void> init() async {
-    await Hive.openBox<String>(_boxName);
+    await Hive.openBox(_boxName);
   }
 
   Future<void> save(
@@ -36,7 +36,7 @@ class PlaybackProgressService {
     int positionMs,
     int durationMs,
   ) async {
-    await HiveSync.write(_boxName, (box) {
+    await HiveSync.writeAsync(_boxName, (box) async {
       final value =
           '$positionMs|$durationMs|${DateTime.now().millisecondsSinceEpoch}';
       box.put(id, value);
@@ -44,7 +44,7 @@ class PlaybackProgressService {
   }
 
   PlaybackProgress? get(String id) {
-    final box = Hive.box<String>(_boxName);
+    final box = Hive.box<dynamic>(_boxName);
     final raw = box.get(id);
     if (raw == null) return null;
     final parts = raw.split('|');
@@ -60,6 +60,6 @@ class PlaybackProgressService {
   }
 
   Future<void> clear(String id) async {
-    await HiveSync.write(_boxName, (box) => box.delete(id));
+    await HiveSync.writeAsync(_boxName, (box) => box.delete(id));
   }
 }

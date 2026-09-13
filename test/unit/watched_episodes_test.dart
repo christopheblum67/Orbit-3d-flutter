@@ -134,7 +134,7 @@ void main() {
     });
 
     test('ignore les entrées corrompues ou non-mapping', () async {
-      final box = Hive.box<String>('watched_episodes');
+      final box = Hive.box('watched_episodes');
       await box.put('test_profile:sr1:S1E1', 'pas du json');
       await box.put('test_profile:sr1:S1E2', '[1, 2, 3]');
       await box.put(

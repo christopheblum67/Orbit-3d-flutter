@@ -12,15 +12,15 @@ class FavoritesService {
   static const String _boxName = 'favorites';
 
   Future<void> init() async {
-    await Hive.openBox<String>(_boxName);
+    await Hive.openBox(_boxName);
   }
 
   Future<void> save(FavoriteEntry entry) async {
-    await HiveSync.write(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
+    await HiveSync.writeAsync(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
   }
 
   Future<void> remove(String key) async {
-    await HiveSync.write(_boxName, (box) => box.delete(key));
+    await HiveSync.writeAsync(_boxName, (box) => box.delete(key));
   }
 
   Future<bool> isFavorite(String key) async {

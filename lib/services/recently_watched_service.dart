@@ -15,19 +15,19 @@ class RecentlyWatchedService {
   static const int maxEntries = 50;
 
   Future<void> init() async {
-    await Hive.openBox<String>(_boxName);
+    await Hive.openBox(_boxName);
   }
 
   Future<void> save(RecentEntry entry) async {
-    await HiveSync.write(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
+    await HiveSync.writeAsync(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
   }
 
   Future<void> remove(String key) async {
-    await HiveSync.write(_boxName, (box) => box.delete(key));
+    await HiveSync.writeAsync(_boxName, (box) => box.delete(key));
   }
 
   Future<void> clearAll() async {
-    await HiveSync.write(_boxName, (box) => box.clear());
+    await HiveSync.writeAsync(_boxName, (box) => box.clear());
   }
 
   /// Returns all persisted entries for a profile, most recent first, capped.

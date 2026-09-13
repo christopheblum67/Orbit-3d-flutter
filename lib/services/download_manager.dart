@@ -216,7 +216,7 @@ class DownloadManager extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    await HiveSync.write(_boxName, (box) => box.put(task.id, task));
+    await HiveSync.writeAsync(_boxName, (box) => box.put(task.id, task));
     _logger.info('Download task created: ${task.id}');
 
     // Auto-start si place disponible
@@ -421,7 +421,7 @@ class DownloadManager extends ChangeNotifier {
       }
     }
 
-    await HiveSync.write(_boxName, (box) => box.delete(taskId));
+    await HiveSync.writeAsync(_boxName, (box) => box.delete(taskId));
     notifyListeners();
   }
 

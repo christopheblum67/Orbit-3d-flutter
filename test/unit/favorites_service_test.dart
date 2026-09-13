@@ -71,7 +71,7 @@ void main() {
     });
 
     test('ignore les entrées corrompues ou non-mapping', () async {
-      final box = Hive.box<String>('favorites');
+      final box = Hive.box('favorites');
       await box.put('test_profile:live:1', 'pas du json');
       await box.put('test_profile:live:2', jsonEncode([1, 2, 3]));
       await box.put(
