@@ -29,6 +29,9 @@ import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/subtitle_controls_sheet.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 
 class PlayerRouteData {
@@ -1149,6 +1152,19 @@ List<Channel> _channels = const [];
                         onRetry: _retry,
                       ),
                     ),
+                    // Overlay sous-titres (au-dessus vidéo, sous footerbar)
+                    Consumer(
+                      builder: (_, ref, __) {
+                        final subtitleCtrl = ref.watch(subtitleControllerProvider);
+                        final track = subtitleCtrl.activeTrack;
+                        if (track == null) return const SizedBox.shrink();
+                        return AnimatedSubtitleOverlay(
+                          track: track,
+                          positionMs: player!.value.position.inMilliseconds,
+                          bottomPadding: 100, // au-dessus footerbar
+                        );
+                      },
+                    ),
                     if (_footerVisible)
                       Positioned(
                         left: 0,
@@ -1330,6 +1346,30 @@ Widget _fbNightFocus({
       enabled ? Icons.nightlight_round : Icons.nightlight_outlined,
       color: enabled ? const Color(0xFFFFC107) : Colors.white70,
       size: 22,
+    ),
+  );
+}
+
+/// Icône Sous-titres de la footerbar : ouvre le panneau de sélection/chargement.
+Widget _fbSubtitle({
+  required BuildContext context,
+  required WidgetRef ref,
+}) {
+  return IconButton(
+    tooltip: 'Sous-titres',
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    onPressed: () => showSubtitleControlsSheet(context),
+    icon: Consumer(
+      builder: (_, ref, __) {
+        final hasTrack = ref.watch(subtitleControllerProvider).activeTrack != null;
+        return Icon(
+          hasTrack ? Icons.subtitles : Icons.subtitles_outlined,
+          color: hasTrack ? const Color(0xFF00CFE8) : Colors.white70,
+          size: 22,
+        );
+      },
     ),
   );
 }
@@ -1580,6 +1620,7 @@ class _LiveFooterBar extends ConsumerWidget {
               ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            _fbSubtitle(context: context, ref: ref),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -1738,6 +1779,7 @@ class _VodFooterBar extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            _fbSubtitle(context: context, ref: ref),
             if (castButton != null) castButton!,
             streamDetails,
           ],
