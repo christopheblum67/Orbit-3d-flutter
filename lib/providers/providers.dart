@@ -207,6 +207,42 @@ final flixPatrolAiringTodayTvProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
+/// Enrichissement TMDB de la grille VOD : pour chaque film "pauvre" en
+/// données Xtream (pas d'affiche ou note nulle), on demande un poster, une
+/// note, un genre et un synopsis TMDB via UNE seule requête (`searchMovieLight`,
+/// mise en cache Hive 24h). Quota borné pour respecter le rate-limit TMDB :
+/// à chaque invalidation on avance d'une tranche, les films déjà enrichis
+/// (ou introuvables) étant mémorisés dans le cache Hive.
+final vodGridEnrichmentsProvider =
+    FutureProvider<Map<String, TmdbRankEntry>>((ref) async {
+  ref.watch(tmdbApiKeyOverrideProvider);
+  final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
+  if (movies.isEmpty) return const <String, TmdbRankEntry>{};
+
+  const maxEnrichmentsPerPass = 30;
+  final tmdb = ref.watch(tmdbServiceProvider);
+  if (!tmdb.hasApiKey) return const <String, TmdbRankEntry>{};
+
+  final result = <String, TmdbRankEntry>{};
+  var enriched = 0;
+  for (final movie in movies) {
+    // On n'enrichit que les films vraiment dépourvus de données visuelles :
+    // les autres gardent la fiche Xtream (déjà bonne).
+    final needsEnrichment = movie.posterUrl.isEmpty || movie.rating <= 0;
+    if (!needsEnrichment) continue;
+    if (enriched >= maxEnrichmentsPerPass) break;
+
+    final entry = await tmdb.searchMovieLight(
+      movie.title,
+      year: movie.year > 0 ? movie.year : null,
+    );
+    enriched++;
+    if (entry == null) continue;
+    result[movie.id] = entry;
+  }
+  return result;
+});
+
 /// Films similaires TMDB (pour page détail film)
 final tmdbSimilarMoviesProvider =
     FutureProvider.family<List<TmdbRankEntry>, int>(

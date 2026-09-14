@@ -185,8 +185,8 @@ class _ProfileSelectionScreenState
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 250,
-        mainAxisExtent: 200,
+        maxCrossAxisExtent: 200,
+        mainAxisExtent: 170,
         crossAxisSpacing: 18,
         mainAxisSpacing: 18,
       ),
@@ -600,8 +600,8 @@ class _AddProfileCardState extends State<_AddProfileCard>
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: _focused ? 74 : 66,
-              height: _focused ? 74 : 66,
+              width: _focused ? 58 : 52,
+              height: _focused ? 58 : 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -612,7 +612,7 @@ class _AddProfileCardState extends State<_AddProfileCard>
               ),
               child: Icon(
                 Icons.add,
-                size: 38,
+                size: 30,
                 color: scheme.onPrimary,
               ),
             ),

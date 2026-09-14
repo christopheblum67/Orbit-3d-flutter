@@ -47,6 +47,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     final categoriesAsync = ref.watch(vodCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
+    final enrichments =
+        ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
       appBar: AppBar(
         title: const Text('Films (VOD)'),
@@ -254,12 +256,25 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                   onActivate: onOpen,
                                   child: MediaCard(
                                     title: movie.title,
-                                    posterUrl: movie.posterUrl,
-                                    year: movie.year,
-                                    genre: movie.genre,
-                                    rating: movie.rating,
+                                    posterUrl: movie.posterUrl.isNotEmpty
+                                        ? movie.posterUrl
+                                        : (enrichments[movie.id]?.posterUrl ??
+                                            ''),
+                                    year: movie.year > 0
+                                        ? movie.year
+                                        : (enrichments[movie.id]?.year ?? 0),
+                                    genre: movie.genre.isNotEmpty
+                                        ? movie.genre
+                                        : (enrichments[movie.id]?.genreLabel ??
+                                            ''),
+                                    rating: movie.rating > 0
+                                        ? movie.rating
+                                        : (enrichments[movie.id]?.rating ?? 0),
                                     ageLabel: movie.pegiLabel,
                                     fallbackIcon: Icons.movie_outlined,
+                                    voteCount:
+                                        enrichments[movie.id]?.voteCount,
+                                    overview: enrichments[movie.id]?.overview,
                                     favoriteOverlay: FavoriteToggle.overlay(
                                       entry: FavoriteEntry(
                                         type: ContentType.vod,

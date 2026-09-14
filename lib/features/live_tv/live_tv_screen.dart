@@ -123,13 +123,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                 ? 'Les chaînes regardées s\'afficheront ici.'
                                 : 'Ce groupe ne contient aucune chaîne.',
                       )
-                    : ListView.builder(
+                    : GridView.builder(
                         padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200,
+                          childAspectRatio: 0.55,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                         itemCount: visibleChannels.length,
-                        itemBuilder: (context, index) => _buildRow(
+                        itemBuilder: (context, index) => _buildCard(
                           groups,
                           visibleChannels[index],
-                          showGroupName: !grouped,
                         ),
                       ),
               ),
@@ -167,11 +173,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     return categories;
   }
 
-  Widget _buildRow(
-    List<ChannelGroup> groups,
-    Channel channel, {
-    required bool showGroupName,
-  }) {
+  Widget _buildCard(List<ChannelGroup> groups, Channel channel) {
     void prewarm() => StreamPrewarmService.instance.prewarm(
           channel.streamUrl,
           stream_helpers.streamHeaders(channel.streamUrl),
@@ -181,38 +183,33 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       _openPlayer(groups, channel);
     }
 
-    final subtitle = showGroupName && channel.groupLabel.isNotEmpty
+    final groupLabel = channel.groupLabel.isNotEmpty
         ? channel.groupLabel
         : null;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: TvFocus(
-        onActivate: onOpen,
-        onFocusChange: (focused) {
-          if (focused) prewarm();
-        },
-        child: ChannelTile(
-          title: channel.name,
-          subtitle: subtitle,
-          icon: Icons.live_tv,
-          imageUrl: channel.logoUrl,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (channel.orderNum > 0) _NumBadge(number: channel.orderNum),
-              FavoriteToggle(
-                entry: FavoriteEntry(
-                  type: ContentType.live,
-                  id: channel.id,
-                  title: channel.name,
-                  posterUrl: channel.logoUrl,
-                  subtitle: channel.groupLabel,
-                  streamUrl: channel.streamUrl,
-                ),
-              ),
-            ],
+    return TvFocus(
+      onActivate: onOpen,
+      onFocusChange: (focused) {
+        if (focused) prewarm();
+      },
+      child: MediaCard(
+        title: channel.name,
+        posterUrl: channel.logoUrl,
+        year: 0,
+        genre: groupLabel ?? '',
+        rating: 0,
+        ageLabel: null,
+        fallbackIcon: Icons.live_tv,
+        onTap: onOpen,
+        topBadge: channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
+        favoriteOverlay: FavoriteToggle.overlay(
+          entry: FavoriteEntry(
+            type: ContentType.live,
+            id: channel.id,
+            title: channel.name,
+            posterUrl: channel.logoUrl,
+            subtitle: channel.groupLabel,
+            streamUrl: channel.streamUrl,
           ),
-          onTap: onOpen,
         ),
       ),
     );

@@ -116,9 +116,6 @@ class TmdbService {
     _requestTimestamps.add(DateTime.now().millisecondsSinceEpoch);
   }
 
-  /// Génère une clé de cache
-  String _cacheKey(String prefix, String id) => 'tmdb:$prefix:$id';
-
   /// Récupère depuis le cache si valide
   T? _getCached<T>(String key, T Function(Map<String, dynamic>) fromJson) {
     if (_cacheBox == null) return null;
@@ -132,7 +129,13 @@ class TmdbService {
       _cacheBox!.delete(key);
       return null;
     }
-    return fromJson(Map<String, dynamic>.from(data['data']));
+    final raw = data['data'];
+    // Un cache "vide" est codé par un container vide : on le traite comme
+    // un non-résultat pour ne pas stocker d'objets nuls.
+    if (raw == null) return null;
+    final values = Map<String, dynamic>.from(raw as Map);
+    if (values.isEmpty) return null;
+    return fromJson(values);
   }
 
   /// Sauvegarde dans le cache
@@ -172,6 +175,49 @@ class TmdbService {
     }
     return null;
   }
+
+  /// Recherche légère d'un film : renvoie directement une entrée de classement
+  /// (poster, note, année, genres, synopsis, votes) à partir du 1er résultat.
+  /// Une seule requête par film, mise en cache Hive (même TTL 24h).
+  /// Utilisée pour pré-enrichir les cartes de la grille VOD en arrière-plan.
+  Future<TmdbRankEntry?> searchMovieLight(String title, {int? year}) async {
+    if (!hasApiKey) return null;
+
+    final cacheKey = _cacheKey('grid', title, year ?? 0);
+    final cached = _getCached(cacheKey, (d) => TmdbRankEntry.fromMovieJson(d));
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    try {
+      final queryParams = <String, String>{
+        'query': title,
+        'include_adult': 'false',
+      };
+      if (year != null && year > 0) {
+        queryParams['year'] = year.toString();
+      }
+      final response =
+          await _dio.get('/search/movie', queryParameters: queryParams);
+      final results = response.data['results'] as List?;
+      if (results == null || results.isEmpty) {
+        // Cache un résultat "vide" pour éviter de re-chercher sans cesse.
+        await _setCache(cacheKey, const <String, dynamic>{});
+        return null;
+      }
+      final entry = TmdbRankEntry.fromMovieJson(
+        Map<String, dynamic>.from(results.first as Map),
+      );
+      await _setCache(cacheKey, Map<String, dynamic>.from(results.first as Map));
+      return entry;
+    } catch (e) {
+      _logger.warning('TMDB searchMovieLight error: ${_maskSensitive('$e')}');
+      return null;
+    }
+  }
+
+  String _cacheKey(String prefix, String id, [int? suffix]) =>
+      suffix != null ? 'tmdb:$prefix:$id:$suffix' : 'tmdb:$prefix:$id';
 
   /// Détails complets d'un film
   Future<MovieDetail?> getMovieDetail(int tmdbId) async {

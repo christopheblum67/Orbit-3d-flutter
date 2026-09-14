@@ -37,10 +37,10 @@ class _OrbitAvatarState extends State<OrbitAvatar>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const base = 108.0;
-    final diameter = widget.enlarged ? base + 10 : base;
-    final disc = diameter - 8;
-    final avatarSize = disc - 12;
+    const base = 80.0;
+    final diameter = widget.enlarged ? base + 8 : base;
+    final disc = diameter - 6;
+    final avatarSize = disc - 10;
 
     return Stack(
       alignment: Alignment.center,

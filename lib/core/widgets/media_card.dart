@@ -21,6 +21,8 @@ class MediaCard extends ConsumerWidget {
     this.isNew = false,
     this.topBadge,
     this.matchPercent, // % d'affinité matchmaking (affiché sur la ligne méta)
+    this.voteCount, // Nombre de votes (ex: TMDB) - affiché sur la ligne méta
+    this.overview, // Synopsis (aperçu 2 lignes sous la méta, si fourni)
   });
 
   final String title;
@@ -44,6 +46,22 @@ class MediaCard extends ConsumerWidget {
 
   /// % d'affinité matchmaking (ex: 87%). Si fourni, affiché sur la ligne méta.
   final int? matchPercent;
+
+  /// Nombre de votes (ex. TMDB). Affiché formaté sur la ligne méta.
+  final int? voteCount;
+
+  /// Synopsis / aperçu affiché en 2 lignes sous la ligne méta.
+  final String? overview;
+
+  String? get _voteCountLabel {
+    final votes = voteCount ?? 0;
+    if (votes <= 0) return null;
+    if (votes >= 1000) {
+      final k = votes / 1000;
+      return k >= 100 ? '${k.round()}K votes' : '${k.toStringAsFixed(1)}K votes';
+    }
+    return '$votes votes';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -122,38 +140,39 @@ class MediaCard extends ConsumerWidget {
                     top: 8,
                     child: topBadge!,
                   ),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          size: 14,
-                          color: Colors.amber,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          rating.toStringAsFixed(1),
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ],
+                if (rating > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star,
+                            size: 14,
+                            color: Colors.amber,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style:
+                                Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 if (favoriteOverlay != null)
                   Positioned(
                     right: 4,
@@ -178,11 +197,15 @@ class MediaCard extends ConsumerWidget {
                       ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const SizedBox(height: 4),
-                if (year > 0 || genre.isNotEmpty || matchPercent != null)
+                if (year > 0 ||
+                    genre.isNotEmpty ||
+                    matchPercent != null ||
+                    _voteCountLabel != null)
                   Text(
                     [
                       if (year > 0) '$year',
                       if (genre.isNotEmpty) genre,
+                      if (_voteCountLabel != null) _voteCountLabel!,
                       if (matchPercent != null) '♥ $matchPercent%',
                     ].join(' • '),
                     maxLines: 1,
@@ -192,6 +215,18 @@ class MediaCard extends ConsumerWidget {
                           fontSize: 12 * fontScale,
                         ),
                   ),
+                if (overview != null && overview!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    overview!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontSize: 11 * fontScale,
+                        ),
+                  ),
+                ],
               ],
             ),
           ),

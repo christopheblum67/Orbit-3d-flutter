@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
@@ -117,48 +118,72 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                     ? const Center(
                         child: Text('Aucun replay dans cette catégorie'),
                       )
-                    : ListView.builder(
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200,
+                          childAspectRatio: 0.55,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                         itemCount: visibleReplays.length,
                         itemBuilder: (context, index) {
                           final replay = visibleReplays[index];
-                          return ListTile(
-                            leading: const Icon(Icons.replay),
-                            title: Text(replay.title),
-                            subtitle: Text(
-                              replay.startTime.isEmpty
-                                  ? 'Replay disponible'
-                                  : '${replay.startTime} - ${replay.endTime}',
-                            ),
-                            trailing: FavoriteToggle(
-                              entry: FavoriteEntry(
-                                type: ContentType.replay,
-                                id: replay.id,
-                                title: replay.title,
-                                subtitle:
-                                    '${replay.startTime} - ${replay.endTime}',
+                          final subtitle = replay.startTime.isEmpty
+                              ? 'Replay disponible'
+                              : '${replay.startTime} - ${replay.endTime}';
+                          return TvFocus(
+                            onActivate: () => context.push(
+                              '/player',
+                              extra: PlayerRouteData(
                                 streamUrl: replay.streamUrl,
+                                title: replay.title,
+                                contentType: PlaybackContentType.replay,
+                                subtitle: subtitle,
+                                favorite: FavoriteEntry(
+                                  type: ContentType.replay,
+                                  id: replay.id,
+                                  title: replay.title,
+                                  subtitle: subtitle,
+                                  streamUrl: replay.streamUrl,
+                                ),
                               ),
                             ),
-                            onTap: () {
-                              context.push(
+                            child: MediaCard(
+                              title: replay.title,
+                              posterUrl: '',
+                              year: 0,
+                              genre: subtitle,
+                              rating: 0,
+                              ageLabel: null,
+                              fallbackIcon: Icons.replay_rounded,
+                              onTap: () => context.push(
                                 '/player',
                                 extra: PlayerRouteData(
                                   streamUrl: replay.streamUrl,
                                   title: replay.title,
                                   contentType: PlaybackContentType.replay,
-                                  subtitle:
-                                      '${replay.startTime} - ${replay.endTime}',
+                                  subtitle: subtitle,
                                   favorite: FavoriteEntry(
                                     type: ContentType.replay,
                                     id: replay.id,
                                     title: replay.title,
-                                    subtitle:
-                                        '${replay.startTime} - ${replay.endTime}',
+                                    subtitle: subtitle,
                                     streamUrl: replay.streamUrl,
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                              favoriteOverlay: FavoriteToggle.overlay(
+                                entry: FavoriteEntry(
+                                  type: ContentType.replay,
+                                  id: replay.id,
+                                  title: replay.title,
+                                  subtitle: subtitle,
+                                  streamUrl: replay.streamUrl,
+                                ),
+                              ),
+                            ),
                           );
                         },
                       ),
