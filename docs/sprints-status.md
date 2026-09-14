@@ -304,5 +304,26 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 
 ---
 
-## Total backlog restant estimé : ~3h (1 ingénieur) — Rust Proxy uniquement
-Prochaines priorités : **Rust Proxy S4** (3h + falsification 0.2h sur machine Cargo) — seul chantier technique restant. Ajouté au 11/09 : **purge historique git** (`git filter-repo`, commits `f0f80a1`/`eeb5d69`) + écrans lisez-moi/mentions légales livrés à valider sur S20. Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents 09/09, **EPG headbar 10/09, Classements TMDB Option A 10/09**, **Catégories étendues + Lisez-moi 11/09**) est **✅ LIVRÉ & VALIDÉ**.
+## 15. Raffinements grille + enrichment TMDB + profils compacts (14/09)
+**Demandes utilisateur** : ① reconnexion API TMDB avec clé transmise + masquage logs, ② ajustements FlixPatrol (genre, votes, synopsis) et enrichment TMDB de la grille movies, ③ live et replay en format grille, ④ icônes profil plus petites sur TV.
+
+| Élément | Statut | Détail |
+|---|---|---|
+| Réactivation TMDB + logs masqués | 🟢 | `TmdbApiKeyStore.effectiveKey` : override utilisateur sinon `TMDB_API_KEY` du `.env` (gitignoré). `LogInterceptor` : `api_key` masqué par regex `_maskSensitive`. Tous les logs d'erreur TMDB (`$e`) passés par `_maskSensitive`. CI : `dart.yml`/`publish-beta.yml` génèrent `.env` depuis secret optionnel `TMDB_API_KEY`. Commit `ae92d4a`. |
+| FlixPatrol enrichi | 🟢 | `TmdbRankEntry.genreLabel` (mapping 36 genres TMDB fr) + `voteCountLabel` (K). `_RankCard` : genre mappé + votes + synopsis 2 lignes. Commit `36d2213`. |
+| Badge note masqué si 0 | 🟢 | `MediaCard` : `if (rating > 0)` pour le badge étoile. Plus de note « 0.0 » affichée sur les entrées sans note. |
+| Votes + synopsis dans cartes | 🟢 | `MediaCard` : champs optionnels `voteCount` (int) et `overview` (String). Affichage « X votes » en ligne méta, synopsis 2 lignes tronqué en dessous. |
+| Enrichissement TMDB grille movies | 🟢 | `TmdbService.searchMovieLight` : 1 requête `/search/movie` par film, cache Hive 24h. Provider `vodGridEnrichmentsProvider` : enrichit les films « pauvres » (poster vide ou rating≤0) de manière bornée (30 films/passe). `VodScreen` merge en temps réel (poster, rating, genre, synopsis, votes). |
+| Live TV → grille | 🟢 | `live_tv_screen.dart` : `ListView.builder` → `GridView.builder` (maxCrossAxisExtent 200, ratio 0.55). `_buildCard` rend un `MediaCard` avec `channel.logoUrl` en poster, `groupLabel` en genre, `topBadge` pour `orderNum`, `favoriteOverlay`. TvFocus + prewarm inchangés. |
+| Replay → grille | 🟢 | `replay_screen.dart` : `ListView.builder` → `GridView.builder`. `MediaCard` avec `fallbackIcon: Icons.replay_rounded`, genre = horaires, `favoriteOverlay`. TvFocus ajouté. |
+| Profils TV compacts | 🟢 | `OrbitAvatar` : `base` 108→80px (disc 72, avatar 60). Grille profile_selection_screen : `maxCrossAxisExtent` 250→200, `mainAxisExtent` 200→170. `_AddProfileCard` icône 66→52px, `Icon` size 38→30. |
+| Analyse | 🟢 | `flutter analyze` : 0 erreur, 0 warning, 62 infos. |
+| Tests | 🟢 | **229/229** tests OK. |
+| Commits | 🟢 | `ae92d4a` (TMDB .env + logs masqués) + `36d2213` (grille + enrichment + profils). |
+
+**Progression : 100% — 4 demandes traitées + KGP migration en attente (bloquée par 5 plugins).** Reste : migration KGP→built-in Kotlin (priorité 1) + validation visuelle S20 (déconnecté).
+
+---
+
+## Total backlog restant estimé : ~2h (1 ingénieur) — KGP migration uniquement
+Prochaines priorités : **KGP migration** (builtInKotlin=true après passage des 5 plugins appliquant KGP au built-in Kotlin). Tout le reste (Quick Wins S2, EPG Timeline, Filtres genres matchmaking, Multi-abonnements universelle, Correctifs urgents, EPG headbar, Classements TMDB, Catégories étendues, Lisez-moi, grille unifiée, enrichment TMDB, profils compacts) est **✅ LIVRÉ & VALIDÉ**.
