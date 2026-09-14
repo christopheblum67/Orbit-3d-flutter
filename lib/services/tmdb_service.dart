@@ -56,9 +56,20 @@ class TmdbService {
       LogInterceptor(
         requestBody: false,
         responseBody: false,
-        logPrint: (msg) => _logger.debug('[TMDB] $msg'),
+        requestHeader: false,
+        responseHeader: false,
+        logPrint: (msg) => _logger.debug('[TMDB] ${_maskSensitive(msg)}'),
       ),
     );
+  }
+
+  /// Masque les valeurs sensibles (clés API) avant journalisation.
+  String _maskSensitive(Object msg) {
+    final masked = msg.toString().replaceAll(
+          RegExp(r'api_key=[^&\s]+'),
+          'api_key=***',
+        );
+    return masked;
   }
 
   Future<void> _initCache() async {
@@ -85,7 +96,7 @@ class TmdbService {
       );
       return response.statusCode == 200;
     } catch (e) {
-      _logger.warning('TMDB validateApiKey error: $e');
+      _logger.warning('TMDB validateApiKey error: ${_maskSensitive('$e')}');
       return false;
     }
   }
@@ -157,7 +168,7 @@ class TmdbService {
         return results.first['id'] as int;
       }
     } catch (e) {
-      _logger.warning('TMDB searchMovieId error: $e');
+      _logger.warning('TMDB searchMovieId error: ${_maskSensitive('$e')}');
     }
     return null;
   }
@@ -194,7 +205,7 @@ class TmdbService {
       await _setCache(cacheKey, detailResponse.data);
       return detail;
     } catch (e) {
-      _logger.warning('TMDB getMovieDetail error: $e');
+      _logger.warning('TMDB getMovieDetail error: ${_maskSensitive('$e')}');
       return null;
     }
   }
@@ -311,7 +322,7 @@ class TmdbService {
         return results.first['id'] as int;
       }
     } catch (e) {
-      _logger.warning('TMDB searchPerson error: $e');
+      _logger.warning('TMDB searchPerson error: ${_maskSensitive('$e')}');
     }
     return null;
   }
@@ -345,7 +356,7 @@ class TmdbService {
       });
       return detail;
     } catch (e) {
-      _logger.warning('TMDB getPersonDetail error: $e');
+      _logger.warning('TMDB getPersonDetail error: ${_maskSensitive('$e')}');
       return null;
     }
   }
@@ -390,7 +401,7 @@ class TmdbService {
         return results.first['id'] as int;
       }
     } catch (e) {
-      _logger.warning('TMDB searchTvId error: $e');
+      _logger.warning('TMDB searchTvId error: ${_maskSensitive('$e')}');
     }
     return null;
   }
@@ -418,7 +429,7 @@ class TmdbService {
       await _setCache(cacheKey, response.data);
       return detail;
     } catch (e) {
-      _logger.warning('TMDB getTvDetail error: $e');
+      _logger.warning('TMDB getTvDetail error: ${_maskSensitive('$e')}');
       return null;
     }
   }
@@ -457,9 +468,9 @@ class TmdbService {
           guestStarsMap[seasonNum] = seasonGuests;
         }
       } catch (e) {
-        _logger.warning(
-          'TMDB getSeasonGuestStars error for season $seasonNum: $e',
-        );
+_logger.warning(
+        'TMDB getSeasonGuestStars error for season $seasonNum: ${_maskSensitive('$e')}',
+      );
       }
     }
 
@@ -620,7 +631,7 @@ class TmdbService {
           )
           .toList();
     } catch (e) {
-      _logger.warning('TMDB $path error: $e');
+      _logger.warning('TMDB $path error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }
@@ -664,7 +675,7 @@ class TmdbService {
           .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getSimilarMovies error: $e');
+      _logger.warning('TMDB getSimilarMovies error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }
@@ -698,7 +709,7 @@ class TmdbService {
           .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getSimilarTv error: $e');
+      _logger.warning('TMDB getSimilarTv error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }
@@ -733,7 +744,7 @@ class TmdbService {
           .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getMovieRecommendations error: $e');
+      _logger.warning('TMDB getMovieRecommendations error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }
@@ -768,7 +779,7 @@ class TmdbService {
           .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getTvRecommendations error: $e');
+      _logger.warning('TMDB getTvRecommendations error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }

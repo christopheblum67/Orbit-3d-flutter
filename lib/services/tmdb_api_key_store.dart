@@ -1,9 +1,11 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Clé API TMDB pour les classements FlixPatrol.
 ///
-/// **L'utilisateur doit saisir sa propre clé dans Réglages → Contenu.**
-/// Plus de clé de build partagée (`.env`) : évite exposition accidentelle.
+/// Origines, par ordre de priorité :
+///  1. Override saisie par l'utilisateur (Réglages → Contenu).
+///  2. `TMDB_API_KEY` du fichier `.env` (gitignoré, embarqué dans l'APK).
 class TmdbApiKeyStore {
   TmdbApiKeyStore._();
 
@@ -16,8 +18,17 @@ class TmdbApiKeyStore {
   /// Override saisi par l'utilisateur (Réglages → Contenu → Clé API TMDB).
   String get override => _override;
 
-  /// Clé effective à injecter dans les requêtes : **uniquement l'override utilisateur**.
-  String get effectiveKey => _override.trim();
+  /// Clé effective : override utilisateur sinon `TMDB_API_KEY` du `.env`.
+  String get effectiveKey {
+    final fromOverride = _override.trim();
+    if (fromOverride.isNotEmpty) return fromOverride;
+    try {
+      final fromEnv = dotenv.maybeGet('TMDB_API_KEY')?.trim() ?? '';
+      return fromEnv;
+    } catch (_) {
+      return '';
+    }
+  }
 
   bool get hasEffectiveKey => effectiveKey.isNotEmpty;
 
