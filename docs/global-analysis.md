@@ -6,8 +6,7 @@
 
 Application de type Xtream/M3U/Radio fonctionnelle, architecture Riverpod + go_router correctement structurée (**~8 800 LOC** dans **73 fichiers Dart**, `lib/`). Aucune erreur ni warning d'analyse statique. En revanche :
 
-- **Fuite active d'identifiants de serveur** dans le code suivi par git : `test/unit/series_info_parse_test.dart:34` (`https://draap.online/REDACTED/REDACTED/$id`) ;
-- **Fuites historiques** non purgées dans `.github/workflows/publish-beta.yml` (commits `f0f80a1`, `eeb5d69`) ;
+- **Identifiants de serveur** : purge effectuée — aucun credential réel dans le working tree, l'historique atteignable (`main`, tags `beta1`, `v1.1.1-beta2`, `v1.0.0+1`) ou les objets orphelins (vérifié `git grep` + pickaxe `-S` sur les 4 valeurs). Le tag remote `v1.0.0+1` a été réaligné de `f0f80a1c` (commit contenant les credentials en clair) vers `3f5d8e5` (redacted) — plus aucune référence publique au commit fuiteux ;
 - **Clé Admin Firebase présente sur disque** (racine du dépôt, gitignorée mais réelle) ;
 - **Cache EPG jamais invalidé** lors d'un changement de serveur (`subscriptions_screen.dart:73-77`) ;
 - **Images jamais mises en cache** (`Image.network` × 4) alors que `cached_network_image` est déclaré et inutilisé ;
@@ -71,8 +70,8 @@ Résolues dans `pubspec.lock` : dio 5.11.0, hive 2.2.3, hive_flutter 1.1.0, flut
 
 ## 7 - Sécurité
 
-- **Fuite active (P0)** : `test/unit/series_info_parse_test.dart:34` contient des identifiants réels du compte `draap.online` (`REDACTED` / `REDACTED`). Fichier **suivi par git** → exposé publiquement dès le push. ✅
-- **Fuites dans l'historique git** : `.github/workflows/publish-beta.yml` commit `f0f80a1` (`http://sofia.rabaden.eu:80/get.php?username=REDACTED&password=REDACTED&type=m3u_plus...`) et commit `eeb5d69` (`https://draap.online/get.php?username=REDACTED&password=REDACTED...`). Le HEAD (`f1f791f`) utilise désormais `secrets.BETA_*` + inputs ✅ — mais l'historique n'est pas purgé et les comptes n'ont pas été révoqués. ✅
+- **Credentials serveur** : purge effectuée ✅. Vérifié par `git grep` (working tree) + `git log --all -S` (pickaxe) : les 4 paires `sofia.rabaden.eu`/`draap.online` ne sont dans **aucun** objet git atteignable, **ni** dans les blobs orphelins (`git fsck`). `test/unit/series_info_parse_test.dart:34` utilise le placeholder `example.com`. Le commit fuiteux du tag remote `v1.0.0+1` (`f0f80a1`) a été réaligné vers sa version redacted (`3f5d8e5`) — plus aucune ref publique. ✅
+- **Historique git** : `.github/workflows/publish-beta.yml` utilise `secrets.BETA_*` + inputs au HEAD ; la seule fuite historique (`f0f80a1`) n'est plus référencée par aucune branche/tag. `eeb5d69` n'existe pas sur le remote. **Restant manuel** : rotation des mots de passe IPTV chez les fournisseurs (les anciens credentials ont été exposés publiquement avant la purge). ✅
 - **Clé Admin Firebase** : `orbit-3d-8264d-firebase-adminsdk-fbsvc-a83639078a.json` présente à la racine du dépôt ; gitignorée (`gitignore:29`, jamais suivie — Vérifié `git ls-files` et `git log`) mais il s'agit d'une **clé de service administrateur active sur le disque**.
 - `android/app/google-services.json` est **suivi** (projet `orbit-3d-8264d`, API key `AIzaSyDqPeWznoX2ITnTrHcBmnWhmAB3tNGnwts`).
 - `android/app/src/main/AndroidManifest.xml:9` : `android:usesCleartextTraffic="true"` (HTTP autorisé — souvent nécessaire pour les fournisseurs TPV/Xtream, mais à documenter).
@@ -88,8 +87,8 @@ Résolues dans `pubspec.lock` : dio 5.11.0, hive 2.2.3, hive_flutter 1.1.0, flut
 ## 9 - Plan d'action priorisé
 
 **P0 — Sécurité & intégrité des données (immédiat)**
-1. **`test/unit/series_info_parse_test.dart:34`** : remplacer l'URL par un placeholder et **révoquer le compte `draap.online`**. Bénéfice : fin de la fuite active du dépôt.
-2. **Purger l'historique git** (`git filter-repo`) des commits `f0f80a1`/`eeb5d69` **et** invalider les deux fournisseurs Xtream (sofia.rabaden.eu, draap.online) + rotation des credentials. Bénéfice : expositions historiques éliminées.
+1. **`test/unit/series_info_parse_test.dart:34`** : URL placeholder (`example.com`) ✅ — placeholder en place, test OK.
+2. **Purger l'historique git** : réaligné le tag `v1.0.0+1` `f0f80a1` → `3f5d8e5` (redacted) ✅. Restant : **rotation des credentials IPTV chez les fournisseurs** (action manuelle hors dépôt) + suppression des APK bêta déjà distribués s'ils embarquent les anciens mots de passe.
 3. **Supprimer la clé Admin Firebase** du disque (ou la déplacer hors du dépôt, ex. dossier secret CI). Bénéfice : réduction du rayon d'explosion.
 4. **Corriger l'invalidation EPG** : dans `subscriptions_screen.dart:73-77` et `home_screen.dart:133-148`, ajouter `ref.invalidate(epgDataCacheProvider); ref.invalidate(epgProgramsProvider);`. Bénéfice : le guide reflète le serveur actif.
 
