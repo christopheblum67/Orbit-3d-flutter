@@ -26,12 +26,13 @@ import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
+import 'package:orbit_3d_flutter/services/pip_service.dart';
+import 'package:orbit_3d_flutter/services/background_playback_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_controls_sheet.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 
 class PlayerRouteData {
@@ -162,6 +163,11 @@ List<Channel> _channels = const [];
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
 
+  // Picture-in-Picture & lecture en arrière-plan
+  final _pipService = PipService();
+  final _bgService = BackgroundPlaybackService();
+  bool? _pipSupported;
+
   // Monitoring réseau & stall
   Timer? _monitoringTimer;
   StallDetector? _stallDetector;
@@ -179,6 +185,17 @@ List<Channel> _channels = const [];
 
   Channel? get _currentChannel => _channels.isEmpty ? null : _channels[_index];
 
+  /// Titre affiché dans la notification de lecture en arrière-plan.
+  String get _playbackTitle => widget.title ?? _currentChannel?.name ?? 'Orbit';
+
+  /// Sous-titre de la notification de lecture en arrière-plan.
+  String get _playbackSubtitle {
+    if (widget.contentType == PlaybackContentType.live) {
+      return 'Lecture live en cours';
+    }
+    return widget.seriesName ?? widget.episodeLabel ?? 'Lecture en cours';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -191,6 +208,10 @@ List<Channel> _channels = const [];
     }
     _initializePlayer();
     _startSaveProgressTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final supported = await _pipService.isSupported;
+      if (mounted) setState(() => _pipSupported = supported);
+    });
   }
 
   @override
@@ -201,6 +222,7 @@ List<Channel> _channels = const [];
     _saveProgressTimer?.cancel();
     _monitoringTimer?.cancel();
     _stallDetector?.stop();
+    _bgService.stop();
     _saveProgress();
     _focusNode.dispose();
     _generation++;
@@ -215,8 +237,14 @@ List<Channel> _channels = const [];
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncImmersive();
+      _bgService.stop();
     } else {
       _restoreSystemUi();
+      // Lecture active + app non au premier plan (PiP, home, écran éteint) :
+      // le foreground service mediaPlayback garde le process vivant (Android 14+).
+      if (_controller?.value.isPlaying == true && _status == _PlayerStatus.ready) {
+        _bgService.start(title: _playbackTitle, subtitle: _playbackSubtitle);
+      }
     }
   }
 
@@ -1042,8 +1070,29 @@ List<Channel> _channels = const [];
     setState(() {
       playing ? controller.pause() : controller.play();
     });
+    if (playing) _bgService.stop();
     _syncImmersive();
     _showFooterBar();
+  }
+
+  /// Bascule en fenêtre flottante Picture-in-Picture avec le ratio de la vidéo.
+  Future<void> _enterPip() async {
+    final size = _controller?.value.size;
+    var width = size?.width.round() ?? 16;
+    var height = size?.height.round() ?? 9;
+    if (width <= 0 || height <= 0) {
+      width = 16;
+      height = 9;
+    }
+    final entered = await _pipService.enter(width: width, height: height);
+    if (!entered && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vue flottante (PiP) non disponible sur cet appareil'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   /// Sortie propre du lecteur : arrêt immédiat du flux (audio + vidéo),
@@ -1160,7 +1209,7 @@ List<Channel> _channels = const [];
                         if (track == null) return const SizedBox.shrink();
                         return AnimatedSubtitleOverlay(
                           track: track,
-                          positionMs: player!.value.position.inMilliseconds,
+                          positionMs: player.value.position.inMilliseconds,
                           bottomPadding: 100, // au-dessus footerbar
                         );
                       },
@@ -1196,6 +1245,7 @@ List<Channel> _channels = const [];
       onOpened: () => _footerTimer?.cancel(),
       onClosed: _showFooterBar,
     );
+    final onPip = _pipSupported == true ? _enterPip : null;
     return switch (widget.contentType) {
       PlaybackContentType.live => _LiveFooterBar(
           channel: _currentChannel,
@@ -1208,6 +1258,7 @@ List<Channel> _channels = const [];
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
+          onPip: onPip,
           onSeekBack10: null,
           onSeekBack30: null,
           onSeekForward10: null,
@@ -1229,6 +1280,7 @@ List<Channel> _channels = const [];
           onPrevious: _hasPrevious ? _goPrevious : null,
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
+          onPip: onPip,
           onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
@@ -1248,6 +1300,7 @@ List<Channel> _channels = const [];
           isPlaying: isPlaying,
           onExit: _requestExit,
           onTogglePlayPause: _togglePlayPause,
+          onPip: onPip,
           onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
           onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
@@ -1451,6 +1504,7 @@ class _LiveFooterBar extends ConsumerWidget {
     this.onPrevious,
     this.onNext,
     required this.onTogglePlayPause,
+    this.onPip,
     this.onSeekBack10,
     this.onSeekBack30,
     this.onSeekForward10,
@@ -1472,6 +1526,7 @@ class _LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onTogglePlayPause;
+  final VoidCallback? onPip;
   final VoidCallback? onSeekBack10;
   final VoidCallback? onSeekBack30;
   final VoidCallback? onSeekForward10;
@@ -1621,6 +1676,9 @@ class _LiveFooterBar extends ConsumerWidget {
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
             _fbSubtitle(context: context, ref: ref),
+            if (onPip != null)
+              _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
+                  tooltip: 'Vue flottante (PiP)'),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -1649,6 +1707,7 @@ class _VodFooterBar extends ConsumerWidget {
     required this.onSeekBack30,
     required this.onSeekForward10,
     required this.onSeekForward30,
+    this.onPip,
     this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
@@ -1664,6 +1723,7 @@ class _VodFooterBar extends ConsumerWidget {
   final bool isPlaying;
   final VoidCallback onExit;
   final VoidCallback onTogglePlayPause;
+  final VoidCallback? onPip;
   final VoidCallback onSeekBack10;
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward10;
@@ -1780,6 +1840,9 @@ class _VodFooterBar extends ConsumerWidget {
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
             _fbSubtitle(context: context, ref: ref),
+            if (onPip != null)
+              _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
+                  tooltip: 'Vue flottante (PiP)'),
             if (castButton != null) castButton!,
             streamDetails,
           ],
