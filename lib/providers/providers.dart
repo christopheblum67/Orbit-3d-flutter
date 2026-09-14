@@ -25,7 +25,6 @@ import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
 import 'package:orbit_3d_flutter/services/search_service.dart';
 import 'package:orbit_3d_flutter/services/search_index_service.dart';
-import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';

@@ -55,10 +55,6 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     ref.read(subtitleControllerProvider).setActiveTrack(track.label);
   }
 
-  void _disableSubtitles() {
-    ref.read(subtitleControllerProvider).disable();
-  }
-
   @override
   Widget build(BuildContext context) {
     final subtitleCtrl = ref.watch(subtitleControllerProvider);

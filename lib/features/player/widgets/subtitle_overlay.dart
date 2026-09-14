@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
-import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
 
 /// Overlay qui affiche le sous-titre actif synchronisé avec la position vidéo.
 class SubtitleOverlay extends StatelessWidget {
