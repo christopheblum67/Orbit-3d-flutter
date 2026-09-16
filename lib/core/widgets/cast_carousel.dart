@@ -61,7 +61,7 @@ class CastCarousel extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         SizedBox(
-          height: imageSize + (showCharacter ? 56 : 36),
+          height: imageSize + (showCharacter ? 64 : 40),
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -99,109 +99,126 @@ class _ActorCard extends StatelessWidget {
     this.onTap,
   });
 
+  String get _accessibilityLabel {
+    final parts = <String>[
+      actor.name,
+      if (showCharacter && actor.character.isNotEmpty)
+        'Dans le rôle de ${actor.character}',
+      if (actor.isGuestStar) 'Invité',
+    ];
+    return parts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return TvFocus(
-      onActivate: onTap,
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: itemWidth,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Photo circulaire avec Hero pour transitions
-              Hero(
-                tag: 'actor-${actor.id}-${actor.source.name}',
-                child: Container(
-                  width: imageSize,
-                  height: imageSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+    return Semantics(
+      container: true,
+      label: _accessibilityLabel,
+      button: onTap != null,
+      child: TvFocus(
+        onActivate: onTap,
+        child: GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            width: itemWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Photo circulaire avec Hero pour transitions
+                Hero(
+                  tag: 'actor-${actor.id}-${actor.source.name}',
+                  child: Container(
+                    width: imageSize,
+                    height: imageSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1,
                       ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: actor.hasProfile
-                        ? OrbitCachedImage(
-                            imageUrl: actor.profileUrl,
-                            fit: BoxFit.cover,
-                            width: imageSize,
-                            height: imageSize,
-                            placeholder: (context, url) => Container(
-                              color: Colors.grey[800],
-                              child: const Center(
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: actor.hasProfile
+                          ? OrbitCachedImage(
+                              imageUrl: actor.profileUrl,
+                              fit: BoxFit.cover,
+                              width: imageSize,
+                              height: imageSize,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey[800],
+                                child: const Center(
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
                               ),
-                            ),
-                            errorWidget: (context, url, error) =>
-                                _buildPlaceholder(),
-                          )
-                        : _buildPlaceholder(),
+                              errorWidget: (context, url, error) =>
+                                  _buildPlaceholder(),
+                            )
+                          : _buildPlaceholder(),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              // Nom de l'acteur
-              Text(
-                actor.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (showCharacter && actor.character.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                // Rôle/personnage
+                const SizedBox(height: 8),
+                // Nom de l'acteur - TV: 2 lignes max, wrap
                 Text(
-                  actor.character,
+                  actor.name,
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              // Badge source (debug/dev)
-              if (actor.isGuestStar) ...[
-                const SizedBox(height: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                    border:
-                        Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                if (showCharacter && actor.character.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  // Rôle/personnage - TV: 2 lignes max, wrap
+                  Text(
+                    actor.character,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  child: const Text(
-                    'Invité',
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
+                ],
+                // Badge source (debug/dev)
+                if (actor.isGuestStar) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                          color: Colors.amber.withValues(alpha: 0.5)),
+                    ),
+                    child: const Text(
+                      'Invité',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -257,7 +274,7 @@ class CompactCastCarousel extends StatelessWidget {
           ),
         ],
         SizedBox(
-          height: 90,
+          height: 95,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -283,87 +300,110 @@ class _CompactActorCard extends StatelessWidget {
 
   const _CompactActorCard({required this.actor, this.onTap});
 
+  String get _accessibilityLabel {
+    final parts = <String>[
+      actor.name,
+      if (actor.character.isNotEmpty) 'Dans le rôle de ${actor.character}',
+      if (actor.isGuestStar) 'Invité',
+    ];
+    return parts.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return TvFocus(
-      onActivate: onTap,
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: 80,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Hero(
-                tag: 'actor-${actor.id}-compact',
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
+    return Semantics(
+      container: true,
+      label: _accessibilityLabel,
+      button: onTap != null,
+      child: TvFocus(
+        onActivate: onTap,
+        child: GestureDetector(
+          onTap: onTap,
+          child: SizedBox(
+            width: 80,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Hero(
+                  tag: 'actor-${actor.id}-compact',
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
                     ),
-                  ),
-                  child: ClipOval(
-                    child: actor.hasProfile
-                        ? OrbitCachedImage(
-                            imageUrl: actor.profileUrl,
-                            fit: BoxFit.cover,
-                            width: 60,
-                            height: 60,
-                            placeholder: (_, __) => Container(
-                              color: Colors.grey[800],
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 1.5,),
+                    child: ClipOval(
+                      child: actor.hasProfile
+                          ? OrbitCachedImage(
+                              imageUrl: actor.profileUrl,
+                              fit: BoxFit.cover,
+                              width: 60,
+                              height: 60,
+                              placeholder: (_, __) => Container(
+                                color: Colors.grey[800],
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            errorWidget: (_, __, ___) => Container(
+                              errorWidget: (_, __, ___) => Container(
+                                color: Colors.grey[800],
+                                child: const Icon(
+                                  Icons.person_outline,
+                                  size: 24,
+                                  color: Colors.white54,
+                                ),
+                              ),
+                            )
+                          : Container(
                               color: Colors.grey[800],
-                              child: const Icon(Icons.person_outline,
-                                  size: 24, color: Colors.white54,),
+                              child: const Icon(
+                                Icons.person_outline,
+                                size: 24,
+                                color: Colors.white54,
+                              ),
                             ),
-                          )
-                        : Container(
-                            color: Colors.grey[800],
-                            child: const Icon(Icons.person_outline,
-                                size: 24, color: Colors.white54,),
-                          ),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                actor.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (actor.character.isNotEmpty) ...[
-                const SizedBox(height: 1),
+                const SizedBox(height: 4),
                 Text(
-                  actor.character,
+                  actor.name,
                   style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 9,
-                    fontStyle: FontStyle.italic,
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (actor.character.isNotEmpty) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    actor.character,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 9,
+                      fontStyle: FontStyle.italic,
+                      height: 1.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

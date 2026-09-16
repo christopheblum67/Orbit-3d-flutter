@@ -109,4 +109,28 @@ class RecentlyWatchedNotifier extends Notifier<Map<String, RecentEntry>> {
     await service.clearAll();
     state = const {};
   }
+
+  /// Applique les changements imposés par la synchronisation cloud (S2).
+  Future<void> applySyncedProfile(
+    List<RecentEntry> entries, {
+    required Set<String> removes,
+  }) async {
+    final service = ref.read(recentlyWatchedServiceProvider);
+    final next = Map<String, RecentEntry>.from(state);
+    for (final e in entries) {
+      next[e.key] = e;
+      await service.save(e);
+    }
+    for (final key in removes) {
+      if (next.remove(key) != null) {
+        await service.remove(key);
+      }
+    }
+    if (entries.isNotEmpty) {
+      _lastWatchedAt = entries
+          .map((e) => e.watchedAt)
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+    }
+    state = next;
+  }
 }

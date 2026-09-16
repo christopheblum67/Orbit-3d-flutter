@@ -98,11 +98,6 @@ class HomeMenuDrawer extends ConsumerWidget {
             label: 'Réglages',
             route: '/settings',
           ),
-          _MenuEntry(
-            icon: Icons.tune,
-            label: 'Configuration avancée',
-            route: '/settings/advanced',
-          ),
         ],
       ),
     ];

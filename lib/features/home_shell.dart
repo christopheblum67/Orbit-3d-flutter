@@ -26,113 +26,112 @@ class HomeShell extends ConsumerWidget {
     final railIndex = _indexFor(location, railEntries);
 
     return Scaffold(
-        drawer: isWide ? null : const HomeMenuDrawer(),
-        appBar: AppBar(
-          title: Text(_titleForPath(location)),
-          actions: [
-            _ProfileSwitchButton(profile: profile),
-          ],
-        ),
-        body: Row(
-          children: [
-            if (isWide)
-              NavigationRail(
-                selectedIndex: railIndex,
-                onDestinationSelected: (index) {
-                  context.go(railEntries[index].route);
-                },
-                labelType: NavigationRailLabelType.all,
-                leading: Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
-                ),
-                trailing: Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _ProfileSwitchButton(profile: profile),
-                    ),
+      drawer: isWide ? null : const HomeMenuDrawer(),
+      appBar: AppBar(
+        title: Text(_titleForPath(location)),
+        actions: [
+          _ProfileSwitchButton(profile: profile),
+        ],
+      ),
+      body: Row(
+        children: [
+          if (isWide)
+            NavigationRail(
+              selectedIndex: railIndex,
+              onDestinationSelected: (index) {
+                context.go(railEntries[index].route);
+              },
+              labelType: NavigationRailLabelType.all,
+              leading: Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
+              ),
+              trailing: Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _ProfileSwitchButton(profile: profile),
                   ),
                 ),
-                backgroundColor: scheme.surfaceContainerLow,
-                indicatorColor: scheme.primaryContainer,
-                selectedIconTheme:
-                    IconThemeData(color: scheme.onPrimaryContainer),
-                unselectedIconTheme:
-                    IconThemeData(color: scheme.onSurfaceVariant),
-                selectedLabelTextStyle: TextStyle(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
+              ),
+              backgroundColor: scheme.surfaceContainerLow,
+              indicatorColor: scheme.primaryContainer,
+              selectedIconTheme:
+                  IconThemeData(color: scheme.onPrimaryContainer),
+              unselectedIconTheme:
+                  IconThemeData(color: scheme.onSurfaceVariant),
+              selectedLabelTextStyle: TextStyle(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+              ),
+              unselectedLabelTextStyle: TextStyle(
+                color: scheme.onSurfaceVariant,
+                fontSize: 11,
+              ),
+              destinations: [
+                for (final e in railEntries)
+                  NavigationRailDestination(
+                    icon: Icon(e.icon),
+                    label: Text(e.label),
+                  ),
+              ],
+            ),
+          if (isWide)
+            VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
+            ),
+          Expanded(child: child),
+        ],
+      ),
+      bottomNavigationBar: isWide
+          ? null
+          : DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainer,
+                border: Border(
+                  top: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
                 ),
-                unselectedLabelTextStyle: TextStyle(
-                  color: scheme.onSurfaceVariant,
-                  fontSize: 11,
-                ),
-                destinations: [
-                  for (final e in railEntries)
-                    NavigationRailDestination(
-                      icon: Icon(e.icon),
-                      label: Text(e.label),
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
                 ],
               ),
-            if (isWide)
-              VerticalDivider(
-                width: 1,
-                thickness: 1,
-                color: scheme.outlineVariant.withValues(alpha: 0.3),
-              ),
-            Expanded(child: child),
-          ],
-        ),
-        bottomNavigationBar: isWide
-            ? null
-            : DecoratedBox(
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainer,
-                  border: Border(
-                    top: BorderSide(
-                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+              child: SafeArea(
+                child: NavigationBar(
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: (index) {
+                    context.go(entries[index].route);
+                  },
+                  labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
+                    (states) => TextStyle(
+                      fontSize: 11,
+                      fontWeight: states.contains(WidgetState.selected)
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: states.contains(WidgetState.selected)
+                          ? scheme.primary
+                          : scheme.onSurfaceVariant,
                     ),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 16,
-                      offset: const Offset(0, -4),
-                    ),
+                  destinations: [
+                    for (final e in entries)
+                      NavigationDestination(
+                        icon: Icon(e.icon),
+                        label: e.label,
+                      ),
                   ],
                 ),
-                child: SafeArea(
-                  child: NavigationBar(
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: (index) {
-                      context.go(entries[index].route);
-                    },
-                    labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-                      (states) => TextStyle(
-                        fontSize: 11,
-                        fontWeight:
-                            states.contains(WidgetState.selected)
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                        color: states.contains(WidgetState.selected)
-                            ? scheme.primary
-                            : scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    destinations: [
-                      for (final e in entries)
-                        NavigationDestination(
-                          icon: Icon(e.icon),
-                          label: e.label,
-                        ),
-                    ],
-                  ),
-                ),
               ),
+            ),
     );
   }
 
@@ -171,7 +170,7 @@ class HomeShell extends ConsumerWidget {
         if (!isM3u)
           const _NavEntry(
             icon: Icons.recommend,
-            label: 'Matchmaking',
+            label: 'Match-\nmaking',
             route: '/matchmaking',
           ),
         const _NavEntry(
@@ -215,7 +214,6 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
     if (path.startsWith('/subscriptions')) return 'Abonnements';
-    if (path.startsWith('/settings/advanced')) return 'Configuration Avancée';
     if (path.startsWith('/settings')) return 'Réglages';
     return AppConstants.appName;
   }

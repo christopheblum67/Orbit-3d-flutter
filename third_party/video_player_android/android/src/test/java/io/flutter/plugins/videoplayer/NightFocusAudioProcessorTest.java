@@ -43,6 +43,7 @@ public class NightFocusAudioProcessorTest {
     NightFocusDspConfig.bassKillerCutoffHz = 0.0;
     NightFocusDspConfig.vocalGainDb = 0.0;
     NightFocusDspConfig.audioDelayMs = 0;
+    NightFocusDspConfig.volumeNormalization = true;
   }
 
   private AudioProcessor.AudioFormat configureAndGet() throws Exception {
@@ -89,6 +90,27 @@ public class NightFocusAudioProcessorTest {
 
     configureAndGet();
     assertTrue(processor.isActive());
+  }
+
+  // --- Cas 4 : hot-reload — une config poussée à chaud (version incrémentée)
+  // --- ne doit pas casser la reconfiguration du pipeline. ---
+  @Test
+  public void hotReload_versionBumpReconfiguresSafely() throws Exception {
+    resetConfig();
+    NightFocusDspConfig.enabled = true;
+    NightFocusDspConfig.vocalGainDb = 6.0;
+    configureAndGet();
+
+    // Simule une poussée Dart->natif pendant la lecture.
+    NightFocusDspConfig.vocalGainDb = 12.0;
+    NightFocusDspConfig.audioDelayMs = 40;
+    NightFocusDspConfig.touchVersion();
+    int version = NightFocusDspConfig.getVersion();
+
+    configureAndGet();
+    assertTrue(processor.isActive());
+    // La nouvelle version est bien reconnue comme baseline par onConfigure.
+    assertEquals(version, NightFocusDspConfig.getVersion());
   }
 
   // Note: les tests de traitement audio réel (sortie amplifiée, décalée) sont

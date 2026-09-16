@@ -27,6 +27,18 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
   private boolean processingEnabled;
   private int sampleRate = 48000;
   private int channelCount = 2;
+  private int encoding = C.ENCODING_PCM_16BIT;
+  private int lastConfigVersion = -2;
+
+  private boolean normalizationActive;
+
+  /** Pic courant (0..1) estimé par l'AGC, et gain d'AGC appliqué. */
+  private double normPeak = 1.0;
+  private double normGain = 1.0;
+
+  /** Cible de l'AGC (~ -1,4 dBFS) : les pics au-dessus sont écrasés, le gain
+   *  repart lentement vers cette cible sinon. */
+  private static final double NORM_TARGET = 0.85;
 
   private double[] hpB = {1, 0, 0};
   private double[] hpA = {1, 0, 0};
@@ -57,66 +69,40 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
       throws AudioProcessor.UnhandledAudioFormatException {
     if (!NightFocusDspConfig.enabled || inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
       processingEnabled = false;
+      encoding = inputAudioFormat.encoding;
+      lastConfigVersion = NightFocusDspConfig.getVersion();
       return inputAudioFormat;
     }
     processingEnabled = true;
     sampleRate = inputAudioFormat.sampleRate;
     channelCount = inputAudioFormat.channelCount;
+    encoding = inputAudioFormat.encoding;
     recomputeCoefficients();
+    normalizationActive = NightFocusDspConfig.volumeNormalization;
+    normPeak = 1.0;
+    normGain = 1.0;
+    lastConfigVersion = NightFocusDspConfig.getVersion();
     return inputAudioFormat;
   }
 
   private void recomputeCoefficients() {
-    float fs = sampleRate;
-
-    double cutoff = NightFocusDspConfig.bassKillerCutoffHz;
-    if (cutoff <= 0 || cutoff >= fs * 0.45) {
-      hpB = new double[] {1, 0, 0};
-      hpA = new double[] {1, 0, 0};
-    } else {
-      double wc = 2.0 * Math.PI * cutoff / fs;
-      double k = Math.tan(wc / 2.0);
-      double norm = 1.0 / (1.0 + Math.sqrt(2) * k + k * k);
-      double b0 = norm;
-      double b1 = -2.0 * b0;
-      double b2 = b0;
-      double a1 = 2.0 * (k * k - 1.0) * norm;
-      double a2 = (1.0 - Math.sqrt(2) * k + k * k) * norm;
-      hpB = new double[] {b0, b1, b2};
-      hpA = new double[] {1, a1, a2};
-    }
-
-    double db = NightFocusDspConfig.dialogueBoostDb;
-    if (db <= 0.0) {
-      peB = new double[] {1, 0, 0};
-      peA = new double[] {1, 0, 0};
-    } else {
-      double a = Math.pow(10.0, db / 40.0);
-      double w0 = 2.0 * Math.PI * 2500.0 / fs;
-      double alpha = Math.sin(w0) / (2.0 * 0.9);
-      double cw = Math.cos(w0);
-      double d0 = 1.0 + alpha * a;
-      peB = new double[] {(1.0 + alpha / a) / d0, (-2.0 * cw) / d0, (1.0 - alpha / a) / d0};
-      peA = new double[] {1, (-2.0 * cw) / d0, (1.0 - alpha * a) / d0};
-    }
-
-    gain = Math.pow(10.0, NightFocusDspConfig.vocalGainDb / 20.0);
-    delaySamples = (int) ((long) NightFocusDspConfig.audioDelayMs * fs / 1000);
-
-    int cap = Math.max(1, delaySamples);
-    delayBuf = new short[cap];
-    delayWrite = 0;
-    delayRead = delaySamples > 0 ? (cap - delaySamples) % cap : 0;
-
+    applyConfig();
+    // Frais démarrage : états des filtres et file de décalage remis à zéro.
     int ch = channelCount;
     hpX = new double[ch * 3];
     hpY = new double[ch * 3];
     peX = new double[ch * 3];
     peY = new double[ch * 3];
+
+    int cap = Math.max(1, delaySamples);
+    delayBuf = new short[cap];
+    delayWrite = 0;
+    delayRead = delaySamples > 0 ? (cap - delaySamples) % cap : 0;
   }
 
   @Override
   public void queueInput(@NonNull ByteBuffer inputBuffer) {
+    pollConfig();
     int channels = channelCount;
     int frames = inputBuffer.remaining() / 2 / channels;
 
@@ -149,6 +135,7 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
         v *= gain;
         short s = (short) Math.max(-32768.0, Math.min(32767.0, Math.round(v)));
         s = delayPut(s);
+        s = normalize(s);
         if (inPlace) {
           // In-place : ré-écriture absolue au même index (lecture/écriture 1:1).
           in.put(pos, s);
@@ -158,6 +145,110 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
       }
     }
     out.flip();
+  }
+
+  /**
+   * Recharge la config à chaud si elle a changé depuis la dernière passe
+   * (switch Night Focus, boosts, gain vocal, décalage, normalisation). Pollé
+   * en tête de queueInput : latence d'au plus un buffer audio.
+   */
+  private void pollConfig() {
+    int version = NightFocusDspConfig.getVersion();
+    if (version == lastConfigVersion) {
+      return;
+    }
+    lastConfigVersion = version;
+    applyConfig();
+  }
+
+  /**
+   * Applique la config courante SANS réinitialiser les états des filtres (pas
+   * de clic audible pendant la lecture). Seule la file de décalage est
+   * reconfigurée quand sa valeur change réellement.
+   */
+  private void applyConfig() {
+    boolean enabledNow = NightFocusDspConfig.enabled && encoding == C.ENCODING_PCM_16BIT;
+    normalizationActive = NightFocusDspConfig.volumeNormalization && enabledNow;
+
+    float fs = sampleRate;
+    double cutoff = NightFocusDspConfig.bassKillerCutoffHz;
+    if (cutoff <= 0 || cutoff >= fs * 0.45) {
+      hpB = new double[] {1, 0, 0};
+      hpA = new double[] {1, 0, 0};
+    } else {
+      double wc = 2.0 * Math.PI * cutoff / fs;
+      double k = Math.tan(wc / 2.0);
+      double norm = 1.0 / (1.0 + Math.sqrt(2) * k + k * k);
+      double b0 = norm;
+      double b1 = -2.0 * b0;
+      double b2 = b0;
+      double a1 = 2.0 * (k * k - 1.0) * norm;
+      double a2 = (1.0 - Math.sqrt(2) * k + k * k) * norm;
+      hpB = new double[] {b0, b1, b2};
+      hpA = new double[] {1, a1, a2};
+    }
+
+    double db = NightFocusDspConfig.dialogueBoostDb;
+    if (db <= 0.0) {
+      peB = new double[] {1, 0, 0};
+      peA = new double[] {1, 0, 0};
+    } else {
+      double a = Math.pow(10.0, db / 40.0);
+      double w0 = 2.0 * Math.PI * 2500.0 / fs;
+      double alpha = Math.sin(w0) / (2.0 * 0.9);
+      double cw = Math.cos(w0);
+      double d0 = 1.0 + alpha * a;
+      peB = new double[] {(1.0 + alpha / a) / d0, (-2.0 * cw) / d0, (1.0 - alpha / a) / d0};
+      peA = new double[] {1, (-2.0 * cw) / d0, (1.0 - alpha * a) / d0};
+    }
+
+    gain = Math.pow(10.0, NightFocusDspConfig.vocalGainDb / 20.0);
+
+    int newDelay = (int) ((long) NightFocusDspConfig.audioDelayMs * fs / 1000);
+    if (newDelay != delaySamples) {
+      delaySamples = newDelay;
+      int cap = Math.max(1, delaySamples);
+      delayBuf = new short[cap];
+      delayWrite = 0;
+      delayRead = delaySamples > 0 ? (cap - delaySamples) % cap : 0;
+    }
+
+    // Reprendre le traitement ou réparer des états vidés par onReset.
+    int need = channelCount * 3;
+    if (enabledNow && (hpX == null || hpX.length != need)) {
+      hpX = new double[need];
+      hpY = new double[need];
+      peX = new double[need];
+      peY = new double[need];
+    }
+
+    if (!enabledNow) {
+      normPeak = 1.0;
+      normGain = 1.0;
+    }
+    processingEnabled = enabledNow;
+  }
+
+  /**
+   * Normalisation du volume (AGC) : écrase immédiatement les pics au-dessus de
+   * NORM_TARGET et reprend lentement. Estimation du pic lissée (release
+   * exponentiel ~1 s).
+   */
+  private short normalize(short s) {
+    if (!normalizationActive) {
+      return s;
+    }
+    double mag = Math.abs(s) / 32768.0;
+    normPeak = Math.max(mag, normPeak * 0.9999);
+    double target = NORM_TARGET / Math.max(0.001, normPeak);
+    normGain = (target < normGain) ? target : normGain + 0.0005 * (target - normGain);
+    double n = s * normGain;
+    if (n > 32767.0) {
+      n = 32767.0;
+    } else if (n < -32768.0) {
+      n = -32768.0;
+    }
+    return (short) Math.round(n);
   }
 
   private double biquad(

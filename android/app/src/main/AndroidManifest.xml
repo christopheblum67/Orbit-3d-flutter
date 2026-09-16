@@ -7,11 +7,12 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <application
-        android:label="orbit_3d_flutter"
+        android:label="Orbit IPTV"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/launcher_icon"
         android:banner="@drawable/tv_banner"
+        android:supportsRtl="true"
         android:supportsPictureInPicture="true"
         android:resizeableActivity="true">
         <meta-data

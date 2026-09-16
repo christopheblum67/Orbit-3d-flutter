@@ -287,7 +287,10 @@ class TvmazeService {
     final embedded = data['_embedded'] as Map<String, dynamic>? ?? {};
     final castEmbed = embedded['cast'] as List<dynamic>? ?? [];
     mainCast = castEmbed
-        .map((e) {
+        .indexed
+        .map((entry) {
+          final index = entry.$1;
+          final e = entry.$2;
           final person = e['person'] as Map<String, dynamic>?;
           final character = e['character'] as Map<String, dynamic>?;
           if (person != null) {
@@ -298,7 +301,7 @@ class TvmazeService {
               profilePath: person['image']?['original'] ??
                   person['image']?['medium'] ??
                   '',
-              order: 0,
+              order: index, // Préserver l'ordre de facturation TVmaze
               source: ActorSource.tvmaze,
             );
           }

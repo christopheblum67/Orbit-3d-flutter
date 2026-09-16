@@ -2,6 +2,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
@@ -111,8 +112,8 @@ class MetadataEnrichmentService {
       }
     }
 
-    // 2. TMDB FALLBACK GUEST STARS (si TVmaze n'a pas les guest stars par saison)
-    if (detail.guestStarsPerSeason.isEmpty && _tmdb.hasApiKey) {
+    // 2. TMDB FALLBACK: Main cast + Guest stars (si TVmaze n'a pas le cast principal ou les guest stars par saison)
+    if ((detail.cast.isEmpty || detail.guestStarsPerSeason.isEmpty) && _tmdb.hasApiKey) {
       int? tmdbId;
       if (detail.tmdbId > 0) {
         tmdbId = detail.tmdbId;
@@ -124,17 +125,31 @@ class MetadataEnrichmentService {
       }
 
       if (tmdbId != null) {
-        final seasonNumbers = detail.episodes
-            .map((e) => e.season)
-            .where((s) => s > 0)
-            .toSet()
-            .toList();
+        // Récupérer le détail TMDB complet (inclut aggregate_credits.cast = main cast)
+        final tmdbDetail = await _tmdb.getTvDetail(tmdbId);
+        if (tmdbDetail != null) {
+          // Merge: main cast from TMDB si manquant
+          final newCast = detail.cast.isEmpty ? tmdbDetail.cast : detail.cast;
 
-        final guestStars =
-            await _tmdb.getSeasonGuestStars(tmdbId, seasonNumbers);
-        if (guestStars != null && guestStars.isNotEmpty) {
+          // Guest stars par saison si manquantes
+          Map<int, List<Actor>> newGuestStars = detail.guestStarsPerSeason;
+          if (detail.guestStarsPerSeason.isEmpty) {
+            final seasonNumbers = detail.episodes
+                .map((e) => e.season)
+                .where((s) => s > 0)
+                .toSet()
+                .toList();
+
+            final guestStars =
+                await _tmdb.getSeasonGuestStars(tmdbId, seasonNumbers);
+            if (guestStars != null && guestStars.isNotEmpty) {
+              newGuestStars = guestStars;
+            }
+          }
+
           detail = detail.copyWith(
-            guestStarsPerSeason: guestStars,
+            cast: newCast,
+            guestStarsPerSeason: newGuestStars,
             tmdbId: tmdbId,
           );
         }

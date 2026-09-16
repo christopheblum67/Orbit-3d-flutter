@@ -85,6 +85,7 @@ class AdvancedSettings {
   final bool nightFocusBassKiller;
   final double nightFocusVocalGainDb;
   final int nightFocusAudioShiftMs;
+  final bool nightFocusVolumeNormalization;
 
   // Accessibilité
   final bool highContrast;
@@ -118,6 +119,7 @@ class AdvancedSettings {
     this.nightFocusBassKiller = true,
     this.nightFocusVocalGainDb = 3.0,
     this.nightFocusAudioShiftMs = 0,
+    this.nightFocusVolumeNormalization = true,
     this.highContrast = false,
     this.certificatePinningEnabled = false,
     this.certificatePinningFingerprints = const [],
@@ -136,6 +138,7 @@ class AdvancedSettings {
     bool? nightFocusBassKiller,
     double? nightFocusVocalGainDb,
     int? nightFocusAudioShiftMs,
+    bool? nightFocusVolumeNormalization,
     bool? highContrast,
     bool? certificatePinningEnabled,
     List<String>? certificatePinningFingerprints,
@@ -156,6 +159,8 @@ class AdvancedSettings {
           nightFocusVocalGainDb ?? this.nightFocusVocalGainDb,
       nightFocusAudioShiftMs:
           nightFocusAudioShiftMs ?? this.nightFocusAudioShiftMs,
+      nightFocusVolumeNormalization:
+          nightFocusVolumeNormalization ?? this.nightFocusVolumeNormalization,
       highContrast: highContrast ?? this.highContrast,
       certificatePinningEnabled: certificatePinningEnabled ?? this.certificatePinningEnabled,
       certificatePinningFingerprints: certificatePinningFingerprints ?? this.certificatePinningFingerprints,
@@ -190,6 +195,8 @@ class AdvancedSettings {
   static const kNightFocusBassKiller = 'night_focus_bass_killer';
   static const kNightFocusVocalGainDb = 'night_focus_vocal_gain_db';
   static const kNightFocusAudioShiftMs = 'night_focus_audio_shift_ms';
+  static const kNightFocusVolumeNormalization =
+      'night_focus_volume_normalization';
   static const kHighContrast = 'high_contrast';
   static const kCertificatePinningEnabled = 'certificate_pinning_enabled';
   static const kCertificatePinningFingerprints = 'certificate_pinning_fingerprints';
@@ -228,6 +235,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
           prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb) ?? 3.0,
       nightFocusAudioShiftMs:
           prefs.getInt(AdvancedSettings.kNightFocusAudioShiftMs) ?? 0,
+      nightFocusVolumeNormalization:
+          prefs.getBool(AdvancedSettings.kNightFocusVolumeNormalization) ?? true,
       highContrast: prefs.getBool(AdvancedSettings.kHighContrast) ?? false,
       certificatePinningEnabled:
           prefs.getBool(AdvancedSettings.kCertificatePinningEnabled) ?? false,
@@ -347,6 +356,14 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, value);
   }
 
+  Future<void> setNightFocusVolumeNormalization(bool value) async {
+    state = state.copyWith(nightFocusVolumeNormalization: value);
+    await _persistBool(
+      AdvancedSettings.kNightFocusVolumeNormalization,
+      value,
+    );
+  }
+
   Future<void> setHighContrast(bool value) async {
     state = state.copyWith(highContrast: value);
     await _persistBool(AdvancedSettings.kHighContrast, value);
@@ -384,6 +401,10 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kNightFocusBassKiller, imported.nightFocusBassKiller);
     await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb, imported.nightFocusVocalGainDb);
     await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, imported.nightFocusAudioShiftMs);
+    await _persistBool(
+      AdvancedSettings.kNightFocusVolumeNormalization,
+      imported.nightFocusVolumeNormalization,
+    );
     await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
     await _persistBool(AdvancedSettings.kCertificatePinningEnabled, imported.certificatePinningEnabled);
     _prefs ??= await SharedPreferences.getInstance();

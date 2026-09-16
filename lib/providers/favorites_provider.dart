@@ -108,4 +108,23 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     }
     state = const {};
   }
+
+  /// Applique les changements imposés par la synchronisation cloud (S2).
+  Future<void> applySyncedProfile(
+    List<FavoriteEntry> entries, {
+    required Set<String> removes,
+  }) async {
+    final service = ref.read(favoritesServiceProvider);
+    final next = Map<String, FavoriteEntry>.from(state);
+    for (final e in entries) {
+      next[e.key] = e;
+      await service.save(e);
+    }
+    for (final key in removes) {
+      if (next.remove(key) != null) {
+        await service.remove(key);
+      }
+    }
+    state = next;
+  }
 }

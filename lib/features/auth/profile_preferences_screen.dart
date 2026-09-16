@@ -50,6 +50,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               items: const [
                 DropdownMenuItem(value: 'fr', child: Text('Français')),
                 DropdownMenuItem(value: 'en', child: Text('English')),
+                DropdownMenuItem(value: 'es', child: Text('Español')),
+                DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+                DropdownMenuItem(value: 'it', child: Text('Italiano')),
+                DropdownMenuItem(value: 'ar', child: Text('العربية')),
               ],
               onChanged: (v) {
                 if (v != null) notifier.setLanguage(v);
@@ -122,7 +126,20 @@ class ProfilePreferencesScreen extends ConsumerWidget {
   }
 
   String _langLabel(String lang) {
-    return lang == 'en' ? 'English' : 'Français';
+    switch (lang) {
+      case 'en':
+        return 'English';
+      case 'es':
+        return 'Español';
+      case 'de':
+        return 'Deutsch';
+      case 'it':
+        return 'Italiano';
+      case 'ar':
+        return 'العربية';
+      default:
+        return 'Français';
+    }
   }
 
   Future<({bool enabled, int ageRestriction})?> _showParentalDialog(

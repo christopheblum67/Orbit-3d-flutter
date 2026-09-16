@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
-import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
+import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
+import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -25,6 +27,7 @@ class ProfileSelectionScreen extends ConsumerStatefulWidget {
 class _ProfileSelectionScreenState
     extends ConsumerState<ProfileSelectionScreen> {
   static const int _defaultMaxProfiles = 5;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   Future<void> _selectProfile(UserProfile profile) async {
     // Enfant/Expert protégé par PIN : vérification avant de continuer.
@@ -53,7 +56,10 @@ class _ProfileSelectionScreenState
     await storage.setSetting('last_profile_id', profile.id);
     ref.invalidate(profilesProvider);
     if (!mounted) return;
-    context.pushReplacement('/home');
+    // `go` (et non pushReplacement) : réinitialise proprement la pile vers le
+    // shell. `pushReplacement` provoque un « pop » de la route courante que le
+    // PopScope(canPop:false) de WithBackHandling peut bloquer → écran gris.
+    context.go('/home');
   }
 
   void _openCreate(int current, int max) {
@@ -139,9 +145,7 @@ class _ProfileSelectionScreenState
         children: [
           IconButton(
             icon: const Icon(Icons.menu_rounded),
-            onPressed: () {
-              Scaffold.of(context).openEndDrawer();
-            },
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
             tooltip: 'Menu',
           ),
           const SizedBox(width: 4),
@@ -182,32 +186,39 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildProfileGrid(List<UserProfile> profiles, int maxProfiles) {
-    return GridView.builder(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        mainAxisExtent: 170,
-        crossAxisSpacing: 18,
-        mainAxisSpacing: 18,
-      ),
+      scrollDirection: Axis.horizontal,
       itemCount: profiles.length + 1,
       itemBuilder: (context, index) {
         final isAddCard = index == profiles.length;
         if (isAddCard) {
-          return _AddProfileCard(
-            index: index,
-            autofocus: false,
-            onTap: () => _openCreate(profiles.length, maxProfiles),
+          return Padding(
+            padding: const EdgeInsets.only(right: 18),
+            child: SizedBox(
+              width: 170,
+              child: _AddProfileCard(
+                index: index,
+                autofocus: false,
+                onTap: () => _openCreate(profiles.length, maxProfiles),
+              ),
+            ),
           );
         }
         final profile = profiles[index];
-        return _ProfileCard(
-          profile: profile,
-          index: index,
-          autofocus: index == 0,
-          onSelect: () => _selectProfile(profile),
-          onEdit: () => _openEdit(profile),
-          onDelete: () => _openDelete(profile),
+        return Padding(
+          padding: const EdgeInsets.only(right: 18),
+          child: SizedBox(
+            width: 340,
+            child: _ProfileCard(
+              profile: profile,
+              index: index,
+              autofocus: index == 0,
+              onSelect: () => _selectProfile(profile),
+              onEdit: () => _openEdit(profile),
+              onDelete: () => _openDelete(profile),
+            ),
+          ),
         );
       },
     );
@@ -258,8 +269,10 @@ class _ProfileSelectionScreenState
   @override
   Widget build(BuildContext context) {
     final profilesAsync = ref.watch(profilesProvider);
-    return ConfirmExitApp(
+    return WithBackHandling(
+      meta: const RouteMeta.popOrFallback('/home'),
       child: Scaffold(
+        key: _scaffoldKey,
         endDrawer: const HomeMenuDrawer(),
         body: SafeArea(
           child: profilesAsync.when(
@@ -352,8 +365,31 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
     widget.onSelect();
   }
 
+  String get _profileTypeLabel => switch (widget.profile.profileType) {
+        ProfileType.adult => 'adulte',
+        ProfileType.child => 'enfant',
+        ProfileType.expert => 'expert',
+      };
+
+  String get _lastActiveLabel {
+    final at = widget.profile.lastActiveAt;
+    if (at == null) return 'Nouveau profil';
+    final now = DateTime.now();
+    final diff = now.difference(at);
+    if (diff.inMinutes < 1) return 'à l\'instant';
+    if (diff.inHours < 1) return 'il y a ${diff.inMinutes} min';
+    if (now.day == at.day &&
+        DateTime(now.year, now.month, now.day) ==
+            DateTime(at.year, at.month, at.day)) {
+      return 'aujourd\'hui';
+    }
+    if (diff.inHours < 48) return 'hier';
+    return DateFormat('d MMM', 'fr_FR').format(at);
+  }
+
   Widget _buildCardContent() {
     final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final profile = widget.profile;
     final currentProfile = ref.watch(currentProfileProvider);
     final isActive = currentProfile?.id == profile.id;
@@ -399,83 +435,104 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
             ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Stack(
         children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Row(
             children: [
-              GestureDetector(
+              // Avatar (gauche)
+              Semantics(
+                button: true,
+                label: 'Modifier le profil ${profile.firstName}',
                 onTap: widget.onEdit,
-                child: OrbitAvatar(
-                  profile: profile,
-                  enlarged: _focused || isActive,
+                child: GestureDetector(
+                  onTap: widget.onEdit,
+                  child: OrbitAvatar(
+                    profile: profile,
+                    enlarged: _focused || isActive,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                profile.firstName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: isActive ? scheme.primary : null,
-                    ),
+              const SizedBox(width: 16),
+              // Informations (droite)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              profile.firstName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: isActive ? scheme.primary : null,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ProfileTypeBadge(profileType: profile.profileType),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            profile.hasPin
+                                ? Icons.lock_outline_rounded
+                                : Icons.history_rounded,
+                            size: 14,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              profile.hasPin
+                                  ? 'Protégé par ${profile.profileType == ProfileType.child ? 'code enfant' : 'code'}'
+                                  : 'Dernière activité : $_lastActiveLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 6),
-              ProfileTypeBadge(profileType: profile.profileType),
+              const SizedBox(width: 6),
+              // Actions (bord droit)
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _CardActionButton(
+                    icon: Icons.edit_rounded,
+                    tooltip: 'Modifier',
+                    onPressed: widget.onEdit,
+                  ),
+                  const SizedBox(height: 8),
+                  _CardActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    tooltip: 'Supprimer',
+                    onPressed: widget.onDelete,
+                  ),
+                ],
+              ),
             ],
           ),
-          Positioned(
-            top: -12,
-            right: -6,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _CardActionButton(
-                  icon: Icons.edit_rounded,
-                  tooltip: 'Modifier',
-                  onPressed: widget.onEdit,
-                ),
-                const SizedBox(width: 6),
-                _CardActionButton(
-                  icon: Icons.delete_outline_rounded,
-                  tooltip: 'Supprimer',
-                  onPressed: widget.onDelete,
-                ),
-              ],
-            ),
-          ),
           if (isActive)
-            Positioned(
+            const Positioned(
               top: -8,
               left: -8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: scheme.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Actif',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
+              child: _ActiveBadge(),
             ),
         ],
       ),
@@ -484,32 +541,38 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: widget.autofocus,
-      onFocusChange: (hasFocus) {
-        if (hasFocus) HapticFeedback.selectionClick();
-        setState(() => _focused = hasFocus);
-      },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
-          _activate();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: _activate,
-        child: AnimatedScale(
-          scale: _focused ? 1.06 : 1,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          child: FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: _buildCardContent(),
+    final isActive = ref.watch(currentProfileProvider)?.id == widget.profile.id;
+    return Semantics(
+      container: true,
+      label: 'Profil ${widget.profile.firstName} ($_profileTypeLabel)'
+          '${isActive ? ', actif' : ''}',
+      child: Focus(
+        autofocus: widget.autofocus,
+        onFocusChange: (hasFocus) {
+          if (hasFocus) HapticFeedback.selectionClick();
+          setState(() => _focused = hasFocus);
+        },
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
+            _activate();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          onTap: _activate,
+          child: AnimatedScale(
+            scale: _focused ? 1.06 : 1,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: FadeTransition(
+              opacity: _fade,
+              child: ScaleTransition(
+                scale: _scale,
+                child: _buildCardContent(),
+              ),
             ),
           ),
         ),
@@ -644,35 +707,75 @@ class _AddProfileCardState extends State<_AddProfileCard>
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: widget.autofocus,
-      onFocusChange: (hasFocus) {
-        if (hasFocus) HapticFeedback.selectionClick();
-        setState(() => _focused = hasFocus);
-      },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
-          _activate();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: _activate,
-        child: AnimatedScale(
-          scale: _focused ? 1.04 : 1,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          child: FadeTransition(
-            opacity: _fade,
-            child: ScaleTransition(
-              scale: _scale,
-              child: _buildCardContent(),
+    return Semantics(
+      button: true,
+      label: 'Créer un nouveau profil',
+      onTap: widget.onTap,
+      child: Focus(
+        autofocus: widget.autofocus,
+        onFocusChange: (hasFocus) {
+          if (hasFocus) HapticFeedback.selectionClick();
+          setState(() => _focused = hasFocus);
+        },
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
+            _activate();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          onTap: _activate,
+          child: AnimatedScale(
+            scale: _focused ? 1.04 : 1,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: FadeTransition(
+              opacity: _fade,
+              child: ScaleTransition(
+                scale: _scale,
+                child: _buildCardContent(),
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Badge « Actif » positionné dans l'angle de la carte profil sélectionnée.
+class _ActiveBadge extends StatelessWidget {
+  const _ActiveBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.check_circle,
+            size: 14,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'Actif',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -705,48 +808,54 @@ class _CardActionButtonState extends State<_CardActionButton> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Focus(
-      onFocusChange: (hasFocus) {
-        if (hasFocus) HapticFeedback.selectionClick();
-        setState(() => _focused = hasFocus);
-      },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
-          _activate();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: GestureDetector(
-        onTap: _activate,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _focused
-                ? scheme.tertiaryContainer
-                : scheme.surfaceContainerHighest,
-            border: Border.all(
-              color: _focused ? scheme.tertiary : scheme.outlineVariant,
-              width: _focused ? 2 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: _focused ? 0.35 : 0.18),
-                blurRadius: _focused ? 10 : 4,
-                offset: const Offset(0, 3),
+    return Semantics(
+      button: true,
+      label: widget.tooltip,
+      onTap: _activate,
+      child: Focus(
+        onFocusChange: (hasFocus) {
+          if (hasFocus) HapticFeedback.selectionClick();
+          setState(() => _focused = hasFocus);
+        },
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter)) {
+            _activate();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          onTap: _activate,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _focused
+                  ? scheme.tertiaryContainer
+                  : scheme.surfaceContainerHighest,
+              border: Border.all(
+                color: _focused ? scheme.tertiary : scheme.outlineVariant,
+                width: _focused ? 2 : 1,
               ),
-            ],
-          ),
-          child: Icon(
-            widget.icon,
-            size: 21,
-            color:
-                _focused ? scheme.onTertiaryContainer : scheme.onSurfaceVariant,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: _focused ? 0.35 : 0.18),
+                  blurRadius: _focused ? 10 : 4,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(
+              widget.icon,
+              size: 21,
+              color: _focused
+                  ? scheme.onTertiaryContainer
+                  : scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),

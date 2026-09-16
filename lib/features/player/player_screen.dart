@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/time_progress_bar.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -140,12 +141,13 @@ const double _seriesWatchedThreshold = 0.8;
 
 class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
-List<Channel> _channels = const [];
+  List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
   VideoPlayerController? _cachedNext;
   int? _cachedNextIndex;
   VideoPlayerController? _cachedPrev;
+
   /// Piste audio préférée ré-appliquée après l'initialisation du contrôleur.
   bool _appliedAudioPref = false;
   int? _cachedPrevIndex;
@@ -242,7 +244,8 @@ List<Channel> _channels = const [];
       _restoreSystemUi();
       // Lecture active + app non au premier plan (PiP, home, écran éteint) :
       // le foreground service mediaPlayback garde le process vivant (Android 14+).
-      if (_controller?.value.isPlaying == true && _status == _PlayerStatus.ready) {
+      if (_controller?.value.isPlaying == true &&
+          _status == _PlayerStatus.ready) {
         _bgService.start(title: _playbackTitle, subtitle: _playbackSubtitle);
       }
     }
@@ -408,6 +411,7 @@ List<Channel> _channels = const [];
       bassKillerCutoffHz: nf.nightFocusBassKiller ? 120.0 : 0,
       vocalGainDb: nf.nightFocusDialogueBoost ? nf.nightFocusVocalGainDb : 0,
       audioDelayMs: nf.nightFocusAudioShiftMs,
+      volumeNormalization: nf.nightFocusVolumeNormalization,
     );
     // Applique la configuration de lecture par profil (tampon media3 + limite
     // de résolution) AVANT la création du contrôleur ExoPlayer.
@@ -538,6 +542,9 @@ List<Channel> _channels = const [];
     // 1. Session Cloudflare globale (init au démarrage, unique pour tout le fournisseur)
     final globalCf = ref.read(cloudflareSessionProvider);
     if (globalCf.isReady) {
+      // Arme le renouvellement préventif si les cookies sont périmés
+      // (fire-and-forget : le vrai blocage est géré dans _handleActiveError).
+      globalCf.getFreshHeaders();
       base.addAll(globalCf.videoHeaders);
     }
 
@@ -593,7 +600,8 @@ List<Channel> _channels = const [];
     if (host.isNotEmpty && circuitBreaker.isInCooldown(host)) {
       final remaining = circuitBreaker.remainingCooldown(host);
       debugPrint(
-          'HostCircuitBreaker: $host in cooldown, ${remaining.inSeconds}s remaining',);
+        'HostCircuitBreaker: $host in cooldown, ${remaining.inSeconds}s remaining',
+      );
       if (gen == _generation) {
         _setStatus(_PlayerStatus.error);
       }
@@ -671,9 +679,7 @@ List<Channel> _channels = const [];
     // Ré-applique la piste audio mémorisée une fois le flux initialisé (ne
     // bloque pas la lecture : la sélection est best-effort).
     final active = _controller;
-    if (active != null &&
-        active.value.isInitialized &&
-        !_appliedAudioPref) {
+    if (active != null && active.value.isInitialized && !_appliedAudioPref) {
       _appliedAudioPref = true;
       _applySavedAudioTrack(active);
     }
@@ -733,7 +739,7 @@ List<Channel> _channels = const [];
         msg.contains('forbidden');
   }
 
-  void _handleActiveError() {
+  Future<void> _handleActiveError() async {
     if (!mounted || _handlingError) return;
     final gen = _generation;
     _handlingError = true;
@@ -753,18 +759,28 @@ List<Channel> _channels = const [];
     }
 
     if (!_autorecovered) {
-      // Première tentative de récupération : si c'est une erreur Cloudflare,
-      // on renouvelle la session avant de retenter.
-      if (_isCloudflareError(errorDesc)) {
-        debugPrint('☁️ Cloudflare error detected, renewing session...');
-        ref.read(cloudflareSessionProvider).renewSession();
-        _autorecovered = true;
-        _handlingError = false;
-        _startAttempt();
-        return;
-      }
       _autorecovered = true;
       _handlingError = false;
+      // Première tentative de récupération : si c'est une erreur Cloudflare,
+      // on ATTEND la fin du challenge avant de retenter (sinon le 2e essai
+      // repart avec des cookies vides et échoue aussi — « ça marche au 2e
+      // chargement »). Borné en durée : on ne bloque jamais la lecture.
+      if (_isCloudflareError(errorDesc)) {
+        debugPrint(
+            '☁️ Cloudflare error detected, refreshing session before retry...');
+        final cf = ref.read(cloudflareSessionProvider);
+        try {
+          await cf.renewSession().timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {},
+              );
+        } catch (_) {
+          // Challenge en échec : on retente quand même avec les cookies
+          // éventuellement présents ; l'UI proposera le bouton de relance
+          // explicite si le flux reste bloqué.
+        }
+      }
+      if (!mounted || gen != _generation) return;
       _startAttempt();
       return;
     }
@@ -1058,6 +1074,7 @@ List<Channel> _channels = const [];
       bassKillerCutoffHz: nf.nightFocusBassKiller ? 120.0 : 0,
       vocalGainDb: nf.nightFocusDialogueBoost ? nf.nightFocusVocalGainDb : 0,
       audioDelayMs: nf.nightFocusAudioShiftMs,
+      volumeNormalization: nf.nightFocusVolumeNormalization,
     );
   }
 
@@ -1066,7 +1083,8 @@ List<Channel> _channels = const [];
     if (controller == null) return;
     final playing = controller.value.isPlaying;
     debugPrint(
-        'Orbit3D toggle: isPlaying=$playing pos=${controller.value.position}',);
+      'Orbit3D toggle: isPlaying=$playing pos=${controller.value.position}',
+    );
     setState(() {
       playing ? controller.pause() : controller.play();
     });
@@ -1204,7 +1222,8 @@ List<Channel> _channels = const [];
                     // Overlay sous-titres (au-dessus vidéo, sous footerbar)
                     Consumer(
                       builder: (_, ref, __) {
-                        final subtitleCtrl = ref.watch(subtitleControllerProvider);
+                        final subtitleCtrl =
+                            ref.watch(subtitleControllerProvider);
                         final track = subtitleCtrl.activeTrack;
                         if (track == null) return const SizedBox.shrink();
                         return AnimatedSubtitleOverlay(
@@ -1416,7 +1435,8 @@ Widget _fbSubtitle({
     onPressed: () => showSubtitleControlsSheet(context),
     icon: Consumer(
       builder: (_, ref, __) {
-        final hasTrack = ref.watch(subtitleControllerProvider).activeTrack != null;
+        final hasTrack =
+            ref.watch(subtitleControllerProvider).activeTrack != null;
         return Icon(
           hasTrack ? Icons.subtitles : Icons.subtitles_outlined,
           color: hasTrack ? const Color(0xFF00CFE8) : Colors.white70,
@@ -1615,14 +1635,9 @@ class _LiveFooterBar extends ConsumerWidget {
           ),
         ] else if (showSeek && player != null) ...[
           const SizedBox(height: 8),
-          VideoProgressIndicator(
-            player,
+          TimeProgressBar(
+            controller: player,
             allowScrubbing: true,
-            colors: const VideoProgressColors(
-              playedColor: Colors.white,
-              bufferedColor: Colors.white30,
-              backgroundColor: Colors.white24,
-            ),
           ),
         ],
         const SizedBox(height: 10),
@@ -1781,8 +1796,11 @@ class _VodFooterBar extends ConsumerWidget {
               ),
             ),
             if (showRating) ...[
-              const Icon(Icons.star_rounded,
-                  size: 16, color: Color(0xFFFFC107),),
+              const Icon(
+                Icons.star_rounded,
+                size: 16,
+                color: Color(0xFFFFC107),
+              ),
               const SizedBox(width: 4),
               Text(
                 rating!.toStringAsFixed(1),
@@ -1796,14 +1814,9 @@ class _VodFooterBar extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 10),
-        VideoProgressIndicator(
-          controller,
+        TimeProgressBar(
+          controller: controller,
           allowScrubbing: true,
-          colors: const VideoProgressColors(
-            playedColor: Colors.white,
-            bufferedColor: Colors.white30,
-            backgroundColor: Colors.white24,
-          ),
         ),
         const SizedBox(height: 8),
         Row(

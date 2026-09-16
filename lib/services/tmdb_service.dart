@@ -149,6 +149,126 @@ class TmdbService {
 
   // ==================== FILMS ====================
 
+  /// Nettoie un titre de panel IPTV avant recherche TMDB.
+  /// Les panels ajoutent souvent des tags qualité (« FRENCH 1080p », « CAM »,
+  /// « WEB-DL », année entre parenthèses…) qui font échouer la recherche.
+  static String normalizeSearchTitle(String title) {
+    var t = title.trim();
+    if (t.isEmpty) return t;
+
+    // Retire les segments entre parenthèses/crochets/accolades : (2009), [4K],
+    // {FRENCH}, (VOSTFR)…
+    t = t.replaceAll(RegExp(r'[\(\[{][^)\]}]*[\)\]}]'), ' ');
+
+    // Retire une année seule (19xx/20xx) qui n'est pas dans le titre.
+    t = t.replaceAll(RegExp(r'\b(?:19|20)\d{2}\b'), ' ');
+
+    // Retire les tags qualité/source courants (mots entiers).
+    const tags = [
+      'cam',
+      'ts',
+      'hdts',
+      'telesync',
+      'screener',
+      'telecine',
+      'bdscr',
+      'hdcam',
+      'hq',
+      'proper',
+      'repack',
+      'remux',
+      '10bit',
+      '8bit',
+      'hdr',
+      'hdr10',
+      'dolby',
+      'atmos',
+      'dts',
+      'x264',
+      'x265',
+      'h264',
+      'h265',
+      'avc',
+      'hevc',
+      'xvid',
+      'divx',
+      'mpeg',
+      'av1',
+      'hdr10plus',
+      'hlg',
+      'dv',
+      'webrip',
+      'web-dl',
+      'webdl',
+      'bluray',
+      'blu-ray',
+      'brrip',
+      'bdrip',
+      'dvdrip',
+      'hdtv',
+      'dvd',
+      'pcrip',
+      'dvdr',
+      'microhd',
+      'hd',
+      'fhd',
+      'uhd',
+      '4k',
+      '8k',
+      '2160p',
+      '1080p',
+      '720p',
+      '480p',
+      '360p',
+      '240p',
+      'french',
+      'vf',
+      'vff',
+      'vo',
+      'vost',
+      'vostfr',
+      'subfrench',
+      'multi',
+      'multilingual',
+      'trudub',
+      'truetheatre',
+      'subtitled',
+      'subbed',
+      'sous-titres',
+      'fr',
+      'en',
+      'pixel',
+      'yts',
+      'roarbxt',
+      'german',
+      'spanish',
+      'italian',
+      'aac',
+      'ac3',
+      'mp3',
+      'flac',
+      'eac3',
+      'qaa',
+      'aafrfs',
+      'cc',
+      'imax',
+      'imax3d',
+    ];
+    final tagPattern = RegExp(
+      '\\b(?:${tags.join('|')})\\b',
+      caseSensitive: false,
+    );
+    t = t.replaceAll(tagPattern, ' ');
+
+    // Filtre les artefacts types « - » ou « . » : Netflix suit ce format pour
+    // les saisons déjà enrichies ; nettoie aussi les double espaces.
+    t = t.replaceAll(RegExp(r'[-_.]+'), ' ');
+    t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    t = t.replaceAll(RegExp(r'^[\s,;:]+|[\s,;:]+$'), '');
+
+    return t;
+  }
+
   /// Recherche un film par titre + année (pour mapper Xtream ID → TMDB ID)
   Future<int?> searchMovieId(String title, {int? year}) async {
     if (!hasApiKey) return null;
@@ -156,7 +276,7 @@ class TmdbService {
 
     try {
       final queryParams = <String, String>{
-        'query': title,
+        'query': normalizeSearchTitle(title),
         'include_adult': 'false',
       };
       if (year != null && year > 0) {
@@ -191,7 +311,7 @@ class TmdbService {
 
     try {
       final queryParams = <String, String>{
-        'query': title,
+        'query': normalizeSearchTitle(title),
         'include_adult': 'false',
       };
       if (year != null && year > 0) {
@@ -208,7 +328,8 @@ class TmdbService {
       final entry = TmdbRankEntry.fromMovieJson(
         Map<String, dynamic>.from(results.first as Map),
       );
-      await _setCache(cacheKey, Map<String, dynamic>.from(results.first as Map));
+      await _setCache(
+          cacheKey, Map<String, dynamic>.from(results.first as Map));
       return entry;
     } catch (e) {
       _logger.warning('TMDB searchMovieLight error: ${_maskSensitive('$e')}');
@@ -514,9 +635,9 @@ class TmdbService {
           guestStarsMap[seasonNum] = seasonGuests;
         }
       } catch (e) {
-_logger.warning(
-        'TMDB getSeasonGuestStars error for season $seasonNum: ${_maskSensitive('$e')}',
-      );
+        _logger.warning(
+          'TMDB getSeasonGuestStars error for season $seasonNum: ${_maskSensitive('$e')}',
+        );
       }
     }
 
@@ -692,8 +813,10 @@ _logger.warning(
   // ==================== SIMILAIRES / RECOMMANDATIONS ====================
 
   /// Films similaires (endpoint TMDB /movie/{id}/similar)
-  Future<List<TmdbRankEntry>> getSimilarMovies(int tmdbId,
-      {int page = 1,}) async {
+  Future<List<TmdbRankEntry>> getSimilarMovies(
+    int tmdbId, {
+    int page = 1,
+  }) async {
     if (!hasApiKey) return const <TmdbRankEntry>[];
     final cacheKey = _cacheKey('similar_movie', '$tmdbId:$page');
     final cached = _getCached(cacheKey, (d) {
@@ -761,8 +884,10 @@ _logger.warning(
   }
 
   /// Recommandations films (endpoint TMDB /movie/{id}/recommendations)
-  Future<List<TmdbRankEntry>> getMovieRecommendations(int tmdbId,
-      {int page = 1,}) async {
+  Future<List<TmdbRankEntry>> getMovieRecommendations(
+    int tmdbId, {
+    int page = 1,
+  }) async {
     if (!hasApiKey) return const <TmdbRankEntry>[];
     final cacheKey = _cacheKey('rec_movie', '$tmdbId:$page');
     final cached = _getCached(cacheKey, (d) {
@@ -790,14 +915,17 @@ _logger.warning(
           .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getMovieRecommendations error: ${_maskSensitive('$e')}');
+      _logger.warning(
+          'TMDB getMovieRecommendations error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }
 
   /// Recommandations séries (endpoint TMDB /tv/{id}/recommendations)
-  Future<List<TmdbRankEntry>> getTvRecommendations(int tmdbId,
-      {int page = 1,}) async {
+  Future<List<TmdbRankEntry>> getTvRecommendations(
+    int tmdbId, {
+    int page = 1,
+  }) async {
     if (!hasApiKey) return const <TmdbRankEntry>[];
     final cacheKey = _cacheKey('rec_tv', '$tmdbId:$page');
     final cached = _getCached(cacheKey, (d) {
@@ -825,7 +953,8 @@ _logger.warning(
           .map((r) => TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r)))
           .toList();
     } catch (e) {
-      _logger.warning('TMDB getTvRecommendations error: ${_maskSensitive('$e')}');
+      _logger
+          .warning('TMDB getTvRecommendations error: ${_maskSensitive('$e')}');
       return const <TmdbRankEntry>[];
     }
   }

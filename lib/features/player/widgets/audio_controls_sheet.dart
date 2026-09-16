@@ -49,6 +49,12 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
         advancedSettingsProvider.select((s) => s.nightFocusAudioShiftMs),
       );
 
+  bool get _volumeNormalization => ref.watch(
+        advancedSettingsProvider.select(
+          (s) => s.nightFocusVolumeNormalization,
+        ),
+      );
+
   AdvancedSettingsNotifier get _notifier =>
       ref.read(advancedSettingsProvider.notifier);
 
@@ -59,6 +65,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
       bassKillerCutoffHz: _bassKiller ? 120.0 : 0,
       vocalGainDb: _dialogueBoost ? _vocalGainDb : 0,
       audioDelayMs: _audioShiftMs,
+      volumeNormalization: _volumeNormalization,
     );
   }
 

@@ -37,12 +37,20 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: const Text('Téléchargements'),
         actions: [
           Consumer(
             builder: (context, ref, _) {
               return StreamBuilder<int>(
-                stream: _tasksStream.map((tasks) => tasks.where((t) => t.isActive).length),
+                stream: _tasksStream
+                    .map((tasks) => tasks.where((t) => t.isActive).length),
                 builder: (context, snapshot) {
                   final activeCount = snapshot.data ?? 0;
                   if (activeCount == 0) return const SizedBox.shrink();
@@ -51,9 +59,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     child: Center(
                       child: Chip(
                         label: Text('$activeCount en cours'),
-                        avatar: Icon(Icons.download_for_offline, size: 16, color: scheme.onPrimaryContainer),
+                        avatar: Icon(Icons.download_for_offline,
+                            size: 16, color: scheme.onPrimaryContainer),
                         backgroundColor: scheme.primaryContainer,
-                        labelStyle: TextStyle(color: scheme.onPrimaryContainer, fontWeight: FontWeight.w600),
+                        labelStyle: TextStyle(
+                            color: scheme.onPrimaryContainer,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   );
@@ -74,7 +85,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             return EmptyState(
               icon: Icons.download_for_offline_outlined,
               title: 'Aucun téléchargement',
-              message: 'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
+              message:
+                  'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
               action: TextButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.explore),
@@ -85,11 +97,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
           // Trier: actifs d'abord, puis terminés, puis échoués
           final sortedTasks = [...tasks]..sort((a, b) {
-            final aOrder = _statusOrder(a.status);
-            final bOrder = _statusOrder(b.status);
-            if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-            return b.createdAt.compareTo(a.createdAt);
-          });
+              final aOrder = _statusOrder(a.status);
+              final bOrder = _statusOrder(b.status);
+              if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+              return b.createdAt.compareTo(a.createdAt);
+            });
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -182,7 +194,8 @@ class DownloadTile extends ConsumerWidget {
                         ? Image.network(
                             task.posterUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _posterFallback(context),
+                            errorBuilder: (_, __, ___) =>
+                                _posterFallback(context),
                           )
                         : _posterFallback(context),
                   ),
@@ -197,7 +210,8 @@ class DownloadTile extends ConsumerWidget {
                         task.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        style: textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       if (task.episodeTitle != null) ...[
@@ -205,7 +219,8 @@ class DownloadTile extends ConsumerWidget {
                           task.episodeTitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                         const SizedBox(height: 2),
                       ],
@@ -236,11 +251,13 @@ class DownloadTile extends ConsumerWidget {
                 children: [
                   Text(
                     task.progress.formattedSpeed,
-                    style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                   Text(
                     task.progress.formattedRemaining,
-                    style: textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -275,7 +292,8 @@ class DownloadTile extends ConsumerWidget {
   Widget _posterFallback(BuildContext context) {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Icon(Icons.movie_outlined, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
+      child: Icon(Icons.movie_outlined,
+          color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
     );
   }
 }
@@ -289,11 +307,23 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    
+
     final (label, color, icon) = switch (status) {
-      DownloadStatus.downloading => ('Téléchargement', scheme.primary, Icons.download_for_offline),
-      DownloadStatus.preparing => ('Préparation', scheme.primary, Icons.hourglass_top),
-      DownloadStatus.paused => ('En pause', scheme.secondary, Icons.pause_circle),
+      DownloadStatus.downloading => (
+          'Téléchargement',
+          scheme.primary,
+          Icons.download_for_offline
+        ),
+      DownloadStatus.preparing => (
+          'Préparation',
+          scheme.primary,
+          Icons.hourglass_top
+        ),
+      DownloadStatus.paused => (
+          'En pause',
+          scheme.secondary,
+          Icons.pause_circle
+        ),
       DownloadStatus.completed => ('Terminé', Colors.green, Icons.check_circle),
       DownloadStatus.failed => ('Échec', scheme.error, Icons.error),
       DownloadStatus.cancelled => ('Annulé', scheme.outline, Icons.cancel),
@@ -366,7 +396,8 @@ class _ActionButtons extends StatelessWidget {
           ),
         ],
       );
-    } else if (task.status == DownloadStatus.queued || task.status == DownloadStatus.preparing) {
+    } else if (task.status == DownloadStatus.queued ||
+        task.status == DownloadStatus.preparing) {
       return IconButton(
         onPressed: onCancel,
         icon: Icon(Icons.cancel, color: scheme.error),
@@ -395,9 +426,11 @@ class _ProgressBar extends StatelessWidget {
         LinearProgressIndicator(
           value: fraction,
           backgroundColor: scheme.surfaceContainerHighest,
-          valueColor: AlwaysStoppedAnimation<Color>(fraction >= 1.0 
-              ? Colors.green 
-              : (isPaused ? Colors.orange : Theme.of(context).colorScheme.primary)),
+          valueColor: AlwaysStoppedAnimation<Color>(fraction >= 1.0
+              ? Colors.green
+              : (isPaused
+                  ? Colors.orange
+                  : Theme.of(context).colorScheme.primary)),
           minHeight: 6,
           borderRadius: BorderRadius.circular(3),
         ),
@@ -405,8 +438,8 @@ class _ProgressBar extends StatelessWidget {
         Text(
           '${(fraction * 100).toStringAsFixed(1)}% • ${_formatBytes(progress.bytesDownloaded)} / ${_formatBytes(progress.totalBytes)}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
       ],
     );
@@ -415,7 +448,8 @@ class _ProgressBar extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

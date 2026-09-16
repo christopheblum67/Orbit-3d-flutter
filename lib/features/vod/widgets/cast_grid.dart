@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 
 /// Grille d'acteurs style Allociné - photos circulaires avec nom et rôle
@@ -48,7 +49,7 @@ class CastGrid extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 180,
+          height: 185,
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -77,34 +78,36 @@ class _ActorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 110,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Photo circulaire
-            Hero(
-              tag: 'actor-${actor.id}',
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+    return TvFocus(
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 110,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Photo circulaire
+              Hero(
+                tag: 'actor-${actor.id}',
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 1,
                     ),
-                  ],
-                ),
-child: ClipOval(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
                     child: actor.hasProfile
                         ? OrbitCachedImage(
                             imageUrl: actor.profileUrl,
@@ -125,36 +128,39 @@ child: ClipOval(
               ),
             ),
             const SizedBox(height: 8),
-            // Nom de l'acteur
+            // Nom de l'acteur - TV: 2 lignes max, wrap
             Text(
               actor.name,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
+                height: 1.2,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            // Rôle/personnage
+            // Rôle/personnage - TV: 2 lignes max, wrap
             Text(
               actor.character,
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 11,
                 fontStyle: FontStyle.italic,
+                height: 1.2,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildPlaceholder() {
     return Container(

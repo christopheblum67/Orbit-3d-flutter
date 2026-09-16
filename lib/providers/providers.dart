@@ -18,6 +18,7 @@ import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/services/short_epg_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
@@ -681,6 +682,12 @@ class EPGDataCache {
 }
 
 final epgDataCacheProvider = Provider<EPGDataCache>((ref) => EPGDataCache());
+
+/// Cache des guides courts (get_short_epg) + service de précharge 7 jours (S4).
+final shortEpgCacheProvider = Provider<ShortEpgCache>((ref) => ShortEpgCache());
+final epgPreloadServiceProvider = Provider<EpgPreloadService>(
+  (ref) => EpgPreloadService(cache: ref.watch(shortEpgCacheProvider)),
+);
 
 /// EPG d'une chaîne
 

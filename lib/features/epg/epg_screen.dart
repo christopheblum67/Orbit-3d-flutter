@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
@@ -55,7 +58,16 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Guide TV (EPG)')),
+      appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: const Text('Guide TV (EPG)'),
+      ),
       body: _buildGrid2DTab(),
     );
   }
@@ -83,8 +95,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               count: entry.value,
             ),
         ];
-        final effective =
-            _gridCategory ?? (categories.isNotEmpty ? categories.first.id : null);
+        final effective = _gridCategory ??
+            (categories.isNotEmpty ? categories.first.id : null);
         final favIds = favoriteEntries.values
             .where((e) => e.type == ContentType.live)
             .map((e) => e.id)
@@ -372,6 +384,21 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       }
     }
     if (mounted) setState(() {});
+    _warmPreload();
+  }
+
+  /// Précharge 7 jours des guides courts (get_short_epg) en arrière-plan pour
+  /// les chaînes listées, parallélisme borné. Non bloquant : la grille est
+  /// déjà affichée.
+  void _warmPreload() {
+    final service = ref.read(epgPreloadServiceProvider);
+    final api = ref.read(apiServiceProvider);
+    unawaited(
+      service.preload(
+        widget.channelObjects,
+        (channel) => api.fetchChannelEpgPrograms(channel),
+      ),
+    );
   }
 
   Future<void> _loadOne(
@@ -402,8 +429,8 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
             if (c.supportsReplay) c.name,
         },
         onProgramTap: (program, channelName) {
-          final channel = widget.channelObjects
-              .firstWhere((c) => c.name == channelName);
+          final channel =
+              widget.channelObjects.firstWhere((c) => c.name == channelName);
           _showProgramDetails(context, program, channel);
         },
         onChannelTap: (channelName) {
@@ -674,9 +701,8 @@ class _EpgHeadbarSection extends ConsumerWidget {
             ref.read(favoritesProvider.notifier).toggle(entry);
           },
           onInfo: () {
-            final programs = ref
-                .read(channelEpgProvider(channel.epgChannelId))
-                .value;
+            final programs =
+                ref.read(channelEpgProvider(channel.epgChannelId)).value;
             final current = programs == null
                 ? null
                 : epgCurrentProgram(programs, DateTime.now());

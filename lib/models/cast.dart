@@ -181,12 +181,14 @@ class MovieCredits {
   MovieCredits({required this.cast, required this.crew});
 
   factory MovieCredits.fromMap(Map<String, dynamic> map) {
-    final castList = (map['cast'] as List<dynamic>? ?? [])
-        .map((e) => Actor.fromMap(e as Map<String, dynamic>))
-        .toList();
-    final crewList = (map['crew'] as List<dynamic>? ?? [])
-        .map((e) => CrewMember.fromMap(e as Map<String, dynamic>))
-        .toList();
+    // Torère les deux formats des panels Xtream :
+    //  - listes d'objets TMDB-like : [{"name": "...", "character": "..."}]
+    //  - simples listes de noms : [{"name": "Tom Hanks"}, ...] ou regroupées
+    //    en une chaîne (les panels « CAM » renvoient souvent cast = string)
+    final rawCast = map['cast'];
+    final castList = _toActors(rawCast);
+    final rawCrew = map['crew'];
+    final crewList = _toCrew(rawCrew);
 
     // Trier le cast par ordre (générique)
     castList.sort((a, b) => a.order.compareTo(b.order));
@@ -198,6 +200,80 @@ class MovieCredits {
     });
 
     return MovieCredits(cast: castList, crew: crewList);
+  }
+
+  static List<Actor> _toActors(dynamic raw) {
+    final result = <Actor>[];
+    final items = _flatten(raw);
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item is Map) {
+        final map = Map<String, dynamic>.from(item);
+        final name =
+            map['name']?.toString() ?? map['original_name']?.toString() ?? '';
+        if (name.trim().isEmpty) continue;
+        result.add(Actor.fromMap(map));
+      } else if (item != null) {
+        final name = '$item'.trim();
+        if (name.isEmpty) continue;
+        result.add(Actor(
+          id: 'xtream-$name',
+          name: name,
+          character: '',
+          profilePath: '',
+          order: i,
+        ));
+      }
+    }
+    return result;
+  }
+
+  static List<CrewMember> _toCrew(dynamic raw) {
+    final result = <CrewMember>[];
+    final items = _flatten(raw);
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item is Map) {
+        final map = Map<String, dynamic>.from(item);
+        final name = map['name']?.toString() ?? '';
+        if (name.trim().isEmpty) continue;
+        result.add(CrewMember.fromMap(map));
+      } else if (item != null) {
+        final name = '$item'.trim();
+        if (name.isEmpty) continue;
+        result.add(CrewMember(
+          id: 'xtream-$name',
+          name: name,
+          job: '',
+          department: '',
+          profilePath: '',
+          order: i,
+        ));
+      }
+    }
+    return result;
+  }
+
+  /// Normalise les formats de cast/crew rencontrés sur les panels :
+  ///  - une liste (d'objets ou de strings),
+  ///  - une chaîne unique (séparateurs ; | , /)
+  static List<dynamic> _flatten(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List) return raw;
+    if (raw is String) {
+      if (raw.trim().isEmpty) return const [];
+      final hasDelimiter = RegExp(r'[;|/]').hasMatch(raw);
+      if (hasDelimiter) {
+        return raw
+            .split(RegExp(r'[;|/]'))
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+      return [raw];
+    }
+    if (raw is Map) return [raw];
+    return [raw];
   }
 
   /// Acteurs principaux (premiers 10-15)
@@ -214,9 +290,11 @@ class MovieCredits {
 
   /// Réalisateurs
   List<CrewMember> get directors => crew
-      .where((m) =>
-          m.department.toLowerCase() == 'directing' &&
-          m.job.toLowerCase().contains('director'),)
+      .where(
+        (m) =>
+            m.department.toLowerCase() == 'directing' &&
+            m.job.toLowerCase().contains('director'),
+      )
       .toList();
 
   /// Scénaristes

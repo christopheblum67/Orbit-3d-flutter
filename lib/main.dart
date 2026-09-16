@@ -28,6 +28,8 @@ import 'package:orbit_3d_flutter/core/theme/app_theme.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/home_widget_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
@@ -36,6 +38,7 @@ import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_mirror_store.dart';
 import 'package:orbit_3d_flutter/services/home_widget_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/beta_config.dart';
@@ -63,8 +66,7 @@ import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
 import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
-import 'package:orbit_3d_flutter/features/settings/settings_screen.dart';
-import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/downloads/downloads_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -75,6 +77,7 @@ import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -116,6 +119,8 @@ Future<void> main() async {
   await watchedEpisodesService.init();
   final playbackProgressService = PlaybackProgressService();
   await playbackProgressService.init();
+  final cloudSyncMirrorStore = CloudSyncMirrorStore();
+  await cloudSyncMirrorStore.init();
   final notificationService = NotificationService();
   final mediaLibraryManager = MediaLibraryManager();
   await mediaLibraryManager.init([]);
@@ -644,18 +649,7 @@ final GoRouter router = GoRouter(
             ),
           ),
         ),
-        GoRoute(
-          path: '/settings',
-          pageBuilder: (context, state) => MaterialPage(
-            key: state.pageKey,
-            restorationId: 'settings',
-            child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
-              child: SettingsScreen(),
-            ),
-          ),
-        ),
-        GoRoute(
+GoRoute(
           path: '/downloads',
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
@@ -663,18 +657,6 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
               child: DownloadsScreen(),
-            ),
-          ),
-        ),
-        GoRoute(
-          path: '/settings/advanced',
-          pageBuilder: (context, state) => MaterialPage(
-            key: state.pageKey,
-            restorationId: 'settings_advanced',
-            child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/settings',
-                  restorationId: 'settings_advanced',),
-              child: AdvancedSettingsScreen(),
             ),
           ),
         ),
@@ -687,6 +669,17 @@ final GoRouter router = GoRouter(
               meta: RouteMeta.popOrFallback('/home',
                   restorationId: 'subscriptions',),
               child: SubscriptionsScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/settings',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'settings',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
+              child: UnifiedSettingsScreen(),
             ),
           ),
         ),
@@ -739,13 +732,35 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   @override
   Widget build(BuildContext context) {
     final advancedSettings = ref.watch(advancedSettingsProvider);
-    return MaterialApp.router(
-      title: 'Orbit IPTV',
-      theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
-      darkTheme:
-          AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
-      themeMode: ThemeMode.system,
-      routerConfig: router,
+    final prefs = ref.watch(preferencesProvider);
+
+    // Locale chargée depuis les préférences (défaut 'fr'). Retombe sur la
+    // locale système si la langue choisie n'est pas supportée.
+    Locale? resolveLocale() {
+      final supported = AppLocalizations.supportedLocales;
+      for (final l in supported) {
+        if (l.languageCode == prefs.language) return l;
+      }
+      final system = WidgetsBinding.instance.platformDispatcher.locale;
+      if (supported.any((l) => l.languageCode == system.languageCode)) {
+        return system;
+      }
+      return null;
+    }
+
+    return TvModeDetector(
+      child: MaterialApp.router(
+        onGenerateTitle: (context) =>
+            AppLocalizations.of(context).appTitle,
+        locale: resolveLocale(),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
+        darkTheme:
+            AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
+        themeMode: ThemeMode.system,
+        routerConfig: router,
+      ),
     );
   }
 }

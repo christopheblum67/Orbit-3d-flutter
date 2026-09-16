@@ -475,8 +475,8 @@ class _MovieDetailContent extends ConsumerWidget {
             ),
           ],
           // Distribution (Cast) - Carrousel horizontal
-          if (detail.cast.isNotEmpty) ...[
-            const SizedBox(height: 24),
+          const SizedBox(height: 24),
+          if (detail.cast.isNotEmpty)
             CastCarousel(
               actors: detail.cast,
               title: 'Distribution',
@@ -484,8 +484,28 @@ class _MovieDetailContent extends ConsumerWidget {
               onActorTap: (actor) {
                 context.push('/actor/detail', extra: actor);
               },
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    'Distribution',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Non disponible',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
           // Équipe technique (Crew)
           if (detail.crew.isNotEmpty) ...[
             const SizedBox(height: 24),

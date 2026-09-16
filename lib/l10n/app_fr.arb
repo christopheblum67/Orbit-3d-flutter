@@ -1,0 +1,161 @@
+{
+  "@@locale": "fr",
+  "appTitle": "Orbit IPTV",
+
+  "settingsTitle": "Configuration",
+  "tabAccount": "Compte",
+  "tabNetwork": "Réseau",
+  "tabPlayer": "Lecteur",
+  "tabSecurity": "Sécurité",
+  "tabAudio": "Audio",
+  "tabAdvanced": "Avancé",
+
+  "sectionAccountProfile": "Compte & Profil",
+  "accountProfiles": "Profils utilisateurs",
+  "accountProfilesSubtitle": "Gérer les profils et le profil actif",
+  "accountSubscriptions": "Abonnements Xtream/M3U",
+  "accountNoSubscription": "Aucun abonnement actif",
+  "accountPreferences": "Préférences profil",
+  "accountPreferencesSubtitle": "Langue, thème, restrictions d'âge, PIN",
+  "accountDeviceProfile": "Profil appareil & Diagnostic",
+  "accountDeviceProfileSubtitle": "Profil {label} · diagnostic lecteur",
+  "@accountDeviceProfileSubtitle": {
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "sectionCloudSync": "Synchronisation Cloud (multi-appareils)",
+  "cloudSyncEnabled": "Synchronisation activée",
+  "cloudSyncLastSync": "Dernière sync : {time}",
+  "@cloudSyncLastSync": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "cloudSyncSubtitleOff": "Synchronise favoris, vus et récents vers le cloud",
+  "cloudSyncNow": "Synchroniser maintenant",
+  "cloudSyncNowSubtitle": "Pousse les modifications locales vers le cloud",
+  "never": "jamais",
+  "sectionNotifications": "Notifications",
+  "testNotifications": "Tester les notifications",
+  "testNotificationsSubtitle": "Envoie une notification locale de test",
+  "sectionBackup": "Sauvegarde / Restauration",
+  "backupExport": "Exporter la configuration",
+  "backupExportSubtitle": "Copie la config complète dans le presse-papiers",
+  "backupImport": "Importer la configuration",
+  "backupImportSubtitle": "Restaure depuis le presse-papiers (JSON)",
+  "snackBackupExported": "Configuration exportée dans le presse-papiers",
+  "snackNoBackup": "Aucune sauvegarde trouvée",
+  "snackImportSuccess": "Configuration importée avec succès",
+  "snackImportError": "Erreur: {message}",
+  "@snackImportError": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+
+  "sectionAntiThrottle": "Protection anti-bridage FAI",
+  "tlsImpersonation": "TLS Impersonation (Proxy Local)",
+  "tlsImpersonationSubtitle": "Simule l'empreinte d'un navigateur moderne pour contourner Cloudflare",
+  "dnsProvider": "Fournisseur DNS (DoH)",
+  "dnsProviderSubtitle": "Serveur utilisé pour les requêtes DNS over HTTPS",
+  "dnsCloudflare": "1.1.1.1 (Cloudflare DoH)",
+  "dnsGoogle": "8.8.8.8 (Google DoH)",
+  "dnsQuad9": "9.9.9.9 (Quad9 DoH)",
+  "dnsSystem": "Automatique (Système)",
+  "sectionCloudflare": "Optimisation Cloudflare",
+  "cloudflareReset": "Réinitialiser config Cloudflare",
+  "cloudflareResetSubtitle": "Efface cookies, remet TLS Impersonation=OFF, UA ExoPlayer par défaut",
+  "snackCloudflareReset": "Config Cloudflare réinitialisée",
+
+  "sectionEngines": "Moteurs de lecture",
+  "enginesTile": "Moteurs de lecture",
+  "enginesSubtitle": "Live : {live} · VOD : {vod}",
+  "@enginesSubtitle": {
+    "placeholders": {
+      "live": { "type": "String" },
+      "vod": { "type": "String" }
+    }
+  },
+  "sectionAudioNight": "Audio & Night Focus",
+  "audioAndNightFocus": "Audio & Night Focus",
+  "audioAndNightFocusSubtitle": "Optimisation nocturne, dialogue boost, synchronisation A/V",
+  "sectionZapping": "Zapping & Performance",
+  "instantZapping": "Zapping Instantané (Prefetching)",
+  "instantZappingSubtitle": "Précharge les chaînes adjacentes en mémoire tampon",
+  "sectionMemory": "Mémoire & Cache",
+
+  "sectionParental": "Contrôle parental",
+  "parentalControl": "Contrôle parental",
+  "parentalControlSubtitle": "Ajouter un code PIN et restreindre le contenu",
+  "sectionCertPinning": "Certificate Pinning (SHA-256)",
+  "certPinning": "Activer Certificate Pinning",
+  "certPinningSubtitle": "Vérifie l'empreinte SHA-256 du certificat SSL du serveur (anti-MITM)",
+  "certPinningHint": "Empreintes autorisées (une par ligne, format hex uppercase) :",
+  "certPinningAdd": "Ajouter les empreintes ci-dessus",
+  "sectionResilience": "Résilience du Service",
+  "autoReconnectLive": "Auto-réconnexion Live",
+  "autoReconnectLiveSubtitle": "Tente de reconnecter automatiquement si le flux coupe",
+  "sectionLegal": "Informations légales",
+  "legalNotice": "Lisez-moi · Mentions légales",
+  "legalNoticeSubtitle": "Usage de l'application, ayants droit et confidentialité",
+
+  "nightFocusTitle": "Night Focus (Mode Nuit)",
+  "nightFocusEnable": "Activer Night Focus",
+  "nightFocusEnableSubtitle": "Traitement audio temps réel : boost dialogues, coupe basses, sync",
+  "dialogueBoost": "Boost Dialogues (+4 dB)",
+  "dialogueBoostSubtitle": "Amplifie les voix par rapport aux effets/musique",
+  "bassKiller": "Bass Killer (coupe < 120 Hz)",
+  "bassKillerSubtitle": "Atténue les basses fréquences pour éviter les vibrations",
+  "sectionAvSync": "Synchronisation A/V",
+  "audioShift": "Décalage audio configurable",
+  "audioShiftSubtitle": "Décalage audio/vidéo manuel (ms)",
+  "manualAvCalibration": "Calibrage manuel A/V",
+  "manualAvCalibrationSubtitle": "Décalage actuel: {ms} ms",
+  "@manualAvCalibrationSubtitle": {
+    "placeholders": {
+      "ms": { "type": "int" }
+    }
+  },
+  "sectionOutput": "Sortie Audio",
+  "volumeNormalization": "Normalisation du volume",
+  "volumeNormalizationSubtitle": "Limite les pics de volume entre chaînes/programmes (AGC)",
+  "avSyncDialogTitle": "Calibrage A/V",
+  "avSyncDialogLabel": "Décalage (ms)",
+  "avSyncDialogHint": "Positif = audio en avance, Négatif = audio en retard",
+  "apply": "Appliquer",
+
+  "sectionAccessibility": "Accessibilité",
+  "highContrast": "Mode contraste élevé",
+  "highContrastSubtitle": "Améliore la lisibilité pour les malvoyants",
+  "dpadNavigation": "Navigation D-pad renforcée",
+  "dpadNavigationSubtitle": "Focus visible, halo lumineux, wrap texte (TV mode)",
+  "fontSize": "Taille du texte augmentée",
+  "fontSizeSubtitle": "Agrandit les textes dans toute l'app",
+  "sectionTmdb": "Classements TMDB",
+  "sectionRecommendations": "Recommandations",
+  "matchmaking": "Pour vous (Matchmaking)",
+  "matchmakingSubtitle": "Gérer l'appariement et les suggestions personnalisées",
+  "sectionDiagnostics": "Diagnostic & Maintenance",
+  "logsDiagnostic": "Logs & Diagnostic",
+  "logsDiagnosticSubtitle": "Voir les logs, exporter, vider le cache",
+  "clearCaches": "Vider tous les caches",
+  "clearCachesSubtitle": "Images, index recherche, métadonnées TMDB/TVmaze",
+  "resetApp": "Réinitialiser l'application",
+  "resetAppSubtitle": "Efface toutes les données utilisateur (profils, favoris, historique)",
+  "snackCacheCleared": "Caches vidés (TODO)",
+  "resetAppDialogTitle": "Réinitialiser l'application ?",
+  "resetAppDialogBody": "Toutes les données seront effacées : profils, favoris, historique, réglages. Cette action est irréversible.",
+  "resetAppDialogConfirm": "Tout effacer",
+  "tmdbKeyLabel": "Clé API TMDB personnelle (optionnel)",
+  "tmdbKeyHint": "La clé partagée embarquée est utilisée par défaut",
+  "tmdbKeyActive": "Clé personnelle active — la clé partagée est ignorée",
+  "tmdbKeyShared": "Clé partagée embarquée utilisée (aucune clé personnelle)",
+  "tmdbKeyDelete": "Supprimer la clé personnelle",
+  "tmdbKeyColumn": "Clés TMDB",
+
+  "language": "Langue",
+  "languagePreference": "Langue de l'application",
+  "save": "Sauver",
+  "cancel": "Annuler"
+}

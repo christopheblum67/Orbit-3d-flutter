@@ -38,6 +38,13 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
     final replaysAsync = ref.watch(replaysProvider);
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: const Text('Replay'),
         actions: [
           IconButton(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
@@ -135,7 +136,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Historique')),
+      appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: const Text('Historique'),
+      ),
       body: body,
     );
   }

@@ -33,6 +33,13 @@ class FavoritesScreen extends ConsumerWidget {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
+          leading: context.canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => context.pop(),
+                )
+              : null,
           title: const Text('Favoris'),
           actions: [
             if (favorites.isNotEmpty)

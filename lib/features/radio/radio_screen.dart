@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -22,7 +23,16 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
     final isLoading = radioService.isLoading;
     final error = radioService.error;
     return Scaffold(
-      appBar: AppBar(title: const Text('Radio')),
+      appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: const Text('Radio'),
+      ),
       body: radiosAsync.when(
         data: (radios) {
           if (radios.isEmpty) {

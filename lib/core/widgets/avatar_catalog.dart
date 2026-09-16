@@ -1,6 +1,6 @@
 /// Catalogue des avatars proposés pour Orbit 3D.
 ///
-/// 30 avatars répartis en 3 catégories, servis par DiceBear (API d'avatars
+/// 50 avatars répartis en 7 catégories, servis par DiceBear (API d'avatars
 /// gratuite) — aucune binaire embarquée, chargés en cache via
 /// `CachedNetworkImage` dans `AvatarPickerGrid`.
 class AvatarItem {
@@ -21,11 +21,10 @@ const List<String> avatarCategories = [
   'Tous',
   'Smileys 3D',
   'Personnages',
-  'Mascottes',
+  'Animaux',
   'Fantasy',
   'Sci-Fi',
   'Nature',
-  'Rétro',
 ];
 
 const List<AvatarItem> orbit3DAvatars = [
@@ -153,65 +152,65 @@ const List<AvatarItem> orbit3DAvatars = [
     imageUrl: 'https://api.dicebear.com/7.x/lorelei/png?seed=StreamerPro',
   ),
 
-  // --- Catégorie 3 : Mascottes & Animaux 3D (10) ---
+  // --- Catégorie 3 : Animaux & Mascottes 3D (10) ---
   AvatarItem(
-    id: 'm1',
+    id: 'a1',
     name: 'Cyber Cat',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=CyberCat',
   ),
   AvatarItem(
-    id: 'm2',
+    id: 'a2',
     name: 'Space Dog',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=SpaceDog',
   ),
   AvatarItem(
-    id: 'm3',
+    id: 'a3',
     name: 'Neon Panda',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=NeonPanda',
   ),
   AvatarItem(
-    id: 'm4',
+    id: 'a4',
     name: 'Astro Fox',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=AstroFox',
   ),
   AvatarItem(
-    id: 'm5',
+    id: 'a5',
     name: 'Galaxy Bear',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=GalaxyBear',
   ),
   AvatarItem(
-    id: 'm6',
+    id: 'a6',
     name: 'Orbit Bot',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=OrbitBot',
   ),
   AvatarItem(
-    id: 'm7',
+    id: 'a7',
     name: 'Alien Blue',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=AlienBlue',
   ),
   AvatarItem(
-    id: 'm8',
+    id: 'a8',
     name: 'Rocket Bunny',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=RocketBunny',
   ),
   AvatarItem(
-    id: 'm9',
+    id: 'a9',
     name: 'Pixel Dragon',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=PixelDragon',
   ),
   AvatarItem(
-    id: 'm10',
+    id: 'a10',
     name: 'Cosmic Lion',
-    category: 'Mascottes',
+    category: 'Animaux',
     imageUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=CosmicLion',
   ),
 
@@ -339,7 +338,7 @@ const List<AvatarItem> orbit3DAvatars = [
     imageUrl: 'https://api.dicebear.com/7.x/adventurer/png?seed=TimeTraveler',
   ),
 
-  // --- Catégorie 6 : Nature & Élémentaire (10) ---
+  // --- Catégorie 6 : Nature & Élémentaire (10) - REGÉNÉRÉE ---
   AvatarItem(
     id: 'n1',
     name: 'Esprit Forêt',
@@ -399,67 +398,5 @@ const List<AvatarItem> orbit3DAvatars = [
     name: 'Feuille Dansante',
     category: 'Nature',
     imageUrl: 'https://api.dicebear.com/7.x/lorelei/png?seed=DancingLeaf',
-  ),
-
-  // --- Catégorie 7 : Rétro & Pixel Art (10) ---
-  AvatarItem(
-    id: 'r1',
-    name: 'Héros 8-bit',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=8bitHero',
-  ),
-  AvatarItem(
-    id: 'r2',
-    name: 'Princesse Pixel',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=PixelPrincess',
-  ),
-  AvatarItem(
-    id: 'r3',
-    name: 'Guerrier 16-bit',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=16bitWarrior',
-  ),
-  AvatarItem(
-    id: 'r4',
-    name: 'Mage Rétro',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=RetroMage',
-  ),
-  AvatarItem(
-    id: 'r5',
-    name: 'Robot Arcade',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=ArcadeBot',
-  ),
-  AvatarItem(
-    id: 'r6',
-    name: 'Pilote Course',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=RacingPilot',
-  ),
-  AvatarItem(
-    id: 'r7',
-    name: 'Ninja Pixel',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=PixelNinja',
-  ),
-  AvatarItem(
-    id: 'r8',
-    name: 'Chevalier Old-School',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=OldSchoolKnight',
-  ),
-  AvatarItem(
-    id: 'r9',
-    name: 'Explorateur Dungeon',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=DungeonExplorer',
-  ),
-  AvatarItem(
-    id: 'r10',
-    name: 'Boss Final',
-    category: 'Rétro',
-    imageUrl: 'https://api.dicebear.com/7.x/pixel-art/png?seed=FinalBoss',
   ),
 ];

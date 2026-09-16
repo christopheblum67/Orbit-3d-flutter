@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Synchronisation cloud (S2) : partagée entre tous les appareils d'un
+    // même compte Firebase. Les règles exigent une authentification
+    // (utilisateur anonyme ou connecté) et autorisent la lecture/écriture
+    // sans restriction de document (les conflits sont gérés au niveau entrée
+    // par la fusion LWW côté client).
+    match /orbit_sync/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -11,7 +11,9 @@ import io.flutter.plugins.videoplayer.NightFocusDspConfig
  *
  * Méthodes (MethodChannel « orbit/night_focus ») :
  *  - `configure` : {enabled, dialogueBoostDb, bassKillerCutoffHz, vocalGainDb,
- *    audioDelayMs} — copie les paramètres dans NightFocusDspConfig.
+ *    audioDelayMs, volumeNormalization} — copie les paramètres dans
+ *    NightFocusDspConfig puis incrémente sa version pour que le processeur
+ *    audio recharge la config à chaud pendant la lecture.
  */
 object NightFocusChannel {
     private const val CHANNEL = "orbit/night_focus"
@@ -30,6 +32,10 @@ object NightFocusChannel {
                         ?: NightFocusDspConfig.vocalGainDb
                     NightFocusDspConfig.audioDelayMs = (args["audioDelayMs"] as? Number)?.toInt()
                         ?: NightFocusDspConfig.audioDelayMs
+                    NightFocusDspConfig.volumeNormalization =
+                        (args["volumeNormalization"] as? Boolean)
+                            ?: NightFocusDspConfig.volumeNormalization
+                    NightFocusDspConfig.touchVersion()
                     result.success(true)
                 }
                 else -> result.notImplemented()

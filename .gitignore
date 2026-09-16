@@ -9,6 +9,12 @@
 third_party/video_player_android/.dart_tool/
 third_party/video_player_android/pubspec.lock
 
+# Artefacts du fork speech_to_text (stats AS, exemples, suites non utilisées)
+third_party/speech_to_text/codestats.csv
+third_party/speech_to_text/example/
+third_party/speech_to_text/scripts/
+third_party/speech_to_text/test/
+
 # Artefacts de build / plugin générés
 .flutter-plugins
 .flutter-plugins-dependencies

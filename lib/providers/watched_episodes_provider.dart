@@ -156,4 +156,23 @@ class WatchedEpisodesNotifier
       watchedAt: DateTime.now(),
     );
   }
+
+  /// Applique les changements imposés par la synchronisation cloud (S2).
+  Future<void> applySyncedProfile(
+    List<WatchedEpisodeEntry> entries, {
+    required Set<String> removes,
+  }) async {
+    final service = ref.read(watchedEpisodesServiceProvider);
+    final next = Map<String, WatchedEpisodeEntry>.from(state);
+    for (final e in entries) {
+      next[e.key] = e;
+      await service.save(e);
+    }
+    for (final key in removes) {
+      if (next.remove(key) != null) {
+        await service.remove(key);
+      }
+    }
+    state = next;
+  }
 }

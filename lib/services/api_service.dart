@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
-import 'package:xml/xml.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -11,6 +10,7 @@ import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
@@ -839,6 +839,56 @@ class ApiService {
 
   static const String _unknownGroupLabel = '(sans groupe)';
 
+  /// Programmes EPG d'une chaîne via `get_short_epg` (JSON) — précharge S4.
+  ///
+  /// Complément au XMLTV global : renseigne le guide d'une chaîne en direct,
+  /// sans télécharger l'intégralité du dump. La liste couvre généralement
+  /// plusieurs jours (passé + futur). Échec ⇒ liste vide (le flux principal
+  /// XMLTV reste la source de référence).
+  Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) async {
+    final sub = await _subscriptionManager.getActiveSubscription();
+    if (sub['type'] != 'xtream') return const <EPGProgram>[];
+    try {
+      final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
+        'username': sub['username']!,
+        'password': sub['password']!,
+        'action': 'get_short_epg',
+        'stream_id': channel.id,
+      });
+      final response = await _get(url);
+      final data = response.data;
+      final list = data is List
+          ? data
+          : (data is Map
+              ? (data['epg_listings'] as List? ?? const <dynamic>[])
+              : const <dynamic>[]);
+      final programs = <EPGProgram>[];
+      for (final e in list.whereType<Map>()) {
+        final map = Map<String, dynamic>.from(e);
+        final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+        final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
+        if (start == null || end == null || !end.isAfter(start)) continue;
+        final title = map['title']?.toString().trim() ?? '';
+        if (title.isEmpty) continue;
+        programs.add(
+          EPGProgram(
+            channelId: channel.epgChannelId.isNotEmpty
+                ? channel.epgChannelId
+                : channel.id,
+            title: title,
+            description:
+                (map['description'] ?? map['plot'] ?? '').toString().trim(),
+            start: start,
+            end: end,
+          ),
+        );
+      }
+      return programs;
+    } catch (_) {
+      return const <EPGProgram>[];
+    }
+  }
+
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
   Future<List<ReplayItem>> _fetchChannelReplayPrograms({
     required String baseUrl,
@@ -1128,31 +1178,8 @@ class ApiService {
     return match?.group(1) ?? '';
   }
 
-  // ---------- Parseur XMLTV basique ----------
-  List<EPGProgram> parseXmltv(String content) {
-    final document = XmlDocument.parse(content);
-    final programs = <EPGProgram>[];
-    for (final prog in document.findAllElements('programme')) {
-      final channelId = prog.getAttribute('channel') ?? '';
-      final title = prog.getElement('title')?.innerText ?? '';
-      final desc = prog.getElement('desc')?.innerText ?? '';
-      final start =
-          stream_helpers.parseXmltvDate(prog.getAttribute('start') ?? '');
-      final end =
-          stream_helpers.parseXmltvDate(prog.getAttribute('stop') ?? '');
-      if (start == null || end == null) continue;
-      programs.add(
-        EPGProgram(
-          channelId: channelId,
-          title: title,
-          description: desc,
-          start: start,
-          end: end,
-        ),
-      );
-    }
-    return programs;
-  }
+  // ---------- Parseur XMLTV basique (mono-passe, sans DOM) ----------
+  List<EPGProgram> parseXmltv(String content) => EpgStreamParser.parse(content);
 
   // ---------- Recherche unifiée Xtream ----------
   Future<UnifiedSearchResult> search(String query) async {

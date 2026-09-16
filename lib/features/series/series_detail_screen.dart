@@ -460,14 +460,34 @@ class _SeriesHeader extends ConsumerWidget {
             ),
           ],
           // Cast principal (compact)
-          if (series.cast.isNotEmpty) ...[
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
+          if (series.cast.isNotEmpty)
             CompactCastCarousel(
               actors: series.cast,
               title: 'Distribution principale',
               maxVisible: 8,
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    'Distribution principale',
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Non disponible',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
         ],
       ),
     );
