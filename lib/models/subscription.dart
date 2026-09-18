@@ -220,4 +220,44 @@ class Subscription extends HiveObject {
       );
     }
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Subscription &&
+        other.id == id &&
+        other.name == name &&
+        other.type == type &&
+        other.baseUrl == baseUrl &&
+        other.username == username &&
+        other.password == password &&
+        other.m3uUrl == m3uUrl &&
+        other.isActive == isActive &&
+        other.createdAt == createdAt &&
+        other.lastTestedAt == lastTestedAt &&
+        other.lastTestResult == lastTestResult &&
+        other.lastTestLatencyMs == lastTestLatencyMs &&
+        other.lastTestError == lastTestError &&
+        other.validUntil == validUntil;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      id,
+      name,
+      type,
+      baseUrl,
+      username,
+      password,
+      m3uUrl,
+      isActive,
+      createdAt,
+      lastTestedAt,
+      lastTestResult,
+      lastTestLatencyMs,
+      lastTestError,
+      validUntil,
+    );
+  }
 }
