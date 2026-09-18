@@ -17,12 +17,18 @@ Map<String, String> streamHeaders(
   String url, {
   int userAgentIndex = 0,
   Map<String, String>? additional,
+  String? panelUrl, // For Xtream: use panel URL as Referer
 }) {
   final uri = Uri.parse(url);
+  String referer = refererFor(uri);
+  if (panelUrl != null && panelUrl.isNotEmpty) {
+    // For Xtream: use the panel URL as Referer (required by many panels)
+    referer = panelUrl;
+  }
   final headers = <String, String>{
     'User-Agent': playbackUserAgents[userAgentIndex],
     'Accept': '*/*',
-    'Referer': refererFor(uri),
+    'Referer': referer,
   };
   if (additional != null) {
     headers.addAll(additional);

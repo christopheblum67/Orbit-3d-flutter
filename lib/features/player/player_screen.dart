@@ -538,7 +538,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// 2. Les cookies Cloudflare globaux (session unique pour tout le fournisseur)
   /// 3. Les cookies Cloudflare spécifiques à l'hôte (CloudflareBypassService)
   Map<String, String> _resolvedHeaders(String url, int agentIndex) {
-    final base = streamHeaders(url, userAgentIndex: agentIndex);
+    // Get panel URL from active subscription for Xtream Referer
+    final activeSub = ref.read(activeSubscriptionProvider);
+    final panelUrl = activeSub.value?.baseUrl;
+
+    final base = streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
 
     // 1. Session Cloudflare globale (init au démarrage, unique pour tout le fournisseur)
     final globalCf = ref.read(cloudflareSessionProvider);

@@ -54,6 +54,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/content_filter_provider.dart';
 export 'profile_type_provider.dart';
 export 'content_filter_provider.dart';
+export 'subscription_provider.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
 final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
