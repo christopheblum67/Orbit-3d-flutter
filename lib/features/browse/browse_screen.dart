@@ -21,7 +21,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// Nombre maximal d'éléments affichés par grille (Films / Séries).
 const int kBrowseGridCap = 50;
 
-enum _BrowseTab { films, series, flixpatrol }
+enum _BrowseTab { films, series, rankings }
 
 class BrowseScreen extends ConsumerStatefulWidget {
   const BrowseScreen({super.key});
@@ -74,12 +74,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             : null,
         title: const Text('Contenus'),
         actions: [
-          if (_tab != _BrowseTab.flixpatrol)
-            IconButton(
-              tooltip: 'Trier',
-              icon: const Icon(Icons.sort),
-              onPressed: _openSortDialog,
-            ),
+          IconButton(
+            tooltip: 'Trier',
+            icon: const Icon(Icons.sort),
+            onPressed: _openSortDialog,
+          ),
         ],
       ),
       body: Column(
@@ -92,9 +91,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           ),
           Expanded(
             child: switch (_tab) {
-              _BrowseTab.flixpatrol => const FlixPatrolView(),
               _BrowseTab.films => _buildMovieView(),
               _BrowseTab.series => _buildSeriesView(),
+              _BrowseTab.rankings => const RankingsView(),
             },
           ),
         ],
@@ -586,7 +585,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 }
 
-/// Barre d'onglets Films / Séries / FlixPatrol, navigable au D-pad (◀▶).
+/// Barre d'onglets Films / Séries / Classements, navigable au D-pad (◀▶).
 class _BrowseTabBar extends StatelessWidget {
   const _BrowseTabBar({
     required this.selected,
@@ -604,7 +603,7 @@ class _BrowseTabBar extends StatelessWidget {
     final tabs = [
       (id: _BrowseTab.films, label: 'Films', icon: Icons.movie_outlined),
       (id: _BrowseTab.series, label: l.series, icon: Icons.tv),
-      (id: _BrowseTab.flixpatrol, label: 'FlixPatrol', icon: Icons.leaderboard),
+      (id: _BrowseTab.rankings, label: 'Classements', icon: Icons.leaderboard),
     ];
     return Container(
       color: colors.surfaceContainerLow,
@@ -683,15 +682,15 @@ class _BrowseTabPill extends StatelessWidget {
   }
 }
 
-/// Classements populaires TMDB (équivalent FlixPatrol) : films + séries.
-class FlixPatrolView extends ConsumerStatefulWidget {
-  const FlixPatrolView({super.key});
+/// Classements populaires TMDB : films + séries.
+class RankingsView extends ConsumerStatefulWidget {
+  const RankingsView({super.key});
 
   @override
-  ConsumerState<FlixPatrolView> createState() => FlixPatrolViewState();
+  ConsumerState<RankingsView> createState() => RankingsViewState();
 }
 
-class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
+class RankingsViewState extends ConsumerState<RankingsView> {
   _RankSource _movieMode = _RankSource.popular;
   _RankSource _tvMode = _RankSource.popular;
 

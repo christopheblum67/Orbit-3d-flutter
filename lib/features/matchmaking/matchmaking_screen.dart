@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart'
-    show FlixPatrolView;
+    show RankingsView;
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.dart'
     show MatchmakingTab;
 import 'package:orbit_3d_flutter/models/recommendation.dart';
@@ -89,7 +89,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
               kind: RecommendationKind.movie, initialGroup: _initialGroup,),
           MatchmakingTab(
               kind: RecommendationKind.series, initialGroup: _initialGroup,),
-          const FlixPatrolView(),
+          const RankingsView(),
         ],
       ),
     );
