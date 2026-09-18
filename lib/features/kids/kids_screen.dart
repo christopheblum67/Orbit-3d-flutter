@@ -38,7 +38,8 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isChild = ref.watch(currentProfileProvider)?.isChild ?? false;
+    final profile = ref.watch(currentProfileProvider);
+    final isChild = profile?.isChild ?? false;
 
     if (!isChild) {
       return _buildNotChildMode(context);

@@ -57,6 +57,11 @@ class _ProfileSelectionScreenState
     await storage.setSetting('last_profile_id', profile.id);
     ref.invalidate(profilesProvider);
     if (!mounted) return;
+    
+    // Small delay to ensure profile state is propagated before navigation
+    await Future.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+    
     // `go` (et non pushReplacement) : réinitialise proprement la pile vers le
     // shell. `pushReplacement` provoque un « pop » de la route courante que le
     // PopScope(canPop:false) de WithBackHandling peut bloquer → écran gris.
