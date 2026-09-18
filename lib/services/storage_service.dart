@@ -91,6 +91,14 @@ class StorageService {
     });
   }
 
+  Subscription? getActiveSubscriptionSync() {
+    final box = Hive.box(_subscriptionsBox);
+    for (final s in box.values) {
+      if (s.isActive) return s;
+    }
+    return null;
+  }
+
   Future<void> deleteSubscription(String id) async {
     await HiveSync.writeAsync(_subscriptionsBox, (box) => box.delete(id));
   }

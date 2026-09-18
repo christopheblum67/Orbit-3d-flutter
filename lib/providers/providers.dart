@@ -458,9 +458,7 @@ final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
 
 final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
-  final sub = await ref
-      .watch(activeSubscriptionProvider.future)
-      .catchError((_) => null);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return filter.visibleList(await api.fetchLiveChannels());
@@ -468,9 +466,7 @@ final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
 
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
-  final sub = await ref
-      .watch(activeSubscriptionProvider.future)
-      .catchError((_) => null);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null) return const <Movie>[];
   final api = ref.watch(apiServiceProvider);
   return filter.visibleList(await api.fetchMovies());
@@ -480,7 +476,7 @@ final moviesProvider = FutureProvider<List<Movie>>((ref) async {
 final liveCategoriesFromM3UProvider =
     FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  final sub = await ref.watch(activeSubscriptionProvider.future);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null || sub.type != SubscriptionType.m3u) return const [];
   final channels = await api.fetchLiveChannels();
   final groups = <String>{};
@@ -494,7 +490,7 @@ final liveCategoriesFromM3UProvider =
 final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   // Dépend de l'abonnement actif pour recharger les catégories VOD
-  final sub = await ref.watch(activeSubscriptionProvider.future);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null || sub.type != SubscriptionType.xtream) return const [];
   return api.fetchVodCategories();
 });
@@ -502,15 +498,13 @@ final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
 final seriesCategoriesProvider =
     FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
-  ref.watch(activeSubscriptionProvider.future);
+  ref.watch(activeSubscriptionProvider);
   return api.fetchSeriesCategories();
 });
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
-  final sub = await ref
-      .watch(activeSubscriptionProvider.future)
-      .catchError((_) => null);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null) return const <Series>[];
   final api = ref.watch(apiServiceProvider);
   return filter.visibleList(await api.fetchSeries());
@@ -537,9 +531,7 @@ final seriesDetailProvider =
 });
 
 final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final sub = await ref
-      .watch(activeSubscriptionProvider.future)
-      .catchError((_) => null);
+  final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();
@@ -598,7 +590,7 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   // Changement d'abonnement actif => le cache n'est plus valable
   // (dépendance de re-fetch, la valeur elle-même ne nous sert pas ici).
-  ref.watch(activeSubscriptionProvider.future);
+  ref.watch(activeSubscriptionProvider);
   return filter.visibleList(await replaysCache.fetch(api.fetchReplays));
 });
 

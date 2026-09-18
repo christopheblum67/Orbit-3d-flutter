@@ -567,7 +567,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     Channel channel,
   ) async {
     final l = AppLocalizations.of(context);
-    final sub = await ref.read(activeSubscriptionProvider.future);
+    final sub = ref.read(activeSubscriptionProvider);
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     if (sub == null ||

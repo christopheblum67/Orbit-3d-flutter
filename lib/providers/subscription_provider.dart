@@ -242,9 +242,10 @@ final subscriptionsProvider =
   SubscriptionsNotifier.new,
 );
 
-final activeSubscriptionProvider = FutureProvider<Subscription?>((ref) async {
+final activeSubscriptionProvider = Provider<Subscription?>((ref) {
   final storage = ref.watch(storageServiceProvider);
-  return storage.getActiveSubscription();
+  // Load synchronously from Hive (fast, synchronous)
+  return storage.getActiveSubscriptionSync();
 });
 
 final subscriptionsTestingProvider =

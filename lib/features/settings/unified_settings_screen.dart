@@ -153,7 +153,7 @@ class _AccountSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final sub = ref.watch(activeSubscriptionProvider).value;
+    final sub = ref.watch(activeSubscriptionProvider);
     final syncState = ref.watch(cloudSyncProvider);
     final syncNotifier = ref.read(cloudSyncProvider.notifier);
 

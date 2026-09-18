@@ -21,7 +21,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final subs = ref.watch(subscriptionsProvider);
-    final activeId = ref.watch(activeSubscriptionProvider).value?.id;
+    final activeId = ref.watch(activeSubscriptionProvider)?.id;
 
     return Scaffold(
       appBar: AppBar(

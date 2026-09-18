@@ -293,10 +293,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<void> _refreshSubscriptionValidity() async {
     try {
-      // Attend la résolution du provider actif : `valueOrNull` peut être nul
-      // si le FutureProvider n'a pas encore terminé, ce qui ferait sauter le
-      // refresh et afficher « Sans limite » au démarrage.
-      final active = await ref.read(activeSubscriptionProvider.future);
+      // Attend la résolution du provider actif
+      final active = ref.read(activeSubscriptionProvider);
       if (active != null && active.type == SubscriptionType.xtream) {
         await ref
             .read(subscriptionsProvider.notifier)

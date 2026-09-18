@@ -585,7 +585,7 @@ class _SubStatusChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sub = ref.watch(activeSubscriptionProvider).value;
+    final sub = ref.watch(activeSubscriptionProvider);
     final scheme = Theme.of(context).colorScheme;
     final name = sub?.name ?? '';
     final validity = sub?.validityLabel ?? '';
