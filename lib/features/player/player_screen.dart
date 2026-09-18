@@ -539,8 +539,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// 3. Les cookies Cloudflare spécifiques à l'hôte (CloudflareBypassService)
   Map<String, String> _resolvedHeaders(String url, int agentIndex) {
     // Get panel URL from active subscription for Xtream Referer
-    final activeSub = ref.read(activeSubscriptionProvider);
-    final panelUrl = activeSub.value?.baseUrl;
+    String? panelUrl;
+    try {
+      final activeSub = ref.read(activeSubscriptionProvider);
+      panelUrl = activeSub.maybeWhen(
+        data: (sub) => sub?.baseUrl,
+        orElse: () => null,
+      );
+    } catch (_) {
+      panelUrl = null;
+    }
 
     final base = streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
 
