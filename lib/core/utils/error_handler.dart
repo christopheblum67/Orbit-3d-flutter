@@ -1,3 +1,7 @@
+// ignore_for_file: avoid_print
+
+export 'safe_async.dart';
+
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
