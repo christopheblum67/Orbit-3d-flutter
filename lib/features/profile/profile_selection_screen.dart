@@ -458,7 +458,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
             ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Stack(
         children: [
           Row(
@@ -681,7 +681,7 @@ class _AddProfileCardState extends State<_AddProfileCard>
               ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

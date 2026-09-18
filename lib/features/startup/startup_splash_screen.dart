@@ -80,7 +80,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       // affiche l'horodatage au lieu de « Jamais mis à jour ».
       ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(DateTime.now());
       Future<void>.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) context.go('/home');
+        if (mounted) context.go('/profiles');
       });
     }
   }
