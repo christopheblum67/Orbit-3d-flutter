@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class RadioScreen extends ConsumerStatefulWidget {
   const RadioScreen({super.key});
@@ -16,6 +17,7 @@ class RadioScreen extends ConsumerStatefulWidget {
 class _RadioScreenState extends ConsumerState<RadioScreen> {
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final radiosAsync = ref.watch(radioChannelsProvider);
     final radioService = ref.watch(radioServiceProvider);
     final stationName = _currentStationName;
@@ -36,9 +38,9 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
       body: radiosAsync.when(
         data: (radios) {
           if (radios.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.radio,
-              title: 'Aucune station disponible',
+              title: l.noStationsAvailable,
               message: 'Ajoute des stations de radio dans les réglages.',
             );
           }
@@ -162,7 +164,7 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
         loading: () => const LoadingState(message: 'Chargement…'),
         error: (err, _) => ErrorState(
           icon: Icons.radio,
-          title: 'Stations indisponibles',
+          title: l.stationsUnavailable,
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(radioChannelsProvider),
         ),

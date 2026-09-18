@@ -1,38 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
   const ProfilePreferencesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
 
     return Scaffold(
-        appBar: AppBar(title: const Text('Préférences')),
+        appBar: AppBar(
+          leading: GoRouter.of(context).canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => GoRouter.of(context).pop(),
+                )
+              : null,
+          title: Text(l.preferences),
+        ),
         body: ListView(
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined),
             title: const Text('Notifications'),
-            subtitle: const Text('Recevoir les alertes et conseils'),
+            subtitle: Text(l.receiveAlertsAndTips),
             value: prefs.notificationsEnabled,
             onChanged: (v) => notifier.setNotifications(v),
           ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.settings_brightness_outlined),
-            title: const Text('Thème'),
+            title: Text(l.theme),
             subtitle: Text(_themeLabel(prefs.theme)),
             trailing: DropdownButton<String>(
               value: prefs.theme,
               underline: const SizedBox.shrink(),
-              items: const [
-                DropdownMenuItem(value: 'system', child: Text('Système')),
-                DropdownMenuItem(value: 'light', child: Text('Clair')),
-                DropdownMenuItem(value: 'dark', child: Text('Sombre')),
+              items: [
+                DropdownMenuItem(value: 'system', child: Text(l.system)),
+                const DropdownMenuItem(value: 'light', child: Text('Clair')),
+                const DropdownMenuItem(value: 'dark', child: Text('Sombre')),
               ],
               onChanged: (v) {
                 if (v != null) notifier.setTheme(v);
@@ -47,13 +60,13 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             trailing: DropdownButton<String>(
               value: prefs.language,
               underline: const SizedBox.shrink(),
-              items: const [
-                DropdownMenuItem(value: 'fr', child: Text('Français')),
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'es', child: Text('Español')),
-                DropdownMenuItem(value: 'de', child: Text('Deutsch')),
-                DropdownMenuItem(value: 'it', child: Text('Italiano')),
-                DropdownMenuItem(value: 'ar', child: Text('العربية')),
+              items: [
+                DropdownMenuItem(value: 'fr', child: Text(l.langFrench)),
+                const DropdownMenuItem(value: 'en', child: Text('English')),
+                DropdownMenuItem(value: 'es', child: Text(l.langSpanish)),
+                const DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+                const DropdownMenuItem(value: 'it', child: Text('Italiano')),
+                DropdownMenuItem(value: 'ar', child: Text(l.langArabic)),
               ],
               onChanged: (v) {
                 if (v != null) notifier.setLanguage(v);
@@ -63,10 +76,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.family_restroom_outlined),
-            title: const Text('Contrôle parental'),
+            title: Text(l.sectionParental),
             subtitle: Text(
               prefs.parentalControlEnabled
-                  ? 'Activé · Restriction ${prefs.ageRestriction > 0 ? '+${prefs.ageRestriction} ans' : 'désactivée'}'
+                  ? 'Activé · Restriction ${prefs.ageRestriction > 0 ? l.plusAgeYears(prefs.ageRestriction) : 'désactivée'}'
                   : 'Désactivé',
             ),
             trailing: const Icon(Icons.chevron_right),
@@ -83,9 +96,9 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           const Divider(height: 1),
           SwitchListTile(
             secondary: const Icon(Icons.visibility_outlined),
-            title: const Text('Profil visible'),
+            title: Text(l.profileVisible),
             subtitle:
-                const Text('Apparaître dans les recherches et recommandations'),
+                Text(l.appearInSearchAndRecommendations),
             value: prefs.profileVisible,
             onChanged: (v) => notifier.setProfileVisible(v),
           ),
@@ -147,48 +160,148 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     WidgetRef ref,
     dynamic prefs,
   ) async {
+    final l = AppLocalizations.of(context);
     bool enabled = prefs.parentalControlEnabled;
     int ageRestriction = prefs.ageRestriction;
-    return await showDialog<({bool enabled, int ageRestriction})>(
+
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+    final switchFocus = FocusNode();
+    final dropdownFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (context.mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
+    final result = await showDialog<({bool enabled, int ageRestriction})>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('Contrôle parental'),
+              title: Text(l.sectionParental),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SwitchListTile(
-                    title: const Text('Activer'),
-                    value: enabled,
-                    onChanged: (v) => setState(() => enabled = v),
+                  Focus(
+                    focusNode: switchFocus,
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                            event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                            event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                          setState(() => enabled = !enabled);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          requestFocus(dropdownFocus);
+                          return KeyEventResult.handled;
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: SwitchListTile(
+                      title: const Text('Activer'),
+                      value: enabled,
+                      onChanged: (v) => setState(() => enabled = v),
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<int>(
-                    initialValue: ageRestriction,
-                    decoration:
-                        const InputDecoration(labelText: 'Restriction d\'âge'),
-                    items: [
-                      const DropdownMenuItem(value: 0, child: Text('Aucune')),
-                      for (final age in [7, 10, 12, 16, 18])
-                        DropdownMenuItem(value: age, child: Text('+$age ans')),
-                    ],
-                    onChanged: (v) => setState(() => ageRestriction = v ?? 0),
+                  Focus(
+                    focusNode: dropdownFocus,
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          requestFocus(switchFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          requestFocus(confirmFocus);
+                          return KeyEventResult.handled;
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: DropdownButtonFormField<int>(
+                      initialValue: ageRestriction,
+                      decoration:
+                          const InputDecoration(labelText: 'Restriction d\'âge'),
+                      items: [
+                        const DropdownMenuItem(value: 0, child: Text('Aucune')),
+                        for (final age in [7, 10, 12, 16, 18])
+                          DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
+                      ],
+                      onChanged: (v) => setState(() => ageRestriction = v ?? 0),
+                    ),
                   ),
                 ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(
-                    context,
-                    (enabled: enabled, ageRestriction: ageRestriction),
+                Focus(
+                  focusNode: cancelFocus,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        (event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                      Navigator.pop(dialogContext);
+                      return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent &&
+                        (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                            event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                      requestFocus(confirmFocus);
+                      return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      requestFocus(dropdownFocus);
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Annuler'),
                   ),
-                  child: const Text('Valider'),
+                ),
+                Focus(
+                  focusNode: confirmFocus,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        (event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                      Navigator.pop(
+                        dialogContext,
+                        (enabled: enabled, ageRestriction: ageRestriction),
+                      );
+                      return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent &&
+                        (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                            event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                      requestFocus(cancelFocus);
+                      return KeyEventResult.handled;
+                    }
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      requestFocus(dropdownFocus);
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(
+                      dialogContext,
+                      (enabled: enabled, ageRestriction: ageRestriction),
+                    ),
+                    child: const Text('Valider'),
+                  ),
                 ),
               ],
             );
@@ -196,5 +309,12 @@ class ProfilePreferencesScreen extends ConsumerWidget {
         );
       },
     );
+
+    cancelFocus.dispose();
+    confirmFocus.dispose();
+    switchFocus.dispose();
+    dropdownFocus.dispose();
+
+    return result;
   }
 }

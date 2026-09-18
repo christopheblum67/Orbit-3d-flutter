@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_models.dart';
 
 /// Système solaire des favoris : Soleil (Top Favori) + planètes orbitantes
@@ -42,6 +43,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (widget.favorites.isEmpty) {
       return const Center(
         child: Column(
@@ -255,29 +257,29 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white24),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.keyboard_arrow_up,
+                    const Icon(Icons.keyboard_arrow_up,
                         color: Colors.white38, size: 18,),
-                    SizedBox(width: 8),
-                    Text('Sélectionner',
+                    const SizedBox(width: 8),
+                    Text(l.select,
+                        style: const TextStyle(color: Colors.white38, fontSize: 12),),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.keyboard_arrow_left,
+                        color: Colors.white38, size: 18,),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.keyboard_arrow_right,
+                        color: Colors.white38, size: 18,),
+                    const SizedBox(width: 8),
+                    const Text('Naviguer',
                         style: TextStyle(color: Colors.white38, fontSize: 12),),
-                    SizedBox(width: 16),
-                    Icon(Icons.keyboard_arrow_left,
+                    const SizedBox(width: 16),
+                    const Icon(Icons.keyboard_arrow_down,
                         color: Colors.white38, size: 18,),
-                    SizedBox(width: 8),
-                    Icon(Icons.keyboard_arrow_right,
-                        color: Colors.white38, size: 18,),
-                    SizedBox(width: 8),
-                    Text('Naviguer',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),),
-                    SizedBox(width: 16),
-                    Icon(Icons.keyboard_arrow_down,
-                        color: Colors.white38, size: 18,),
-                    SizedBox(width: 8),
-                    Text('Catégories',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),),
+                    const SizedBox(width: 8),
+                    Text(l.categories,
+                        style: const TextStyle(color: Colors.white38, fontSize: 12),),
                   ],
                 ),
               ),

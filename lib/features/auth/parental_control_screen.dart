@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ParentalControlScreen extends ConsumerStatefulWidget {
   const ParentalControlScreen({super.key});
@@ -29,32 +32,37 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
   }
 
   @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
+    final profile = ref.watch(currentProfileProvider);
     final pinController = ref.read(parentalPinControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Contrôle parental')),
+      appBar: AppBar(
+        leading: GoRouter.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => GoRouter.of(context).pop(),
+              )
+            : null,
+        title: Text(l.sectionParental),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.gpp_good_outlined),
-            title: const Text('Activer le contrôle parental'),
+            title: Text(l.enableParentalControl),
             value: prefs.parentalControlEnabled,
             onChanged: (v) => notifier.updateParental(
               enabled: v,
               ageRestriction: v ? prefs.ageRestriction : 0,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             initialValue: prefs.ageRestriction,
             decoration: const InputDecoration(
@@ -64,7 +72,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
             items: [
               const DropdownMenuItem(value: 0, child: Text('Aucune')),
               for (final age in [7, 10, 12, 16, 18])
-                DropdownMenuItem(value: age, child: Text('+$age ans')),
+                DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
             ],
             onChanged: (v) => notifier.updateParental(
               enabled: prefs.parentalControlEnabled,
@@ -72,6 +80,27 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 8),
+
+          SwitchListTile(
+            secondary: const Icon(Icons.no_adult_content_outlined),
+            title: Text('Masquer le contenu adulte'),
+            subtitle: Text('Films/Séries/Chaînes classés 18+ ou érotique'),
+            value: profile?.hideAdultContent ?? false,
+            onChanged: (v) => _updateContentFilter(
+              hideAdultContent: v,
+            ),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.no_backpack_outlined),
+            title: Text('Masquer la violence'),
+            subtitle: Text('Contenus Gore / Horreur / Thriller / Meurtre'),
+            value: profile?.hideViolentContent ?? false,
+            onChanged: (v) => _updateContentFilter(
+              hideViolentContent: v,
+            ),
+          ),
           const Divider(),
           const SizedBox(height: 8),
           Text(
@@ -106,7 +135,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
             const SizedBox(height: 8),
             OutlinedButton.icon(
               icon: const Icon(Icons.lock_open_outlined),
-              label: const Text('Supprimer le PIN'),
+              label: Text(l.deletePin),
               onPressed: () => _clearPin(pinController),
             ),
           ],
@@ -116,33 +145,53 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
   }
 
   Future<void> _savePin() async {
+    final l = AppLocalizations.of(context);
     final pin = _pinController.text.trim();
     if (pin.length != 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Le PIN doit contenir exactement 4 chiffres'),
-        ),
+        SnackBar(content: Text(l.pinMustBe4Digits)),
       );
       return;
     }
-    final pinController = ref.read(parentalPinControllerProvider);
-    await pinController.setPin(pin);
+    await ref.read(parentalPinControllerProvider).setPin(pin);
     _pinController.clear();
     setState(() => _hasPin = true);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN enregistré')),
+        SnackBar(content: Text(l.pinSaved)),
       );
     }
   }
 
-  Future<void> _clearPin(ParentalPinController controller) async {
+  Future<void> _clearPin(dynamic controller) async {
+    final l = AppLocalizations.of(context);
     await controller.clearPin();
     setState(() => _hasPin = false);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN supprimé')),
+        SnackBar(content: Text(l.pinDeleted)),
       );
     }
+  }
+
+  Future<void> _updateContentFilter({
+    bool? hideAdultContent,
+    bool? hideViolentContent,
+  }) async {
+    final current = ref.read(currentProfileProvider);
+    if (current == null) return;
+    final updated = current.copyWith(
+      hideAdultContent: hideAdultContent ?? current.hideAdultContent,
+      hideViolentContent: hideViolentContent ?? current.hideViolentContent,
+    );
+    await ref.read(storageServiceProvider).saveProfile(updated);
+    ref.read(currentProfileProvider.notifier).setUserProfile(updated);
+    ref.invalidate(profilesProvider);
+  }
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
   }
 }

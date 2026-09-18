@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -13,6 +14,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Écran Favoris v2 : 4 sections (Live, Films, Séries, Replay).
 ///
@@ -24,6 +26,7 @@ class FavoritesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final favorites = ref.watch(favoritesProvider);
     int count(ContentType type) =>
         favorites.values.where((e) => e.type == type).length;
@@ -44,7 +47,7 @@ class FavoritesScreen extends ConsumerWidget {
           actions: [
             if (favorites.isNotEmpty)
               IconButton(
-                tooltip: 'Tout supprimer',
+                tooltip: l.deleteAll,
                 icon: const Icon(Icons.delete_sweep),
                 onPressed: () => _confirmClearAll(
                   context,
@@ -93,26 +96,76 @@ Future<void> _confirmClearAll(
   WidgetRef ref,
   int total,
 ) async {
+  final l = AppLocalizations.of(context);
+  final cancelFocus = FocusNode();
+  final confirmFocus = FocusNode();
+
+  void requestFocus(FocusNode focus) {
+    if (context.mounted) {
+      FocusScope.of(context).requestFocus(focus);
+    }
+  }
+
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Tout supprimer ?'),
+    builder: (dialogContext) => AlertDialog(
+      title: Text(l.deleteAllConfirm),
       content: Text(
         'Retirer les $total favoris enregistrés ? '
         'La liste des favoris sera vidée.',
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Annuler'),
+        Focus(
+          focusNode: cancelFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.pop(dialogContext, false);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(confirmFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Tout supprimer'),
+        Focus(
+          focusNode: confirmFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.pop(dialogContext, true);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(cancelFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(l.deleteAll),
+          ),
         ),
       ],
     ),
   );
+  cancelFocus.dispose();
+  confirmFocus.dispose();
   if (confirmed == true && context.mounted) {
     await ref.read(favoritesProvider.notifier).clearAll();
   }
@@ -123,6 +176,7 @@ class _LiveFavoritesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final entries = ref
         .watch(favoritesProvider)
         .values
@@ -131,9 +185,9 @@ class _LiveFavoritesTab extends ConsumerWidget {
         .reversed
         .toList();
     if (entries.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.favorite_border,
-        title: 'Aucune chaîne favorite',
+        title: l.noFavoriteChannels,
         message:
             'Appuie sur le cœur d\'une chaîne dans le Live pour la retrouver ici.',
       );
@@ -225,6 +279,7 @@ class _VodFavoritesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final entries = ref
         .watch(favoritesProvider)
         .values
@@ -233,9 +288,9 @@ class _VodFavoritesTab extends ConsumerWidget {
         .reversed
         .toList();
     if (entries.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.favorite_border,
-        title: 'Aucun film favori',
+        title: l.noFavoriteMovies,
         message:
             'Appuie sur le cœur d\'un film dans la section Films pour le retrouver ici.',
       );
@@ -302,6 +357,7 @@ class _SeriesFavoritesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final entries = ref
         .watch(favoritesProvider)
         .values
@@ -310,9 +366,9 @@ class _SeriesFavoritesTab extends ConsumerWidget {
         .reversed
         .toList();
     if (entries.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.favorite_border,
-        title: 'Aucune série favorite',
+        title: l.noFavoriteSeries,
         message: 'Appuie sur le cœur d\'une série pour la retrouver ici.',
       );
     }
@@ -356,12 +412,13 @@ class _SeriesFavoritesTab extends ConsumerWidget {
 
   void _openSeries(BuildContext context, FavoriteEntry entry, Series? series) {
     if (series == null) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Série indisponible pour le moment.'),
-            duration: Duration(milliseconds: 1200),
+          SnackBar(
+            content: Text(l.seriesUnavailableTemporarily),
+            duration: const Duration(milliseconds: 1200),
           ),
         );
       return;
@@ -378,6 +435,7 @@ class _ReplayFavoritesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final entries = ref
         .watch(favoritesProvider)
         .values
@@ -386,9 +444,9 @@ class _ReplayFavoritesTab extends ConsumerWidget {
         .reversed
         .toList();
     if (entries.isEmpty) {
-      return const EmptyState(
+      return EmptyState(
         icon: Icons.favorite_border,
-        title: 'Aucun replay favori',
+        title: l.noFavoriteReplays,
         message: 'Appuie sur le cœur d\'un replay pour le retrouver ici.',
       );
     }

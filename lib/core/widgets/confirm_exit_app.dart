@@ -45,8 +45,29 @@ class _ConfirmExitAppState extends State<ConfirmExitApp> {
   }
 }
 
-class _ExitConfirmDialog extends StatelessWidget {
+class _ExitConfirmDialog extends StatefulWidget {
   const _ExitConfirmDialog();
+
+  @override
+  State<_ExitConfirmDialog> createState() => _ExitConfirmDialogState();
+}
+
+class _ExitConfirmDialogState extends State<_ExitConfirmDialog> {
+  final _cancelFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _cancelFocus.dispose();
+    _confirmFocus.dispose();
+    super.dispose();
+  }
+
+  void _requestFocus(FocusNode focus) {
+    if (mounted) {
+      FocusScope.of(context).requestFocus(focus);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,36 +92,74 @@ class _ExitConfirmDialog extends StatelessWidget {
         style: TextStyle(color: Colors.white70, fontSize: 15),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Non',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+        Focus(
+          focusNode: _cancelFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.of(context).pop(false);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              _requestFocus(_confirmFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Non',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
         ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF6B6B),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Oui',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+        Focus(
+          focusNode: _confirmFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.of(context).pop(true);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              _requestFocus(_cancelFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Oui',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

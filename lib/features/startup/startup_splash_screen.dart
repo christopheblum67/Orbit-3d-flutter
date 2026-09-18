@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,6 +15,7 @@ import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Écran de démarrage : régénère les flux et affiche une barre de progression
 /// (%) pendant qu'un carrousel de recommandations personnalisées défile
@@ -117,9 +119,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       watchedTitles: watched.toList(),
     );
     if (_recommendations.isEmpty) {
+      final l = AppLocalizations.of(context);
       _recommendations = [
-        const StartupRecommendation(
-          title: 'Orbit IPTV',
+        StartupRecommendation(
+          title: l.appTitle,
           category: 'Bienvenue',
           posterUrl: '',
           reason: 'Vos recommandations personnalisées arrivent…',
@@ -185,33 +188,82 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         progress.hasProgress) {
       final title = _getResumeTitle(progress);
       final timestamp = _formatTimestamp(progress.positionMs);
+
+      final cancelFocus = FocusNode();
+      final confirmFocus = FocusNode();
+
+      void requestFocus(FocusNode focus) {
+        if (mounted) {
+          FocusScope.of(context).requestFocus(focus);
+        }
+      }
+
       final shouldResume = await showDialog<bool>(
         context: context,
         barrierDismissible: true,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1E222D),
-          title: const Text('Reprendre la lecture ?',
-              style: TextStyle(color: Colors.white),),
-          content: Text(
-            'Reprendre "$title" à $timestamp ?',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Plus tard',
-                  style: TextStyle(color: Colors.white54),),
+        builder: (ctx) {
+          final l = AppLocalizations.of(ctx);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E222D),
+            title: Text(l.resumePlayback, style: const TextStyle(color: Colors.white)),
+            content: Text(
+              'Reprendre "$title" à $timestamp ?',
+              style: const TextStyle(color: Colors.white70),
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF00CFE8),),
-              child: const Text('Reprendre',
-                  style: TextStyle(color: Colors.black),),
-            ),
-          ],
-        ),
+            actions: [
+              Focus(
+                focusNode: cancelFocus,
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.select ||
+                          event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                    Navigator.pop(ctx, false);
+                    return KeyEventResult.handled;
+                  }
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                          event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                    requestFocus(confirmFocus);
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(l.later, style: const TextStyle(color: Colors.white54)),
+                ),
+              ),
+              Focus(
+                focusNode: confirmFocus,
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.select ||
+                          event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                    Navigator.pop(ctx, true);
+                    return KeyEventResult.handled;
+                  }
+                  if (event is KeyDownEvent &&
+                      (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                          event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                    requestFocus(cancelFocus);
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00CFE8)),
+                  child: const Text('Reprendre', style: TextStyle(color: Colors.black)),
+                ),
+              ),
+            ],
+          );
+        },
       );
+      cancelFocus.dispose();
+      confirmFocus.dispose();
       if (shouldResume == true && mounted) {
         context.go('/player',
             extra: PlayerRouteData(
@@ -451,6 +503,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Widget _buildProgress(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final percent = _controller.percent;
     final current = _controller.currentStep;
 
@@ -468,7 +521,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           active: current == StartupStep.movies,),
       _ProgressIcon(
           icon: Icons.video_library_outlined,
-          label: 'Séries',
+          label: l.series,
           done: _controller.doneSteps.contains(StartupStep.series),
           active: current == StartupStep.series,),
       _ProgressIcon(

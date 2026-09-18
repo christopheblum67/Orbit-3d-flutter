@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 
@@ -17,6 +19,7 @@ class SubscriptionsScreen extends ConsumerStatefulWidget {
 class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final subs = ref.watch(subscriptionsProvider);
     final activeId = ref.watch(activeSubscriptionProvider).value?.id;
 
@@ -32,7 +35,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         title: const Text('Abonnements'),
         actions: [
           IconButton(
-            tooltip: 'Ajouter un abonnement',
+            tooltip: l.addSubscription,
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showAddSubscriptionDialog(context, ref),
           ),
@@ -118,8 +121,17 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, WidgetRef ref, Subscription sub) {
-    showDialog(
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Subscription sub) async {
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer l\'abonnement ?'),
@@ -127,25 +139,68 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           'Voulez-vous supprimer "${sub.name}" ? Cette action est irr�versible.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () {
-              ref
-                  .read(subscriptionsProvider.notifier)
-                  .deleteSubscription(sub.id);
-              Navigator.pop(ctx);
+          Focus(
+            focusNode: cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(confirmFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
             },
-            child: const Text('Supprimer'),
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+          ),
+          Focus(
+            focusNode: confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                ref
+                    .read(subscriptionsProvider.notifier)
+                    .deleteSubscription(sub.id);
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: () {
+                ref
+                    .read(subscriptionsProvider.notifier)
+                    .deleteSubscription(sub.id);
+                Navigator.pop(ctx);
+              },
+              child: const Text('Supprimer'),
+            ),
           ),
         ],
       ),
     );
+    cancelFocus.dispose();
+    confirmFocus.dispose();
   }
 }
 
@@ -195,6 +250,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
@@ -233,7 +289,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Ajouter un abonnement'),
+              label: Text(l.addSubscription),
               onPressed: onAdd,
             ),
           ],
@@ -260,9 +316,10 @@ class _SubscriptionCard extends ConsumerWidget {
     required this.onDelete,
   });
 
-  @override
+@override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final isTesting = _isTesting(ref, subscription.id);
 
     return AppCard(
@@ -318,7 +375,7 @@ class _SubscriptionCard extends ConsumerWidget {
                           ),
                         if (!isActive)
                           IconButton(
-                            tooltip: 'Définir comme serveur par défaut',
+                            tooltip: l.setAsDefaultServer,
                             icon: const Icon(Icons.star_outline, size: 20),
                             color: scheme.onSurfaceVariant,
                             visualDensity: VisualDensity.compact,
@@ -536,6 +593,13 @@ class _SubscriptionFormDialogState
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _m3uUrlController = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _baseUrlFocus = FocusNode();
+  final _usernameFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _m3uFocus = FocusNode();
+  final _cancelFocus = FocusNode();
+  final _saveFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
 
@@ -551,6 +615,9 @@ class _SubscriptionFormDialogState
       _passwordController.text = sub.password ?? '';
       _m3uUrlController.text = sub.m3uUrl ?? '';
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nameFocus.requestFocus();
+    });
   }
 
   @override
@@ -560,12 +627,69 @@ class _SubscriptionFormDialogState
     _usernameController.dispose();
     _passwordController.dispose();
     _m3uUrlController.dispose();
+    _nameFocus.dispose();
+    _baseUrlFocus.dispose();
+    _usernameFocus.dispose();
+    _passwordFocus.dispose();
+    _m3uFocus.dispose();
+    _cancelFocus.dispose();
+    _saveFocus.dispose();
     super.dispose();
+  }
+
+  void _requestFocus(FocusNode focus) {
+    if (mounted) {
+      FocusScope.of(context).requestFocus(focus);
+    }
+  }
+
+  Widget _buildTvTextField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required String labelText,
+    required String? Function(String?) validator,
+    TextInputType keyboardType = TextInputType.text,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          _requestFocus(nextFocusNode);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        decoration: InputDecoration(
+          labelText: labelText,
+          suffixIcon: suffixIcon,
+        ),
+        keyboardType: keyboardType,
+        obscureText: obscureText,
+        inputFormatters: inputFormatters,
+        textInputAction: TextInputAction.next,
+        onEditingComplete: () => _requestFocus(nextFocusNode),
+        validator: validator,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isEditing = widget.subscription != null;
+
+    final nextAfterName = _type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus;
+
     return AlertDialog(
       title: Text(isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement'),
       content: SizedBox(
@@ -573,52 +697,71 @@ class _SubscriptionFormDialogState
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration:
-                      const InputDecoration(labelText: 'Nom de l\'abonnement'),
-                  validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                ),
-                const SizedBox(height: 16),
-                SegmentedButton<SubscriptionType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: SubscriptionType.xtream,
-                      label: Text('Xtream Codes'),
-                    ),
-                    ButtonSegment(
-                      value: SubscriptionType.m3u,
-                      label: Text('M3U Playlist'),
-                    ),
-                  ],
-                  selected: {_type},
-                  onSelectionChanged: (Set<SubscriptionType> newSelection) {
-                    setState(() => _type = newSelection.first);
-                  },
-                ),
-                const SizedBox(height: 16),
-                if (_type == SubscriptionType.xtream) ...[
-                  TextFormField(
-                    controller: _baseUrlController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL du serveur (ex: https://provider.com)',
-                    ),
+            child: FocusTraversalGroup(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTvTextField(
+                    controller: _nameController,
+                    focusNode: _nameFocus,
+                    nextFocusNode: nextAfterName,
+                    labelText: 'Nom de l\'abonnement',
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(labelText: 'Username'),
-                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                  const SizedBox(height: 16),
+                  Focus(
+                    focusNode: FocusNode(),
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent &&
+                          (event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey == LogicalKeyboardKey.select ||
+                              event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                        _requestFocus(_type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus);
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: SegmentedButton<SubscriptionType>(
+                      segments: [
+                        ButtonSegment(
+                          value: SubscriptionType.xtream,
+                          label: Text(l.xtreamCodes),
+                        ),
+                        ButtonSegment(
+                          value: SubscriptionType.m3u,
+                          label: Text(l.m3uPlaylist),
+                        ),
+                      ],
+                      selected: {_type},
+                      onSelectionChanged: (Set<SubscriptionType> newSelection) {
+                        setState(() => _type = newSelection.first);
+                      },
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
+                  const SizedBox(height: 16),
+                  if (_type == SubscriptionType.xtream) ...[
+                    _buildTvTextField(
+                      controller: _baseUrlController,
+                      focusNode: _baseUrlFocus,
+                      nextFocusNode: _usernameFocus,
+                      labelText: l.serverUrlPlaceholder,
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTvTextField(
+                      controller: _usernameController,
+                      focusNode: _usernameFocus,
+                      nextFocusNode: _passwordFocus,
+                      labelText: 'Username',
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTvTextField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocus,
+                      nextFocusNode: _saveFocus,
                       labelText: 'Password',
+                      obscureText: _obscurePassword,
                       suffixIcon: IconButton(
                         tooltip: _obscurePassword
                             ? 'Afficher le mot de passe'
@@ -632,32 +775,57 @@ class _SubscriptionFormDialogState
                           () => _obscurePassword = !_obscurePassword,
                         ),
                       ),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
-                    obscureText: _obscurePassword,
-                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                  ),
-                ] else ...[
-                  TextFormField(
-                    controller: _m3uUrlController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de la playlist M3U',
+                  ] else ...[
+                    _buildTvTextField(
+                      controller: _m3uUrlController,
+                      focusNode: _m3uFocus,
+                      nextFocusNode: _saveFocus,
+                      labelText: l.m3uPlaylistUrl,
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
-                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
+        Focus(
+          focusNode: _cancelFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.pop(context);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
         ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+        Focus(
+          focusNode: _saveFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              _save();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: FilledButton(
+            onPressed: _save,
+            child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+          ),
         ),
       ],
     );

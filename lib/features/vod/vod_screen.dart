@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -43,6 +44,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final moviesAsync = ref.watch(moviesProvider);
     final categoriesAsync = ref.watch(vodCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
@@ -51,10 +53,17 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Films (VOD)'),
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.filmsVod),
         actions: [
           IconButton(
-            tooltip: 'Rechercher un film',
+            tooltip: l.searchMovie,
             icon: const Icon(Icons.movie_outlined),
             onPressed: () => context.push('/search?type=vod'),
           ),
@@ -68,9 +77,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       body: moviesAsync.when(
         data: (movies) {
           if (movies.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.movie_outlined,
-              title: 'Aucun film disponible',
+              title: l.noMoviesAvailable,
               message: 'La bibliothèque VOD est vide pour le moment.',
             );
           }
@@ -181,26 +190,23 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                       ),
                     ),
                     Expanded(
-                      child: visibleMovies.isEmpty
+child: visibleMovies.isEmpty
                           ? EmptyState(
                               icon: Icons.movie_outlined,
                               title: _selectedCategoryId == 'fav'
-                                  ? 'Aucun film favori'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Aucun film récent'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun résultat'
-                                          : 'Aucun film dans cette catégorie',
+                                   ? l.noFavoriteMovies
+                                   : _selectedCategoryId == 'recent'
+                                       ? 'Aucun film récent'
+                                       : _selectedCategoryId.isEmpty
+                                           ? 'Aucun résultat'
+                                           : 'Aucun film dans cette catégorie',
                               message: _selectedCategoryId == 'fav'
-                                  ? 'Appuie sur le cœur d\'un film pour le '
-                                      'retrouver ici.'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Les films regardés s\'afficheront ici.'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun film ne correspond à cette '
-                                              'recherche.'
-                                          : 'Aucun film ne correspond à cette '
-                                              'catégorie.',
+                                   ? 'Appuie sur le cœur d\'un film pour le retrouver ici.'
+                                   : _selectedCategoryId == 'recent'
+                                       ? 'Les films regardés s\'afficheront ici.'
+                                       : _selectedCategoryId.isEmpty
+                                           ? 'Aucun film ne correspond à cette recherche.'
+                                           : 'Aucun film ne correspond à cette catégorie.',
                             )
                           : GridView.builder(
                               padding:
@@ -304,7 +310,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         loading: () => const LoadingState(message: 'Chargement…'),
         error: (err, _) => ErrorState(
           icon: Icons.movie_outlined,
-          title: 'Films indisponibles',
+          title: l.moviesUnavailable,
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(moviesProvider),
         ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -51,20 +52,21 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final Widget body;
     if (_isLoading) {
       body = const LoadingState(message: 'Chargement de l’historique…');
     } else if (_error != null) {
       body = ErrorState(
         icon: Icons.history,
-        title: 'Historique indisponible',
+        title: l.historyUnavailable,
         message: userFriendlyError(_error!),
         onRetry: _loadHistory,
       );
     } else if (_history.isEmpty) {
-      body = const EmptyState(
+      body = EmptyState(
         icon: Icons.history,
-        title: 'Aucun historique',
+        title: l.noHistory,
         message: 'Tes lectures récentes apparaîtront ici.',
       );
     } else {

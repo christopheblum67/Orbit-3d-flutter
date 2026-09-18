@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
 /// Sous-fenêtre de configuration des moteurs de lecture par type de contenu
@@ -33,6 +35,27 @@ class _PlayerEngineConfigSheetState
   /// appliquée au provider uniquement au moment de « Sauvegarder ».
   late Map<PlaybackContentType, PlayerPerTypeConfig> _draft;
 
+  // Focus nodes for TV/D-pad navigation
+  final _closeFocus = FocusNode();
+  final _cancelFocus = FocusNode();
+  final _saveFocus = FocusNode();
+  final Map<PlaybackContentType, FocusNode> _primaryFocusNodes = {};
+  final Map<PlaybackContentType, FocusNode> _fallbackFocusNodes = {};
+
+  @override
+  void dispose() {
+    _closeFocus.dispose();
+    _cancelFocus.dispose();
+    _saveFocus.dispose();
+    for (final node in _primaryFocusNodes.values) {
+      node.dispose();
+    }
+    for (final node in _fallbackFocusNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +63,11 @@ class _PlayerEngineConfigSheetState
     _draft = {
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
+    // Initialize focus nodes for each content type
+    for (final type in PlaybackContentType.values) {
+      _primaryFocusNodes[type] = FocusNode();
+      _fallbackFocusNodes[type] = FocusNode();
+    }
   }
 
   void _setPrimary(PlaybackContentType type, PlayerEngine engine) {
@@ -63,9 +91,90 @@ class _PlayerEngineConfigSheetState
     if (mounted) Navigator.of(context).pop();
   }
 
+  void _requestFocus(FocusNode focus) {
+    if (mounted) {
+      FocusScope.of(context).requestFocus(focus);
+    }
+  }
+
+  Widget _buildTvDropdownButton({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required PlayerEngine value,
+    required ValueChanged<PlayerEngine> onChanged,
+    required List<DropdownMenuItem<PlayerEngine>> items,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+              event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            // Let the dropdown handle opening, then move to next
+            return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            _requestFocus(nextFocusNode);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            _requestFocus(prevFocusNode);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            _requestFocus(prevFocusNode);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<PlayerEngine>(
+          value: value,
+          isDense: true,
+          focusNode: focusNode,
+          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+          items: items,
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+
+    // Request initial focus on close button
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _requestFocus(_closeFocus);
+      }
+    });
+
+    // Build dropdown items once
+    final dropdownItems = [
+      for (final e in PlayerEngine.values)
+        DropdownMenuItem(
+          value: e,
+          child: Text(
+            e.label,
+            style: TextStyle(
+              fontSize: 13,
+              color: e.isExternal ? null : scheme.primary,
+              fontWeight:
+                  e.isExternal ? FontWeight.normal : FontWeight.w600,
+            ),
+          ),
+        ),
+    ];
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -97,10 +206,31 @@ class _PlayerEngineConfigSheetState
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Annuler',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
+                    Focus(
+                      focusNode: _closeFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                          Navigator.of(context).pop();
+                          return KeyEventResult.handled;
+                        }
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+                          // Move to first primary dropdown (Live)
+                          if (_primaryFocusNodes[PlaybackContentType.live] != null) {
+                            _requestFocus(_primaryFocusNodes[PlaybackContentType.live]!);
+                          }
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: IconButton(
+                        tooltip: 'Annuler',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
                     ),
                   ],
                 ),
@@ -128,6 +258,42 @@ class _PlayerEngineConfigSheetState
                         config: _draft[type]!,
                         onPrimary: (e) => _setPrimary(type, e),
                         onFallback: (e) => _setFallback(type, e),
+                        primaryFocusNode: _primaryFocusNodes[type]!,
+                        fallbackFocusNode: _fallbackFocusNodes[type]!,
+                        dropdownItems: dropdownItems,
+                        buildTvDropdown: _buildTvDropdownButton,
+                        getNextPrimaryFocus: (currentType) {
+                          final types = PlaybackContentType.values;
+                          final idx = types.indexOf(currentType);
+                          if (idx + 1 < types.length) {
+                            return _primaryFocusNodes[types[idx + 1]]!;
+                          }
+                          return _cancelFocus; // After last primary, go to cancel
+                        },
+                        getPrevPrimaryFocus: (currentType) {
+                          final types = PlaybackContentType.values;
+                          final idx = types.indexOf(currentType);
+                          if (idx > 0) {
+                            return _fallbackFocusNodes[types[idx - 1]]!;
+                          }
+                          return _closeFocus; // Before first primary, go to close
+                        },
+                        getNextFallbackFocus: (currentType) {
+                          final types = PlaybackContentType.values;
+                          final idx = types.indexOf(currentType);
+                          if (idx + 1 < types.length) {
+                            return _primaryFocusNodes[types[idx + 1]]!;
+                          }
+                          return _cancelFocus; // After last fallback, go to cancel
+                        },
+                        getPrevFallbackFocus: (currentType) {
+                          final types = PlaybackContentType.values;
+                          final idx = types.indexOf(currentType);
+                          if (idx > 0) {
+                            return _primaryFocusNodes[types[idx]]!; // Same type's primary
+                          }
+                          return _closeFocus;
+                        },
                       ),
                     const SizedBox(height: 8),
                   ],
@@ -138,18 +304,65 @@ class _PlayerEngineConfigSheetState
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                        label: const Text('Annuler'),
+                      child: Focus(
+                        focusNode: _cancelFocus,
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.enter ||
+                                  event.logicalKey == LogicalKeyboardKey.select ||
+                                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                            Navigator.of(context).pop();
+                            return KeyEventResult.handled;
+                          }
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
+                            // Go to last fallback (Replay)
+                            _requestFocus(_fallbackFocusNodes[PlaybackContentType.replay]!);
+                            return KeyEventResult.handled;
+                          }
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+                            _requestFocus(_saveFocus);
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                          label: Text(l.cancel),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _save,
-                        icon: const Icon(Icons.save_outlined),
-                        label: const Text('Sauvegarder'),
+                      child: Focus(
+                        focusNode: _saveFocus,
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.enter ||
+                                  event.logicalKey == LogicalKeyboardKey.select ||
+                                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                            _save();
+                            return KeyEventResult.handled;
+                          }
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                            _requestFocus(_cancelFocus);
+                            return KeyEventResult.handled;
+                          }
+                          if (event is KeyDownEvent &&
+                              (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
+                            _requestFocus(_fallbackFocusNodes[PlaybackContentType.replay]!);
+                            return KeyEventResult.handled;
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: FilledButton.icon(
+                          onPressed: _save,
+                          icon: const Icon(Icons.save_outlined),
+                          label: Text(l.save),
+                        ),
                       ),
                     ),
                   ],
@@ -169,12 +382,35 @@ class _TypeSection extends StatelessWidget {
     required this.config,
     required this.onPrimary,
     required this.onFallback,
+    required this.primaryFocusNode,
+    required this.fallbackFocusNode,
+    required this.dropdownItems,
+    required this.buildTvDropdown,
+    required this.getNextPrimaryFocus,
+    required this.getPrevPrimaryFocus,
+    required this.getNextFallbackFocus,
+    required this.getPrevFallbackFocus,
   });
 
   final PlaybackContentType type;
   final PlayerPerTypeConfig config;
   final ValueChanged<PlayerEngine> onPrimary;
   final ValueChanged<PlayerEngine> onFallback;
+  final FocusNode primaryFocusNode;
+  final FocusNode fallbackFocusNode;
+  final List<DropdownMenuItem<PlayerEngine>> dropdownItems;
+  final Widget Function({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required PlayerEngine value,
+    required ValueChanged<PlayerEngine> onChanged,
+    required List<DropdownMenuItem<PlayerEngine>> items,
+  }) buildTvDropdown;
+  final FocusNode Function(PlaybackContentType) getNextPrimaryFocus;
+  final FocusNode Function(PlaybackContentType) getPrevPrimaryFocus;
+  final FocusNode Function(PlaybackContentType) getNextFallbackFocus;
+  final FocusNode Function(PlaybackContentType) getPrevFallbackFocus;
 
   IconData get _icon => switch (type) {
         PlaybackContentType.live => Icons.live_tv,
@@ -185,6 +421,7 @@ class _TypeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -209,16 +446,26 @@ class _TypeSection extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             _EngineRow(
-              label: 'Moteur Principal',
+              label: l.primaryEngine,
               icon: Icons.play_circle_outline,
               value: config.primary,
               onChanged: onPrimary,
+              focusNode: primaryFocusNode,
+              nextFocusNode: getNextPrimaryFocus(type),
+              prevFocusNode: getPrevPrimaryFocus(type),
+              dropdownItems: dropdownItems,
+              buildTvDropdown: buildTvDropdown,
             ),
             _EngineRow(
-              label: 'Moteur de Secours',
+              label: l.fallbackEngine,
               icon: Icons.sync_alt,
               value: config.fallback,
               onChanged: onFallback,
+              focusNode: fallbackFocusNode,
+              nextFocusNode: getNextFallbackFocus(type),
+              prevFocusNode: getPrevFallbackFocus(type),
+              dropdownItems: dropdownItems,
+              buildTvDropdown: buildTvDropdown,
             ),
           ],
         ),
@@ -233,49 +480,48 @@ class _EngineRow extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.onChanged,
+    required this.focusNode,
+    required this.nextFocusNode,
+    required this.prevFocusNode,
+    required this.dropdownItems,
+    required this.buildTvDropdown,
   });
 
   final String label;
   final IconData icon;
   final PlayerEngine value;
   final ValueChanged<PlayerEngine> onChanged;
+  final FocusNode focusNode;
+  final FocusNode nextFocusNode;
+  final FocusNode prevFocusNode;
+  final List<DropdownMenuItem<PlayerEngine>> dropdownItems;
+  final Widget Function({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required PlayerEngine value,
+    required ValueChanged<PlayerEngine> onChanged,
+    required List<DropdownMenuItem<PlayerEngine>> items,
+  }) buildTvDropdown;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: scheme.tertiary),
+          Icon(icon, size: 18, color: Theme.of(context).colorScheme.tertiary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(label, style: const TextStyle(fontSize: 13)),
           ),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<PlayerEngine>(
-              value: value,
-              isDense: true,
-              borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-              items: [
-                for (final e in PlayerEngine.values)
-                  DropdownMenuItem(
-                    value: e,
-                    child: Text(
-                      e.label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: e.isExternal ? null : scheme.primary,
-                        fontWeight:
-                            e.isExternal ? FontWeight.normal : FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
-            ),
+          buildTvDropdown(
+            focusNode: focusNode,
+            nextFocusNode: nextFocusNode,
+            prevFocusNode: prevFocusNode,
+            value: value,
+            onChanged: onChanged,
+            items: dropdownItems,
           ),
         ],
       ),

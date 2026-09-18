@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Drawer applicatif réutilisable (« chevalet » ☰) : menu de sous-navigation
 /// organisé en sections Continuer / Découvrir / Mes contenus / Configuration.
@@ -14,6 +15,7 @@ class HomeMenuDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final profile = ref.watch(currentProfileProvider);
@@ -26,13 +28,13 @@ class HomeMenuDrawer extends ConsumerWidget {
             label: 'Accueil',
             route: '/home',
           ),
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.live_tv,
-            label: 'Live TV',
+            label: l.liveTv,
             route: '/live',
           ),
           if (!isM3u) ...[
-            const _MenuEntry(icon: Icons.tv, label: 'Séries', route: '/series'),
+            _MenuEntry(icon: Icons.tv, label: l.series, route: '/series'),
             const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
           ],
         ],
@@ -45,14 +47,14 @@ class HomeMenuDrawer extends ConsumerWidget {
             label: 'Recherche',
             route: '/search',
           ),
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.calendar_today,
-            label: 'EPG (grille)',
+            label: l.epgGrille,
             route: '/epg',
           ),
           _MenuEntry(
             icon: Icons.recommend,
-            label: 'Pour vous (matchmaking)',
+            label: l.forYouMatchmaking,
             route: '/matchmaking',
             color: scheme.primary,
           ),
@@ -85,7 +87,7 @@ class HomeMenuDrawer extends ConsumerWidget {
           ),
         ],
       ),
-      const _MenuSection(
+      _MenuSection(
         header: 'Configuration',
         items: [
           _MenuEntry(
@@ -95,7 +97,7 @@ class HomeMenuDrawer extends ConsumerWidget {
           ),
           _MenuEntry(
             icon: Icons.settings,
-            label: 'Réglages',
+            label: l.settings,
             route: '/settings',
           ),
         ],

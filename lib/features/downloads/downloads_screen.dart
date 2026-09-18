@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/download_manager.dart';
 
@@ -34,6 +35,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -44,7 +46,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text('Téléchargements'),
+        title: Text(l.downloads),
         actions: [
           Consumer(
             builder: (context, ref, _) {
@@ -58,7 +60,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     padding: const EdgeInsets.only(right: 16),
                     child: Center(
                       child: Chip(
-                        label: Text('$activeCount en cours'),
+                        label: Text(l.activeCountOngoing(activeCount)),
                         avatar: Icon(Icons.download_for_offline,
                             size: 16, color: scheme.onPrimaryContainer),
                         backgroundColor: scheme.primaryContainer,
@@ -84,9 +86,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
           if (tasks.isEmpty) {
             return EmptyState(
               icon: Icons.download_for_offline_outlined,
-              title: 'Aucun téléchargement',
-              message:
-                  'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
+              title: l.noDownloads,
+              message: 'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
               action: TextButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.explore),
@@ -172,6 +173,7 @@ class DownloadTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -272,12 +274,12 @@ class DownloadTile extends ConsumerWidget {
                     TextButton.icon(
                       onPressed: onRetry,
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Réessayer'),
+                      label: Text(l.retry),
                     ),
                   TextButton.icon(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Supprimer'),
+                    label: Text(l.cancel),
                     style: TextButton.styleFrom(foregroundColor: scheme.error),
                   ),
                 ],
@@ -304,7 +306,7 @@ class _StatusChip extends StatelessWidget {
 
   final DownloadStatus status;
 
-  @override
+@override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -373,14 +375,15 @@ class _ActionButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     if (task.status == DownloadStatus.downloading) {
       return IconButton(
         onPressed: onPause,
         icon: Icon(Icons.pause, color: scheme.primary),
-        tooltip: 'Mettre en pause',
+        tooltip: l.pauseDownload,
       );
-    } else if (task.status == DownloadStatus.paused) {
+} else if (task.status == DownloadStatus.paused) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -392,7 +395,7 @@ class _ActionButtons extends StatelessWidget {
           IconButton(
             onPressed: onCancel,
             icon: Icon(Icons.cancel, color: scheme.error),
-            tooltip: 'Annuler',
+            tooltip: l.cancel,
           ),
         ],
       );
@@ -401,7 +404,7 @@ class _ActionButtons extends StatelessWidget {
       return IconButton(
         onPressed: onCancel,
         icon: Icon(Icons.cancel, color: scheme.error),
-        tooltip: 'Annuler',
+        tooltip: l.cancel,
       );
     }
     return const SizedBox.shrink();

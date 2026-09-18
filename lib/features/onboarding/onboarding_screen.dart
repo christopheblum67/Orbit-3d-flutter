@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -64,12 +65,9 @@ class _OnboardingConfigScreenState
 
   String _profileDescription(DeviceProfile profile) {
     return switch (profile) {
-      DeviceProfile.eco =>
-        'Tampon long (20 s) · max 1080p · 3D désactivée · multi-vue off',
-      DeviceProfile.standard =>
-        'Tampon intermédiaire (10 s) · rendu 3D fluide · multi-vue x2',
-      DeviceProfile.ultra =>
-        'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
+      DeviceProfile.eco => 'Tampon long (20 s) · max 1080p · 3D désactivée · multi-vue off',
+      DeviceProfile.standard => 'Tampon intermédiaire (10 s) · rendu 3D fluide · multi-vue x2',
+      DeviceProfile.ultra => 'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
     };
   }
 
@@ -110,6 +108,7 @@ class _OnboardingConfigScreenState
 
   Widget _buildDeviceCard(HardwareSpecs specs) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -134,7 +133,7 @@ class _OnboardingConfigScreenState
           ),
           _DeviceRow(
             icon: Icons.memory_rounded,
-            label: 'Mémoire',
+            label: l.memory,
             value: specs.memoryLabel,
           ),
           _DeviceRow(
@@ -144,7 +143,7 @@ class _OnboardingConfigScreenState
           ),
           _DeviceRow(
             icon: Icons.straighten_rounded,
-            label: 'SDK Android',
+            label: l.sdkAndroid,
             value: specs.sdkInt > 0 ? 'API ${specs.sdkInt}' : '—',
           ),
         ],
@@ -215,6 +214,7 @@ class _OnboardingConfigScreenState
   }
 
   Widget _buildActions() {
+    final l = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
@@ -245,7 +245,7 @@ class _OnboardingConfigScreenState
                     child: CircularProgressIndicator(strokeWidth: 2.5),
                   )
                 : const Icon(Icons.check_circle_outline),
-            label: const Text('Valider et continuer'),
+            label: Text(l.confirmAndContinue),
           ),
         ),
       ],
@@ -278,7 +278,8 @@ class _OnboardingConfigScreenState
                   }
                   final specs = snapshot.data;
                   if (specs == null) {
-                    return const Center(child: Text('Diagnostic indisponible'));
+                    final l = AppLocalizations.of(context);
+                    return Center(child: Text(l.diagnosticUnavailable));
                   }
                   _specs ??= specs;
                   final recommended = specs.recommendedProfile;
@@ -288,19 +289,19 @@ class _OnboardingConfigScreenState
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildDeviceCard(specs),
-                        const SizedBox(height: 16),
-                        Text(
-                          _adjusting
-                              ? 'Choisissez un profil'
-                              : 'Profil recommandé',
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
+                       crossAxisAlignment: CrossAxisAlignment.stretch,
+                       children: [
+                         _buildDeviceCard(specs),
+                         const SizedBox(height: 16),
+                         Text(
+                           _adjusting
+                               ? 'Choisissez un profil'
+                               : 'Profil recommandé',
+                           style:
+                               Theme.of(context).textTheme.titleMedium?.copyWith(
+                                     fontWeight: FontWeight.w800,
+                                   ),
+                         ),
                         const SizedBox(height: 10),
                         _buildProfileCard(recommended, highlight: true),
                         if (_adjusting) ...[

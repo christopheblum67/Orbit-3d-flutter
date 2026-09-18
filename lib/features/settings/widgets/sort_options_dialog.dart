@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Définition d'une option de tri avec son libellé et son icône
 class SortOptionData {
@@ -50,53 +51,57 @@ class SortOptionsDialogTV extends StatefulWidget {
 
 class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
   // Liste des options de tri avec métadonnées visuelles
-  final List<SortOptionData> _options = [
-    const SortOptionData(
+  List<SortOptionData> _getOptions(AppLocalizations l) {
+    return [
+    SortOptionData(
       mode: SortMode.recentlyAdded,
-      label: 'Derniers Ajouts M3U/Xtream',
+      label: l.sortLatestM3UXtream,
       description: 'Contenus importés récemment dans la liste',
       icon: Icons.access_time,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.resumeFirst,
-      label: 'À reprendre en priorité',
+      label: l.sortResumePriority,
       description: 'Place les contenus commencés non terminés en haut',
       icon: Icons.play_circle_outline,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.ratingDesc,
-      label: 'Les Mieux Notés (XCIPTV)',
+      label: l.sortBestRated,
       description: 'Classement selon les notes attribuées',
       icon: Icons.star,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.yearDesc,
-      label: 'Année de Sortie (Récent -> Ancien)',
+      label: l.sortYearRecentToOld,
       description: 'Tri chronologique par année de production',
       icon: Icons.calendar_today,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.nameAsc,
-      label: 'Nom (A -> Z)',
+      label: l.sortNameAToZ,
       description: 'Ordre alphabétique croissant',
       icon: Icons.sort,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.nameDesc,
-      label: 'Nom (Z -> A)',
+      label: l.sortNameZToA,
       description: 'Ordre alphabétique décroissant',
       icon: Icons.sort_by_alpha,
     ),
-    const SortOptionData(
+    SortOptionData(
       mode: SortMode.durationShort,
       label: 'Durée : Plus courts d\'abord',
       description: 'Idéal pour visionner un contenu rapide',
       icon: Icons.timer,
     ),
   ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final options = _getOptions(l);
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
@@ -149,9 +154,9 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
             Flexible(
               child: ListView.builder(
                 shrinkWrap: true,
-                itemCount: _options.length,
+                itemCount: options.length,
                 itemBuilder: (context, index) {
-                  final option = _options[index];
+                  final option = options[index];
                   final isActive = option.mode == widget.currentMode;
 
                   return SortOptionTileTV(

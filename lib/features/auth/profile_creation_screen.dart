@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ProfileCreationScreen extends ConsumerStatefulWidget {
   const ProfileCreationScreen({super.key});
@@ -26,8 +27,18 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Créer un profil')),
+      appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.createProfile),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -35,7 +46,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
           children: [
             TextFormField(
               controller: _firstNameController,
-              decoration: const InputDecoration(labelText: 'Prénom'),
+              decoration: InputDecoration(labelText: l.firstName),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Obligatoire' : null,
             ),
@@ -74,7 +85,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
               validator: (v) => v == null ? 'Obligatoire' : null,
             ),
             const SizedBox(height: 20),
-            const Text('Genres favoris'),
+            Text(l.favoriteGenres),
             Wrap(
               spacing: 8,
               children: ['Action', 'Comédie', 'Drame', 'Sci-Fi', 'Horreur']
@@ -168,8 +179,8 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Erreur lors de la sauvegarde'),
+                              SnackBar(
+                                content: Text(l.errorSaving),
                               ),
                             );
                           }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sous-fenêtre « Détails du flux » ouverte depuis la footerbar (icône ⚙️).
 ///
@@ -110,6 +111,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: ConstrainedBox(
@@ -126,9 +128,9 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                 children: [
                   Icon(Icons.info_outline_rounded, color: scheme.primary),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Détails du flux',
+                      l.streamDetails,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -168,7 +170,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                               const SizedBox(height: 12),
                               OutlinedButton(
                                 onPressed: _load,
-                                child: const Text('Réessayer'),
+                                child: Text(l.retry),
                               ),
                             ],
                           ),
@@ -178,7 +180,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                           children: [
                             _sectionTitle('Audio'),
                             if (_audioTracks.isEmpty)
-                              const _EmptyRow(label: 'Aucune piste audio détectée')
+                              _EmptyRow(label: l.noAudioTrackDetected)
                             else
                               for (final track in _audioTracks)
                                 _TrackTile(
@@ -191,12 +193,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                             _sectionTitle('Vidéo'),
                             _TrackTile(
                               title: 'Automatique',
-                              subtitle: 'Laisse le lecteur choisir la meilleure qualité',
+                              subtitle: l.autoQualityDescription,
                               selected: _selectedVideoId == 'auto',
                               onTap: () => _selectVideo(null),
                             ),
                             if (_videoTracks.isEmpty)
-                              const _EmptyRow(label: 'Aucune qualité vidéo détectée')
+                              _EmptyRow(label: l.noVideoQualityDetected)
                             else
                               for (final track in _videoTracks)
                                 _TrackTile(
@@ -207,8 +209,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 ),
                             const SizedBox(height: 12),
                             _sectionTitle('Sous-titres'),
-                            const _EmptyRow(
-                              label: 'Sous-titres : non disponibles',
+                            _EmptyRow(
+                              label: l.subtitlesUnavailable,
                               info:
                                   'Le lecteur embarqué ne gère pas les sous-titres '
                                   'sur ce flux.',

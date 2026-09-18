@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
 /// et « Reprendre » (si une progression de lecture existe pour l'épisode).
@@ -74,13 +75,21 @@ class EpisodeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final progress = ref.watch(playbackProgressProvider(_progressId));
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Épisode'),
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.episode),
         actions: [
           FavoriteToggle(entry: _favoriteEntry),
           DownloadButton(
@@ -162,7 +171,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                   child: FilledButton.icon(
                     onPressed: () => _openPlayer(context, ref),
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Démarrer'),
+                    label: Text(l.start),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),

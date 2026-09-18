@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -45,8 +46,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
-    final items = _OrbitItem.buildAll(isM3u: isM3u);
+    final items = _OrbitItem.buildAll(isM3u: isM3u, l: l);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
       body: SafeArea(
@@ -62,6 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTopBar(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final today = DateTime.now();
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
@@ -94,7 +97,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(width: 10),
               _UpdateStack(
-                tooltip: 'Mettre à jour toutes les données',
+                tooltip: l.updateAllData,
                 onPressed: _refreshAll,
                 lastRefresh: lastRefresh,
               ),
@@ -143,6 +146,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refreshAll() async {
+    final l = AppLocalizations.of(context);
     final last = ref.read(lastRefreshTimestampProvider);
     // Garde-fou : si la dernière mise à jour date de moins de 30 min
     // (TTL EPG), on évite de re-télécharger inutilement.
@@ -151,8 +155,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Données déjà fraîches (moins de 30 min)'),
+          SnackBar(
+            content: Text(l.dataAlreadyFresh),
             duration: Duration(seconds: 2),
           ),
         );
@@ -163,8 +167,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Mise à jour en cours…'),
+        SnackBar(
+          content: Text(l.updating),
           duration: Duration(seconds: 30),
         ),
       );
@@ -284,6 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCard(_OrbitItem item, bool focused) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: GestureDetector(
         onTap: () => _openItem(context, item),
@@ -410,7 +415,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   bottom: 0,
                   right: 0,
                   child: _UpdateButton(
-                    tooltip: 'Mettre à jour cette catégorie',
+                    tooltip: l.updateThisCategory,
                     icon: Icons.update_rounded,
                     color: item.color,
                     onPressed: () => _refreshOne(item.refreshCategory!),
@@ -424,6 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _openItem(BuildContext context, _OrbitItem item) {
+    final l = AppLocalizations.of(context);
     if (item.route != null) {
       context.go(item.route!);
       return;
@@ -431,8 +437,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Bientôt disponible'),
+        SnackBar(
+          content: Text(l.comingSoon),
           duration: Duration(milliseconds: 1600),
         ),
       );
@@ -732,73 +738,73 @@ class _OrbitItem {
 
   bool get hasRoute => route != null;
 
-  static List<_OrbitItem> buildAll({required bool isM3u}) {
+  static List<_OrbitItem> buildAll({required bool isM3u, required AppLocalizations l}) {
     return [
-      const _OrbitItem(
-        title: 'Chaînes TV',
+      _OrbitItem(
+        title: l.tvChannels,
         icon: Icons.tv_rounded,
         color: Color(0xFF00CFE8),
-        subtitle: 'Chaînes en direct & Zapping',
+        subtitle: l.liveChannelsAndZapping,
         route: '/live',
         refreshCategory: _RefreshCategory.live,
       ),
       if (!isM3u) ...[
-        const _OrbitItem(
+        _OrbitItem(
           title: 'Films',
           icon: Icons.movie_outlined,
           color: Color(0xFF8A72FF),
-          subtitle: 'Nouveautés & 4K',
+          subtitle: l.newAnd4K,
           route: '/vod',
           refreshCategory: _RefreshCategory.vod,
         ),
-        const _OrbitItem(
-          title: 'Séries',
+        _OrbitItem(
+          title: l.series,
           icon: Icons.video_library_rounded,
           color: Color(0xFFB388FF),
-          subtitle: 'Saisons & Épisodes',
+          subtitle: l.seasonsAndEpisodes,
           route: '/series',
           refreshCategory: _RefreshCategory.series,
         ),
       ],
-      const _OrbitItem(
+      _OrbitItem(
         title: 'EPG',
         icon: Icons.calendar_month_rounded,
         color: Color(0xFF00CFE8),
-        subtitle: 'Grille des programmes',
+        subtitle: l.programGrid,
         route: '/epg',
         refreshCategory: _RefreshCategory.epg,
       ),
-      const _OrbitItem(
+      _OrbitItem(
         title: 'Favoris',
         icon: Icons.favorite_rounded,
         color: Color(0xFFFF6FA8),
-        subtitle: 'Vos chaînes & contenus',
+        subtitle: l.yourChannelsAndContent,
         route: '/favorites',
       ),
-      const _OrbitItem(
+      _OrbitItem(
         title: 'Enfants',
         icon: Icons.child_care_rounded,
         color: Color(0xFF4CAF50),
-        subtitle: 'Contenus adaptés aux enfants',
+        subtitle: l.kidsContent,
         route: '/kids',
       ),
-      const _OrbitItem(
+      _OrbitItem(
         title: 'Matchmaking',
         icon: Icons.auto_awesome,
         color: Color(0xFFFF3D3D),
-        subtitle: 'Pour vous & En duo',
+        subtitle: l.forYouAndDuo,
         route: '/matchmaking',
       ),
-      const _OrbitItem(
+      _OrbitItem(
         title: 'Replay',
         icon: Icons.replay_rounded,
         color: Color(0xFFFFB300),
-        subtitle: 'Rattrapage des chaînes',
+        subtitle: l.catchUpTv,
         route: '/replay',
         refreshCategory: _RefreshCategory.replay,
       ),
-      const _OrbitItem(
-        title: 'Multi-écrans',
+      _OrbitItem(
+        title: l.multiScreen,
         icon: Icons.grid_view_rounded,
         color: Color(0xFF26A69A),
         subtitle: 'Jusqu\'à 4 flux à la fois',

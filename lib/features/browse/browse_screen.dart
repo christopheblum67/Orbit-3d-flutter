@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Nombre maximal d'éléments affichés par grille (Films / Séries).
 const int kBrowseGridCap = 50;
@@ -64,6 +65,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: const Text('Contenus'),
         actions: [
           if (_tab != _BrowseTab.flixpatrol)
@@ -97,14 +105,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   // ==================== FILMS ====================
 
   Widget _buildMovieView() {
+    final l = AppLocalizations.of(context);
     final moviesAsync = ref.watch(moviesProvider);
     final categoriesAsync = ref.watch(vodCategoriesProvider);
     return moviesAsync.when(
       data: (movies) {
         if (movies.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.movie_outlined,
-            title: 'Aucun film disponible',
+            title: l.noMoviesAvailable,
             message: 'La bibliothèque VOD est vide pour le moment.',
           );
         }
@@ -122,7 +131,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       loading: () => const LoadingState(message: 'Chargement…'),
       error: (err, _) => ErrorState(
         icon: Icons.movie_outlined,
-        title: 'Films indisponibles',
+        title: l.moviesUnavailable,
         message: userFriendlyError(err),
         onRetry: () => ref.invalidate(moviesProvider),
       ),
@@ -163,21 +172,22 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   // ==================== SÉRIES ====================
 
   Widget _buildSeriesView() {
+    final l = AppLocalizations.of(context);
     final seriesAsync = ref.watch(seriesProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     return seriesAsync.when(
       data: (seriesList) {
         if (seriesList.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.tv,
-            title: 'Aucune série disponible',
+            title: l.noSeriesAvailable,
             message: 'La bibliothèque de séries est vide pour le moment.',
           );
         }
         final filtered = _filterSeries(seriesList);
         return _buildContent(
           icon: Icons.tv,
-          title: 'Séries',
+          title: l.series,
           categories:
               categoriesAsync.value ?? _categoriesFromSeries(seriesList),
           items: filtered,
@@ -188,7 +198,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       loading: () => const LoadingState(message: 'Chargement…'),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
-        title: 'Séries indisponibles',
+        title: l.seriesUnavailable,
         message: userFriendlyError(err),
         onRetry: () => ref.invalidate(seriesProvider),
       ),
@@ -397,6 +407,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   Widget _buildCard(dynamic item, bool isSeries) {
+    final l = AppLocalizations.of(context);
     final type = isSeries ? ContentType.series : ContentType.vod;
 
     void onOpen() {
@@ -440,7 +451,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text('« $title » ajouté aux favoris'),
+            content: Text(l.addedToFavorites(title)),
             duration: const Duration(milliseconds: 1500),
           ),
         );
@@ -587,20 +598,20 @@ class _BrowseTabBar extends StatelessWidget {
   final ValueChanged<_BrowseTab> onSelected;
   final ColorScheme colors;
 
-  static const _tabs = [
-    (id: _BrowseTab.films, label: 'Films', icon: Icons.movie_outlined),
-    (id: _BrowseTab.series, label: 'Séries', icon: Icons.tv),
-    (id: _BrowseTab.flixpatrol, label: 'FlixPatrol', icon: Icons.leaderboard),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final tabs = [
+      (id: _BrowseTab.films, label: 'Films', icon: Icons.movie_outlined),
+      (id: _BrowseTab.series, label: l.series, icon: Icons.tv),
+      (id: _BrowseTab.flixpatrol, label: 'FlixPatrol', icon: Icons.leaderboard),
+    ];
     return Container(
       color: colors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          for (final tab in _tabs) ...[
+          for (final tab in tabs) ...[
             Expanded(
               child: TvFocus(
                 onActivate: () => onSelected(tab.id),
@@ -612,7 +623,7 @@ class _BrowseTabBar extends StatelessWidget {
                 ),
               ),
             ),
-            if (tab.id != _tabs.last.id) const SizedBox(width: 8),
+            if (tab.id != tabs.last.id) const SizedBox(width: 8),
           ],
         ],
       ),
@@ -789,6 +800,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -817,7 +829,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
               ),
               Expanded(
                 child: _buildRankList(
-                  title: 'Séries',
+                  title: l.series,
                   isTv: true,
                   sources: _tvSources,
                   selected: _tvMode,
@@ -839,6 +851,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
     required _RankSource selected,
     required ValueChanged<_RankSource> onSelected,
   }) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final available = sources.where((s) => s.isAvailableFor(isTv)).toList();
     final provider = _providerFor(isTv, selected);
@@ -896,9 +909,9 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
         Expanded(
           child: async.when(
             data: (entries) => entries.isEmpty
-                ? const EmptyState(
+                ? EmptyState(
                     icon: Icons.leaderboard_outlined,
-                    title: 'Aucun classement',
+                    title: l.noRankings,
                     message:
                         'Les tendances TMDB ne sont pas disponibles. '
                         'Ajoutez une clé API TMDB dans Réglages '
@@ -925,7 +938,7 @@ class FlixPatrolViewState extends ConsumerState<FlixPatrolView> {
             loading: () => const LoadingState(message: 'Chargement…'),
             error: (err, _) => ErrorState(
               icon: isTv ? Icons.tv : Icons.movie_outlined,
-              title: 'Classement indisponible',
+              title: l.rankingsUnavailable,
               message: userFriendlyError(err),
               onRetry: () => ref.invalidate(provider),
             ),

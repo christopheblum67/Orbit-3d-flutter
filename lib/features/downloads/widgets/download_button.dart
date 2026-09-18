@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -35,6 +36,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
   Future<void> _handleDownload() async {
     if (mounted && _busy) return;
     setState(() => _busy = true);
+    final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
       final manager = ref.read(downloadManagerProvider);
@@ -54,7 +56,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Téléchargement impossible : $e')),
+        SnackBar(content: Text(l.downloadFailed(e.toString()))),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

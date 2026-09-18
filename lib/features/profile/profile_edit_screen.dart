@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 3 — Création / Édition de profil :
 /// - nom (formatté), type Adulte/Enfant/Expert,
@@ -87,29 +88,79 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<bool> _confirmDiscard() async {
+    final l = AppLocalizations.of(context);
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        title: const Text('Quitter sans sauvegarder ?'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.exitWithoutSaving),
         content: const Text(
           'Des modifications non sauvegardées seront perdues. Quitter quand même ?',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          Focus(
+            focusNode: cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(false);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(confirmFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
             ),
-            child: const Text('Quitter'),
+          ),
+          Focus(
+            focusNode: confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(true);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              child: const Text('Quitter'),
+            ),
           ),
         ],
       ),
     );
+    cancelFocus.dispose();
+    confirmFocus.dispose();
     return result ?? false;
   }
 
@@ -128,6 +179,16 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     (label: '35 - 44 ans', min: 35, max: 44),
     (label: '45 - 54 ans', min: 45, max: 54),
     (label: '55 ans et plus', min: 55, max: 100),
+  ];
+
+  static List<({String label, int min, int max})> _ageRangesLocalized(AppLocalizations l) => [
+    (label: l.ageRangeUnder12, min: 0, max: 12),
+    (label: l.ageRange13to17, min: 13, max: 17),
+    (label: l.ageRange18to24, min: 18, max: 24),
+    (label: l.ageRange25to34, min: 25, max: 34),
+    (label: l.ageRange35to44, min: 35, max: 44),
+    (label: l.ageRange45to54, min: 45, max: 54),
+    (label: l.ageRange55plus, min: 55, max: 100),
   ];
 
   static const _genderOptions = ['Homme', 'Femme', 'Autre'];
@@ -264,6 +325,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _save() async {
+    final l = AppLocalizations.of(context);
     if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
       setState(() => _submitted = true);
       return;
@@ -309,7 +371,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Nombre maximal de profils atteint ($maxAllowed)'),
+              content: Text(l.maxProfilesReached(maxAllowed)),
             ),
           );
         }
@@ -334,7 +396,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la sauvegarde')),
+          SnackBar(content: Text(l.errorSaving)),
         );
       }
       setState(() => _saving = false);
@@ -343,6 +405,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final showPin = _type == ProfileType.child || _type == ProfileType.expert;
 
@@ -372,7 +435,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     return _scaffold(
       ref.watch(profilesProvider).when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Erreur: $err')),
+            error: (err, _) => Center(child: Text(l.errorGeneric(err))),
             data: (profiles) {
               UserProfile? target;
               for (final p in profiles) {
@@ -393,7 +456,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: () => context.go('/profiles'),
-                        child: const Text('Choisir un profil'),
+                        child: Text(l.chooseProfile),
                       ),
                     ],
                   ),
@@ -517,6 +580,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildIdentityCard() {
+    final l = AppLocalizations.of(context);
     return AppCard(
       child: Column(
         children: [
@@ -532,7 +596,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
             ],
             decoration: InputDecoration(
-              labelText: 'Nom / Pseudo',
+              labelText: l.nameOrNickname,
               prefixIcon: const Icon(Icons.badge_outlined),
               border: const OutlineInputBorder(),
               errorText: _submitted && _nameController.text.trim().isEmpty
@@ -549,8 +613,10 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildPersonalCard() {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ageRangesLocalized = _ageRangesLocalized(l);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,9 +636,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (var i = 0; i < _ageRanges.length; i++)
+              for (var i = 0; i < ageRangesLocalized.length; i++)
                 _ProfileChoiceChip(
-                  label: _ageRanges[i].label,
+                  label: ageRangesLocalized[i].label,
                   selected: _ageRangeIndex == i,
                   onTap: () => setState(() {
                     _dateOfBirth = _dateForRange(i);
@@ -690,12 +756,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildPinSection() {
+    final l = AppLocalizations.of(context);
     return AppCard(
       child: Column(
         children: [
           SettingsSwitchTile(
             icon: Icons.pin_outlined,
-            title: 'Protéger par code PIN',
+            title: l.protectWithPin,
             subtitle: _pinHash != null
                 ? 'Un code PIN de 4 chiffres est défini'
                 : 'Demander un code PIN à la sélection du profil',
@@ -705,8 +772,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           if (_pinHash != null)
             SettingsActionTile(
               icon: Icons.pin,
-              title: 'Changer le code PIN',
-              subtitle: 'Saisir un nouveau code à 4 chiffres',
+              title: l.changePinCode,
+              subtitle: l.enterNew4DigitPin,
               onTap: _openPinPad,
             ),
         ],

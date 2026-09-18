@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 2 — Sélecteur de profil :
 /// grille de cartes navigable au d-pad (Focus system), avatar généré
@@ -64,9 +65,10 @@ class _ProfileSelectionScreenState
 
   void _openCreate(int current, int max) {
     if (current >= max) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Nombre maximal de profils atteint ($max)'),
+          content: Text(l.maxProfilesReached(max)),
         ),
       );
       return;
@@ -79,6 +81,7 @@ class _ProfileSelectionScreenState
   }
 
   void _openDelete(UserProfile profile) {
+    final l = AppLocalizations.of(context);
     final profiles = ref.read(profilesProvider).value ?? const [];
     if (profiles.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,7 +94,7 @@ class _ProfileSelectionScreenState
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Supprimer le profil ?'),
+        title: Text(l.deleteProfileConfirm),
         content: Text(
           '« ${profile.firstName} » et ses préférences seront supprimés '
           'définitivement. Cette action est irréversible.',
@@ -225,15 +228,16 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildEmptyState() {
+    final l = AppLocalizations.of(context);
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const EmptyState(
+            EmptyState(
               icon: Icons.manage_accounts_rounded,
-              title: 'Aucun profil pour le moment',
+              title: l.noProfilesYet,
               message: 'Créez votre premier profil pour commencer à regarder.',
             ),
             const SizedBox(height: 16),
@@ -268,22 +272,36 @@ class _ProfileSelectionScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
     return WithBackHandling(
       meta: const RouteMeta.popOrFallback('/home'),
       child: Scaffold(
         key: _scaffoldKey,
         endDrawer: const HomeMenuDrawer(),
+        appBar: AppBar(
+          leading: GoRouter.of(context).canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => GoRouter.of(context).pop(),
+                )
+              : null,
+          title: Text(l.whoIsWatching),
+          actions: [
+            _ProfileSwitchButton(profile: ref.watch(currentProfileProvider)),
+          ],
+        ),
         body: SafeArea(
           child: profilesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => EmptyState(
               icon: Icons.cloud_off_rounded,
-              title: 'Impossible de charger les profils',
+              title: l.failedToLoadProfiles,
               message: '$error',
               action: FilledButton.icon(
                 icon: const Icon(Icons.refresh),
-                label: const Text('Réessayer'),
+                label: Text(l.retry),
                 onPressed: () => ref.invalidate(profilesProvider),
               ),
             ),
@@ -632,6 +650,7 @@ class _AddProfileCardState extends State<_AddProfileCard>
   }
 
   Widget _buildCardContent() {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final borderColor =
         _focused ? scheme.primary : scheme.primary.withValues(alpha: 0.45);
@@ -691,7 +710,7 @@ class _AddProfileCardState extends State<_AddProfileCard>
             ),
             const SizedBox(height: 4),
             Text(
-              'Créer un nouveau profil',
+              l.createNewProfile,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -707,9 +726,10 @@ class _AddProfileCardState extends State<_AddProfileCard>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Semantics(
       button: true,
-      label: 'Créer un nouveau profil',
+      label: l.createNewProfile,
       onTap: widget.onTap,
       child: Focus(
         autofocus: widget.autofocus,
@@ -901,5 +921,46 @@ class _DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
     return oldDelegate.color != color || oldDelegate.radius != radius;
+  }
+}
+
+class _ProfileSwitchButton extends StatelessWidget {
+  const _ProfileSwitchButton({required this.profile});
+
+  final UserProfile? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final Widget avatar;
+    if (profile == null) {
+      avatar = Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: scheme.surfaceContainerHighest,
+          border: Border.all(color: scheme.outlineVariant),
+        ),
+        child: Icon(
+          Icons.person_outline,
+          size: 20,
+          color: scheme.onSurfaceVariant,
+        ),
+      );
+    } else {
+      avatar = ProfileAvatar(profile: profile!, size: 34);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, right: 10),
+      child: Tooltip(
+        message: profile == null ? 'Choisir un profil' : 'Changer de profil',
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => context.go('/profiles'),
+          child: avatar,
+        ),
+      ),
+    );
   }
 }

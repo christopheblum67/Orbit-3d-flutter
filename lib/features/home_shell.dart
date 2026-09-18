@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key, required this.child});
@@ -14,21 +15,29 @@ class HomeShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final profile = ref.watch(currentProfileProvider);
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
 
-    final entries = _navEntries(isM3u);
-    final railEntries = _railEntries(isM3u);
+    final entries = _navEntries(isM3u, l);
+    final railEntries = _railEntries(isM3u, l);
     final selectedIndex = _indexFor(location, entries);
     final railIndex = _indexFor(location, railEntries);
 
     return Scaffold(
       drawer: isWide ? null : const HomeMenuDrawer(),
       appBar: AppBar(
-        title: Text(_titleForPath(location)),
+        leading: isWide
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                tooltip: 'Menu',
+              ),
+        title: Text(_titleForPath(context, location)),
         actions: [
           _ProfileSwitchButton(profile: profile),
         ],
@@ -138,15 +147,15 @@ class HomeShell extends ConsumerWidget {
   /// Entrées de la barre inférieure (navigation mobile).
   /// Ordre non-M3U : Accueil, Chaînes TV, Films, Séries, Matchmaking, Réglages.
   /// En mode M3U (pas de VOD/Séries dédiées) : Contenus à la place.
-  static List<_NavEntry> _navEntries(bool isM3u) => [
+  static List<_NavEntry> _navEntries(bool isM3u, AppLocalizations l) => [
         const _NavEntry(
           icon: Icons.home_rounded,
           label: 'Accueil',
           route: '/home',
         ),
-        const _NavEntry(
+        _NavEntry(
           icon: Icons.live_tv,
-          label: 'Chaînes TV',
+          label: l.tvChannels,
           route: '/live',
         ),
         if (!isM3u) ...[
@@ -155,9 +164,9 @@ class HomeShell extends ConsumerWidget {
             label: 'Films',
             route: '/vod',
           ),
-          const _NavEntry(
+          _NavEntry(
             icon: Icons.tv,
-            label: 'Séries',
+            label: l.series,
             route: '/series',
           ),
         ],
@@ -173,17 +182,17 @@ class HomeShell extends ConsumerWidget {
             label: 'Match-\nmaking',
             route: '/matchmaking',
           ),
-        const _NavEntry(
+        _NavEntry(
           icon: Icons.settings,
-          label: 'Réglages',
+          label: l.settings,
           route: '/settings',
         ),
       ];
 
   /// Entrées du rail (navigation large) : même base que la barre inférieure,
   /// avec l'accès EPG inséré après « Chaînes TV ».
-  static List<_NavEntry> _railEntries(bool isM3u) {
-    final base = _navEntries(isM3u);
+  static List<_NavEntry> _railEntries(bool isM3u, AppLocalizations l) {
+    final base = _navEntries(isM3u, l);
     return [
       ...base.take(2),
       const _NavEntry(
@@ -204,9 +213,10 @@ class HomeShell extends ConsumerWidget {
     return 0;
   }
 
-  String _titleForPath(String path) {
-    if (path.startsWith('/live')) return 'Chaînes TV';
-    if (path.startsWith('/series')) return 'Séries';
+  String _titleForPath(BuildContext context, String path) {
+    final l = AppLocalizations.of(context);
+    if (path.startsWith('/live')) return l.tvChannels;
+    if (path.startsWith('/series')) return l.series;
     if (path.startsWith('/vod')) return 'Films';
     if (path.startsWith('/matchmaking')) return 'Pour vous';
     if (path.startsWith('/browse')) return 'Contenus';
@@ -214,7 +224,7 @@ class HomeShell extends ConsumerWidget {
     if (path.startsWith('/epg')) return 'EPG';
     if (path.startsWith('/search')) return 'Recherche';
     if (path.startsWith('/subscriptions')) return 'Abonnements';
-    if (path.startsWith('/settings')) return 'Réglages';
+    if (path.startsWith('/settings')) return l.settings;
     return AppConstants.appName;
   }
 }

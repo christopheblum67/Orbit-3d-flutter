@@ -35,6 +35,7 @@ import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_controls_sheet.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class PlayerRouteData {
   const PlayerRouteData({
@@ -1104,10 +1105,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     final entered = await _pipService.enter(width: width, height: height);
     if (!entered && mounted) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vue flottante (PiP) non disponible sur cet appareil'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(l.pipUnavailable),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -1557,6 +1559,7 @@ class _LiveFooterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final currentChannel = channel;
     final epgAsync = currentChannel != null
         ? ref.watch(channelEpgProvider(currentChannel.epgChannelId))
@@ -1649,20 +1652,20 @@ class _LiveFooterBar extends ConsumerWidget {
               _fbIcon(
                 Icons.skip_previous_rounded,
                 onPrevious,
-                tooltip: 'Chaîne précédente',
+                tooltip: l.previousChannel,
               ),
             if (showSeek) ...[
               _fbIcon(
                 Icons.replay_30,
                 onSeekBack30,
-                tooltip: 'Reculer 30s',
+                tooltip: l.rewind30s,
                 color: Colors.white,
               ),
               const SizedBox(width: 4),
               _fbIcon(
                 Icons.replay_10,
                 onSeekBack10,
-                tooltip: 'Reculer 10s',
+                tooltip: l.rewind10s,
                 color: Colors.white,
               ),
             ],
@@ -1671,14 +1674,14 @@ class _LiveFooterBar extends ConsumerWidget {
               _fbIcon(
                 Icons.forward_10,
                 onSeekForward10,
-                tooltip: 'Avancer 10s',
+                tooltip: l.forward10s,
                 color: Colors.white,
               ),
               const SizedBox(width: 4),
               _fbIcon(
                 Icons.forward_30,
                 onSeekForward30,
-                tooltip: 'Avancer 30s',
+                tooltip: l.forward30s,
                 color: Colors.white,
               ),
             ],
@@ -1686,14 +1689,14 @@ class _LiveFooterBar extends ConsumerWidget {
               _fbIcon(
                 Icons.skip_next_rounded,
                 onNext,
-                tooltip: 'Chaîne suivante',
+                tooltip: l.nextChannel,
               ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
             _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
               _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
-                  tooltip: 'Vue flottante (PiP)'),
+                  tooltip: l.pip),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -1757,6 +1760,7 @@ class _VodFooterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final showRating = rating != null && rating! > 0;
     return Column(
@@ -1826,28 +1830,28 @@ class _VodFooterBar extends ConsumerWidget {
             _fbIcon(
               Icons.replay_30,
               onSeekBack30,
-              tooltip: 'Reculer 30s',
+              tooltip: l.rewind30s,
               color: Colors.white,
             ),
             const SizedBox(width: 4),
             _fbIcon(
               Icons.replay_10,
               onSeekBack10,
-              tooltip: 'Reculer 10s',
+              tooltip: l.rewind10s,
               color: Colors.white,
             ),
             _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
             _fbIcon(
               Icons.forward_10,
               onSeekForward10,
-              tooltip: 'Avancer 10s',
+              tooltip: l.forward10s,
               color: Colors.white,
             ),
             const SizedBox(width: 4),
             _fbIcon(
               Icons.forward_30,
               onSeekForward30,
-              tooltip: 'Avancer 30s',
+              tooltip: l.forward30s,
               color: Colors.white,
             ),
             const SizedBox(width: 8),
@@ -1855,7 +1859,7 @@ class _VodFooterBar extends ConsumerWidget {
             _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
               _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
-                  tooltip: 'Vue flottante (PiP)'),
+                  tooltip: l.pip),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -1885,8 +1889,9 @@ class _FooterStreamDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return IconButton(
-      tooltip: 'Détails du flux',
+      tooltip: l.streamDetails,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 38, minHeight: 38),

@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -295,13 +296,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             return const SizedBox.shrink();
           }
           final history = snapshot.data!.take(5).toList();
+          final l = AppLocalizations.of(context);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Récents',
-                    style: TextStyle(fontWeight: FontWeight.w600),),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(l.recentSearches,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
               ...history.map((h) => _buildSuggestionTile(
                   SearchSuggestion(text: h, isHistory: true),),),
@@ -387,23 +389,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 const SizedBox(height: 24),
                 if (hasHistory) ...[
-                  Row(
-                    children: [
-                      Text('Récents',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () async {
-                          await ref.read(searchServiceProvider).clearHistory();
-                          setState(() {});
-                        },
-                        child: const Text('Effacer'),
-                      ),
-                    ],
-                  ),
+                  (() {
+                    final l = AppLocalizations.of(context);
+                    return Row(
+                      children: [
+                        Text(l.recentSearches,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () async {
+                            await ref.read(searchServiceProvider).clearHistory();
+                            setState(() {});
+                          },
+                          child: const Text('Effacer'),
+                        ),
+                      ],
+                    );
+                  }()),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -456,7 +461,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               if (result.isOffline) _buildOfflineBanner(),
-              _buildResultsHeader(result, filterType),
+              _buildResultsHeader(context, result, filterType),
               ..._buildGroupedResults(result, query),
             ],
           ),
@@ -494,7 +499,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsHeader(UnifiedSearchResult result, SearchType? filterType) {
+  Widget _buildResultsHeader(BuildContext context, UnifiedSearchResult result, SearchType? filterType) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -513,9 +519,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               visualDensity: VisualDensity.compact,
             ),
           if (result.isOffline)
-            const Chip(
-              label: Text('Hors ligne'),
-              avatar: Icon(Icons.wifi_off, size: 14),
+            Chip(
+              label: Text(l.offline),
+              avatar: const Icon(Icons.wifi_off, size: 14),
               visualDensity: VisualDensity.compact,
             ),
         ],
@@ -765,15 +771,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildErrorState(String error) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.error_outline,
-              size: 64, color: Theme.of(context).colorScheme.error,),
+              size: 64, color: Theme.of(context).colorScheme.error),
           const SizedBox(height: 16),
-          Text('Erreur de recherche',
-              style: Theme.of(context).textTheme.titleMedium,),
+          Text(l.searchError, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
             error,
@@ -786,7 +792,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           FilledButton(
             onPressed: () =>
                 ref.invalidate(searchProvider(_searchController.text.trim())),
-            child: const Text('Réessayer'),
+            child: Text(l.retry),
           ),
         ],
       ),

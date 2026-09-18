@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Clé de réglage : mentions légales acceptées au premier lancement.
 const kLegalNoticeDoneKey = 'legal_notice_seen';
@@ -41,10 +42,11 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lisez-moi · Mentions légales'),
+        title: Text(l.legalNotice),
         leading: widget.firstLaunch
             ? null
             : BackButton(onPressed: () => context.pop()),
@@ -61,8 +63,8 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                   children: [
                     _buildIntroCard(scheme),
                     const SizedBox(height: 14),
-                    const _LegalSection(
-                      title: 'Nature du service',
+                    _LegalSection(
+                      title: l.serviceNature,
                       icon: Icons.play_circle_outline,
                       paragraphs: [
                         'Orbit IPTV est un lecteur IPTV : il affiche des flux '
@@ -76,8 +78,8 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const _LegalSection(
-                      title: 'Ayants droit',
+                    _LegalSection(
+                      title: l.rightsHolders,
                       icon: Icons.copyright_outlined,
                       paragraphs: [
                         'Le fournisseur d\'abonnement IPTV est seul responsable '
@@ -105,8 +107,8 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const _LegalSection(
-                      title: 'Données & confidentialité',
+                    _LegalSection(
+                      title: l.dataAndPrivacy,
                       icon: Icons.privacy_tip_outlined,
                       paragraphs: [
                         'Profil, favoris, historique et réglages sont stockés '

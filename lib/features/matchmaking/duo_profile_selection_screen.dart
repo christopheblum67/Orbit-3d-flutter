@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Écran de sélection de profils pour le mode Duo (2-4 profils) :
 /// le profil courant est toujours inclus ; on ajoute 1 à 3 autres profils.
@@ -28,6 +29,7 @@ class _DuoProfileSelectionScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
     final currentProfile = ref.watch(currentProfileProvider);
     _currentProfile = currentProfile;
@@ -43,7 +45,7 @@ class _DuoProfileSelectionScreenState
             return _buildBody(context, profiles, currentProfile);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Erreur: $e')),
+          error: (e, _) => Center(child: Text(l.errorGeneric(e))),
         ),
       ),
     );

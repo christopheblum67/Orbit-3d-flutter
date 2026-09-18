@@ -78,9 +78,25 @@ import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
 
-Future<void> main() async {
+void main() {
+  runZonedGuarded(
+    _bootstrap,
+    (error, stackTrace) {
+      ErrorHandler.instance
+          .handleError(error, stackTrace: stackTrace, context: 'Zone');
+    },
+  );
+}
+
+Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Capture globales installées le plus tôt possible (erreurs cadre + isolate).
+  ErrorHandler.instance.setupGlobalErrorHandling();
+  // Crashlytics init non bloquant (release/profil uniquement).
+  unawaited(ErrorHandler.instance.initCrashlytics());
   // L'import de webview_flutter_android enregistre (dartPluginClass) la
   // plateforme Android WebView automatiquement, nécessaire au déblocage
   // Cloudflare. Ne pas supprimer cet import.
@@ -132,8 +148,6 @@ Future<void> main() async {
   await storageService.migrateFromSharedPreferences();
 
   final restoredProfile = await _restoreLastProfile(storageService);
-  final hasActiveServer = await storageService.getActiveSubscription() != null;
-  final hasDefaultConfig = restoredProfile != null && hasActiveServer;
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
   final legalNoticeDone =
       storageService.getSetting(kLegalNoticeDoneKey) == true;
@@ -142,9 +156,7 @@ Future<void> main() async {
       // diagnostic. S'il a déjà été accepté, on passe directement à la
       // configuration.
       ? (legalNoticeDone ? '/onboarding' : '/legal?flow=first')
-      : hasDefaultConfig
-          ? '/startup'
-          : '/profiles';
+      : '/profiles';
 
   final lastRefresh = await loadLastRefresh();
 

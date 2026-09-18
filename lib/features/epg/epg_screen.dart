@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -20,6 +21,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Guide TV (EPG) : affiche la Grille EPG seule.
 ///
@@ -57,6 +59,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
@@ -66,13 +69,14 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text('Guide TV (EPG)'),
+        title: Text(l.epgGuideTv),
       ),
       body: _buildGrid2DTab(),
     );
   }
 
   Widget _buildGrid2DTab() {
+    final l = AppLocalizations.of(context);
     final channelsAsync = ref.watch(liveChannelsProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
@@ -80,7 +84,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     return channelsAsync.when(
       data: (channels) {
         if (channels.isEmpty) {
-          return const Center(child: Text('Aucune chaîne disponible'));
+          return Center(child: Text(l.noChannelsAvailable));
         }
         final groupCounts = <String, int>{};
         for (final c in channels) {
@@ -161,7 +165,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       loading: () => const LoadingState(message: 'Chargement des chaînes…'),
       error: (err, _) => ErrorState(
         icon: Icons.tv_off_rounded,
-        title: 'Chaînes indisponibles',
+        title: l.channelsUnavailable,
         message: 'Impossible de charger les chaînes.',
         onRetry: () => ref.invalidate(liveChannelsProvider),
       ),
@@ -187,6 +191,7 @@ class _CategoryFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       height: 56,
       color: const Color(0xFF0D0E12),
@@ -201,7 +206,7 @@ class _CategoryFilterBar extends StatelessWidget {
             onTap: () => onSelected('fav'),
           ),
           _chip(
-            label: 'Récemment',
+            label: l.recentlyWatched,
             count: recentCount,
             selected: selected == 'recent',
             onTap: () => onSelected('recent'),
@@ -457,6 +462,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     EPGProgram program,
     Channel channel,
   ) {
+    final l = AppLocalizations.of(context);
     final replayable = isReplayableProgram(
       program,
       now: DateTime.now(),
@@ -521,7 +527,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
                 Expanded(
                   child: FilledButton.icon(
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Regarder en direct'),
+                    label: Text(l.watchLive),
                     onPressed: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(
@@ -560,6 +566,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     EPGProgram program,
     Channel channel,
   ) async {
+    final l = AppLocalizations.of(context);
     final sub = await ref.read(activeSubscriptionProvider.future);
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -588,9 +595,9 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     );
     if (url == null) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text("Impossible de construire l'URL du replay."),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(l.unableToBuildReplayUrl),
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -629,6 +636,7 @@ class _EpgHeadbarSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     return ValueListenableBuilder<String?>(
       valueListenable: controller.targetedChannel,
       builder: (context, channelName, _) {
@@ -710,9 +718,9 @@ class _EpgHeadbarSection extends ConsumerWidget {
               _showProgramBottomSheet(context, current);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Aucune information de programme disponible'),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: Text(l.noProgramInfoAvailable),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             }
@@ -734,9 +742,11 @@ class _EpgHeadbarSection extends ConsumerWidget {
     return favorites.containsKey(key);
   }
 
-  void _showProgramBottomSheet(BuildContext context, EPGProgram program) {
+  Future<void> _showProgramBottomSheet(BuildContext context, EPGProgram program) async {
     final scheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    final watchFocus = FocusNode();
+
+    await showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF16181E),
       shape: const RoundedRectangleBorder(
@@ -772,15 +782,29 @@ class _EpgHeadbarSection extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: 24),
-            FilledButton.icon(
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Regarder'),
-              onPressed: () => Navigator.pop(context),
+            Focus(
+              focusNode: watchFocus,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                  Navigator.pop(context);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: FilledButton.icon(
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Regarder'),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ],
         ),
       ),
     );
+    watchFocus.dispose();
   }
 
   String _hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:'

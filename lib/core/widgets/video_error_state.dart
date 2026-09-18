@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class VideoErrorState extends StatelessWidget {
   const VideoErrorState({
@@ -23,6 +24,7 @@ class VideoErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Center(
@@ -71,7 +73,7 @@ class VideoErrorState extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Réessayer'),
+                  label: Text(l.retry),
                 ),
               ],
               if (onCloudflare != null) ...[
@@ -79,7 +81,7 @@ class VideoErrorState extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onCloudflare,
                   icon: const Icon(Icons.security_rounded),
-                  label: const Text('Débloquer (Cloudflare)'),
+                  label: Text(l.unlockCloudflare),
                 ),
                 if (cloudflareMessage != null) ...[
                   const SizedBox(height: 12),

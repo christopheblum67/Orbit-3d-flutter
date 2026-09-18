@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/features/auth/widgets/profile_avatar_selector.d
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 const List<String> _allGenres = [
   'Action',
@@ -114,6 +115,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final profileAsync = ref.watch(profilesProvider);
 
@@ -130,10 +132,19 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Mon profil')),
+        appBar: AppBar(
+          leading: context.canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => context.pop(),
+                )
+              : null,
+          title: Text(l.myProfile),
+        ),
         body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Erreur: $err')),
+        error: (err, _) => Center(child: Text(l.errorGeneric(err))),
         data: (profiles) {
           final targetId =
               widget.profileId ?? ref.watch(currentProfileProvider)?.id;
@@ -156,7 +167,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () => context.go('/profiles'),
-                    child: const Text('Choisir un profil'),
+                    child: Text(l.chooseProfile),
                   ),
                 ],
               ),
@@ -200,8 +211,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                       TextFormField(
                         controller: _nameController,
                         maxLength: AppConstants.maxNameLength,
-                        decoration: const InputDecoration(
-                          labelText: 'Nom / Pseudo',
+                        decoration: InputDecoration(
+                          labelText: l.nameOrNickname,
                           prefixIcon: Icon(Icons.badge_outlined),
                           border: OutlineInputBorder(),
                         ),
@@ -219,7 +230,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                           LengthLimitingTextInputFormatter(3),
                         ],
                         decoration: InputDecoration(
-                          labelText: 'Âge',
+                          labelText: l.age,
                           prefixIcon: const Icon(Icons.cake_outlined),
                           border: const OutlineInputBorder(),
                           suffixIcon: Icon(
@@ -325,9 +336,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                     children: [
                       SwitchListTile(
                         secondary: const Icon(Icons.visibility_outlined),
-                        title: const Text('Profil visible'),
-                        subtitle: const Text(
-                            'Apparaître dans les recherches et recommandations',),
+                        title: Text(l.profileVisible),
+                        subtitle:
+                            Text(l.appearInSearchAndRecommendations),
                         value: _profileVisible,
                         onChanged: (v) => setState(() => _profileVisible = v),
                       ),
@@ -374,8 +385,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                                     .day,
                               ),
                             );
-                            final updated = UserProfile(
-                              id: loaded.id,
+                            final updated = loaded.copyWith(
                               firstName: _nameController.text.trim(),
                               dateOfBirth: updatedDob,
                               gender: _gender!,
@@ -383,6 +393,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                               avatarUrl: _avatarId.isEmpty
                                   ? ''
                                   : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
+                              updatedAt: DateTime.now(),
                             );
                             await ref
                                 .read(storageServiceProvider)
@@ -397,8 +408,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Erreur lors de la sauvegarde'),
+                                SnackBar(
+                                  content: Text(l.errorSaving),
                                 ),
                               );
                             }

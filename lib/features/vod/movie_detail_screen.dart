@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
@@ -24,10 +25,18 @@ class MovieDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final detailAsync = ref.watch(movieDetailProvider(movie));
 
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: Text(movie.title.isEmpty ? 'Détail' : movie.title),
         actions: [
           FavoriteToggle(
@@ -52,21 +61,21 @@ class MovieDetailScreen extends ConsumerWidget {
       body: detailAsync.when(
         data: (detail) => _MovieDetailContent(detail: detail, movie: movie),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text('Erreur de chargement: $err'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(movieDetailProvider(movie)),
-                child: const Text('Réessayer'),
-              ),
-            ],
+error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(l.errorLoading(err.toString())),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(movieDetailProvider(movie)),
+                  child: Text(l.retry),
+                ),
+              ],
+            ),
           ),
-        ),
       ),
     );
   }
@@ -112,6 +121,7 @@ class _MovieDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final progress = ref.watch(playbackProgressProvider(_progressId));
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
@@ -389,7 +399,7 @@ class _MovieDetailContent extends ConsumerWidget {
                 child: FilledButton.icon(
                   onPressed: () => _openPlayer(context),
                   icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Démarrer'),
+                  label: Text(l.start),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -515,7 +525,7 @@ class _MovieDetailContent extends ConsumerWidget {
           if (similarAsync != null) ...[
             const SizedBox(height: 24),
             _SimilarSection(
-              title: 'Films similaires',
+              title: l.similarMovies,
               async: similarAsync,
               onTap: (entry) => _openSimilarMovie(context, ref, entry),
             ),
@@ -748,6 +758,7 @@ class _SimilarEntrySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -841,11 +852,7 @@ class _SimilarEntrySheet extends StatelessWidget {
               ],
               const SizedBox(height: 24),
               Center(
-                child: Text(
-                  'Non disponible dans le catalogue',
-                  style: textTheme.bodyMedium
-                      ?.copyWith(color: scheme.onSurfaceVariant),
-                ),
+child: Text(l.notAvailableInCatalog),
               ),
               const SizedBox(height: 16),
             ],

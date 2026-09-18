@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class VpnScreen extends ConsumerStatefulWidget {
@@ -28,7 +29,16 @@ class _VpnScreenState extends ConsumerState<VpnScreen> {
     final scheme = Theme.of(context).colorScheme;
     final vpnService = ref.read(vpnServiceProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('VPN')),
+      appBar: AppBar(
+        leading: GoRouter.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => GoRouter.of(context).pop(),
+              )
+            : null,
+        title: const Text('VPN'),
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

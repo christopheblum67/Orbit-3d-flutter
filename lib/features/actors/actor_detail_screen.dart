@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/person.dart';
@@ -24,6 +25,13 @@ class ActorDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: Text(actor.name.isEmpty ? 'Acteur' : actor.name),
       ),
       body: _buildBody(context, ref, personAsync, searchAsync),
@@ -42,7 +50,7 @@ class ActorDetailScreen extends ConsumerWidget {
             ? _ActorDetailBody(actor: actor, person: person)
             : const _ActorUnavailable(),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => _buildError(err),
+        error: (err, _) => _buildError(context, err),
       );
     }
     return searchAsync!.when(
@@ -52,22 +60,23 @@ class ActorDetailScreen extends ConsumerWidget {
                     ? _ActorDetailBody(actor: actor, person: person)
                     : const _ActorUnavailable(),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => _buildError(err),
+                error: (err, _) => _buildError(context, err),
               )
           : const _ActorUnavailable(),
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => _buildError(err),
+      error: (err, _) => _buildError(context, err),
     );
   }
 
-  Widget _buildError(Object err) {
+  Widget _buildError(BuildContext context, Object err) {
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.error_outline, size: 48, color: Colors.red),
           const SizedBox(height: 16),
-          Text('Erreur de chargement: $err'),
+          Text(l.errorLoading(err.toString())),
         ],
       ),
     );
@@ -244,6 +253,7 @@ class _ActorDetailBody extends ConsumerWidget {
   }
 
   void _openMovie(BuildContext context, WidgetRef ref, MovieCredit credit) {
+    final l = AppLocalizations.of(context);
     if (credit.tmdbId <= 0) return;
     final normalized = credit.title.trim().toLowerCase();
     final movies = ref.read(moviesProvider).value ?? const <Movie>[];
@@ -259,7 +269,7 @@ class _ActorDetailBody extends ConsumerWidget {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Non disponible dans le catalogue')),
+      SnackBar(content: Text(l.notAvailableInCatalog)),
     );
   }
 

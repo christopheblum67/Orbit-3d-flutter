@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key});
@@ -30,15 +31,23 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final channelsAsync = ref.watch(liveChannelsProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Live TV'),
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.liveTv),
         actions: [
           IconButton(
-            tooltip: 'Rechercher une chaîne',
+            tooltip: l.searchChannel,
             icon: const Icon(Icons.live_tv),
             onPressed: () => context.push('/search?type=live'),
           ),
@@ -47,9 +56,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
       body: channelsAsync.when(
         data: (channels) {
           if (channels.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.live_tv_outlined,
-              title: 'Aucune chaîne disponible',
+              title: l.noChannelsAvailable,
               message: 'Ajoute une source de chaînes dans les réglages.',
             );
           }
@@ -145,7 +154,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         loading: () => const LoadingState(message: 'Chargement…'),
         error: (err, _) => ErrorState(
           icon: Icons.live_tv_outlined,
-          title: 'Chaînes indisponibles',
+          title: l.channelsUnavailable,
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(liveChannelsProvider),
         ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
@@ -165,19 +166,21 @@ class SearchService {
     return score.clamp(0.0, 1.0);
   }
 
-  Future<UnifiedSearchResult> search(String query, {int limit = 50, SearchType? filterType}) async {
+  Future<UnifiedSearchResult> search(String query, {int limit = 50, SearchType? filterType, AppLocalizations? l}) async {
     final normalized = _normalize(query);
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
-    // 1. Recherche locale (historique + favoris + récemment regardé)
+    // 1. Paralléliser les 3 branches : local, index, remote
     await _ensureCatalogueIndexed();
-    final localResults = await _searchLocal(normalized);
+    final results = await Future.wait([
+      _searchLocal(normalized, l),
+      Future.value(_searchIndex(normalized, filterType: filterType)),
+      _searchRemote(normalized, filterType: filterType),
+    ]);
 
-    // 2. Recherche plein-texte locale (index catalogue VOD/Séries/Live)
-    final ftsResults = _searchIndex(normalized, filterType: filterType);
-
-    // 3. Recherche distante (TMDB, TVmaze, API Xtream)
-    final remoteResults = await _searchRemote(normalized, filterType: filterType);
+    final localResults = results[0];
+    final ftsResults = results[1];
+    final remoteResults = results[2];
 
     // 4. Fusion & déduplication
     final allItems = <SearchItem>[];
@@ -205,7 +208,7 @@ class SearchService {
     );
   }
 
-  Future<List<SearchItem>> _searchLocal(String query) async {
+  Future<List<SearchItem>> _searchLocal(String query, AppLocalizations? l) async {
     final items = <SearchItem>[];
 
     // Historique de recherche - on ajoute comme suggestions textuelles
@@ -216,7 +219,7 @@ class SearchService {
           id: 'history-$h',
           type: SearchType.vod, // type par défaut pour l'affichage
           title: h,
-          subtitle: 'Recherche récente',
+          subtitle: l?.recentSearch ?? 'Recherche récente',
           posterUrl: '',
           score: 0.5,
           source: SearchSource.local,
@@ -282,62 +285,80 @@ class SearchService {
   }
 
   Future<List<SearchItem>> _searchRemote(String query, {SearchType? filterType}) async {
-    final results = <SearchItem>[];
+    final futures = <Future<List<SearchItem>>>[];
 
-    // TMDB (films + séries)
+    // TMDB (films + séries) — parallélisé
     if (filterType == null || filterType == SearchType.vod || filterType == SearchType.series) {
-      try {
-        // Recherche films
-        if (filterType == null || filterType == SearchType.vod) {
-          final movieId = await _tmdb.searchMovieId(query);
-          if (movieId != null) {
-            final movie = await _tmdb.getMovieDetail(movieId);
-            if (movie != null) {
-              results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
-            }
-          }
-        }
-        // Recherche séries
-        if (filterType == null || filterType == SearchType.series) {
-          final tvId = await _tmdb.searchTvId(query);
-          if (tvId != null) {
-            final series = await _tmdb.getTvDetail(tvId);
-            if (series != null) {
-              results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
-            }
-          }
-        }
-      } catch (e) {
-        _logger.warning('TMDB search failed: $e');
-      }
+      futures.add(_searchTmdb(query, filterType: filterType));
     }
 
-    // TVmaze (séries)
+    // TVmaze (séries) — parallélisé
     if (filterType == null || filterType == SearchType.series) {
-      try {
-        final showId = await _tvmaze.searchShowId(query);
-        if (showId != null) {
-          final show = await _tvmaze.getShowDetail(showId);
-          if (show != null) {
-            results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+      futures.add(_searchTvmaze(query));
+    }
+
+    // API Xtream (live + VOD + séries) — parallélisé
+    if (filterType == null || filterType == SearchType.live || filterType == SearchType.vod || filterType == SearchType.series) {
+      futures.add(_searchXtream(query));
+    }
+
+    final allResults = await Future.wait(futures);
+    return allResults.expand((e) => e).toList();
+  }
+
+  Future<List<SearchItem>> _searchTmdb(String query, {SearchType? filterType}) async {
+    final results = <SearchItem>[];
+    try {
+      // Recherche films
+      if (filterType == null || filterType == SearchType.vod) {
+        final movieId = await _tmdb.searchMovieId(query);
+        if (movieId != null) {
+          final movie = await _tmdb.getMovieDetail(movieId);
+          if (movie != null) {
+            results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
           }
         }
-      } catch (e) {
-        _logger.warning('TVmaze search failed: $e');
       }
-    }
-
-    // API Xtream (live + VOD + séries)
-    if (filterType == null || filterType == SearchType.live || filterType == SearchType.vod || filterType == SearchType.series) {
-      try {
-        final xtreamResults = await _api.search(query);
-        results.addAll(xtreamResults.items);
-      } catch (e) {
-        _logger.warning('API search failed: $e');
+      // Recherche séries
+      if (filterType == null || filterType == SearchType.series) {
+        final tvId = await _tmdb.searchTvId(query);
+        if (tvId != null) {
+          final series = await _tmdb.getTvDetail(tvId);
+          if (series != null) {
+            results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
+          }
+        }
       }
+    } catch (e) {
+      _logger.warning('TMDB search failed: $e');
     }
-
     return results;
+  }
+
+  Future<List<SearchItem>> _searchTvmaze(String query) async {
+    final results = <SearchItem>[];
+    try {
+      final showId = await _tvmaze.searchShowId(query);
+      if (showId != null) {
+        final show = await _tvmaze.getShowDetail(showId);
+        if (show != null) {
+          results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+        }
+      }
+    } catch (e) {
+      _logger.warning('TVmaze search failed: $e');
+    }
+    return results;
+  }
+
+  Future<List<SearchItem>> _searchXtream(String query) async {
+    try {
+      final xtreamResults = await _api.search(query);
+      return xtreamResults.items;
+    } catch (e) {
+      _logger.warning('API search failed: $e');
+      return [];
+    }
   }
 
   Future<void> addToHistory(String query) async {

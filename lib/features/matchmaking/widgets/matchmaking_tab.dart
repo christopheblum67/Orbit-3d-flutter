@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Mode d'affichage (Pour vous / En groupe 2-4 profils)
@@ -97,22 +98,23 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   // ---------------------------------------------------------------------------
 
   Widget _buildModeSwitcher(UserProfile profile) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Row(
         children: [
           Expanded(
             child: SegmentedButton<_TabMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _TabMode.single,
-                  label: Text('Pour vous'),
-                  icon: Icon(Icons.person_outline),
+                  label: Text(l.forYou),
+                  icon: const Icon(Icons.person_outline),
                 ),
                 ButtonSegment(
                   value: _TabMode.group,
-                  label: Text('En groupe'),
-                  icon: Icon(Icons.groups_outlined),
+                  label: Text(l.groupMode),
+                  icon: const Icon(Icons.groups_outlined),
                 ),
               ],
               selected: {_mode},
@@ -216,6 +218,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   // ---------------------------------------------------------------------------
 
   Widget _buildNoProfile() {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
@@ -223,7 +226,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         children: [
           Icon(Icons.person_search, size: 56, color: scheme.outline),
           const SizedBox(height: 12),
-          const Text('Sélectionnez un profil pour voir ses recommandations'),
+          Text(l.selectProfileForRecommendations),
         ],
       ),
     );

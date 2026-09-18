@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -14,6 +16,7 @@ class MemorySettingsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final libraryManager = ref.read(mediaLibraryManagerProvider);
 
@@ -27,11 +30,11 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.delete_outline, color: scheme.primary),
-              title: const Text(
+              title: Text(
                 'Gestion de la Mémoire & Cache',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Libérez de l\'espace et nettoyez les données locales.',
                 style: TextStyle(fontSize: 11, color: Colors.white38),
               ),
@@ -47,11 +50,11 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.history, color: scheme.primary),
-              title: const Text(
+              title: Text(
                 'Vider l\'historique des vues',
                 style: TextStyle(fontSize: 14),
               ),
-              subtitle: const Padding(
+              subtitle: Padding(
                 padding: EdgeInsets.only(top: 2),
                 child: Text(
                   'Efface la liste des récemment regardés et les positions de reprise.',
@@ -71,8 +74,7 @@ class MemorySettingsPanel extends ConsumerWidget {
                   await libraryManager.clearRecentlyWatched();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Historique de lecture effacé.'),),
+                      SnackBar(content: Text(l.playHistoryCleared)),
                     );
                   }
                 },
@@ -89,11 +91,11 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.image, color: scheme.primary),
-              title: const Text(
+              title: Text(
                 'Nettoyer le cache des pochettes',
                 style: TextStyle(fontSize: 14),
               ),
-              subtitle: const Padding(
+              subtitle: Padding(
                 padding: EdgeInsets.only(top: 2),
                 child: Text(
                   'Libère l\'espace disque occupé par les vignettes VOD/EPG stockées localement.',
@@ -113,7 +115,7 @@ class MemorySettingsPanel extends ConsumerWidget {
                   PaintingBinding.instance.imageCache.clear();
                   PaintingBinding.instance.imageCache.clearLiveImages();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cache des pochettes purgé.')),
+                    SnackBar(content: Text(l.coverCacheCleared)),
                   );
                 },
               ),

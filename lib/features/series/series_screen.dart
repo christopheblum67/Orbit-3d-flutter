@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SeriesScreen extends ConsumerStatefulWidget {
   const SeriesScreen({super.key});
@@ -43,16 +44,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final seriesAsync = ref.watch(seriesProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Séries'),
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.series),
         actions: [
           IconButton(
-            tooltip: 'Rechercher une série',
+            tooltip: l.searchSeries,
             icon: const Icon(Icons.tv),
             onPressed: () => context.push('/search?type=series'),
           ),
@@ -66,9 +75,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       body: seriesAsync.when(
         data: (seriesList) {
           if (seriesList.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.tv,
-              title: 'Aucune série disponible',
+              title: l.noSeriesAvailable,
               message: 'La bibliothèque de séries est vide pour le moment.',
             );
           }
@@ -200,7 +209,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                 SliverToBoxAdapter(
                                   child: SectionHeader(
                                     icon: Icons.auto_awesome,
-                                    title: 'Séries',
+                                    title: l.series,
                                     subtitle: '${visibleSeries.length} titres',
                                   ),
                                 ),
@@ -303,7 +312,7 @@ return TvFocus(
         loading: () => const LoadingState(message: 'Chargement…'),
         error: (err, _) => ErrorState(
           icon: Icons.tv,
-          title: 'Séries indisponibles',
+          title: l.seriesUnavailable,
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(seriesProvider),
         ),

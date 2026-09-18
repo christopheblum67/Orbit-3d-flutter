@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Overlay non-intrusif affichant l'état du monitoring réseau/stall/cooldown
 /// pendant la lecture. Se place au-dessus du player vidéo.
@@ -66,10 +67,11 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
   }
 
   Widget _buildNetworkOfflineCard(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return _MonitorCard(
       icon: Icons.wifi_off_rounded,
-      title: 'Réseau coupé',
+      title: l.networkDisconnected,
       message: 'Vérifiez votre connexion Internet.',
       actionLabel: 'Réessayer',
       onAction: onRetry,
@@ -79,10 +81,11 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
   }
 
   Widget _buildStallingCard(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return _MonitorCard(
       icon: Icons.wifi_tethering_rounded,
-      title: 'Connexion instable',
+      title: l.unstableConnection,
       message: 'Le flux ne progresse plus. Tentative de récupération…',
       showSpinner: true,
       iconColor: scheme.tertiary,
@@ -91,10 +94,11 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
   }
 
   Widget _buildCooldownCard(BuildContext context, String message) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return _MonitorCard(
       icon: Icons.security_rounded,
-      title: 'Serveur protégé (anti-leech)',
+      title: l.serverProtectedAntiLeech,
       message: message,
       iconColor: scheme.error,
       backgroundColor: scheme.errorContainer.withValues(alpha: 0.9),

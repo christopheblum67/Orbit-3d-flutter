@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -68,6 +69,13 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
         title: Text(AppLocalizations.of(context).settingsTitle),
         bottom: TabBar(
           controller: _tabController,
@@ -630,38 +638,130 @@ class _AudioSection extends ConsumerWidget {
     );
   }
 
-  void _showAvSyncDialog(BuildContext context, WidgetRef ref) {
+  Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
     final n = ref.read(advancedSettingsProvider.notifier);
     final l = AppLocalizations.of(context);
     final controller = TextEditingController(text: '0');
-    showDialog(
+
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+    final fieldFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (context.mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.avSyncDialogTitle),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(signed: true),
-          decoration: InputDecoration(
-            labelText: l.avSyncDialogLabel,
-            hintText: l.avSyncDialogHint,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
-          ),
-          FilledButton(
-            onPressed: () {
+        content: Focus(
+          focusNode: fieldFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                final ms = int.tryParse(controller.text) ?? 0;
+                n.setNightFocusAudioShiftMs(ms);
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: TextField(
+            controller: controller,
+            focusNode: fieldFocus,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            decoration: InputDecoration(
+              labelText: l.avSyncDialogLabel,
+              hintText: l.avSyncDialogHint,
+            ),
+            textInputAction: TextInputAction.done,
+            onEditingComplete: () {
               final ms = int.tryParse(controller.text) ?? 0;
               n.setNightFocusAudioShiftMs(ms);
               Navigator.pop(ctx);
             },
-            child: Text(l.apply),
+          ),
+        ),
+        actions: [
+          Focus(
+            focusNode: cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(confirmFocus);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                requestFocus(fieldFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+          ),
+          Focus(
+            focusNode: confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                final ms = int.tryParse(controller.text) ?? 0;
+                n.setNightFocusAudioShiftMs(ms);
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                requestFocus(fieldFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: FilledButton(
+              onPressed: () {
+                final ms = int.tryParse(controller.text) ?? 0;
+                n.setNightFocusAudioShiftMs(ms);
+                Navigator.pop(ctx);
+              },
+              child: Text(l.apply),
+            ),
           ),
         ],
       ),
     );
+
+    cancelFocus.dispose();
+    confirmFocus.dispose();
+    fieldFocus.dispose();
   }
 }
 
@@ -742,37 +842,94 @@ class _AdvancedSection extends ConsumerWidget {
     );
   }
 
-  static void _factoryReset(BuildContext context, WidgetRef ref) {
+  static Future<void> _factoryReset(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    showDialog<void>(
+
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (context.mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
+    await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.resetAppDialogTitle),
         content: Text(l.resetAppDialogBody),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l.cancel),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              // TODO: implémenter le reset complet
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Réinitialisation effectuée (TODO)')),
-                );
+          Focus(
+            focusNode: cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                return KeyEventResult.handled;
               }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(confirmFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
             },
-            child: Text(l.resetAppDialogConfirm),
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l.cancel),
+            ),
+          ),
+          Focus(
+            focusNode: confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                // TODO: implémenter le reset complet
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l.resetCompleted)),
+                  );
+                }
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                // TODO: implémenter le reset complet
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l.resetCompleted)),
+                  );
+                }
+              },
+              child: Text(l.resetAppDialogConfirm),
+            ),
           ),
         ],
       ),
     );
+
+    cancelFocus.dispose();
+    confirmFocus.dispose();
   }
 }
 

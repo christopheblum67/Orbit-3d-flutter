@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// État d'erreur générique : icône + titre + message + action "Réessayer".
 class ErrorState extends StatelessWidget {
@@ -18,6 +19,7 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Center(
@@ -62,7 +64,7 @@ class ErrorState extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Réessayer'),
+                  label: Text(l.retry),
                 ),
               ],
             ],

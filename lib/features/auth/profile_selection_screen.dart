@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ProfileSelectionScreen extends ConsumerStatefulWidget {
   const ProfileSelectionScreen({super.key});
@@ -17,13 +18,14 @@ class _ProfileSelectionScreenState
     extends ConsumerState<ProfileSelectionScreen> {
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
     final currentProfile = ref.watch(currentProfileProvider);
 
     return ConfirmExitApp(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Qui regarde ?'),
+          title: Text(l.whoIsWatching),
           leading: context.canPop()
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
@@ -36,11 +38,11 @@ class _ProfileSelectionScreenState
             if (profiles.isEmpty) {
               return EmptyState(
                 icon: Icons.face_outlined,
-                title: 'Aucun profil pour le moment',
+                title: l.noProfilesYet,
                 message: 'Crée ton premier profil pour commencer à regarder.',
                 action: FilledButton.icon(
                   icon: const Icon(Icons.add),
-                  label: const Text('Créer un profil'),
+                  label: Text(l.createProfile),
                   onPressed: () => context.push('/profile/create'),
                 ),
               );
@@ -94,7 +96,7 @@ class _ProfileSelectionScreenState
                             children: [
                               GestureDetector(
                                 onTap: () => context.push(
-                                  '/profile/edit?id=${profile.id}',
+                                  '/profile/edit/${profile.id}',
                                 ),
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -216,12 +218,12 @@ class _ProfileSelectionScreenState
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, _) => Center(child: Text('Erreur: $err')),
+          error: (err, _) => Center(child: Text(l.errorGeneric(err))),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push('/profile/create'),
           icon: const Icon(Icons.add),
-          label: const Text('Nouveau profil'),
+          label: Text(l.newProfile),
         ),
       ),
     );

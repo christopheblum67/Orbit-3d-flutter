@@ -51,6 +51,7 @@ import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/content_filter_provider.dart';
 export 'profile_type_provider.dart';
 export 'content_filter_provider.dart';
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
@@ -455,21 +456,23 @@ final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
 });
 
 final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
+  final filter = ref.watch(contentFilterProvider);
   final sub = await ref
       .watch(activeSubscriptionProvider.future)
       .catchError((_) => null);
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
-  return api.fetchLiveChannels();
+  return filter.visibleList(await api.fetchLiveChannels());
 });
 
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
+  final filter = ref.watch(contentFilterProvider);
   final sub = await ref
       .watch(activeSubscriptionProvider.future)
       .catchError((_) => null);
   if (sub == null) return const <Movie>[];
   final api = ref.watch(apiServiceProvider);
-  return api.fetchMovies();
+  return filter.visibleList(await api.fetchMovies());
 });
 
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
@@ -503,12 +506,13 @@ final seriesCategoriesProvider =
 });
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {
+  final filter = ref.watch(contentFilterProvider);
   final sub = await ref
       .watch(activeSubscriptionProvider.future)
       .catchError((_) => null);
   if (sub == null) return const <Series>[];
   final api = ref.watch(apiServiceProvider);
-  return api.fetchSeries();
+  return filter.visibleList(await api.fetchSeries());
 });
 
 final seriesInfoProvider =
@@ -589,11 +593,12 @@ class ReplaysCache {
 final ReplaysCache replaysCache = ReplaysCache();
 
 final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
+  final filter = ref.watch(contentFilterProvider);
   final api = ref.watch(apiServiceProvider);
   // Changement d'abonnement actif => le cache n'est plus valable
   // (dépendance de re-fetch, la valeur elle-même ne nous sert pas ici).
   ref.watch(activeSubscriptionProvider.future);
-  return replaysCache.fetch(api.fetchReplays);
+  return filter.visibleList(await replaysCache.fetch(api.fetchReplays));
 });
 
 final epgProgramsProvider =

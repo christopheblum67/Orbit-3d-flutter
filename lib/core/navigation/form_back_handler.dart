@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
@@ -25,6 +26,23 @@ mixin FormBackHandler<T extends StatefulWidget> on State<T> {
   /// Titre de la boîte de dialogue de confirmation.
   String get discardDialogTitle => 'Quitter sans sauvegarder ?';
 
+  /// Focus nodes for TV/D-pad navigation in the discard dialog.
+  final _cancelFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _cancelFocus.dispose();
+    _confirmFocus.dispose();
+    super.dispose();
+  }
+
+  void _requestFocus(FocusNode focus) {
+    if (mounted) {
+      FocusScope.of(context).requestFocus(focus);
+    }
+  }
+
   /// Gère l'événement "retour" (système, geste, barre de navigation).
   ///
   /// Retourne `true` pour permettre le pop, `false` pour l'annuler.
@@ -37,23 +55,66 @@ mixin FormBackHandler<T extends StatefulWidget> on State<T> {
 
   Future<bool> _showDiscardDialog() async {
     if (!mounted) return false;
+    // Reset focus to cancel button when dialog opens
+    _cancelFocus.requestFocus();
+    
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(discardDialogTitle),
         content: Text(discardDialogMessage),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+          Focus(
+            focusNode: _cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(false);
+                return KeyEventResult.handled;
+              }
+              // Left/Right to navigate between buttons
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                _requestFocus(_confirmFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
             ),
-            child: const Text('Quitter'),
+          ),
+          Focus(
+            focusNode: _confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(true);
+                return KeyEventResult.handled;
+              }
+              // Left/Right to navigate between buttons
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                _requestFocus(_cancelFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              child: const Text('Quitter'),
+            ),
           ),
         ],
       ),

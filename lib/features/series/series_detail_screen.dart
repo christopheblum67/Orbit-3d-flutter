@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +14,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SeriesDetailScreen extends ConsumerWidget {
   const SeriesDetailScreen({
@@ -26,6 +28,7 @@ class SeriesDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     // D'abord charger la série de base depuis Xtream
     final baseSeriesAsync = ref.watch(seriesInfoProvider(seriesId));
 
@@ -36,6 +39,13 @@ class SeriesDetailScreen extends ConsumerWidget {
 
         return Scaffold(
           appBar: AppBar(
+            leading: context.canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Retour',
+                    onPressed: () => context.pop(),
+                  )
+                : null,
             title: Text(title.isEmpty ? baseSeries.title : title),
             actions: [
               FavoriteToggle(
@@ -61,7 +71,7 @@ class SeriesDetailScreen extends ConsumerWidget {
                 const LoadingState(message: 'Enrichissement des métadonnées…'),
             error: (err, _) => ErrorState(
               icon: Icons.tv,
-              title: 'Détail indisponible',
+              title: l.detailUnavailable,
               message: userFriendlyError(err),
               onRetry: () => ref.invalidate(seriesDetailProvider(baseSeries)),
             ),
@@ -71,7 +81,7 @@ class SeriesDetailScreen extends ConsumerWidget {
       loading: () => const LoadingState(message: 'Chargement de la série…'),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
-        title: 'Série introuvable',
+        title: l.seriesNotFound,
         message: userFriendlyError(err),
         onRetry: () => ref.invalidate(seriesInfoProvider(seriesId)),
       ),
@@ -90,6 +100,7 @@ class _SeriesDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final episodesBySeason = <int, List<Episode>>{};
     for (final episode in baseSeries.episodes) {
@@ -98,7 +109,7 @@ class _SeriesDetailContent extends ConsumerWidget {
     final seasons = episodesBySeason.keys.toList()..sort();
 
     final header = SliverToBoxAdapter(
-      child: _SeriesHeader(series: detail, baseSeries: baseSeries),
+      child: _SeriesHeader(series: detail, baseSeries: baseSeries, l: l),
     );
 
     // Section « Reprendre » : épisodes avec une progression en cours
@@ -118,10 +129,10 @@ class _SeriesDetailContent extends ConsumerWidget {
         slivers: [
           header,
           resumeSliver,
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.video_library_outlined,
-              title: 'Aucun épisode',
+              title: l.noEpisodes,
               message: 'Cette série ne propose pas encore d\'épisodes.',
             ),
           ),
@@ -142,6 +153,7 @@ class _SeriesDetailContent extends ConsumerWidget {
             episodes: episodesBySeason[season]!,
             total: episodesBySeason[season]!.length,
             compact: false,
+            l: l,
           ),
         ],
       );
@@ -179,6 +191,7 @@ class _SeriesDetailContent extends ConsumerWidget {
                         episodes: episodesBySeason[season]!,
                         total: episodesBySeason[season]!.length,
                         compact: true,
+                        l: l,
                       ),
                     ],
                   ),
@@ -247,6 +260,7 @@ class _SeriesDetailContent extends ConsumerWidget {
     required List<Episode> episodes,
     required int total,
     required bool compact,
+    required AppLocalizations l,
   }) {
     final seen = _seenCountFor(ref, episodes);
     final guests = detail.getGuestStarsForSeason(season);
@@ -270,7 +284,7 @@ class _SeriesDetailContent extends ConsumerWidget {
         SliverToBoxAdapter(
           child: SectionHeader(
             icon: Icons.play_circle_outline,
-            title: 'Saison $season',
+            title: l.seasonNumber(season),
             subtitle: _seasonSubtitle(total: total, seen: seen),
           ),
         ),
@@ -289,7 +303,7 @@ class _SeriesDetailContent extends ConsumerWidget {
         SliverToBoxAdapter(
           child: CastCarousel(
             actors: guests,
-            title: 'Invités spéciaux - Saison $season',
+            title: l.specialGuestsSeason(season),
             maxVisible: 10,
             showCharacter: true,
             itemWidth: 120,
@@ -306,10 +320,11 @@ class _SeriesDetailContent extends ConsumerWidget {
 }
 
 class _SeriesHeader extends ConsumerWidget {
-  const _SeriesHeader({required this.series, required this.baseSeries});
+  const _SeriesHeader({required this.series, required this.baseSeries, required this.l});
 
   final SeriesDetail series;
   final Series baseSeries;
+  final AppLocalizations l;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -464,7 +479,7 @@ class _SeriesHeader extends ConsumerWidget {
           if (series.cast.isNotEmpty)
             CompactCastCarousel(
               actors: series.cast,
-              title: 'Distribution principale',
+              title: l.mainCast,
               maxVisible: 8,
             )
           else
@@ -473,7 +488,7 @@ class _SeriesHeader extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    'Distribution principale',
+                    l.mainCast,
                     style: textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -493,45 +508,96 @@ class _SeriesHeader extends ConsumerWidget {
     );
   }
 
-  void _confirmResetSeries(BuildContext context, WidgetRef ref) {
+  Future<void> _confirmResetSeries(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
     final seen = ref.read(watchedEpisodesProvider.notifier).countForSeries(baseSeries.id);
     if (seen == 0) return;
-    showDialog<bool>(
+
+    final cancelFocus = FocusNode();
+    final confirmFocus = FocusNode();
+
+    void requestFocus(FocusNode focus) {
+      if (context.mounted) {
+        FocusScope.of(context).requestFocus(focus);
+      }
+    }
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Tout retirer des déjà vus ?'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.removeFromWatchedConfirm),
         content: Text(
           'Les $seen épisodes vus de « ${baseSeries.title} » seront marqués '
           'comme non vus pour ce profil.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+          Focus(
+            focusNode: cancelFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(false);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(confirmFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Tout retirer'),
+          Focus(
+            focusNode: confirmFocus,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.of(dialogContext).pop(true);
+                return KeyEventResult.handled;
+              }
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                requestFocus(cancelFocus);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(l.removeAll),
+            ),
           ),
         ],
       ),
-    ).then((confirmed) async {
-      if (confirmed != true) return;
-      await ref
-          .read(watchedEpisodesProvider.notifier)
-          .clearForSeries(baseSeries.id);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '« ${baseSeries.title} » retiré des déjà vus.',
-            ),
-            duration: const Duration(milliseconds: 1200),
+    );
+    cancelFocus.dispose();
+    confirmFocus.dispose();
+
+    if (confirmed != true) return;
+    await ref
+        .read(watchedEpisodesProvider.notifier)
+        .clearForSeries(baseSeries.id);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '« ${baseSeries.title} » retiré des déjà vus.',
           ),
-        );
-    });
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
   }
 
   Color _getSourceColor(String source) {
@@ -607,6 +673,7 @@ class _EpisodeTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
         'E${episode.episodeNumber.toString().padLeft(2, '0')}';
@@ -649,45 +716,95 @@ class _EpisodeTile extends ConsumerWidget {
 
     // Pression longue = « réinitialiser » : efface la progression de lecture
     // en cours et/ou retire le statut « vu » (après confirmation).
-    void onLongPress() {
+Future<void> onLongPress() async {
       final hasProgress = progress?.hasProgress == true;
       if (!isVu && !hasProgress) return;
-      showDialog<bool>(
+
+      final cancelFocus = FocusNode();
+      final confirmFocus = FocusNode();
+
+      void requestFocus(FocusNode focus) {
+        if (context.mounted) {
+          FocusScope.of(context).requestFocus(focus);
+        }
+      }
+
+      final confirmed = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Réinitialiser l\'épisode ?'),
           content: Text(
             isVu && hasProgress
                 ? '« $label » sera marqué comme non vu et sa progression '
-                    'de lecture sera effacée.'
+                'de lecture sera effacée.'
                 : isVu
                     ? '« $label » sera marqué comme non vu pour ce profil.'
                     : 'La progression de lecture de « $label » sera effacée.',
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
+            Focus(
+              focusNode: cancelFocus,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                  Navigator.of(dialogContext).pop(false);
+                  return KeyEventResult.handled;
+                }
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                        event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                  requestFocus(confirmFocus);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Réinitialiser'),
+            Focus(
+              focusNode: confirmFocus,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                  Navigator.of(dialogContext).pop(true);
+                  return KeyEventResult.handled;
+                }
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                        event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                  requestFocus(cancelFocus);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l.reset),
+              ),
             ),
           ],
         ),
-      ).then((confirmed) {
-        if (confirmed != true) return;
-        if (isVu) {
-          ref
-              .read(watchedEpisodesProvider.notifier)
-              .toggle(series, episode);
-        }
-        if (hasProgress) {
-          final progressId = 'episode-${episode.id}';
-          ref.read(playbackProgressServiceProvider).clear(progressId);
-          ref.invalidate(playbackProgressProvider(progressId));
-        }
-      });
+      );
+      cancelFocus.dispose();
+      confirmFocus.dispose();
+
+      if (confirmed != true) return;
+      if (isVu) {
+        ref
+            .read(watchedEpisodesProvider.notifier)
+            .toggle(series, episode);
+      }
+      if (hasProgress) {
+        final progressId = 'episode-${episode.id}';
+        ref.read(playbackProgressServiceProvider).clear(progressId);
+        ref.invalidate(playbackProgressProvider(progressId));
+      }
     }
 
     return TvFocus(

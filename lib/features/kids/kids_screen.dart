@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class KidsScreen extends ConsumerStatefulWidget {
   const KidsScreen({super.key});
@@ -36,6 +37,7 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isChild = ref.watch(currentProfileProvider)?.isChild ?? false;
 
     if (!isChild) {
@@ -48,7 +50,14 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
       appBar: AppBar(
-        title: const Text('Mode Enfants'),
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.kidsMode),
         backgroundColor: const Color(0xFF1A1F2E),
         bottom: TabBar(
           controller: _tabController,
@@ -73,6 +82,7 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   }
 
   Widget _buildNotChildMode(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
       body: Center(
@@ -95,9 +105,9 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
               ),
               const SizedBox(height: 24),
               ElevatedButton.icon(
-                onPressed: () => context.go('/profile'),
+                onPressed: () => context.go('/profile/create'),
                 icon: const Icon(Icons.person_add_rounded),
-                label: const Text('Créer un profil Enfant'),
+                label: Text(l.createKidProfile),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade600,
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -111,19 +121,20 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   }
 
   Widget _buildChannelsTab(KidsController controller, KidsState state) {
+    final l = AppLocalizations.of(context);
     return state.channelsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ErrorState(
         icon: Icons.tv_rounded,
-        title: 'Chaînes indisponibles',
+        title: l.channelsUnavailable,
         message: e.toString(),
         onRetry: controller.loadChannels,
       ),
       data: (channels) {
         if (channels.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.tv_rounded,
-            title: 'Aucune chaîne pour enfants',
+            title: l.noKidsChannels,
             message: 'Aucune chaîne ne correspond aux filtres de sécurité.',
           );
         }
@@ -149,19 +160,20 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   }
 
   Widget _buildMoviesTab(KidsController controller, KidsState state) {
+    final l = AppLocalizations.of(context);
     return state.moviesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ErrorState(
         icon: Icons.movie_outlined,
-        title: 'Films indisponibles',
+        title: l.moviesUnavailable,
         message: e.toString(),
         onRetry: controller.loadMovies,
       ),
       data: (movies) {
         if (movies.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.movie_outlined,
-            title: 'Aucun film pour enfants',
+            title: l.noKidsMovies,
             message: 'Aucun film ne correspond aux filtres de sécurité.',
           );
         }
@@ -187,19 +199,20 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   }
 
   Widget _buildSeriesTab(KidsController controller, KidsState state) {
+    final l = AppLocalizations.of(context);
     return state.seriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ErrorState(
         icon: Icons.video_library_rounded,
-        title: 'Séries indisponibles',
+        title: l.seriesUnavailable,
         message: e.toString(),
         onRetry: controller.loadSeries,
       ),
       data: (series) {
         if (series.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.video_library_rounded,
-            title: 'Aucune série pour enfants',
+            title: l.noKidsSeries,
             message: 'Aucune série ne correspond aux filtres de sécurité.',
           );
         }
@@ -225,19 +238,20 @@ class _KidsScreenState extends ConsumerState<KidsScreen>
   }
 
   Widget _buildReplayTab(KidsController controller, KidsState state) {
+    final l = AppLocalizations.of(context);
     return state.replaysAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => ErrorState(
         icon: Icons.replay_rounded,
-        title: 'Replays indisponibles',
+        title: l.replaysUnavailable,
         message: e.toString(),
         onRetry: controller.loadReplays,
       ),
       data: (replays) {
         if (replays.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.replay_rounded,
-            title: 'Aucun replay pour enfants',
+            title: l.noKidsReplays,
             message: 'Aucun replay ne correspond aux filtres de sécurité.',
           );
         }

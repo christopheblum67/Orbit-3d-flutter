@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ReplayScreen extends ConsumerStatefulWidget {
   const ReplayScreen({super.key});
@@ -35,6 +36,7 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final replaysAsync = ref.watch(replaysProvider);
     return Scaffold(
       appBar: AppBar(
@@ -122,8 +124,8 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
                 ),
               Expanded(
                 child: visibleReplays.isEmpty
-                    ? const Center(
-                        child: Text('Aucun replay dans cette catégorie'),
+                    ? Center(
+                        child: Text(l.noReplaysInCategory),
                       )
                     : GridView.builder(
                         padding: const EdgeInsets.all(16),
@@ -201,7 +203,7 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
         loading: () => const LoadingState(message: 'Chargement…'),
         error: (err, _) => ErrorState(
           icon: Icons.replay,
-          title: 'Replays indisponibles',
+          title: l.replaysUnavailable,
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(replaysProvider),
         ),
