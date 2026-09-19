@@ -856,7 +856,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Configuration exportée dans le presse-papiers';
 
   @override
-  String get snackCacheCleared => 'Caches vidés (TODO)';
+  String get snackCacheCleared => 'Caches vidés';
 
   @override
   String get snackCloudflareReset => 'Config Cloudflare réinitialisée';

@@ -837,7 +837,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get snackBackupExported => 'تم تصدير الإعدادات إلى الحافظة';
 
   @override
-  String get snackCacheCleared => 'تم مسح الكاش (TODO)';
+  String get snackCacheCleared => 'تم مسح الكاش';
 
   @override
   String get snackCloudflareReset => 'تمت إعادة ضبط إعدادات Cloudflare';

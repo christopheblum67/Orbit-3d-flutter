@@ -301,7 +301,7 @@
   "settingsTitle": "Configuration",
   "similarMovies": "Films similaires",
   "snackBackupExported": "Configuration exportée dans le presse-papiers",
-  "snackCacheCleared": "Caches vidés (TODO)",
+"snackCacheCleared": "Caches vid\u00e9s",
   "snackCloudflareReset": "Config Cloudflare réinitialisée",
   "snackImportError": "Erreur: {message}",
   "snackImportSuccess": "Configuration importée avec succès",

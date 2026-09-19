@@ -1687,7 +1687,7 @@ abstract class AppLocalizations {
   /// No description provided for @snackCacheCleared.
   ///
   /// In fr, this message translates to:
-  /// **'Caches vidés (TODO)'**
+  /// **'Caches vidés'**
   String get snackCacheCleared;
 
   /// No description provided for @snackCloudflareReset.

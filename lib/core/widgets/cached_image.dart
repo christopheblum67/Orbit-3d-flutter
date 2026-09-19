@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/src/cache_manager.dart';
-import 'package:flutter_cache_manager/src/config/config.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 /// Wrapper `CachedNetworkImage` avec configuration de cache bornée par défaut.
 ///

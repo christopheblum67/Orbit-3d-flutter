@@ -854,7 +854,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get snackBackupExported => 'Configuración exportada al portapapeles';
 
   @override
-  String get snackCacheCleared => 'Cachés vaciadas (TODO)';
+  String get snackCacheCleared => 'Cachés vaciadas';
 
   @override
   String get snackCloudflareReset => 'Configuración de Cloudflare restablecida';

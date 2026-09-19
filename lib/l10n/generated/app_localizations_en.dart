@@ -847,7 +847,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackBackupExported => 'Configuration exported to the clipboard';
 
   @override
-  String get snackCacheCleared => 'Caches cleared (TODO)';
+  String get snackCacheCleared => 'Caches cleared';
 
   @override
   String get snackCloudflareReset => 'Cloudflare config reset';
