@@ -89,6 +89,8 @@ class AdvancedSettings {
 
   // Accessibilité
   final bool highContrast;
+  final bool dpadNavigation;
+  final double fontSizeScale;
 
   // Certificate Pinning
   final bool certificatePinningEnabled;
@@ -121,6 +123,8 @@ class AdvancedSettings {
     this.nightFocusAudioShiftMs = 0,
     this.nightFocusVolumeNormalization = true,
     this.highContrast = false,
+    this.dpadNavigation = true,
+    this.fontSizeScale = 1.0,
     this.certificatePinningEnabled = false,
     this.certificatePinningFingerprints = const [],
   });
@@ -140,6 +144,8 @@ class AdvancedSettings {
     int? nightFocusAudioShiftMs,
     bool? nightFocusVolumeNormalization,
     bool? highContrast,
+    bool? dpadNavigation,
+    double? fontSizeScale,
     bool? certificatePinningEnabled,
     List<String>? certificatePinningFingerprints,
   }) {
@@ -162,6 +168,8 @@ class AdvancedSettings {
       nightFocusVolumeNormalization:
           nightFocusVolumeNormalization ?? this.nightFocusVolumeNormalization,
       highContrast: highContrast ?? this.highContrast,
+      dpadNavigation: dpadNavigation ?? this.dpadNavigation,
+      fontSizeScale: fontSizeScale ?? this.fontSizeScale,
       certificatePinningEnabled: certificatePinningEnabled ?? this.certificatePinningEnabled,
       certificatePinningFingerprints: certificatePinningFingerprints ?? this.certificatePinningFingerprints,
     );
@@ -198,6 +206,8 @@ class AdvancedSettings {
   static const kNightFocusVolumeNormalization =
       'night_focus_volume_normalization';
   static const kHighContrast = 'high_contrast';
+  static const kDpadNavigation = 'dpad_navigation';
+  static const kFontSizeScale = 'font_size_scale';
   static const kCertificatePinningEnabled = 'certificate_pinning_enabled';
   static const kCertificatePinningFingerprints = 'certificate_pinning_fingerprints';
 }
@@ -238,6 +248,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       nightFocusVolumeNormalization:
           prefs.getBool(AdvancedSettings.kNightFocusVolumeNormalization) ?? true,
       highContrast: prefs.getBool(AdvancedSettings.kHighContrast) ?? false,
+      dpadNavigation: prefs.getBool(AdvancedSettings.kDpadNavigation) ?? true,
+      fontSizeScale: prefs.getDouble(AdvancedSettings.kFontSizeScale) ?? 1.0,
       certificatePinningEnabled:
           prefs.getBool(AdvancedSettings.kCertificatePinningEnabled) ?? false,
       certificatePinningFingerprints:
@@ -369,6 +381,16 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kHighContrast, value);
   }
 
+  Future<void> setDpadNavigation(bool value) async {
+    state = state.copyWith(dpadNavigation: value);
+    await _persistBool(AdvancedSettings.kDpadNavigation, value);
+  }
+
+  Future<void> setFontSizeScale(double value) async {
+    state = state.copyWith(fontSizeScale: value);
+    await _persistDouble(AdvancedSettings.kFontSizeScale, value);
+  }
+
   Future<void> setCertificatePinningEnabled(bool value) async {
     state = state.copyWith(certificatePinningEnabled: value);
     await _persistBool(AdvancedSettings.kCertificatePinningEnabled, value);
@@ -406,6 +428,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       imported.nightFocusVolumeNormalization,
     );
     await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
+    await _persistBool(AdvancedSettings.kDpadNavigation, imported.dpadNavigation);
+    await _persistDouble(AdvancedSettings.kFontSizeScale, imported.fontSizeScale);
     await _persistBool(AdvancedSettings.kCertificatePinningEnabled, imported.certificatePinningEnabled);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(

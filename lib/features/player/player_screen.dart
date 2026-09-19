@@ -1050,6 +1050,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
               subtitle: channel.groupLabel,
               streamUrl: channel.streamUrl,
             );
+        // Also record to history service
+        ref.read(historyServiceProvider).addEntry(
+              'live',
+              channel.name,
+              channel.streamUrl,
+            );
         return;
       }
       final favorite = widget.favorite;
@@ -1063,6 +1069,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
               streamUrl: favorite.streamUrl.isEmpty
                   ? widget.streamUrl
                   : favorite.streamUrl,
+            );
+        // Also record to history service
+        ref.read(historyServiceProvider).addEntry(
+              favorite.type.name,
+              favorite.title,
+              favorite.streamUrl.isEmpty ? widget.streamUrl : favorite.streamUrl,
             );
       }
     } catch (_) {}

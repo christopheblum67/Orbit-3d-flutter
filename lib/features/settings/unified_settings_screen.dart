@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -786,15 +791,19 @@ class _AdvancedSection extends ConsumerWidget {
         SettingsSwitchTile(
           title: l.dpadNavigation,
           subtitle: l.dpadNavigationSubtitle,
-          value: ref.watch(advancedSettingsProvider).zeroLagPrefetch, // placeholder
-          onChanged: (_) {}, // TODO: ajouter champ dédié
+          value: ref.watch(advancedSettingsProvider).dpadNavigation,
+          onChanged: ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
           icon: Icons.tv_rounded,
         ),
         SettingsSwitchTile(
           title: l.fontSize,
           subtitle: l.fontSizeSubtitle,
-          value: ref.watch(advancedSettingsProvider).highContrast, // placeholder
-          onChanged: (_) {}, // TODO: ajouter champ dédié
+          value: ref.watch(advancedSettingsProvider).fontSizeScale > 1.0,
+          onChanged: (value) {
+            ref.read(advancedSettingsProvider.notifier).setFontSizeScale(
+              value ? 1.3 : 1.0,
+            );
+          },
           icon: Icons.format_size_outlined,
         ),
         const SizedBox(height: 16),
@@ -834,12 +843,19 @@ class _AdvancedSection extends ConsumerWidget {
     );
   }
 
-  static void _clearAllCaches(BuildContext context, WidgetRef ref) {
+  static Future<void> _clearAllCaches(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    // TODO: implémenter le vidage des caches
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l.snackCacheCleared)),
-    );
+    // Purge réelle : cache mémoire des images Flutter + cache disque
+    // flutter_cache_manager (pochettes/stickers) + images vivantes.
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    PaintingBinding.instance.imageCache.clear();
+    // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
+    await DefaultCacheManager().emptyCache();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackCacheCleared)),
+      );
+    }
   }
 
   static Future<void> _factoryReset(BuildContext context, WidgetRef ref) async {
@@ -885,19 +901,14 @@ class _AdvancedSection extends ConsumerWidget {
           ),
           Focus(
             focusNode: confirmFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.pop(ctx);
-                // TODO: implémenter le reset complet
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l.resetCompleted)),
-                  );
-                }
-                return KeyEventResult.handled;
+onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.select ||
+                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                  Navigator.pop(ctx);
+                  unawaited(_performFactoryReset(context, ref));
+                  return KeyEventResult.handled;
               }
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.arrowRight ||
@@ -914,12 +925,7 @@ class _AdvancedSection extends ConsumerWidget {
               ),
               onPressed: () async {
                 Navigator.pop(ctx);
-                // TODO: implémenter le reset complet
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l.resetCompleted)),
-                  );
-                }
+                await _performFactoryReset(context, ref);
               },
               child: Text(l.resetAppDialogConfirm),
             ),
@@ -930,6 +936,55 @@ class _AdvancedSection extends ConsumerWidget {
 
     cancelFocus.dispose();
     confirmFocus.dispose();
+  }
+
+  static Future<void> _performFactoryReset(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context);
+    
+    // 1) Purge caches (mémoire + disque)
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    PaintingBinding.instance.imageCache.clear();
+    await DefaultCacheManager().emptyCache();
+    
+    // 2) Clear all Hive boxes
+    final boxNames = [
+      'history',
+      'recently_watched',
+      'search_history',
+      'metadata_cache',
+      'downloads',
+      'epg_cache',
+      'settings_backup',
+      'history',
+    ];
+    for (final name in boxNames) {
+      try {
+        final box = await Hive.openBox(name);
+        await box.clear();
+        await box.close();
+      } catch (_) {}
+    }
+    
+    // 3) Clear SharedPreferences keys
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (_) {}
+    
+    // 4) Clear flutter_cache_manager disk cache
+    await DefaultCacheManager().emptyCache();
+    
+    // 5) Clear Flutter image cache
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    PaintingBinding.instance.imageCache.clear();
+    
+    // 6) Navigate to onboarding (reset complete)
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.resetCompleted)),
+      );
+      context.go('/onboarding');
+    }
   }
 }
 

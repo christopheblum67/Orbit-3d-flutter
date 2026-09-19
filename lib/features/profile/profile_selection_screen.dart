@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -61,6 +62,17 @@ class _ProfileSelectionScreenState
     // Small delay to ensure profile state is propagated before navigation
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
+    
+    // Rafraîchir la validité de l'abonnement actif (Xtream) pour invalider
+    // les 4 sections : Live, VOD, Séries, EPG/Replay/Radio.
+    // Cela se fait APRÈS la sélection du profil (comme avant).
+    final activeSub = ref.read(activeSubscriptionProvider);
+    if (activeSub != null && activeSub.type == SubscriptionType.xtream) {
+      await ref.read(subscriptionsProvider.notifier).refreshValidity(
+        activeSub.id,
+        api: ref.read(apiServiceProvider),
+      );
+    }
     
     // `go` (et non pushReplacement) : réinitialise proprement la pile vers le
     // shell. `pushReplacement` provoque un « pop » de la route courante que le

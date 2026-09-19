@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -381,7 +382,10 @@ final searchServiceProvider = Provider<SearchService>((ref) {
             ),
           );
         }
-      } catch (_) {}
+      } catch (e) {
+        // Log l'erreur mais ne bloque pas le chargement EPG
+        LoggerService.instance.warning('Échec construction index recherche', error: e);
+      }
       return entries;
     },
   );
@@ -806,9 +810,10 @@ Future<void> persistLastRefresh(DateTime timestamp) async {
       'orbit_last_refresh',
       timestamp.toIso8601String(),
     );
-  } catch (_) {
-    // Non bloquant.
-  }
+} catch (e) {
+      // Non bloquant - log silencieux
+      LoggerService.instance.warning('Échec persistLastRefresh', error: e);
+    }
 }
 
 Future<DateTime?> loadLastRefresh() async {
@@ -817,7 +822,8 @@ Future<DateTime?> loadLastRefresh() async {
     final raw = prefs.getString('orbit_last_refresh');
     if (raw == null || raw.isEmpty) return null;
     return DateTime.tryParse(raw);
-  } catch (_) {
-    return null;
-  }
+} catch (e) {
+      LoggerService.instance.warning('Échec loadLastRefresh', error: e);
+      return null;
+    }
 }

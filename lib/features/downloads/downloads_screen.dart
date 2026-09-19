@@ -143,8 +143,36 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 
   void _openContent(DownloadTask task) {
-    // TODO: Naviguer vers le contenu approprié selon le type
-    // context.go('/vod/detail', extra: movie) etc.
+    final type = task.contentType;
+    final id = task.mediaItemId;
+    final seriesId = task.seriesId;
+    final season = task.seasonNumber;
+    final episode = task.episodeNumber;
+
+    switch (type) {
+      case 'vod':
+        context.go('/vod/detail', extra: {'id': id});
+        break;
+      case 'series':
+        if (seriesId != null && season != null && episode != null) {
+          context.go('/series/detail', extra: {
+            'seriesId': seriesId,
+            'season': season,
+            'episode': episode,
+          });
+        } else if (seriesId != null) {
+          context.go('/series/detail', extra: {'id': seriesId});
+        }
+        break;
+      case 'live':
+        context.go('/live/detail', extra: {'id': id});
+        break;
+      case 'replay':
+        context.go('/replay/detail', extra: {'id': id});
+        break;
+      default:
+        context.go('/home');
+    }
   }
 }
 
