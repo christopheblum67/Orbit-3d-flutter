@@ -1,3 +1,4 @@
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
@@ -62,26 +63,31 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       _loading = true;
       _error = null;
     });
-    try {
+    final result = await safeAsync(() async {
       final audio = await widget.controller.getAudioTracks();
       final video = await widget.controller.getVideoTracks();
-      if (!mounted) return;
+      return (audio: audio, video: video);
+    }, context: 'StreamDetailsSheet _load');
+    
+    if (!mounted) return;
+    
+    if (result.isSuccess) {
+      final data = result.valueOrNull!;
       setState(() {
-        _audioTracks = audio;
-        _videoTracks = video;
-        _audioSelection = audio.indexWhere((t) => t.isSelected) >= 0
-            ? audio.firstWhere((t) => t.isSelected).id
+        _audioTracks = data.audio;
+        _videoTracks = data.video;
+        _audioSelection = data.audio.indexWhere((t) => t.isSelected) >= 0
+            ? data.audio.firstWhere((t) => t.isSelected).id
             : null;
-        _videoSelection = video.indexWhere((t) => t.isSelected) >= 0
-            ? video.firstWhere((t) => t.isSelected).id
+        _videoSelection = data.video.indexWhere((t) => t.isSelected) >= 0
+            ? data.video.firstWhere((t) => t.isSelected).id
             : 'auto';
         _loading = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } else {
       setState(() {
         _loading = false;
-        _error = '$e';
+        _error = result.errorOrNull?.message ?? 'Unknown error';
       });
     }
   }
@@ -90,16 +96,18 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     setState(() => _audioSelection = id);
     // Mémorise la piste pour la prochaine lecture de ce contenu.
     await PlayerTrackPrefs.setAudioTrack(widget.mediaKey, id);
-    try {
-      await widget.controller.selectAudioTrack(id);
-    } catch (_) {}
+    await safeAsync(
+      () => widget.controller.selectAudioTrack(id),
+      context: 'StreamDetailsSheet _selectAudio',
+    );
   }
 
   Future<void> _selectVideo(String? id) async {
     setState(() => _videoSelection = id ?? 'auto');
-    try {
-      await widget.controller.selectVideoTrack(id == null ? null : _videoTrackFor(id));
-    } catch (_) {}
+    await safeAsync(
+      () => widget.controller.selectVideoTrack(id == null ? null : _videoTrackFor(id)),
+      context: 'StreamDetailsSheet _selectVideo',
+    );
   }
 
   VideoTrack? _videoTrackFor(String id) {

@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -39,8 +40,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _initSpeech() async {
-    try {
-      _speechInitialized = await _speech.initialize(
+    final result = await safeAsync<bool>(() async {
+      return await _speech.initialize(
         onError: (error) {
           _logger.warning('Speech recognition error: $error');
           if (mounted) setState(() => _isListening = false);
@@ -51,9 +52,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           }
         },
       );
-    } catch (e) {
-      _logger.warning('Speech initialization failed: $e');
-    }
+    }, context: '_initSpeech', fallbackValue: false);
+    _speechInitialized = result.valueOrNull ?? false;
   }
 
   void _onQueryChanged(String query) {
@@ -101,12 +101,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<bool> _requestMicPermission() async {
     if (!mounted) return false;
-    try {
-      final status = await _speech.initialize();
-      return status;
-    } catch (_) {
-      return false;
-    }
+    final result = await safeAsync<bool>(
+      () => _speech.initialize(),
+      context: '_requestMicPermission',
+      fallbackValue: false,
+    );
+    return result.valueOrNull ?? false;
   }
 
   void _clearQuery() {

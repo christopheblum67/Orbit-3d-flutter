@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 
 /// Contrôleur pour gérer le chargement et la sélection des pistes de sous-titres.
@@ -10,14 +11,17 @@ class SubtitleController extends ChangeNotifier {
   List<SubtitleTrack> get availableTracks => _loadedTracks.values.toList();
 
   Future<void> loadAndSetTrack(String url, {String language = 'und', String? label}) async {
-    try {
-      final track = await SubtitleParser.parseFromUrl(url, language: language, label: label);
-      _loadedTracks[url] = track;
-      _activeTrack = track;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Failed to load subtitle: $e');
-      rethrow;
+    final result = await safeAsync<void>(
+      () async {
+        final track = await SubtitleParser.parseFromUrl(url, language: language, label: label);
+        _loadedTracks[url] = track;
+        _activeTrack = track;
+        notifyListeners();
+      },
+      context: 'SubtitleController.loadAndSetTrack',
+    );
+    if (result.isFailure) {
+      throw result.errorOrNull!.originalError ?? result.errorOrNull!;
     }
   }
 

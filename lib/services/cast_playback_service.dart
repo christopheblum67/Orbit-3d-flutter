@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cast/cast.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Service Chromecast / Google Cast (protocole natif v2, découverte mDNS).
 ///
@@ -37,46 +38,51 @@ class CastPlaybackService {
     Duration timeout = const Duration(seconds: 5),
   }) async {
     if (_disposed) return const [];
-    try {
-      return await _discovery.search(timeout: timeout);
-    } catch (_) {
-      return const [];
-    }
+    final result = await safeAsync<List<CastDevice>>(
+      () => _discovery.search(timeout: timeout),
+      context: 'CastPlaybackService.scanForDevices',
+      fallbackValue: const [],
+    );
+    return result.valueOrNull ?? const [];
   }
 
   /// Connecte [device] et attend la disponibilité du récepteur. Renvoie
   /// `true` une fois la session établie (`connected`).
   Future<bool> connect(CastDevice device) async {
     await disconnect();
-    try {
-      final session = await CastSession.connect(
-        'cr-sender-$_sessionCounter',
-        device,
-      );
-      if (_disposed) {
-        await session.close();
-        return false;
-      }
-      _session = session;
-      _receiverSessionId = null;
-      _messageSub?.cancel();
-      _messageSub = session.messageStream.listen(_onMessage);
-      _stateController.add(session.state);
-      _startHeartbeat();
-      // Attend jusqu'à `connected` (receiver status reçu + transport établi).
-      final connected = await session.stateStream
-          .firstWhere((s) => s != CastSessionState.connecting)
-          .timeout(const Duration(seconds: 15))
-          .then((s) => s == CastSessionState.connected)
-          .catchError((_) => false);
-      if (!connected) {
-        await disconnect();
-      }
-      return connected;
-    } catch (_) {
+    final result = await safeAsync<bool>(
+      () async {
+        final session = await CastSession.connect(
+          'cr-sender-$_sessionCounter',
+          device,
+        );
+        if (_disposed) {
+          await session.close();
+          return false;
+        }
+        _session = session;
+        _receiverSessionId = null;
+        _messageSub?.cancel();
+        _messageSub = session.messageStream.listen(_onMessage);
+        _stateController.add(session.state);
+        _startHeartbeat();
+        // Attend jusqu'à `connected` (receiver status reçu + transport établi).
+        final connected = await session.stateStream
+            .firstWhere((s) => s != CastSessionState.connecting)
+            .timeout(const Duration(seconds: 15))
+            .then((s) => s == CastSessionState.connected)
+            .catchError((_) => false);
+        if (!connected) {
+          await disconnect();
+        }
+        return connected;
+      },
+      context: 'CastPlaybackService.connect',
+    );
+    if (result.isFailure) {
       await disconnect();
-      return false;
     }
+    return result.getOrElse(false);
   }
 
   int _sessionCounter = 0;
@@ -153,9 +159,10 @@ class CastPlaybackService {
     _session = null;
     _receiverSessionId = null;
     if (session != null) {
-      try {
-        await session.close();
-      } catch (_) {}
+      await safeAsync<void>(
+        () => session.close(),
+        context: 'CastPlaybackService.disconnect',
+      );
     }
     if (!_disposed) {
       _stateController.add(CastSessionState.closed);

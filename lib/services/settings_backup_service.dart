@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
@@ -65,35 +66,44 @@ class SettingsBackupService {
     AdvancedSettingsNotifier advancedNotifier,
     PreferencesNotifier preferencesNotifier,
   ) async {
-    try {
-      final map = jsonDecode(json) as Map<String, dynamic>;
+    final result = await safeAsync<SettingsBackupResult>(
+      () async {
+        final map = jsonDecode(json) as Map<String, dynamic>;
 
-      if (map['app'] != _appName) {
-        return SettingsBackupResult.failure('Fichier invalide : application non reconnue');
-      }
-      final version = map['version'] as int?;
-      if (version == null || version > _version) {
-        return SettingsBackupResult.failure('Version de backup non supportée ($version)');
-      }
+        if (map['app'] != _appName) {
+          return SettingsBackupResult.failure('Fichier invalide : application non reconnue');
+        }
+        final version = map['version'] as int?;
+        if (version == null || version > _version) {
+          return SettingsBackupResult.failure('Version de backup non supportée ($version)');
+        }
 
-      final advJson = map['advancedSettings'] as Map<String, dynamic>?;
-      final prefsJson = map['userPreferences'] as Map<String, dynamic>?;
+        final advJson = map['advancedSettings'] as Map<String, dynamic>?;
+        final prefsJson = map['userPreferences'] as Map<String, dynamic>?;
 
-      if (advJson != null) {
-        final adv = _advancedSettingsFromJson(advJson);
-        await advancedNotifier.importFromJson(adv);
-      }
-      if (prefsJson != null) {
-        final prefs = UserPreferences.fromMap(prefsJson);
-        await preferencesNotifier.importFromJson(prefs);
-      }
+        if (advJson != null) {
+          final adv = _advancedSettingsFromJson(advJson);
+          await advancedNotifier.importFromJson(adv);
+        }
+        if (prefsJson != null) {
+          final prefs = UserPreferences.fromMap(prefsJson);
+          await preferencesNotifier.importFromJson(prefs);
+        }
 
-      return SettingsBackupResult.success('Réglages importés avec succès');
-    } on FormatException {
-      return SettingsBackupResult.failure('JSON invalide');
-    } catch (e) {
-      return SettingsBackupResult.failure('Erreur lors de l\'import: $e');
+        return SettingsBackupResult.success('Réglages importés avec succès');
+      },
+      context: 'SettingsBackupService.importFromJson',
+    );
+    if (result.isFailure) {
+      final error = result.errorOrNull;
+      if (error?.originalError is FormatException) {
+        return SettingsBackupResult.failure('JSON invalide');
+      }
+      return SettingsBackupResult.failure(
+          'Erreur lors de l\'import: ${error?.originalError ?? error?.message}',
+      );
     }
+    return result.valueOrNull!;
   }
 
   AdvancedSettings _advancedSettingsFromJson(Map<String, dynamic> map) {

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 
@@ -96,12 +98,12 @@ class EpgPreloadService {
   Future<bool> _preloadOne(Channel channel, ChannelEpgLoader loader) async {
     if (channel.epgChannelId.isEmpty) return false;
     if (cache.isFresh(channel.epgChannelId)) return false;
-    final List<EPGProgram> programs;
-    try {
-      programs = await loader(channel);
-    } catch (_) {
-      return false;
-    }
+    final result = await safeAsync<List<EPGProgram>>(
+      () => loader(channel),
+      context: '_preloadOne loader',
+      fallbackValue: <EPGProgram>[],
+    );
+    final programs = result.valueOrNull ?? [];
     if (programs.isEmpty) return false;
     cache.put(channel.epgChannelId, programs);
     return true;

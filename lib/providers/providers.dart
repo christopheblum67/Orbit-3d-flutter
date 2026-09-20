@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -343,7 +342,8 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     searchIndex: ref.watch(searchIndexServiceProvider),
     loadCatalogue: () async {
       final entries = <SearchIndexEntry>[];
-      try {
+      final result = await safeAsync<List<SearchIndexEntry>>(
+        () async {
         for (final c in ref.read(liveChannelsProvider).value ?? const <Channel>[]) {
           entries.add(
             SearchIndexEntry(
@@ -382,11 +382,12 @@ final searchServiceProvider = Provider<SearchService>((ref) {
             ),
           );
         }
-      } catch (e) {
-        // Log l'erreur mais ne bloque pas le chargement EPG
-        LoggerService.instance.warning('Échec construction index recherche', error: e);
-      }
       return entries;
+        },
+        context: 'providers.loadCatalogue',
+        fallbackValue: entries,
+      );
+      return result.valueOrNull ?? entries;
     },
   );
   ref.onDispose(service.dispose);
@@ -718,22 +719,17 @@ class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
   Future<List<EPGProgram>> build() async {
     final api = ref.watch(apiServiceProvider);
     final cache = ref.watch(epgDataCacheProvider);
-    try {
+    final result = await safeAsync<List<EPGProgram>>(
       // Passe par le cache partagé : aucune redondance avec la grille EPG
       // (un seul fetch XMLTV global). La mise en garde retry garde la
       // robustesse anti-leech draap.
-      return await stream_helpers.retryStream(
+      () => stream_helpers.retryStream(
         () => cache.loadFull(api),
         attempts: 2,
-      );
-    } catch (error, stackTrace) {
-      ErrorHandler.instance.handleError(
-        error,
-        stackTrace: stackTrace,
-        context: 'EPG',
-      );
-      rethrow;
-    }
+      ),
+      context: 'EPGProgramsNotifier.build',
+    );
+    return result.getOrThrow();
   }
 
   Future<void> retry() async {
@@ -804,26 +800,28 @@ class LastRefreshTimestampNotifier extends Notifier<DateTime?> {
 }
 
 Future<void> persistLastRefresh(DateTime timestamp) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      'orbit_last_refresh',
-      timestamp.toIso8601String(),
-    );
-} catch (e) {
-      // Non bloquant - log silencieux
-      LoggerService.instance.warning('Échec persistLastRefresh', error: e);
-    }
+  final result = await safeAsync<void>(
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'orbit_last_refresh',
+        timestamp.toIso8601String(),
+      );
+    },
+    context: 'persistLastRefresh',
+  );
+  return result.valueOrNull;
 }
 
 Future<DateTime?> loadLastRefresh() async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('orbit_last_refresh');
-    if (raw == null || raw.isEmpty) return null;
-    return DateTime.tryParse(raw);
-} catch (e) {
-      LoggerService.instance.warning('Échec loadLastRefresh', error: e);
-      return null;
-    }
+  final result = await safeAsync<DateTime?>(
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('orbit_last_refresh');
+      if (raw == null || raw.isEmpty) return null;
+      return DateTime.tryParse(raw);
+    },
+    context: 'loadLastRefresh',
+  );
+  return result.valueOrNull;
 }

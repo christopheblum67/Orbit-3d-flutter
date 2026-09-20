@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -38,29 +39,33 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     setState(() => _busy = true);
     final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      final manager = ref.read(downloadManagerProvider);
-      await manager.init();
-      await manager.createTask(
-        mediaItemId: widget.mediaItemId,
-        title: widget.title,
-        streamUrl: widget.streamUrl,
-        posterUrl: widget.posterUrl,
-        contentType: widget.contentType,
-      );
+    final result = await safeAsync<void>(
+      () async {
+        final manager = ref.read(downloadManagerProvider);
+        await manager.init();
+        await manager.createTask(
+          mediaItemId: widget.mediaItemId,
+          title: widget.title,
+          streamUrl: widget.streamUrl,
+          posterUrl: widget.posterUrl,
+          contentType: widget.contentType,
+        );
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('« ${widget.title} » ajouté aux téléchargements'),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      },
+      context: 'DownloadButton.handleDownload',
+    );
+    if (result.isFailure) {
+      final error = result.errorOrNull!.originalError ?? result.errorOrNull!;
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('« ${widget.title} » ajouté aux téléchargements'),
-          duration: const Duration(milliseconds: 1500),
-        ),
+        SnackBar(content: Text(l.downloadFailed(error.toString()))),
       );
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(l.downloadFailed(e.toString()))),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
+    if (mounted) setState(() => _busy = false);
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
@@ -86,41 +87,43 @@ class TvmazeService {
   Future<int?> searchMovieId(String title, {int? year}) async {
     await _waitForRateLimit();
 
-    try {
-      final response = await _dio.get('/search/shows', queryParameters: {
-        'q': title,
-      },);
-      final results = response.data as List?;
-      if (results != null && results.isNotEmpty) {
-        Map<String, dynamic>? firstMovie;
-        Map<String, dynamic>? yearMatch;
-        for (final result in results) {
-          final show = result['show'] as Map<String, dynamic>?;
-          if (show == null || show['type'] != 'Movie') continue;
-          firstMovie ??= show;
-          if (year != null) {
-            final premiered = show['premiered'] as String?;
-            final showYear = (premiered != null && premiered.length >= 4)
-                ? int.tryParse(premiered.substring(0, 4))
-                : null;
-            if (showYear == year) {
-              yearMatch = show;
+    final result = await safeAsync<int?>(
+      () async {
+        final response = await _dio.get('/search/shows', queryParameters: {
+          'q': title,
+        },);
+        final results = response.data as List?;
+        if (results != null && results.isNotEmpty) {
+          Map<String, dynamic>? firstMovie;
+          Map<String, dynamic>? yearMatch;
+          for (final result in results) {
+            final show = result['show'] as Map<String, dynamic>?;
+            if (show == null || show['type'] != 'Movie') continue;
+            firstMovie ??= show;
+            if (year != null) {
+              final premiered = show['premiered'] as String?;
+              final showYear = (premiered != null && premiered.length >= 4)
+                  ? int.tryParse(premiered.substring(0, 4))
+                  : null;
+              if (showYear == year) {
+                yearMatch = show;
+                break;
+              }
+            } else {
               break;
             }
-          } else {
-            break;
           }
+          final selected = yearMatch ?? firstMovie;
+          if (selected != null) return selected['id'] as int;
+          // Fallback: premier résultat (même si ce n'est pas typé "Movie")
+          final firstShow = results.first['show'] as Map<String, dynamic>?;
+          if (firstShow != null) return firstShow['id'] as int;
         }
-        final selected = yearMatch ?? firstMovie;
-        if (selected != null) return selected['id'] as int;
-        // Fallback: premier résultat (même si ce n'est pas typé "Movie")
-        final firstShow = results.first['show'] as Map<String, dynamic>?;
-        if (firstShow != null) return firstShow['id'] as int;
-      }
-    } catch (e) {
-      _logger.warning('TVmaze searchMovieId error: $e');
-    }
-    return null;
+        return null;
+      },
+      context: 'TvmazeService.searchMovieId',
+    );
+    return result.valueOrNull;
   }
 
   /// Détails d'un film (TVmaze)
@@ -131,25 +134,26 @@ class TvmazeService {
 
     await _waitForRateLimit();
 
-    try {
-      final futures = await Future.wait([
-        _dio.get('/shows/$tvmazeId'),
-        _dio.get('/shows/$tvmazeId/cast'),
-        _dio.get('/shows/$tvmazeId/images'),
-      ], eagerError: false,);
+    final result = await safeAsync<MovieDetail?>(
+      () async {
+        final futures = await Future.wait([
+          _dio.get('/shows/$tvmazeId'),
+          _dio.get('/shows/$tvmazeId/cast'),
+          _dio.get('/shows/$tvmazeId/images'),
+        ], eagerError: false,);
 
-      final showData = futures[0].data;
-      final castData = futures[1].data as List<dynamic>? ?? [];
-      final imagesData = futures[2].data as List<dynamic>? ?? [];
+        final showData = futures[0].data;
+        final castData = futures[1].data as List<dynamic>? ?? [];
+        final imagesData = futures[2].data as List<dynamic>? ?? [];
 
-      final detail =
-          _parseMovieDetail(showData, tvmazeId, castData, imagesData);
-      await _setCache(cacheKey, showData);
-      return detail;
-    } catch (e) {
-      _logger.warning('TVmaze getMovieDetail error: $e');
-      return null;
-    }
+        final detail =
+            _parseMovieDetail(showData, tvmazeId, castData, imagesData);
+        await _setCache(cacheKey, showData);
+        return detail;
+      },
+      context: 'TvmazeService.getMovieDetail',
+    );
+    return result.valueOrNull;
   }
 
   MovieDetail _parseMovieDetail(Map<String, dynamic> data, int tvmazeId,
@@ -210,26 +214,28 @@ class TvmazeService {
   Future<int?> searchShowId(String title) async {
     await _waitForRateLimit();
 
-    try {
-      final response = await _dio.get('/search/shows', queryParameters: {
-        'q': title,
-      },);
-      final results = response.data as List?;
-      if (results != null && results.isNotEmpty) {
-        // Filtrer pour ne garder que les séries (type: "Scripted", "Documentary", etc.)
-        for (final result in results) {
-          final show = result['show'] as Map<String, dynamic>?;
-          if (show != null && show['type'] != 'Movie') {
-            return show['id'] as int;
+    final result = await safeAsync<int?>(
+      () async {
+        final response = await _dio.get('/search/shows', queryParameters: {
+          'q': title,
+        },);
+        final results = response.data as List?;
+        if (results != null && results.isNotEmpty) {
+          // Filtrer pour ne garder que les séries (type: "Scripted", "Documentary", etc.)
+          for (final result in results) {
+            final show = result['show'] as Map<String, dynamic>?;
+            if (show != null && show['type'] != 'Movie') {
+              return show['id'] as int;
+            }
           }
+          final firstShow = results.first['show'] as Map<String, dynamic>?;
+          if (firstShow != null) return firstShow['id'] as int;
         }
-        final firstShow = results.first['show'] as Map<String, dynamic>?;
-        if (firstShow != null) return firstShow['id'] as int;
-      }
-    } catch (e) {
-      _logger.warning('TVmaze searchShowId error: $e');
-    }
-    return null;
+        return null;
+      },
+      context: 'TvmazeService.searchShowId',
+    );
+    return result.valueOrNull;
   }
 
   /// Détails complets d'une série (PRIMAIRE pour les séries)
@@ -240,40 +246,43 @@ class TvmazeService {
 
     await _waitForRateLimit();
 
-    try {
-      // Paralléliser : show + cast + seasons + episodes
-      final futures = await Future.wait([
-        _dio.get('/shows/$tvmazeId', queryParameters: {'embed': 'cast'}),
-        _dio.get('/shows/$tvmazeId/seasons'),
-        _dio.get('/shows/$tvmazeId/episodes'),
-      ], eagerError: false,);
+    final result = await safeAsync<SeriesDetail?>(
+      () async {
+        // Paralléliser : show + cast + seasons + episodes
+        final futures = await Future.wait([
+          _dio.get('/shows/$tvmazeId', queryParameters: {'embed': 'cast'}),
+          _dio.get('/shows/$tvmazeId/seasons'),
+          _dio.get('/shows/$tvmazeId/episodes'),
+        ], eagerError: false,);
 
-      final showData = futures[0].data;
-      final seasonsData = futures[1].data as List<dynamic>? ?? [];
-      final episodesData = futures[2].data as List<dynamic>? ?? [];
+        final showData = futures[0].data;
+        final seasonsData = futures[1].data as List<dynamic>? ?? [];
+        final episodesData = futures[2].data as List<dynamic>? ?? [];
 
-      final detail =
-          _parseShowDetail(showData, tvmazeId, seasonsData, episodesData);
-      await _setCache(cacheKey, showData);
-      return detail;
-    } catch (e) {
-      _logger.warning('TVmaze getShowDetail error: $e');
-      return null;
-    }
+        final detail =
+            _parseShowDetail(showData, tvmazeId, seasonsData, episodesData);
+        await _setCache(cacheKey, showData);
+        return detail;
+      },
+      context: 'TvmazeService.getShowDetail',
+    );
+    return result.valueOrNull;
   }
 
   /// Récupère le casting global d'une série
   Future<List<Actor>> getShowCast(int tvmazeId) async {
     await _waitForRateLimit();
 
-    try {
-      final response = await _dio.get('/shows/$tvmazeId/cast');
-      final castData = response.data as List<dynamic>? ?? [];
-      return castData.map((e) => _parseActor(e, ActorSource.tvmaze)).toList();
-    } catch (e) {
-      _logger.warning('TVmaze getShowCast error: $e');
-      return [];
-    }
+    final result = await safeAsync<List<Actor>>(
+      () async {
+        final response = await _dio.get('/shows/$tvmazeId/cast');
+        final castData = response.data as List<dynamic>? ?? [];
+        return castData.map((e) => _parseActor(e, ActorSource.tvmaze)).toList();
+      },
+      context: 'TvmazeService.getShowCast',
+      fallbackValue: const [],
+    );
+    return result.valueOrNull ?? const [];
   }
 
   SeriesDetail _parseShowDetail(Map<String, dynamic> data, int tvmazeId,

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_models.dart';
 
 /// Mémorisation locale des derniers snapshots cloud observés (miroirs).
@@ -26,15 +27,17 @@ class CloudSyncMirrorStore {
     return HiveSync.read(_boxName, (box) {
       final raw = box.get(_key(scope, profileId));
       if (raw == null) return null;
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) {
-          return CloudSyncSnapshot.fromJson(decoded);
-        }
-      } catch (_) {
-        // Miroir corrompu : on repart sans miroir (sync suivante le recrée).
-      }
-      return null;
+      return safeSync<CloudSyncSnapshot?>(
+        () {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic>) {
+            return CloudSyncSnapshot.fromJson(decoded);
+          }
+          return null;
+        },
+        context: 'CloudSyncMirrorStore.getMirror',
+        fallbackValue: null,
+      ).valueOrNull;
     });
   }
 

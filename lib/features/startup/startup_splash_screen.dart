@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/core/services/personalized_recommendations.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
@@ -148,16 +149,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (!mounted) return;
     // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
     // Récupère l'URL de base du fournisseur IPTV actif.
-    try {
+    await safeAsync(() async {
       final sub =
           await ref.read(subscriptionManagerProvider).getActiveSubscription();
       if (sub['type'] == 'xtream') {
         final baseUrl = 'https://${Uri.parse(sub['baseUrl']!).host}';
         await ref.read(cloudflareSessionProvider).initialize(baseUrl: baseUrl);
       }
-    } catch (_) {
-      // Non bloquant : si le challenge échoue, on continuera sans cookies Cloudflare.
-    }
+    }, context: 'StartupSplashScreen Cloudflare session init');
     if (!mounted) return;
     // Après le fetch, rafraîchit les recommandations avec les contenus reçus.
     final refreshed = engine.build(
@@ -292,7 +291,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _refreshSubscriptionValidity() async {
-    try {
+    await safeAsync(() async {
       // Attend la résolution du provider actif
       final active = ref.read(activeSubscriptionProvider);
       if (active != null && active.type == SubscriptionType.xtream) {
@@ -300,9 +299,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
             .read(subscriptionsProvider.notifier)
             .refreshValidity(active.id, api: ref.read(apiServiceProvider));
       }
-    } catch (_) {
-      // Non bloquant : l'affichage retombera sur « Sans limite ».
-    }
+    }, context: '_refreshSubscriptionValidity');
+    // Non bloquant : l'affichage retombera sur « Sans limite ».
   }
 
   void _startAutoAdvance() {

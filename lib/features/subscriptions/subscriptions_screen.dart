@@ -600,6 +600,7 @@ class _SubscriptionFormDialogState
   final _m3uFocus = FocusNode();
   final _cancelFocus = FocusNode();
   final _saveFocus = FocusNode();
+  final _segmentedButtonFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
 
@@ -632,6 +633,7 @@ class _SubscriptionFormDialogState
     _usernameFocus.dispose();
     _passwordFocus.dispose();
     _m3uFocus.dispose();
+    _segmentedButtonFocus.dispose();
     _cancelFocus.dispose();
     _saveFocus.dispose();
     super.dispose();
@@ -709,19 +711,7 @@ class _SubscriptionFormDialogState
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 16),
-                  Focus(
-                    focusNode: FocusNode(),
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent &&
-                          (event.logicalKey == LogicalKeyboardKey.enter ||
-                              event.logicalKey == LogicalKeyboardKey.select ||
-                              event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                        _requestFocus(_type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus);
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: SegmentedButton<SubscriptionType>(
+                  SegmentedButton<SubscriptionType>(
                       segments: [
                         ButtonSegment(
                           value: SubscriptionType.xtream,
@@ -737,8 +727,7 @@ class _SubscriptionFormDialogState
                         setState(() => _type = newSelection.first);
                       },
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
                   if (_type == SubscriptionType.xtream) ...[
                     _buildTvTextField(
                       controller: _baseUrlController,

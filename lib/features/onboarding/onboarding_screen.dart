@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -58,9 +60,10 @@ class _OnboardingConfigScreenState
   /// sans bloquer la navigation.
   Future<void> _prewarmMicrophone() async {
     final speech = SpeechToText();
-    try {
-      await speech.initialize();
-    } catch (_) {}
+    await safeAsync(
+      () => speech.initialize(),
+      context: '_prewarmMicrophone',
+    );
   }
 
   String _profileDescription(DeviceProfile profile) {

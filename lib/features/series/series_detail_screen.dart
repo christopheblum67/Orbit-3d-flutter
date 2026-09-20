@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SeriesDetailScreen extends ConsumerWidget {
@@ -617,12 +618,15 @@ class _SeriesHeader extends ConsumerWidget {
 
   String _formatDate(String dateStr) {
     if (dateStr.isEmpty) return dateStr;
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    } catch (_) {
-      return dateStr;
-    }
+    final result = safeSync(
+      () {
+        final date = DateTime.parse(dateStr);
+        return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+      },
+      context: '_formatDate',
+      fallbackValue: dateStr,
+    );
+    return result.getOrElse(dateStr);
   }
 }
 

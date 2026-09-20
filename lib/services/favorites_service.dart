@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 /// Stockage local des favoris (Hive).
@@ -32,13 +34,20 @@ class FavoritesService {
     return HiveSync.read(_boxName, (box) {
       final entries = <FavoriteEntry>[];
       for (final raw in box.values) {
-        try {
-          final decoded = jsonDecode(raw);
-          if (decoded is Map<String, dynamic>) {
-            entries.add(FavoriteEntry.fromJson(decoded));
-          }
-        } catch (_) {
-          // Entrée corrompue ou au format historique : on l'ignore.
+        final result = safeSync(
+          () {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map<String, dynamic>) {
+              return FavoriteEntry.fromJson(decoded);
+            }
+            return null;
+          },
+          context: 'FavoritesService.loadAll decode',
+        );
+        if (result.isSuccess && result.valueOrNull != null) {
+          entries.add(result.valueOrNull!);
+        } else if (result.isFailure) {
+          LoggerService.instance.warning('loadAll decode failed', error: result.errorOrNull);
         }
       }
       return entries;

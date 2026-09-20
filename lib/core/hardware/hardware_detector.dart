@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Profil de lecture appliqué selon la capacité de l'appareil.
 enum DeviceProfile {
@@ -97,42 +98,44 @@ class HardwareDetectorService {
     var totalRamMb = 0;
     var lowRam = false;
 
-    try {
-      final info = await android;
+    final info = (await safeAsync<AndroidDeviceInfo>(
+      () => android,
+      context: 'HardwareDetectorService.analyze.deviceInfo',
+    )).valueOrNull;
+    if (info != null) {
       deviceName = '${info.brand} ${info.model}'.trim();
       brand = info.brand;
       isTv = info.systemFeatures.contains('android.software.leanback');
       isPhysical = info.isPhysicalDevice;
       sdkInt = info.version.sdkInt;
-    } catch (_) {
-      // Diagnostic non bloquant : valeurs par défaut conservées.
     }
+    // Diagnostic non bloquant : valeurs par défaut conservées.
 
-    try {
-      final memory =
-          await _memoryChannel.invokeMethod<Map<Object?, Object?>>('getMemory');
-      if (memory != null) {
-        totalRamMb = (memory['totalMb'] as num?)?.toInt() ?? 0;
-        lowRam = memory['lowRam'] as bool? ?? false;
-      }
-    } catch (_) {
-      // Canal natif indisponible (émulateur/tests) : on gère sans.
+    final memory = (await safeAsync<Map<Object?, Object?>?>(
+      () async => await _memoryChannel
+          .invokeMethod<Map<Object?, Object?>>('getMemory'),
+      context: 'HardwareDetectorService.analyze.memory',
+    )).valueOrNull;
+    if (memory != null) {
+      totalRamMb = (memory['totalMb'] as num?)?.toInt() ?? 0;
+      lowRam = memory['lowRam'] as bool? ?? false;
     }
+    // Canal natif indisponible (émulateur/tests) : on gère sans.
 
     var connection = ConnectionKind.none;
-    try {
-      final results = await Connectivity().checkConnectivity();
-      if (results.isNotEmpty) {
-        connection = switch (results.first) {
-          ConnectivityResult.ethernet => ConnectionKind.ethernet,
-          ConnectivityResult.wifi => ConnectionKind.wifi,
-          ConnectivityResult.mobile => ConnectionKind.mobile,
-          _ => ConnectionKind.other,
-        };
-      }
-    } catch (_) {
-      // Pas de connexion mesurable : type « none » conservé.
+    final results = (await safeAsync<List<ConnectivityResult>>(
+      () => Connectivity().checkConnectivity(),
+      context: 'HardwareDetectorService.analyze.connectivity',
+    )).valueOrNull;
+    if (results != null && results.isNotEmpty) {
+      connection = switch (results.first) {
+        ConnectivityResult.ethernet => ConnectionKind.ethernet,
+        ConnectivityResult.wifi => ConnectionKind.wifi,
+        ConnectivityResult.mobile => ConnectionKind.mobile,
+        _ => ConnectionKind.other,
+      };
     }
+    // Pas de connexion mesurable : type « none » conservé.
 
     return HardwareSpecs(
       deviceName: deviceName,

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 
@@ -16,11 +17,12 @@ class OmdbService {
 
   /// Accès sûr à dotenv : renvoie '' si dotenv n'est pas initialisé.
   static String _env(String key) {
-    try {
-      return dotenv.env[key] ?? '';
-    } catch (_) {
-      return '';
-    }
+    final result = safeSync(
+      () => dotenv.env[key] ?? '',
+      context: 'OmdbService._env',
+      fallbackValue: '',
+    );
+    return result.getOrElse('');
   }
 
   final Dio _dio;
@@ -101,7 +103,7 @@ class OmdbService {
 
     await _waitForRateLimit();
 
-    try {
+    final result = await safeAsync<Map<String, dynamic>?>(() async {
       final response = await _dio.get('/', queryParameters: {
         'i': imdbId,
         'plot': 'full',
@@ -115,10 +117,8 @@ class OmdbService {
         _logger.warning('OMDB error: ${response.data['Error']}');
         return null;
       }
-    } catch (e) {
-      _logger.warning('OMDB getByImdbId error: $e');
-      return null;
-    }
+    }, context: 'getByImdbId', fallbackValue: null);
+    return result.valueOrNull;
   }
 
   /// Récupère par titre + année (recherche)
@@ -131,7 +131,7 @@ class OmdbService {
 
     await _waitForRateLimit();
 
-    try {
+    final result = await safeAsync<Map<String, dynamic>?>(() async {
       final params = <String, String>{
         't': title,
         'plot': 'full',
@@ -150,10 +150,8 @@ class OmdbService {
         _logger.warning('OMDB search error: ${response.data['Error']}');
         return null;
       }
-    } catch (e) {
-      _logger.warning('OMDB searchByTitle error: $e');
-      return null;
-    }
+    }, context: 'searchByTitle', fallbackValue: null);
+    return result.valueOrNull;
   }
 
   // ==================== ENRICHISSEMENT FILM ====================

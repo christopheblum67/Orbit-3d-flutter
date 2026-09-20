@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Paramètres media3 appliqués au lecteur natif (fork video_player_android)
 /// via le canal « orbit/player_config », lus au moment de la construction de
@@ -84,13 +85,12 @@ class PlayerProfileService {
   static const MethodChannel _channel = MethodChannel('orbit/player_config');
 
   static Future<void> push(Media3PlaybackProfile profile) async {
-    try {
-      await _channel.invokeMethod('configure', profile.toMethodArguments());
-    } on PlatformException catch (_) {
-      // Échec silencieux : le canal natif n'est pas disponible.
-    } catch (_) {
-      // Idem : la lecture ne doit jamais être interrompue pour un réglage.
-    }
+    await safeAsync<void>(
+      () async {
+        await _channel.invokeMethod('configure', profile.toMethodArguments());
+      },
+      context: 'PlayerProfileService.push',
+    );
   }
 
   /// Remet le lecteur en configuration d'usine (ExoPlayer par défaut).

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -161,22 +162,26 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                           _dateOfBirth != null &&
                           _gender != null) {
                         setState(() => _saving = true);
-                        try {
-                          final profile = UserProfile(
-                            id: const Uuid().v4(),
-                            firstName: _firstNameController.text.trim(),
-                            dateOfBirth: _dateOfBirth!,
-                            gender: _gender!,
-                            favoriteGenres: _favoriteGenres,
-                            avatarUrl:
-                                _avatarId.isEmpty ? '' : 'icone:$_avatarId',
-                          );
-                          await ref
-                              .read(storageServiceProvider)
-                              .saveProfile(profile);
-                          ref.invalidate(profilesProvider);
-                          if (context.mounted) context.pop();
-                        } catch (e) {
+                        final result = await safeAsync<void>(
+                          () async {
+                            final profile = UserProfile(
+                              id: const Uuid().v4(),
+                              firstName: _firstNameController.text.trim(),
+                              dateOfBirth: _dateOfBirth!,
+                              gender: _gender!,
+                              favoriteGenres: _favoriteGenres,
+                              avatarUrl:
+                                  _avatarId.isEmpty ? '' : 'icone:$_avatarId',
+                            );
+                            await ref
+                                .read(storageServiceProvider)
+                                .saveProfile(profile);
+                            ref.invalidate(profilesProvider);
+                            if (context.mounted) context.pop();
+                          },
+                          context: 'ProfileCreationScreen.saveProfile',
+                        );
+                        if (result.isFailure) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

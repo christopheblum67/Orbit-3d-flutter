@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -946,7 +947,7 @@ onKeyEvent: (node, event) {
     PaintingBinding.instance.imageCache.clear();
     await DefaultCacheManager().emptyCache();
     
-    // 2) Clear all Hive boxes
+// 2) Clear all Hive boxes
     final boxNames = [
       'history',
       'recently_watched',
@@ -958,20 +959,20 @@ onKeyEvent: (node, event) {
       'history',
     ];
     for (final name in boxNames) {
-      try {
+      await safeAsync(() async {
         final box = await Hive.openBox(name);
         await box.clear();
         await box.close();
-      } catch (_) {}
+      }, context: '_performFactoryReset Hive box $name');
     }
     
     // 3) Clear SharedPreferences keys
-    try {
+    await safeAsync(() async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-    } catch (_) {}
-    
-    // 4) Clear flutter_cache_manager disk cache
+    }, context: '_performFactoryReset SharedPreferences');
+      
+      // 4) Clear flutter_cache_manager disk cache
     await DefaultCacheManager().emptyCache();
     
     // 5) Clear Flutter image cache

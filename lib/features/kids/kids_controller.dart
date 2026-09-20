@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
@@ -55,49 +56,93 @@ class KidsController extends Notifier<KidsState> {
 
   Future<void> loadChannels() async {
     state = state.copyWith(channelsAsync: const AsyncLoading());
-    try {
-      _api ??= ref.read(apiServiceProvider);
-      final channels = await _api!.fetchLiveChannels();
-      final kidChannels = _filterKidChannels(channels);
-      state = state.copyWith(channelsAsync: AsyncData(kidChannels));
-    } catch (e, st) {
-      state = state.copyWith(channelsAsync: AsyncError(e, st));
+    final result = await safeAsync<List<Channel>>(
+      () async {
+        _api ??= ref.read(apiServiceProvider);
+        final channels = await _api!.fetchLiveChannels();
+        return _filterKidChannels(channels);
+      },
+      context: 'KidsController.loadChannels',
+    );
+    if (result.isSuccess) {
+      state = state.copyWith(channelsAsync: AsyncData(result.valueOrNull!));
+    } else {
+      final e = result.errorOrNull!;
+      state = state.copyWith(
+        channelsAsync: AsyncError(
+          e.originalError ?? e,
+          e.stackTrace ?? StackTrace.current,
+        ),
+      );
     }
   }
 
   Future<void> loadMovies() async {
     state = state.copyWith(moviesAsync: const AsyncLoading());
-    try {
-      _api ??= ref.read(apiServiceProvider);
-      final movies = await _api!.fetchMovies();
-      final kidMovies = _filterKidMovies(movies);
-      state = state.copyWith(moviesAsync: AsyncData(kidMovies));
-    } catch (e, st) {
-      state = state.copyWith(moviesAsync: AsyncError(e, st));
+    final result = await safeAsync<List<Movie>>(
+      () async {
+        _api ??= ref.read(apiServiceProvider);
+        final movies = await _api!.fetchMovies();
+        return _filterKidMovies(movies);
+      },
+      context: 'KidsController.loadMovies',
+    );
+    if (result.isSuccess) {
+      state = state.copyWith(moviesAsync: AsyncData(result.valueOrNull!));
+    } else {
+      final e = result.errorOrNull!;
+      state = state.copyWith(
+        moviesAsync: AsyncError(
+          e.originalError ?? e,
+          e.stackTrace ?? StackTrace.current,
+        ),
+      );
     }
   }
 
   Future<void> loadSeries() async {
     state = state.copyWith(seriesAsync: const AsyncLoading());
-    try {
-      _api ??= ref.read(apiServiceProvider);
-      final series = await _api!.fetchSeries();
-      final kidSeries = _filterKidSeries(series);
-      state = state.copyWith(seriesAsync: AsyncData(kidSeries));
-    } catch (e, st) {
-      state = state.copyWith(seriesAsync: AsyncError(e, st));
+    final result = await safeAsync<List<Series>>(
+      () async {
+        _api ??= ref.read(apiServiceProvider);
+        final series = await _api!.fetchSeries();
+        return _filterKidSeries(series);
+      },
+      context: 'KidsController.loadSeries',
+    );
+    if (result.isSuccess) {
+      state = state.copyWith(seriesAsync: AsyncData(result.valueOrNull!));
+    } else {
+      final e = result.errorOrNull!;
+      state = state.copyWith(
+        seriesAsync: AsyncError(
+          e.originalError ?? e,
+          e.stackTrace ?? StackTrace.current,
+        ),
+      );
     }
   }
 
   Future<void> loadReplays() async {
     state = state.copyWith(replaysAsync: const AsyncLoading());
-    try {
-      _api ??= ref.read(apiServiceProvider);
-      final replays = await _api!.fetchReplays();
-      final kidReplays = _filterKidReplays(replays);
-      state = state.copyWith(replaysAsync: AsyncData(kidReplays));
-    } catch (e, st) {
-      state = state.copyWith(replaysAsync: AsyncError(e, st));
+    final result = await safeAsync<List<ReplayItem>>(
+      () async {
+        _api ??= ref.read(apiServiceProvider);
+        final replays = await _api!.fetchReplays();
+        return _filterKidReplays(replays);
+      },
+      context: 'KidsController.loadReplays',
+    );
+    if (result.isSuccess) {
+      state = state.copyWith(replaysAsync: AsyncData(result.valueOrNull!));
+    } else {
+      final e = result.errorOrNull!;
+      state = state.copyWith(
+        replaysAsync: AsyncError(
+          e.originalError ?? e,
+          e.stackTrace ?? StackTrace.current,
+        ),
+      );
     }
   }
 

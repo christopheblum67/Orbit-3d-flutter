@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
@@ -35,15 +36,17 @@ class RecentlyWatchedService {
     return HiveSync.read(_boxName, (box) {
       final entries = <RecentEntry>[];
       for (final raw in box.values) {
-        try {
-          final decoded = jsonDecode(raw);
-          if (decoded is Map<String, dynamic>) {
-            final entry = RecentEntry.fromJson(decoded);
-            if (entry.profileId == profileId) entries.add(entry);
-          }
-        } catch (_) {
-          // Entrée corrompue ou au format historique : on l'ignore.
-        }
+        final entry = safeSync<RecentEntry?>(
+          () {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map<String, dynamic>) {
+              return RecentEntry.fromJson(decoded);
+            }
+            return null;
+          },
+          context: 'RecentlyWatchedService.loadForProfile.decode',
+        ).valueOrNull;
+        if (entry != null && entry.profileId == profileId) entries.add(entry);
       }
       entries.sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
       if (entries.length > maxEntries) {
@@ -58,14 +61,17 @@ class RecentlyWatchedService {
     return HiveSync.read(_boxName, (box) {
       final entries = <RecentEntry>[];
       for (final raw in box.values) {
-        try {
-          final decoded = jsonDecode(raw);
-          if (decoded is Map<String, dynamic>) {
-            entries.add(RecentEntry.fromJson(decoded));
-          }
-        } catch (_) {
-          // Entrée corrompue ou au format historique : on l'ignore.
-        }
+        final entry = safeSync<RecentEntry?>(
+          () {
+            final decoded = jsonDecode(raw);
+            if (decoded is Map<String, dynamic>) {
+              return RecentEntry.fromJson(decoded);
+            }
+            return null;
+          },
+          context: 'RecentlyWatchedService.loadAll.decode',
+        ).valueOrNull;
+        if (entry != null) entries.add(entry);
       }
       entries.sort((a, b) => b.watchedAt.compareTo(a.watchedAt));
       if (entries.length > maxEntries) {

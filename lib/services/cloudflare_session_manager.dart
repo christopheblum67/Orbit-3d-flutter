@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Gestionnaire de session Cloudflare pour le zapping IPTV.
 ///
@@ -52,15 +53,20 @@ class CloudflareSessionManager extends ChangeNotifier {
       _isChallenging = true;
       notifyListeners();
 
-      await _performChallenge();
+      final result = await safeAsync<void>(
+        _performChallenge,
+        context: 'CloudflareSessionManager.initialize',
+        reportToCrashlytics: false,
+      );
+      if (result.isFailure) {
+        _isChallenging = false;
+        notifyListeners();
+        throw result.errorOrNull!.originalError ?? result.errorOrNull!;
+      }
       _isInitialized = true;
       _isChallenging = false;
       _startRenewalTimer();
       notifyListeners();
-    } catch (e) {
-      _isChallenging = false;
-      notifyListeners();
-      rethrow;
     } finally {
       _releaseChallengeLock();
     }

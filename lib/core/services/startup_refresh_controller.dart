@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Énumère les étapes de la régénération des flux au démarrage.
 enum StartupStep {
@@ -146,17 +147,19 @@ class StartupRefreshController extends ChangeNotifier {
   Future<void> _run(StartupStep step, Future<void> Function() action) async {
     _current = step;
     notifyListeners();
-    try {
-      await action();
-      _done.add(step);
-    } catch (e) {
-      _error = e;
+    final result = await safeAsync<void>(
+      () => action(),
+      context: 'StartupRefreshController._run',
+    );
+    if (result.isFailure) {
+      _error = result.errorOrNull?.originalError ?? result.errorOrNull;
       // On marque l'étape comme faite pour ne pas bloquer le démarrage :
       // un échec réseau ne doit pas empêcher l'accès à l'application.
       _done.add(step);
       if (step == StartupStep.epg) _skippedEpg = true;
-    } finally {
-      notifyListeners();
+    } else {
+      _done.add(step);
     }
+    notifyListeners();
   }
 }

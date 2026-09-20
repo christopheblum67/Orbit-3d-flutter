@@ -1,3 +1,4 @@
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,38 +23,42 @@ class TmdbApiKeyStore {
   String get effectiveKey {
     final fromOverride = _override.trim();
     if (fromOverride.isNotEmpty) return fromOverride;
-    try {
-      final fromEnv = dotenv.maybeGet('TMDB_API_KEY')?.trim() ?? '';
-      return fromEnv;
-    } catch (_) {
-      return '';
-    }
+    final result = safeSync<String>(
+      () => dotenv.maybeGet('TMDB_API_KEY')?.trim() ?? '',
+      context: 'TmdbApiKeyStore.effectiveKey',
+      fallbackValue: '',
+    );
+    return result.valueOrNull ?? '';
   }
 
   bool get hasEffectiveKey => effectiveKey.isNotEmpty;
 
   /// Charge l'override persistant (appelé au démarrage de l'app).
   Future<void> load() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _override = prefs.getString(_prefsKey) ?? '';
-    } catch (_) {
-      _override = '';
-    }
+    final result = await safeAsync<String>(
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString(_prefsKey) ?? '';
+      },
+      context: 'TmdbApiKeyStore.load',
+      fallbackValue: '',
+    );
+    _override = result.valueOrNull ?? '';
   }
 
   /// Persiste l'override. Une valeur vide efface le réglage.
   Future<void> setOverride(String value) async {
     _override = value.trim();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (_override.isEmpty) {
-        await prefs.remove(_prefsKey);
-      } else {
-        await prefs.setString(_prefsKey, _override);
-      }
-    } catch (_) {
-      // Non bloquant : la clé reste en mémoire pour la session.
-    }
+    await safeAsync<void>(
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        if (_override.isEmpty) {
+          await prefs.remove(_prefsKey);
+        } else {
+          await prefs.setString(_prefsKey, _override);
+        }
+      },
+      context: 'TmdbApiKeyStore.setOverride',
+    );
   }
 }

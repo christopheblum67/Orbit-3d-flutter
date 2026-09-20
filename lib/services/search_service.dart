@@ -8,7 +8,7 @@ import 'package:orbit_3d_flutter/services/search_index_service.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 class SearchService {
@@ -19,7 +19,6 @@ class SearchService {
   final ApiService _api;
   final TmdbService _tmdb;
   final TvmazeService _tvmaze;
-  final LoggerService _logger = LoggerService.instance;
 
   /// Charge les favoris du profil courant, ou une liste vide si absent.
   final Future<List<FavoriteEntry>> Function()? _loadFavorites;
@@ -211,31 +210,40 @@ class SearchService {
   Future<List<SearchItem>> _searchLocal(String query, AppLocalizations? l) async {
     final items = <SearchItem>[];
 
-    // Historique de recherche - on ajoute comme suggestions textuelles
-    try {
-      final history = await getHistory();
-      for (final h in history) {
-        items.add(SearchItem(
-          id: 'history-$h',
-          type: SearchType.vod, // type par défaut pour l'affichage
-          title: h,
-          subtitle: l?.recentSearch ?? 'Recherche récente',
-          posterUrl: '',
-          score: 0.5,
-          source: SearchSource.local,
-        ));
-      }
-    } catch (_) {}
+// Historique de recherche - on ajoute comme suggestions textuelles
+      await safeAsync<void>(
+        () async {
+          final history = await getHistory();
+          for (final h in history) {
+            items.add(SearchItem(
+              id: 'history-$h',
+              type: SearchType.vod, // type par défaut pour l'affichage
+              title: h,
+              subtitle: l?.recentSearch ?? 'Recherche récente',
+              posterUrl: '',
+              score: 0.5,
+              source: SearchSource.local,
+            ));
+          }
+        },
+        context: 'SearchService._searchLocal history',
+      );
 
-    // Favoris
-    try {
-      items.addAll(await _getFavorites());
-    } catch (_) {}
+// Favoris
+      await safeAsync<void>(
+        () async {
+          items.addAll(await _getFavorites());
+        },
+        context: 'SearchService._searchLocal favorites',
+      );
 
-    // Récemment regardé
-    try {
-      items.addAll(await _getRecentlyWatched());
-    } catch (_) {}
+      // Récemment regardé
+      await safeAsync<void>(
+        () async {
+          items.addAll(await _getRecentlyWatched());
+        },
+        context: 'SearchService._searchLocal recently watched',
+      );
 
     return items;
   }
@@ -249,14 +257,14 @@ class SearchService {
     final loader = _loadCatalogue;
     if (loader == null) return;
     final future = () async {
-      try {
-        final entries = await loader();
-        _index!.build(entries);
-      } catch (e) {
-        _logger.warning('Catalogue index failed: $e');
-      } finally {
-        _indexingJob = null;
-      }
+      await safeAsync<void>(
+        () async {
+          final entries = await loader();
+          _index!.build(entries);
+        },
+        context: 'SearchService._ensureCatalogueIndexed',
+      );
+      _indexingJob = null;
     }();
     _indexingJob = future;
     return future;
@@ -307,58 +315,66 @@ class SearchService {
   }
 
   Future<List<SearchItem>> _searchTmdb(String query, {SearchType? filterType}) async {
-    final results = <SearchItem>[];
-    try {
-      // Recherche films
-      if (filterType == null || filterType == SearchType.vod) {
-        final movieId = await _tmdb.searchMovieId(query);
-        if (movieId != null) {
-          final movie = await _tmdb.getMovieDetail(movieId);
-          if (movie != null) {
-            results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
+    final result = await safeAsync<List<SearchItem>>(
+      () async {
+        final results = <SearchItem>[];
+        // Recherche films
+        if (filterType == null || filterType == SearchType.vod) {
+          final movieId = await _tmdb.searchMovieId(query);
+          if (movieId != null) {
+            final movie = await _tmdb.getMovieDetail(movieId);
+            if (movie != null) {
+              results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
+            }
           }
         }
-      }
-      // Recherche séries
-      if (filterType == null || filterType == SearchType.series) {
-        final tvId = await _tmdb.searchTvId(query);
-        if (tvId != null) {
-          final series = await _tmdb.getTvDetail(tvId);
-          if (series != null) {
-            results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
+        // Recherche séries
+        if (filterType == null || filterType == SearchType.series) {
+          final tvId = await _tmdb.searchTvId(query);
+          if (tvId != null) {
+            final series = await _tmdb.getTvDetail(tvId);
+            if (series != null) {
+              results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
+            }
           }
         }
-      }
-    } catch (e) {
-      _logger.warning('TMDB search failed: $e');
-    }
-    return results;
+        return results;
+      },
+      context: 'SearchService._searchTmdb',
+      fallbackValue: const <SearchItem>[],
+    );
+    return result.getOrElse(const <SearchItem>[]);
   }
 
   Future<List<SearchItem>> _searchTvmaze(String query) async {
-    final results = <SearchItem>[];
-    try {
-      final showId = await _tvmaze.searchShowId(query);
-      if (showId != null) {
-        final show = await _tvmaze.getShowDetail(showId);
-        if (show != null) {
-          results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+    final result = await safeAsync<List<SearchItem>>(
+      () async {
+        final results = <SearchItem>[];
+        final showId = await _tvmaze.searchShowId(query);
+        if (showId != null) {
+          final show = await _tvmaze.getShowDetail(showId);
+          if (show != null) {
+            results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+          }
         }
-      }
-    } catch (e) {
-      _logger.warning('TVmaze search failed: $e');
-    }
-    return results;
+        return results;
+      },
+      context: 'SearchService._searchTvmaze',
+      fallbackValue: const <SearchItem>[],
+    );
+    return result.getOrElse(const <SearchItem>[]);
   }
 
   Future<List<SearchItem>> _searchXtream(String query) async {
-    try {
-      final xtreamResults = await _api.search(query);
-      return xtreamResults.items;
-    } catch (e) {
-      _logger.warning('API search failed: $e');
-      return [];
-    }
+    final result = await safeAsync<List<SearchItem>>(
+      () async {
+        final xtreamResults = await _api.search(query);
+        return xtreamResults.items;
+      },
+      context: 'SearchService._searchXtream',
+      fallbackValue: const <SearchItem>[],
+    );
+    return result.getOrElse(const <SearchItem>[]);
   }
 
   Future<void> addToHistory(String query) async {
@@ -420,59 +436,63 @@ class SearchService {
   Future<List<SearchItem>> _getFavorites() async {
     final loader = _loadFavorites;
     if (loader == null) return [];
-    try {
-      final favorites = await loader();
-      return favorites
-          .map((f) => SearchItem(
-                id: f.id,
-                type: switch (f.type) {
-                  ContentType.live => SearchType.live,
-                  ContentType.vod => SearchType.vod,
-                  ContentType.series => SearchType.series,
-                  ContentType.replay => SearchType.replay,
-                },
-                title: f.title,
-                subtitle: f.subtitle,
-                posterUrl: f.posterUrl,
-                streamUrl: f.streamUrl,
-                score: 0.6,
-                source: SearchSource.local,
-                originalObject: f,
-              ))
-          .toList();
-    } catch (e) {
-      _logger.warning('Favorites search failed: $e');
-      return [];
-    }
+    final result = await safeAsync<List<SearchItem>>(
+      () async {
+        final favorites = await loader();
+        return favorites
+            .map((f) => SearchItem(
+                  id: f.id,
+                  type: switch (f.type) {
+                    ContentType.live => SearchType.live,
+                    ContentType.vod => SearchType.vod,
+                    ContentType.series => SearchType.series,
+                    ContentType.replay => SearchType.replay,
+                  },
+                  title: f.title,
+                  subtitle: f.subtitle,
+                  posterUrl: f.posterUrl,
+                  streamUrl: f.streamUrl,
+                  score: 0.6,
+                  source: SearchSource.local,
+                  originalObject: f,
+                ))
+            .toList();
+      },
+      context: 'SearchService._getFavorites',
+      fallbackValue: const <SearchItem>[],
+    );
+    return result.getOrElse(const <SearchItem>[]);
   }
 
   Future<List<SearchItem>> _getRecentlyWatched() async {
     final loader = _loadRecentlyWatched;
     if (loader == null) return [];
-    try {
-      final recents = await loader();
-      return recents
-          .map((r) => SearchItem(
-                id: r.id,
-                type: switch (r.type) {
-                  ContentType.live => SearchType.live,
-                  ContentType.vod => SearchType.vod,
-                  ContentType.series => SearchType.series,
-                  ContentType.replay => SearchType.replay,
-                },
-                title: r.title,
-                subtitle: r.subtitle,
-                posterUrl: r.posterUrl,
-                streamUrl: r.streamUrl,
-                score: 0.5,
-                source: SearchSource.local,
-                originalObject: r,
-              ))
-          .toList();
-    } catch (e) {
-      _logger.warning('Recently watched search failed: $e');
-      return [];
-    }
+    final result = await safeAsync<List<SearchItem>>(
+      () async {
+        final recents = await loader();
+        return recents
+            .map((r) => SearchItem(
+                  id: r.id,
+                  type: switch (r.type) {
+                    ContentType.live => SearchType.live,
+                    ContentType.vod => SearchType.vod,
+                    ContentType.series => SearchType.series,
+                    ContentType.replay => SearchType.replay,
+                  },
+                  title: r.title,
+                  subtitle: r.subtitle,
+                  posterUrl: r.posterUrl,
+                  streamUrl: r.streamUrl,
+                  score: 0.5,
+                  source: SearchSource.local,
+                  originalObject: r,
+                ))
+            .toList();
+      },
+      context: 'SearchService._getRecentlyWatched',
+      fallbackValue: const <SearchItem>[],
+    );
+    return result.getOrElse(const <SearchItem>[]);
   }
 
   void dispose() {

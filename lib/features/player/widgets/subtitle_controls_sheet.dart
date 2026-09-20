@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -75,20 +76,24 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     final l = AppLocalizations.of(context);
     final url = _urlController.text.trim();
     if (url.isEmpty) return;
-    try {
-      await ref.read(subtitleControllerProvider).loadAndSetTrack(
+    final result = await safeAsync<void>(
+      () => ref.read(subtitleControllerProvider).loadAndSetTrack(
         url,
         language: _selectedLanguage,
         label: _labelController.text.trim().isEmpty ? _selectedLanguage : _labelController.text.trim(),
-      );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
+      ),
+      context: 'SubtitleControlsSheet.loadSubtitle',
+    );
+    if (result.isFailure) {
+      final error = result.errorOrNull!.originalError ?? result.errorOrNull!;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.subtitleLoadError(e))),
+          SnackBar(content: Text(l.subtitleLoadError(error))),
         );
       }
+      return;
     }
+    if (mounted) Navigator.pop(context);
   }
 
   void _selectTrack(SubtitleTrack track) {

@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -176,21 +177,24 @@ class ApiService {
       'password': password,
       'action': 'get_user_info',
     });
-    try {
-      final response = await _get(url);
-      final data = response.data;
-      if (data is! Map) return null;
-      final raw = data['user_info'];
-      final info = raw is Map ? raw : data;
-      final expRaw = info['exp_date'];
-      if (expRaw == null) return null;
-      final seconds = int.tryParse('$expRaw');
-      // Certains serveurs renvoient 0 pour « illimité ».
-      if (seconds == null || seconds <= 0) return null;
-      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
-    } catch (_) {
-      return null;
-    }
+    final result = await safeAsync<DateTime?>(
+      () async {
+        final response = await _get(url);
+        final data = response.data;
+        if (data is! Map) return null;
+        final raw = data['user_info'];
+        final info = raw is Map ? raw : data;
+        final expRaw = info['exp_date'];
+        if (expRaw == null) return null;
+        final seconds = int.tryParse('$expRaw');
+        // Certains serveurs renvoient 0 pour « illimité ».
+        if (seconds == null || seconds <= 0) return null;
+        return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+      },
+      context: 'ApiService.fetchExpiration',
+      fallbackValue: null,
+    );
+    return result.valueOrNull;
   }
 
   // ---------- Canaux live ----------
@@ -238,27 +242,30 @@ class ApiService {
     String username,
     String password,
   ) async {
-    try {
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_live_categories',
-      });
-      final response = await _get(url);
-      if (response.data is! List) return const {};
-      final map = <String, String>{};
-      for (final e in response.data as List) {
-        final m = Map<String, dynamic>.from(e as Map);
-        final id = m['category_id']?.toString();
-        final name = m['category_name']?.toString() ?? '';
-        if (id != null && id.isNotEmpty && name.isNotEmpty) {
-          map[id] = name;
+    final result = await safeAsync<Map<String, String>>(
+      () async {
+        final url = _playerApiUrl(baseUrl, 'player_api.php', {
+          'username': username,
+          'password': password,
+          'action': 'get_live_categories',
+        });
+        final response = await _get(url);
+        if (response.data is! List) return const {};
+        final map = <String, String>{};
+        for (final e in response.data as List) {
+          final m = Map<String, dynamic>.from(e as Map);
+          final id = m['category_id']?.toString();
+          final name = m['category_name']?.toString() ?? '';
+          if (id != null && id.isNotEmpty && name.isNotEmpty) {
+            map[id] = name;
+          }
         }
-      }
-      return map;
-    } catch (_) {
-      return const {};
-    }
+        return map;
+      },
+      context: 'ApiService._fetchLiveCategoryNames',
+      fallbackValue: const <String, String>{},
+    );
+    return result.getOrElse(const <String, String>{});
   }
 
   // ---------- Films (VOD) ----------
@@ -350,15 +357,18 @@ class ApiService {
 
   /// Retourne la correspondance `category_id` → `category_name` des VOD.
   Future<Map<String, String>> _vodCategoryNames() async {
-    try {
-      final cats = await fetchVodCategories();
-      return {
-        for (final c in cats)
-          if (c.id.isNotEmpty && c.name.isNotEmpty) c.id: c.name,
-      };
-    } catch (_) {
-      return const <String, String>{};
-    }
+    final result = await safeAsync<Map<String, String>>(
+      () async {
+        final cats = await fetchVodCategories();
+        return {
+          for (final c in cats)
+            if (c.id.isNotEmpty && c.name.isNotEmpty) c.id: c.name,
+        };
+      },
+      context: 'ApiService._vodCategoryNames',
+      fallbackValue: const <String, String>{},
+    );
+    return result.getOrElse(const <String, String>{});
   }
 
   /// Enrichit une entrée de liste VOD : genre manquant ← nom de catégorie,
@@ -402,67 +412,70 @@ class ApiService {
       'action': 'get_vod_info',
       'vod_id': movie.id,
     });
-    try {
-      final response = await _get(url);
-      final data = response.data;
-      if (data is! Map) return movie;
-      final rawInfo = data['info'];
-      final info = rawInfo is Map ? rawInfo : <String, dynamic>{};
+    final result = await safeAsync<Movie>(
+      () async {
+        final response = await _get(url);
+        final data = response.data;
+        if (data is! Map) return movie;
+        final rawInfo = data['info'];
+        final info = rawInfo is Map ? rawInfo : <String, dynamic>{};
 
-      // Année depuis `releaseDate` (YYYY-...), sinon depuis `releasedate`.
-      var year = movie.year;
-      final releaseDate =
-          firstNonEmpty([info['releaseDate'], info['releasedate']]).toString();
-      final ym = RegExp(r'^(\d{4})').firstMatch(releaseDate);
-      if (ym != null) year = int.tryParse(ym.group(1)!) ?? year;
+        // Année depuis `releaseDate` (YYYY-...), sinon depuis `releasedate`.
+        var year = movie.year;
+        final releaseDate =
+            firstNonEmpty([info['releaseDate'], info['releasedate']]).toString();
+        final ym = RegExp(r'^(\d{4})').firstMatch(releaseDate);
+        if (ym != null) year = int.tryParse(ym.group(1)!) ?? year;
 
-      final genreRaw = firstNonEmpty([
-        info['genre'],
-        info['genre_1'],
-        movie.genre,
-      ]).toString().trim();
+        final genreRaw = firstNonEmpty([
+          info['genre'],
+          info['genre_1'],
+          movie.genre,
+        ]).toString().trim();
 
-      var rating = movie.rating;
-      final ratingRaw = firstNonEmpty([info['rating'], info['rating_5based']])
-          .toString()
-          .replaceAll(RegExp(r'[^0-9.]'), '');
-      if (ratingRaw.isNotEmpty) rating = double.tryParse(ratingRaw) ?? rating;
+        var rating = movie.rating;
+        final ratingRaw = firstNonEmpty([info['rating'], info['rating_5based']])
+            .toString()
+            .replaceAll(RegExp(r'[^0-9.]'), '');
+        if (ratingRaw.isNotEmpty) rating = double.tryParse(ratingRaw) ?? rating;
 
-      final posterUrl = firstNonEmpty([
-        info['cover_big'],
-        info['movie_image'],
-        info['backdrop_path'],
-        movie.posterUrl,
-      ]).toString();
+        final posterUrl = firstNonEmpty([
+          info['cover_big'],
+          info['movie_image'],
+          info['backdrop_path'],
+          movie.posterUrl,
+        ]).toString();
 
-      return Movie(
-        id: movie.id,
-        title: movie.title,
-        description: firstNonEmpty([
-          info['description'],
-          info['plot'],
-          movie.description,
-        ]).toString(),
-        posterUrl: posterUrl,
-        year: year,
-        genre: genreRaw,
-        director: firstNonEmpty([
-          info['director'],
-          movie.director,
-        ]).toString(),
-        rating: rating,
-        pegi: firstNonEmpty([
-          info['age'],
-          info['mpaa_rating'],
-          info['us_certification'],
-          movie.pegi,
-        ]).toString(),
-        streamUrl: movie.streamUrl,
-        categoryId: movie.categoryId,
-      );
-    } catch (_) {
-      return movie;
-    }
+        return Movie(
+          id: movie.id,
+          title: movie.title,
+          description: firstNonEmpty([
+            info['description'],
+            info['plot'],
+            movie.description,
+          ]).toString(),
+          posterUrl: posterUrl,
+          year: year,
+          genre: genreRaw,
+          director: firstNonEmpty([
+            info['director'],
+            movie.director,
+          ]).toString(),
+          rating: rating,
+          pegi: firstNonEmpty([
+            info['age'],
+            info['mpaa_rating'],
+            info['us_certification'],
+            movie.pegi,
+          ]).toString(),
+          streamUrl: movie.streamUrl,
+          categoryId: movie.categoryId,
+        );
+      },
+      context: 'ApiService.fetchMovieDetail',
+      fallbackValue: movie,
+    );
+    return result.getOrElse(movie);
   }
 
   /// Récupère le casting et l'équipe technique d'un film (cast + crew).
@@ -480,18 +493,21 @@ class ApiService {
       'action': 'get_vod_info',
       'vod_id': movieId,
     });
-    try {
-      final response = await _get(url);
-      final data = response.data;
-      if (data is! Map) return null;
-      final rawInfo = data['info'];
-      final info = rawInfo is Map
-          ? Map<String, dynamic>.from(rawInfo)
-          : <String, dynamic>{};
-      return MovieCredits.fromMap(info);
-    } catch (_) {
-      return null;
-    }
+    final result = await safeAsync<MovieCredits?>(
+      () async {
+        final response = await _get(url);
+        final data = response.data;
+        if (data is! Map) return null;
+        final rawInfo = data['info'];
+        final info = rawInfo is Map
+            ? Map<String, dynamic>.from(rawInfo)
+            : <String, dynamic>{};
+        return MovieCredits.fromMap(info);
+      },
+      context: 'ApiService.fetchMovieCredits',
+      fallbackValue: null,
+    );
+    return result.valueOrNull;
   }
 
   Future<List<Series>> fetchSeries() async {
@@ -634,29 +650,32 @@ class ApiService {
     String username,
     String password,
   ) async {
-    try {
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_live_categories',
-      });
-      final response = await _get(url);
-      final categories = response.data as List;
-      return categories
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .where((c) {
-            final name = '${c['category_name'] ?? ''}'.toLowerCase();
-            return name.contains('radio') ||
-                name.contains('musique') ||
-                name.contains('music');
-          })
-          .map((c) => c['category_id']?.toString() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toSet();
-    } catch (_) {
-      return const {};
-    }
+    final result = await safeAsync<Set<String>>(
+      () async {
+        final url = _playerApiUrl(baseUrl, 'player_api.php', {
+          'username': username,
+          'password': password,
+          'action': 'get_live_categories',
+        });
+        final response = await _get(url);
+        final categories = response.data as List;
+        return categories
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .where((c) {
+              final name = '${c['category_name'] ?? ''}'.toLowerCase();
+              return name.contains('radio') ||
+                  name.contains('musique') ||
+                  name.contains('music');
+            })
+            .map((c) => c['category_id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+      },
+      context: 'ApiService._fetchRadioCategoryIds',
+      fallbackValue: const <String>{},
+    );
+    return result.getOrElse(const <String>{});
   }
 
   // ---------- Replays ----------
@@ -690,12 +709,12 @@ class ApiService {
     final username = sub['username']!;
     final password = sub['password']!;
 
-    final List<Channel> channels;
-    try {
-      channels = await fetchLiveChannels();
-    } catch (_) {
-      return const <ReplayItem>[];
-    }
+    final channelsResult = await safeAsync<List<Channel>>(
+      () => fetchLiveChannels(),
+      context: 'ApiService._fetchChannelReplayPrograms',
+      fallbackValue: const <Channel>[],
+    );
+    final channels = channelsResult.getOrElse(const <Channel>[]);
 
     final flagged = channels
         .where(
@@ -848,45 +867,48 @@ class ApiService {
   Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) async {
     final sub = await _subscriptionManager.getActiveSubscription();
     if (sub['type'] != 'xtream') return const <EPGProgram>[];
-    try {
-      final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
-        'username': sub['username']!,
-        'password': sub['password']!,
-        'action': 'get_short_epg',
-        'stream_id': channel.id,
-      });
-      final response = await _get(url);
-      final data = response.data;
-      final list = data is List
-          ? data
-          : (data is Map
-              ? (data['epg_listings'] as List? ?? const <dynamic>[])
-              : const <dynamic>[]);
-      final programs = <EPGProgram>[];
-      for (final e in list.whereType<Map>()) {
-        final map = Map<String, dynamic>.from(e);
-        final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
-        final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-        if (start == null || end == null || !end.isAfter(start)) continue;
-        final title = map['title']?.toString().trim() ?? '';
-        if (title.isEmpty) continue;
-        programs.add(
-          EPGProgram(
-            channelId: channel.epgChannelId.isNotEmpty
-                ? channel.epgChannelId
-                : channel.id,
-            title: title,
-            description:
-                (map['description'] ?? map['plot'] ?? '').toString().trim(),
-            start: start,
-            end: end,
-          ),
-        );
-      }
-      return programs;
-    } catch (_) {
-      return const <EPGProgram>[];
-    }
+    final result = await safeAsync<List<EPGProgram>>(
+      () async {
+        final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
+          'username': sub['username']!,
+          'password': sub['password']!,
+          'action': 'get_short_epg',
+          'stream_id': channel.id,
+        });
+        final response = await _get(url);
+        final data = response.data;
+        final list = data is List
+            ? data
+            : (data is Map
+                ? (data['epg_listings'] as List? ?? const <dynamic>[])
+                : const <dynamic>[]);
+        final programs = <EPGProgram>[];
+        for (final e in list.whereType<Map>()) {
+          final map = Map<String, dynamic>.from(e);
+          final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+          final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
+          if (start == null || end == null || !end.isAfter(start)) continue;
+          final title = map['title']?.toString().trim() ?? '';
+          if (title.isEmpty) continue;
+          programs.add(
+            EPGProgram(
+              channelId: channel.epgChannelId.isNotEmpty
+                  ? channel.epgChannelId
+                  : channel.id,
+              title: title,
+              description:
+                  (map['description'] ?? map['plot'] ?? '').toString().trim(),
+              start: start,
+              end: end,
+            ),
+          );
+        }
+        return programs;
+      },
+      context: 'ApiService.fetchChannelEpgPrograms',
+      fallbackValue: const <EPGProgram>[],
+    );
+    return result.getOrElse(const <EPGProgram>[]);
   }
 
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
@@ -897,78 +919,84 @@ class ApiService {
     required Channel channel,
     required DateTime now,
   }) async {
-    try {
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_short_epg',
-        'stream_id': channel.id,
-      });
-      final response = await _get(url);
-      final data = response.data;
-      final list = data is List
-          ? data
-          : (data is Map
-              ? (data['epg_listings'] as List? ?? const <dynamic>[])
-              : const <dynamic>[]);
-      final items = <ReplayItem>[];
-      for (final e in list.whereType<Map>()) {
-        final map = Map<String, dynamic>.from(e);
-        final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
-        final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-        if (start == null || end == null) continue;
-        if (!end.isBefore(now)) continue; // programme pas encore terminé
-        if (now.difference(start) > _replayWindow) continue; // trop ancien
-        final title = map['title']?.toString().trim() ?? '';
-        if (title.isEmpty) continue;
-        final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
-        final endEpoch = end.millisecondsSinceEpoch ~/ 1000;
-        items.add(
-          ReplayItem(
-            id: '${channel.id}_$startEpoch',
-            title: title,
-            streamUrl: buildXtreamTimeshiftUrl(
-              baseUrl,
-              username,
-              password,
-              channel.id,
-              start: startEpoch,
-              end: endEpoch,
+    final result = await safeAsync<List<ReplayItem>>(
+      () async {
+        final url = _playerApiUrl(baseUrl, 'player_api.php', {
+          'username': username,
+          'password': password,
+          'action': 'get_short_epg',
+          'stream_id': channel.id,
+        });
+        final response = await _get(url);
+        final data = response.data;
+        final list = data is List
+            ? data
+            : (data is Map
+                ? (data['epg_listings'] as List? ?? const <dynamic>[])
+                : const <dynamic>[]);
+        final items = <ReplayItem>[];
+        for (final e in list.whereType<Map>()) {
+          final map = Map<String, dynamic>.from(e);
+          final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+          final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
+          if (start == null || end == null) continue;
+          if (!end.isBefore(now)) continue; // programme pas encore terminé
+          if (now.difference(start) > _replayWindow) continue; // trop ancien
+          final title = map['title']?.toString().trim() ?? '';
+          if (title.isEmpty) continue;
+          final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
+          final endEpoch = end.millisecondsSinceEpoch ~/ 1000;
+          items.add(
+            ReplayItem(
+              id: '${channel.id}_$startEpoch',
+              title: title,
+              streamUrl: buildXtreamTimeshiftUrl(
+                baseUrl,
+                username,
+                password,
+                channel.id,
+                start: startEpoch,
+                end: endEpoch,
+              ),
+              startTime: _formatReplayTime(start, now),
+              endTime: _formatReplayTime(end, now),
+              categoryId: channel.groupLabel,
+              startDate: start,
             ),
-            startTime: _formatReplayTime(start, now),
-            endTime: _formatReplayTime(end, now),
-            categoryId: channel.groupLabel,
-            startDate: start,
-          ),
-        );
-      }
-      return items;
-    } catch (_) {
-      return const <ReplayItem>[];
-    }
+          );
+        }
+        return items;
+      },
+      context: 'ApiService._fetchChannelReplayPrograms',
+      fallbackValue: const <ReplayItem>[],
+    );
+    return result.getOrElse(const <ReplayItem>[]);
   }
 
   /// Replay M3U : les chaînes portant un attribut `catchup`/`timeshift`
   /// apparaissent directement comme rejouables.
   Future<List<ReplayItem>> _fetchM3uReplays(Map<String, String?> sub) async {
-    try {
-      final url = sub['url']!;
-      final response = await _get(url);
-      final channels = parseM3u(response.data.toString());
-      return [
-        for (final c in channels.where((c) => c.supportsReplay))
-          ReplayItem(
-            id: 'ch_${c.id}',
-            title: 'Replay · ${c.name}',
-            streamUrl: c.streamUrl,
-            startTime: '',
-            endTime: '',
-            categoryId: '',
-          ),
-      ];
-    } catch (_) {
-      return const <ReplayItem>[];
-    }
+    final result = await safeAsync<List<ReplayItem>>(
+      () async {
+        final url = sub['url']!;
+        final response = await _get(url);
+        final channels = parseM3u(response.data.toString());
+        return [
+          for (final c in channels.where((c) => c.supportsReplay))
+            ReplayItem(
+              id: 'ch_${c.id}',
+              title: 'Replay · ${c.name}',
+              streamUrl: c.streamUrl,
+              startTime: '',
+              endTime: '',
+              categoryId: '',
+            ),
+        ];
+      },
+      context: 'ApiService._fetchM3uReplays',
+      fallbackValue: const <ReplayItem>[],
+    );
+    return result.getOrElse(const <ReplayItem>[]);
   }
 
   /// Parse un horaire EPG : timestamp Unix (secondes) ou « yyyy-MM-dd HH:mm:ss ».
@@ -1197,37 +1225,39 @@ class ApiService {
       'action': 'search',
       'q': query,
     });
-    try {
-      final response = await _get(url);
-      final data = response.data;
-      if (data is! Map) return UnifiedSearchResult.empty();
+    final result = await safeAsync<UnifiedSearchResult>(
+      () async {
+        final response = await _get(url);
+        final data = response.data;
+        if (data is! Map) return UnifiedSearchResult.empty();
 
-      final live = (data['live'] as List? ?? [])
-          .whereType<Map>()
-          .map((e) => Channel.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
-      final vod = (data['vod'] as List? ?? [])
-          .whereType<Map>()
-          .map((e) => Movie.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
-      final series = (data['series'] as List? ?? [])
-          .whereType<Map>()
-          .map((e) => Series.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+        final live = (data['live'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Channel.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
+        final vod = (data['vod'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Movie.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
+        final series = (data['series'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Series.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
 
-      return UnifiedSearchResult(
-        items: [
-          ...live.map(
-              (c) => SearchItem.fromChannel(c, source: SearchSource.xtream),),
-          ...vod
-              .map((m) => SearchItem.fromMovie(m, source: SearchSource.xtream)),
-          ...series.map(
-              (s) => SearchItem.fromSeries(s, source: SearchSource.xtream),),
-        ],
-      );
-    } catch (e) {
-      _logger.warning('Xtream search failed: $e');
-      return UnifiedSearchResult.empty();
-    }
+        return UnifiedSearchResult(
+          items: [
+            ...live.map(
+                (c) => SearchItem.fromChannel(c, source: SearchSource.xtream),),
+            ...vod
+                .map((m) => SearchItem.fromMovie(m, source: SearchSource.xtream)),
+            ...series.map(
+                (s) => SearchItem.fromSeries(s, source: SearchSource.xtream),),
+          ],
+        );
+      },
+      context: 'ApiService.search',
+      fallbackValue: UnifiedSearchResult.empty(),
+    );
+    return result.getOrElse(UnifiedSearchResult.empty());
   }
 }

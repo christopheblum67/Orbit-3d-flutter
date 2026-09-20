@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:orbit_3d_flutter/services/stream_relay.dart'
     show kRustProxyBase, kRustProxyStatusPath;
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Cycle de vie du process proxy Rust local, vu depuis l'app.
 enum RustProxyLifecycle { idle, starting, running, failed, stopped }
@@ -159,55 +160,57 @@ class RustProxyManager {
     _starting = starting;
     _lifecycle.value = RustProxyLifecycle.starting;
 
-    try {
-      final binary = binaryPath ?? await resolveBinaryPath();
-      if (binary == null) {
-        debugPrint('[RustProxy] Binaire introuvable — proxy désactivé.');
-        _lifecycle.value = RustProxyLifecycle.failed;
-        return;
-      }
-
-      final process = await _launchProcess(binary);
-      _process = process;
-      _manualStop = false;
-
-      process.stdout.transform(utf8.decoder).listen((chunk) {
-        for (final line in chunk.split('\n')) {
-          if (line.trim().isNotEmpty) debugPrint('[RustProxy:out] $line');
+    final startResult = await safeAsync<void>(
+      () async {
+        final binary = binaryPath ?? await resolveBinaryPath();
+        if (binary == null) {
+          debugPrint('[RustProxy] Binaire introuvable — proxy désactivé.');
+          _lifecycle.value = RustProxyLifecycle.failed;
+          return;
         }
-      });
-      process.stderr.transform(utf8.decoder).listen((chunk) {
-        for (final line in chunk.split('\n')) {
-          if (line.trim().isNotEmpty) debugPrint('[RustProxy:err] $line');
+
+        final process = await _launchProcess(binary);
+        _process = process;
+        _manualStop = false;
+
+        process.stdout.transform(utf8.decoder).listen((chunk) {
+          for (final line in chunk.split('\n')) {
+            if (line.trim().isNotEmpty) debugPrint('[RustProxy:out] $line');
+          }
+        });
+        process.stderr.transform(utf8.decoder).listen((chunk) {
+          for (final line in chunk.split('\n')) {
+            if (line.trim().isNotEmpty) debugPrint('[RustProxy:err] $line');
+          }
+        });
+
+        unawaited(_watchExit(process));
+        _startWatchdog();
+
+        final ok = await _waitUntilReady();
+        if (ok) {
+          _restartCount = 0;
+          _rebootCount = 0;
+          _lastSeenWafBlocks = _lastStatus?.wafBlocks ?? 0;
+          _ready.value = true;
+          _lifecycle.value = RustProxyLifecycle.running;
+          debugPrint('[RustProxy] Prêt et vérifié sur $proxyBase.');
+        } else {
+          _lifecycle.value = RustProxyLifecycle.failed;
+          await _kill(process);
+          if (identical(_process, process)) _process = null;
+          debugPrint(
+            '[RustProxy] Démarrage échoué : ping $kRustProxyStatusPath KO.',
+          );
         }
-      });
-
-      unawaited(_watchExit(process));
-      _startWatchdog();
-
-      final ok = await _waitUntilReady();
-      if (ok) {
-        _restartCount = 0;
-        _rebootCount = 0;
-        _lastSeenWafBlocks = _lastStatus?.wafBlocks ?? 0;
-        _ready.value = true;
-        _lifecycle.value = RustProxyLifecycle.running;
-        debugPrint('[RustProxy] Prêt et vérifié sur $proxyBase.');
-      } else {
-        _lifecycle.value = RustProxyLifecycle.failed;
-        await _kill(process);
-        if (identical(_process, process)) _process = null;
-        debugPrint(
-          '[RustProxy] Démarrage échoué : ping $kRustProxyStatusPath KO.',
-        );
-      }
-    } catch (e) {
-      debugPrint('[RustProxy] start() error: $e');
+      },
+      context: 'RustProxyManager.start',
+    );
+    if (startResult.isFailure) {
       _lifecycle.value = RustProxyLifecycle.failed;
-    } finally {
-      _starting = null;
-      if (!starting.isCompleted) starting.complete();
     }
+    _starting = null;
+    if (!starting.isCompleted) starting.complete();
   }
 
   /// Interroge `GET /api/proxy-status`. Met à jour [lastStatus] en cas de
@@ -215,18 +218,23 @@ class RustProxyManager {
   Future<bool> ping() async {
     final client = HttpClient();
     try {
-      final request = await client
-          .getUrl(Uri.parse('$proxyBase$kRustProxyStatusPath'))
-          .timeout(_pingTimeout);
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      final response = await request.close().timeout(_pingTimeout);
-      if (response.statusCode != HttpStatus.ok) return false;
-      final body =
-          await response.transform(utf8.decoder).join().timeout(_pingTimeout);
-      _tryParseStatus(body);
-      return true;
-    } catch (_) {
-      return false;
+      final result = await safeAsync<bool>(
+        () async {
+          final request = await client
+              .getUrl(Uri.parse('$proxyBase$kRustProxyStatusPath'))
+              .timeout(_pingTimeout);
+          request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+          final response = await request.close().timeout(_pingTimeout);
+          if (response.statusCode != HttpStatus.ok) return false;
+          final body =
+              await response.transform(utf8.decoder).join().timeout(_pingTimeout);
+          _tryParseStatus(body);
+          return true;
+        },
+        context: 'RustProxyManager.ping',
+        fallbackValue: false,
+      );
+      return result.getOrElse(false);
     } finally {
       client.close(force: true);
     }
@@ -270,11 +278,18 @@ class RustProxyManager {
       if (File(candidate).existsSync()) return candidate;
     }
 
-    try {
-      final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final candidate = '$exeDir${Platform.pathSeparator}$fileName';
-      if (File(candidate).existsSync()) return candidate;
-    } catch (_) {}
+    final exeDirResult = safeSync<String?>(
+      () {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final candidate = '$exeDir${Platform.pathSeparator}$fileName';
+        if (File(candidate).existsSync()) return candidate;
+        return null;
+      },
+      context: 'RustProxyManager.resolveBinaryPath',
+      fallbackValue: null,
+    );
+    final exeCandidate = exeDirResult.valueOrNull ?? '';
+    if (exeCandidate.isNotEmpty) return exeCandidate;
 
     return null;
   }
@@ -282,21 +297,33 @@ class RustProxyManager {
   /// Répertoires susceptibles de contenir le binaire extrait/bundlé.
   Future<List<String>> _candidateDirs() async {
     final dirs = <String>[];
-    try {
-      final support = await getApplicationSupportDirectory();
-      dirs.add('${support.path}${Platform.pathSeparator}orbit_rust_proxy');
-      dirs.add(support.path);
-    } catch (_) {}
+    final supportResult = await safeAsync<List<String>>(
+      () async {
+        final support = await getApplicationSupportDirectory();
+        return [
+          '${support.path}${Platform.pathSeparator}orbit_rust_proxy',
+          support.path,
+        ];
+      },
+      context: 'RustProxyManager._candidateDirs support',
+      fallbackValue: const <String>[],
+    );
+    dirs.addAll(supportResult.getOrElse(const <String>[]));
     if (kIsWeb) return dirs;
-    try {
-      if (Platform.isAndroid) {
+    final extResult = await safeAsync<List<String>>(
+      () async {
+        if (!Platform.isAndroid) return const <String>[];
         final ext = await getExternalStorageDirectory();
-        if (ext != null) {
-          dirs.add('${ext.path}${Platform.pathSeparator}orbit_rust_proxy');
-          dirs.add(ext.path);
-        }
-      }
-    } catch (_) {}
+        if (ext == null) return const <String>[];
+        return [
+          '${ext.path}${Platform.pathSeparator}orbit_rust_proxy',
+          ext.path,
+        ];
+      },
+      context: 'RustProxyManager._candidateDirs Android',
+      fallbackValue: const <String>[],
+    );
+    dirs.addAll(extResult.getOrElse(const <String>[]));
     return dirs;
   }
 
@@ -324,12 +351,12 @@ class RustProxyManager {
     _lifecycle.value = RustProxyLifecycle.stopped;
   }
 
-/// Watchdog : tant que le manager n'est pas détruit ni arrêté à la main :
-///   - process vivant et prêt → ping + renewal proactif si le WAF bloque en
-///     répété ([_maybeRebootstrap]) ;
-///   - process absent (mort, jamais démarré) → relance, bornée à
-///     [maxRestartAttempts] consécutifs avant d'abandonner.
-void _startWatchdog() {
+  /// Watchdog : tant que le manager n'est pas détruit ni arrêté à la main :
+  ///   - process vivant et prêt → ping + renewal proactif si le WAF bloque en
+  ///     répété ([_maybeRebootstrap]) ;
+  ///   - process absent (mort, jamais démarré) → relance, bornée à
+  ///     [maxRestartAttempts] consécutifs avant d'abandonner.
+  void _startWatchdog() {
     _watchdog?.cancel();
     _watchdog = Timer.periodic(_watchdogInterval, (_) async {
       if (_disposed || _manualStop) return;
@@ -413,27 +440,38 @@ void _startWatchdog() {
   }
 
   void _tryParseStatus(String body) {
-    try {
-      final decoded = jsonDecode(body);
-      if (decoded is Map) {
-        _lastStatus =
-            RustProxyStatus.fromJson(Map<String, dynamic>.from(decoded));
-      }
-    } catch (_) {
-      // Réponse non-JSON : on ignore, le booléen du ping reste la vérité.
-    }
+    safeSync<void>(
+      () {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          _lastStatus =
+              RustProxyStatus.fromJson(Map<String, dynamic>.from(decoded));
+        }
+      },
+      context: 'RustProxyManager._tryParseStatus',
+    );
   }
 
   Future<void> _kill(Process process) async {
-    try {
-      process.kill(ProcessSignal.sigterm);
-    } catch (_) {}
-    try {
-      await process.exitCode.timeout(const Duration(seconds: 2));
-    } catch (_) {
-      try {
-        process.kill(ProcessSignal.sigkill);
-      } catch (_) {}
+    safeSync<void>(
+      () {
+        process.kill(ProcessSignal.sigterm);
+      },
+      context: 'RustProxyManager._kill sigterm',
+    );
+    final exitResult = await safeAsync<void>(
+      () async {
+        await process.exitCode.timeout(const Duration(seconds: 2));
+      },
+      context: 'RustProxyManager._kill exitCode',
+    );
+    if (exitResult.isFailure) {
+      safeSync<void>(
+        () {
+          process.kill(ProcessSignal.sigkill);
+        },
+        context: 'RustProxyManager._kill sigkill',
+      );
     }
   }
 

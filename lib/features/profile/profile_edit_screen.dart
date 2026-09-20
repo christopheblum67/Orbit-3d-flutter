@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
@@ -331,7 +332,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       return;
     }
     setState(() => _saving = true);
-    try {
+    final result = await safeAsync(() async {
       final name = _nameController.text.trim();
       final avatarUrl = _remoteAvatarUrl ??
           '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
@@ -393,12 +394,12 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       await ref.read(storageServiceProvider).saveProfile(profile);
       ref.invalidate(profilesProvider);
       if (mounted) context.pop();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.errorSaving)),
-        );
-      }
+    }, context: '_save profile');
+    
+    if (result.isFailure && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.errorSaving)),
+      );
       setState(() => _saving = false);
     }
   }

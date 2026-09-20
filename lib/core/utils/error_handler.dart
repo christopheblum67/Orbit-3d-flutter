@@ -8,6 +8,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 class AppError implements Exception {
   final String message;
@@ -47,13 +48,17 @@ class ErrorHandler {
   Future<void> initCrashlytics() async {
     if (_crashlytics != null) return;
     if (kDebugMode) return;
-    try {
-      await Firebase.initializeApp();
-      _crashlytics = FirebaseCrashlytics.instance;
-    } catch (_) {
+    final result = await safeAsync<void>(
+      () async {
+        await Firebase.initializeApp();
+        _crashlytics = FirebaseCrashlytics.instance;
+      },
+      context: 'ErrorHandler.initCrashlytics',
+    );
+    result.ifFailure((_) {
       // Firebase indisponible : reporting désactivé, l'app continue.
       _crashlytics = null;
-    }
+    });
   }
 
   void _reportToCrashlytics(

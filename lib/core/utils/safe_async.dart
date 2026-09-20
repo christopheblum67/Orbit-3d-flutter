@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Résultat d'une opération asynchrone qui peut échouer gracieusement.
 /// 
@@ -37,11 +35,13 @@ sealed class AsyncResult<T> {
       try {
         return AsyncResult.success(transform((this as _Success<T>).value));
       } catch (e, st) {
-        return AsyncResult.failure(AppError(
-          message: 'Transform failed: $e',
-          originalError: e,
-          stackTrace: st,
-        ));
+        return AsyncResult.failure(
+          AppError(
+            message: 'Transform failed: $e',
+            originalError: e,
+            stackTrace: st,
+          ),
+        );
       }
     }
     return this as AsyncResult<R>;
@@ -217,12 +217,14 @@ Future<AsyncResult<T>> retryAsync<T>(
     await Future.delayed(delay);
   }
 
-  return AsyncResult.failure(AppError(
-    message: 'Échec après $maxAttempts tentatives',
-    originalError: lastError,
-    stackTrace: lastStack,
-    code: 'RETRY_EXHAUSTED',
-  ));
+  return AsyncResult.failure(
+    AppError(
+      message: 'Échec après $maxAttempts tentatives',
+      originalError: lastError,
+      stackTrace: lastStack,
+      code: 'RETRY_EXHAUSTED',
+    ),
+  );
 }
 
 /// Helper pour créer des erreurs typées selon le contexte.
@@ -255,10 +257,10 @@ extension AsyncResultUI<T> on AsyncResult<T> {
     Widget Function()? loading,
   }) {
     if (isSuccess) {
-      return data((this as _Success).value) as Widget;
+      return data((this as _Success).value);
     }
     if (isFailure) {
-      return (error?.call((this as _Failure).error) ?? _DefaultErrorWidget(error: (this as _Failure).error)) as Widget;
+      return (error?.call((this as _Failure).error) ?? _DefaultErrorWidget(error: (this as _Failure).error));
     }
     return (loading ?? const _DefaultLoadingWidget()) as Widget;
   }
@@ -266,11 +268,10 @@ extension AsyncResultUI<T> on AsyncResult<T> {
 
 class _DefaultErrorWidget extends StatelessWidget {
   final AppError error;
-  const _DefaultErrorWidget({required this.error, super.key});
+  const _DefaultErrorWidget({required this.error});
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -289,7 +290,7 @@ class _DefaultErrorWidget extends StatelessWidget {
 }
 
 class _DefaultLoadingWidget extends StatelessWidget {
-  const _DefaultLoadingWidget({super.key});
+  const _DefaultLoadingWidget();
 
   @override
   Widget build(BuildContext context) {

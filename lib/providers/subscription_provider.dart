@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
@@ -174,40 +175,49 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     final apiService = api ?? ApiService();
     final stopwatch = Stopwatch()..start();
 
+    final result = await safeAsync<void>(
+      () async {
+        if (sub.type == SubscriptionType.xtream) {
+          if (sub.baseUrl == null ||
+              sub.username == null ||
+              sub.password == null) {
+            throw Exception('Configuration Xtream incomplète');
+          }
+          final url =
+              buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
+          await apiService.get(url);
+        } else {
+          if (sub.m3uUrl == null) {
+            throw Exception('URL M3U manquante');
+          }
+          await apiService.get(sub.m3uUrl!);
+        }
+      },
+      context: 'SubscriptionsNotifier.testConnection',
+    );
+
     try {
-      if (sub.type == SubscriptionType.xtream) {
-        if (sub.baseUrl == null ||
-            sub.username == null ||
-            sub.password == null) {
-          throw Exception('Configuration Xtream incomplète');
+      stopwatch.stop();
+      if (result.isSuccess) {
+        await updateTestResult(
+          sub.id,
+          TestResultStatus.success,
+          latencyMs: stopwatch.elapsedMilliseconds,
+        );
+        // Après un test réussi, rafraîchit la date d'expiration (Xtream).
+        if (sub.type == SubscriptionType.xtream) {
+          await refreshValidity(sub.id, api: apiService);
         }
-        final url =
-            buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
-        await apiService.get(url);
       } else {
-        if (sub.m3uUrl == null) {
-          throw Exception('URL M3U manquante');
-        }
-        await apiService.get(sub.m3uUrl!);
+        final errorMessage = result.errorOrNull?.originalError?.toString() ??
+            result.errorOrNull.toString();
+        await updateTestResult(
+          sub.id,
+          TestResultStatus.error,
+          latencyMs: stopwatch.elapsedMilliseconds,
+          error: errorMessage,
+        );
       }
-      stopwatch.stop();
-      await updateTestResult(
-        sub.id,
-        TestResultStatus.success,
-        latencyMs: stopwatch.elapsedMilliseconds,
-      );
-      // Après un test réussi, rafraîchit la date d'expiration (Xtream).
-      if (sub.type == SubscriptionType.xtream) {
-        await refreshValidity(sub.id, api: apiService);
-      }
-    } catch (e) {
-      stopwatch.stop();
-      await updateTestResult(
-        sub.id,
-        TestResultStatus.error,
-        latencyMs: stopwatch.elapsedMilliseconds,
-        error: e.toString(),
-      );
     } finally {
       final current = ref.read(subscriptionsTestingProvider);
       ref

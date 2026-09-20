@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_gateway.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_models.dart';
 
@@ -30,14 +31,17 @@ class FirestoreCloudSyncGateway implements CloudSyncGateway {
     CloudSyncScope scope,
     String profileId,
   ) async {
-    try {
-      final doc = await _collection.doc(_docId(scope, profileId)).get();
-      final data = doc.data();
-      if (data == null) return null;
-      return CloudSyncSnapshot.fromJson(data);
-    } catch (_) {
-      return null;
-    }
+    final result = await safeAsync<CloudSyncSnapshot?>(
+      () async {
+        final doc = await _collection.doc(_docId(scope, profileId)).get();
+        final data = doc.data();
+        if (data == null) return null;
+        return CloudSyncSnapshot.fromJson(data);
+      },
+      context: 'FirestoreCloudSyncGateway.fetchSnapshot',
+      fallbackValue: null,
+    );
+    return result.valueOrNull;
   }
 
   @override

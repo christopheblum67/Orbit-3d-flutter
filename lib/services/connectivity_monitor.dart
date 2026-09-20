@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
@@ -16,13 +18,13 @@ class ConnectivityMonitor extends ChangeNotifier {
   }
 
   Future<void> _initLast() async {
-    try {
-      final results = await Connectivity().checkConnectivity();
-      _last = results.isNotEmpty ? results.first : ConnectivityResult.none;
-      notifyListeners();
-    } catch (_) {
-      _last = ConnectivityResult.none;
-    }
+    final result = await safeAsync(
+      () => Connectivity().checkConnectivity(),
+      context: '_initLast',
+      fallbackValue: <ConnectivityResult>[ConnectivityResult.none],
+    );
+    _last = result.valueOrNull!.isNotEmpty ? result.valueOrNull!.first : ConnectivityResult.none;
+    notifyListeners();
   }
 
   ConnectivityResult _last = ConnectivityResult.none;

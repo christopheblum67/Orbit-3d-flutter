@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Pont Dart -> natif du DSP « Night Focus ».
 ///
@@ -24,19 +25,18 @@ class NightFocusAudioService {
     int audioDelayMs = 0,
     bool volumeNormalization = true,
   }) async {
-    try {
-      await _channel.invokeMethod('configure', <String, Object?>{
-        'enabled': enabled,
-        'dialogueBoostDb': dialogueBoostDb,
-        'bassKillerCutoffHz': bassKillerCutoffHz,
-        'vocalGainDb': vocalGainDb,
-        'audioDelayMs': audioDelayMs,
-        'volumeNormalization': volumeNormalization,
-      });
-    } on PlatformException catch (_) {
-      // Échec silencieux : le DSP natif n'est pas disponible (non-Android).
-    } catch (_) {
-      // Idem : on n'interrompt jamais la lecture pour un souci de canal.
-    }
+    await safeAsync<void>(
+      () async {
+        await _channel.invokeMethod('configure', <String, Object?>{
+          'enabled': enabled,
+          'dialogueBoostDb': dialogueBoostDb,
+          'bassKillerCutoffHz': bassKillerCutoffHz,
+          'vocalGainDb': vocalGainDb,
+          'audioDelayMs': audioDelayMs,
+          'volumeNormalization': volumeNormalization,
+        });
+      },
+      context: 'NightFocusAudioService.push',
+    );
   }
 }

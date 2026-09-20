@@ -1,3 +1,5 @@
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 
@@ -20,7 +22,7 @@ class HomeWidgetService {
     String? profileName,
     int? favoritesCount,
   }) async {
-    try {
+    await safeAsync(() async {
       await HomeWidget.saveWidgetData<String>(
         'widget_title',
         'Orbit IPTV',
@@ -37,11 +39,7 @@ class HomeWidgetService {
         '$count ${count > 1 ? 'favoris' : 'favori'}',
       );
       await HomeWidget.updateWidget(name: _widgetName);
-    } on PlatformException {
-      // Widget indisponible : silencieux.
-    } catch (_) {
-      // Silencieux : ne jamais casser l'app pour un widget.
-    }
+    }, context: 'updateWidgetData');
   }
 
   /// Abonnement aux données de lancement via le widget (tap / action rapide).

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Récupère les cookies Cloudflare (dont `cf_clearance`) en passant par un vrai
 /// WebView Chromium, puis les réinjecte dans les requêtes HTTP du lecteur.
@@ -100,11 +101,10 @@ class CloudflareBypassService {
     Overlay.of(context).insert(entry);
 
     // Charger la page d'accueil pour déclencher le challenge Cloudflare
-    try {
-      await controller.loadRequest(Uri.parse(baseUrl));
-    } catch (e) {
-      debugPrint('[CloudflareBypass] loadRequest error: $e');
-    }
+    await safeAsync<void>(
+      () => controller.loadRequest(Uri.parse(baseUrl)),
+      context: 'CloudflareBypassService._doObtain',
+    );
 
     try {
       final cookies = await completer.future;
@@ -130,35 +130,41 @@ class CloudflareBypassService {
     WebViewController controller,
   ) async {
     final map = <String, String>{};
-    try {
-      final cookies =
-          await WebViewCookieManager().getCookies(domain: Uri.parse(baseUrl));
-      for (final c in cookies) {
-        if (c.name.trim().isNotEmpty) {
-          map[c.name] = c.value;
-          debugPrint(
-              '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...',);
+    await safeAsync<void>(
+      () async {
+        final cookies =
+            await WebViewCookieManager().getCookies(domain: Uri.parse(baseUrl));
+        for (final c in cookies) {
+          if (c.name.trim().isNotEmpty) {
+            map[c.name] = c.value;
+            debugPrint(
+                '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...',);
+          }
         }
-      }
-      final ua = await _tryGetUserAgent(controller);
-      if (ua != null && ua.isNotEmpty) {
-        map['__user_agent__'] = ua;
-        debugPrint('[CloudflareBypass] Captured UA: $ua');
-      }
-    } catch (e) {
-      debugPrint('[CloudflareBypass] Harvest error: $e');
-    }
+        final ua = await _tryGetUserAgent(controller);
+        if (ua != null && ua.isNotEmpty) {
+          map['__user_agent__'] = ua;
+          debugPrint('[CloudflareBypass] Captured UA: $ua');
+        }
+      },
+      context: 'CloudflareBypassService._harvest',
+    );
     return map;
   }
 
   Future<String?> _tryGetUserAgent(WebViewController controller) async {
-    try {
-      final r = await controller.runJavaScriptReturningResult(
-        'navigator.userAgent',
-      );
-      if (r is String) return r.replaceAll('"', '');
-    } catch (_) {}
-    return null;
+    final result = await safeAsync<String?>(
+      () async {
+        final r = await controller.runJavaScriptReturningResult(
+          'navigator.userAgent',
+        );
+        if (r is String) return r.replaceAll('"', '');
+        return null;
+      },
+      context: 'CloudflareBypassService._tryGetUserAgent',
+      fallbackValue: null,
+    );
+    return result.valueOrNull;
   }
 }
 
@@ -240,37 +246,39 @@ class _BypassOverlayState extends State<_BypassOverlay> {
     if (_checking) return;
     _checking = true;
     setState(() {});
-    try {
-      final cookies = await WebViewCookieManager()
-          .getCookies(domain: Uri.parse('https://${widget.host}/'));
-      final map = <String, String>{};
-      bool hasCf = false;
-      for (final c in cookies) {
-        if (c.name.trim().isNotEmpty) {
-          map[c.name] = c.value;
-          if (c.name.toLowerCase() == 'cf_clearance') hasCf = true;
+    await safeAsync<void>(
+      () async {
+        final cookies = await WebViewCookieManager()
+            .getCookies(domain: Uri.parse('https://${widget.host}/'));
+        final map = <String, String>{};
+        bool hasCf = false;
+        for (final c in cookies) {
+          if (c.name.trim().isNotEmpty) {
+            map[c.name] = c.value;
+            if (c.name.toLowerCase() == 'cf_clearance') hasCf = true;
+          }
         }
-      }
-      if (hasCf) {
-        debugPrint('[CloudflareBypass] cf_clearance detected, auto-completing');
-        widget.onDone(map);
-        return;
-      }
-      _pageLoadCount++;
-      // Recharger la page toutes les 2 vérifications si pas de cookie
-      if (_pageLoadCount % 2 == 0) {
-        debugPrint('[CloudflareBypass] Reloading page to trigger challenge...');
-        try {
-          await widget.controller
-              .loadRequest(Uri.parse('https://${widget.host}/'));
-        } catch (_) {}
-      }
-    } catch (_) {
-    } finally {
-      if (mounted) {
-        _checking = false;
-        setState(() {});
-      }
+        if (hasCf) {
+          debugPrint('[CloudflareBypass] cf_clearance detected, auto-completing');
+          widget.onDone(map);
+          return;
+        }
+        _pageLoadCount++;
+        // Recharger la page toutes les 2 vérifications si pas de cookie
+        if (_pageLoadCount % 2 == 0) {
+          debugPrint('[CloudflareBypass] Reloading page to trigger challenge...');
+          await safeAsync<void>(
+            () => widget.controller
+                .loadRequest(Uri.parse('https://${widget.host}/')),
+            context: 'CloudflareBypassService._harvestAndCheck.reload',
+          );
+        }
+      },
+      context: 'CloudflareBypassService._harvestAndCheck',
+    );
+    if (mounted) {
+      _checking = false;
+      setState(() {});
     }
   }
 
@@ -278,21 +286,24 @@ class _BypassOverlayState extends State<_BypassOverlay> {
     if (_checking) return;
     _checking = true;
     setState(() {});
-    try {
-      final cookies = await WebViewCookieManager()
-          .getCookies(domain: Uri.parse('https://${widget.host}/'));
-      final map = <String, String>{};
-      for (final c in cookies) {
-        if (c.name.trim().isNotEmpty) map[c.name] = c.value;
-      }
-      widget.onDone(map);
-    } catch (_) {
+    final bodyResult = await safeAsync<void>(
+      () async {
+        final cookies = await WebViewCookieManager()
+            .getCookies(domain: Uri.parse('https://${widget.host}/'));
+        final map = <String, String>{};
+        for (final c in cookies) {
+          if (c.name.trim().isNotEmpty) map[c.name] = c.value;
+        }
+        widget.onDone(map);
+      },
+      context: 'CloudflareBypassService._harvestAndDone',
+    );
+    if (bodyResult.isFailure) {
       widget.onDone(<String, String>{});
-    } finally {
-      if (mounted) {
-        _checking = false;
-        setState(() {});
-      }
+    }
+    if (mounted) {
+      _checking = false;
+      setState(() {});
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -162,10 +163,13 @@ class _VideoTileState extends State<VideoTile> {
     final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _controller = controller;
     controller.addListener(_onControllerUpdate);
-    try {
-      await controller.initialize();
-    } catch (e) {
-      debugPrint('Orbit3D multivideo error: $e');
+    final result = await safeAsync<void>(
+      () => controller.initialize(),
+      context: 'MultiVideoScreen._VideoTileState.load',
+    );
+    if (result.isFailure) {
+      final error = result.errorOrNull!.originalError ?? result.errorOrNull!;
+      debugPrint('Orbit3D multivideo error: $error');
       if (!mounted || gen != _generation) return;
       if (_controller == controller) {
         _controller = null;

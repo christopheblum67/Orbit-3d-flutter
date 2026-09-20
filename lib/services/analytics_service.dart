@@ -1,5 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Service minimal d'analyse Firebase (FirebaseAnalytics).
 ///
@@ -13,13 +15,15 @@ class AnalyticsService {
   /// Idempotent : prépare l'accès à FirebaseAnalytics sans échouer.
   Future<void> init() async {
     if (_analytics != null) return;
-    try {
-      await Firebase.initializeApp();
-      _analytics = FirebaseAnalytics.instance;
-    } catch (_) {
-      // Firebase indisponible : analytics désactivé, l'app continue.
-      _analytics = null;
-    }
+    final result = await safeAsync(
+      () async {
+        await Firebase.initializeApp();
+        return FirebaseAnalytics.instance;
+      },
+      context: 'AnalyticsService.init',
+      fallbackValue: null,
+    );
+    _analytics = result.valueOrNull;
   }
 
   /// Visionnage d'un écran (l'événement standard `screen_view`).

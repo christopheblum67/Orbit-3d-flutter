@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/auth/widgets/profile_avatar_selector.dart';
@@ -371,41 +372,45 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
                             return;
                           }
                           setState(() => _saving = true);
-                          try {
-                            final age = _computedAge()!;
-                            final dob = loaded.dateOfBirth;
-                            final now = DateTime.now();
-                            final updatedDob = DateTime(
-                              now.year - age,
-                              dob.month.clamp(1, 12),
-                              dob.day.clamp(
-                                1,
-                                DateTime(now.year - age,
-                                        dob.month.clamp(1, 12) + 1, 0,)
-                                    .day,
-                              ),
-                            );
-                            final updated = loaded.copyWith(
-                              firstName: _nameController.text.trim(),
-                              dateOfBirth: updatedDob,
-                              gender: _gender!,
-                              favoriteGenres: _favoriteGenres,
-                              avatarUrl: _avatarId.isEmpty
-                                  ? ''
-                                  : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
-                              updatedAt: DateTime.now(),
-                            );
-                            await ref
-                                .read(storageServiceProvider)
-                                .saveProfile(updated);
-                            final current = ref.read(currentProfileProvider);
-                            if (current?.id == updated.id) {
-                              ref.read(currentProfileProvider.notifier)
-                                  .setUserProfile(updated);
-                            }
-                            ref.invalidate(profilesProvider);
-                            if (context.mounted) context.pop();
-                          } catch (e) {
+                          final result = await safeAsync<void>(
+                            () async {
+                              final age = _computedAge()!;
+                              final dob = loaded.dateOfBirth;
+                              final now = DateTime.now();
+                              final updatedDob = DateTime(
+                                now.year - age,
+                                dob.month.clamp(1, 12),
+                                dob.day.clamp(
+                                  1,
+                                  DateTime(now.year - age,
+                                          dob.month.clamp(1, 12) + 1, 0,)
+                                      .day,
+                                ),
+                              );
+                              final updated = loaded.copyWith(
+                                firstName: _nameController.text.trim(),
+                                dateOfBirth: updatedDob,
+                                gender: _gender!,
+                                favoriteGenres: _favoriteGenres,
+                                avatarUrl: _avatarId.isEmpty
+                                    ? ''
+                                    : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
+                                updatedAt: DateTime.now(),
+                              );
+                              await ref
+                                  .read(storageServiceProvider)
+                                  .saveProfile(updated);
+                              final current = ref.read(currentProfileProvider);
+                              if (current?.id == updated.id) {
+                                ref.read(currentProfileProvider.notifier)
+                                    .setUserProfile(updated);
+                              }
+                              ref.invalidate(profilesProvider);
+                              if (context.mounted) context.pop();
+                            },
+                            context: 'ProfileEditScreen.saveProfile',
+                          );
+                          if (result.isFailure) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

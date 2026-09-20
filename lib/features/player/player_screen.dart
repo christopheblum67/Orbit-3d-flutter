@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
@@ -475,7 +476,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<bool> _launchFallbackExternal() async {
     final engine = _engineConfig.fallback;
     if (!engine.isExternal) return false;
-    try {
+    final result = await safeAsync<bool>(() async {
       final url = _activeStreamUrl;
       final uri =
           engine == PlayerEngine.vlc ? Uri.parse('vlc://$url') : Uri.parse(url);
@@ -490,9 +491,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         _showInfoBrief();
       }
       return launched;
-    } catch (_) {
-      return false;
-    }
+    }, context: '_launchFallbackExternal', fallbackValue: false);
+    return result.valueOrNull ?? false;
   }
 
   /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
@@ -573,7 +573,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<bool> _launchExternal() async {
     final engine = _engineConfig.primary;
     if (!engine.isExternal) return false;
-    try {
+    final result = await safeAsync<bool>(() async {
       final url = _activeStreamUrl;
       // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
       final uri =
@@ -592,9 +592,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         _showInfoBrief();
       }
       return launched;
-    } catch (_) {
-      return false;
-    }
+    }, context: '_launchExternal', fallbackValue: false);
+    return result.valueOrNull ?? false;
   }
 
   Future<bool> _tryPlay(int gen, String url) async {
@@ -632,10 +631,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _controller = controller;
       controller.addListener(_onControllerUpdate);
       _appliedAudioPref = false;
-      try {
-        await controller.initialize().timeout(_probTimeout);
-      } catch (e) {
-        debugPrint('Orbit3D video error ($url): $e');
+      final initResult = await safeAsync(
+        () => controller.initialize().timeout(_probTimeout),
+        context: '_tryPlay controller.initialize',
+      );
+      if (initResult.isFailure) {
+        debugPrint('Orbit3D video error ($url): ${initResult.errorOrNull}');
         if (host.isNotEmpty) {
           circuitBreaker.recordFailure(host);
         }
@@ -710,7 +711,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// (préférence mémorisée via [PlayerTrackPrefs]). Best-effort.
   Future<void> _applySavedAudioTrack(VideoPlayerController controller) async {
     final mediaKey = widget.progressId ?? widget.streamUrl;
-    try {
+    await safeAsync(() async {
       final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
       if (pref == null || pref.isEmpty) return;
       if (!mounted || _controller != controller) return;
@@ -718,10 +719,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       final known = tracks.any((t) => t.id == pref);
       if (!known) return;
       await controller.selectAudioTrack(pref);
-    } catch (_) {
-      // La sélection de piste peut échouer sur certains flux (pas de piste
-      // extraite, API indisponible) : on ignore et on garde la lecture.
-    }
+    }, context: '_applySavedAudioTrack');
   }
 
   /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
@@ -770,20 +768,20 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // on ATTEND la fin du challenge avant de retenter (sinon le 2e essai
       // repart avec des cookies vides et échoue aussi — « ça marche au 2e
       // chargement »). Borné en durée : on ne bloque jamais la lecture.
-      if (_isCloudflareError(errorDesc)) {
+if (_isCloudflareError(errorDesc)) {
         debugPrint(
             '☁️ Cloudflare error detected, refreshing session before retry...');
         final cf = ref.read(cloudflareSessionProvider);
-        try {
-          await cf.renewSession().timeout(
+        await safeAsync(
+          () => cf.renewSession().timeout(
                 const Duration(seconds: 10),
                 onTimeout: () {},
-              );
-        } catch (_) {
-          // Challenge en échec : on retente quand même avec les cookies
-          // éventuellement présents ; l'UI proposera le bouton de relance
-          // explicite si le flux reste bloqué.
-        }
+              ),
+          context: '_handleActiveError cloudflareSession.renewSession',
+        );
+        // Challenge en échec : on retente quand même avec les cookies
+        // éventuellement présents ; l'UI proposera le bouton de relance
+        // explicite si le flux reste bloqué.
       }
       if (!mounted || gen != _generation) return;
       _startAttempt();
@@ -912,10 +910,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           allowBackgroundPlayback: false,
         ),
       );
-      try {
-        await controller.initialize().timeout(_probTimeout);
-      } catch (e) {
-        debugPrint('Orbit3D preload error: $e');
+      final initResult = await safeAsync(
+        () => controller.initialize().timeout(_probTimeout),
+        context: '_startPreload controller.initialize',
+      );
+      if (initResult.isFailure) {
+        debugPrint('Orbit3D preload error: ${initResult.errorOrNull}');
         _disposeController(controller);
         continue;
       }
@@ -1037,8 +1037,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _showFooterBar();
   }
 
-  void _recordHistory() {
-    try {
+  Future<void> _recordHistory() async {
+    await safeAsync(() async {
       final channel = _currentChannel;
       if (channel != null) {
         // Live : identité = chaîne courante (suit le zapping).
@@ -1077,7 +1077,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
               favorite.streamUrl.isEmpty ? widget.streamUrl : favorite.streamUrl,
             );
       }
-    } catch (_) {}
+    }, context: '_recordHistory');
   }
 
   /// Bascule directe du maître Night Focus (icône 🌙 de la footerbar).

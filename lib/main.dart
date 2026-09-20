@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:intl/date_symbol_data_local.dart';
 // L'import ci-dessous (webview_flutter_android) charge et enregistre la
 // plateforme Android WebView au démarrage (dartPluginClass), requis par le
@@ -47,6 +49,7 @@ import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
+import 'package:orbit_3d_flutter/drm/drm_provider.dart';
 import 'package:orbit_3d_flutter/features/legal/legal_notice_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
@@ -104,11 +107,7 @@ Future<void> _bootstrap() async {
   // isOptional=true : sans .env (asset non embarqué), dotenv reste initialisé
   // avec une carte vide. Autrement dotenv.env lèverait NotInitializedError et
   // ferait échouer toute construction de service d'enrichissement métadonnées.
-  try {
-    await dotenv.load(isOptional: true);
-  } catch (_) {
-    // Pas de fichier .env embarqué : on continue avec les valeurs par défaut.
-  }
+  await safeAsync(() => dotenv.load(isOptional: true), context: 'dotenv.load', fallbackValue: null);
   await Hive.initFlutter();
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
@@ -118,11 +117,7 @@ Future<void> _bootstrap() async {
   Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
-  try {
-    await initializeDateFormatting('fr_FR');
-  } catch (_) {
-    // Non bloquant : on retombe sur la locale par défaut si indisponible.
-  }
+  await safeAsync(() => initializeDateFormatting('fr_FR'), context: 'initializeDateFormatting', fallbackValue: null);
   final storageService = StorageService();
   await storageService.init();
   final favoritesService = FavoritesService();
@@ -178,6 +173,11 @@ Future<void> _bootstrap() async {
             .overrideWithBuild((ref, notifier) => restoredProfile),
         lastRefreshTimestampProvider
             .overrideWithBuild((ref, notifier) => lastRefresh),
+        licenseManagerProvider.overrideWithValue(LicenseManager()),
+        licenseCacheProvider.overrideWithValue(licenseCache),
+        drmManagerProvider.overrideWithValue(DrmManager(licenseManager: LicenseManager())),
+        widevineDelegateProvider.overrideWithValue(WidevineDelegate(licenseManager: LicenseManager())),
+        widevineConfigProvider.overrideWithValue(null),
       ],
       child: const OrbitApp(),
     ),
@@ -224,11 +224,11 @@ class AnalyticsRouteObserver extends NavigatorObserver {
   }
 
   Future<void> _safeScreenView(String name) async {
-    try {
-      await FirebaseAnalytics.instance.logScreenView(screenName: name);
-    } catch (_) {
-      // Firebase non initialisé (pas de google-services.json) : rien à faire.
-    }
+    await safeAsync(
+      () => FirebaseAnalytics.instance.logScreenView(screenName: name),
+      context: '_safeScreenView',
+      fallbackValue: null,
+    );
   }
 }
 
@@ -730,15 +730,13 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   }
 
   Future<void> _handleWidgetLaunch() async {
-    try {
+    await safeAsync(() async {
       final uri = await HomeWidgetService.instance.initiallyLaunched();
       final route = routeForWidgetUri(uri);
       if (route != null) {
         router.go(route);
       }
-    } catch (_) {
-      // Widget indisponible : on ignore silencieusement.
-    }
+    }, context: '_handleWidgetLaunch');
   }
 
   @override

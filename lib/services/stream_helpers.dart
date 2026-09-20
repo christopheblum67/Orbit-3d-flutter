@@ -1,3 +1,5 @@
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+
 const playbackUserAgents = <String>[
   'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
   'Orbit3D/1.0 (Linux; Android 14; FireTV) ExoPlayerLib/2.19.1',
@@ -165,15 +167,18 @@ Future<T> retryStream<T>(
   if (attempts < 1) attempts = 1;
   Object? lastError;
   for (var attempt = 0; attempt < attempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      final retriable =
-          shouldRetry?.call(error) ?? (error is! StreamUrlEmptyException);
-      if (!retriable || attempt == attempts - 1) break;
-      await Future<void>.delayed(delay);
-    }
+    final result = await safeAsync<T>(
+      fn,
+      context: 'retryStream',
+      reportToCrashlytics: false,
+    );
+    if (result.isSuccess) return result.getOrThrow();
+    lastError = result.errorOrNull?.originalError ?? result.errorOrNull;
+    final error = lastError!;
+    final retriable =
+        shouldRetry?.call(error) ?? (error is! StreamUrlEmptyException);
+    if (!retriable || attempt == attempts - 1) break;
+    await Future<void>.delayed(delay);
   }
   throw lastError ?? StateError('Lecture du flux impossible.');
 }

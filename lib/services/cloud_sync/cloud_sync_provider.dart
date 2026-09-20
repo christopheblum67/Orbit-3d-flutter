@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/watched_episode.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
@@ -108,29 +109,43 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
     }
 
     state = state.copyWith(busy: true, clearError: true);
-    try {
-      await _ensureSignedIn();
-      for (final scope in CloudSyncScope.values) {
-        await _syncScope(scope, profile.id);
-      }
+    final result = await safeAsync<void>(
+      () async {
+        await _ensureSignedIn();
+        for (final scope in CloudSyncScope.values) {
+          await _syncScope(scope, profile.id);
+        }
+      },
+      context: 'CloudSyncNotifier.syncNow',
+    );
+    if (result.isFailure) {
+      state = state.copyWith(
+        busy: false,
+        lastError: '${result.errorOrNull?.originalError ?? result.errorOrNull}',
+      );
+    } else {
       state = state.copyWith(
         busy: false,
         signedIn: true,
         lastSyncAt: DateTime.now(),
       );
-    } catch (e) {
-      state = state.copyWith(busy: false, lastError: '$e');
     }
   }
 
   Future<void> _ensureSignedIn() async {
-    try {
-      final current = FirebaseAuth.instance.currentUser;
-      if (current == null) {
-        await FirebaseAuth.instance.signInAnonymously();
-      }
-    } catch (e) {
-      throw StateError('Connexion cloud impossible : $e');
+    final result = await safeAsync<void>(
+      () async {
+        final current = FirebaseAuth.instance.currentUser;
+        if (current == null) {
+          await FirebaseAuth.instance.signInAnonymously();
+        }
+      },
+      context: 'CloudSyncNotifier._ensureSignedIn',
+    );
+    if (result.isFailure) {
+      throw StateError(
+        'Connexion cloud impossible : ${result.errorOrNull?.originalError ?? result.errorOrNull}',
+      );
     }
   }
 
@@ -213,12 +228,17 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
         case CloudSyncScope.favorites:
           final entries = <FavoriteEntry>[];
           for (final raw in result.localWrites.values) {
-            try {
-              final decoded = jsonDecode(raw);
-              if (decoded is Map<String, dynamic>) {
-                entries.add(FavoriteEntry.fromJson(decoded));
-              }
-            } catch (_) {}
+            final entry = safeSync<FavoriteEntry?>(
+              () {
+                final decoded = jsonDecode(raw);
+                if (decoded is Map<String, dynamic>) {
+                  return FavoriteEntry.fromJson(decoded);
+                }
+                return null;
+              },
+              context: 'CloudSyncNotifier._applyRemote favorites decode',
+            ).valueOrNull;
+            if (entry != null) entries.add(entry);
           }
           await ref
               .read(favoritesProvider.notifier)
@@ -226,12 +246,17 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
         case CloudSyncScope.watched:
           final entries = <WatchedEpisodeEntry>[];
           for (final raw in result.localWrites.values) {
-            try {
-              final decoded = jsonDecode(raw);
-              if (decoded is Map<String, dynamic>) {
-                entries.add(WatchedEpisodeEntry.fromJson(decoded));
-              }
-            } catch (_) {}
+            final entry = safeSync<WatchedEpisodeEntry?>(
+              () {
+                final decoded = jsonDecode(raw);
+                if (decoded is Map<String, dynamic>) {
+                  return WatchedEpisodeEntry.fromJson(decoded);
+                }
+                return null;
+              },
+              context: 'CloudSyncNotifier._applyRemote watched decode',
+            ).valueOrNull;
+            if (entry != null) entries.add(entry);
           }
           await ref
               .read(watchedEpisodesProvider.notifier)
@@ -239,12 +264,17 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
         case CloudSyncScope.recents:
           final entries = <RecentEntry>[];
           for (final raw in result.localWrites.values) {
-            try {
-              final decoded = jsonDecode(raw);
-              if (decoded is Map<String, dynamic>) {
-                entries.add(RecentEntry.fromJson(decoded));
-              }
-            } catch (_) {}
+            final entry = safeSync<RecentEntry?>(
+              () {
+                final decoded = jsonDecode(raw);
+                if (decoded is Map<String, dynamic>) {
+                  return RecentEntry.fromJson(decoded);
+                }
+                return null;
+              },
+              context: 'CloudSyncNotifier._applyRemote recents decode',
+            ).valueOrNull;
+            if (entry != null) entries.add(entry);
           }
           await ref
               .read(recentlyWatchedProvider.notifier)

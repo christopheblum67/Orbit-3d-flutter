@@ -13,6 +13,8 @@ import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/crew_section.dart';
 
@@ -607,16 +609,16 @@ class _MovieDetailContent extends ConsumerWidget {
     return '$m min';
   }
 
-  Future<void> _launchTrailer(BuildContext context, String url) async {
-    try {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Impossible d\'ouvrir la bande-annonce'),),
-        );
-      }
+Future<void> _launchTrailer(BuildContext context, String url) async {
+    final result = await safeAsync(
+      () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      context: '_launchTrailer',
+    );
+    if (result.isFailure && context.mounted) {
+      LoggerService.instance.warning('_launchTrailer failed', error: result.errorOrNull);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir la bande-annonce')),
+      );
     }
   }
 }

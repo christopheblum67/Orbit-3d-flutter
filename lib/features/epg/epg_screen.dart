@@ -17,6 +17,8 @@ import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
@@ -361,9 +363,10 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     // cache partagé avant de filtrer en parallèle.
     final api = ref.read(apiServiceProvider);
     final cache = ref.read(epgDataCacheProvider);
-    try {
-      await cache.loadFull(api);
-    } catch (_) {}
+    await safeAsync(
+      () => cache.loadFull(api),
+      context: '_loadAllEpg cache.loadFull',
+    );
 
     // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
     // au lieu d'un rebuild complet de la grille à chaque chaîne (ANR sinon).
@@ -411,11 +414,15 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     Channel channel,
     Map<String, List<EPGProgram>> out,
   ) async {
-    try {
-      final programs =
-          await ref.read(channelEpgProvider(channel.epgChannelId).future);
-      out[channelName] = programs;
-    } catch (_) {}
+    final result = await safeAsync(
+      () => ref.read(channelEpgProvider(channel.epgChannelId).future),
+      context: '_loadOne channelEpgProvider',
+    );
+    if (result.isSuccess) {
+      out[channelName] = result.valueOrNull!;
+    } else {
+      LoggerService.instance.warning('_loadOne failed', error: result.errorOrNull);
+    }
     if (mounted) {
       _loadingChannels.remove(channelName);
     }

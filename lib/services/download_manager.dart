@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Commandes envoyées au worker isolate.
 enum DownloadWorkerCommand {
@@ -414,11 +415,10 @@ class DownloadManager extends ChangeNotifier {
 
     // Supprimer le fichier local
     if (task.isFileExists) {
-      try {
-        await File(task.localPath).delete();
-      } catch (e) {
-        _logger.warning('Failed to delete file ${task.localPath}: $e');
-      }
+      await safeAsync<void>(
+        () => File(task.localPath).delete(),
+        context: 'DownloadManager.delete',
+      );
     }
 
     await HiveSync.writeAsync(_boxName, (box) => box.delete(taskId));
@@ -573,116 +573,119 @@ Future<void> _runDownload(
       return;
     }
 
-    try {
-      // Construire la requête
-      final request = await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
-      onRequestCreated(request);
-      
-      // Ajouter les headers
-      if (params.headers != null) {
-        params.headers!.forEach((key, value) {
-          request.headers.add(key, value);
-        });
-      }
-      if (params.drmToken != null) {
-        request.headers.add('Cookie', params.drmToken!);
-      }
-      
-      // Support Range pour resume
-      final resumeFromBytes = getPausedBytes();
-      if (resumeFromBytes > 0) {
-        request.headers.add('Range', 'bytes=$resumeFromBytes-');
-      }
+    final result = await safeAsync<void>(
+      () async {
+        // Construire la requête
+        final request = await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
+        onRequestCreated(request);
 
-      final response = await request.close();
-      
-      if (response.statusCode != 200 && response.statusCode != 206) {
-        throw Exception('HTTP ${response.statusCode}');
-      }
-
-      // Fichier de sortie
-      final file = File(params.localPath);
-      if (!file.parent.existsSync()) {
-        file.parent.createSync(recursive: true);
-      }
-      final mode = getPausedBytes() > 0 ? FileMode.append : FileMode.write;
-      final sink = file.openWrite(mode: mode);
-      onSinkCreated(sink);
-      
-      int totalBytes = response.contentLength;
-      if (response.statusCode == 206 && response.headers.value('content-range') != null) {
-        final contentRange = response.headers.value('content-range')!;
-        final parts = contentRange.split('/');
-        if (parts.length == 2) {
-          totalBytes = int.tryParse(parts[1]) ?? 0;
+        // Ajouter les headers
+        if (params.headers != null) {
+          params.headers!.forEach((key, value) {
+            request.headers.add(key, value);
+          });
         }
-      }
-      
-      int bytesDownloaded = getPausedBytes();
-      final stopwatch = Stopwatch()..start();
-
-      params.sendPort.send(DownloadWorkerResponse(
-        taskId: params.taskId,
-        status: DownloadStatus.downloading,
-        progress: DownloadProgress(totalBytes: totalBytes, bytesDownloaded: bytesDownloaded),
-      ));
-
-      await for (final chunk in response) {
-        while (getPaused() && !getCancelled()) {
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-        if (getCancelled()) {
-          await sink.flush();
-          await sink.close();
-          params.sendPort.send(DownloadWorkerResponse(
-            taskId: params.taskId,
-            status: DownloadStatus.cancelled,
-            isComplete: true,
-          ));
-          return;
+        if (params.drmToken != null) {
+          request.headers.add('Cookie', params.drmToken!);
         }
 
-        sink.add(chunk);
-        bytesDownloaded += chunk.length;
-        
-        final elapsed = stopwatch.elapsed;
-        final speed = elapsed.inMilliseconds > 0 
-            ? bytesDownloaded / (elapsed.inMilliseconds / 1000) 
-            : 0.0;
-        final remaining = speed > 0 && totalBytes > 0
-            ? Duration(seconds: ((totalBytes - bytesDownloaded) / speed).round())
-            : Duration.zero;
+        // Support Range pour resume
+        final resumeFromBytes = getPausedBytes();
+        if (resumeFromBytes > 0) {
+          request.headers.add('Range', 'bytes=$resumeFromBytes-');
+        }
+
+        final response = await request.close();
+
+        if (response.statusCode != 200 && response.statusCode != 206) {
+          throw Exception('HTTP ${response.statusCode}');
+        }
+
+        // Fichier de sortie
+        final file = File(params.localPath);
+        if (!file.parent.existsSync()) {
+          file.parent.createSync(recursive: true);
+        }
+        final mode = getPausedBytes() > 0 ? FileMode.append : FileMode.write;
+        final sink = file.openWrite(mode: mode);
+        onSinkCreated(sink);
+
+        int totalBytes = response.contentLength;
+        if (response.statusCode == 206 && response.headers.value('content-range') != null) {
+          final contentRange = response.headers.value('content-range')!;
+          final parts = contentRange.split('/');
+          if (parts.length == 2) {
+            totalBytes = int.tryParse(parts[1]) ?? 0;
+          }
+        }
+
+        int bytesDownloaded = getPausedBytes();
+        final stopwatch = Stopwatch()..start();
 
         params.sendPort.send(DownloadWorkerResponse(
           taskId: params.taskId,
           status: DownloadStatus.downloading,
-          progress: DownloadProgress(
-            bytesDownloaded: bytesDownloaded,
-            totalBytes: totalBytes,
-            speedBytesPerSec: speed,
-            estimatedTimeRemaining: remaining,
-          ),
+          progress: DownloadProgress(totalBytes: totalBytes, bytesDownloaded: bytesDownloaded),
         ));
-      }
 
-      await sink.flush();
-      await sink.close();
+        await for (final chunk in response) {
+          while (getPaused() && !getCancelled()) {
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+          if (getCancelled()) {
+            await sink.flush();
+            await sink.close();
+            params.sendPort.send(DownloadWorkerResponse(
+              taskId: params.taskId,
+              status: DownloadStatus.cancelled,
+              isComplete: true,
+            ));
+            return;
+          }
 
-      params.sendPort.send(DownloadWorkerResponse(
-        taskId: params.taskId,
-        status: DownloadStatus.completed,
-        progress: DownloadProgress(bytesDownloaded: totalBytes, totalBytes: totalBytes),
-        isComplete: true,
-      ));
-      return;
+          sink.add(chunk);
+          bytesDownloaded += chunk.length;
 
-    } catch (e) {
+          final elapsed = stopwatch.elapsed;
+          final speed = elapsed.inMilliseconds > 0
+              ? bytesDownloaded / (elapsed.inMilliseconds / 1000)
+              : 0.0;
+          final remaining = speed > 0 && totalBytes > 0
+              ? Duration(seconds: ((totalBytes - bytesDownloaded) / speed).round())
+              : Duration.zero;
+
+          params.sendPort.send(DownloadWorkerResponse(
+            taskId: params.taskId,
+            status: DownloadStatus.downloading,
+            progress: DownloadProgress(
+              bytesDownloaded: bytesDownloaded,
+              totalBytes: totalBytes,
+              speedBytesPerSec: speed,
+              estimatedTimeRemaining: remaining,
+            ),
+          ));
+        }
+
+        await sink.flush();
+        await sink.close();
+
+        params.sendPort.send(DownloadWorkerResponse(
+          taskId: params.taskId,
+          status: DownloadStatus.completed,
+          progress: DownloadProgress(bytesDownloaded: totalBytes, totalBytes: totalBytes),
+          isComplete: true,
+        ));
+      },
+      context: 'DownloadManager._runDownload',
+    );
+    if (result.isFailure) {
       params.sendPort.send(DownloadWorkerResponse(
         taskId: params.taskId,
         status: DownloadStatus.failed,
-        errorMessage: e.toString(),
+        errorMessage: result.errorOrNull?.message,
       ));
       return;
     }
+    return;
   }
 }
