@@ -425,53 +425,53 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                             ],
                           ),
                           _buildTvCheckboxListTile(
-                              focusNode: _dialogueBoostFocus,
-                              nextFocusNode: _bassKillerFocus,
-                              prevFocusNode: _nightFocusSwitchFocus,
-                              enabled: _nightFocusEnabled,
-                              value: _dialogueBoost,
-                              onChanged: (v) async {
-                                await _notifier
-                                    .setNightFocusDialogueBoost(v ?? false);
-                                await _push();
-                              },
-                              title: const Text(
-                                'Dialogue Boost',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                              subtitle: Text(
-                                'Rehausse la plage spectrale des voix '
-                                '(1–4 kHz)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            focusNode: _dialogueBoostFocus,
+                            nextFocusNode: _bassKillerFocus,
+                            prevFocusNode: _nightFocusSwitchFocus,
+                            enabled: _nightFocusEnabled,
+                            value: _dialogueBoost,
+                            onChanged: (v) async {
+                              await _notifier
+                                  .setNightFocusDialogueBoost(v ?? false);
+                              await _push();
+                            },
+                            title: const Text(
+                              'Dialogue Boost',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              'Rehausse la plage spectrale des voix '
+                              '(1–4 kHz)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
+                          ),
                           _buildTvCheckboxListTile(
-                              focusNode: _bassKillerFocus,
-                              nextFocusNode: _vocalGainSliderFocus,
-                              prevFocusNode: _dialogueBoostFocus,
-                              enabled: _nightFocusEnabled,
-                              value: _bassKiller,
-                              onChanged: (v) async {
-                                await _notifier
-                                    .setNightFocusBassKiller(v ?? false);
-                                await _push();
-                              },
-                              title: const Text(
-                                'Bass Killer & Limiteur',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                              subtitle: Text(
-                                'Atténue les sub-bass et compresse les '
-                                'surcharges soudaines',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: scheme.onSurfaceVariant,
-                                ),
+                            focusNode: _bassKillerFocus,
+                            nextFocusNode: _vocalGainSliderFocus,
+                            prevFocusNode: _dialogueBoostFocus,
+                            enabled: _nightFocusEnabled,
+                            value: _bassKiller,
+                            onChanged: (v) async {
+                              await _notifier
+                                  .setNightFocusBassKiller(v ?? false);
+                              await _push();
+                            },
+                            title: const Text(
+                              'Bass Killer & Limiteur',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              'Atténue les sub-bass et compresse les '
+                              'surcharges soudaines',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
+                          ),
                           if (_nightFocusEnabled && _dialogueBoost) ...[
                             const SizedBox(height: 8),
                             Row(

@@ -8,6 +8,7 @@ import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 
 import android.content.Context;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
@@ -16,7 +17,9 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -69,18 +72,54 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
           // Configuration par profil (Orbit Player Config) : tampon media3 et
           // limite de résolution, peuplés depuis Dart avant la création.
           // 0 = non renseigné -> comportement ExoPlayer par défaut.
+          Log.i(
+              "OrbitPlayer",
+              "config min="
+                  + OrbitPlayerConfig.minBufferMs
+                  + " max="
+                  + OrbitPlayerConfig.maxBufferMs
+                  + " bfp="
+                  + OrbitPlayerConfig.bufferForPlaybackMs
+                  + " afterRebuffer="
+                  + OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs
+                  + " maxHeight="
+                  + OrbitPlayerConfig.maxVideoHeight
+                  + " nightFocus="
+                  + NightFocusDspConfig.enabled);
           if (OrbitPlayerConfig.minBufferMs > 0 && OrbitPlayerConfig.maxBufferMs > 0) {
+            // Media3 impose minBufferMs >= bufferForPlaybackMs et
+            // minBufferMs >= bufferForPlaybackAfterRebufferMs, sinon
+            // IllegalArgumentException (« minBufferMs cannot be less than
+            // bufferForPlaybackMs ») qui fait echouer la lecture entiere.
+            // On borne donc les seuils de demarrage SOUS minBufferMs.
+            int min = OrbitPlayerConfig.minBufferMs;
+            int max = Math.max(OrbitPlayerConfig.maxBufferMs, min);
+            int forPlayback =
+                Math.min(
+                    OrbitPlayerConfig.bufferForPlaybackMs > 0
+                        ? OrbitPlayerConfig.bufferForPlaybackMs
+                        : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                    min);
+            int forPlaybackAfterRebuffer =
+                Math.min(
+                    OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs > 0
+                        ? OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs
+                        : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+                    min);
+            Log.i(
+                "OrbitPlayer",
+                "loadControl clamp min="
+                    + min
+                    + " max="
+                    + max
+                    + " bfp="
+                    + forPlayback
+                    + " afterRebuffer="
+                    + forPlaybackAfterRebuffer);
             builder.setLoadControl(
                 new DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
-                        OrbitPlayerConfig.minBufferMs,
-                        OrbitPlayerConfig.maxBufferMs,
-                        OrbitPlayerConfig.bufferForPlaybackMs > 0
-                            ? OrbitPlayerConfig.bufferForPlaybackMs
-                            : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                        OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs > 0
-                            ? OrbitPlayerConfig.bufferForPlaybackAfterRebufferMs
-                            : DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
+                        min, max, forPlayback, forPlaybackAfterRebuffer)
                     .build());
           }
           if (OrbitPlayerConfig.maxVideoHeight > 0) {
@@ -96,7 +135,58 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
             builder.setTrackSelector(trackSelector);
           }
 
-          return builder.build();
+          ExoPlayer player = builder.build();
+          // Journalise l'etat reel du lecteur : sans ca, un flux fige a la
+          // position 0 est indistinguable d'un probleme reseau, d'un decodeur
+          // qui ne demarre pas ou d'un seuil de tampon inatteignable.
+          final ExoPlayer[] ref = new ExoPlayer[] {player};
+          player.addListener(
+              new Player.Listener() {
+                private void dump(String why) {
+                  ExoPlayer p = ref[0];
+                  Format audio = p.getAudioFormat();
+                  Format video = p.getVideoFormat();
+                  Log.i(
+                      "OrbitPlayer",
+                      why
+                          + " state="
+                          + p.getPlaybackState()
+                          + " loading="
+                          + p.isLoading()
+                          + " pos="
+                          + p.getCurrentPosition()
+                          + " bufferedPos="
+                          + p.getBufferedPosition()
+                          + " totalBuffered="
+                          + p.getTotalBufferedDuration()
+                          + " dur="
+                          + p.getDuration()
+                          + " size="
+                          + p.getVideoSize().width
+                          + "x"
+                          + p.getVideoSize().height
+                          + " audio="
+                          + (audio == null ? "none" : audio.sampleRate + "Hz/" + audio.channelCount + "ch/" + audio.sampleMimeType)
+                          + " video="
+                          + (video == null ? "none" : video.width + "x" + video.height + "/" + video.sampleMimeType));
+                }
+
+                @Override
+                public void onPlaybackStateChanged(int state) {
+                  dump("state" + state);
+                }
+
+                @Override
+                public void onIsPlayingChanged(boolean isPlaying) {
+                  dump("isPlaying=" + isPlaying);
+                }
+
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                  Log.e("OrbitPlayer", "error", error);
+                }
+              });
+          return player;
         },
         events,
         surfaceProducer,

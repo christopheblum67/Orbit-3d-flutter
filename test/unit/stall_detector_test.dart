@@ -1,17 +1,55 @@
-
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
+import 'package:video_player/video_player.dart';
+
+/// Joueur factice : `StallDetector` ne lit que `value`, on pilote donc la
+/// valeur exposee pour simuler exactement les etats que video_player remonte
+/// (lecture, pause, buffer, position figee/avancee).
+class _FakePlayer implements StallWatchable {
+  _FakePlayer(this._value);
+
+  VideoPlayerValue _value;
+
+  @override
+  VideoPlayerValue get value => _value;
+
+  @override
+  Object get source => this;
+
+  set value(VideoPlayerValue v) => _value = v;
+}
+
+VideoPlayerValue _playing({
+  Duration position = const Duration(seconds: 10),
+  bool isBuffering = false,
+}) =>
+    VideoPlayerValue(
+      duration: const Duration(hours: 1),
+      isInitialized: true,
+      isPlaying: true,
+      isBuffering: isBuffering,
+      position: position,
+    );
+
+/// Seuils reduits pour que les tests restent instantanes : 3 checks de 50 ms
+/// = 150 ms, seuil de 200 ms (le 4e check declenche le stall).
+const _interval = Duration(milliseconds: 50);
+const _threshold = Duration(milliseconds: 200);
+const _elapse = Duration(milliseconds: 260);
+
+StallDetector _detector() => StallDetector(
+      checkInterval: _interval,
+      stallThreshold: _threshold,
+      minChecksForStall: 3,
+    );
 
 void main() {
   group('StallDetector', () {
     late StallDetector detector;
 
     setUp(() {
-      detector = StallDetector(
-        checkInterval: const Duration(milliseconds: 10),
-        stallThreshold: const Duration(milliseconds: 30),
-        minChecksForStall: 3,
-      );
+      detector = _detector();
     });
 
     tearDown(() {
@@ -24,19 +62,23 @@ void main() {
     });
 
     test('starts and stops monitoring', () {
-      // We can't easily test with a real controller in unit tests
-      // without a full mock, so we verify the API works
-      detector.stop();
-      expect(detector.isRunning, isFalse);
-      expect(detector.isStalling, isFalse);
+      fakeAsync((fa) {
+        final player = _FakePlayer(_playing());
+        detector.start(player);
+        expect(detector.isRunning, isTrue);
+        expect(detector.isAttachedTo(player), isTrue);
+
+        detector.stop();
+        expect(detector.isRunning, isFalse);
+        expect(detector.isStalling, isFalse);
+        expect(detector.isAttachedTo(player), isFalse);
+        // Aucun tick ne doit plusDeclencher quoi que ce soit.
+        fa.elapse(const Duration(seconds: 1));
+      });
     });
 
     test('dispose stops monitoring', () {
-      final d = StallDetector(
-        checkInterval: const Duration(milliseconds: 10),
-        stallThreshold: const Duration(milliseconds: 30),
-        minChecksForStall: 3,
-      );
+      final d = _detector();
       d.dispose();
       expect(d.isRunning, isFalse);
     });
@@ -57,6 +99,158 @@ void main() {
       );
       expect(detector2.isRunning, isFalse);
       detector2.dispose();
+    });
+  });
+
+  group('StallDetector - mécanisme de détection', () {
+    test('une position qui avance ne lève jamais de stall', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(_playing(position: Duration.zero));
+        detector.start(player);
+
+        for (var i = 1; i <= 6; i++) {
+          player.value = _playing(position: Duration(seconds: i));
+          fa.elapse(_interval);
+        }
+
+        expect(detector.isStalling, isFalse);
+        expect(detector.bufferingChecks, 0);
+        detector.dispose();
+      });
+    });
+
+    test('une position figée signale un stall après le seuil', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        var notifications = 0;
+        detector.addListener(() => notifications++);
+        final player = _FakePlayer(_playing());
+        detector.start(player);
+
+        // 2 checks : sous le seuil, rien encore.
+        fa.elapse(const Duration(milliseconds: 120));
+        expect(detector.isStalling, isFalse);
+
+        fa.elapse(_elapse);
+        expect(detector.isStalling, isTrue);
+        expect(notifications, greaterThan(0));
+        detector.dispose();
+      });
+    });
+
+    test('un rebuffer court suivi d’une reprise ne lève pas de stall', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(_playing(isBuffering: true));
+        detector.start(player);
+
+        // 2 checks en buffer, puis la lecture reprend et la position avance.
+        fa.elapse(const Duration(milliseconds: 120));
+        expect(detector.isStalling, isFalse);
+        expect(detector.bufferingChecks, 2);
+
+        player.value = _playing(position: const Duration(seconds: 12));
+        fa.elapse(_interval);
+        expect(detector.isStalling, isFalse);
+        // Le compteur est remis à zéro dès que la progression est constatée.
+        expect(detector.bufferingChecks, 0);
+        detector.dispose();
+      });
+    });
+
+    test('un blocage continu en buffering lève un stall (isPlaying false)', () {
+      // C’est le mode de défaillance silencieux le plus grave : image noire,
+      // son muet, isPlaying == false et isBuffering == true. Avant, le
+      // détecteur sortait sur le garde `!isPlaying` et ne voyait rien.
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          const VideoPlayerValue(
+            duration: Duration(hours: 1),
+            isInitialized: true,
+            isPlaying: false,
+            isBuffering: true,
+            position: Duration(seconds: 3),
+          ),
+        );
+        detector.start(player);
+
+        fa.elapse(_elapse);
+        expect(detector.isStalling, isTrue);
+        expect(detector.bufferingChecks, greaterThanOrEqualTo(3));
+        detector.dispose();
+      });
+    });
+
+    test('une pause volontaire n’est jamais un stall', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          const VideoPlayerValue(
+            duration: Duration(hours: 1),
+            isInitialized: true,
+            isPlaying: false,
+            position: Duration(seconds: 30),
+          ),
+        );
+        detector.start(player);
+
+        fa.elapse(const Duration(seconds: 2));
+        expect(detector.isStalling, isFalse);
+        expect(detector.bufferingChecks, 0);
+        detector.dispose();
+      });
+    });
+
+    test('la reprise de la position après un stall referme l’état', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(_playing());
+        detector.start(player);
+
+        fa.elapse(_elapse);
+        expect(detector.isStalling, isTrue);
+
+        player.value = _playing(position: const Duration(seconds: 42));
+        fa.elapse(_interval);
+        expect(detector.isStalling, isFalse);
+        detector.dispose();
+      });
+    });
+
+    test('start() sur le même contrôleur ne redémarre pas le timer', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(_playing());
+        detector.start(player);
+        fa.elapse(_interval);
+        // Restart demandé (transition ready->ready) : la surveillance
+        // repart proprement, un seul timer actif.
+        detector.start(player);
+        expect(detector.isRunning, isTrue);
+        expect(detector.isAttachedTo(player), isTrue);
+
+        fa.elapse(_elapse);
+        expect(detector.isStalling, isTrue);
+        detector.dispose();
+      });
+    });
+
+    test('start() sur un contrôleur différent bascule la surveillance', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final first = _FakePlayer(_playing());
+        detector.start(first);
+        fa.elapse(_interval);
+        expect(detector.isAttachedTo(first), isTrue);
+
+        final second = _FakePlayer(_playing());
+        detector.start(second);
+        expect(detector.isAttachedTo(second), isTrue);
+        expect(detector.isAttachedTo(first), isFalse);
+        detector.dispose();
+      });
     });
   });
 }

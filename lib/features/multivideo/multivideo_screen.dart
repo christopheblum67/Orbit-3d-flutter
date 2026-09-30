@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
+import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
@@ -32,7 +34,8 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final channelsAsync = ref.watch(liveChannelsProvider);
-    final maxStreams = ref.watch(deviceProfileProvider).maxMultiView;
+    final deviceProfile = ref.watch(deviceProfileProvider);
+    final maxStreams = deviceProfile.maxMultiView;
     if (maxStreams <= 0) {
       return Scaffold(
         appBar: AppBar(
@@ -85,8 +88,10 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
                   childAspectRatio: 1.5,
                 ),
                 itemCount: _selectedChannels.length,
-                itemBuilder: (context, index) =>
-                    VideoTile(url: _selectedChannels[index].streamUrl),
+                itemBuilder: (context, index) => VideoTile(
+                  url: _selectedChannels[index].streamUrl,
+                  profile: deviceProfile,
+                ),
               ),
             ),
             SizedBox(
@@ -125,7 +130,14 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
 
 class VideoTile extends StatefulWidget {
   final String url;
-  const VideoTile({super.key, required this.url});
+
+  /// Profil d'appareil servant à configurer le lecteur avant sa création.
+  final DeviceProfile profile;
+  const VideoTile({
+    super.key,
+    required this.url,
+    required this.profile,
+  });
 
   @override
   State<VideoTile> createState() => _VideoTileState();
@@ -160,6 +172,13 @@ class _VideoTileState extends State<VideoTile> {
       old.dispose();
     }
     if (!mounted) return;
+    // La config media3 est lue à la CONSTRUCTION de l'ExoPlayer : sans ce
+    // `push` avant la création, chaque tuile conservait les seuils par défaut
+    // d'ExoPlayer (tampons de 50 s) et ne bénéficiait pas du plafond de
+    // résolution du profil — en multi-vue, c'est précisément là que le
+    // décodage déborde.
+    await PlayerProfileService.pushForDevice(widget.profile);
+    if (!mounted || gen != _generation) return;
     final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _controller = controller;
     controller.addListener(_onControllerUpdate);

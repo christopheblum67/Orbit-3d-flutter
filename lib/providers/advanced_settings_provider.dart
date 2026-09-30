@@ -19,8 +19,10 @@ extension PlayerEngineX on PlayerEngine {
   bool get isExternal => this != PlayerEngine.exoPlayer;
 
   static PlayerEngine fromLabel(String? label) =>
-      PlayerEngine.values.firstWhere((e) => e.label == label,
-          orElse: () => PlayerEngine.exoPlayer,);
+      PlayerEngine.values.firstWhere(
+        (e) => e.label == label,
+        orElse: () => PlayerEngine.exoPlayer,
+      );
 }
 
 enum PlaybackContentType { live, vod, series, replay }
@@ -170,8 +172,10 @@ class AdvancedSettings {
       highContrast: highContrast ?? this.highContrast,
       dpadNavigation: dpadNavigation ?? this.dpadNavigation,
       fontSizeScale: fontSizeScale ?? this.fontSizeScale,
-      certificatePinningEnabled: certificatePinningEnabled ?? this.certificatePinningEnabled,
-      certificatePinningFingerprints: certificatePinningFingerprints ?? this.certificatePinningFingerprints,
+      certificatePinningEnabled:
+          certificatePinningEnabled ?? this.certificatePinningEnabled,
+      certificatePinningFingerprints:
+          certificatePinningFingerprints ?? this.certificatePinningFingerprints,
     );
   }
 
@@ -209,7 +213,8 @@ class AdvancedSettings {
   static const kDpadNavigation = 'dpad_navigation';
   static const kFontSizeScale = 'font_size_scale';
   static const kCertificatePinningEnabled = 'certificate_pinning_enabled';
-  static const kCertificatePinningFingerprints = 'certificate_pinning_fingerprints';
+  static const kCertificatePinningFingerprints =
+      'certificate_pinning_fingerprints';
 }
 
 class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
@@ -246,15 +251,16 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       nightFocusAudioShiftMs:
           prefs.getInt(AdvancedSettings.kNightFocusAudioShiftMs) ?? 0,
       nightFocusVolumeNormalization:
-          prefs.getBool(AdvancedSettings.kNightFocusVolumeNormalization) ?? true,
+          prefs.getBool(AdvancedSettings.kNightFocusVolumeNormalization) ??
+              true,
       highContrast: prefs.getBool(AdvancedSettings.kHighContrast) ?? false,
       dpadNavigation: prefs.getBool(AdvancedSettings.kDpadNavigation) ?? true,
       fontSizeScale: prefs.getDouble(AdvancedSettings.kFontSizeScale) ?? 1.0,
       certificatePinningEnabled:
           prefs.getBool(AdvancedSettings.kCertificatePinningEnabled) ?? false,
-      certificatePinningFingerprints:
-          prefs.getStringList(AdvancedSettings.kCertificatePinningFingerprints) ??
-              const <String>[],
+      certificatePinningFingerprints: prefs.getStringList(
+              AdvancedSettings.kCertificatePinningFingerprints,) ??
+          const <String>[],
     );
   }
 
@@ -396,7 +402,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kCertificatePinningEnabled, value);
   }
 
-  Future<void> setCertificatePinningFingerprints(List<String> fingerprints) async {
+  Future<void> setCertificatePinningFingerprints(
+      List<String> fingerprints,) async {
     state = state.copyWith(certificatePinningFingerprints: fingerprints);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(
@@ -407,30 +414,56 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
 
   Future<void> importFromJson(AdvancedSettings imported) async {
     state = imported;
-    await _persistBool(AdvancedSettings.kTlsImpersonation, imported.useTlsImpersonation);
+    await _persistBool(
+        AdvancedSettings.kTlsImpersonation, imported.useTlsImpersonation,);
     await _persistString(AdvancedSettings.kDnsProvider, imported.dnsProvider);
-    await _persistBool(AdvancedSettings.kZeroLagPrefetch, imported.zeroLagPrefetch);
-    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.live), imported.playerLive.primary.name);
-    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.live), imported.playerLive.fallback.name);
-    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod), imported.playerVod.primary.name);
-    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.vod), imported.playerVod.fallback.name);
-    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.series), imported.playerSeries.primary.name);
-    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.series), imported.playerSeries.fallback.name);
-    await _persistString(AdvancedSettings.kPlayerPrimary(PlaybackContentType.replay), imported.playerReplay.primary.name);
-    await _persistString(AdvancedSettings.kPlayerFallback(PlaybackContentType.replay), imported.playerReplay.fallback.name);
-    await _persistBool(AdvancedSettings.kNightFocus, imported.nightFocusEnabled);
-    await _persistBool(AdvancedSettings.kNightFocusDialogueBoost, imported.nightFocusDialogueBoost);
-    await _persistBool(AdvancedSettings.kNightFocusBassKiller, imported.nightFocusBassKiller);
-    await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb, imported.nightFocusVocalGainDb);
-    await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs, imported.nightFocusAudioShiftMs);
+    await _persistBool(
+        AdvancedSettings.kZeroLagPrefetch, imported.zeroLagPrefetch,);
+    await _persistString(
+        AdvancedSettings.kPlayerPrimary(PlaybackContentType.live),
+        imported.playerLive.primary.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerFallback(PlaybackContentType.live),
+        imported.playerLive.fallback.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod),
+        imported.playerVod.primary.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerFallback(PlaybackContentType.vod),
+        imported.playerVod.fallback.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerPrimary(PlaybackContentType.series),
+        imported.playerSeries.primary.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerFallback(PlaybackContentType.series),
+        imported.playerSeries.fallback.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerPrimary(PlaybackContentType.replay),
+        imported.playerReplay.primary.name,);
+    await _persistString(
+        AdvancedSettings.kPlayerFallback(PlaybackContentType.replay),
+        imported.playerReplay.fallback.name,);
+    await _persistBool(
+        AdvancedSettings.kNightFocus, imported.nightFocusEnabled,);
+    await _persistBool(AdvancedSettings.kNightFocusDialogueBoost,
+        imported.nightFocusDialogueBoost,);
+    await _persistBool(
+        AdvancedSettings.kNightFocusBassKiller, imported.nightFocusBassKiller,);
+    await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb,
+        imported.nightFocusVocalGainDb,);
+    await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs,
+        imported.nightFocusAudioShiftMs,);
     await _persistBool(
       AdvancedSettings.kNightFocusVolumeNormalization,
       imported.nightFocusVolumeNormalization,
     );
     await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
-    await _persistBool(AdvancedSettings.kDpadNavigation, imported.dpadNavigation);
-    await _persistDouble(AdvancedSettings.kFontSizeScale, imported.fontSizeScale);
-    await _persistBool(AdvancedSettings.kCertificatePinningEnabled, imported.certificatePinningEnabled);
+    await _persistBool(
+        AdvancedSettings.kDpadNavigation, imported.dpadNavigation,);
+    await _persistDouble(
+        AdvancedSettings.kFontSizeScale, imported.fontSizeScale,);
+    await _persistBool(AdvancedSettings.kCertificatePinningEnabled,
+        imported.certificatePinningEnabled,);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(
       AdvancedSettings.kCertificatePinningFingerprints,

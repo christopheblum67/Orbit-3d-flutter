@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
+import 'package:collection/collection.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -17,6 +18,7 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/time_progress_bar.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -57,6 +59,7 @@ class PlayerRouteData {
     this.episodeLabel,
     this.series,
     this.episode,
+    this.vodId,
   });
 
   final String streamUrl;
@@ -65,6 +68,10 @@ class PlayerRouteData {
   final int index;
   final String? progressId;
   final int? initialPositionMs;
+
+  /// Identifiant VOD du film (`stream_id`), utilisé pour découvrir les
+  /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
+  final String? vodId;
   final PlaybackContentType contentType;
 
   /// Favori associé au contenu lancé (utilisé pour la lecture non live).
@@ -105,6 +112,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.episodeLabel,
     this.series,
     this.episode,
+    this.vodId,
   });
 
   final String streamUrl;
@@ -125,6 +133,10 @@ class PlayerScreen extends ConsumerStatefulWidget {
   final Series? series;
   final Episode? episode;
 
+  /// Identifiant VOD du film (`stream_id`), utilisé pour découvrir les
+  /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
+  final String? vodId;
+
   @override
   ConsumerState<PlayerScreen> createState() => PlayerScreenState();
 }
@@ -133,13 +145,51 @@ enum _PlayerStatus { loading, error, ready }
 
 /// Durée maximale accordée à initialise() avant de basculer sur le
 /// prochain User-Agent : évite de bloquer le zapping sur un flux muet.
-const _probTimeout = Duration(seconds: 12);
+///
+/// Doit rester > somme des back-offs natifs de LoggingDataSource
+/// (3 s + 8 s + 20 s = 31 s) : sinon le timeout Dart détruit le contrôleur
+/// pendant que le retry natif travaille encore, et le flux est perdu alors
+/// que la requête suivante aurait abouti.
+const _probTimeout = Duration(seconds: 45);
 
 /// Durée d'affichage de la footerbar avant masquage automatique.
 const _footerBarDuration = Duration(seconds: 5);
 
 /// Seuil (fraction lue) au-delà duquel un épisode de série est posé « vu ».
 const double _seriesWatchedThreshold = 0.8;
+
+/// Bornes du back-off appliqué après un 401 du panneau.
+///
+/// Qui arbitre le rythme, et pourquoi.
+///
+/// Le NATIF est l'autorité du rythme : `LoggingDataSource` espace les
+/// ouvertures avec un verrou GLOBAL partagé par tous les contrôleurs de la
+/// processus (lecture, préchauffage, préchargement) et réessaie 3 fois avec
+/// 3/8/20 s. C'est le seul étage qui voit les contrôleurs que cet écran ne
+/// connaît pas, donc le seul qui puisse empêcher la rafale de requêtes
+/// « quasi simultanées » que l'anti-leech sanctionne.
+///
+/// Ces bornes Dart ne sont donc PAS une seconde barrière anti-leech à
+/// empiler : elles n'espacent que les tentatives déclenchées depuis cet
+/// écran (relance manuelle, zapping), le temps que le verrou natif fasse son
+/// office. D'où des valeurs volontairement courtes : le refus que le natif a
+/// déjà payé (jusqu'à 31 s) ne doit pas être doublé d'une pénalité de 4 à
+/// 60 s d'écran noir. Le cumul des deux était la source des dizaines de
+/// secondes d'attente sans que le CDN y gagne quoi que ce soit.
+///
+/// Measured sur draap.online : 4 requêtes quasi simultanées en boucle → 0 % de
+/// réussite, alors qu'une requête isolée réussit une fois sur deux. Marteler
+/// l'endpoint garantit donc de rester bloqué.
+const List<Duration> _rateLimitBackoffs = [
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 10),
+  Duration(seconds: 20),
+];
+
+/// Nombre de variantes d'URL tolérées après un refus anti-leech avant
+/// d'abandonner la tentative courante.
+const int _maxRateLimitedVariants = 2;
 
 class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
@@ -150,6 +200,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   int? _cachedNextIndex;
   VideoPlayerController? _cachedPrev;
 
+  /// Nombre de 401 consécutifs et fin du délai de refroidissement courant.
+  int _rateLimitStrikes = 0;
+  DateTime? _rateLimitUntil;
+
+  /// La dernière tentative a essuyé un refus anti-leech : inutile d'enchaîner
+  /// sur les autres variantes d'URL, elles seront refusées aussi.
+  bool _rateLimitedOnLastAttempt = false;
+
   /// Piste audio préférée ré-appliquée après l'initialisation du contrôleur.
   bool _appliedAudioPref = false;
   int? _cachedPrevIndex;
@@ -157,6 +215,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   _PlayerStatus _status = _PlayerStatus.loading;
   bool _handlingError = false;
   bool _autorecovered = false;
+  bool _retrying = false;
+  DateTime? _lastRetryTime;
   String? _lastErrorDescription;
   int _generation = 0;
   bool _footerVisible = false;
@@ -204,6 +264,31 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Contexte de découverte des sous-titres pour le contenu lu. Renseigné
+    // ici (et non au moment de l'appui sur l'icône) pour que la feuille puisse
+    // interroger le panel dès son ouverture.
+    //
+    // `id` n'est renseigné qu'au tout premier cadre : le provider n'est lu
+    // qu'à l'ouverture de la feuille, bien après.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final seriesId = widget.series?.id;
+      final contentId = seriesId ?? widget.vodId;
+      // On écrase TOUJOURS le contexte, y compris par `null`.
+      //
+      // Sans cela le contexte d'une lecture précédente survivait : lire un
+      // film puis ouvrir un flux live (aucun identifiant) faisait interroger
+      // le panel pour le film précédent, et la feuille affichait les
+      // sous-titres du mauvais contenu. Le retour à `null` est donc la valeur
+      // par défaut, pas une casquette.
+      if (contentId == null || contentId.isEmpty) {
+        ref.read(activeSubtitleContextProvider.notifier).set(null);
+        return;
+      }
+      ref.read(activeSubtitleContextProvider.notifier).set(
+            SubtitleContext(contentId: contentId, isSeries: seriesId != null),
+          );
+    });
     _channels = widget.channels;
     _index = widget.initialIndex;
     if (_channels.isNotEmpty) {
@@ -214,7 +299,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _startSaveProgressTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final supported = await _pipService.isSupported;
-      if (mounted) setState(() => _pipSupported = supported);
+      if (mounted) {
+        setState(() {
+          _pipSupported = supported;
+        });
+      }
     });
   }
 
@@ -392,13 +481,67 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _startPreload();
   }
 
+  /// Attend que le moniteur de connectivite confirme le reseau, sans bloquer
+  /// plus de [budget]. Evite de condamner la lecture sur un etat `none` encore
+  /// en cours de resolution au demarrage de l'ecran.
+  Future<void> _waitForOnline(Duration budget) async {
+    final connectivity = ref.read(connectivityMonitorProvider);
+    final deadline = DateTime.now().add(budget);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted) return;
+      if (connectivity.isOnline) {
+        debugPrint('📶 Network confirmed after ${budget.inSeconds}s budget.');
+        return;
+      }
+    }
+  }
+
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
 
-    // Vérification connectivité au démarrage : si hors-ligne, afficher erreur directe
+    // Refroidissement après un 401 anti-leech : on laisse l'endpoint avant de
+    // repartir, sinon on accumulate les refus et le blocage s'allonge.
+    await _awaitRateLimitCooldown();
+    if (!mounted || gen != _generation) return;
+
+    // Attendre que la session Cloudflare soit prete (Xtream) AVANT la 1ere
+    // tentative. Pas de cap externe : CloudflareSessionManager borne lui-meme
+    // chaque tentative (20/30/45s). Un cap externe plus court abandonnait le
+    // challenge en cours puis demarrait la lecture sans cookies, ce qui
+    // produisait systematiquement le 403 "flux indisponible" au premier
+    // chargement. safeAsync absorbe l'echec pour ne pas bloquer la lecture.
+    final sub = ref.read(activeSubscriptionProvider);
+    if (sub != null && sub.type == SubscriptionType.xtream) {
+      final cf = ref.read(cloudflareSessionProvider);
+      if (!cf.isReady) {
+        debugPrint('☁️ Waiting for Cloudflare session before first play...');
+        if (mounted) _setStatus(_PlayerStatus.loading);
+        await safeAsync(
+          () => cf.initialize(baseUrl: _getPanelBaseUrl()),
+          context: '_startAttempt cloudflareSession.initialize',
+        );
+        if (!cf.isReady) {
+          debugPrint('☁️ Cloudflare session unavailable; manual unlock will '
+              'be offered by the error screen.');
+        }
+      }
+    }
+
+    // Connectivite au demarrage. ConnectivityMonitor demarre a
+    // ConnectivityResult.none et resout son etat initial de facon asynchrone :
+    // un refus immediat affichait "flux indisponible" alors que le reseau
+    // revenait quelques dizaines de millisecondes plus tard, sans qu'aucune
+    // reprise ne soit declenchee. On patiente donc brievement avant d'echouer.
     final connectivity = ref.read(connectivityMonitorProvider);
     if (!connectivity.isOnline) {
+      debugPrint('📶 Network not confirmed yet, waiting before failing...');
+      await _waitForOnline(const Duration(seconds: 6));
+    }
+    if (!mounted || gen != _generation) return;
+    if (!connectivity.isOnline) {
+      debugPrint('📶 Still offline after grace period.');
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
     }
@@ -454,10 +597,21 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // chemin /movie/{id} renvoie 401. On tente donc les variantes dans
     // l'ordre, en complétant par les User-Agents si toutes échouent.
     final variants = await _resolvedVariants();
+    var rateLimitedAttempts = 0;
     for (final attemptUrl in variants) {
       final found = await _tryPlay(gen, attemptUrl);
       if (found) return;
       if (!mounted || gen != _generation) return;
+      if (_rateLimitedOnLastAttempt) {
+        rateLimitedAttempts++;
+        // Un refus isolé reste toléré : sur les serveurs hybrides, le chemin
+        // /movie/{id} renvoie 401 alors que /u/p/{id} fonctionne, et l'ordre
+        // des variantes n'est pas garanti. Au-delà de
+        // [_maxRateLimitedVariants] refus, le blocage est celui du serveur :
+        // continuer n'y achetera qu'un refus de plus, chaque variante
+        // repayant au passage toute la séquence de backoff native.
+        if (rateLimitedAttempts >= _maxRateLimitedVariants) break;
+      }
     }
     if (gen == _generation) {
       // Échec du moteur interne : si le moteur de secours est externe, on
@@ -476,23 +630,37 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<bool> _launchFallbackExternal() async {
     final engine = _engineConfig.fallback;
     if (!engine.isExternal) return false;
-    final result = await safeAsync<bool>(() async {
-      final url = _activeStreamUrl;
-      final uri =
-          engine == PlayerEngine.vlc ? Uri.parse('vlc://$url') : Uri.parse(url);
-      final ui = Uri.parse(url);
-      final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
-      if (!supported) return false;
-      final launched =
-          await launchUrl(uri, mode: LaunchMode.externalApplication) ||
-              await launchUrl(ui, mode: LaunchMode.externalApplication);
-      if (launched && mounted) {
-        _setStatus(_PlayerStatus.ready);
-        _showInfoBrief();
-      }
-      return launched;
-    }, context: '_launchFallbackExternal', fallbackValue: false);
+    final result = await safeAsync<bool>(
+      () async {
+        final url = _activeStreamUrl;
+        final uri = engine == PlayerEngine.vlc
+            ? Uri.parse('vlc://$url')
+            : Uri.parse(url);
+        final ui = Uri.parse(url);
+        final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
+        if (!supported) return false;
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication) ||
+                await launchUrl(ui, mode: LaunchMode.externalApplication);
+        if (launched && mounted) {
+          _setStatus(_PlayerStatus.ready);
+          _showInfoBrief();
+        }
+        return launched;
+      },
+      context: '_launchFallbackExternal',
+      fallbackValue: false,
+    );
     return result.valueOrNull ?? false;
+  }
+
+  /// Retourne l'URL de base du panel IPTV (pour headers Referer/Cloudflare).
+  String _getPanelBaseUrl() {
+    final sub = ref.read(activeSubscriptionProvider);
+    if (sub == null || sub.baseUrl == null) return 'https://example.com';
+    final uri = Uri.tryParse(sub.baseUrl!);
+    if (uri == null) return 'https://example.com';
+    return '${uri.scheme}://${uri.host}';
   }
 
   /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
@@ -500,15 +668,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// (index 0) qui imite le trafic d'un navigateur moderne pour contourner
   /// Cloudflare ; sinon on tente d'abord l'Agent natif ExoPlayer.
   List<int> _userAgentOrder() {
-    final tls = ref.read(advancedSettingsProvider).useTlsImpersonation;
-    if (!tls) {
-      return [
-        for (var i = playbackUserAgents.length - 1; i >= 0; i--) i,
-      ];
-    }
-    return [
-      for (var i = 0; i < playbackUserAgents.length; i++) i,
-    ];
+    return playbackUserAgentOrder(
+      tlsImpersonation: ref.read(advancedSettingsProvider).useTlsImpersonation,
+    );
   }
 
   /// Variantes d'URL candidates à tenter. Quand le proxy Rust est prêt et
@@ -542,7 +704,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final activeSub = ref.read(activeSubscriptionProvider);
     final panelUrl = activeSub?.baseUrl;
 
-    final base = streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
+    final base =
+        streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
 
     // 1. Session Cloudflare globale (init au démarrage, unique pour tout le fournisseur)
     final globalCf = ref.read(cloudflareSessionProvider);
@@ -573,30 +736,76 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<bool> _launchExternal() async {
     final engine = _engineConfig.primary;
     if (!engine.isExternal) return false;
-    final result = await safeAsync<bool>(() async {
-      final url = _activeStreamUrl;
-      // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
-      final uri =
-          engine == PlayerEngine.vlc ? Uri.parse('vlc://$url') : Uri.parse(url);
-      final ui = Uri.parse(url);
-      final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
-      if (!supported) return false;
-      final launched =
-          await launchUrl(uri, mode: LaunchMode.externalApplication) ||
-              await launchUrl(
-                ui,
-                mode: LaunchMode.externalApplication,
-              );
-      if (launched && mounted) {
-        _setStatus(_PlayerStatus.ready);
-        _showInfoBrief();
-      }
-      return launched;
-    }, context: '_launchExternal', fallbackValue: false);
+    final result = await safeAsync<bool>(
+      () async {
+        final url = _activeStreamUrl;
+        // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
+        final uri = engine == PlayerEngine.vlc
+            ? Uri.parse('vlc://$url')
+            : Uri.parse(url);
+        final ui = Uri.parse(url);
+        final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
+        if (!supported) return false;
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication) ||
+                await launchUrl(
+                  ui,
+                  mode: LaunchMode.externalApplication,
+                );
+        if (launched && mounted) {
+          _setStatus(_PlayerStatus.ready);
+          _showInfoBrief();
+        }
+        return launched;
+      },
+      context: '_launchExternal',
+      fallbackValue: false,
+    );
     return result.valueOrNull ?? false;
   }
 
+  /// Vrai si l'erreur vient d'un refus HTTP du panneau/CDN (401/403).
+  ///
+  /// Un 401 n'a rien à voir avec l'User-Agent : c'est l'anti-leech en aval du
+  /// 302 qui refuse la connexion. Insister avec d'autres User-Agents ne peut
+  /// qu'augmenter le nombre de requêtes et allonger le refus.
+  static bool _isRateLimitedError(Object? error) {
+    if (error == null) return false;
+    final text = error.toString();
+    return text.contains('Response code: 401') ||
+        text.contains('Response code: 403') ||
+        text.contains('InvalidResponseCodeException');
+  }
+
+  /// Enregistre un refus et arme le prochain refroidissement.
+  void _registerRateLimit() {
+    final index = _rateLimitStrikes.clamp(0, _rateLimitBackoffs.length - 1);
+    final backoff = _rateLimitBackoffs[index];
+    _rateLimitStrikes++;
+    _rateLimitUntil = DateTime.now().add(backoff);
+    // Le refus porte sur le serveur, pas sur l'URL : les autres variantes
+    // d'URL seront refusées identiquement, autant ne pas les payer.
+    _rateLimitedOnLastAttempt = true;
+    debugPrint(
+      'Orbit3D 401 throttle: strike=$_rateLimitStrikes pause=${backoff.inSeconds}s',
+    );
+  }
+
+  /// Attente le refroidissement en cours avant de repartir (borne à [_rateLimitUntil]).
+  Future<void> _awaitRateLimitCooldown() async {
+    final until = _rateLimitUntil;
+    if (until == null) return;
+    final wait = until.difference(DateTime.now());
+    if (wait.isNegative || wait.inMilliseconds <= 0) return;
+    debugPrint('Orbit3D throttle: attente ${wait.inMilliseconds}ms');
+    await Future<void>.delayed(wait);
+  }
+
   Future<bool> _tryPlay(int gen, String url) async {
+    // Chaque tentative repart d'un état de refus neutre : le drapeau est
+    // réarmé par `_registerRateLimit` si, et seulement si, ce nouvel essai
+    // est lui aussi refusé.
+    _rateLimitedOnLastAttempt = false;
     final circuitBreaker = ref.read(hostCircuitBreakerProvider);
     final host = Uri.tryParse(url)?.host ?? '';
 
@@ -612,7 +821,26 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       return false;
     }
 
+    // Attendre que la session Cloudflare soit prete (cookie cf_clearance) avant
+    // la premiere tentative. Meme rationale que dans _startAttempt : aucun cap
+    // externe, le manager borne lui-meme ses tentatives.
+    final cf = ref.read(cloudflareSessionProvider);
+    if (!cf.isReady) {
+      debugPrint('☁️ Waiting for Cloudflare session before first play...');
+      await safeAsync(
+        () => cf.initialize(baseUrl: _getPanelBaseUrl()),
+        context: '_tryPlay cloudflareSession.initialize',
+      );
+    }
+
     final userAgentOrder = _userAgentOrder();
+    // La config media3 est lue à la CONSTRUCTION de l'ExoPlayer : ce `push`
+    // garantit que la relance applique bien le profil de l'appareil, même
+    // appelée depuis un chemin qui n'a pas déjà poussé (_startAttempt, prewarm).
+    // Sans effet si le profil est inchangé (dedup dans PlayerProfileService).
+    await PlayerProfileService.pushForDevice(
+      ref.read(deviceProfileProvider),
+    );
     for (final agentIndex in userAgentOrder) {
       // Laisse un intervalle entre deux essais : marteler le panneau IPTV
       // déclenche son anti-leech (401 « indisponible » temporaire).
@@ -646,6 +874,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         } else {
           _disposeController(controller);
         }
+        // 401/403 = refus anti-leech, pas un mauvais User-Agent : tourner les
+        // agents quadruplerait le volume de requêtes et aggraverait le refus.
+        if (_isRateLimitedError(initResult.errorOrNull)) {
+          _registerRateLimit();
+          return false;
+        }
         continue;
       }
       if (!mounted || gen != _generation || _controller != controller) {
@@ -670,6 +904,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (host.isNotEmpty) {
         circuitBreaker.recordSuccess(host);
       }
+      _rateLimitStrikes = 0;
+      _rateLimitUntil = null;
       _setStatus(_PlayerStatus.ready);
       _applyInitialPosition();
       _showInfoBrief();
@@ -697,6 +933,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final playing = _controller?.value.isPlaying;
     if (playing != null && playing != _lastKnownPlaying) {
       _lastKnownPlaying = playing;
+      if (playing) {
+        // Prechauffage de la chaine suivante declenche ici, et non au lancement :
+        // c'est le premier instant ou la lecture courante est reellement etablie.
+        unawaited(_startPreload());
+      }
       setState(() {});
     }
     if (_status != _PlayerStatus.ready) return;
@@ -709,17 +950,52 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Ré-applique la piste audio choisie précédemment pour ce contenu
   /// (préférence mémorisée via [PlayerTrackPrefs]). Best-effort.
+  /// Gère aussi les préférences au niveau série (langue forcée pour tous les épisodes).
   Future<void> _applySavedAudioTrack(VideoPlayerController controller) async {
     final mediaKey = widget.progressId ?? widget.streamUrl;
-    await safeAsync(() async {
-      final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
-      if (pref == null || pref.isEmpty) return;
-      if (!mounted || _controller != controller) return;
-      final tracks = await controller.getAudioTracks();
-      final known = tracks.any((t) => t.id == pref);
-      if (!known) return;
-      await controller.selectAudioTrack(pref);
-    }, context: '_applySavedAudioTrack');
+    await safeAsync(
+      () async {
+        // 1. Préférence spécifique à cet épisode/flux
+        final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
+        if (pref != null && pref.isEmpty) return;
+
+        if (!mounted || _controller != controller) return;
+        final tracks = await controller.getAudioTracks();
+        if (tracks.isEmpty) return;
+
+        // 2. Si c'est un épisode de série, vérifier la préférence série
+        String? trackIdToApply = pref;
+        if (trackIdToApply == null &&
+            widget.series != null &&
+            widget.episode != null) {
+          final seriesId = widget.series!.id;
+          final forced = await PlayerTrackPrefs.isSeriesAudioForced(seriesId);
+          final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(seriesId);
+          if (lang != null && lang.isNotEmpty) {
+            // Chercher une piste correspondant à la langue
+            final matchingTrack = tracks.firstWhereOrNull(
+              (t) =>
+                  t.language != null &&
+                  t.language!.toLowerCase() == lang.toLowerCase(),
+            );
+            if (matchingTrack != null) {
+              trackIdToApply = matchingTrack.id;
+            } else if (!forced) {
+              // Si pas forcé et langue pas trouvée, on ne fait rien (langue par défaut du flux)
+              return;
+            }
+            // Si forcé mais langue pas trouvée, on ne force pas (évite silence)
+          }
+        }
+
+        if (trackIdToApply == null) return;
+        if (!mounted || _controller != controller) return;
+        final known = tracks.any((t) => t.id == trackIdToApply);
+        if (!known) return;
+        await controller.selectAudioTrack(trackIdToApply);
+      },
+      context: '_applySavedAudioTrack',
+    );
   }
 
   /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
@@ -768,15 +1044,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // on ATTEND la fin du challenge avant de retenter (sinon le 2e essai
       // repart avec des cookies vides et échoue aussi — « ça marche au 2e
       // chargement »). Borné en durée : on ne bloque jamais la lecture.
-if (_isCloudflareError(errorDesc)) {
+      if (_isCloudflareError(errorDesc)) {
         debugPrint(
-            '☁️ Cloudflare error detected, refreshing session before retry...');
+          '☁️ Cloudflare error detected, refreshing session before retry...',
+        );
         final cf = ref.read(cloudflareSessionProvider);
         await safeAsync(
-          () => cf.renewSession().timeout(
-                const Duration(seconds: 10),
-                onTimeout: () {},
-              ),
+          () => cf.renewSession(),
           context: '_handleActiveError cloudflareSession.renewSession',
         );
         // Challenge en échec : on retente quand même avec les cookies
@@ -827,6 +1101,8 @@ if (_isCloudflareError(errorDesc)) {
     _generation++;
     _autorecovered = false;
     _handlingError = false;
+    // Invalidate EPG cache on zap to free memory
+    ref.read(epgDataCacheProvider).invalidate();
     final forward = target > _index;
     final oldActive = _controller;
     final newActive = _takeCachedFor(target);
@@ -858,6 +1134,11 @@ if (_isCloudflareError(errorDesc)) {
       newActive.addListener(_onControllerUpdate);
       newActive.play();
       _setStatus(_PlayerStatus.ready);
+      // Réattache la détection de stall au NOUVEAU contrôleur : avant ce
+      // rappel, elle continuait de surveiller l'ancien (mis en pause ou
+      // disposé par _switchTo) — la détection morte l'heure suivante, ou un
+      // tick sur un contrôleur disposé si l'ancien était en erreur.
+      _startStallDetection();
       _showInfoBrief();
     } else {
       _startAttempt();
@@ -901,7 +1182,21 @@ if (_isCloudflareError(errorDesc)) {
       channelUrl,
       proxyReady: ref.read(rustProxyManagerProvider).isReady,
     );
-    for (var attempt = 0; attempt < playbackUserAgents.length; attempt++) {
+    // Ne pas precharger pendant que la lecture courante se bat encore : le
+    // panneau limite les connexions simultanees et un prechargement en echec
+    // aggrave les 401 de la chaine en cours.
+    // Precharger uniquement quand la lecture courante est CONFIRMEE en cours.
+    // Sinon (controleur absent, pas encore initialise, ou fige) le
+    // prechargement consomme le budget de connexions du panneau et affame le
+    // flux en cours : on observait 4 x 401 en cascade toutes les 4 s pendant
+    // que la position du flux principal restait bloquee.
+    final current = _controller;
+    if (current == null ||
+        !current.value.isInitialized ||
+        !current.value.isPlaying) {
+      return;
+    }
+    for (final attempt in _userAgentOrder()) {
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(targetUrl),
         httpHeaders: _resolvedHeaders(targetUrl, attempt),
@@ -974,7 +1269,9 @@ if (_isCloudflareError(errorDesc)) {
   void _setStatus(_PlayerStatus status) {
     if (!mounted) return;
     final wasReady = _status == _PlayerStatus.ready;
-    setState(() => _status = status);
+    setState(() {
+      _status = status;
+    });
     _syncImmersive();
 
     // Démarre/arrête la détection de stall selon le statut
@@ -988,8 +1285,16 @@ if (_isCloudflareError(errorDesc)) {
   void _startStallDetection() {
     final controller = _controller;
     if (controller != null && controller.value.isInitialized) {
-      _stallDetector = ref.read(stallDetectorProvider);
-      _stallDetector!.start(controller);
+      final detector = ref.read(stallDetectorProvider);
+      final watched = VideoPlayerWatchable(controller);
+      // Ne redémarre pas un détecteur déjà attaché au MÊME contrôleur : les
+      // transitions ready->ready (zapping sur cache) relancent plusieurs fois
+      // la détection dans la même frame, on économise le restart inutile.
+      if (detector.isRunning && detector.isAttachedTo(watched)) {
+        return;
+      }
+      _stallDetector = detector;
+      detector.start(watched);
     }
   }
 
@@ -998,20 +1303,57 @@ if (_isCloudflareError(errorDesc)) {
     _stallDetector = null;
   }
 
+  /// Relance la lecture. Regarde l'etat Cloudflare avant de rejouer afin de ne
+  /// pas repartir avec des cookies vides.
   Future<void> _retry() async {
-    _generation++;
-    _handlingError = false;
-    _autorecovered = false;
-    _disposeCachedNext();
-    _disposeCachedPrev();
-    _startAttempt();
-    _startPreload();
+    final now = DateTime.now();
+    if (_retrying ||
+        (_lastRetryTime != null &&
+            now.difference(_lastRetryTime!) < const Duration(seconds: 2))) {
+      return; // debounce : une relance au plus toutes les 2 s
+    }
+    _lastRetryTime = now;
+    _retrying = true;
+    if (mounted) setState(() {});
+
+    try {
+      _generation++;
+      _handlingError = false;
+      _autorecovered = false;
+      _disposeCachedNext();
+      _disposeCachedPrev();
+
+      // Leaving a subscription open: the cookie can be expired. We wait for the
+      // headless challenge to finish instead of capping it, otherwise the
+      // playback restarts without cookies and fails again.
+      final sub = ref.read(activeSubscriptionProvider);
+      if (sub != null && sub.type == SubscriptionType.xtream) {
+        final cf = ref.read(cloudflareSessionProvider);
+        if (!cf.isReady) {
+          debugPrint('☁️ Waiting for Cloudflare session before retry...');
+          if (mounted) _setStatus(_PlayerStatus.loading);
+          await safeAsync(
+            () => cf.initialize(baseUrl: _getPanelBaseUrl()),
+            context: '_retry cloudflareSession.initialize',
+          );
+        }
+      }
+
+      _startAttempt();
+      _startPreload();
+    } finally {
+      _retrying = false;
+      if (mounted) setState(() {});
+    }
   }
 
   /// `true` si on peut proposer le déblocage Cloudflare pour le flux courant.
   bool get _canCloudflare {
     final host = Uri.tryParse(_activeStreamUrl)?.host;
     if (host == null || host.isEmpty) return false;
+    // Pour les abonnements Xtream, on assume Cloudflare (quasi systématique).
+    final sub = ref.read(activeSubscriptionProvider);
+    if (sub != null && sub.type == SubscriptionType.xtream) return true;
     return !CloudflareBypassService.instance.hasCookieFor(host);
   }
 
@@ -1038,46 +1380,51 @@ if (_isCloudflareError(errorDesc)) {
   }
 
   Future<void> _recordHistory() async {
-    await safeAsync(() async {
-      final channel = _currentChannel;
-      if (channel != null) {
-        // Live : identité = chaîne courante (suit le zapping).
-        ref.read(recentlyWatchedProvider.notifier).record(
-              ContentType.live,
-              channel.id,
-              channel.name,
-              posterUrl: channel.logoUrl,
-              subtitle: channel.groupLabel,
-              streamUrl: channel.streamUrl,
-            );
-        // Also record to history service
-        ref.read(historyServiceProvider).addEntry(
-              'live',
-              channel.name,
-              channel.streamUrl,
-            );
-        return;
-      }
-      final favorite = widget.favorite;
-      if (favorite != null) {
-        ref.read(recentlyWatchedProvider.notifier).record(
-              favorite.type,
-              favorite.id,
-              favorite.title,
-              posterUrl: favorite.posterUrl,
-              subtitle: favorite.subtitle,
-              streamUrl: favorite.streamUrl.isEmpty
-                  ? widget.streamUrl
-                  : favorite.streamUrl,
-            );
-        // Also record to history service
-        ref.read(historyServiceProvider).addEntry(
-              favorite.type.name,
-              favorite.title,
-              favorite.streamUrl.isEmpty ? widget.streamUrl : favorite.streamUrl,
-            );
-      }
-    }, context: '_recordHistory');
+    await safeAsync(
+      () async {
+        final channel = _currentChannel;
+        if (channel != null) {
+          // Live : identité = chaîne courante (suit le zapping).
+          ref.read(recentlyWatchedProvider.notifier).record(
+                ContentType.live,
+                channel.id,
+                channel.name,
+                posterUrl: channel.logoUrl,
+                subtitle: channel.groupLabel,
+                streamUrl: channel.streamUrl,
+              );
+          // Also record to history service
+          ref.read(historyServiceProvider).addEntry(
+                'live',
+                channel.name,
+                channel.streamUrl,
+              );
+          return;
+        }
+        final favorite = widget.favorite;
+        if (favorite != null) {
+          ref.read(recentlyWatchedProvider.notifier).record(
+                favorite.type,
+                favorite.id,
+                favorite.title,
+                posterUrl: favorite.posterUrl,
+                subtitle: favorite.subtitle,
+                streamUrl: favorite.streamUrl.isEmpty
+                    ? widget.streamUrl
+                    : favorite.streamUrl,
+              );
+          // Also record to history service
+          ref.read(historyServiceProvider).addEntry(
+                favorite.type.name,
+                favorite.title,
+                favorite.streamUrl.isEmpty
+                    ? widget.streamUrl
+                    : favorite.streamUrl,
+              );
+        }
+      },
+      context: '_recordHistory',
+    );
   }
 
   /// Bascule directe du maître Night Focus (icône 🌙 de la footerbar).
@@ -1199,10 +1546,12 @@ if (_isCloudflareError(errorDesc)) {
             child: switch (_status) {
               _PlayerStatus.loading => const VideoLoadingState(),
               _PlayerStatus.error => VideoErrorState(
-                  title: isProviderBlock(_lastErrorDescription)
+                  title: isProviderBlock(_lastErrorDescription) ||
+                          _isCloudflareError(_lastErrorDescription)
                       ? 'Flux verrouillé par le fournisseur'
                       : 'Flux indisponible',
-                  message: isProviderBlock(_lastErrorDescription)
+                  message: isProviderBlock(_lastErrorDescription) ||
+                          _isCloudflareError(_lastErrorDescription)
                       ? 'La lecture a été coupée par la protection anti-leech '
                           'du serveur. Patientez 3 à 5 minutes sans lecture, '
                           'puis relancez cette chaîne (sans zapper).'
@@ -1450,8 +1799,14 @@ Widget _fbSubtitle({
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
     constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-    onPressed: () => showSubtitleControlsSheet(context),
-    icon: Consumer(
+    onPressed: () => showSubtitleControlsSheet(
+      context,
+      // Contexte de découverte des sous-titres. Un flux live ne publie rien :
+      // l'identifiant reste alors nul et la feuille retombe sur la saisie
+      // manuelle d'URL.
+      contentId: ref.read(activeSubtitleContextProvider)?.contentId,
+      isSeries: ref.read(activeSubtitleContextProvider)?.isSeries ?? false,
+    ),    icon: Consumer(
       builder: (_, ref, __) {
         final hasTrack =
             ref.watch(subtitleControllerProvider).activeTrack != null;
@@ -1578,7 +1933,7 @@ class _LiveFooterBar extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final currentChannel = channel;
     final epgAsync = currentChannel != null
-        ? ref.watch(channelEpgProvider(currentChannel.epgChannelId))
+        ? ref.watch(channelEpgProvider(currentChannel.primaryEpgChannelId))
         : null;
     final (nowProgram, nextProgram) = currentChannel != null && epgAsync != null
         ? _nowAndNext(epgAsync.value ?? const [])
@@ -1711,8 +2066,11 @@ class _LiveFooterBar extends ConsumerWidget {
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
             _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
-              _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
-                  tooltip: l.pip),
+              _fbIcon(
+                Icons.picture_in_picture_alt_rounded,
+                onPip,
+                tooltip: l.pip,
+              ),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -1874,8 +2232,11 @@ class _VodFooterBar extends ConsumerWidget {
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
             _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
-              _fbIcon(Icons.picture_in_picture_alt_rounded, onPip,
-                  tooltip: l.pip),
+              _fbIcon(
+                Icons.picture_in_picture_alt_rounded,
+                onPip,
+                tooltip: l.pip,
+              ),
             if (castButton != null) castButton!,
             streamDetails,
           ],
@@ -2037,7 +2398,9 @@ class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
     if (!mounted) return;
     final isBuffering = widget.controller.value.isBuffering;
     if (isBuffering != _showBuffering) {
-      setState(() => _showBuffering = isBuffering);
+      setState(() {
+        _showBuffering = isBuffering;
+      });
     }
   }
 

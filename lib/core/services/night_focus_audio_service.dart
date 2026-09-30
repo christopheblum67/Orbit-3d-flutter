@@ -12,6 +12,13 @@ class NightFocusAudioService {
 
   static const MethodChannel _channel = MethodChannel('orbit/night_focus');
 
+  /// Dernière configuration réellement transmise au natif.
+  ///
+  /// Le zapping appelait `push` avant chaque création de contrôleur : deux
+  /// allers-retours de plateforme sur le chemin critique, pour des réglages
+  /// inchangés. On ne réémet donc que ce qui change réellement.
+  static Map<String, Object?>? _lastPushed;
+
   /// Pousse la config courante vers le natif. À appeler avant la création
   /// d'un [VideoPlayerController] pour être prise en compte à la
   /// configuration du pipeline audio, ET à chaque changement de réglage :
@@ -25,18 +32,38 @@ class NightFocusAudioService {
     int audioDelayMs = 0,
     bool volumeNormalization = true,
   }) async {
+    final config = <String, Object?>{
+      'enabled': enabled,
+      'dialogueBoostDb': dialogueBoostDb,
+      'bassKillerCutoffHz': bassKillerCutoffHz,
+      'vocalGainDb': vocalGainDb,
+      'audioDelayMs': audioDelayMs,
+      'volumeNormalization': volumeNormalization,
+    };
+    if (_lastPushed != null && _sameConfig(_lastPushed!, config)) {
+      return;
+    }
+    // Mémorisé avant l'envoi : un second `push` en cours de route ne doit pas
+    // repartir sur les mêmes valeurs, et un échec natif ne doit pas bloquer les
+    // Essais suivants (le prochain settings push réessaiera).
+    _lastPushed = config;
     await safeAsync<void>(
       () async {
-        await _channel.invokeMethod('configure', <String, Object?>{
-          'enabled': enabled,
-          'dialogueBoostDb': dialogueBoostDb,
-          'bassKillerCutoffHz': bassKillerCutoffHz,
-          'vocalGainDb': vocalGainDb,
-          'audioDelayMs': audioDelayMs,
-          'volumeNormalization': volumeNormalization,
-        });
+        await _channel.invokeMethod('configure', config);
       },
       context: 'NightFocusAudioService.push',
     );
+  }
+
+  /// Ouvre la config à une nouvelle session de lecture : le prochain `push`
+  /// réémet même une configuration identique (le natif a pu être redémarré).
+  static void invalidate() => _lastPushed = null;
+
+  static bool _sameConfig(Map<String, Object?> a, Map<String, Object?> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      if (b[entry.key] != entry.value) return false;
+    }
+    return true;
   }
 }

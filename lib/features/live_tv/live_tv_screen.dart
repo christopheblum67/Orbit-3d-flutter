@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_preview_sheet.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
@@ -183,33 +188,61 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   }
 
   Widget _buildCard(List<ChannelGroup> groups, Channel channel) {
-    void prewarm() => StreamPrewarmService.instance.prewarm(
-          channel.streamUrl,
-          stream_helpers.streamHeaders(channel.streamUrl),
-        );
-    void onOpen() {
-      prewarm();
-      _openPlayer(groups, channel);
+    // Le profil media3 est appliqué AVANT la création du contrôleur : la
+    // config est lue à la construction de l'ExoPlayer, donc un préchauffage
+    // lancé sans ce `push` figerait des seuils par défaut (tampons de 50 s,
+    // pas de plafond de résolution) sur le contrôleur que l'écran de lecture
+    // récupère ensuite — la première chaîne regardée après un démarrage
+    // d'application ignorait le profil de l'appareil.
+    Future<void> prewarm() async {
+      await PlayerProfileService.pushForDevice(
+        ref.read(deviceProfileProvider),
+      );
+      if (!mounted) return;
+      StreamPrewarmService.instance.prewarm(
+        channel.streamUrl,
+        stream_helpers.streamHeaders(channel.streamUrl),
+      );
     }
 
-    final groupLabel = channel.groupLabel.isNotEmpty
-        ? channel.groupLabel
-        : null;
+    // L'activation ouvre l'aperçu, elle ne lance plus la lecture.
+    //
+    // Lancer le flux au premier appui était un défaut d'usage : la tuile ne
+    // montre qu'un logo, donc rien ne confirmait la chaîne choisie avant que
+    // la lecture démarre — et un appui adjacent figeait la télé sans retour
+    // visible. Le même point d'entrée sert la touche OK de la télécommande et
+    // le tactile, l'aperçu propose ensuite le lancement explicite.
+    void onOpen() {
+      unawaited(prewarm());
+      ChannelPreviewSheet.show(
+        context,
+        channel: channel,
+        onWatch: () => _openPlayer(groups, channel),
+      );
+    }
+
     return TvFocus(
       onActivate: onOpen,
       onFocusChange: (focused) {
-        if (focused) prewarm();
+        if (focused) unawaited(prewarm());
       },
       child: MediaCard(
         title: channel.name,
         posterUrl: channel.logoUrl,
         year: 0,
-        genre: groupLabel ?? '',
+        // La catégorie n'est plus affichée sur la tuile : logo + nom suffisent,
+        // le groupe reste accessible via le rail de catégories.
+        genre: '',
         rating: 0,
         ageLabel: null,
         fallbackIcon: Icons.live_tv,
+        // Un logo de chaîne est un wordmark large : `contain` + marge évite le
+        // zoom/rognage de `cover`, qui le faisait déborder de la tuile.
+        posterFit: BoxFit.contain,
+        posterPadding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
         onTap: onOpen,
-        topBadge: channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
+        topBadge:
+            channel.orderNum > 0 ? _NumBadge(number: channel.orderNum) : null,
         favoriteOverlay: FavoriteToggle.overlay(
           entry: FavoriteEntry(
             type: ContentType.live,

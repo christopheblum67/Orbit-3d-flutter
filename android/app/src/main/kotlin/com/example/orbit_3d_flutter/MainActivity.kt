@@ -6,6 +6,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        AppLogChannel.register(flutterEngine, this)
         NightFocusChannel.register(flutterEngine, this)
         PlayerConfigChannel.register(flutterEngine, this)
         HardwareChannel.register(flutterEngine, this)

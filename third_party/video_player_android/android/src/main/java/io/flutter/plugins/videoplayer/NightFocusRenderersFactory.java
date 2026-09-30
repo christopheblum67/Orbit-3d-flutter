@@ -15,9 +15,14 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
  * {@code DefaultRenderersFactory} (media3 1.4.1) — la seule extension native
  * permettant de brancher des AudioProcessors sur la sortie audio.
  *
- * Quand le switch Night Focus est OFF, le processeur se désactive
- * ({@code isActive() == false}) et le {@code DefaultAudioSink} contourne le
- * traitement : la sortie audio reste identique à la config par défaut.
+ * <p>Le processeur est installé <b>en permanence</b> : c'est la condition pour
+ * que l'activation à chaud fonctionne. Il se déclare inactif
+ * ({@link NightFocusAudioProcessor#isActive()} == false) tant que Night Focus
+ * est off ou que le format n'est pas PCM 16 bits, donc l'AudioSink le
+ * court-circuite et la chaîne audio est rigoureusement identique à une chaîne
+ * standard. L'ancienne version — processor injecté seulement si le switch était
+ * déjà on à la construction du player — rendait l'icône 🌙 sans effet tant
+ * qu'on ne changeait pas de chaîne.
  */
 public final class NightFocusRenderersFactory extends DefaultRenderersFactory {
   public NightFocusRenderersFactory(@NonNull Context context) {
@@ -28,6 +33,10 @@ public final class NightFocusRenderersFactory extends DefaultRenderersFactory {
   protected AudioSink buildAudioSink(
       Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
     AudioProcessor[] dsp = {new NightFocusAudioProcessor()};
-    return new DefaultAudioSink.Builder(context).setAudioProcessors(dsp).build();
+    return new DefaultAudioSink.Builder(context)
+        .setAudioProcessors(dsp)
+        .setEnableFloatOutput(enableFloatOutput)
+        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+        .build();
   }
 }

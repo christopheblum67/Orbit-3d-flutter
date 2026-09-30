@@ -59,6 +59,33 @@ class LoggerService {
     }
 
     if (kDebugMode) debugPrint(formattedMessage);
+    // `debug` est supprimé en release.
+    //
+    // Ce n'est pas cosmétique : le service TMDB journalise requête ET réponse
+    // pour chaque film de la grille, donc plusieurs centaines d'appels au
+    // chargement de la section Films. Émettre tout cela vers logcat en release
+    // sature le tampon et ralentit sensiblement l'écran. On s'appuie sur
+    // `kReleaseMode` plutôt que sur `_isProduction`, qui n'était jamais
+    // positionné et laissait donc passer ce volume.
+    if (kDebugMode || level != LogLevel.debug) {
+      emit(formattedMessage);
+    }
+  }
+
+  /// Journalise vers `logcat` sans condition de build.
+  ///
+  /// `developer.log` n'apparaît dans `logcat` que sur certaines configurations,
+  /// et `debugPrint` est muet en release. Conséquence concrète : toute la
+  /// trace de diagnostic de la lecture (détection de stall, erreurs de
+  /// providers) était **invisible** sur le build installé, ce qui rendait
+  /// impossible de distinguer un blocage réseau d'un faux positif du
+  /// `StallDetector`.
+  ///
+  /// `print` écrit toujours sur stdout, qui est redirigé vers `logcat` sous le
+  /// tag `flutter`. Le préfixe `Orbit3D` permet de filtrer.
+  static void emit(String message) {
+    // ignore: avoid_print
+    print('Orbit3D $message');
   }
 
   void debug(String message, {String? tag}) =>

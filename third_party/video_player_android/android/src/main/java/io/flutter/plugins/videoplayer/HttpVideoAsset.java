@@ -80,7 +80,10 @@ final class HttpVideoAsset extends VideoAsset {
       userAgent = httpHeaders.get(HEADER_USER_AGENT);
     }
     unstableUpdateDataSourceFactory(initialFactory, httpHeaders, userAgent);
-    DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(context, initialFactory);
+    // Journalise l'echange HTTP reel (URL apres redirection + octets lus) :
+    // sans ca, un ecran fige est indistinguable d'un flux bloque.
+    DataSource.Factory dataSourceFactory =
+        new DefaultDataSource.Factory(context, new LoggingDataSource.Factory(initialFactory));
     // MPEG-TS (draap) : media3 peut planter en copiant les samples (« The source
     // buffer is this buffer ») quand la détection d'access units est active.
     // On neutralise les flags TS pour contourner ce bug sur Exynos.
