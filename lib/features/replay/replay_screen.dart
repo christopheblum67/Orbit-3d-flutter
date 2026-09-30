@@ -57,6 +57,28 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Sonde `get_short_epg` en tâche de fond.
+    //
+    // L'écran ne l'attend PAS : `replaysProvider` se rend avec l'EPG global,
+    // disponible immédiatement. La sonde porte sur 40 chaînes, sérialisées par
+    // le portillon du panneau pour ne pas déclencher son quota — elle prend
+    // donc bien plus d'une minute et l'attendre donnaait un chargement
+    // perpétuel.
+    //
+    // Quand elle aboutit, son résultat est en cache : on invalide alors
+    // `replaysProvider` pour que la fusion se refasse avec les programmes
+    // ajoutés, et l'écran se complète tout seul.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(replaysProbeProvider.future).then((_) {
+        if (mounted) ref.invalidate(replaysProvider);
+      });
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final replaysAsync = ref.watch(replaysProvider);
 

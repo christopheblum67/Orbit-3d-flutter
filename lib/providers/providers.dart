@@ -455,7 +455,7 @@ final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return filter.visibleList(await api.fetchLiveChannels());
-});
+}, retry: _retryUnlessRateLimited,);
 
 /// Contexte de découverte des sous-titres pour le contenu en cours de lecture.
 ///
@@ -516,7 +516,7 @@ final moviesProvider = FutureProvider<List<Movie>>((ref) async {
     LoggerService.instance.error('$st', tag: 'vod');
     rethrow;
   }
-});
+}, retry: _retryUnlessRateLimited,);
 
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
 final liveCategoriesFromM3UProvider =
@@ -533,20 +533,49 @@ final liveCategoriesFromM3UProvider =
     ..sort((a, b) => a.name.compareTo(b.name));
 });
 
-final vodCategoriesProvider = FutureProvider<List<MediaCategory>>((ref) async {
+/// Politique de relance automatique après l'échec d'un provider.
+///
+/// Deux problèmes distincts, deux réponses distinctes :
+///
+/// 1. Riverpod relance de lui-même tout provider en erreur avec un backoff
+///    croissant plafonné à ~6,4 s — donc INDÉFINIMENT. Sur un 429 c'est
+///    exactement la contreproductive : l'application martèle un serveur déjà
+///    saturé, ce qui entretient le refus (c'était la boucle de requêtes
+///    observée sur get_series_categories, une toutes les 6,5 s sans fin).
+///    Un refus de quota ne se rejoue donc PAS : le passage à l'action reste à
+///    l'utilisateur, via le bouton « Réessayer ».
+///
+/// 2. Couper toute relance supprimerait l'auto-récupération sur une coupure
+///    réseau passagère, qui est le cas le plus banal. On conserve donc une
+///    relance exponentielle, BORNÉE à [_maxAutoRetries] essais : elle suffit à
+///    absorber un incident réseau bref sans jamais pouvoir boucler.
+///
+/// Retourner `null` = ne pas relancer.
+Duration? _retryUnlessRateLimited(int retryCount, Object error) {
+  if (ApiService.isRateLimitError(error)) return null;
+  if (retryCount >= _maxAutoRetries) return null;
+  return Duration(milliseconds: 200 * (1 << retryCount));
+}
+
+/// Nombre de relances automatiques tolérées pour une erreur qui n'est pas un
+/// refus de quota.
+const int _maxAutoRetries = 3;
+
+final vodCategoriesProvider =
+    FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   // Dépend de l'abonnement actif pour recharger les catégories VOD
   final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null || sub.type != SubscriptionType.xtream) return const [];
   return api.fetchVodCategories();
-});
+}, retry: _retryUnlessRateLimited,);
 
 final seriesCategoriesProvider =
     FutureProvider<List<MediaCategory>>((ref) async {
   final api = ref.watch(apiServiceProvider);
   ref.watch(activeSubscriptionProvider);
   return api.fetchSeriesCategories();
-});
+}, retry: _retryUnlessRateLimited,);
 
 final seriesProvider = FutureProvider<List<Series>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
@@ -554,7 +583,7 @@ final seriesProvider = FutureProvider<List<Series>>((ref) async {
   if (sub == null) return const <Series>[];
   final api = ref.watch(apiServiceProvider);
   return filter.visibleList(await api.fetchSeries());
-});
+}, retry: _retryUnlessRateLimited,);
 
 final seriesInfoProvider =
     FutureProvider.family<Series, String>((ref, seriesId) async {
@@ -601,7 +630,7 @@ final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   if (sub == null) return const <Channel>[];
   final api = ref.watch(apiServiceProvider);
   return api.fetchRadioChannels();
-});
+}, retry: _retryUnlessRateLimited,);
 
 /// Cache partagé des replays, avec expiration : relister les chaînes DVR
 /// (get_short_epg) à chaque ouverture de l'écran Replay martèlerait le panel
@@ -621,6 +650,14 @@ class ReplaysCache {
         fetched != null &&
         DateTime.now().difference(fetched) < _ttl;
   }
+
+  /// Valeur déjà en cache, SANS déclencher de chargement.
+  ///
+  /// `replaysProvider` s'en sert pour s'afficher tout de suite avec ce qui a
+  /// déjà été sondé, pendant que la sonde tourne en tâche de fond. Appeler
+  /// [fetch] ici déclencherait le chargement et rebloquerait l'écran pendant
+  /// toute la sonde (jusqu'à 40 chaînes).
+  List<ReplayItem>? get peek => isFresh ? _all : null;
 
   /// Renvoie la valeur en cache si fraîche, sinon charge via [loader] (un
   /// seul chargement à la fois, partagé entre tous les appelants).
@@ -651,6 +688,22 @@ class ReplaysCache {
 
 final ReplaysCache replaysCache = ReplaysCache();
 
+/// Replays — source RAPIDE.
+///
+/// `get_short_epg` est plafonné à 4 entrées par les panels : il ne peut pas
+/// alimenter seul un replay multi-jours. L'EPG global (XMLTV) est donc la
+/// source complète, et `get_short_epg` ne sert qu'à rattraper les chaînes
+/// absentes du dump — d'où la sonde séparée [replaysProbeProvider].
+///
+/// Cette provider n'attend QUE des données déjà chargées (EPG global, grille
+/// des chaînes, cache de sonde) : elle ne déclenche aucune requête par
+/// chaîne. C'est délibéré — la sonde porte sur 40 chaînes et, sérialisée par
+/// [_ApiGate], elle prenait une à deux minutes. Le provider attendait cette sonde
+/// avant d'afficher quoi que ce soit, donc l'écran restait en chargement
+/// indéfiniment (et chaque relance relançait la sonde).
+///
+/// L'EPG global et la grille restent « best effort » : un 429 du panneau ne
+/// doit pas faire couler l'écran, il doit le priver d'enrichissement.
 final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
   final api = ref.watch(apiServiceProvider);
@@ -658,18 +711,11 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   // (dépendance de re-fetch, la valeur elle-même ne nous sert pas ici).
   ref.watch(activeSubscriptionProvider);
 
-  // `get_short_epg` est plafonné à 4 entrées par les panels : il ne peut pas
-  // alimenter seul un replay multi-jours. L'EPG global est la source
-  // complète, `get_short_epg` ne sert qu'à rattraper les chaînes absentes
-  // du dump XMLTV.
-  final shortEpg = await replaysCache.fetch(api.fetchReplays);
+  // Ce qui a déjà été sondé, sans déclencher de chargement. `null` au premier
+  // lancement : l'affichage part alors de l'EPG global seul, ce qui est déjà
+  // exploitable, et la sonde viendra l'enrichir.
+  final shortEpg = replaysCache.peek ?? const <ReplayItem>[];
 
-  // L'EPG global et la grille des chaînes sont un ENRICHISSEMENT, pas une
-  // dépendance dure : les deux peuvent échouer (429 du panneau) alors que la
-  // sonde `get_short_epg` a, elle, produit des programmes. En les attendant
-  // en dur, un échec de l'EPG faisait couler tout l'écran — et comme l'EPG se
-  // recharge en boucle, chaque relance relançait le Replay : l'écran restait
-  // indéfiniment en chargement.
   final epgResult = await safeAsync<List<EPGProgram>>(
     () => ref.watch(epgProgramsProvider.future),
     context: 'replaysProvider.epg',
@@ -696,6 +742,22 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
     );
   }
   return filter.visibleList(merged);
+});
+
+/// Replays — sonde `get_short_epg`, en TÂCHE DE FOND.
+///
+/// Personne ne l'attend pour afficher quoi que ce soit : l'écran se rend avec
+/// [replaysProvider], puis cette sonde complète. Son résultat alimente
+/// [replaysCache], et c'est l'appelant (l'écran Replay, à l'ouverture) qui
+/// invalide ensuite [replaysProvider] pour que la fusion se refasse avec les
+/// programmes ajoutés.
+///
+/// Le cache a un TTL de 5 min et une déduction en vol : la relançer à chaque
+/// ouverture ne refait pas la sonde si elle vient d'aboutir.
+final replaysProbeProvider = FutureProvider<List<ReplayItem>>((ref) async {
+  final api = ref.watch(apiServiceProvider);
+  ref.watch(activeSubscriptionProvider);
+  return replaysCache.fetch(api.fetchReplays);
 });
 
 final epgProgramsProvider =
