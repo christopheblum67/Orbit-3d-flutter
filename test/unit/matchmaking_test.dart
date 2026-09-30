@@ -21,7 +21,7 @@ Movie _movie(
       director: '',
       rating: rating,
       pegi: '',
-      streamUrl: 'https://host/u/p/$id',
+      streamId: 'https://host/u/p/$id',
     );
 
 Series _series(
@@ -75,14 +75,14 @@ void main() {
       );
       expect(res.length, 2);
       expect(
-          res.map((r) => r.kind),
-          containsAll(
-            [
-              RecommendationKind.movie,
-              RecommendationKind.series,
-            ],
-          ),
-        );
+        res.map((r) => r.kind),
+        containsAll(
+          [
+            RecommendationKind.movie,
+            RecommendationKind.series,
+          ],
+        ),
+      );
     });
 
     test('sans genre favori, montre les mieux notés (note ≥ 6)', () {
@@ -133,7 +133,8 @@ void main() {
       expect(profileAffinity(reco, ['Aventure']), 1.0);
     });
 
-    test('genre favori uniquement dans la description → affinité partielle', () {
+    test('genre favori uniquement dans la description → affinité partielle',
+        () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie(
@@ -176,7 +177,9 @@ void main() {
   });
 
   group('GroupReco', () {
-    test('combined = moyenne des affinités, overlap = produit, minAffinity = min', () {
+    test(
+        'combined = moyenne des affinités, overlap = produit, minAffinity = min',
+        () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie('p', 'Partage', 'Action'),
@@ -196,21 +199,26 @@ void main() {
 
     test('favori → bonus d\'affinité', () {
       final base = profileAffinity(reco, ['Action', 'Drame']);
-      final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
-          favoriteIds: {'pp'},);
+      final boosted = profileAffinityWithSignals(
+        reco,
+        ['Action', 'Drame'],
+        favoriteIds: {'pp'},
+      );
       expect(boosted, greaterThan(base));
     });
 
     test('déjà vu → exclusion (affinité nulle)', () {
-      final aff =
-          profileAffinityWithSignals(reco, ['Action'], seenIds: {'pp'});
+      final aff = profileAffinityWithSignals(reco, ['Action'], seenIds: {'pp'});
       expect(aff, 0.0);
     });
 
     test('titre présent dans TMDB recommandation → léger boost', () {
       final base = profileAffinity(reco, ['Action', 'Drame']);
-      final boosted = profileAffinityWithSignals(reco, ['Action', 'Drame'],
-          tmdbTitles: {'action fort'},);
+      final boosted = profileAffinityWithSignals(
+        reco,
+        ['Action', 'Drame'],
+        tmdbTitles: {'action fort'},
+      );
       expect(boosted, greaterThan(base));
     });
 

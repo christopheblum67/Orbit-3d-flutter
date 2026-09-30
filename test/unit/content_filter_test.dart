@@ -23,7 +23,7 @@ Movie _movie({
     director: '',
     rating: 0,
     pegi: pegi,
-    streamUrl: '',
+    streamId: '',
   );
 }
 

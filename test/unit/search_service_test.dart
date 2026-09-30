@@ -82,21 +82,42 @@ void main() {
 
 String _normalize(String query) {
   const accents = {
-    'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a', 'ã': 'a', 'å': 'a',
-    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
-    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
-    'ò': 'o', 'ó': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o',
-    'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
-    'ç': 'c', 'ñ': 'n',
-    'ý': 'y', 'ÿ': 'y',
+    'à': 'a',
+    'â': 'a',
+    'ä': 'a',
+    'á': 'a',
+    'ã': 'a',
+    'å': 'a',
+    'è': 'e',
+    'é': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'ì': 'i',
+    'í': 'i',
+    'î': 'i',
+    'ï': 'i',
+    'ò': 'o',
+    'ó': 'o',
+    'ô': 'o',
+    'ö': 'o',
+    'õ': 'o',
+    'ù': 'u',
+    'ú': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ç': 'c',
+    'ñ': 'n',
+    'ý': 'y',
+    'ÿ': 'y',
   };
-  
+
   final buffer = StringBuffer();
   for (final char in query.toLowerCase().split('')) {
     buffer.write(accents[char] ?? char);
   }
-  
-  return buffer.toString()
+
+  return buffer
+      .toString()
       .replaceAll(RegExp(r'\s+'), ' ')
       .replaceAll(RegExp(r'[^\w\s-]'), '')
       .trim();
@@ -107,7 +128,8 @@ int _levenshteinDistance(String a, String b) {
   if (a.isEmpty) return b.length;
   if (b.isEmpty) return a.length;
 
-  final matrix = List.generate(a.length + 1, (i) => List.filled(b.length + 1, 0));
+  final matrix =
+      List.generate(a.length + 1, (i) => List.filled(b.length + 1, 0));
   for (var i = 0; i <= a.length; i++) {
     matrix[i][0] = i;
   }

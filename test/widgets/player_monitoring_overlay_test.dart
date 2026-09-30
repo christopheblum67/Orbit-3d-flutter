@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';
 import 'package:orbit_3d_flutter/services/host_circuit_breaker.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('PlayerMonitoringOverlay', () {
     late ConnectivityMonitor connectivityMonitor;
     late HostCircuitBreaker circuitBreaker;
     late StallDetector stallDetector;
 
     setUp(() {
+      // connectivity_plus n'a pas d'implémentation JVM : sans ce mock,
+      // ConnectivityMonitor reste bloqué sur `none` (hors-ligne) et l'overlay
+      // affiche systematiquement la carte « réseau indisponible ».
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+        (call) async => <String>['wifi'],
+      );
       connectivityMonitor = ConnectivityMonitor();
       circuitBreaker = HostCircuitBreaker.instance;
       circuitBreaker.resetAll();
@@ -25,6 +37,11 @@ void main() {
       connectivityMonitor.dispose();
       circuitBreaker.resetAll();
       stallDetector.dispose();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+        null,
+      );
     });
 
     Widget createTestWidget({
@@ -38,6 +55,9 @@ void main() {
           stallDetectorProvider.overrideWithValue(stallDetector),
         ],
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Stack(
               children: [
@@ -54,7 +74,8 @@ void main() {
     }
 
     testWidgets('shows nothing when online and no stall', (tester) async {
-      await tester.pumpWidget(createTestWidget(streamUrl: 'https://example.com/stream.m3u8'));
+      await tester.pumpWidget(
+          createTestWidget(streamUrl: 'https://example.com/stream.m3u8'),);
       await tester.pump();
 
       // Overlay should not be visible when everything is fine
@@ -76,7 +97,8 @@ void main() {
       expect(find.textContaining('nouvelle tentative dans'), findsOneWidget);
     });
 
-    testWidgets('shows stalling card when detector reports stall', (tester) async {
+    testWidgets('shows stalling card when detector reports stall',
+        (tester) async {
       // We can't easily simulate the stall detector in a widget test without
       // a real controller, but we can verify the widget structure
       await tester.pumpWidget(

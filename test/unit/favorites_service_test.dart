@@ -50,18 +50,27 @@ void main() {
     test('isFavorite par clé canonique "profile:type:id"', () async {
       expect(await service.isFavorite('test_profile:live:42'), isFalse);
 
-      await service
-          .save(const FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
+      await service.save(const FavoriteEntry(
+          type: ContentType.live,
+          id: '42',
+          title: 'TF1',
+          profileId: 'test_profile',),);
 
       expect(await service.isFavorite('test_profile:live:42'), isTrue);
       expect(await service.isFavorite('test_profile:vod:42'), isFalse);
     });
 
     test('remove ne supprime que la clé visée', () async {
-      await service
-          .save(const FavoriteEntry(type: ContentType.live, id: '42', title: 'TF1', profileId: 'test_profile'));
-      await service
-          .save(const FavoriteEntry(type: ContentType.vod, id: '7', title: 'Film', profileId: 'test_profile'));
+      await service.save(const FavoriteEntry(
+          type: ContentType.live,
+          id: '42',
+          title: 'TF1',
+          profileId: 'test_profile',),);
+      await service.save(const FavoriteEntry(
+          type: ContentType.vod,
+          id: '7',
+          title: 'Film',
+          profileId: 'test_profile',),);
 
       await service.remove('test_profile:live:42');
 
@@ -75,7 +84,14 @@ void main() {
       await box.put('test_profile:live:1', 'pas du json');
       await box.put('test_profile:live:2', jsonEncode([1, 2, 3]));
       await box.put(
-          'test_profile:live:3', jsonEncode({'type': 'live', 'id': '3', 'title': 'Bonus', 'profileId': 'test_profile'}),);
+        'test_profile:live:3',
+        jsonEncode({
+          'type': 'live',
+          'id': '3',
+          'title': 'Bonus',
+          'profileId': 'test_profile',
+        }),
+      );
 
       final all = await service.loadAll();
       expect(all.length, 1);
@@ -88,13 +104,23 @@ void main() {
       final service = FavoritesService();
       await service.init();
       await service.save(
-        const FavoriteEntry(type: ContentType.live, id: '1', title: 'Chaîne 1', profileId: 'test_profile'),
+        const FavoriteEntry(
+            type: ContentType.live,
+            id: '1',
+            title: 'Chaîne 1',
+            profileId: 'test_profile',),
       );
 
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) =>
+              UserProfile(
+                  id: 'test_profile',
+                  firstName: 'Test',
+                  dateOfBirth: DateTime(2000, 1, 1),
+                  gender: 'male',
+                  favoriteGenres: const [],),),
         ],
       );
       addTearDown(container.dispose);
@@ -135,7 +161,13 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) =>
+              UserProfile(
+                  id: 'test_profile',
+                  firstName: 'Test',
+                  dateOfBirth: DateTime(2000, 1, 1),
+                  gender: 'male',
+                  favoriteGenres: const [],),),
         ],
       );
       addTearDown(container.dispose);
@@ -173,7 +205,13 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) =>
+              UserProfile(
+                  id: 'test_profile',
+                  firstName: 'Test',
+                  dateOfBirth: DateTime(2000, 1, 1),
+                  gender: 'male',
+                  favoriteGenres: const [],),),
         ],
       );
       addTearDown(container.dispose);
@@ -185,10 +223,18 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await notifier.toggle(
-        const FavoriteEntry(type: ContentType.live, id: '1', title: 'TF1', profileId: 'test_profile'),
+        const FavoriteEntry(
+            type: ContentType.live,
+            id: '1',
+            title: 'TF1',
+            profileId: 'test_profile',),
       );
       await notifier.toggle(
-        const FavoriteEntry(type: ContentType.live, id: '2', title: 'France 2', profileId: 'test_profile'),
+        const FavoriteEntry(
+            type: ContentType.live,
+            id: '2',
+            title: 'France 2',
+            profileId: 'test_profile',),
       );
 
       await notifier.clearAll();

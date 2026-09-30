@@ -7,7 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('override vide => on retombe sur la clé partagée (sans .env en test)', () async {
+  test('override vide => on retombe sur la clé partagée (sans .env en test)',
+      () async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer();
     addTearDown(container.dispose);

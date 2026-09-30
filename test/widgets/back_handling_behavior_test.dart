@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 
@@ -39,7 +40,8 @@ void main() {
                 pageBuilder: (context, state) => MaterialPage(
                   key: state.pageKey,
                   child: const WithBackHandling(
-                    meta: RouteMeta.popOrFallback('/home', restorationId: 'live'),
+                    meta:
+                        RouteMeta.popOrFallback('/home', restorationId: 'live'),
                     child: Scaffold(
                       body: Center(child: Text('LIVE')),
                     ),
@@ -52,10 +54,14 @@ void main() {
       );
     });
 
-    testWidgets(
-        'back sur un onglet interne sans historique → retour à /home',
+    testWidgets('back sur un onglet interne sans historique → retour à /home',
         (tester) async {
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpWidget(MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ));
       await tester.pumpAndSettle();
 
       expect(find.text('LIVE'), findsOneWidget);
@@ -105,7 +111,12 @@ void main() {
       );
 
       await tester.pumpWidget(
-        ProviderScope(child: MaterialApp.router(routerConfig: router)),
+        ProviderScope(child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      )),
       );
       await tester.pumpAndSettle();
 
@@ -153,7 +164,12 @@ void main() {
       );
 
       await tester.pumpWidget(
-        ProviderScope(child: MaterialApp.router(routerConfig: router)),
+        ProviderScope(child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      )),
       );
       await tester.pumpAndSettle();
 

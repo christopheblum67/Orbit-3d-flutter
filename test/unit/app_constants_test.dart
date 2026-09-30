@@ -20,8 +20,10 @@ void main() {
 
     test('should have valid pagination', () {
       expect(AppConstants.defaultPageSize, greaterThan(0));
-      expect(AppConstants.maxPageSize,
-          greaterThanOrEqualTo(AppConstants.defaultPageSize),);
+      expect(
+        AppConstants.maxPageSize,
+        greaterThanOrEqualTo(AppConstants.defaultPageSize),
+      );
     });
   });
 }

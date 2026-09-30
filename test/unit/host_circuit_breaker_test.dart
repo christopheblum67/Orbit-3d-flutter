@@ -23,8 +23,10 @@ void main() {
 
       breaker.recordFailure('example.com');
       expect(breaker.isInCooldown('example.com'), isTrue);
-      expect(breaker.remainingCooldown('example.com').inSeconds, greaterThan(0));
-      expect(breaker.cooldownMessage('example.com'), contains('Serveur protégé'));
+      expect(
+          breaker.remainingCooldown('example.com').inSeconds, greaterThan(0),);
+      expect(
+          breaker.cooldownMessage('example.com'), contains('Serveur protégé'),);
     });
 
     test('records success resets failure count', () {
@@ -58,10 +60,13 @@ void main() {
     });
 
     test('custom cooldown duration', () {
-      breaker.recordFailure('example.com', cooldown: const Duration(seconds: 30));
-      breaker.recordFailure('example.com', cooldown: const Duration(seconds: 30));
+      breaker.recordFailure('example.com',
+          cooldown: const Duration(seconds: 30),);
+      breaker.recordFailure('example.com',
+          cooldown: const Duration(seconds: 30),);
       expect(breaker.isInCooldown('example.com'), isTrue);
-      expect(breaker.remainingCooldown('example.com').inSeconds, lessThanOrEqualTo(30));
+      expect(breaker.remainingCooldown('example.com').inSeconds,
+          lessThanOrEqualTo(30),);
     });
 
     test('different hosts have independent state', () {

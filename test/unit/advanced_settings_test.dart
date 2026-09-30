@@ -51,7 +51,8 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(AdvancedSettings.kTlsImpersonation), isFalse);
-    expect(prefs.getString(AdvancedSettings.kDnsProvider), '9.9.9.9 (Quad9 DoH)');
+    expect(
+        prefs.getString(AdvancedSettings.kDnsProvider), '9.9.9.9 (Quad9 DoH)',);
     expect(prefs.getBool(AdvancedSettings.kZeroLagPrefetch), isFalse);
     expect(prefs.getBool(AdvancedSettings.kNightFocus), isTrue);
     expect(prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb), 6.0);
@@ -59,8 +60,7 @@ void main() {
     final reloadedContainer = ProviderContainer();
     addTearDown(reloadedContainer.dispose);
     reloadedContainer.read(advancedSettingsProvider);
-    final reloaded =
-        reloadedContainer.read(advancedSettingsProvider.notifier);
+    final reloaded = reloadedContainer.read(advancedSettingsProvider.notifier);
     await reloaded.load();
     expect(reloaded.state.useTlsImpersonation, isFalse);
     expect(reloaded.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');

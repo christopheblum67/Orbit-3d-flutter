@@ -140,8 +140,8 @@ void main() {
       await box.put(
         'test_profile:sr1:S1E3',
         '{"profileId":"test_profile","seriesId":"sr1","seriesTitle":"Série 1",'
-        '"episodeId":"","episodeTitle":"Bonus","season":1,"episodeNumber":3,'
-        '"watchedAt":"2026-01-01T00:00:00.000"}',
+            '"episodeId":"","episodeTitle":"Bonus","season":1,"episodeNumber":3,'
+            '"watchedAt":"2026-01-01T00:00:00.000"}',
       );
 
       final all = await service.loadAll();
@@ -178,9 +178,7 @@ void main() {
       final notifier = container.read(watchedEpisodesProvider.notifier);
 
       // Attend la fin du chargement initial asynchrone.
-      for (var i = 0;
-          i < 100 && !notifier.isWatched('sr1', 1, 1);
-          i++) {
+      for (var i = 0; i < 100 && !notifier.isWatched('sr1', 1, 1); i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       expect(notifier.isWatched('sr1', 1, 1), isTrue);
@@ -197,7 +195,8 @@ void main() {
       expect(await service.isWatched('test_profile:sr1:S1E1'), isTrue);
     });
 
-    test('countForSeries et forSeries sont sélectifs par série/saison', () async {
+    test('countForSeries et forSeries sont sélectifs par série/saison',
+        () async {
       final service = WatchedEpisodesService();
       await service.init();
 
@@ -210,9 +209,7 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(watchedEpisodesProvider.notifier);
-      for (var i = 0;
-          i < 100 && notifier.countForSeries('sr1') != 0;
-          i++) {
+      for (var i = 0; i < 100 && notifier.countForSeries('sr1') != 0; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 
@@ -228,7 +225,8 @@ void main() {
       expect(notifier.forSeries('sr1').length, 3);
     });
 
-    test('clearForSeries ne touche que la série (et le profil courant)', () async {
+    test('clearForSeries ne touche que la série (et le profil courant)',
+        () async {
       final service = WatchedEpisodesService();
       await service.init();
 
@@ -241,9 +239,7 @@ void main() {
       addTearDown(container.dispose);
 
       final notifier = container.read(watchedEpisodesProvider.notifier);
-      for (var i = 0;
-          i < 100 && notifier.countForSeries('sr1') != 0;
-          i++) {
+      for (var i = 0; i < 100 && notifier.countForSeries('sr1') != 0; i++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
 

@@ -56,14 +56,16 @@ void main() {
     });
 
     test('clearAll vide la box', () async {
-      await service.save(RecentEntry(
-        type: ContentType.vod,
-        id: '1',
-        title: 'Film',
-        profileId: 'test_profile',
-        streamUrl: 'http://x',
-        watchedAt: DateTime(2026, 9, 7),
-      ),);
+      await service.save(
+        RecentEntry(
+          type: ContentType.vod,
+          id: '1',
+          title: 'Film',
+          profileId: 'test_profile',
+          streamUrl: 'http://x',
+          watchedAt: DateTime(2026, 9, 7),
+        ),
+      );
       await service.clearAll();
       expect(await service.loadAll(), isEmpty);
     });
@@ -77,7 +79,13 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           recentlyWatchedServiceProvider.overrideWithValue(service),
-          currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(id: 'test_profile', firstName: 'Test', dateOfBirth: DateTime(2000, 1, 1), gender: 'male', favoriteGenres: const [])),
+          currentProfileProvider.overrideWithBuild((ref, notifier) =>
+              UserProfile(
+                  id: 'test_profile',
+                  firstName: 'Test',
+                  dateOfBirth: DateTime(2000, 1, 1),
+                  gender: 'male',
+                  favoriteGenres: const [],),),
         ],
       );
       addTearDown(container.dispose);

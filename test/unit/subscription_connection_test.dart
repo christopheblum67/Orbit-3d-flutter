@@ -7,7 +7,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 
@@ -80,8 +79,10 @@ void main() {
 
     final state = container.read(subscriptionsProvider);
     expect(state.single.lastTestResult, TestResultStatus.error);
-    expect(state.single.lastTestError,
-        contains('Configuration Xtream incomplète'),);
+    expect(
+      state.single.lastTestError,
+      contains('Configuration Xtream incomplète'),
+    );
   });
 
   test('testConnection signale une erreur réseau via une API injectée',

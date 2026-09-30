@@ -1,4 +1,4 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
@@ -24,7 +24,7 @@ void main() {
       director: 'John Director',
       rating: 7.5,
       pegi: '16',
-      streamUrl: 'https://example.com/stream.mp4',
+      streamId: 'https://example.com/stream.mp4',
     );
 
     test('fromMovie creates MovieDetail with Xtream data', () {
@@ -63,7 +63,7 @@ void main() {
         director: '',
         rating: 0,
         pegi: '',
-        streamUrl: 'https://example.com/stream.mp4',
+        streamId: 'https://example.com/stream.mp4',
       );
       final detail = MovieDetail.fromMovie(minimalMovie);
       expect(detail.needsEnrichment, true);
@@ -82,9 +82,24 @@ void main() {
       rating: 8.0,
       pegi: '16',
       episodes: [
-        Episode(id: '1', title: 'Ep 1', season: 1, episodeNumber: 1, streamUrl: 'url1'),
-        Episode(id: '2', title: 'Ep 2', season: 1, episodeNumber: 2, streamUrl: 'url2'),
-        Episode(id: '3', title: 'Ep 3', season: 2, episodeNumber: 1, streamUrl: 'url3'),
+        Episode(
+            id: '1',
+            title: 'Ep 1',
+            season: 1,
+            episodeNumber: 1,
+            streamId: 'url1',),
+        Episode(
+            id: '2',
+            title: 'Ep 2',
+            season: 1,
+            episodeNumber: 2,
+            streamId: 'url2',),
+        Episode(
+            id: '3',
+            title: 'Ep 3',
+            season: 2,
+            episodeNumber: 1,
+            streamId: 'url3',),
       ],
     );
 
@@ -127,13 +142,16 @@ void main() {
       expect(url1, startsWith('https://i.pravatar.cc/300?img='));
     });
 
-    test('avatarUrlFor produit des portraits différents pour des noms différents', () {
+    test(
+        'avatarUrlFor produit des portraits différents pour des noms différents',
+        () {
       final a = MetadataEnrichmentService.avatarUrlFor('Emma Stone');
       final b = MetadataEnrichmentService.avatarUrlFor('Tom Cruise');
       expect(a, isNot(equals(b)));
     });
 
-    test('avatarUrlFor normalise la casse (stable quel que soit l\'écriture)', () {
+    test('avatarUrlFor normalise la casse (stable quel que soit l\'écriture)',
+        () {
       expect(
         MetadataEnrichmentService.avatarUrlFor('Emma Stone'),
         MetadataEnrichmentService.avatarUrlFor('emma stone'),
@@ -209,3 +227,4 @@ void main() {
     });
   });
 }
+

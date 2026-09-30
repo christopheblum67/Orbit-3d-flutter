@@ -147,7 +147,8 @@ void main() {
       );
     });
 
-    test('local gagne : entrée modifiée localement plus récente que remote', () {
+    test('local gagne : entrée modifiée localement plus récente que remote',
+        () {
       final local = {
         'p1:live:1': '{"type":"live","id":"1","title":"localiste"}',
       };
@@ -312,7 +313,8 @@ void main() {
         remote: remote,
         mirror: null,
       );
-      expect(result.merged.entries.keys, containsAll(['p1:live:1', 'p1:vod:2']));
+      expect(
+          result.merged.entries.keys, containsAll(['p1:live:1', 'p1:vod:2']),);
       expect(result.localWrites, containsPair('p1:vod:2', isA<String>()));
     });
 

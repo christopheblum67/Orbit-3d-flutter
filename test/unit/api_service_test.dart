@@ -21,7 +21,8 @@ void main() {
       expect(uri.hasQuery, isFalse);
     });
 
-    test('builds the movie stream URL with the standard /movie/ prefix '
+    test(
+        'builds the movie stream URL with the standard /movie/ prefix '
         '(no extension)', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
@@ -35,7 +36,8 @@ void main() {
       expect(uri.hasQuery, isFalse);
     });
 
-    test('keeps the /movie/ prefix without extension by default even when '
+    test(
+        'keeps the /movie/ prefix without extension by default even when '
         'provided', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
@@ -62,7 +64,8 @@ void main() {
       expect(Uri.parse(url).path, '/movie/user/p4ss/42.mkv');
     });
 
-    test('builds the series stream URL with the standard /series/ prefix '
+    test(
+        'builds the series stream URL with the standard /series/ prefix '
         '(no extension)', () {
       final url = api.buildXtreamStreamUrl(
         'http://host:80',
@@ -136,39 +139,50 @@ void main() {
       expect(uri.queryParameters['end'], '20260830100000');
     });
 
-    test('timeshift URL uses streaming/timeshift.php with start + duration',
-        () {
+    // Format documente de l'API Xtream Codes :
+    //   /timeshift/{user}/{pass}/{duration_minutes}/{YYYY-MM-DD:HH-mm}/{stream_id}.ts
+    //
+    // L'ancienne forme `/streaming/timeshift.php?username=...` n'existe pas
+    // sur les panels : le replay etait liste mais jamais lisible. Ce test
+    // verrouille les trois points qui font echouer silencieusement le
+    // replay : la duree en MINUTES (et non en secondes), le format de date,
+    // et l'extension du flux.
+    test('timeshift URL suit le format documente Xtream Codes', () {
       final url = api.buildXtreamTimeshiftUrl(
         'http://host:8121',
         'user',
         'p4ss',
         '99',
-        start: 1785643200,
+        start: 1785643200, // 3600 s de programme
         end: 1785646800,
       );
       final uri = Uri.parse(url);
-      expect(uri.path, '/streaming/timeshift.php');
-      expect(uri.queryParameters['username'], 'user');
-      expect(uri.queryParameters['password'], 'p4ss');
-      expect(uri.queryParameters['stream'], '99');
-      expect(uri.queryParameters['start'], '1785643200');
-      expect(uri.queryParameters['duration'], '3600');
+      final seg = uri.pathSegments;
+      expect(seg, contains('timeshift'));
+      expect(seg[seg.length - 5], 'user');
+      expect(seg[seg.length - 4], 'p4ss');
+      // Duree en minutes, pas en secondes.
+      expect(seg[seg.length - 3], '60');
+      // Date au format YYYY-MM-DD:HH-mm.
+      expect(seg[seg.length - 2], matches(RegExp(r'^\d{4}-\d{2}-\d{2}:\d{2}-\d{2}$')));
+      expect(seg[seg.length - 1], '99.ts');
     });
 
-    test('timeshift URL derives duration from end - start, and strips '
-        'player_api.php suffix', () {
+    // L'extension doit suivre `allowed_output_formats` du compte.
+    test('timeshift URL respecte extension demandee', () {
       final url = api.buildXtreamTimeshiftUrl(
-        'http://host:8121/player_api.php',
-        'u',
-        'p',
-        '7',
-        start: 100,
-        end: 400,
+        'http://host:8121', 'u', 'p', '5',
+        start: 100, end: 460, extension: '.m3u8',
       );
-      final uri = Uri.parse(url);
-      expect(uri.path, '/streaming/timeshift.php');
-      expect(uri.queryParameters['duration'], '300');
-      expect(uri.queryParameters['start'], '100');
+      expect(url, endsWith('/5.m3u8'));
+
+      // Le suffixe /player_api.php de la configuration doit etre retire.
+      final withSuffix = api.buildXtreamTimeshiftUrl(
+        'http://host:8121/player_api.php', 'u', 'p', '7',
+        start: 100, end: 460,
+      );
+      expect(Uri.parse(withSuffix).pathSegments, contains('timeshift'));
+      expect(Uri.parse(withSuffix).path, isNot(contains('player_api')));
     });
 
     test('returns an empty string when streamId is null or empty', () {
@@ -211,8 +225,7 @@ void main() {
     test('ne pioche que 3 chaînes par groupe non marqué (round-robin)', () {
       final channels = [
         for (var g = 0; g < 10; g++)
-          for (var i = 0; i < 6; i++)
-            channel(g * 10 + i, group: 'Groupe $g'),
+          for (var i = 0; i < 6; i++) channel(g * 10 + i, group: 'Groupe $g'),
       ];
       final probe = ApiService.replayProbeSet(channels, const []);
       // Toutes les catégories sont couvertes…
@@ -229,8 +242,7 @@ void main() {
     test('respecte le budget total de chaînes sondées', () {
       final channels = [
         for (var g = 0; g < 20; g++)
-          for (var i = 0; i < 10; i++)
-            channel(g * 10 + i, group: 'Groupe $g'),
+          for (var i = 0; i < 10; i++) channel(g * 10 + i, group: 'Groupe $g'),
       ];
       final probe = ApiService.replayProbeSet(channels, const []);
       expect(probe.length, lessThanOrEqualTo(40));

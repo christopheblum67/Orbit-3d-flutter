@@ -35,7 +35,8 @@ void main() {
       expect(credits.cast.first.name, 'Tom Hanks');
       expect(credits.cast.first.hasProfile, isFalse);
       expect(credits.crew.single.name, 'Robert Zemeckis');
-      expect(credits.cast.map((a) => a.id), everyElement(startsWith('xtream-')));
+      expect(
+          credits.cast.map((a) => a.id), everyElement(startsWith('xtream-')),);
     });
 
     test('cast en chaîne unique délimitée', () {
