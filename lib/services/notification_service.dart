@@ -11,6 +11,20 @@ class NotificationService {
   String? _fcmToken;
 
   /// Initialise Firebase Cloud Messaging et les notifications locales.
+  /// Nom de la ressource d'icône de notification.
+  ///
+  /// flutter_local_notifications résout ce nom via
+  /// `getIdentifier(nom, "drawable", package)` : c'est un `drawable`, SANS
+  /// préfixe de type. Passer `@mipmap/ic_launcher` levait à chaque initialisation
+  /// :
+  /// `PlatformException(invalid_icon, The resource @mipmap/ic_launcher could
+  /// not be found)` — les notifications ne partaient donc jamais.
+  ///
+  /// La ressource est `res/drawable/ic_stat_orbit.xml` : une silhouette
+  /// blanche, seule forme lisible dans la barre d'état (Android ignore les
+  /// couleurs et ne garde que le canal alpha).
+  static const String _androidNotificationIcon = 'ic_stat_orbit';
+
   /// Ne bloque pas le lancement de l'application : en cas d'échec réseau
   /// ou d'absence de google-services.json, l'app continue sans FCM.
   Future<void> init() async {
@@ -26,7 +40,7 @@ class NotificationService {
         _messaging = FirebaseMessaging.instance;
 
         const androidSettings =
-            AndroidInitializationSettings('@mipmap/ic_launcher');
+            AndroidInitializationSettings(_androidNotificationIcon);
         const settings = InitializationSettings(android: androidSettings);
         await _localPlugin.initialize(
           settings: settings,
@@ -81,7 +95,7 @@ class NotificationService {
     if (notification != null) {
       final plugin = FlutterLocalNotificationsPlugin();
       const androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings(_androidNotificationIcon);
       const settings = InitializationSettings(android: androidSettings);
       await plugin.initialize(settings: settings);
       const androidDetails = AndroidNotificationDetails(
@@ -89,6 +103,7 @@ class NotificationService {
         'Orbit Notifications',
         importance: Importance.high,
         priority: Priority.high,
+        icon: _androidNotificationIcon,
       );
       const details = NotificationDetails(android: androidDetails);
       await plugin.show(
@@ -115,6 +130,7 @@ class NotificationService {
       'Orbit Notifications',
       importance: Importance.high,
       priority: Priority.high,
+      icon: _androidNotificationIcon,
     );
     const details = NotificationDetails(android: androidDetails);
     await _localPlugin.show(
