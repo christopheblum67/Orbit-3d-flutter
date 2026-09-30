@@ -3,31 +3,81 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sous-fenêtre « Sous-titres » ouverte depuis le lecteur.
-Future<void> showSubtitleControlsSheet(BuildContext context) {
+Future<void> showSubtitleControlsSheet(
+  BuildContext context, {
+  String? contentId,
+  bool isSeries = false,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => const SubtitleControlsSheet(),
+    builder: (_) => SubtitleControlsSheet(
+      contentId: contentId,
+      isSeries: isSeries,
+    ),
   );
 }
 
 class SubtitleControlsSheet extends ConsumerStatefulWidget {
-  const SubtitleControlsSheet({super.key});
+  const SubtitleControlsSheet({super.key, this.contentId, this.isSeries = false});
+
+  /// Identifiant du contenu lu (film ou série), utilisé pour interroger le
+  /// panel. `null` pour un flux live, qui ne publie pas de sous-titres.
+  final String? contentId;
+
+  /// `true` si [contentId] désigne une série (épisode en cours).
+  final bool isSeries;
 
   @override
-  ConsumerState<SubtitleControlsSheet> createState() => _SubtitleControlsSheetState();
+  ConsumerState<SubtitleControlsSheet> createState() =>
+      _SubtitleControlsSheetState();
 }
 
 class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _labelController = TextEditingController();
   String _selectedLanguage = 'fr';
-  
+
+  /// URL de la piste en cours de téléchargement, le cas échéant.
+  String? _loadingTrackUrl;
+
+  /// Déclenche la découverte des sous-titres du panel au premier affichage.
+  ///
+  /// Sans cela la liste ne pouvait contenir que des pistes déjà téléchargées,
+  /// donc toujours aucune : l'onglet annonçait « aucune piste disponible »
+  /// même quand le panel en publie.
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.contentId;
+    if (id == null || id.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _discover(id));
+  }
+
+  Future<void> _discover(String contentId) async {
+    final ctrl = ref.read(subtitleControllerProvider);
+    // Remise à zéro AVANT l'appel réseau.
+    //
+    // `subtitleControllerProvider` vit à l'échelle de l'application : sans
+    // cette purge, les pistes du contenu précédent restaient affichées le temps
+    // de la requête, puis were remplacées — et si la découverte échouait, elles
+    // restaient affichées pour de bon. L'utilisateur voyait alors les
+    // sous-titres d'un autre film, ce qui est pire que de n'en voir aucun.
+    ctrl.setDiscovered(const <SubtitleTrackRef>[]);
+    final tracks = await ref.read(apiServiceProvider).discoverSubtitles(
+          contentId,
+          isSeries: widget.isSeries,
+        );
+    if (!mounted) return;
+    ctrl.setDiscovered(tracks);
+  }
+
   // Focus nodes for TV/D-pad navigation
   final _disableFocus = FocusNode();
   final List<FocusNode> _trackFocusNodes = [];
@@ -78,10 +128,12 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     if (url.isEmpty) return;
     final result = await safeAsync<void>(
       () => ref.read(subtitleControllerProvider).loadAndSetTrack(
-        url,
-        language: _selectedLanguage,
-        label: _labelController.text.trim().isEmpty ? _selectedLanguage : _labelController.text.trim(),
-      ),
+            url,
+            language: _selectedLanguage,
+            label: _labelController.text.trim().isEmpty
+                ? _selectedLanguage
+                : _labelController.text.trim(),
+          ),
       context: 'SubtitleControlsSheet.loadSubtitle',
     );
     if (result.isFailure) {
@@ -96,8 +148,31 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _selectTrack(SubtitleTrack track) {
-    ref.read(subtitleControllerProvider).setActiveTrack(track.label);
+  /// Active une piste de la liste.
+  ///
+  /// Une piste *découverte* par le panel ne contient pas encore de cues : il
+  /// faut la télécharger avant de pouvoir l'afficher. Le chargement est donc
+  /// asynchrone, avec retour visuel pendant l'opération.
+  ///
+  /// Le précédent code passait `track.label` à `setActiveTrack`, qui attend une
+  /// URL : la sélection ne pouvait donc jamais aboutir, et la feuille pouvait
+  /// même rester bloquée sur « chargement ».
+  Future<void> _selectTrack(SubtitleTrackRef track) async {
+    final ctrl = ref.read(subtitleControllerProvider);
+    if (track.cues != null) {
+      ctrl.setActiveTrack(track.url);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _loadingTrackUrl = track.url);
+    try {
+      await ctrl.selectDiscoveredTrack(track);
+    } catch (_) {
+      // Piste inutilisable (404, format inconnu) : on l'ignore et on laisse
+      // l'utilisateur choisir une autre piste.
+    } finally {
+      if (mounted) setState(() => _loadingTrackUrl = null);
+    }
   }
 
   Widget _buildTvListTile({
@@ -151,7 +226,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
           _requestFocus(nextFocusNode);
           return KeyEventResult.handled;
         }
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp) {
           _requestFocus(prevFocusNodeFor(focusNode));
           return KeyEventResult.handled;
         }
@@ -178,7 +254,9 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     if (current == _urlFocus) {
       // Check if there are tracks or disable button
       if (_trackFocusNodes.isNotEmpty) return _trackFocusNodes.last;
-      if (ref.watch(subtitleControllerProvider).activeTrack != null) return _disableFocus;
+      if (ref.watch(subtitleControllerProvider).activeTrack != null) {
+        return _disableFocus;
+      }
       return _loadFocus; // fallback
     }
     if (current == _labelFocus) return _urlFocus;
@@ -191,8 +269,9 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final subtitleCtrl = ref.watch(subtitleControllerProvider);
-    final activeTrack = subtitleCtrl.activeTrack;
-    final availableTracks = subtitleCtrl.availableTracks;
+  final activeTrack = subtitleCtrl.activeTrack;
+  final activeTrackUrl = subtitleCtrl.activeTrackUrl;
+  final availableTracks = subtitleCtrl.availableTracks;
     final scheme = Theme.of(context).colorScheme;
     final hasActiveTrack = activeTrack != null;
     final trackCount = availableTracks.length;
@@ -201,8 +280,9 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     _ensureFocusNodes(trackCount);
 
     // Determine focus order for text fields
-    final firstTextFieldFocus = hasActiveTrack ? _disableFocus : (trackCount > 0 ? _trackFocusNodes.first : _urlFocus);
-    
+    final firstTextFieldFocus = hasActiveTrack
+        ? _disableFocus
+        : (trackCount > 0 ? _trackFocusNodes.first : _urlFocus);
 
     // Request initial focus on first interactive element
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -216,9 +296,11 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.8,),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,7 +319,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               ),
               // Title
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
                   'Sous-titres',
                   style: Theme.of(context).textTheme.titleLarge,
@@ -248,7 +331,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               if (hasActiveTrack) ...[
                 _buildTvListTile(
                   focusNode: _disableFocus,
-                  nextFocusNode: trackCount > 0 ? _trackFocusNodes.first : _urlFocus,
+                  nextFocusNode:
+                      trackCount > 0 ? _trackFocusNodes.first : _urlFocus,
                   prevFocusNode: _loadFocus, // loop to bottom
                   onSelect: () {
                     ref.read(subtitleControllerProvider).disable();
@@ -268,38 +352,69 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               // Available tracks
               if (trackCount > 0) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
                     'Pistes disponibles',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                          color: scheme.onSurfaceVariant,
+                        ),
                   ),
                 ),
                 ...availableTracks.asMap().entries.map((entry) {
                   final index = entry.key;
                   final track = entry.value;
-                  final isActive = activeTrack?.label == track.label;
+                  // Comparaison par URL : le libellé n'est pas unique (plusieurs
+                  // pistes peuvent s'appeler « Français »), et une piste
+                  // découverte n'a pas encore de cues.
+                  final isActive = activeTrackUrl == track.url ||
+                      (activeTrack != null &&
+                          activeTrack!.label == track.label &&
+                          track.cues == null);
                   final tileColor = isActive
-                      ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3)
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.3)
                       : null;
                   final focusNode = _trackFocusNodes[index];
-                  final nextFocus = index < trackCount - 1 ? _trackFocusNodes[index + 1] : _urlFocus;
-                  final prevFocus = index > 0 ? _trackFocusNodes[index - 1] : (hasActiveTrack ? _disableFocus : _loadFocus);
+                  final nextFocus = index < trackCount - 1
+                      ? _trackFocusNodes[index + 1]
+                      : _urlFocus;
+                  final prevFocus = index > 0
+                      ? _trackFocusNodes[index - 1]
+                      : (hasActiveTrack ? _disableFocus : _loadFocus);
                   return _buildTvListTile(
                     focusNode: focusNode,
                     nextFocusNode: nextFocus,
                     prevFocusNode: prevFocus,
                     onSelect: () => _selectTrack(track),
                     child: ListTile(
-                      leading: Icon(
-                        isActive ? Icons.check_circle : Icons.circle_outlined,
-                        color: isActive ? Theme.of(context).colorScheme.primary : null,
-                      ),
+                      leading: _loadingTrackUrl == track.url
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              isActive
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                              color: isActive
+                                  ? Theme.of(context).colorScheme.primary
+                                  : null,
+                            ),
                       title: Text(track.label),
-                      subtitle: Text('${track.language.toUpperCase()} · ${track.cues.length} cues'),
+                      // Le nombre de cues n'est connu qu'une fois la piste
+                      // téléchargée : on ne l'annonce pas avant.
+                      subtitle: Text(
+                        track.cues == null
+                            ? track.language.toUpperCase()
+                            : '${track.language.toUpperCase()} · ${track.cues!.length} cues',
+                      ),
                       trailing: isActive
-                          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+                          ? Icon(Icons.check,
+                              color: Theme.of(context).colorScheme.primary,)
                           : null,
                       onTap: () => _selectTrack(track),
                       tileColor: tileColor,
@@ -310,12 +425,13 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               ],
               // Add new subtitle
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
                   'Ajouter un sous-titre (URL .srt/.vtt)',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                        color: scheme.onSurfaceVariant,
+                      ),
                 ),
               ),
               // URL TextField
@@ -330,7 +446,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               ),
               // Label TextField + Language Dropdown
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
                     Expanded(
@@ -350,15 +467,18 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.enter ||
                                 event.logicalKey == LogicalKeyboardKey.select ||
-                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.gameButtonA)) {
                           _requestFocus(_loadFocus);
                           return KeyEventResult.handled;
                         }
-                        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.arrowUp) {
                           _requestFocus(_labelFocus);
                           return KeyEventResult.handled;
                         }
-                        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.arrowDown) {
                           _requestFocus(_loadFocus);
                           return KeyEventResult.handled;
                         }
@@ -367,16 +487,26 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                       child: DropdownButton<String>(
                         value: _selectedLanguage,
                         items: [
-                          DropdownMenuItem(value: 'fr', child: Text(l.langFrench)),
-                          DropdownMenuItem(value: 'en', child: const Text('English')),
-                          DropdownMenuItem(value: 'es', child: Text(l.langSpanish)),
-                          DropdownMenuItem(value: 'de', child: const Text('Deutsch')),
-                          DropdownMenuItem(value: 'it', child: const Text('Italiano')),
-                          DropdownMenuItem(value: 'pt', child: Text(l.langPortuguese)),
-                          DropdownMenuItem(value: 'ar', child: Text(l.langArabic)),
-                          DropdownMenuItem(value: 'und', child: Text(l.languageUndetermined)),
+                          DropdownMenuItem(
+                              value: 'fr', child: Text(l.langFrench),),
+                          const DropdownMenuItem(
+                              value: 'en', child: Text('English'),),
+                          DropdownMenuItem(
+                              value: 'es', child: Text(l.langSpanish),),
+                          const DropdownMenuItem(
+                              value: 'de', child: Text('Deutsch'),),
+                          const DropdownMenuItem(
+                              value: 'it', child: Text('Italiano'),),
+                          DropdownMenuItem(
+                              value: 'pt', child: Text(l.langPortuguese),),
+                          DropdownMenuItem(
+                              value: 'ar', child: Text(l.langArabic),),
+                          DropdownMenuItem(
+                              value: 'und',
+                              child: Text(l.languageUndetermined),),
                         ],
-                        onChanged: (v) => setState(() => _selectedLanguage = v ?? 'fr'),
+                        onChanged: (v) =>
+                            setState(() => _selectedLanguage = v ?? 'fr'),
                       ),
                     ),
                   ],
@@ -393,7 +523,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                     _loadSubtitle();
                     return KeyEventResult.handled;
                   }
-                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.arrowUp) {
                     _requestFocus(_languageFocus);
                     return KeyEventResult.handled;
                   }

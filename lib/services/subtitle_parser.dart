@@ -14,7 +14,8 @@ class SubtitleCue {
     required this.text,
   });
 
-  bool isActiveAt(int positionMs) => positionMs >= startMs && positionMs < endMs;
+  bool isActiveAt(int positionMs) =>
+      positionMs >= startMs && positionMs < endMs;
 
   @override
   String toString() => 'SubtitleCue($startMs-$endMs: "$text")';
@@ -60,12 +61,44 @@ class SubtitleParser {
     try {
       final request = await client.getUrl(Uri.parse(url));
       request.followRedirects = true;
-      final response = await request.close().timeout(const Duration(seconds: 10));
-      final content = await response.transform(utf8.decoder).join();
-      return content;
+      // Certains panels refusent les requêtes sans User-Agent (403), et les
+      // sous-titres sont justement un appel « annexe » que ces panels
+      // contrôlent davantage que le flux vidéo.
+      request.headers.set(HttpHeaders.userAgentHeader, 'OrbitIPTV/1.0');
+      request.headers.set(HttpHeaders.acceptHeader, '*/*');
+      final response =
+          await request.close().timeout(const Duration(seconds: 10));
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        builder.add(chunk);
+      }
+      return _decodeSubtitleBytes(builder.takeBytes());
     } finally {
       client.close();
     }
+  }
+
+  /// Décode un fichier de sous-titres en tolérant les deux encodages
+  /// réellement rencontrés sur les panels Xtream.
+  ///
+  /// `utf8.decoder` **strict** levait une `FormatException` sur un fichier
+  /// Latin-1 (très fréquent en français) : le chargement échouait et plus
+  /// aucun sous-titre n'était proposé. On décode donc en UTF-8 permissif et,
+  /// si le contenu contenait des octets invalides, on repasse en Latin-1.
+  static String _decodeSubtitleBytes(List<int> bytes) {
+    if (bytes.isEmpty) return '';
+    var isValidUtf8 = true;
+    final relaxed = utf8.decode(bytes, allowMalformed: true);
+    // `allowMalformed` remplace les séquences invalides par U+FFFD : on peut
+    // donc détecter un fichier Latin-1 et le rejouer en CP1252.
+    for (final rune in relaxed.runes) {
+      if (rune == 0xFFFD) {
+        isValidUtf8 = false;
+        break;
+      }
+    }
+    if (isValidUtf8) return relaxed;
+    return latin1.decode(bytes, allowInvalid: true);
   }
 
   static SubtitleTrack parse(
@@ -93,18 +126,20 @@ class SubtitleParser {
       if (lines.length < 2) continue;
       // lines[0] = index (ignoré), lines[1] = timecode, lines[2+] = texte
       final timecode = lines[1].trim();
-      final textLines = lines.skip(2).where((l) => l.trim().isNotEmpty).join('\n');
+      final textLines =
+          lines.skip(2).where((l) => l.trim().isNotEmpty).join('\n');
       final times = _parseSrtTimecode(timecode);
       if (times != null && textLines.isNotEmpty) {
         cues.add(SubtitleCue(
           startMs: times[0],
           endMs: times[1],
           text: _cleanText(textLines),
-        ));
+        ),);
       }
     }
     cues.sort((a, b) => a.startMs.compareTo(b.startMs));
-    return SubtitleTrack(language: language, label: label ?? language, cues: cues);
+    return SubtitleTrack(
+        language: language, label: label ?? language, cues: cues,);
   }
 
   static SubtitleTrack _parseVtt(
@@ -116,7 +151,9 @@ class SubtitleParser {
     final lines = content.split(RegExp(r'\r?\n'));
     var i = 0;
     // Skip header until first cue
-    while (i < lines.length && !lines[i].contains('-->')) i++;
+    while (i < lines.length && !lines[i].contains('-->')) {
+      i++;
+    }
     while (i < lines.length) {
       final line = lines[i].trim();
       if (line.isEmpty) {
@@ -138,13 +175,14 @@ class SubtitleParser {
             startMs: times[0],
             endMs: times[1],
             text: text,
-          ));
+          ),);
         }
       }
       i++;
     }
     cues.sort((a, b) => a.startMs.compareTo(b.startMs));
-    return SubtitleTrack(language: language, label: label ?? language, cues: cues);
+    return SubtitleTrack(
+        language: language, label: label ?? language, cues: cues,);
   }
 
   static List<int>? _parseSrtTimecode(String timecode) {

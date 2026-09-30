@@ -25,11 +25,11 @@ class SubtitleOverlay extends StatelessWidget {
     final cue = track?.activeCueAt(positionMs);
     if (cue == null) return const SizedBox.shrink();
 
-    final defaultStyle = TextStyle(
+    final defaultStyle = const TextStyle(
       color: Colors.white,
       fontSize: 18,
       fontWeight: FontWeight.w500,
-      shadows: const [
+      shadows: [
         Shadow(
           blurRadius: 6,
           color: Colors.black,
@@ -90,7 +90,8 @@ class AnimatedSubtitleOverlay extends StatefulWidget {
   });
 
   @override
-  State<AnimatedSubtitleOverlay> createState() => _AnimatedSubtitleOverlayState();
+  State<AnimatedSubtitleOverlay> createState() =>
+      _AnimatedSubtitleOverlayState();
 }
 
 class _AnimatedSubtitleOverlayState extends State<AnimatedSubtitleOverlay>
@@ -145,11 +146,11 @@ class _AnimatedSubtitleOverlayState extends State<AnimatedSubtitleOverlay>
     final cue = widget.track?.activeCueAt(widget.positionMs);
     if (cue == null) return const SizedBox.shrink();
 
-    final defaultStyle = TextStyle(
+    final defaultStyle = const TextStyle(
       color: Colors.white,
       fontSize: 18,
       fontWeight: FontWeight.w500,
-      shadows: const [
+      shadows: [
         Shadow(
           blurRadius: 6,
           color: Colors.black,
@@ -168,10 +169,12 @@ class _AnimatedSubtitleOverlayState extends State<AnimatedSubtitleOverlay>
             opacity: _fadeAnimation,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * widget.maxWidthFraction,
+                maxWidth:
+                    MediaQuery.of(context).size.width * widget.maxWidthFraction,
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
