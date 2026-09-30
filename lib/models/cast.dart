@@ -32,15 +32,33 @@ class Actor {
   factory Actor.fromMap(Map<String, dynamic> map) {
     return Actor(
       id: map['id']?.toString() ?? map['cast_id']?.toString() ?? '',
-      name: map['name'] ?? map['original_name'] ?? '',
-      character: map['character'] ?? map['role'] ?? '',
-      profilePath: map['profile_path'] ?? map['profile_url'] ?? '',
-      order: map['order'] ?? map['cast_id'] ?? 0,
+      name: map['name']?.toString() ??
+          map['original_name']?.toString() ??
+          '',
+      character: map['character']?.toString() ??
+          map['role']?.toString() ??
+          '',
+      profilePath: map['profile_path']?.toString() ??
+          map['profile_url']?.toString() ??
+          '',
+      // Xtream renvoie souvent `"order": "3"` (chaine) et un panel peut
+      // serialiser en double : le cast direct sur un `int` non nullable
+      // echouait. On passe par un parse tolerant.
+      order: _asInt(map['order'] ?? map['cast_id'], 0),
       isGuestStar: map['guest_star'] == true ||
           map['type'] == 'Guest Star' ||
           map['credit_id']?.toString().contains('guest') == true,
       source: _parseSource(map['source']),
     );
+  }
+
+  /// Conversion tolérante d'une valeur de panel en `int`.
+  static int _asInt(Object? v, int fallback) {
+    if (v == null) return fallback;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v.trim()) ?? fallback;
+    return fallback;
   }
 
   static ActorSource _parseSource(dynamic source) {
@@ -104,11 +122,12 @@ class CrewMember {
   factory CrewMember.fromMap(Map<String, dynamic> map) {
     return CrewMember(
       id: map['id']?.toString() ?? map['credit_id']?.toString() ?? '',
-      name: map['name'] ?? '',
-      job: map['job'] ?? '',
-      department: map['department'] ?? '',
-      profilePath: map['profile_path'] ?? map['profile_url'] ?? '',
-      order: map['order'] ?? 0,
+      name: map['name']?.toString() ?? '',
+      job: map['job']?.toString() ?? '',
+      department: map['department']?.toString() ?? '',
+      profilePath:
+          map['profile_path']?.toString() ?? map['profile_url']?.toString() ?? '',
+      order: Actor._asInt(map['order'], 0),
     );
   }
 
@@ -212,7 +231,13 @@ class MovieCredits {
         final name =
             map['name']?.toString() ?? map['original_name']?.toString() ?? '';
         if (name.trim().isEmpty) continue;
-        result.add(Actor.fromMap(map));
+        // Entree invalide ignoree : un cast de credit ne doit pas faire
+        // echouer la fiche entiere (le casting s'affiche vide a la place).
+        try {
+          result.add(Actor.fromMap(map));
+        } catch (_) {
+          continue;
+        }
       } else if (item != null) {
         final name = '$item'.trim();
         if (name.isEmpty) continue;
@@ -222,7 +247,7 @@ class MovieCredits {
           character: '',
           profilePath: '',
           order: i,
-        ));
+        ),);
       }
     }
     return result;
@@ -237,7 +262,11 @@ class MovieCredits {
         final map = Map<String, dynamic>.from(item);
         final name = map['name']?.toString() ?? '';
         if (name.trim().isEmpty) continue;
-        result.add(CrewMember.fromMap(map));
+        try {
+          result.add(CrewMember.fromMap(map));
+        } catch (_) {
+          continue;
+        }
       } else if (item != null) {
         final name = '$item'.trim();
         if (name.isEmpty) continue;
@@ -248,7 +277,7 @@ class MovieCredits {
           department: '',
           profilePath: '',
           order: i,
-        ));
+        ),);
       }
     }
     return result;

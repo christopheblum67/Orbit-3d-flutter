@@ -9,9 +9,23 @@ class ReplayItem {
   final String endTime;
   final String categoryId;
 
+  /// Chaîne qui diffuse ce replay (identification + affichage groupé).
+  final String channelId;
+  final String channelName;
+
   /// Début du programme en temps réel (tri, regroupement) ; null pour les
   /// replays sans horaire (repli live/M3U).
   final DateTime? startDate;
+
+  /// Résumé du programme, affiché sous le titre.
+  final String description;
+
+  /// Présentation / credited (présentateur, journaliste, production).
+  final String host;
+
+  /// Horaires machine, pour l'affichage du créneau et le regroupement par jour.
+  final DateTime? startAt;
+  final DateTime? endAt;
 
   ReplayItem({
     required this.id,
@@ -20,7 +34,13 @@ class ReplayItem {
     required this.startTime,
     required this.endTime,
     this.categoryId = '',
+    this.channelId = '',
+    this.channelName = '',
     this.startDate,
+    this.description = '',
+    this.host = '',
+    this.startAt,
+    this.endAt,
   });
 
   factory ReplayItem.fromMap(Map<String, dynamic> map) {
@@ -31,7 +51,8 @@ class ReplayItem {
       startTime: map['start'] ?? '',
       endTime: map['end'] ?? '',
       categoryId: map['category_id']?.toString() ?? '',
-      startDate: DateTime.tryParse(map['start_date']?.toString() ?? ''),
+      channelId: map['channel_id']?.toString() ?? '',
+      channelName: map['channel_name']?.toString() ?? '',
     );
   }
 
@@ -43,7 +64,13 @@ class ReplayItem {
       startTime: startTime,
       endTime: endTime,
       categoryId: categoryId,
+      channelId: channelId,
+      channelName: channelName,
       startDate: startDate,
+      description: description,
+      host: host,
+      startAt: startAt,
+      endAt: endAt,
     );
   }
 

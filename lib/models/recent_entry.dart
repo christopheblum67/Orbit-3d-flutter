@@ -23,9 +23,8 @@ class RecentEntry {
   final String streamUrl;
   final DateTime watchedAt;
 
-  String get key => profileId.isEmpty
-      ? '${type.name}:$id'
-      : '$profileId:${type.name}:$id';
+  String get key =>
+      profileId.isEmpty ? '${type.name}:$id' : '$profileId:${type.name}:$id';
 
   Map<String, dynamic> toJson() => {
         'type': type.name,

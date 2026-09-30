@@ -14,10 +14,13 @@ class MovieDetail {
   final String director;
   final double rating;
   final String pegi;
-  final String streamUrl;
   final String categoryId;
   final List<Actor> cast;
   final List<CrewMember> crew;
+
+  // Composant minimal pour construire l'URL à la demande
+  final String _streamId;
+  final String _containerExtension;
 
   // Nouvelles métadonnées enrichies
   final String imdbId;
@@ -51,7 +54,8 @@ class MovieDetail {
     required this.director,
     required this.rating,
     required this.pegi,
-    required this.streamUrl,
+    required String streamId,
+    String containerExtension = '',
     this.categoryId = '',
     this.cast = const [],
     this.crew = const [],
@@ -75,7 +79,26 @@ class MovieDetail {
     this.originalTitle,
     this.aiGenerated = false,
     this.dataSource = 'xtream',
-  });
+  })  : _streamId = streamId,
+        _containerExtension = containerExtension;
+
+  /// Composant minimal pour reconstruire l'URL (exposé pour reconstruction).
+  String get streamId => _streamId;
+
+  /// Extension du conteneur (ex: mkv, mp4).
+  String get containerExtension => _containerExtension;
+
+  /// URL de stream construite à la demande (lazy) via le builder global.
+  String get streamUrl {
+    if (_streamId.isEmpty) return '';
+    // URL déjà complète (M3U, timeshift) : on ne la reconstruit pas.
+    if (_streamId.startsWith('http')) return _streamId;
+    return buildStreamUrlGlobal(
+      streamId: _streamId,
+      containerExtension: _containerExtension.isNotEmpty ? _containerExtension : null,
+      type: 'movie',
+    ) ?? '';
+  }
 
   /// Crée un MovieDetail à partir d'un Movie (données Xtream de base)
   factory MovieDetail.fromMovie(Movie movie) {
@@ -89,7 +112,8 @@ class MovieDetail {
       director: movie.director,
       rating: movie.rating,
       pegi: movie.pegi,
-      streamUrl: movie.streamUrl,
+      streamId: movie.streamId,
+      containerExtension: movie.containerExtension,
       categoryId: movie.categoryId,
       cast: movie.cast,
       crew: movie.crew,
@@ -127,7 +151,8 @@ class MovieDetail {
     String? director,
     double? rating,
     String? pegi,
-    String? streamUrl,
+    String? streamId,
+    String? containerExtension,
     String? categoryId,
     List<Actor>? cast,
     List<CrewMember>? crew,
@@ -162,7 +187,8 @@ class MovieDetail {
       director: director ?? this.director,
       rating: rating ?? this.rating,
       pegi: pegi ?? this.pegi,
-      streamUrl: streamUrl ?? this.streamUrl,
+      streamId: streamId ?? this._streamId,
+      containerExtension: containerExtension ?? this._containerExtension,
       categoryId: categoryId ?? this.categoryId,
       cast: cast ?? this.cast,
       crew: crew ?? this.crew,

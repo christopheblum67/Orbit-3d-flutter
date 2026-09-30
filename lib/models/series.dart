@@ -1,6 +1,7 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
+import 'package:orbit_3d_flutter/models/movie.dart';
 
 class Series {
   final String id;
@@ -55,18 +56,19 @@ class Series {
       }
     }
     DateTime? parseAdded(dynamic value) {
-    if (value == null) return null;
-    if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
-    }
-    if (value is String) {
-      final parsed = int.tryParse(value);
-      if (parsed != null) {
-        return DateTime.fromMillisecondsSinceEpoch(parsed * 1000, isUtc: true);
+      if (value == null) return null;
+      if (value is int) {
+        return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
       }
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) {
+          return DateTime.fromMillisecondsSinceEpoch(parsed * 1000,
+              isUtc: true,);
+        }
+      }
+      return null;
     }
-    return null;
-  }
 
     return Series(
       id: map['series_id']?.toString() ?? map['id']?.toString() ?? '',
@@ -94,12 +96,28 @@ class Series {
         map['contentRating'],
         map['us_certification'],
       ]),
-      episodes: (map['episodes'] as List<dynamic>? ?? [])
-          .map((e) => Episode.fromMap(e as Map<String, dynamic>))
-          .toList(),
+      episodes: parseEpisodes(map['episodes']),
       categoryId: map['category_id']?.toString() ?? '',
       addedDate: parseAdded(map['added']),
     );
+  }
+
+  /// `get_series` ne renvoie pas `episodes` (seulement `get_series_info`), et
+  /// certains panels renvoient un type inattendu. On ne fait pas echouer la
+  /// serie entiere pour une liste d'episodes illisible.
+  static List<Episode> parseEpisodes(dynamic raw) {
+    if (raw is! List) return <Episode>[];
+    final out = <Episode>[];
+    for (final e in raw) {
+      if (e is Map) {
+        try {
+          out.add(Episode.fromMap(Map<String, dynamic>.from(e)));
+        } catch (_) {
+          // episode invalide ignore
+        }
+      }
+    }
+    return out;
   }
 
   static String _joined(Object? value) {
@@ -121,15 +139,16 @@ class Episode {
   final String title;
   final int season;
   final int episodeNumber;
-  final String streamUrl;
+  final String _streamId;
 
   Episode({
     required this.id,
     required this.title,
     required this.season,
     required this.episodeNumber,
-    required this.streamUrl,
-  });
+    String? streamId,
+    String? streamUrl,
+  }) : _streamId = streamUrl ?? streamId ?? '';
 
   factory Episode.fromMap(Map<String, dynamic> map) {
     final rawSeason = map['season'];
@@ -139,8 +158,19 @@ class Episode {
       title: map['title']?.toString() ?? '',
       season: int.tryParse('$rawSeason') ?? 0,
       episodeNumber: int.tryParse('$rawEp') ?? 0,
-      streamUrl: map['url']?.toString() ?? '',
+      streamId: map['url']?.toString() ?? '',
     );
+  }
+
+  String get streamUrl {
+    final ref = _streamId;
+    if (ref.isEmpty) return '';
+    // URL déjà complète (M3U, timeshift) : on ne la reconstruit pas.
+    if (ref.startsWith('http')) return ref;
+    return buildStreamUrlGlobal(
+      streamId: ref,
+      type: 'series',
+    ) ?? '';
   }
 
   String requireStreamUrl() =>

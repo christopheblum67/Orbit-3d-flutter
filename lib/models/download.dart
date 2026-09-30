@@ -48,8 +48,12 @@ class DownloadProgress extends HiveObject {
   double get fraction => totalBytes > 0 ? bytesDownloaded / totalBytes : 0.0;
 
   String get formattedSpeed {
-    if (speedBytesPerSec < 1024) return '${speedBytesPerSec.toStringAsFixed(1)} B/s';
-    if (speedBytesPerSec < 1024 * 1024) return '${(speedBytesPerSec / 1024).toStringAsFixed(1)} KB/s';
+    if (speedBytesPerSec < 1024) {
+      return '${speedBytesPerSec.toStringAsFixed(1)} B/s';
+    }
+    if (speedBytesPerSec < 1024 * 1024) {
+      return '${(speedBytesPerSec / 1024).toStringAsFixed(1)} KB/s';
+    }
     return '${(speedBytesPerSec / (1024 * 1024)).toStringAsFixed(1)} MB/s';
   }
 
@@ -73,7 +77,8 @@ class DownloadProgress extends HiveObject {
       bytesDownloaded: bytesDownloaded ?? this.bytesDownloaded,
       totalBytes: totalBytes ?? this.totalBytes,
       speedBytesPerSec: speedBytesPerSec ?? this.speedBytesPerSec,
-      estimatedTimeRemaining: estimatedTimeRemaining ?? this.estimatedTimeRemaining,
+      estimatedTimeRemaining:
+          estimatedTimeRemaining ?? this.estimatedTimeRemaining,
     );
   }
 }
@@ -118,7 +123,8 @@ class DownloadConfig extends HiveObject {
   }) {
     return DownloadConfig(
       wifiOnly: wifiOnly ?? this.wifiOnly,
-      maxConcurrentDownloads: maxConcurrentDownloads ?? this.maxConcurrentDownloads,
+      maxConcurrentDownloads:
+          maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       retryAttempts: retryAttempts ?? this.retryAttempts,
       retryDelay: retryDelay ?? this.retryDelay,
       deleteAfterWatch: deleteAfterWatch ?? this.deleteAfterWatch,
@@ -214,7 +220,8 @@ class DownloadTask extends HiveObject {
   }) : progress = progress ?? DownloadProgress();
 
   /// Crée une tâche depuis un MediaItem.
-  factory DownloadTask.fromMediaItem(MediaItem item, {String? preferredQuality}) {
+  factory DownloadTask.fromMediaItem(MediaItem item,
+      {String? preferredQuality,}) {
     return DownloadTask(
       id: 'dl_${item.id}_${DateTime.now().millisecondsSinceEpoch}',
       mediaItemId: item.id,
@@ -308,10 +315,13 @@ class DownloadTask extends HiveObject {
   }
 
   /// Vérifie si le téléchargement peut être repris.
-  bool get canResume => status == DownloadStatus.paused || status == DownloadStatus.failed;
+  bool get canResume =>
+      status == DownloadStatus.paused || status == DownloadStatus.failed;
 
   /// Vérifie si le téléchargement est actif.
-  bool get isActive => status == DownloadStatus.downloading || status == DownloadStatus.preparing;
+  bool get isActive =>
+      status == DownloadStatus.downloading ||
+      status == DownloadStatus.preparing;
 
   /// Vérifie si le téléchargement est terminé avec succès.
   bool get isCompleted => status == DownloadStatus.completed;

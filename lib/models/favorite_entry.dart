@@ -41,9 +41,8 @@ class FavoriteEntry {
   final String subtitle;
   final String streamUrl;
 
-  String get key => profileId.isEmpty
-      ? '${type.name}:$id'
-      : '$profileId:${type.name}:$id';
+  String get key =>
+      profileId.isEmpty ? '${type.name}:$id' : '$profileId:${type.name}:$id';
 
   Map<String, dynamic> toJson() => {
         'type': type.name,

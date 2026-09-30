@@ -68,10 +68,8 @@ class TmdbRankEntry {
 
   /// Genres résolus en français (au plus 2) depuis `genreIds`.
   String get genreLabel {
-    final names = genreIds
-        .map((id) => _genres[id])
-        .whereType<String>()
-        .toList();
+    final names =
+        genreIds.map((id) => _genres[id]).whereType<String>().toList();
     return names.take(2).join(' / ');
   }
 
@@ -85,41 +83,70 @@ class TmdbRankEntry {
     return '$voteCount';
   }
 
+  /// Conversions tolérantes : la réponse TMDB transite par le cache Hive (non
+  /// typé) et par des panels qui sérialisent les nombres en chaînes. Les casts
+  /// stricts makesaient échouer tout le classement FlixPatrol, donc le signal
+  /// « recommandation » du matchmaking de groupe.
+  static int _asInt(Object? v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v.trim()) ?? 0;
+    return 0;
+  }
+
+  static double _asDouble(Object? v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.trim()) ?? 0;
+    return 0;
+  }
+
+  static String _asStr(Object? v) {
+    if (v == null) return '';
+    if (v is String) return v;
+    return '$v';
+  }
+
+  static List<int> _asIntList(Object? v) {
+    if (v is! List) return const <int>[];
+    final out = <int>[];
+    for (final e in v) {
+      final i = _asInt(e);
+      if (i > 0) out.add(i);
+    }
+    return out;
+  }
+
   factory TmdbRankEntry.fromMovieJson(Map<String, dynamic> json) {
     return TmdbRankEntry(
-      tmdbId: json['id'] as int? ?? 0,
-      title: json['title'] as String? ?? '',
-      posterPath: json['poster_path'] as String? ?? '',
-      backdropPath: json['backdrop_path'] as String? ?? '',
-      year: _parseYear(json['release_date']),
-      rating: (json['vote_average'] as num?)?.toDouble() ?? 0,
-      voteCount: json['vote_count'] as int? ?? 0,
-      overview: json['overview'] as String? ?? '',
+      tmdbId: _asInt(json['id']),
+      title: _asStr(json['title']),
+      posterPath: _asStr(json['poster_path']),
+      backdropPath: _asStr(json['backdrop_path']),
+      year: _parseYear(_asStr(json['release_date'])),
+      rating: _asDouble(json['vote_average']),
+      voteCount: _asInt(json['vote_count']),
+      overview: _asStr(json['overview']),
       isTv: false,
-      popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
-      genreIds: (json['genre_ids'] as List<dynamic>?)
-              ?.map((e) => e as int)
-              .toList() ??
-          const [],
+      popularity: _asDouble(json['popularity']),
+      genreIds: _asIntList(json['genre_ids']),
     );
   }
 
   factory TmdbRankEntry.fromTvJson(Map<String, dynamic> json) {
     return TmdbRankEntry(
-      tmdbId: json['id'] as int? ?? 0,
-      title: json['name'] as String? ?? '',
-      posterPath: json['poster_path'] as String? ?? '',
-      backdropPath: json['backdrop_path'] as String? ?? '',
-      year: _parseYear(json['first_air_date']),
-      rating: (json['vote_average'] as num?)?.toDouble() ?? 0,
-      voteCount: json['vote_count'] as int? ?? 0,
-      overview: json['overview'] as String? ?? '',
+      tmdbId: _asInt(json['id']),
+      title: _asStr(json['name']),
+      posterPath: _asStr(json['poster_path']),
+      backdropPath: _asStr(json['backdrop_path']),
+      year: _parseYear(_asStr(json['first_air_date'])),
+      rating: _asDouble(json['vote_average']),
+      voteCount: _asInt(json['vote_count']),
+      overview: _asStr(json['overview']),
       isTv: true,
-      popularity: (json['popularity'] as num?)?.toDouble() ?? 0,
-      genreIds: (json['genre_ids'] as List<dynamic>?)
-              ?.map((e) => e as int)
-              .toList() ??
-          const [],
+      popularity: _asDouble(json['popularity']),
+      genreIds: _asIntList(json['genre_ids']),
     );
   }
 
