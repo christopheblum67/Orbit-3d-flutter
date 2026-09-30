@@ -9,6 +9,8 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
@@ -49,6 +51,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
+    // Contexte d'affinité matchmaking : alimente le badge sur chaque tuile.
+    final affinity = ref.watch(profileAffinityScorerProvider);
+    // Catégories masquées pour l'abonnement actif (persistées par abonnement).
+    final hiddenCategories =
+        ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
@@ -81,8 +88,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               message: 'La bibliothèque de séries est vide pour le moment.',
             );
           }
-          final serverCategories = categoriesAsync.value ?? <MediaCategory>[];
-          final categories = _withRealCounts(serverCategories, seriesList.map((s) => s.categoryId));
+          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+              .where((c) => !hiddenCategories.contains(c.id))
+              .toList(growable: false);
+          // Liste filtrée par catégories masquées. Nommée différemment de
+          // `visibleSeries` (plus bas) qui ne fait que réordonner le tri.
+          final categoryVisibleSeries = hiddenCategories.isEmpty
+              ? seriesList
+              : seriesList
+                  .where((s) => !hiddenCategories.contains(s.categoryId))
+                  .toList(growable: false);
+          final categories = _withRealCounts(
+              serverCategories, categoryVisibleSeries.map((s) => s.categoryId),);
           final seriesFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.series)
               .map((e) => e.id)
@@ -92,17 +109,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               .map((e) => e.id)
               .toSet();
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: seriesList.length),
+            MediaCategory(id: '', name: 'Tous', count: categoryVisibleSeries.length),
             MediaCategory(
               id: 'fav',
               name: 'Favoris',
-              count: seriesList.where((s) => seriesFavIds.contains(s.id)).length,
+              count: categoryVisibleSeries
+                  .where((s) => seriesFavIds.contains(s.id))
+                  .length,
             ),
             MediaCategory(
               id: 'recent',
               name: 'Récemment',
-              count:
-                  seriesList.where((s) => seriesRecentIds.contains(s.id)).length,
+              count: categoryVisibleSeries
+                  .where((s) => seriesRecentIds.contains(s.id))
+                  .length,
             ),
             ...categories,
           ];
@@ -113,19 +133,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 .where((e) => e.type == ContentType.series)
                 .map((e) => e.id)
                 .toSet();
-            filteredSeries =
-                seriesList.where((s) => favIds.contains(s.id)).toList();
+            filteredSeries = categoryVisibleSeries
+                .where((s) => favIds.contains(s.id)).toList();
           } else if (_selectedCategoryId == 'recent') {
             final recentIds = recentEntries.values
                 .where((e) => e.type == ContentType.series)
                 .map((e) => e.id)
                 .toSet();
-            filteredSeries =
-                seriesList.where((s) => recentIds.contains(s.id)).toList();
+            filteredSeries = categoryVisibleSeries
+                .where((s) => recentIds.contains(s.id)).toList();
           } else if (_selectedCategoryId.isEmpty) {
-            filteredSeries = seriesList;
+            filteredSeries = categoryVisibleSeries;
           } else {
-            filteredSeries = seriesList
+            filteredSeries = categoryVisibleSeries
                 .where((s) => s.categoryId == _selectedCategoryId)
                 .toList();
           }
@@ -150,7 +170,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   rating: s.rating,
                   releaseYear: s.year,
                   durationMinutes: 0,
-                  addedDate: DateTime.now(),
+                  // Date d'ajout réelle du panel (champ Xtream `added`) : voir
+                  // le même correctif côté Films.
+                  addedDate: s.addedDate,
                 ),
               )
               .toList();
@@ -268,33 +290,40 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             );
                                         }
 
-return TvFocus(
-                                           onActivate: onOpen,
-                                           child: MediaCard(
-                                             title: series.title,
-                                             posterUrl: series.coverUrl,
-                                             year: series.year,
-                                             genre: series.genre,
-                                             rating: series.rating,
-                                             ageLabel: series.pegiLabel,
-                                             fallbackIcon: Icons.tv,
-                                             favoriteOverlay:
-                                                 FavoriteToggle.overlay(
-                                               entry: FavoriteEntry(
-                                                 type: ContentType.series,
-                                                 id: series.id,
-                                                 title: series.title,
-                                                 posterUrl: series.coverUrl,
-                                                 subtitle: series.year > 0
-                                                     ? '${series.year}'
-                                                     : series.genre,
-                                               ),
-                                             ),
-                                             onTap: onOpen,
-                                             onLongPress: onLongPress,
-                                             isNew: series.isNew,
-                                           ),
-                                         );
+                                        return TvFocus(
+                                          onActivate: onOpen,
+                                          child: MediaCard(
+                                            title: series.title,
+                                            posterUrl: series.coverUrl,
+                  year: series.year,
+                  // Catégorie retirée de la tuile (comme sur les chaînes) :
+                  // l'année et la note suffisent, la ligne reste lisible.
+                  genre: '',
+                  rating: series.rating,
+                  ageLabel: series.pegiLabel,
+                  fallbackIcon: Icons.tv,
+                  // `contain` : l'affiche ne déborde plus de la tuile.
+                  posterFit: BoxFit.contain,
+                  posterPadding: const EdgeInsets.all(6),
+                  // Affinité personnelle du profil courant (module matchmaking).
+                  matchPercent: affinity?.percentForSeries(series),
+                                            favoriteOverlay:
+                                                FavoriteToggle.overlay(
+                                              entry: FavoriteEntry(
+                                                type: ContentType.series,
+                                                id: series.id,
+                                                title: series.title,
+                                                posterUrl: series.coverUrl,
+                                                subtitle: series.year > 0
+                                                    ? '${series.year}'
+                                                    : series.genre,
+                                              ),
+                                            ),
+                                            onTap: onOpen,
+                                            onLongPress: onLongPress,
+                                            isNew: series.isNew,
+                                          ),
+                                        );
                                       },
                                       childCount: visibleSeries.length,
                                     ),

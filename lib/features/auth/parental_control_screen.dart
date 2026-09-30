@@ -82,11 +82,10 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 8),
-
           SwitchListTile(
             secondary: const Icon(Icons.no_adult_content_outlined),
-            title: Text('Masquer le contenu adulte'),
-            subtitle: Text('Films/Séries/Chaînes classés 18+ ou érotique'),
+            title: const Text('Masquer le contenu adulte'),
+            subtitle: const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
             value: profile?.hideAdultContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideAdultContent: v,
@@ -94,8 +93,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.no_backpack_outlined),
-            title: Text('Masquer la violence'),
-            subtitle: Text('Contenus Gore / Horreur / Thriller / Meurtre'),
+            title: const Text('Masquer la violence'),
+            subtitle: const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
             value: profile?.hideViolentContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideViolentContent: v,

@@ -58,22 +58,22 @@ class _ProfileSelectionScreenState
     await storage.setSetting('last_profile_id', profile.id);
     ref.invalidate(profilesProvider);
     if (!mounted) return;
-    
+
     // Small delay to ensure profile state is propagated before navigation
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
-    
+
     // Rafraîchir la validité de l'abonnement actif (Xtream) pour invalider
     // les 4 sections : Live, VOD, Séries, EPG/Replay/Radio.
     // Cela se fait APRÈS la sélection du profil (comme avant).
     final activeSub = ref.read(activeSubscriptionProvider);
     if (activeSub != null && activeSub.type == SubscriptionType.xtream) {
       await ref.read(subscriptionsProvider.notifier).refreshValidity(
-        activeSub.id,
-        api: ref.read(apiServiceProvider),
-      );
+            activeSub.id,
+            api: ref.read(apiServiceProvider),
+          );
     }
-    
+
     // `go` (et non pushReplacement) : réinitialise proprement la pile vers le
     // shell. `pushReplacement` provoque un « pop » de la route courante que le
     // PopScope(canPop:false) de WithBackHandling peut bloquer → écran gris.

@@ -115,7 +115,13 @@ class HomeShell extends ConsumerWidget {
                 ],
               ),
               child: SafeArea(
-                child: NavigationBar(
+                top: false,
+                // Hauteur fixe : sans contrainte, `NavigationBar` calcule sa
+                // hauteur d'apres le contenu et se replie sur deux lignes quand
+                // les libelles sont longs (live_tv_channels, etc.).
+                child: SizedBox(
+                  height: 64,
+                  child: NavigationBar(
                   selectedIndex: selectedIndex,
                   onDestinationSelected: (index) {
                     context.go(entries[index].route);
@@ -135,9 +141,15 @@ class HomeShell extends ConsumerWidget {
                     for (final e in entries)
                       NavigationDestination(
                         icon: Icon(e.icon),
-                        label: e.label,
+                        // Libelle court : `NavigationDestination` ne propose ni
+                        // maxLines ni overflow dans cette version, donc on
+                        // tronque a la source pour garder une seule ligne.
+                        label: e.label.length > 9
+                            ? '${e.label.substring(0, 8)}.'
+                            : e.label,
                       ),
                   ],
+                  ),
                 ),
               ),
             ),

@@ -132,9 +132,8 @@ class _EpgTimelinePainter extends CustomPainter {
         );
       }
 
-      final isNowHour = win.hour == now.hour &&
-          win.day == now.day &&
-          win.month == now.month;
+      final isNowHour =
+          win.hour == now.hour && win.day == now.day && win.month == now.month;
       final tp = TextPainter(
         text: TextSpan(
           text: '${win.hour.toString().padLeft(2, '0')}:00',

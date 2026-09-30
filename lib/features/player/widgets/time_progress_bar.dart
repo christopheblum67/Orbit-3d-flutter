@@ -71,7 +71,8 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
 
   @override
   Widget build(BuildContext context) {
-    final style = widget.textStyle ?? const TextStyle(color: Colors.white70, fontSize: 11);
+    final style = widget.textStyle ??
+        const TextStyle(color: Colors.white70, fontSize: 11);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -99,18 +100,23 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
               ? (details) {
                   final renderBox = context.findRenderObject() as RenderBox?;
                   if (renderBox == null) return;
-                  final localPos = renderBox.globalToLocal(details.globalPosition);
-                  final ratio = (localPos.dx / renderBox.size.width).clamp(0.0, 1.0);
+                  final localPos =
+                      renderBox.globalToLocal(details.globalPosition);
+                  final ratio =
+                      (localPos.dx / renderBox.size.width).clamp(0.0, 1.0);
                   setState(() {
                     dragValue = ratio;
-                    position = Duration(milliseconds: (duration.inMilliseconds * ratio).round());
+                    position = Duration(
+                        milliseconds:
+                            (duration.inMilliseconds * ratio).round(),);
                   });
                 }
               : null,
           onHorizontalDragEnd: widget.allowScrubbing
               ? (details) {
                   isDragging = false;
-                  final targetMs = (duration.inMilliseconds * dragValue).round();
+                  final targetMs =
+                      (duration.inMilliseconds * dragValue).round();
                   widget.controller.seekTo(Duration(milliseconds: targetMs));
                 }
               : null,
@@ -127,7 +133,8 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
                   // Buffer
                   if (widget.controller.value.buffered.isNotEmpty)
                     FractionallySizedBox(
-                      widthFactor: widget.controller.value.buffered.first.end.inMilliseconds /
+                      widthFactor: widget.controller.value.buffered.first.end
+                              .inMilliseconds /
                           duration.inMilliseconds,
                       child: Container(color: widget.colors.bufferedColor),
                     ),

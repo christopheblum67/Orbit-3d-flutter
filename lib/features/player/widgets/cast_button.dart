@@ -219,7 +219,7 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                   Expanded(
                     child: Text(
                       l.castToChromecast,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -231,7 +231,8 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                       if (event is KeyDownEvent &&
                           (event.logicalKey == LogicalKeyboardKey.enter ||
                               event.logicalKey == LogicalKeyboardKey.select ||
-                              event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                              event.logicalKey ==
+                                  LogicalKeyboardKey.gameButtonA)) {
                         Navigator.of(context).pop();
                         return KeyEventResult.handled;
                       }
@@ -241,7 +242,7 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                         // Move focus to first device or retry button
                         if (_deviceFocusNodes.isNotEmpty) {
                           _requestFocus(_deviceFocusNodes.first);
-                        } else if (!_devices.isEmpty) {
+                        } else if (_devices.isNotEmpty) {
                           // fallback
                         } else if (_retryFocus.hasFocus == false) {
                           _requestFocus(_retryFocus);
@@ -264,7 +265,8 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   _feedback!,
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  style:
+                      TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 ),
               ),
             const SizedBox(height: 8),
@@ -280,7 +282,8 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                     if (event is KeyDownEvent &&
                         (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA)) {
                       _disconnect();
                       return KeyEventResult.handled;
                     }
@@ -341,7 +344,9 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cast_connected, size: 32, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(Icons.cast_connected,
+                size: 32,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,),
             const SizedBox(height: 12),
             Text(l.noChromecastDeviceFound, textAlign: TextAlign.center),
             const SizedBox(height: 12),
@@ -364,7 +369,8 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                 }
                 return KeyEventResult.ignored;
               },
-              child: OutlinedButton(onPressed: _scan, child: Text(l.retrySearch)),
+              child:
+                  OutlinedButton(onPressed: _scan, child: Text(l.retrySearch)),
             ),
           ],
         ),
@@ -415,10 +421,14 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                 Icons.tv_rounded,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              title: Text(_devices[i].name, style: const TextStyle(fontSize: 14)),
-              subtitle: Text(_devices[i].host, style: const TextStyle(fontSize: 11)),
+              title:
+                  Text(_devices[i].name, style: const TextStyle(fontSize: 14)),
+              subtitle:
+                  Text(_devices[i].host, style: const TextStyle(fontSize: 11)),
               trailing: Icon(
-                connected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                connected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
                 color: connected
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.onSurfaceVariant,

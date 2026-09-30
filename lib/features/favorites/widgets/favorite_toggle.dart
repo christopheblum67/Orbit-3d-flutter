@@ -33,8 +33,7 @@ class FavoriteToggle extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final favorites = ref.watch(favoritesProvider);
     final profile = ref.watch(currentProfileProvider);
-    final isFavorite =
-        favorites.containsKey(_canonicalKey(entry, profile?.id));
+    final isFavorite = favorites.containsKey(_canonicalKey(entry, profile?.id));
 
     Future<void> onToggle() async {
       final wasFavorite = isFavorite;

@@ -180,9 +180,11 @@ class _ConstellationDualScreenViewState
         }),
         const SizedBox(width: 8),
         _pipButton(Icons.aspect_ratio, 'Layout', () {
-          setState(() => _layout = _layout == DualScreenLayout.splitEqual
-              ? DualScreenLayout.mainWithPip
-              : DualScreenLayout.splitEqual,);
+          setState(
+            () => _layout = _layout == DualScreenLayout.splitEqual
+                ? DualScreenLayout.mainWithPip
+                : DualScreenLayout.splitEqual,
+          );
         }),
       ],
     );
@@ -214,22 +216,32 @@ class _ConstellationDualScreenViewState
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _controlButton(Icons.volume_up, 'Audio 1',
-                () => setState(() => _focusedPlayer = 0),),
-            _controlButton(Icons.volume_off, 'Audio 2',
-                () => setState(() => _focusedPlayer = 1),),
             _controlButton(
-                Icons.swap_horiz,
-                'Swap',
-                () => setState(
-                    () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0,),),
+              Icons.volume_up,
+              'Audio 1',
+              () => setState(() => _focusedPlayer = 0),
+            ),
             _controlButton(
-                Icons.aspect_ratio,
-                'Layout',
-                () => setState(() => _layout =
-                    _layout == DualScreenLayout.splitEqual
-                        ? DualScreenLayout.mainWithPip
-                        : DualScreenLayout.splitEqual,),),
+              Icons.volume_off,
+              'Audio 2',
+              () => setState(() => _focusedPlayer = 1),
+            ),
+            _controlButton(
+              Icons.swap_horiz,
+              'Swap',
+              () => setState(
+                () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0,
+              ),
+            ),
+            _controlButton(
+              Icons.aspect_ratio,
+              'Layout',
+              () => setState(
+                () => _layout = _layout == DualScreenLayout.splitEqual
+                    ? DualScreenLayout.mainWithPip
+                    : DualScreenLayout.splitEqual,
+              ),
+            ),
             _controlButton(Icons.fullscreen, 'Plein écran', () {}),
           ],
         ),
@@ -254,8 +266,10 @@ class _ConstellationDualScreenViewState
           ),
         ),
         const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(color: Colors.white54, fontSize: 10),),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white54, fontSize: 10),
+        ),
       ],
     );
   }

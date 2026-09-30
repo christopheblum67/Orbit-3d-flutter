@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -13,6 +14,7 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -52,7 +54,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           }
         },
       );
-    }, context: '_initSpeech', fallbackValue: false);
+    }, context: '_initSpeech', fallbackValue: false,);
     _speechInitialized = result.valueOrNull ?? false;
   }
 
@@ -129,15 +131,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final query = _searchController.text.trim();
     final uri = GoRouterState.of(context).uri;
     final typeParam = uri.queryParameters['type'];
-    final filterType = typeParam != null
-        ? SearchType.values.byName(typeParam)
-        : null;
+    final filterType =
+        typeParam != null ? SearchType.values.byName(typeParam) : null;
+    final categoryId = uri.queryParameters['category'];
 
     final searchAsync = filterType != null
-        ? ref.watch(searchFilteredProvider((
-            query: query,
-            filterType: filterType,
-          ),),)
+        ? ref.watch(
+            searchFilteredProvider(
+              (
+                query: query,
+                filterType: filterType,
+                categoryId: categoryId,
+              ),
+            ),
+          )
         : ref.watch(searchProvider(query));
     final suggestionsAsync = ref.watch(searchSuggestionsProvider(query));
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
@@ -147,6 +154,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         child: Column(
           children: [
             _buildSearchBar(query, suggestionsAsync, historyAsync, filterType),
+            // Sélecteur de catégorie : la recherche suit le même principe de
+            // filtrage que les grilles VOD / Séries / Chaînes. Sans lui, une
+            // recherche dans une section renvoyait toute la section, et
+            // l'utilisateur découvrait des résultats hors du périmètre choisi.
+            if (filterType != null && categoryId != null)
+              _buildCategorySelector(filterType),
             Expanded(
               child: query.isEmpty
                   ? _buildEmptyState(historyAsync, filterType)
@@ -158,12 +171,88 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
+  /// Sélecteur de catégorie, aligné sur le principe des grilles de section.
+  ///
+  /// Alimente `?category=` dans l'URL plutôt qu'un état local : la catégorie
+  /// choisie survit à une rotation, à une reconstruction de l'écran, et reste
+  /// partageable. C'est aussi ce qui permet à `searchFilteredProvider` de
+  /// réagir sans état dupliqué.
+  ///
+  /// L'EPG et le replay n'ont pas de grille de catégories équivalente : le
+  /// sélecteur ne s'affiche alors pas, plutôt que d'imposer un filtrage qui ne
+  /// correspond à rien.
+  Widget _buildCategorySelector(SearchType filterType) {
+    final AsyncValue<List<MediaCategory>> cats = switch (filterType) {
+      SearchType.vod => ref.watch(vodCategoriesProvider),
+      SearchType.series => ref.watch(seriesCategoriesProvider),
+      _ => const AsyncValue.data(<MediaCategory>[]),
+    };
+    final categories = cats.value ?? const <MediaCategory>[];
+    final uri = GoRouterState.of(context).uri;
+    final current = uri.queryParameters['category'] ?? '';
+
+    if (categories.isEmpty) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          // « Toutes » remet la catégorie à zéro (paramètre absent).
+          _categoryChip(
+            label: 'Toutes',
+            selected: current.isEmpty,
+            onTap: () => _setCategory(null),
+          ),
+          for (final c in categories)
+            _categoryChip(
+              label: c.name,
+              selected: current == c.id,
+              onTap: () => _setCategory(c.id),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 5),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: selected ? scheme.onSecondaryContainer : null,
+            ),
+        selectedColor: scheme.secondaryContainer,
+        backgroundColor: scheme.surfaceContainerHighest,
+      ),
+    );
+  }
+
+  void _setCategory(String? id) {
+    final uri = GoRouterState.of(context).uri;
+    final params = <String, String>{...uri.queryParameters};
+    if (id == null || id.isEmpty) {
+      params.remove('category');
+    } else {
+      params['category'] = id;
+    }
+    context.go(uri.replace(queryParameters: params).toString());
+  }
+
   Widget _buildSearchBar(
     String query,
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
-    SearchType? filterType,
-  ) {
+    SearchType? filterType,  ) {
     final scheme = Theme.of(context).colorScheme;
     final searchController = SearchController();
 
@@ -222,7 +311,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               _focusNode.unfocus();
             },
             padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 12),),
+              EdgeInsets.symmetric(horizontal: 12),
+            ),
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             ),
@@ -287,7 +377,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Iterable<Widget> _buildHistorySuggestions(
-      Future<List<String>> historyFuture,) {
+    Future<List<String>> historyFuture,
+  ) {
     return [
       FutureBuilder<List<String>>(
         future: historyFuture,
@@ -301,12 +392,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(l.recentSearches,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontWeight: FontWeight.w600),),
               ),
-              ...history.map((h) => _buildSuggestionTile(
-                  SearchSuggestion(text: h, isHistory: true),),),
+              ...history.map(
+                (h) => _buildSuggestionTile(
+                  SearchSuggestion(text: h, isHistory: true),
+                ),
+              ),
             ],
           );
         },
@@ -340,7 +435,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildEmptyState(Future<List<String>> historyFuture, SearchType? filterType) {
+  Widget _buildEmptyState(
+      Future<List<String>> historyFuture, SearchType? filterType,) {
     return FutureBuilder<List<String>>(
       future: historyFuture,
       builder: (context, snapshot) {
@@ -364,9 +460,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       filterType != null
                           ? 'Recherche dans ${_typeLabel(filterType)}'
                           : 'Recherche unifiée',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                     ),
                     if (filterType != null) ...[
                       const SizedBox(width: 12),
@@ -397,11 +494,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700)),
+                                ?.copyWith(fontWeight: FontWeight.w700),),
                         const Spacer(),
                         TextButton(
                           onPressed: () async {
-                            await ref.read(searchServiceProvider).clearHistory();
+                            await ref
+                                .read(searchServiceProvider)
+                                .clearHistory();
                             setState(() {});
                           },
                           child: const Text('Effacer'),
@@ -439,7 +538,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildResults(
-      AsyncValue<UnifiedSearchResult> searchAsync, String query, SearchType? filterType,) {
+    AsyncValue<UnifiedSearchResult> searchAsync,
+    String query,
+    SearchType? filterType,
+  ) {
     return searchAsync.when(
       data: (result) {
         if (result.items.isEmpty) {
@@ -448,10 +550,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         return RefreshIndicator(
           onRefresh: () async {
             if (filterType != null) {
-              ref.invalidate(searchFilteredProvider((
-                query: query,
-                filterType: filterType,
-              ),),);
+              ref.invalidate(
+                searchFilteredProvider(
+                  (
+                    query: query,
+                    filterType: filterType,
+                    categoryId: GoRouterState.of(context).uri
+                        .queryParameters['category'],
+                  ),
+                ),
+              );
             } else {
               ref.invalidate(searchProvider(query));
             }
@@ -499,7 +607,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsHeader(BuildContext context, UnifiedSearchResult result, SearchType? filterType) {
+  Widget _buildResultsHeader(BuildContext context, UnifiedSearchResult result,
+      SearchType? filterType,) {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -530,7 +639,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Iterable<Widget> _buildGroupedResults(
-      UnifiedSearchResult result, String query,) {
+    UnifiedSearchResult result,
+    String query,
+  ) {
     final grouped = result.groupedByType;
     final typeOrder = [
       SearchType.live,
@@ -556,8 +667,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       padding: const EdgeInsets.only(bottom: 8, top: 8),
       child: Row(
         children: [
-          Icon(_typeIcon(type),
-              size: 20, color: Theme.of(context).colorScheme.primary,),
+          Icon(
+            _typeIcon(type),
+            size: 20,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 8),
           Text(
             '${_typeLabel(type)} ($count)',
@@ -582,20 +696,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           leading: item.posterUrl.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    item.posterUrl,
+                  child: CachedImage(
+                    imageUrl: item.posterUrl,
                     width: 56,
                     height: 84,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholderIcon(item.type),
+                    errorWidget: (_, __, ___) => _placeholderIcon(item.type),
                   ),
                 )
               : _placeholderIcon(item.type),
-          title: Text.rich(highlightedTitle,
-              maxLines: 1, overflow: TextOverflow.ellipsis,),
+          title: Text.rich(
+            highlightedTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           subtitle: item.subtitle.isNotEmpty
-              ? Text.rich(highlightedSubtitle,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,)
+              ? Text.rich(
+                  highlightedSubtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
               : null,
           trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
               ? const Icon(Icons.play_circle_filled, size: 28)
@@ -615,8 +735,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(_typeIcon(type),
-          size: 28, color: Theme.of(context).colorScheme.onSurfaceVariant,),
+      child: Icon(
+        _typeIcon(type),
+        size: 28,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
     );
   }
 
@@ -662,12 +785,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         SearchType.replay => PlaybackContentType.replay,
         _ => PlaybackContentType.live,
       };
-      final movie = item.originalObject is Movie
-          ? item.originalObject as Movie
-          : null;
-      final series = item.originalObject is Series
-          ? item.originalObject as Series
-          : null;
+      final movie =
+          item.originalObject is Movie ? item.originalObject as Movie : null;
+      final series =
+          item.originalObject is Series ? item.originalObject as Series : null;
       context.push(
         '/player',
         extra: PlayerRouteData(
@@ -717,11 +838,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(program.title,
-                style: Theme.of(context).textTheme.headlineSmall,),
+            Text(
+              program.title,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 8),
             Text(
-                '${program.channelId} · ${program.start.toString().substring(11, 16)}–${program.end.toString().substring(11, 16)}',),
+              '${program.channelId} · ${program.start.toString().substring(11, 16)}–${program.end.toString().substring(11, 16)}',
+            ),
             if (program.description.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(program.description),
@@ -745,12 +869,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant
-                  .withValues(alpha: 0.5),),
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 16),
           Text(
             'Aucun résultat pour "$query"',
@@ -777,7 +903,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.error_outline,
-              size: 64, color: Theme.of(context).colorScheme.error),
+              size: 64, color: Theme.of(context).colorScheme.error,),
           const SizedBox(height: 16),
           Text(l.searchError, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

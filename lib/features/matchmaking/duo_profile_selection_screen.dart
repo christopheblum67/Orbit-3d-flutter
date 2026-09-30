@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -79,8 +80,8 @@ class _DuoProfileSelectionScreenState
                   itemBuilder: (context, index) {
                     final profile = othersAscending[index];
                     final selected = _selectedIds.contains(profile.id);
-                    final disabled = !selected &&
-                        _selectedIds.length >= maxAdditional;
+                    final disabled =
+                        !selected && _selectedIds.length >= maxAdditional;
                     return _DuoProfileCard(
                       profile: profile,
                       index: index,
@@ -233,7 +234,7 @@ class _DuoProfileSelectionScreenState
     if (current == null) return;
     if (_selectedIds.isEmpty) return;
 
-    final group = [current.id, ..._selectedIds];
+    final group = canonicalProfileGroup([current.id, ..._selectedIds]);
     context.go('/matchmaking/duo', extra: group);
   }
 }
@@ -383,7 +384,8 @@ class _DuoProfileCardState extends ConsumerState<_DuoProfileCard>
                         ? scheme.surfaceContainerHighest
                         : scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.primary.withValues(alpha: 0.4)),
+                border:
+                    Border.all(color: scheme.primary.withValues(alpha: 0.4)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

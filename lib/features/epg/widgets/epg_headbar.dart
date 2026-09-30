@@ -4,6 +4,7 @@ import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 
 /// Type de contenu affiché dans la headbar
 enum EpgHeadbarType { live, movie, series, replay }
@@ -110,7 +111,9 @@ class EpgHeadbar extends StatelessWidget {
                             if (isLive)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2,),
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.redAccent,
                                   borderRadius: BorderRadius.circular(10),
@@ -179,8 +182,10 @@ class EpgHeadbar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               border: Border(
-                  top: BorderSide(
-                      color: scheme.outlineVariant.withValues(alpha: 0.1),),),
+                top: BorderSide(
+                  color: scheme.outlineVariant.withValues(alpha: 0.1),
+                ),
+              ),
             ),
             child: Row(
               children: [
@@ -225,12 +230,12 @@ class EpgHeadbar extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: imageUrl != null
-          ? Image.network(
-              imageUrl,
+          ? CachedImage(
+              imageUrl: imageUrl,
               width: size,
               height: size,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _placeholder(context),
+              errorWidget: (_, __, ___) => _placeholder(context),
             )
           : _placeholder(context),
     );
@@ -387,9 +392,10 @@ class _NextProgramWidget extends StatelessWidget {
           Text(
             nextProgram!.title,
             style: TextStyle(
-                color: scheme.onSurface,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,),
+              color: scheme.onSurface,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -505,9 +511,11 @@ class _ActionButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 18,
-                color: isActive ? activeColor : scheme.onSurfaceVariant,),
+            Icon(
+              icon,
+              size: 18,
+              color: isActive ? activeColor : scheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 6),
             Text(
               label,

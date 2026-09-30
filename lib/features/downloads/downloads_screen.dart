@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/download_manager.dart';
@@ -62,11 +62,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       child: Chip(
                         label: Text(l.activeCountOngoing(activeCount)),
                         avatar: Icon(Icons.download_for_offline,
-                            size: 16, color: scheme.onPrimaryContainer),
+                            size: 16, color: scheme.onPrimaryContainer,),
                         backgroundColor: scheme.primaryContainer,
                         labelStyle: TextStyle(
                             color: scheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600),
+                            fontWeight: FontWeight.w600,),
                       ),
                     ),
                   );
@@ -87,7 +87,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             return EmptyState(
               icon: Icons.download_for_offline_outlined,
               title: l.noDownloads,
-              message: 'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
+              message:
+                  'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
               action: TextButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.explore),
@@ -106,6 +107,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
+            cacheExtent: 500,
+            addAutomaticKeepAlives: false,
             itemCount: sortedTasks.length,
             itemBuilder: (context, index) {
               return DownloadTile(
@@ -159,7 +162,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             'seriesId': seriesId,
             'season': season,
             'episode': episode,
-          });
+          },);
         } else if (seriesId != null) {
           context.go('/series/detail', extra: {'id': seriesId});
         }
@@ -221,11 +224,10 @@ class DownloadTile extends ConsumerWidget {
                     width: 60,
                     height: 90,
                     child: task.posterUrl != null && task.posterUrl!.isNotEmpty
-                        ? Image.network(
-                            task.posterUrl!,
+                        ? CachedImage(
+                            imageUrl: task.posterUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _posterFallback(context),
+                            errorWidget: (_, __, ___) => _posterFallback(context),
                           )
                         : _posterFallback(context),
                   ),
@@ -323,7 +325,7 @@ class DownloadTile extends ConsumerWidget {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(Icons.movie_outlined,
-          color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32),
+          color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32,),
     );
   }
 }
@@ -334,7 +336,7 @@ class _StatusChip extends StatelessWidget {
 
   final DownloadStatus status;
 
-@override
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -411,7 +413,7 @@ class _ActionButtons extends StatelessWidget {
         icon: Icon(Icons.pause, color: scheme.primary),
         tooltip: l.pauseDownload,
       );
-} else if (task.status == DownloadStatus.paused) {
+    } else if (task.status == DownloadStatus.paused) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -461,7 +463,7 @@ class _ProgressBar extends StatelessWidget {
               ? Colors.green
               : (isPaused
                   ? Colors.orange
-                  : Theme.of(context).colorScheme.primary)),
+                  : Theme.of(context).colorScheme.primary),),
           minHeight: 6,
           borderRadius: BorderRadius.circular(3),
         ),
@@ -479,8 +481,9 @@ class _ProgressBar extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

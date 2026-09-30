@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -19,10 +18,12 @@ import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/utils/epg_search.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
-import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/catch_up_screen.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_preview_header.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Guide TV (EPG) : affiche la Grille EPG seule.
@@ -40,6 +41,8 @@ class EpgScreen extends ConsumerStatefulWidget {
 
 class _EpgScreenState extends ConsumerState<EpgScreen> {
   String? _gridCategory;
+  EPGProgram? _selectedProgram;
+  Channel? _selectedChannel;
   late final EpgTimelineController _timelineController;
 
   @override
@@ -88,10 +91,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         if (channels.isEmpty) {
           return Center(child: Text(l.noChannelsAvailable));
         }
+        const ungroupedLabel = 'Non groupé';
+        String categoryOf(Channel c) =>
+            c.groupLabel.isEmpty ? ungroupedLabel : c.groupLabel;
         final groupCounts = <String, int>{};
         for (final c in channels) {
-          if (c.groupLabel.isEmpty) continue;
-          groupCounts[c.groupLabel] = (groupCounts[c.groupLabel] ?? 0) + 1;
+          final key = categoryOf(c);
+          groupCounts[key] = (groupCounts[key] ?? 0) + 1;
         }
         final categories = [
           for (final entry in groupCounts.entries)
@@ -101,8 +107,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               count: entry.value,
             ),
         ];
-        final effective = _gridCategory ??
-            (categories.isNotEmpty ? categories.first.id : null);
+        final effective = _gridCategory ?? categories.first.id;
         final favIds = favoriteEntries.values
             .where((e) => e.type == ContentType.live)
             .map((e) => e.id)
@@ -119,15 +124,11 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
           visible = channels.where((c) => favIds.contains(c.id)).toList();
         } else if (effective == 'recent') {
           visible = channels.where((c) => recentIds.contains(c.id)).toList();
-        } else if (effective == null) {
-          visible = const [];
         } else {
-          visible = channels.where((c) => c.groupLabel == effective).toList();
+          visible = channels.where((c) => categoryOf(c) == effective).toList();
         }
         return Column(
           children: [
-            // Frise temporelle continue (EPG Timeline)
-            _EpgTimelineHeader(controller: _timelineController),
             // Barre d'en-tête unifiée : programme en cours + programme suivant
             // + actions (favori, lecture, info) pour la chaîne ciblée.
             _EpgHeadbarSection(
@@ -142,6 +143,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               onSelected: (category) =>
                   setState(() => _gridCategory = category),
             ),
+            // Aperçu du programme sélectionné
+            if (_selectedProgram != null)
+              EPGPreviewHeader(
+                channel: _selectedChannel,
+                program: _selectedProgram,
+                currentTimeSec: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              ),
             Expanded(
               child: visible.isEmpty
                   ? Center(
@@ -159,6 +167,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                       channels: visible.map((c) => c.name).toList(),
                       channelObjects: visible,
                       timelineController: _timelineController,
+                      onProgramSelected: (program, channel) {
+                        setState(() {
+                          _selectedProgram = program;
+                          _selectedChannel = channel;
+                        });
+                        _showProgramDetails(context, program, channel);
+                      },
                     ),
             ),
           ],
@@ -170,296 +185,6 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         title: l.channelsUnavailable,
         message: 'Impossible de charger les chaînes.',
         onRetry: () => ref.invalidate(liveChannelsProvider),
-      ),
-    );
-  }
-}
-
-/// Barre de filtrage par catégorie (groupes de chaînes) au-dessus de la grille.
-class _CategoryFilterBar extends StatelessWidget {
-  const _CategoryFilterBar({
-    required this.categories,
-    required this.selected,
-    required this.onSelected,
-    this.favCount = 0,
-    this.recentCount = 0,
-  });
-
-  final List<MediaCategory> categories;
-  final String? selected;
-  final ValueChanged<String?> onSelected;
-  final int favCount;
-  final int recentCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return Container(
-      height: 56,
-      color: const Color(0xFF0D0E12),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _chip(
-            label: 'Favoris',
-            count: favCount,
-            selected: selected == 'fav',
-            onTap: () => onSelected('fav'),
-          ),
-          _chip(
-            label: l.recentlyWatched,
-            count: recentCount,
-            selected: selected == 'recent',
-            onTap: () => onSelected('recent'),
-          ),
-          for (final category in categories)
-            _chip(
-              label: category.name,
-              count: category.count,
-              selected: selected == category.id,
-              onTap: () => onSelected(category.id),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    int count = 0,
-  }) {
-    final labelled = count > 0 ? '$label ($count)' : label;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(labelled),
-        selected: selected,
-        onSelected: (_) => onTap(),
-        backgroundColor: const Color(0xFF16181E),
-        selectedColor: const Color(0xFF2D224D),
-        checkmarkColor: const Color(0xFF8B5CF6),
-        labelStyle: TextStyle(
-          color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-/// En-tête EPG avec frise temporelle + navigation.
-class _EpgTimelineHeader extends StatelessWidget {
-  final EpgTimelineController controller;
-
-  const _EpgTimelineHeader({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      color: const Color(0xFF0D0E12),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 140,
-            alignment: Alignment.center,
-            child: const Text(
-              'En Direct',
-              style: TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.remove, size: 18),
-            tooltip: '-1h',
-            color: Colors.white70,
-            visualDensity: VisualDensity.compact,
-            onPressed: () {
-              final t = controller
-                  .pixelsToTime(controller.gridOffset.value)
-                  .add(const Duration(hours: -1));
-              controller.jumpTo(t);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.access_time, size: 18),
-            tooltip: 'Maintenant',
-            color: const Color(0xFF8B5CF6),
-            visualDensity: VisualDensity.compact,
-            onPressed: () {
-              controller.jumpTo(DateTime.now());
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, size: 18),
-            tooltip: '+1h',
-            color: Colors.white70,
-            visualDensity: VisualDensity.compact,
-            onPressed: () {
-              final t = controller
-                  .pixelsToTime(controller.gridOffset.value)
-                  .add(const Duration(hours: 1));
-              controller.jumpTo(t);
-            },
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: EpgTimeline(
-                controller: controller,
-                onScrub: (time) {
-                  controller.jumpTo(time);
-                },
-                onTimeSelected: (time) {
-                  controller.jumpTo(time);
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Wrapper pour la Grille EPG avec chargement EPG par chaîne.
-class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
-  final List<String> channels;
-  final List<Channel> channelObjects;
-  final EpgTimelineController timelineController;
-
-  const _EpgGrid2DWrapper({
-    super.key,
-    required this.channels,
-    required this.channelObjects,
-    required this.timelineController,
-  });
-
-  @override
-  ConsumerState<_EpgGrid2DWrapper> createState() => _EpgGrid2DWrapperState();
-}
-
-class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
-  final Map<String, List<EPGProgram>> _epgData = {};
-  final Set<String> _loadingChannels = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAllEpg();
-  }
-
-  Future<void> _loadAllEpg() async {
-    // 1. Un seul téléchargement XMLTV (le gros morceau), primé une fois via le
-    // cache partagé avant de filtrer en parallèle.
-    final api = ref.read(apiServiceProvider);
-    final cache = ref.read(epgDataCacheProvider);
-    await safeAsync(
-      () => cache.loadFull(api),
-      context: '_loadAllEpg cache.loadFull',
-    );
-
-    // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
-    // au lieu d'un rebuild complet de la grille à chaque chaîne (ANR sinon).
-    final byName = {for (final c in widget.channelObjects) c.name: c};
-    const chunkSize = 8;
-    for (var i = 0; i < widget.channels.length; i += chunkSize) {
-      final chunk = widget.channels.skip(i).take(chunkSize);
-      final tasks = <Future<void>>[];
-      final chunkResults = <String, List<EPGProgram>>{};
-      for (final channelName in chunk) {
-        if (_loadingChannels.contains(channelName)) continue;
-        _loadingChannels.add(channelName);
-        final channel = byName[channelName];
-        if (channel == null || channel.epgChannelId.isEmpty) {
-          _loadingChannels.remove(channelName);
-          continue;
-        }
-        tasks.add(_loadOne(channelName, channel, chunkResults));
-      }
-      await Future.wait(tasks);
-      if (mounted) {
-        setState(() => _epgData.addAll(chunkResults));
-      }
-    }
-    if (mounted) setState(() {});
-    _warmPreload();
-  }
-
-  /// Précharge 7 jours des guides courts (get_short_epg) en arrière-plan pour
-  /// les chaînes listées, parallélisme borné. Non bloquant : la grille est
-  /// déjà affichée.
-  void _warmPreload() {
-    final service = ref.read(epgPreloadServiceProvider);
-    final api = ref.read(apiServiceProvider);
-    unawaited(
-      service.preload(
-        widget.channelObjects,
-        (channel) => api.fetchChannelEpgPrograms(channel),
-      ),
-    );
-  }
-
-  Future<void> _loadOne(
-    String channelName,
-    Channel channel,
-    Map<String, List<EPGProgram>> out,
-  ) async {
-    final result = await safeAsync(
-      () => ref.read(channelEpgProvider(channel.epgChannelId).future),
-      context: '_loadOne channelEpgProvider',
-    );
-    if (result.isSuccess) {
-      out[channelName] = result.valueOrNull!;
-    } else {
-      LoggerService.instance.warning('_loadOne failed', error: result.errorOrNull);
-    }
-    if (mounted) {
-      _loadingChannels.remove(channelName);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadAllEpg,
-      child: EpgGrid2DView(
-        channels: widget.channels,
-        epgData: _epgData,
-        pixelsPerMinute: 4.0,
-        replayChannels: {
-          for (final c in widget.channelObjects)
-            if (c.supportsReplay) c.name,
-        },
-        onProgramTap: (program, channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          _showProgramDetails(context, program, channel);
-        },
-        onChannelTap: (channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          Navigator.pushNamed(
-            context,
-            '/player',
-            arguments: {
-              'streamUrl': channel.streamUrl,
-              'title': channel.name,
-              'contentType': 'live',
-            },
-          );
-        },
-        // Use shared timeline controller
-        timelineController: widget.timelineController,
       ),
     );
   }
@@ -625,6 +350,245 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       '${dt.minute.toString().padLeft(2, '0')}';
 }
 
+/// Barre de filtrage par catégorie (groupes de chaînes) au-dessus de la grille.
+class _CategoryFilterBar extends StatelessWidget {
+  const _CategoryFilterBar({
+    required this.categories,
+    required this.selected,
+    required this.onSelected,
+    this.favCount = 0,
+    this.recentCount = 0,
+  });
+
+  final List<MediaCategory> categories;
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+  final int favCount;
+  final int recentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Container(
+      height: 56,
+      color: const Color(0xFF0D0E12),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _chip(
+            label: 'Favoris',
+            count: favCount,
+            selected: selected == 'fav',
+            onTap: () => onSelected('fav'),
+          ),
+          _chip(
+            label: l.recentlyWatched,
+            count: recentCount,
+            selected: selected == 'recent',
+            onTap: () => onSelected('recent'),
+          ),
+          for (final category in categories)
+            _chip(
+              label: category.name,
+              count: category.count,
+              selected: selected == category.id,
+              onTap: () => onSelected(category.id),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    int count = 0,
+  }) {
+    final labelled = count > 0 ? '$label ($count)' : label;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(labelled),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        backgroundColor: const Color(0xFF16181E),
+        selectedColor: const Color(0xFF2D224D),
+        checkmarkColor: const Color(0xFF8B5CF6),
+        labelStyle: TextStyle(
+          color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+/// Wrapper pour la Grille EPG avec chargement EPG par chaîne.
+class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
+  final List<String> channels;
+  final List<Channel> channelObjects;
+  final EpgTimelineController timelineController;
+  final void Function(EPGProgram program, Channel channel)? onProgramSelected;
+
+  const _EpgGrid2DWrapper({
+    super.key,
+    required this.channels,
+    required this.channelObjects,
+    required this.timelineController,
+    this.onProgramSelected,
+  });
+
+  @override
+  ConsumerState<_EpgGrid2DWrapper> createState() => _EpgGrid2DWrapperState();
+}
+
+class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
+  final Map<String, List<EPGProgram>> _epgData = {};
+  final Set<String> _loadingChannels = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllEpg();
+  }
+
+  Future<void> _loadAllEpg() async {
+    // 1. Un seul téléchargement XMLTV (le gros morceau), primé une fois via le
+    // cache partagé avant de filtrer en parallèle.
+    final api = ref.read(apiServiceProvider);
+    final cache = ref.read(epgDataCacheProvider);
+    await safeAsync(
+      () => cache.loadFull(api),
+      context: '_loadAllEpg cache.loadFull',
+    );
+
+    // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
+    // au lieu d'un rebuild complet de la grille à chaque chaîne (ANR sinon).
+    final byName = {for (final c in widget.channelObjects) c.name: c};
+    const chunkSize = 8;
+    for (var i = 0; i < widget.channels.length; i += chunkSize) {
+      final chunk = widget.channels.skip(i).take(chunkSize);
+      final tasks = <Future<void>>[];
+      final chunkResults = <String, List<EPGProgram>>{};
+      for (final channelName in chunk) {
+        if (_loadingChannels.contains(channelName)) continue;
+        _loadingChannels.add(channelName);
+        final channel = byName[channelName];
+        if (channel == null) {
+          _loadingChannels.remove(channelName);
+          continue;
+        }
+        // Si le panel n'expose pas d'identifiant EPG, on tente le nom de la
+        // chaîne : l'index XMLTV contient souvent cette forme exacte. Sans ce
+        // repli, la ligne restait vide dans la grille.
+        // `epgChannelId` peut contenir plusieurs candidats séparés par une
+        // virgule (« stream_id,num:stream_id ») : le passer en entier comme
+        // clé de provider ne pouvait donc jamais correspondre à l'index
+        // XMLTV. On ne transmet que le premier candidat — `channelEpgProvider`
+        // essaie de lui-même toutes les formes.
+        final epgId = channel.primaryEpgChannelId.isNotEmpty
+            ? channel.primaryEpgChannelId
+            : channelName;
+        tasks.add(_loadOne(channelName, channel, epgId, chunkResults));
+      }
+      await Future.wait(tasks);
+      if (mounted) {
+        setState(() => _epgData.addAll(chunkResults));
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadOne(
+    String channelName,
+    Channel channel,
+    String epgId,
+    Map<String, List<EPGProgram>> out,
+  ) async {
+    final result = await safeAsync(
+      () => ref.read(channelEpgProvider(epgId).future),
+      context: '_loadOne channelEpgProvider',
+    );
+    if (result.isSuccess) {
+      // Fenêtre alignée sur la grille : elle démarre 1 h avant l'heure courante
+      // et couvre 24 h (cf. `EpgGrid2DView` : `_gridStartTime = now - 1h` et
+      // `totalWidth = 24 * 60 * pixelsPerMinute`).
+      //
+      // Le filtre d'origine (30 min avant / 3 h après) ne chargeait que
+      // ~10 % de la largeur utile : les 21 heures restantes s'affichaient
+      // vides, ce qui donnait l'impression d'un guide incomplet.
+      const windowStartOffset = -3600; // -1 h
+      const windowEndOffset = 86400; // +24 h
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final filtered = EPGSearchEngine.getProgramsInWindow(
+        result.valueOrNull!,
+        now + windowStartOffset,
+        now + windowEndOffset,
+      );
+      out[channelName] = filtered;
+    } else {
+      LoggerService.instance
+          .warning('_loadOne failed', error: result.errorOrNull);
+    }
+    if (mounted) {
+      _loadingChannels.remove(channelName);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _loadAllEpg,
+      child: EpgGrid2DView(
+        channels: widget.channels,
+        epgData: _epgData,
+        pixelsPerMinute: 4.0,
+        replayChannels: {
+          for (final c in widget.channelObjects)
+            if (c.supportsReplay) c.name,
+        },
+        onProgramTap: (program, channelName) {
+          final channel =
+              widget.channelObjects.firstWhere((c) => c.name == channelName);
+          widget.onProgramSelected?.call(program, channel);
+        },
+        onChannelTap: (channelName) {
+          // Invalidate EPG cache on zap to free memory
+          ref.read(epgDataCacheProvider).invalidate();
+          final channel =
+              widget.channelObjects.firstWhere((c) => c.name == channelName);
+          Navigator.pushNamed(
+            context,
+            '/player',
+            arguments: {
+              'streamUrl': channel.streamUrl,
+              'title': channel.name,
+              'contentType': 'live',
+            },
+          );
+        },
+        onChannelLongPress: (channelName) {
+          final channel =
+              widget.channelObjects.firstWhere((c) => c.name == channelName);
+          if (channel.supportsReplay) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CatchUpScreen(channel: channel),
+              ),
+            );
+          }
+        },
+        // Use shared timeline controller
+        timelineController: widget.timelineController,
+      ),
+    );
+  }
+}
+
 /// Section en-tête EPG unifiée : affiche [EpgHeadbar] pour la chaîne ciblée
 /// dans la grille (row temps + toolbar du bas).
 ///
@@ -682,13 +646,13 @@ class _EpgHeadbarSection extends ConsumerWidget {
           isLive: true,
           isFavorite: _isFavorite(ref, 'live', channel),
           currentProgram: ref
-              .watch(channelEpgProvider(channel.epgChannelId))
+              .watch(channelEpgProvider(channel.primaryEpgChannelId))
               .maybeWhen(
                 data: (programs) => epgCurrentProgram(programs, DateTime.now()),
                 orElse: () => null,
               ),
           nextProgram: ref
-              .watch(channelEpgProvider(channel.epgChannelId))
+              .watch(channelEpgProvider(channel.primaryEpgChannelId))
               .maybeWhen(
                 data: (programs) => epgNextProgram(programs, DateTime.now()),
                 orElse: () => null,
@@ -717,12 +681,12 @@ class _EpgHeadbarSection extends ConsumerWidget {
           },
           onInfo: () {
             final programs =
-                ref.read(channelEpgProvider(channel.epgChannelId)).value;
+                ref.read(channelEpgProvider(channel.primaryEpgChannelId)).value;
             final current = programs == null
                 ? null
                 : epgCurrentProgram(programs, DateTime.now());
             if (current != null) {
-              _showProgramBottomSheet(context, current);
+              _showProgramBottomSheet(context, current, channel);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -749,9 +713,27 @@ class _EpgHeadbarSection extends ConsumerWidget {
     return favorites.containsKey(key);
   }
 
-  Future<void> _showProgramBottomSheet(BuildContext context, EPGProgram program) async {
+  Future<void> _showProgramBottomSheet(
+    BuildContext context,
+    EPGProgram program,
+    Channel channel,
+  ) async {
     final scheme = Theme.of(context).colorScheme;
     final watchFocus = FocusNode();
+
+    void watch() {
+      Navigator.pop(context);
+      Navigator.pushNamed(
+        context,
+        '/player',
+        arguments: {
+          'streamUrl': channel.streamUrl,
+          'title': channel.name,
+          'contentType': 'live',
+          'channelId': channel.id,
+        },
+      );
+    }
 
     await showModalBottomSheet(
       context: context,
@@ -796,15 +778,15 @@ class _EpgHeadbarSection extends ConsumerWidget {
                     (event.logicalKey == LogicalKeyboardKey.enter ||
                         event.logicalKey == LogicalKeyboardKey.select ||
                         event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  Navigator.pop(context);
+                  watch();
                   return KeyEventResult.handled;
                 }
                 return KeyEventResult.ignored;
               },
               child: FilledButton.icon(
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Regarder'),
-                onPressed: () => Navigator.pop(context),
+                label: Text('Regarder ${channel.name}'),
+                onPressed: watch,
               ),
             ),
           ],

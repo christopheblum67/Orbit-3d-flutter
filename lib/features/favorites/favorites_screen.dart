@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
@@ -36,13 +37,14 @@ class FavoritesScreen extends ConsumerWidget {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          leading: context.canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
-                  onPressed: () => context.pop(),
-                )
-              : null,
+          // Toujours afficher le retour : Favoris est accessible en route racine
+          // (menu latéral), où `canPop()` est false et l'icône disparaissait.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: 'Retour',
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
+          ),
           title: const Text('Favoris'),
           actions: [
             if (favorites.isNotEmpty)
@@ -201,6 +203,8 @@ class _LiveFavoritesTab extends ConsumerWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
+      cacheExtent: 500,
+      addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
         final entry = entries[index];
@@ -237,12 +241,9 @@ class _LiveFavoritesTab extends ConsumerWidget {
                     title: entry.title,
                     channels: channel != null ? [channel] : const [],
                     contentType: PlaybackContentType.live,
-                    posterUrl: entry.posterUrl.isNotEmpty
-                        ? entry.posterUrl
-                        : null,
-                    subtitle: entry.subtitle.isNotEmpty
-                        ? entry.subtitle
-                        : null,
+                    posterUrl:
+                        entry.posterUrl.isNotEmpty ? entry.posterUrl : null,
+                    subtitle: entry.subtitle.isNotEmpty ? entry.subtitle : null,
                     favorite: entry,
                   ),
                 );
@@ -277,17 +278,36 @@ class _DismissBackground extends StatelessWidget {
 class _VodFavoritesTab extends ConsumerWidget {
   const _VodFavoritesTab();
 
+  /// Films téléchargés et lisibles hors-ligne, les plus récents d'abord.
+  ///
+  /// Ce sont des favoris **virtuels** : rien n'est écrit dans les favoris
+  /// manuels, la liste dérive du gestionnaire de téléchargements.
+  static List<DownloadTask> _downloaded(WidgetRef ref) {
+    // `const []` donnerait un LUB `List<dynamic>` et le `sort`échouerait
+    // (« (dynamic, dynamic) => dynamic is not a subtype of
+    // (DownloadTask, DownloadTask) => int ») : on type explicitement.
+    final tasks =
+        ref.watch(downloadTasksStreamProvider).value ?? const <DownloadTask>[];
+    final completed = tasks
+        .where((t) => t.contentType == 'vod' && t.isCompleted && t.isFileExists)
+        .toList();
+    completed.sort((a, b) => b.id.compareTo(a.id));
+    return completed;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final entries = ref
+    final manual = ref
         .watch(favoritesProvider)
         .values
         .where((e) => e.type == ContentType.vod)
         .toList()
         .reversed
         .toList();
-    if (entries.isEmpty) {
+    final downloads = _downloaded(ref);
+
+    if (manual.isEmpty && downloads.isEmpty) {
       return EmptyState(
         icon: Icons.favorite_border,
         title: l.noFavoriteMovies,
@@ -302,42 +322,99 @@ class _VodFavoritesTab extends ConsumerWidget {
         if (m.id.isNotEmpty) m.id: m,
     };
 
+    // Les téléchargements sans fiche en catalogue (hors-ligne) passent en
+    // premier : c'est ce que l'utilisateur cherche quand il n'a plus réseau.
+    final items = <_VodFavoriteItem>[
+      for (final t in downloads)
+        _VodFavoriteItem.downloaded(
+          task: t,
+          movie: byId[t.mediaItemId],
+        ),
+      for (final e in manual)
+        _VodFavoriteItem.manual(entry: e, movie: byId[e.id]),
+    ];
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
+      cacheExtent: 500,
+      addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
         childAspectRatio: 0.55,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
-      itemCount: entries.length,
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        final entry = entries[index];
-        final movie = byId[entry.id];
+        final item = items[index];
         return TvFocus(
-          onActivate: () => _openMovie(context, entry, movie),
+          onActivate: () => _open(context, item),
           child: MediaCard(
-            title: movie?.title ?? entry.title,
-            posterUrl: movie?.posterUrl ?? entry.posterUrl,
-            year: movie?.year ?? 0,
-            genre: movie?.genre ?? '',
-            rating: movie?.rating ?? 0,
-            ageLabel: movie?.pegiLabel,
+            title: item.title,
+            posterUrl: item.posterUrl,
+            year: item.year,
+            genre: item.genre,
+            rating: item.rating,
+            ageLabel: item.ageLabel,
             fallbackIcon: Icons.movie_outlined,
-            favoriteOverlay: FavoriteToggle.overlay(entry: entry),
-            onTap: () => _openMovie(context, entry, movie),
-            isNew: movie?.isNew ?? false,
-          ),
+            favoriteOverlay: item.entry == null
+                ? null
+                : FavoriteToggle.overlay(entry: item.entry!),
+            onTap: () => _open(context, item),
+            isNew: item.isNew,
+            topBadge: item.isDownloaded ? _downloadedBadge(context) : null,          ),
         );
       },
     );
   }
 
-  void _openMovie(BuildContext context, FavoriteEntry entry, Movie? movie) {
+  static Widget _downloadedBadge(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B5E20),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.download_done_rounded, size: 11, color: Colors.white),
+          SizedBox(width: 3),
+          Text(
+            'Hors ligne',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _open(BuildContext context, _VodFavoriteItem item) {
+    final movie = item.movie;
+    // Un téléchargementCompleted est prioritaire : on lit le fichier local.
+    if (item.task != null && item.task!.isFileExists) {
+      context.push(
+        '/player',
+        extra: PlayerRouteData(
+          streamUrl: item.task!.fullLocalPath,
+          title: item.title,
+          contentType: PlaybackContentType.vod,
+          posterUrl: item.posterUrl.isNotEmpty ? item.posterUrl : null,
+          subtitle: 'Hors ligne',
+        ),
+      );
+      return;
+    }
     if (movie != null) {
       context.push('/vod/detail', extra: movie);
       return;
     }
+    final entry = item.entry;
+    if (entry == null) return;
     context.push(
       '/player',
       extra: PlayerRouteData(
@@ -350,6 +427,38 @@ class _VodFavoritesTab extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Entrée de la grille VOD : favori manuel ou téléchargement hors-ligne.
+class _VodFavoriteItem {
+  _VodFavoriteItem.manual({required this.entry, required this.movie})
+      : task = null;
+
+  _VodFavoriteItem.downloaded({required this.task, required this.movie})
+      : entry = null;
+
+  final FavoriteEntry? entry;
+  final DownloadTask? task;
+  final Movie? movie;
+
+  bool get isDownloaded => task != null;
+
+  String get title =>
+      movie?.title ?? (task?.title ?? entry?.title ?? '');
+
+  String get posterUrl {
+    final fromMovie = movie?.posterUrl;
+    if (fromMovie != null && fromMovie.isNotEmpty) return fromMovie;
+    final fromTask = task?.posterUrl;
+    if (fromTask != null && fromTask.isNotEmpty) return fromTask;
+    return entry?.posterUrl ?? '';
+  }
+
+  int get year => movie?.year ?? 0;
+  String get genre => movie?.genre ?? '';
+  double get rating => movie?.rating ?? 0;
+  String? get ageLabel => movie?.pegiLabel;
+  bool get isNew => movie?.isNew ?? false;
 }
 
 class _SeriesFavoritesTab extends ConsumerWidget {
@@ -381,6 +490,8 @@ class _SeriesFavoritesTab extends ConsumerWidget {
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
+      cacheExtent: 500,
+      addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
         childAspectRatio: 0.55,
@@ -458,6 +569,8 @@ class _ReplayFavoritesTab extends ConsumerWidget {
     };
 
     return ListView.builder(
+      cacheExtent: 500,
+      addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
         final entry = entries[index];
@@ -496,9 +609,9 @@ class _ReplayFavoritesTab extends ConsumerWidget {
                   posterUrl:
                       entry.posterUrl.isNotEmpty ? entry.posterUrl : null,
                   subtitle: (replay != null
-                          ? '${replay.startTime} - ${replay.endTime}'
-                          : entry.subtitle)
-                      .isNotEmpty
+                              ? '${replay.startTime} - ${replay.endTime}'
+                              : entry.subtitle)
+                          .isNotEmpty
                       ? (replay != null
                           ? '${replay.startTime} - ${replay.endTime}'
                           : entry.subtitle)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/drm/drm_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -72,13 +73,25 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    // Contenu protégé (Widevine/PlayReady actifs) : un simple GET HTTP ne peut
+    // pas sauvegarder un flux chiffré — le bouton est neutralisé au lieu de
+    // créer une tâche vouée à l'échec.
+    if (ref.watch(widevineConfigProvider) != null) {
+      return const Tooltip(
+        message: 'Téléchargement indisponible pour ce contenu protégé (DRM)',
+        child: IconButton(
+          icon: Icon(Icons.block),
+          onPressed: null,
+        ),
+      );
+    }
+
     final tasks = ref.watch(downloadTasksStreamProvider).value;
     final related =
         tasks?.where((t) => t.mediaItemId == widget.mediaItemId).toList() ??
             const <DownloadTask>[];
     final active = related.isNotEmpty;
-    final isDone =
-        related.any((t) => t.status == DownloadStatus.completed);
+    final isDone = related.any((t) => t.status == DownloadStatus.completed);
 
     if (active) {
       return Tooltip(

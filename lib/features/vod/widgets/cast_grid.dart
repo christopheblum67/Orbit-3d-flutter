@@ -117,7 +117,8 @@ class _ActorCard extends StatelessWidget {
                             placeholder: (context, url) => Container(
                               color: Colors.grey[800],
                               child: const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               ),
                             ),
                             errorWidget: (context, url, error) =>
@@ -125,42 +126,42 @@ class _ActorCard extends StatelessWidget {
                           )
                         : _buildPlaceholder(),
                   ),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            // Nom de l'acteur - TV: 2 lignes max, wrap
-            Text(
-              actor.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+              const SizedBox(height: 8),
+              // Nom de l'acteur - TV: 2 lignes max, wrap
+              Text(
+                actor.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            // Rôle/personnage - TV: 2 lignes max, wrap
-            Text(
-              actor.character,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                height: 1.2,
+              const SizedBox(height: 2),
+              // Rôle/personnage - TV: 2 lignes max, wrap
+              Text(
+                actor.character,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPlaceholder() {
     return Container(

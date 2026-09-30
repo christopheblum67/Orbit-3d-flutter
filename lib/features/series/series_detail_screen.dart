@@ -15,7 +15,10 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
+import 'package:orbit_3d_flutter/services/stream_audio_tracks.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/features/widgets/translated_synopsis_view.dart';
 
 class SeriesDetailScreen extends ConsumerWidget {
   const SeriesDetailScreen({
@@ -228,14 +231,14 @@ class _SeriesDetailContent extends ConsumerWidget {
     var seen = 0;
     for (final episode in episodes) {
       final isVu = ref.read(watchedEpisodesProvider).containsKey(
-        WatchedEpisodeEntry.keyFor(
-          profileId: profile?.id ?? '',
-          seriesId: baseSeries.id,
-          season: episode.season,
-          episodeNumber: episode.episodeNumber,
-          episodeId: episode.id,
-        ),
-      );
+            WatchedEpisodeEntry.keyFor(
+              profileId: profile?.id ?? '',
+              seriesId: baseSeries.id,
+              season: episode.season,
+              episodeNumber: episode.episodeNumber,
+              episodeId: episode.id,
+            ),
+          );
       if (isVu) {
         seen++;
         continue;
@@ -321,7 +324,8 @@ class _SeriesDetailContent extends ConsumerWidget {
 }
 
 class _SeriesHeader extends ConsumerWidget {
-  const _SeriesHeader({required this.series, required this.baseSeries, required this.l});
+  const _SeriesHeader(
+      {required this.series, required this.baseSeries, required this.l,});
 
   final SeriesDetail series;
   final Series baseSeries;
@@ -351,167 +355,174 @@ class _SeriesHeader extends ConsumerWidget {
     final extraMeta = extraMetaParts.join('  •  ');
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: GestureDetector(
-                  // Pression longue sur la série = « retour en arrière » :
-                  // propose de tout retirer des déjà vus.
-                  onLongPress: () => _confirmResetSeries(context, ref),
-                  child: SizedBox(
-                    width: 112,
-                    height: 168,
-                    child: series.coverUrl.isNotEmpty
-                        ? OrbitCachedImage(
-                            imageUrl: series.coverUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) =>
-                                Icon(Icons.tv, color: scheme.primary),
-                            errorWidget: (_, __, ___) =>
-                                Icon(Icons.tv, color: scheme.primary),
-                          )
-                        : Icon(Icons.tv, color: scheme.primary),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: GestureDetector(
+                    // Pression longue sur la série = « retour en arrière » :
+                    // propose de tout retirer des déjà vus.
+                    onLongPress: () => _confirmResetSeries(context, ref),
+                    child: SizedBox(
+                      width: 112,
+                      height: 168,
+                      child: series.coverUrl.isNotEmpty
+                          ? OrbitCachedImage(
+                              imageUrl: series.coverUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  Icon(Icons.tv, color: scheme.primary),
+                              errorWidget: (_, __, ___) =>
+                                  Icon(Icons.tv, color: scheme.primary),
+                            )
+                          : Icon(Icons.tv, color: scheme.primary),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      series.title,
-                      style: textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    if (meta.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        meta,
-                        style: textTheme.bodySmall
-                            ?.copyWith(color: scheme.onSurfaceVariant),
+                        series.title,
+                        style: textTheme.titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
-                    ],
-                    if (extraMeta.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        extraMeta,
-                        style: textTheme.bodySmall
-                            ?.copyWith(color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                    if (series.pegiLabel != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4,),
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          borderRadius: BorderRadius.circular(10),
+                      if (meta.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          meta,
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
-                        child: Text(
-                          series.pegiLabel!,
-                          style: textTheme.labelSmall?.copyWith(
-                            color: scheme.onPrimary,
-                            fontWeight: FontWeight.w800,
+                      ],
+                      if (extraMeta.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          extraMeta,
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                      if (series.pegiLabel != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            series.pegiLabel!,
+                            style: textTheme.labelSmall?.copyWith(
+                              color: scheme.onPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    // Badge source de données
-                    if (series.dataSource != 'xtream') ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3,),
-                        decoration: BoxDecoration(
-                          color: _getSourceColor(series.dataSource)
-                              .withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                      ],
+                      // Badge source de données
+                      if (series.dataSource != 'xtream') ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getSourceColor(series.dataSource)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
                               color: _getSourceColor(series.dataSource)
-                                  .withValues(alpha: 0.3),),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              series.aiGenerated
-                                  ? Icons.psychology_outlined
-                                  : Icons.data_usage_outlined,
-                              size: 12,
-                              color: _getSourceColor(series.dataSource),
+                                  .withValues(alpha: 0.3),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              series.aiGenerated
-                                  ? 'Données générées par IA'
-                                  : 'Données ${series.dataSource.toUpperCase()}',
-                              style: textTheme.labelSmall?.copyWith(
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                series.aiGenerated
+                                    ? Icons.psychology_outlined
+                                    : Icons.data_usage_outlined,
+                                size: 12,
                                 color: _getSourceColor(series.dataSource),
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                series.aiGenerated
+                                    ? 'Données générées par IA'
+                                    : 'Données ${series.dataSource.toUpperCase()}',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: _getSourceColor(series.dataSource),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
+                  ),
+                ),
+              ],
+            ),
+            if (series.description.isNotEmpty)
+              // Synopsis traduit si la source n'est pas en français.
+              TranslatedSynopsisView(
+                title: series.title,
+                rawSynopsis: series.description,
+              ),
+            // Cast principal (compact)
+            const SizedBox(height: 12),
+            if (series.cast.isNotEmpty)
+              CompactCastCarousel(
+                actors: series.cast,
+                title: l.mainCast,
+                maxVisible: 8,
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      l.mainCast,
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Non disponible',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-          if (series.description.isNotEmpty) ...[
             const SizedBox(height: 12),
-            Text(
-              series.description,
-              style: textTheme.bodyMedium
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
+            // Sélecteur de langue audio par défaut pour la série
+            _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
           ],
-          // Cast principal (compact)
-          const SizedBox(height: 12),
-          if (series.cast.isNotEmpty)
-            CompactCastCarousel(
-              actors: series.cast,
-              title: l.mainCast,
-              maxVisible: 8,
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Text(
-                    l.mainCast,
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Non disponible',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
+        ),);
   }
 
   Future<void> _confirmResetSeries(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    final seen = ref.read(watchedEpisodesProvider.notifier).countForSeries(baseSeries.id);
+    final seen = ref
+        .read(watchedEpisodesProvider.notifier)
+        .countForSeries(baseSeries.id);
     if (seen == 0) return;
 
     final cancelFocus = FocusNode();
@@ -706,8 +717,8 @@ class _EpisodeTile extends ConsumerWidget {
         ref.watch(playbackProgressProvider('episode-${episode.id}'));
     final progressFraction = progress?.fraction ?? 0;
     // Épisode auto-vu (>= 80 % regardés) : « Vu », mais toujours reprenable.
-    final autoWatched =
-        progress?.hasProgress == true && progressFraction >= _autoWatchedThreshold;
+    final autoWatched = progress?.hasProgress == true &&
+        progressFraction >= _autoWatchedThreshold;
     final isVu = watched || autoWatched;
     // En cours : progression existante, sous le seuil de 80 %.
     final inProgress =
@@ -720,7 +731,7 @@ class _EpisodeTile extends ConsumerWidget {
 
     // Pression longue = « réinitialiser » : efface la progression de lecture
     // en cours et/ou retire le statut « vu » (après confirmation).
-Future<void> onLongPress() async {
+    Future<void> onLongPress() async {
       final hasProgress = progress?.hasProgress == true;
       if (!isVu && !hasProgress) return;
 
@@ -740,7 +751,7 @@ Future<void> onLongPress() async {
           content: Text(
             isVu && hasProgress
                 ? '« $label » sera marqué comme non vu et sa progression '
-                'de lecture sera effacée.'
+                    'de lecture sera effacée.'
                 : isVu
                     ? '« $label » sera marqué comme non vu pour ce profil.'
                     : 'La progression de lecture de « $label » sera effacée.',
@@ -800,9 +811,7 @@ Future<void> onLongPress() async {
 
       if (confirmed != true) return;
       if (isVu) {
-        ref
-            .read(watchedEpisodesProvider.notifier)
-            .toggle(series, episode);
+        ref.read(watchedEpisodesProvider.notifier).toggle(series, episode);
       }
       if (hasProgress) {
         final progressId = 'episode-${episode.id}';
@@ -841,7 +850,9 @@ Future<void> onLongPress() async {
                             color: isVu ? scheme.onSurfaceVariant : null,
                           ),
                     ),
-                    if (inProgress && progress != null && progress.durationMs > 0)
+                    if (inProgress &&
+                        progress != null &&
+                        progress.durationMs > 0)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: ClipRRect(
@@ -894,9 +905,7 @@ Future<void> onLongPress() async {
               ],
               const SizedBox(width: 4),
               IconButton(
-                tooltip: isVu
-                    ? 'Marquer comme non vu'
-                    : 'Marquer comme vu',
+                tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
                 onPressed: () => ref
                     .read(watchedEpisodesProvider.notifier)
                     .toggle(series, episode),
@@ -909,6 +918,176 @@ Future<void> onLongPress() async {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Sélecteur de langue audio par défaut pour une série.
+/// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
+class _SeriesAudioLanguageSelector extends ConsumerStatefulWidget {
+  const _SeriesAudioLanguageSelector({required this.seriesId});
+  final String seriesId;
+
+  @override
+  ConsumerState<_SeriesAudioLanguageSelector> createState() =>
+      _SeriesAudioLanguageSelectorState();
+}
+
+class _SeriesAudioLanguageSelectorState
+    extends ConsumerState<_SeriesAudioLanguageSelector> {
+  String? _selectedLanguage;
+  bool _forced = false;
+  bool _loading = true;
+  List<(String, String)> _availableLanguages = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // 1. Charger préférences sauvegardées
+    final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(widget.seriesId);
+    final forced = await PlayerTrackPrefs.isSeriesAudioForced(widget.seriesId);
+
+    // 2. Récupérer les langues réelles depuis le premier épisode jouable
+    final languages = await _fetchRealAudioLanguages();
+
+    if (mounted) {
+      setState(() {
+        _selectedLanguage = lang;
+        _forced = forced;
+        _availableLanguages = languages;
+        _loading = false;
+      });
+    }
+  }
+
+  /// Récupère les langues audio réelles depuis le premier épisode jouable de la série.
+  Future<List<(String, String)>> _fetchRealAudioLanguages() async {
+    // On a besoin de la série de base pour accéder aux épisodes
+    // Le widget parent a déjà chargé la série via baseSeriesAsync
+    // On utilise le provider seriesInfoProvider
+    final seriesAsync = ref.read(seriesInfoProvider(widget.seriesId));
+    final series = seriesAsync.value;
+    if (series == null) return const [];
+
+    // Trouver le premier épisode avec une URL de stream valide
+    Episode? firstPlayableEpisode;
+    for (final ep in series.episodes) {
+      if (ep.streamUrl.isNotEmpty) {
+        firstPlayableEpisode = ep;
+        break;
+      }
+    }
+    if (firstPlayableEpisode == null) return const [];
+
+    // Récupérer les tracks audio réels depuis le flux
+    return StreamAudioTracksService.fetchAudioTracks(
+        firstPlayableEpisode.streamUrl,);
+  }
+
+  Future<void> _onLanguageChanged(String? lang) async {
+    if (lang == null || lang.isEmpty) {
+      await PlayerTrackPrefs.clearSeriesAudioPreference(widget.seriesId);
+      if (mounted) setState(() => _selectedLanguage = null);
+    } else {
+      await PlayerTrackPrefs.setSeriesAudioLanguage(widget.seriesId, lang);
+      if (mounted) setState(() => _selectedLanguage = lang);
+    }
+  }
+
+  Future<void> _onForcedChanged(bool value) async {
+    await PlayerTrackPrefs.setSeriesAudioForced(widget.seriesId, value);
+    if (mounted) setState(() => _forced = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.audiotrack_outlined, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Langue audio par défaut',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _loading
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedLanguage,
+                    decoration: const InputDecoration(
+                      labelText: 'Langue',
+                      hintText: 'Sélectionner une langue',
+                      prefixIcon: Icon(Icons.language_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('(Défaut du flux)'),
+                      ),
+                      ..._availableLanguages
+                          .map((l) => DropdownMenuItem<String>(
+                                value: l.$1,
+                                child: Text(l.$2),
+                              ),),
+                    ],
+                    onChanged: _onLanguageChanged,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _forced,
+                        onChanged: _selectedLanguage == null ||
+                                _selectedLanguage!.isEmpty
+                            ? null
+                            : (v) => _onForcedChanged(v ?? false),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _forced
+                              ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                              : 'Appliquer seulement si disponible (sinon langue du flux)',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: _forced
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            fontWeight:
+                                _forced ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ],
     );
   }
 }

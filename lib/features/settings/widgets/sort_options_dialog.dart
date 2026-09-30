@@ -53,49 +53,49 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
   // Liste des options de tri avec métadonnées visuelles
   List<SortOptionData> _getOptions(AppLocalizations l) {
     return [
-    SortOptionData(
-      mode: SortMode.recentlyAdded,
-      label: l.sortLatestM3UXtream,
-      description: 'Contenus importés récemment dans la liste',
-      icon: Icons.access_time,
-    ),
-    SortOptionData(
-      mode: SortMode.resumeFirst,
-      label: l.sortResumePriority,
-      description: 'Place les contenus commencés non terminés en haut',
-      icon: Icons.play_circle_outline,
-    ),
-    SortOptionData(
-      mode: SortMode.ratingDesc,
-      label: l.sortBestRated,
-      description: 'Classement selon les notes attribuées',
-      icon: Icons.star,
-    ),
-    SortOptionData(
-      mode: SortMode.yearDesc,
-      label: l.sortYearRecentToOld,
-      description: 'Tri chronologique par année de production',
-      icon: Icons.calendar_today,
-    ),
-    SortOptionData(
-      mode: SortMode.nameAsc,
-      label: l.sortNameAToZ,
-      description: 'Ordre alphabétique croissant',
-      icon: Icons.sort,
-    ),
-    SortOptionData(
-      mode: SortMode.nameDesc,
-      label: l.sortNameZToA,
-      description: 'Ordre alphabétique décroissant',
-      icon: Icons.sort_by_alpha,
-    ),
-    SortOptionData(
-      mode: SortMode.durationShort,
-      label: 'Durée : Plus courts d\'abord',
-      description: 'Idéal pour visionner un contenu rapide',
-      icon: Icons.timer,
-    ),
-  ];
+      SortOptionData(
+        mode: SortMode.recentlyAdded,
+        label: l.sortLatestM3UXtream,
+        description: 'Contenus importés récemment dans la liste',
+        icon: Icons.access_time,
+      ),
+      SortOptionData(
+        mode: SortMode.resumeFirst,
+        label: l.sortResumePriority,
+        description: 'Place les contenus commencés non terminés en haut',
+        icon: Icons.play_circle_outline,
+      ),
+      SortOptionData(
+        mode: SortMode.ratingDesc,
+        label: l.sortBestRated,
+        description: 'Classement selon les notes attribuées',
+        icon: Icons.star,
+      ),
+      SortOptionData(
+        mode: SortMode.yearDesc,
+        label: l.sortYearRecentToOld,
+        description: 'Tri chronologique par année de production',
+        icon: Icons.calendar_today,
+      ),
+      SortOptionData(
+        mode: SortMode.nameAsc,
+        label: l.sortNameAToZ,
+        description: 'Ordre alphabétique croissant',
+        icon: Icons.sort,
+      ),
+      SortOptionData(
+        mode: SortMode.nameDesc,
+        label: l.sortNameZToA,
+        description: 'Ordre alphabétique décroissant',
+        icon: Icons.sort_by_alpha,
+      ),
+      const SortOptionData(
+        mode: SortMode.durationShort,
+        label: 'Durée : Plus courts d\'abord',
+        description: 'Idéal pour visionner un contenu rapide',
+        icon: Icons.timer,
+      ),
+    ];
   }
 
   @override
@@ -272,7 +272,9 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                       Text(
                         widget.option.description,
                         style: const TextStyle(
-                            color: Colors.white38, fontSize: 11,),
+                          color: Colors.white38,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),

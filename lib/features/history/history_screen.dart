@@ -59,6 +59,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           }
           return ListView.builder(
             padding: const EdgeInsets.all(16),
+            cacheExtent: 500,
+            addAutomaticKeepAlives: false,
             itemCount: hist.length,
             itemBuilder: (context, index) {
               final parts = hist[index].split('|');

@@ -67,10 +67,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       final audio = await widget.controller.getAudioTracks();
       final video = await widget.controller.getVideoTracks();
       return (audio: audio, video: video);
-    }, context: 'StreamDetailsSheet _load');
-    
+    }, context: 'StreamDetailsSheet _load',);
+
     if (!mounted) return;
-    
+
     if (result.isSuccess) {
       final data = result.valueOrNull!;
       setState(() {
@@ -105,7 +105,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   Future<void> _selectVideo(String? id) async {
     setState(() => _videoSelection = id ?? 'auto');
     await safeAsync(
-      () => widget.controller.selectVideoTrack(id == null ? null : _videoTrackFor(id)),
+      () => widget.controller
+          .selectVideoTrack(id == null ? null : _videoTrackFor(id)),
       context: 'StreamDetailsSheet _selectVideo',
     );
   }
@@ -139,7 +140,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                   Expanded(
                     child: Text(
                       l.streamDetails,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -312,9 +313,7 @@ class _TrackTile extends StatelessWidget {
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(
-        selected
-            ? Icons.radio_button_checked
-            : Icons.radio_button_unchecked,
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
         color: selected ? scheme.primary : scheme.onSurfaceVariant,
         size: 20,
       ),
@@ -365,7 +364,8 @@ class _EmptyRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     info!,
-                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                    style:
+                        TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   ),
                 ],
               ],

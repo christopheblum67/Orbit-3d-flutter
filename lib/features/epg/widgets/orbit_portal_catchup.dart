@@ -123,8 +123,11 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_left,
-                          color: Colors.white70, size: 28,),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_left,
+                        color: Colors.white70,
+                        size: 28,
+                      ),
                       onPressed: _selectedDayIndex > 0
                           ? () => _pageController.previousPage(
                                 duration: const Duration(milliseconds: 400),
@@ -141,13 +144,17 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                             ? 'EN DIRECT'
                             : 'REPLAY J-$_selectedDayIndex',
                         style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.bold,),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8B5CF6),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12,),
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -163,8 +170,11 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                     ),
                     const SizedBox(width: 24),
                     IconButton(
-                      icon: const Icon(Icons.keyboard_arrow_right,
-                          color: Colors.white70, size: 28,),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_right,
+                        color: Colors.white70,
+                        size: 28,
+                      ),
                       onPressed:
                           _selectedDayIndex < widget.availableDays.length - 1
                               ? () => _pageController.nextPage(
@@ -285,12 +295,16 @@ class _OrbitPortalCatchUpViewState extends State<OrbitPortalCatchUpView> {
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8,),
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: const Color(0xFF8B5CF6), width: 1,),
+                          color: const Color(0xFF8B5CF6),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         isLive

@@ -10,6 +10,8 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
@@ -49,8 +51,12 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     final categoriesAsync = ref.watch(vodCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
-    final enrichments =
-        ref.watch(vodGridEnrichmentsProvider).value ?? const {};
+    // Contexte d'affinité matchmaking : alimente le badge sur chaque tuile.
+    final affinity = ref.watch(profileAffinityScorerProvider);
+    // Catégories masquées pour l'abonnement actif (persistées par abonnement).
+    final hiddenCategories =
+        ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
+    final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
@@ -83,8 +89,18 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               message: 'La bibliothèque VOD est vide pour le moment.',
             );
           }
-          final serverCategories = categoriesAsync.value ?? <MediaCategory>[];
-          final categories = _withRealCounts(serverCategories, movies.map((m) => m.categoryId));
+          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+              .where((c) => !hiddenCategories.contains(c.id))
+              .toList(growable: false);
+          // Filtrée par catégories masquées ; distincte de `visibleMovies`
+          // (plus bas) qui ne fait que réordonner selon le tri choisi.
+          final categoryVisibleMovies = hiddenCategories.isEmpty
+              ? movies
+              : movies
+                  .where((m) => !hiddenCategories.contains(m.categoryId))
+                  .toList(growable: false);
+          final categories = _withRealCounts(
+              serverCategories, categoryVisibleMovies.map((m) => m.categoryId),);
           final vodFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.vod)
               .map((e) => e.id)
@@ -94,17 +110,20 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               .map((e) => e.id)
               .toSet();
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: movies.length),
+            MediaCategory(id: '', name: 'Tous', count: categoryVisibleMovies.length),
             MediaCategory(
               id: 'fav',
               name: 'Favoris',
-              count: movies.where((m) => vodFavIds.contains(m.id)).length,
+              count: categoryVisibleMovies
+                  .where((m) => vodFavIds.contains(m.id))
+                  .length,
             ),
             MediaCategory(
               id: 'recent',
               name: 'Récemment',
-              count:
-                  movies.where((m) => vodRecentIds.contains(m.id)).length,
+              count: categoryVisibleMovies
+                  .where((m) => vodRecentIds.contains(m.id))
+                  .length,
             ),
             ...categories,
           ];
@@ -115,19 +134,19 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 .where((e) => e.type == ContentType.vod)
                 .map((e) => e.id)
                 .toSet();
-            filteredMovies =
-                movies.where((m) => favIds.contains(m.id)).toList();
+            filteredMovies = categoryVisibleMovies
+                .where((m) => favIds.contains(m.id)).toList();
           } else if (_selectedCategoryId == 'recent') {
             final recentIds = recentEntries.values
                 .where((e) => e.type == ContentType.vod)
                 .map((e) => e.id)
                 .toSet();
-            filteredMovies =
-                movies.where((m) => recentIds.contains(m.id)).toList();
+            filteredMovies = categoryVisibleMovies
+                .where((m) => vodRecentIds.contains(m.id)).toList();
           } else if (_selectedCategoryId.isEmpty) {
-            filteredMovies = movies;
+            filteredMovies = categoryVisibleMovies;
           } else {
-            filteredMovies = movies
+            filteredMovies = categoryVisibleMovies
                 .where((movie) => movie.categoryId == _selectedCategoryId)
                 .toList();
           }
@@ -152,7 +171,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                   rating: m.rating,
                   releaseYear: m.year,
                   durationMinutes: 0, // Movie model doesn't have duration
-                  addedDate: DateTime.now(),
+                  // Date d'ajout réelle du panel (champ Xtream `added`) : avec
+                  // DateTime.now() tous les films avaient la même date et le tri
+                  // « récemment ajouté » revenait à l'ordre de la liste source.
+                  addedDate: m.addedDate,
                 ),
               )
               .toList();
@@ -190,23 +212,23 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                       ),
                     ),
                     Expanded(
-child: visibleMovies.isEmpty
+                      child: visibleMovies.isEmpty
                           ? EmptyState(
                               icon: Icons.movie_outlined,
                               title: _selectedCategoryId == 'fav'
-                                   ? l.noFavoriteMovies
-                                   : _selectedCategoryId == 'recent'
-                                       ? 'Aucun film récent'
-                                       : _selectedCategoryId.isEmpty
-                                           ? 'Aucun résultat'
-                                           : 'Aucun film dans cette catégorie',
+                                  ? l.noFavoriteMovies
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Aucun film récent'
+                                      : _selectedCategoryId.isEmpty
+                                          ? 'Aucun résultat'
+                                          : 'Aucun film dans cette catégorie',
                               message: _selectedCategoryId == 'fav'
-                                   ? 'Appuie sur le cœur d\'un film pour le retrouver ici.'
-                                   : _selectedCategoryId == 'recent'
-                                       ? 'Les films regardés s\'afficheront ici.'
-                                       : _selectedCategoryId.isEmpty
-                                           ? 'Aucun film ne correspond à cette recherche.'
-                                           : 'Aucun film ne correspond à cette catégorie.',
+                                  ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
+                                  : _selectedCategoryId == 'recent'
+                                      ? 'Les films regardés s\'afficheront ici.'
+                                      : _selectedCategoryId.isEmpty
+                                          ? 'Aucun film ne correspond à cette recherche.'
+                                          : 'Aucun film ne correspond à cette catégorie.',
                             )
                           : GridView.builder(
                               padding:
@@ -269,17 +291,21 @@ child: visibleMovies.isEmpty
                                     year: movie.year > 0
                                         ? movie.year
                                         : (enrichments[movie.id]?.year ?? 0),
-                                    genre: movie.genre.isNotEmpty
-                                        ? movie.genre
-                                        : (enrichments[movie.id]?.genreLabel ??
-                                            ''),
+                                    // Catégorie retirée de la tuile (comme sur
+                                    // les chaînes) : l'année et la note suffisent.
+                                    genre: '',
                                     rating: movie.rating > 0
                                         ? movie.rating
                                         : (enrichments[movie.id]?.rating ?? 0),
                                     ageLabel: movie.pegiLabel,
                                     fallbackIcon: Icons.movie_outlined,
-                                    voteCount:
-                                        enrichments[movie.id]?.voteCount,
+                                    // `contain` : l'affiche ne déborde plus.
+                                    posterFit: BoxFit.contain,
+                                    posterPadding: const EdgeInsets.all(6),
+                                    // Affinité personnelle du profil courant
+                                    // (calculée par le module matchmaking).
+                                    matchPercent: affinity?.percentForMovie(movie),
+                                    voteCount: enrichments[movie.id]?.voteCount,
                                     overview: enrichments[movie.id]?.overview,
                                     favoriteOverlay: FavoriteToggle.overlay(
                                       entry: FavoriteEntry(

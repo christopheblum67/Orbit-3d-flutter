@@ -168,8 +168,7 @@ class _PlayerEngineConfigSheetState
             style: TextStyle(
               fontSize: 13,
               color: e.isExternal ? null : scheme.primary,
-              fontWeight:
-                  e.isExternal ? FontWeight.normal : FontWeight.w600,
+              fontWeight: e.isExternal ? FontWeight.normal : FontWeight.w600,
             ),
           ),
         ),
@@ -212,15 +211,19 @@ class _PlayerEngineConfigSheetState
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.enter ||
                                 event.logicalKey == LogicalKeyboardKey.select ||
-                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.gameButtonA)) {
                           Navigator.of(context).pop();
                           return KeyEventResult.handled;
                         }
                         if (event is KeyDownEvent &&
-                            (event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+                            (event.logicalKey ==
+                                LogicalKeyboardKey.arrowDown)) {
                           // Move to first primary dropdown (Live)
-                          if (_primaryFocusNodes[PlaybackContentType.live] != null) {
-                            _requestFocus(_primaryFocusNodes[PlaybackContentType.live]!);
+                          if (_primaryFocusNodes[PlaybackContentType.live] !=
+                              null) {
+                            _requestFocus(
+                                _primaryFocusNodes[PlaybackContentType.live]!,);
                           }
                           return KeyEventResult.handled;
                         }
@@ -290,7 +293,8 @@ class _PlayerEngineConfigSheetState
                           final types = PlaybackContentType.values;
                           final idx = types.indexOf(currentType);
                           if (idx > 0) {
-                            return _primaryFocusNodes[types[idx]]!; // Same type's primary
+                            return _primaryFocusNodes[
+                                types[idx]]!; // Same type's primary
                           }
                           return _closeFocus;
                         },
@@ -309,19 +313,24 @@ class _PlayerEngineConfigSheetState
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent &&
                               (event.logicalKey == LogicalKeyboardKey.enter ||
-                                  event.logicalKey == LogicalKeyboardKey.select ||
-                                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.select ||
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.gameButtonA)) {
                             Navigator.of(context).pop();
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
+                              (event.logicalKey ==
+                                  LogicalKeyboardKey.arrowUp)) {
                             // Go to last fallback (Replay)
-                            _requestFocus(_fallbackFocusNodes[PlaybackContentType.replay]!);
+                            _requestFocus(_fallbackFocusNodes[
+                                PlaybackContentType.replay]!,);
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+                              (event.logicalKey ==
+                                  LogicalKeyboardKey.arrowRight)) {
                             _requestFocus(_saveFocus);
                             return KeyEventResult.handled;
                           }
@@ -341,19 +350,24 @@ class _PlayerEngineConfigSheetState
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent &&
                               (event.logicalKey == LogicalKeyboardKey.enter ||
-                                  event.logicalKey == LogicalKeyboardKey.select ||
-                                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.select ||
+                                  event.logicalKey ==
+                                      LogicalKeyboardKey.gameButtonA)) {
                             _save();
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+                              (event.logicalKey ==
+                                  LogicalKeyboardKey.arrowLeft)) {
                             _requestFocus(_cancelFocus);
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
-                              (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
-                            _requestFocus(_fallbackFocusNodes[PlaybackContentType.replay]!);
+                              (event.logicalKey ==
+                                  LogicalKeyboardKey.arrowUp)) {
+                            _requestFocus(_fallbackFocusNodes[
+                                PlaybackContentType.replay]!,);
                             return KeyEventResult.handled;
                           }
                           return KeyEventResult.ignored;

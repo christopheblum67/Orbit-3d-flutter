@@ -77,13 +77,16 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-            setState(() =>
-                _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length,);
+            setState(
+              () => _focusedIndex = (_focusedIndex + 1) % orbitFavorites.length,
+            );
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-            setState(() => _focusedIndex =
-                (_focusedIndex - 1 + orbitFavorites.length) %
-                    orbitFavorites.length,);
+            setState(
+              () => _focusedIndex =
+                  (_focusedIndex - 1 + orbitFavorites.length) %
+                      orbitFavorites.length,
+            );
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
             widget.onZoomOutToCategories();
@@ -260,26 +263,46 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.keyboard_arrow_up,
-                        color: Colors.white38, size: 18,),
+                    const Icon(
+                      Icons.keyboard_arrow_up,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
-                    Text(l.select,
-                        style: const TextStyle(color: Colors.white38, fontSize: 12),),
+                    Text(
+                      l.select,
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
                     const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_left,
-                        color: Colors.white38, size: 18,),
+                    const Icon(
+                      Icons.keyboard_arrow_left,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.keyboard_arrow_right,
-                        color: Colors.white38, size: 18,),
+                    const Icon(
+                      Icons.keyboard_arrow_right,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
-                    const Text('Naviguer',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),),
+                    const Text(
+                      'Naviguer',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
                     const SizedBox(width: 16),
-                    const Icon(Icons.keyboard_arrow_down,
-                        color: Colors.white38, size: 18,),
+                    const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
-                    Text(l.categories,
-                        style: const TextStyle(color: Colors.white38, fontSize: 12),),
+                    Text(
+                      l.categories,
+                      style:
+                          const TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
                   ],
                 ),
               ),

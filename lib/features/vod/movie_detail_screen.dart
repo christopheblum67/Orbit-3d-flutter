@@ -17,6 +17,8 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/crew_section.dart';
+import 'package:orbit_3d_flutter/features/widgets/translated_synopsis_view.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 
 /// Page intermédiaire d'un film VOD : toutes les infos enrichies (TMDB/TVmaze/OMDB/IA)
 /// + bouton « Démarrer » et bouton « Reprendre » (si progression existe).
@@ -63,21 +65,21 @@ class MovieDetailScreen extends ConsumerWidget {
       body: detailAsync.when(
         data: (detail) => _MovieDetailContent(detail: detail, movie: movie),
         loading: () => const Center(child: CircularProgressIndicator()),
-error: (err, _) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(l.errorLoading(err.toString())),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.invalidate(movieDetailProvider(movie)),
-                  child: Text(l.retry),
-                ),
-              ],
-            ),
+        error: (err, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(l.errorLoading(err.toString())),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(movieDetailProvider(movie)),
+                child: Text(l.retry),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
@@ -101,6 +103,9 @@ class _MovieDetailContent extends ConsumerWidget {
         progressId: _progressId,
         initialPositionMs: positionMs,
         contentType: PlaybackContentType.vod,
+        // Identifiant du film : permet au lecteur d'interroger le panel pour
+        // découvrir les sous-titres publiés (inutilisable en live).
+        vodId: movie.id,
         posterUrl:
             detail.posterUrl.isNotEmpty ? detail.posterUrl : movie.posterUrl,
         subtitle: movie.year > 0 ? '${movie.year}' : '',
@@ -164,7 +169,8 @@ class _MovieDetailContent extends ConsumerWidget {
                   height: 180,
                   color: scheme.primaryContainer,
                   child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
                 errorWidget: (_, __, ___) => const SizedBox.shrink(),
               ),
@@ -394,31 +400,29 @@ class _MovieDetailContent extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Boutons Lecture
-          Row(
+          // Boutons Lecture — Wrap pour éviter le débordement en mode portrait
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
             children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _openPlayer(context),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(l.start),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+              FilledButton.icon(
+                onPressed: () => _openPlayer(context),
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: Text(l.start),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: hasProgress
-                      ? () =>
-                          _openPlayer(context, positionMs: progress!.positionMs)
-                      : null,
-                  icon: const Icon(Icons.replay_rounded),
-                  label: const Text('Reprendre'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
+              OutlinedButton.icon(
+                onPressed: hasProgress
+                    ? () =>
+                        _openPlayer(context, positionMs: progress!.positionMs)
+                    : null,
+                icon: const Icon(Icons.replay_rounded),
+                label: const Text('Reprendre'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                 ),
               ),
             ],
@@ -426,13 +430,15 @@ class _MovieDetailContent extends ConsumerWidget {
           // Bande-annonce
           if (detail.trailerUrl != null) ...[
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => _launchTrailer(context, detail.trailerUrl!),
-              icon: const Icon(Icons.play_circle_outline),
-              label: const Text('Bande-annonce'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                foregroundColor: Colors.redAccent,
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: () => _launchTrailer(context, detail.trailerUrl!),
+                icon: const Icon(Icons.play_circle_outline),
+                label: const Text('Bande-annonce'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  foregroundColor: Colors.redAccent,
+                ),
               ),
             ),
           ],
@@ -446,21 +452,12 @@ class _MovieDetailContent extends ConsumerWidget {
                   textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
-          // Synopsis
-          if (detail.description.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text(
-              'Synopsis',
-              style:
-                  textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          // Synopsis (traduit si la source n'est pas en français)
+          if (detail.description.isNotEmpty)
+            TranslatedSynopsisView(
+              title: detail.title,
+              rawSynopsis: detail.description,
             ),
-            const SizedBox(height: 8),
-            Text(
-              detail.description,
-              style: textTheme.bodyMedium
-                  ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
-            ),
-          ],
           // Mots-clés
           if (detail.keywords.isNotEmpty) ...[
             const SizedBox(height: 20),
@@ -518,10 +515,10 @@ class _MovieDetailContent extends ConsumerWidget {
                 ],
               ),
             ),
-          // Équipe technique (Crew)
+          // Équipe technique (Crew) - dépliable via bouton
           if (detail.crew.isNotEmpty) ...[
             const SizedBox(height: 24),
-            CrewSection(crew: detail.crew),
+            _CrewToggleButton(crew: detail.crew),
           ],
           // Films similaires TMDB
           if (similarAsync != null) ...[
@@ -547,7 +544,10 @@ class _MovieDetailContent extends ConsumerWidget {
   }
 
   void _openSimilarMovie(
-      BuildContext context, WidgetRef ref, TmdbRankEntry entry,) {
+    BuildContext context,
+    WidgetRef ref,
+    TmdbRankEntry entry,
+  ) {
     final normalized = entry.title.trim().toLowerCase();
     final movies = ref.read(moviesProvider).value ?? const <Movie>[];
     Movie? match;
@@ -609,13 +609,14 @@ class _MovieDetailContent extends ConsumerWidget {
     return '$m min';
   }
 
-Future<void> _launchTrailer(BuildContext context, String url) async {
+  Future<void> _launchTrailer(BuildContext context, String url) async {
     final result = await safeAsync(
       () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       context: '_launchTrailer',
     );
     if (result.isFailure && context.mounted) {
-      LoggerService.instance.warning('_launchTrailer failed', error: result.errorOrNull);
+      LoggerService.instance
+          .warning('_launchTrailer failed', error: result.errorOrNull);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Impossible d\'ouvrir la bande-annonce')),
       );
@@ -646,9 +647,11 @@ class _SimilarSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),),
+            Text(
+              title,
+              style:
+                  textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             SizedBox(
               height: 280,
@@ -842,9 +845,11 @@ class _SimilarEntrySheet extends StatelessWidget {
               ),
               if (entry.overview.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text('Synopsis',
-                    style: textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),),
+                Text(
+                  'Synopsis',
+                  style: textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   entry.overview,
@@ -854,7 +859,7 @@ class _SimilarEntrySheet extends StatelessWidget {
               ],
               const SizedBox(height: 24),
               Center(
-child: Text(l.notAvailableInCatalog),
+                child: Text(l.notAvailableInCatalog),
               ),
               const SizedBox(height: 16),
             ],
@@ -887,5 +892,55 @@ child: Text(l.notAvailableInCatalog),
       37: 'Western',
     };
     return map[id] ?? 'Genre $id';
+  }
+}
+
+/// Bouton pour afficher/masquer l'équipe technique dans un bottom sheet.
+class _CrewToggleButton extends ConsumerStatefulWidget {
+  const _CrewToggleButton({required this.crew});
+  final List<CrewMember> crew;
+
+  @override
+  ConsumerState<_CrewToggleButton> createState() => _CrewToggleButtonState();
+}
+
+class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => setState(() => _expanded = !_expanded),
+          icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+          label: Text(
+            _expanded
+                ? 'Masquer l\'équipe technique'
+                : 'Voir l\'équipe technique',
+            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(44),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: CrewSection(crew: widget.crew),
+          ),
+          crossFadeState:
+              _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
+        ),
+      ],
+    );
   }
 }

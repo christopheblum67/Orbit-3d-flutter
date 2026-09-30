@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,9 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/features/home/widgets/ai_topics_carousel.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -44,20 +45,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _confirmExit(BuildContext context) async {
+    final l = AppLocalizations.of(context);
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.power_settings_new_rounded,
+                color: Colors.redAccent, size: 26,),
+            SizedBox(width: 10),
+            Text('Quitter Orbit IPTV',
+                style: TextStyle(color: Colors.white, fontSize: 18),),
+          ],
+        ),
+        content: const Text(
+          'Voulez-vous vraiment fermer l\'application ?',
+          style: TextStyle(color: Colors.white70, fontSize: 15),
+        ),
+        backgroundColor: const Color(0xFF16181E),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Non',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold,),),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('Oui',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold,),),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (shouldExit == true && context.mounted) {
+      SystemNavigator.pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final items = _OrbitItem.buildAll(isM3u: isM3u, l: l);
-    return Scaffold(
-      backgroundColor: const Color(0xFF0E1117),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(context),
-            Expanded(child: _buildOrbitCarousel(items)),
-            _buildBottomBar(context),
-          ],
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit(context);
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0E1117),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildTopBar(context),
+              Expanded(child: _buildOrbitCarousel(items)),
+              _buildBottomBar(context),
+            ],
+          ),
         ),
       ),
     );
@@ -88,10 +144,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),),
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
                     ),
-                    child: const Icon(Icons.settings,
-                        color: Colors.white, size: 22,),
+                    child: const Icon(
+                      Icons.settings,
+                      color: Colors.white,
+                      size: 22,
+                    ),
                   ),
                 ),
               ),
@@ -104,42 +164,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          TvFocus(
-            onActivate: () => context.go('/search'),
-            child: GestureDetector(
-              onTap: () => context.go('/search'),
-              child: Container(
-                height: 46,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Rechercher une chaîne, un film…',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -157,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ..showSnackBar(
           SnackBar(
             content: Text(l.dataAlreadyFresh),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       return;
@@ -169,7 +193,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(l.updating),
-          duration: Duration(seconds: 30),
+          duration: const Duration(seconds: 30),
         ),
       );
 
@@ -196,14 +220,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
 
     // Attend la fin de tous les fournisseurs (timeout sécurité 60 s).
-    final results = await Future.wait([
-      liveFut,
-      moviesFut,
-      seriesFut,
-      radioFut,
-      replayFut,
-      epgFut,
-    ], eagerError: false,).timeout(
+    final results = await Future.wait(
+      [
+        liveFut,
+        moviesFut,
+        seriesFut,
+        radioFut,
+        replayFut,
+        epgFut,
+      ],
+      eagerError: false,
+    ).timeout(
       const Duration(seconds: 60),
       onTimeout: () {
         throw TimeoutException('Certains flux n\'ont pas répondu à temps');
@@ -222,7 +249,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Horodate la mise à jour (même en succès partiel : la donnée affichée
     // « Mis à jour il y a X min » reflète le dernier rechargement réel).
-    ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(DateTime.now());
+    ref
+        .read(lastRefreshTimestampProvider.notifier)
+        .setTimestamp(DateTime.now());
 
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -410,17 +439,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   ),
                 ),
-              if (item.refreshCategory != null)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: _UpdateButton(
-                    tooltip: l.updateThisCategory,
-                    icon: Icons.update_rounded,
-                    color: item.color,
-                    onPressed: () => _refreshOne(item.refreshCategory!),
-                  ),
-                ),
+              
             ],
           ),
         ),
@@ -439,7 +458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(l.comingSoon),
-          duration: Duration(milliseconds: 1600),
+          duration: const Duration(milliseconds: 1600),
         ),
       );
   }
@@ -738,12 +757,13 @@ class _OrbitItem {
 
   bool get hasRoute => route != null;
 
-  static List<_OrbitItem> buildAll({required bool isM3u, required AppLocalizations l}) {
+  static List<_OrbitItem> buildAll(
+      {required bool isM3u, required AppLocalizations l,}) {
     return [
       _OrbitItem(
         title: l.tvChannels,
         icon: Icons.tv_rounded,
-        color: Color(0xFF00CFE8),
+        color: const Color(0xFF00CFE8),
         subtitle: l.liveChannelsAndZapping,
         route: '/live',
         refreshCategory: _RefreshCategory.live,
@@ -752,7 +772,7 @@ class _OrbitItem {
         _OrbitItem(
           title: 'Films',
           icon: Icons.movie_outlined,
-          color: Color(0xFF8A72FF),
+          color: const Color(0xFF8A72FF),
           subtitle: l.newAnd4K,
           route: '/vod',
           refreshCategory: _RefreshCategory.vod,
@@ -760,7 +780,7 @@ class _OrbitItem {
         _OrbitItem(
           title: l.series,
           icon: Icons.video_library_rounded,
-          color: Color(0xFFB388FF),
+          color: const Color(0xFFB388FF),
           subtitle: l.seasonsAndEpisodes,
           route: '/series',
           refreshCategory: _RefreshCategory.series,
@@ -769,7 +789,7 @@ class _OrbitItem {
       _OrbitItem(
         title: 'EPG',
         icon: Icons.calendar_month_rounded,
-        color: Color(0xFF00CFE8),
+        color: const Color(0xFF00CFE8),
         subtitle: l.programGrid,
         route: '/epg',
         refreshCategory: _RefreshCategory.epg,
@@ -777,28 +797,28 @@ class _OrbitItem {
       _OrbitItem(
         title: 'Favoris',
         icon: Icons.favorite_rounded,
-        color: Color(0xFFFF6FA8),
+        color: const Color(0xFFFF6FA8),
         subtitle: l.yourChannelsAndContent,
         route: '/favorites',
       ),
       _OrbitItem(
-        title: 'Enfants',
-        icon: Icons.child_care_rounded,
-        color: Color(0xFF4CAF50),
-        subtitle: l.kidsContent,
-        route: '/kids',
-      ),
-      _OrbitItem(
         title: 'Matchmaking',
         icon: Icons.auto_awesome,
-        color: Color(0xFFFF3D3D),
+        color: const Color(0xFFFF3D3D),
         subtitle: l.forYouAndDuo,
         route: '/matchmaking',
       ),
       _OrbitItem(
+        title: 'AI Topics',
+        icon: Icons.auto_awesome_rounded,
+        color: const Color(0xFF6C5CE7),
+        subtitle: 'Recommandations par IA',
+        route: '/ai-topics',
+      ),
+      _OrbitItem(
         title: 'Replay',
         icon: Icons.replay_rounded,
-        color: Color(0xFFFFB300),
+        color: const Color(0xFFFFB300),
         subtitle: l.catchUpTv,
         route: '/replay',
         refreshCategory: _RefreshCategory.replay,
@@ -806,7 +826,7 @@ class _OrbitItem {
       _OrbitItem(
         title: l.multiScreen,
         icon: Icons.grid_view_rounded,
-        color: Color(0xFF26A69A),
+        color: const Color(0xFF26A69A),
         subtitle: 'Jusqu\'à 4 flux à la fois',
         route: '/multivideo',
       ),
@@ -901,7 +921,11 @@ String _formatRelative(DateTime ts) {
 }
 
 /// Bouton de mise à jour avec la date de la dernière actualisation en dessous.
-class _UpdateStack extends StatelessWidget {
+///
+/// Stateful : [Timer.periodic] force un rebuild chaque minute, sinon le libellé
+/// « mis à jour il y a X min » resterait figé jusqu'au prochain changement de
+/// provider (donc potentiellement des heures).
+class _UpdateStack extends StatefulWidget {
   const _UpdateStack({
     required this.onPressed,
     required this.tooltip,
@@ -913,8 +937,29 @@ class _UpdateStack extends StatelessWidget {
   final DateTime? lastRefresh;
 
   @override
+  State<_UpdateStack> createState() => _UpdateStackState();
+}
+
+class _UpdateStackState extends State<_UpdateStack> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final label = switch (lastRefresh) {
+    final label = switch (widget.lastRefresh) {
       null => 'Jamais mis à jour',
       final ts => _formatRelative(ts.toLocal()),
     };
@@ -922,8 +967,8 @@ class _UpdateStack extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _UpdateButton(
-          tooltip: tooltip,
-          onPressed: onPressed,
+          tooltip: widget.tooltip,
+          onPressed: widget.onPressed,
         ),
         const SizedBox(height: 3),
         Text(

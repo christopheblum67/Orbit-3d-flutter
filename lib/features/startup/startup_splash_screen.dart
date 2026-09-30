@@ -10,11 +10,11 @@ import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/core/services/personalized_recommendations.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/startup_recommendation.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -37,6 +37,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   StartupRecommendation? _featured;
   int _page = 0;
   bool _navigated = false;
+  bool _cfLoading = false;
 
   void _pickFeatured() {
     if (_recommendations.isEmpty) {
@@ -79,7 +80,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       _navigated = true;
       // Marque la mise à jour comme faite pour que le bouton d'accueil
       // affiche l'horodatage au lieu de « Jamais mis à jour ».
-      ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(DateTime.now());
+      ref
+          .read(lastRefreshTimestampProvider.notifier)
+          .setTimestamp(DateTime.now());
       Future<void>.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) context.go('/profiles');
       });
@@ -95,6 +98,15 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (_cfLoading)
+              Container(
+                height: 4,
+                color: Colors.cyanAccent,
+                child: const LinearProgressIndicator(
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation(Colors.cyanAccent),
+                ),
+              ),
             Expanded(child: _buildCarousel()),
             _buildProgress(context),
             const SizedBox(height: 12),
@@ -149,15 +161,22 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (!mounted) return;
     // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
     // Récupère l'URL de base du fournisseur IPTV actif.
+    // ATTENDRE la fin de l'initialisation (max 30s) pour éviter "flux indisponible" au 1er play.
+    setState(() => _cfLoading = true);
     await safeAsync(() async {
       final sub =
           await ref.read(subscriptionManagerProvider).getActiveSubscription();
       if (sub['type'] == 'xtream') {
         final baseUrl = 'https://${Uri.parse(sub['baseUrl']!).host}';
-        await ref.read(cloudflareSessionProvider).initialize(baseUrl: baseUrl);
+        await ref.read(cloudflareSessionProvider).initialize(baseUrl: baseUrl).timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            debugPrint('☁️ Cloudflare init timeout (60s) during splash, proceeding anyway...');
+          },
+        );
       }
-    }, context: 'StartupSplashScreen Cloudflare session init');
-    if (!mounted) return;
+    }, context: 'StartupSplashScreen Cloudflare session init',);
+    if (mounted) setState(() => _cfLoading = false);
     // Après le fetch, rafraîchit les recommandations avec les contenus reçus.
     final refreshed = engine.build(
       movies: _controller.movies,
@@ -204,7 +223,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           final l = AppLocalizations.of(ctx);
           return AlertDialog(
             backgroundColor: const Color(0xFF1E222D),
-            title: Text(l.resumePlayback, style: const TextStyle(color: Colors.white)),
+            title: Text(l.resumePlayback,
+                style: const TextStyle(color: Colors.white),),
             content: Text(
               'Reprendre "$title" à $timestamp ?',
               style: const TextStyle(color: Colors.white70),
@@ -230,7 +250,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 },
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(l.later, style: const TextStyle(color: Colors.white54)),
+                  child: Text(l.later,
+                      style: const TextStyle(color: Colors.white54),),
                 ),
               ),
               Focus(
@@ -253,8 +274,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 },
                 child: FilledButton(
                   onPressed: () => Navigator.pop(ctx, true),
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00CFE8)),
-                  child: const Text('Reprendre', style: TextStyle(color: Colors.black)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF00CFE8),),
+                  child: const Text('Reprendre',
+                      style: TextStyle(color: Colors.black),),
                 ),
               ),
             ],
@@ -264,13 +287,15 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       cancelFocus.dispose();
       confirmFocus.dispose();
       if (shouldResume == true && mounted) {
-        context.go('/player',
-            extra: PlayerRouteData(
-              streamUrl: '',
-              title: title,
-              initialPositionMs: progress.positionMs,
-              progressId: 'last_session',
-            ),);
+        context.go(
+          '/player',
+          extra: PlayerRouteData(
+            streamUrl: '',
+            title: title,
+            initialPositionMs: progress.positionMs,
+            progressId: 'last_session',
+          ),
+        );
       }
     }
   }
@@ -299,7 +324,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
             .read(subscriptionsProvider.notifier)
             .refreshValidity(active.id, api: ref.read(apiServiceProvider));
       }
-    }, context: '_refreshSubscriptionValidity');
+    }, context: '_refreshSubscriptionValidity',);
     // Non bloquant : l'affichage retombera sur « Sans limite ».
   }
 
@@ -402,10 +427,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           children: [
             // Fond : affiche la pochette si disponible, sinon un dégradé.
             if (rec.posterUrl.isNotEmpty)
-              Image.network(
-                rec.posterUrl,
+              CachedImage(
+                imageUrl: rec.posterUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
+                errorWidget: (context, error, stackTrace) =>
                     _buildPosterFallback(rec),
               )
             else
@@ -506,25 +531,29 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // Mini-icônes thématiques : Live / Film / Série / EPG
     final sections = [
       _ProgressIcon(
-          icon: Icons.live_tv,
-          label: 'Live',
-          done: _controller.doneSteps.contains(StartupStep.live),
-          active: current == StartupStep.live,),
+        icon: Icons.live_tv,
+        label: 'Live',
+        done: _controller.doneSteps.contains(StartupStep.live),
+        active: current == StartupStep.live,
+      ),
       _ProgressIcon(
-          icon: Icons.movie_outlined,
-          label: 'Films',
-          done: _controller.doneSteps.contains(StartupStep.movies),
-          active: current == StartupStep.movies,),
+        icon: Icons.movie_outlined,
+        label: 'Films',
+        done: _controller.doneSteps.contains(StartupStep.movies),
+        active: current == StartupStep.movies,
+      ),
       _ProgressIcon(
-          icon: Icons.video_library_outlined,
-          label: l.series,
-          done: _controller.doneSteps.contains(StartupStep.series),
-          active: current == StartupStep.series,),
+        icon: Icons.video_library_outlined,
+        label: l.series,
+        done: _controller.doneSteps.contains(StartupStep.series),
+        active: current == StartupStep.series,
+      ),
       _ProgressIcon(
-          icon: Icons.receipt_long_outlined,
-          label: 'EPG',
-          done: _controller.doneSteps.contains(StartupStep.epg),
-          active: current == StartupStep.epg,),
+        icon: Icons.receipt_long_outlined,
+        label: 'EPG',
+        done: _controller.doneSteps.contains(StartupStep.epg),
+        active: current == StartupStep.epg,
+      ),
     ];
 
     return Padding(

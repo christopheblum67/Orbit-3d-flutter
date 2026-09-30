@@ -40,7 +40,8 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
           duration: const Duration(milliseconds: 300),
           child: Container(
             key: ValueKey(
-                'overlay_${connectivity.isOnline}_${stallDetector.isStalling}_$isInCooldown',),
+              'overlay_${connectivity.isOnline}_${stallDetector.isStalling}_$isInCooldown',
+            ),
             color: Colors.black.withValues(alpha: 0.5),
             child: Center(
               child: ConstrainedBox(
@@ -100,6 +101,10 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
       icon: Icons.security_rounded,
       title: l.serverProtectedAntiLeech,
       message: message,
+      // Sans action, l'utilisateur restait bloqué 90 s(full) sans lever le
+      // cooldown : le cooldown est un anti-rebond, pas une sanction.
+      actionLabel: l.retry,
+      onAction: onRetry,
       iconColor: scheme.error,
       backgroundColor: scheme.errorContainer.withValues(alpha: 0.9),
     );

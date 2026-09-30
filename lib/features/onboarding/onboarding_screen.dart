@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -68,9 +67,12 @@ class _OnboardingConfigScreenState
 
   String _profileDescription(DeviceProfile profile) {
     return switch (profile) {
-      DeviceProfile.eco => 'Tampon long (20 s) · max 1080p · 3D désactivée · multi-vue off',
-      DeviceProfile.standard => 'Tampon intermédiaire (10 s) · rendu 3D fluide · multi-vue x2',
-      DeviceProfile.ultra => 'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
+      DeviceProfile.eco =>
+        'Tampon long (20 s) · max 1080p · 3D désactivée · multi-vue off',
+      DeviceProfile.standard =>
+        'Tampon intermédiaire (10 s) · rendu 3D fluide · multi-vue x2',
+      DeviceProfile.ultra =>
+        'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
     };
   }
 
@@ -292,19 +294,19 @@ class _OnboardingConfigScreenState
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
-                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                       children: [
-                         _buildDeviceCard(specs),
-                         const SizedBox(height: 16),
-                         Text(
-                           _adjusting
-                               ? 'Choisissez un profil'
-                               : 'Profil recommandé',
-                           style:
-                               Theme.of(context).textTheme.titleMedium?.copyWith(
-                                     fontWeight: FontWeight.w800,
-                                   ),
-                         ),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildDeviceCard(specs),
+                        const SizedBox(height: 16),
+                        Text(
+                          _adjusting
+                              ? 'Choisissez un profil'
+                              : 'Profil recommandé',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
                         const SizedBox(height: 10),
                         _buildProfileCard(recommended, highlight: true),
                         if (_adjusting) ...[

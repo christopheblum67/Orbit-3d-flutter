@@ -124,9 +124,10 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                 children: [
                   const Icon(Icons.cloud_off, size: 64, color: Colors.white24),
                   const SizedBox(height: 16),
-                  Text('Aucun résultat pour "${widget.searchQuery}"',
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 16),),
+                  Text(
+                    'Aucun résultat pour "${widget.searchQuery}"',
+                    style: const TextStyle(color: Colors.white38, fontSize: 16),
+                  ),
                 ],
               ),
             ),
@@ -146,8 +147,10 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                   SizedBox(width: 8),
                   Icon(Icons.keyboard_arrow_right, color: Colors.white38),
                   SizedBox(width: 16),
-                  Text('Naviguer · OK pour sélectionner',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),),
+                  Text(
+                    'Naviguer · OK pour sélectionner',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                 ],
               ),
             ),

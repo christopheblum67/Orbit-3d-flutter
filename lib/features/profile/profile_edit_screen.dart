@@ -182,15 +182,17 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     (label: '55 ans et plus', min: 55, max: 100),
   ];
 
-  static List<({String label, int min, int max})> _ageRangesLocalized(AppLocalizations l) => [
-    (label: l.ageRangeUnder12, min: 0, max: 12),
-    (label: l.ageRange13to17, min: 13, max: 17),
-    (label: l.ageRange18to24, min: 18, max: 24),
-    (label: l.ageRange25to34, min: 25, max: 34),
-    (label: l.ageRange35to44, min: 35, max: 44),
-    (label: l.ageRange45to54, min: 45, max: 54),
-    (label: l.ageRange55plus, min: 55, max: 100),
-  ];
+  static List<({String label, int min, int max})> _ageRangesLocalized(
+          AppLocalizations l,) =>
+      [
+        (label: l.ageRangeUnder12, min: 0, max: 12),
+        (label: l.ageRange13to17, min: 13, max: 17),
+        (label: l.ageRange18to24, min: 18, max: 24),
+        (label: l.ageRange25to34, min: 25, max: 34),
+        (label: l.ageRange35to44, min: 35, max: 44),
+        (label: l.ageRange45to54, min: 45, max: 54),
+        (label: l.ageRange55plus, min: 55, max: 100),
+      ];
 
   static const _genderOptions = ['Homme', 'Femme', 'Autre'];
 
@@ -253,7 +255,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.text = profile.firstName;
     _type = profile.profileType;
     _dateOfBirth = profile.dateOfBirth;
-    _gender = profile.gender.isEmpty ? 'Non spécifié' : profile.gender;
+    // Genre : défaut sur la première option valide (comme le type de profil)
+    const validGenders = ['Homme', 'Femme', 'Autre'];
+    _gender = validGenders.contains(profile.gender)
+        ? profile.gender
+        : validGenders.first;
     _favoriteGenres
       ..clear()
       ..addAll(profile.favoriteGenres);
@@ -348,7 +354,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           profileType: _type,
           avatarUrl: avatarUrl,
           dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
-          gender: _gender.isEmpty ? 'Non spécifié' : _gender,
+          gender: _gender,
           favoriteGenres: List.of(_favoriteGenres),
           pinHash: _pinHash,
           updatedAt: now,
@@ -384,7 +390,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         id: const Uuid().v4(),
         firstName: name,
         dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
-        gender: _gender.isEmpty ? 'Non spécifié' : _gender,
+        gender: _gender,
         favoriteGenres: List.of(_favoriteGenres),
         avatarUrl: avatarUrl,
         profileType: _type,
@@ -394,8 +400,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       await ref.read(storageServiceProvider).saveProfile(profile);
       ref.invalidate(profilesProvider);
       if (mounted) context.pop();
-    }, context: '_save profile');
-    
+    }, context: '_save profile',);
+
     if (result.isFailure && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.errorSaving)),
@@ -410,28 +416,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final scheme = Theme.of(context).colorScheme;
     final showPin = _type == ProfileType.child || _type == ProfileType.expert;
 
-    final body = ListView(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-      children: [
-        _buildAvatarSection(),
-        const SizedBox(height: 16),
-        _buildAvatarPickerCard(),
-        const SizedBox(height: 8),
-        _buildIdentityCard(),
-        const SizedBox(height: 16),
-        _buildPersonalCard(),
-        const SizedBox(height: 16),
-        _buildTypeSection(),
-        if (showPin) ...[
-          const SizedBox(height: 16),
-          _buildPinSection(),
-        ],
-        const SizedBox(height: 8),
-        _buildActions(),
-      ],
-    );
-
-    if (!_isEdit) return _scaffold(body);
+    if (!_isEdit) return _scaffold(_buildBody());
 
     return _scaffold(
       ref.watch(profilesProvider).when(
@@ -464,9 +449,36 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 );
               }
               _fillFromProfile(target);
-              return body;
+              return _buildBody();
             },
           ),
+    );
+  }
+
+  Widget _buildBody() {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final showPin = _type == ProfileType.child || _type == ProfileType.expert;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+      children: [
+        _buildAvatarSection(),
+        const SizedBox(height: 16),
+        _buildAvatarPickerCard(),
+        const SizedBox(height: 8),
+        _buildIdentityCard(),
+        const SizedBox(height: 16),
+        _buildPersonalCard(),
+        const SizedBox(height: 16),
+        _buildTypeSection(),
+        if (showPin) ...[
+          const SizedBox(height: 16),
+          _buildPinSection(),
+        ],
+        const SizedBox(height: 8),
+        _buildActions(),
+      ],
     );
   }
 
@@ -623,7 +635,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Âge',
+            'Ã‚ge',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),

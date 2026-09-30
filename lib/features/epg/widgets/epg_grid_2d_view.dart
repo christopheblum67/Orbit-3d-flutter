@@ -9,7 +9,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart'
 
 /// Grille EPG haute performance avec CustomPainter (canvas unique).
 ///
-/// Règles anti-ANR / anti-crash :
+/// Règle anti-ANR / anti-crash :
 /// - **Aucun `setState` pendant les gestes** : hover, ligne "maintenant" et
 ///   défilement horizontal repaintent via des `ValueNotifier` écoutés par le
 ///   painter (`repaint:`), pas via un rebuild du widget (l'ancien code
@@ -19,8 +19,9 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart'
 ///   (signature channels + nombre de programmes + zoom), pas à chaque build.
 /// - **Culling** : seules les barres visibles dans le viewport sont dessinées
 ///   (pas de `TextPainter` pour les programmes hors écran).
-/// - Les programmes terminés des chaînes DVR affichent un badge « ↺ REPLAY »,
+/// - Les programmes terminés des chaînes DVR affichent un badge « REPLAY »,
 ///   et un **appui court** sur une barre émet `onProgramTap(program, channel)`.
+/// - Un **appui long** sur le nom de la chaîne émet `onChannelLongPress(channel)`.
 class EpgGrid2DView extends StatefulWidget {
   final List<String> channels;
   final Map<String, List<EPGProgram>> epgData;
@@ -28,9 +29,11 @@ class EpgGrid2DView extends StatefulWidget {
   final double pixelsPerMinute;
   final Function(EPGProgram, String)? onProgramTap;
   final Function(String)? onChannelTap;
+  final Function(String)? onChannelLongPress;
   final EpgTimelineController? timelineController;
+
   /// Noms des chaînes supportant le replay/DVR : leurs programmes terminés
-  /// affichent un badge « ↺ replay » dans la grille.
+  /// affichent un badge « REPLAY » dans la grille.
   final Set<String> replayChannels;
 
   const EpgGrid2DView({
@@ -41,6 +44,7 @@ class EpgGrid2DView extends StatefulWidget {
     this.pixelsPerMinute = 4.0,
     this.onProgramTap,
     this.onChannelTap,
+    this.onChannelLongPress,
     this.timelineController,
     this.replayChannels = const {},
   });
@@ -171,7 +175,20 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
     hash = (hash * 31 + widget.channels.length) & 0x7fffffff;
     for (final ch in widget.channels) {
       hash = (hash * 31 + ch.hashCode) & 0x7fffffff;
-      hash = (hash * 31 + (widget.epgData[ch]?.length ?? 0)) & 0x7fffffff;
+      final programs = widget.epgData[ch];
+      if (programs == null || programs.isEmpty) {
+        hash = (hash * 31) & 0x7fffffff;
+        continue;
+      }
+      // L'effectif seul ne suffit pas : un rafraîchissement de l'EPG peut
+      // remplacer N programmes par N autres. On inclut donc le premier et le
+      // dernier debut, ce qui change des que le contenu change, et on les
+      // combine sans allouer (une somme suffit a detecter un changement).
+      hash = (hash * 31 + programs.length) & 0x7fffffff;
+      var fingerprint = programs.first.start.millisecondsSinceEpoch;
+      fingerprint += programs.last.start.millisecondsSinceEpoch;
+      fingerprint += programs[programs.length ~/ 2].start.millisecondsSinceEpoch;
+      hash = (hash * 31 + fingerprint) & 0x7fffffff;
     }
     for (final ch in widget.replayChannels) {
       hash = (hash * 31 + ch.hashCode) & 0x7fffffff;
@@ -358,6 +375,7 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                               _timelineController.setTargetedChannel(ch);
                               widget.onChannelTap?.call(ch);
                             },
+                            onLongPress: () => widget.onChannelLongPress?.call(ch),
                             child: Text(
                               ch,
                               style: const TextStyle(
@@ -628,6 +646,30 @@ class _EpgGridPainter extends CustomPainter {
               y + h - 14,
             ),
           );
+        }
+      }
+
+      // Chaîne sans aucun programme sur la fenêtre affichée : on l'annonce
+      // explicitement.
+      //
+      // Laissait la ligne entièrement vide, ce qui est ambigu : impossible de
+      // distinguer « cette chaîne n'a pas d'EPG » d'un bug d'affichage ou
+      // d'un décalage de grille. Un libellé rend l'information lisible et
+      // évite au lecteur de croire que l'application est cassée.
+      if (programs.isEmpty) {
+        final emptyPainter = TextPainter(
+          text: const TextSpan(
+            text: 'Aucune donnée de programme',
+            style: TextStyle(
+              color: Color(0xFF5A6273),
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
+        if (cullMin <= 8 && emptyPainter.width > 0) {
+          emptyPainter.paint(canvas, Offset(8, y + (h - emptyPainter.height) / 2));
         }
       }
     }

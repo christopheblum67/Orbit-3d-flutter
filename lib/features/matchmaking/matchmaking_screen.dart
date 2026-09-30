@@ -86,9 +86,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         controller: _tabController,
         children: [
           MatchmakingTab(
-              kind: RecommendationKind.movie, initialGroup: _initialGroup,),
+            kind: RecommendationKind.movie,
+            initialGroup: _initialGroup,
+          ),
           MatchmakingTab(
-              kind: RecommendationKind.series, initialGroup: _initialGroup,),
+            kind: RecommendationKind.series,
+            initialGroup: _initialGroup,
+          ),
           const RankingsView(),
         ],
       ),

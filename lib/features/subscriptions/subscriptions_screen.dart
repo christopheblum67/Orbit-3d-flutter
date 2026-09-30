@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -26,20 +27,28 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Retour',
+                    onPressed: () => context.pop(),
+                  ),
+                  IconButton(
+                    tooltip: l.addSubscription,
+                    icon: const Icon(Icons.add_rounded),
+                    onPressed: () => _showAddSubscriptionDialog(context, ref),
+                  ),
+                ],
               )
-            : null,
+            : IconButton(
+                tooltip: l.addSubscription,
+                icon: const Icon(Icons.add_rounded),
+                onPressed: () => _showAddSubscriptionDialog(context, ref),
+              ),
         title: const Text('Abonnements'),
-        actions: [
-          IconButton(
-            tooltip: l.addSubscription,
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => _showAddSubscriptionDialog(context, ref),
-          ),
-        ],
+        actions: [],
       ),
       body: subs.isEmpty
           ? _EmptyState(
@@ -121,7 +130,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Subscription sub) async {
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, Subscription sub,) async {
     final cancelFocus = FocusNode();
     final confirmFocus = FocusNode();
 
@@ -136,7 +146,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer l\'abonnement ?'),
         content: Text(
-          'Voulez-vous supprimer "${sub.name}" ? Cette action est irr�versible.',
+          'Voulez-vous supprimer "${sub.name}" ? Cette action est irréversible.',
         ),
         actions: [
           Focus(
@@ -316,7 +326,7 @@ class _SubscriptionCard extends ConsumerWidget {
     required this.onDelete,
   });
 
-@override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
@@ -447,9 +457,9 @@ class _SubscriptionCard extends ConsumerWidget {
 
   String _subtitle(Subscription sub) {
     if (sub.type == SubscriptionType.xtream) {
-      return sub.baseUrl ?? 'Configuration incompl�te';
+      return sub.baseUrl ?? 'Configuration incomplète';
     }
-    return sub.m3uUrl ?? 'Configuration incompl�te';
+    return sub.m3uUrl ?? 'Configuration incomplète';
   }
 }
 
@@ -525,8 +535,8 @@ class _TestResultRow extends ConsumerWidget {
               Expanded(
                 child: Text(
                   status == TestResultStatus.success
-                      ? 'Test OK � ${latency != null ? '$latency ms' : '�'}'
-                      : '�chec : ${error ?? 'Erreur inconnue'}',
+                      ? 'Test OK ï¿½ ${latency != null ? '$latency ms' : 'ï¿½'}'
+                      : 'Échec : ${error ?? 'Erreur inconnue'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success
                             ? Colors.green
@@ -563,7 +573,7 @@ class _TestButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.wifi_find, size: 18),
-      label: Text(isTesting ? 'Test�' : 'Tester'),
+      label: Text(isTesting ? 'Test…' : 'Tester'),
       onPressed: isTesting ? null : onTest,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -598,8 +608,7 @@ class _SubscriptionFormDialogState
   final _usernameFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _m3uFocus = FocusNode();
-  final _cancelFocus = FocusNode();
-  final _saveFocus = FocusNode();
+  final _submitFocus = FocusNode();
   final _segmentedButtonFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
@@ -633,15 +642,17 @@ class _SubscriptionFormDialogState
     _usernameFocus.dispose();
     _passwordFocus.dispose();
     _m3uFocus.dispose();
+    _submitFocus.dispose();
     _segmentedButtonFocus.dispose();
-    _cancelFocus.dispose();
-    _saveFocus.dispose();
     super.dispose();
   }
 
   void _requestFocus(FocusNode focus) {
     if (mounted) {
-      FocusScope.of(context).requestFocus(focus);
+      // Use post-frame callback to avoid mutating layers during build/layout
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) FocusScope.of(context).requestFocus(focus);
+      });
     }
   }
 
@@ -656,32 +667,19 @@ class _SubscriptionFormDialogState
     Widget? suffixIcon,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    return Focus(
+    return TextFormField(
+      controller: controller,
       focusNode: focusNode,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-          _requestFocus(nextFocusNode);
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: TextFormField(
-        controller: controller,
-        focusNode: focusNode,
-        decoration: InputDecoration(
-          labelText: labelText,
-          suffixIcon: suffixIcon,
-        ),
-        keyboardType: keyboardType,
-        obscureText: obscureText,
-        inputFormatters: inputFormatters,
-        textInputAction: TextInputAction.next,
-        onEditingComplete: () => _requestFocus(nextFocusNode),
-        validator: validator,
+      decoration: InputDecoration(
+        labelText: labelText,
+        suffixIcon: suffixIcon,
       ),
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      inputFormatters: inputFormatters,
+      textInputAction: TextInputAction.next,
+      onEditingComplete: () => _requestFocus(nextFocusNode),
+      validator: validator,
     );
   }
 
@@ -690,7 +688,8 @@ class _SubscriptionFormDialogState
     final l = AppLocalizations.of(context);
     final isEditing = widget.subscription != null;
 
-    final nextAfterName = _type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus;
+    final nextAfterName =
+        _type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus;
 
     return AlertDialog(
       title: Text(isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement'),
@@ -712,22 +711,22 @@ class _SubscriptionFormDialogState
                   ),
                   const SizedBox(height: 16),
                   SegmentedButton<SubscriptionType>(
-                      segments: [
-                        ButtonSegment(
-                          value: SubscriptionType.xtream,
-                          label: Text(l.xtreamCodes),
-                        ),
-                        ButtonSegment(
-                          value: SubscriptionType.m3u,
-                          label: Text(l.m3uPlaylist),
-                        ),
-                      ],
-                      selected: {_type},
-                      onSelectionChanged: (Set<SubscriptionType> newSelection) {
-                        setState(() => _type = newSelection.first);
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                    segments: [
+                      ButtonSegment(
+                        value: SubscriptionType.xtream,
+                        label: Text(l.xtreamCodes),
+                      ),
+                      ButtonSegment(
+                        value: SubscriptionType.m3u,
+                        label: Text(l.m3uPlaylist),
+                      ),
+                    ],
+                    selected: {_type},
+                    onSelectionChanged: (Set<SubscriptionType> newSelection) {
+                      setState(() => _type = newSelection.first);
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   if (_type == SubscriptionType.xtream) ...[
                     _buildTvTextField(
                       controller: _baseUrlController,
@@ -748,7 +747,7 @@ class _SubscriptionFormDialogState
                     _buildTvTextField(
                       controller: _passwordController,
                       focusNode: _passwordFocus,
-                      nextFocusNode: _saveFocus,
+                      nextFocusNode: _submitFocus,
                       labelText: 'Password',
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
@@ -770,7 +769,7 @@ class _SubscriptionFormDialogState
                     _buildTvTextField(
                       controller: _m3uUrlController,
                       focusNode: _m3uFocus,
-                      nextFocusNode: _saveFocus,
+                      nextFocusNode: _submitFocus,
                       labelText: l.m3uPlaylistUrl,
                       validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
@@ -782,46 +781,21 @@ class _SubscriptionFormDialogState
         ),
       ),
       actions: [
-        Focus(
-          focusNode: _cancelFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(context);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
         ),
-        Focus(
-          focusNode: _saveFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              _save();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: FilledButton(
-            onPressed: _save,
-            child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
-          ),
+        FilledButton(
+          onPressed: _save,
+          child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
         ),
       ],
     );
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    final formState = _formKey.currentState;
+    if (formState == null || !formState.validate()) return;
 
     final id = widget.subscription?.id ??
         DateTime.now().millisecondsSinceEpoch.toString();
@@ -862,12 +836,22 @@ class _SubscriptionFormDialogState
           createdAt: widget.subscription?.createdAt ?? DateTime.now(),
         );
 
-    if (widget.subscription != null) {
-      await ref.read(subscriptionsProvider.notifier).updateSubscription(sub);
-    } else {
-      await ref.read(subscriptionsProvider.notifier).addSubscription(sub);
+    try {
+      if (widget.subscription != null) {
+        await ref.read(subscriptionsProvider.notifier).updateSubscription(sub);
+      } else {
+        await ref.read(subscriptionsProvider.notifier).addSubscription(sub);
+      }
+      widget.onSaved();
+      if (mounted) Navigator.pop(context);
+    } catch (e, st) {
+      LoggerService.instance
+          .error('_SubscriptionFormDialog._save failed', error: e, stackTrace: st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la sauvegarde : $e')),
+        );
+      }
     }
-    widget.onSaved();
-    if (mounted) Navigator.pop(context);
   }
 }

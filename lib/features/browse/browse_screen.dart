@@ -9,9 +9,14 @@ import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.d
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/movie_compact.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/series_compact.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
+import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
@@ -105,7 +110,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 
   Widget _buildMovieView() {
     final l = AppLocalizations.of(context);
-    final moviesAsync = ref.watch(moviesProvider);
+    final moviesAsync = ref.watch(moviesCompactProvider);
     final categoriesAsync = ref.watch(vodCategoriesProvider);
     return moviesAsync.when(
       data: (movies) {
@@ -116,12 +121,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             message: 'La bibliothèque VOD est vide pour le moment.',
           );
         }
-        final filtered = _filterMovies(movies);
+        final filtered = _filterMoviesCompact(movies);
         return _buildContent(
           icon: Icons.movie_outlined,
           title: 'Films',
-          categories:
-              categoriesAsync.value ?? _categoriesFromMovies(movies),
+          categories: categoriesAsync.value ?? _categoriesFromMoviesCompact(movies),
           items: filtered,
           isSeries: false,
           allItems: movies,
@@ -132,12 +136,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         icon: Icons.movie_outlined,
         title: l.moviesUnavailable,
         message: userFriendlyError(err),
-        onRetry: () => ref.invalidate(moviesProvider),
+        onRetry: () => ref.invalidate(moviesCompactProvider),
       ),
     );
   }
 
   List<Movie> _filterMovies(List<Movie> movies) {
+    final hidden = ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final favIds = ref
         .read(favoritesProvider)
         .values
@@ -152,6 +157,40 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         .toSet();
     final q = _query.trim().toLowerCase();
     return movies.where((m) {
+      if (hidden.contains(m.categoryId)) return false;
+      switch (_selectedCategoryId) {
+        case 'fav':
+          if (!favIds.contains(m.id)) return false;
+        case 'recent':
+          if (!recentIds.contains(m.id)) return false;
+        case '':
+          break;
+        default:
+          if (m.categoryId != _selectedCategoryId) return false;
+      }
+      if (q.isEmpty) return true;
+      return m.title.toLowerCase().contains(q) ||
+          m.genre.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  List<MovieCompact> _filterMoviesCompact(List<MovieCompact> movies) {
+    final hidden = ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
+    final favIds = ref
+        .read(favoritesProvider)
+        .values
+        .where((e) => e.type == ContentType.vod)
+        .map((e) => e.id)
+        .toSet();
+    final recentIds = ref
+        .read(recentlyWatchedProvider)
+        .values
+        .where((e) => e.type == ContentType.vod)
+        .map((e) => e.id)
+        .toSet();
+    final q = _query.trim().toLowerCase();
+    return movies.where((m) {
+      if (hidden.contains(m.categoryId)) return false;
       switch (_selectedCategoryId) {
         case 'fav':
           if (!favIds.contains(m.id)) return false;
@@ -172,7 +211,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 
   Widget _buildSeriesView() {
     final l = AppLocalizations.of(context);
-    final seriesAsync = ref.watch(seriesProvider);
+    final seriesAsync = ref.watch(seriesCompactProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     return seriesAsync.when(
       data: (seriesList) {
@@ -183,12 +222,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             message: 'La bibliothèque de séries est vide pour le moment.',
           );
         }
-        final filtered = _filterSeries(seriesList);
+        final filtered = _filterSeriesCompact(seriesList);
         return _buildContent(
           icon: Icons.tv,
           title: l.series,
           categories:
-              categoriesAsync.value ?? _categoriesFromSeries(seriesList),
+              categoriesAsync.value ?? _categoriesFromSeriesCompact(seriesList),
           items: filtered,
           isSeries: true,
           allItems: seriesList,
@@ -199,7 +238,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         icon: Icons.tv,
         title: l.seriesUnavailable,
         message: userFriendlyError(err),
-        onRetry: () => ref.invalidate(seriesProvider),
+        onRetry: () => ref.invalidate(seriesCompactProvider),
       ),
     );
   }
@@ -235,6 +274,40 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     }).toList();
   }
 
+  List<SeriesCompact> _filterSeriesCompact(List<SeriesCompact> seriesList) {
+    final hidden =
+        ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
+    final favIds = ref
+        .read(favoritesProvider)
+        .values
+        .where((e) => e.type == ContentType.series)
+        .map((e) => e.id)
+        .toSet();
+    final recentIds = ref
+        .read(recentlyWatchedProvider)
+        .values
+        .where((e) => e.type == ContentType.series)
+        .map((e) => e.id)
+        .toSet();
+    final q = _query.trim().toLowerCase();
+    return seriesList.where((s) {
+      if (hidden.contains(s.categoryId)) return false;
+      switch (_selectedCategoryId) {
+        case 'fav':
+          if (!favIds.contains(s.id)) return false;
+        case 'recent':
+          if (!recentIds.contains(s.id)) return false;
+        case '':
+          break;
+        default:
+          if (s.categoryId != _selectedCategoryId) return false;
+      }
+      if (q.isEmpty) return true;
+      return s.title.toLowerCase().contains(q) ||
+          s.genre.toLowerCase().contains(q);
+    }).toList();
+  }
+
   // ==================== CONTENU COMMUN (rail + grille) ====================
 
   /// [items] est déjà filtré (catégorie + recherche). On trie, on plafonne à
@@ -248,9 +321,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     required List<dynamic> allItems,
   }) {
     final libraryManager = ref.read(mediaLibraryManagerProvider);
-    final mediaItems = items
-        .map((e) => _toMediaItem(e, isSeries: isSeries))
-        .toList();
+    final mediaItems =
+        items.map((e) => _toMediaItem(e, isSeries: isSeries)).toList();
     final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
     final capped = sortedItems.take(kBrowseGridCap).toList();
 
@@ -258,11 +330,24 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       for (final e in items)
         if (e.id.isNotEmpty) e.id: e,
     };
-    final visible = capped
-        .map<dynamic>((item) => byId[item.id] ?? items.first)
-        .toList();
+    final visible =
+        capped.map<dynamic>((item) => byId[item.id] ?? items.first).toList();
 
     final contentType = isSeries ? ContentType.series : ContentType.vod;
+    // Les catégories masquées (par abonnement) disparaissent du rail, et les
+    // compteurs « Tous / Favoris / Récemment » ignorent leurs contenus.
+    final filterState = ref.watch(vodCategoryFilterProvider);
+    final hidden = isSeries
+        ? filterState.hiddenSeriesCategoryIds
+        : filterState.hiddenVodCategoryIds;
+    final visibleAllItems = hidden.isEmpty
+        ? allItems
+        : allItems
+            .where((e) => !hidden.contains(e.categoryId as String))
+            .toList(growable: false);
+    final visibleCategories = categories
+        .where((c) => !hidden.contains(c.id))
+        .toList(growable: false);
     final favIds = ref
         .read(favoritesProvider)
         .values
@@ -276,18 +361,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         .map((e) => e.id)
         .toSet();
     final railCategories = <MediaCategory>[
-      MediaCategory(id: '', name: 'Tous', count: allItems.length),
+      MediaCategory(id: '', name: 'Tous', count: visibleAllItems.length),
       MediaCategory(
         id: 'fav',
         name: 'Favoris',
-        count: allItems.where((e) => favIds.contains(e.id)).length,
+        count: visibleAllItems.where((e) => favIds.contains(e.id)).length,
       ),
       MediaCategory(
         id: 'recent',
         name: 'Récemment',
-        count: allItems.where((e) => recentIds.contains(e.id)).length,
+        count: visibleAllItems.where((e) => recentIds.contains(e.id)).length,
       ),
-      ...categories,
+      ...visibleCategories,
     ];
 
     return Row(
@@ -344,8 +429,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                             ),
                           ),
                           SliverPadding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                             sliver: SliverGrid(
                               gridDelegate:
                                   const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -377,6 +461,35 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   MediaItem _toMediaItem(dynamic e, {required bool isSeries}) {
+    // Les écrans de navigation travaillent désormais sur les modèles compacts
+    // ([MovieCompact] / [SeriesCompact]) : l'URL de stream est reconstruite
+    // à la volée par le modèle complet, absent ici par économie de RAM.
+    if (e is SeriesCompact) {
+      return MediaItem(
+        id: e.id,
+        title: e.title,
+        streamUrl: '',
+        posterUrl: e.coverUrl,
+        categoryId: e.categoryId,
+        rating: e.rating,
+        releaseYear: e.year,
+        durationMinutes: 0,
+        addedDate: e.addedDate,
+      );
+    }
+    if (e is MovieCompact) {
+      return MediaItem(
+        id: e.id,
+        title: e.title,
+        streamUrl: '',
+        posterUrl: e.posterUrl,
+        categoryId: e.categoryId,
+        rating: e.rating,
+        releaseYear: e.year,
+        durationMinutes: 0,
+        addedDate: e.addedDate,
+      );
+    }
     if (isSeries) {
       final s = e as Series;
       return MediaItem(
@@ -388,7 +501,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         rating: s.rating,
         releaseYear: s.year,
         durationMinutes: 0,
-        addedDate: DateTime.now(),
+        addedDate: s.addedDate,
       );
     }
     final m = e as Movie;
@@ -401,40 +514,96 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
       rating: m.rating,
       releaseYear: m.year,
       durationMinutes: 0,
-      addedDate: DateTime.now(),
+      addedDate: m.addedDate,
+    );
+  }
+
+  String _titleOf(dynamic item) {
+    if (item is MovieCompact) return item.title;
+    if (item is SeriesCompact) return item.title;
+    if (item is Series) return item.title;
+    if (item is Movie) return item.title;
+    return '';
+  }
+
+  String _posterOf(dynamic item) {
+    if (item is MovieCompact) return item.posterUrl;
+    if (item is SeriesCompact) return item.coverUrl;
+    if (item is Series) return item.coverUrl;
+    if (item is Movie) return item.posterUrl;
+    return '';
+  }
+
+  int _yearOf(dynamic item) {
+    if (item is MovieCompact) return item.year;
+    if (item is SeriesCompact) return item.year;
+    if (item is Series) return item.year;
+    if (item is Movie) return item.year;
+    return 0;
+  }
+
+  String _genreOf(dynamic item) {
+    if (item is MovieCompact) return item.genre;
+    if (item is SeriesCompact) return item.genre;
+    if (item is Series) return item.genre;
+    if (item is Movie) return item.genre;
+    return '';
+  }
+
+  /// Affinité en pourcentage d'un élément de grille, quel que soit le modèle
+  /// (complet ou compact). `null` si aucun profil n'est actif.
+  int? _affinityPercentFor(dynamic item, bool isSeries) {
+    final scorer = ref.watch(profileAffinityScorerProvider);
+    if (scorer == null) return null;
+    if (item is Movie) return scorer.percentForMovie(item);
+    if (item is Series) return scorer.percentForSeries(item);
+    // Modèles compacts : on reconstruit un Recommendation à partir des seules
+    // métadonnées présentes sur la tuile (titre / genre / note), ce qui donne
+    // exactement le même calcul que le module matchmaking.
+    final title = _titleOf(item);
+    if (title.isEmpty) return null;
+    // Les modèles complet et compact exposent tous deux `rating`.
+    final rawRating = item is Movie
+        ? item.rating
+        : item is Series
+            ? item.rating
+            : (item as dynamic).rating as double;
+    return scorer.percentFor(
+      Recommendation.fromMetadata(
+        kind: isSeries ? RecommendationKind.series : RecommendationKind.movie,
+        title: title,
+        genre: _genreOf(item),
+        rating: rawRating.toDouble(),
+      ),
     );
   }
 
   Widget _buildCard(dynamic item, bool isSeries) {
     final l = AppLocalizations.of(context);
     final type = isSeries ? ContentType.series : ContentType.vod;
+    // Affinité matchmaking du profil courant, calculée sur le modèle complet
+    // quand on l'a, sinon reconstruite à partir des métadonnées de la tuile.
+    final affinityPercent = _affinityPercentFor(item, isSeries);
 
     void onOpen() {
       if (isSeries) {
-        final s = item as Series;
         context.push(
-          '/series/detail?id=${Uri.encodeComponent(s.id)}'
-          '&title=${Uri.encodeComponent(s.title)}',
+          '/series/detail?id=${Uri.encodeComponent(item.id)}'
+          '&title=${Uri.encodeComponent(_titleOf(item))}',
         );
       } else {
-        context.push('/vod/detail', extra: item as Movie);
+        // Modèle compact : on passe l'identifiant, l'écran de détail recharge
+        // la fiche complète (et l'URL de stream) depuis le panel.
+        context.push('/vod/detail?id=${Uri.encodeComponent(item.id)}');
       }
     }
 
     void onLongPress() {
       final notifier = ref.read(favoritesProvider.notifier);
-      final title = isSeries
-          ? (item as Series).title
-          : (item as Movie).title;
-      final poster = isSeries
-          ? (item as Series).coverUrl
-          : (item as Movie).posterUrl;
-      final year = isSeries
-          ? (item as Series).year
-          : (item as Movie).year;
-      final genre = isSeries
-          ? (item as Series).genre
-          : (item as Movie).genre;
+      final title = _titleOf(item);
+      final poster = _posterOf(item);
+      final year = _yearOf(item);
+      final genre = _genreOf(item);
       final wasFavorite = notifier.isFavorite(type, item.id);
       notifier.toggle(
         FavoriteEntry(
@@ -456,38 +625,31 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         );
     }
 
-    final cardTitle = isSeries
-        ? (item as Series).title
-        : (item as Movie).title;
-    final poster = isSeries
-        ? (item as Series).coverUrl
-        : (item as Movie).posterUrl;
-    final year = isSeries
-        ? (item as Series).year
-        : (item as Movie).year;
-    final genre = isSeries
-        ? (item as Series).genre
-        : (item as Movie).genre;
-    final rating = isSeries
-        ? (item as Series).rating
-        : (item as Movie).rating;
-    final ageLabel = isSeries
-        ? (item as Series).pegiLabel
-        : (item as Movie).pegiLabel;
-    final isNew = isSeries
-        ? (item as Series).isNew
-        : (item as Movie).isNew;
+    final cardTitle = isSeries ? (item as Series).title : (item as Movie).title;
+    final poster =
+        isSeries ? (item as Series).coverUrl : (item as Movie).posterUrl;
+    final year = isSeries ? (item as Series).year : (item as Movie).year;
+    final genre = isSeries ? (item as Series).genre : (item as Movie).genre;
+    final rating = isSeries ? (item as Series).rating : (item as Movie).rating;
+    final ageLabel =
+        isSeries ? (item as Series).pegiLabel : (item as Movie).pegiLabel;
+    final isNew = isSeries ? (item as Series).isNew : (item as Movie).isNew;
 
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
-        title: cardTitle,
-        posterUrl: poster,
-        year: year,
-        genre: genre,
-        rating: rating,
-        ageLabel: ageLabel,
-        fallbackIcon: isSeries ? Icons.tv : Icons.movie_outlined,
+                      title: cardTitle,
+                      posterUrl: poster,
+                      year: year,
+                      // Catégorie retirée de la tuile (alignement chaînes).
+                      genre: '',
+                      rating: rating,
+                      ageLabel: ageLabel,
+                      fallbackIcon: isSeries ? Icons.tv : Icons.movie_outlined,
+                      // `contain` : l'affiche ne déborde plus de la tuile.
+                      posterFit: BoxFit.contain,
+                      posterPadding: const EdgeInsets.all(6),
+                      matchPercent: affinityPercent,
         favoriteOverlay: FavoriteToggle.overlay(
           entry: FavoriteEntry(
             type: type,
@@ -516,8 +678,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     final vod = ref.watch(vodCategoriesProvider);
     final series = ref.watch(seriesCategoriesProvider);
     final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
-    final seriesList =
-        ref.watch(seriesProvider).value ?? const <Series>[];
+    final seriesList = ref.watch(seriesProvider).value ?? const <Series>[];
 
     final vodList = vod.value ?? _categoriesFromMovies(movies);
     final seriesCats = series.value ?? _categoriesFromSeries(seriesList);
@@ -544,17 +705,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   /// si elle y existe, sinon on bascule sur l'autre onglet.
   void _selectUniversalCategory(MediaCategory cat) {
     final currentCats = _tab == _BrowseTab.series
-        ? (ref.read(seriesCategoriesProvider).value ??
-            const <MediaCategory>[])
-        : (ref.read(vodCategoriesProvider).value ??
-            const <MediaCategory>[]);
+        ? (ref.read(seriesCategoriesProvider).value ?? const <MediaCategory>[])
+        : (ref.read(vodCategoriesProvider).value ?? const <MediaCategory>[]);
     if (currentCats.any((c) => c.id == cat.id)) {
       setState(() => _selectedCategoryId = cat.id);
     } else {
       setState(() {
-        _tab = _tab == _BrowseTab.series
-            ? _BrowseTab.films
-            : _BrowseTab.series;
+        _tab = _tab == _BrowseTab.series ? _BrowseTab.films : _BrowseTab.series;
         _selectedCategoryId = cat.id;
         _query = '';
       });
@@ -562,6 +719,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   static List<MediaCategory> _categoriesFromSeries(List<Series> seriesList) {
+    return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
+  }
+
+  static List<MediaCategory> _categoriesFromMoviesCompact(List<MovieCompact> movies) {
+    return _categoriesFrom(movies.map((m) => (m.categoryId, m.genre)));
+  }
+
+  static List<MediaCategory> _categoriesFromSeriesCompact(List<SeriesCompact> seriesList) {
     return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
   }
 
@@ -653,9 +818,8 @@ class _BrowseTabPill extends StatelessWidget {
         color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: selected
-              ? color
-              : scheme.outlineVariant.withValues(alpha: 0.5),
+          color:
+              selected ? color : scheme.outlineVariant.withValues(alpha: 0.5),
           width: selected ? 2 : 1,
         ),
       ),
@@ -710,7 +874,8 @@ class RankingsViewState extends ConsumerState<RankingsView> {
     _RankSource.trending,
   ];
 
-  FutureProvider<List<TmdbRankEntry>> _providerFor(bool isTv, _RankSource source) {
+  FutureProvider<List<TmdbRankEntry>> _providerFor(
+      bool isTv, _RankSource source,) {
     if (isTv) {
       switch (source) {
         case _RankSource.popular:
@@ -879,23 +1044,25 @@ class RankingsViewState extends ConsumerState<RankingsView> {
               return TvFocus(
                 onActivate: () => onSelected(src),
                 child: Material(
-                  color: isSelected ? scheme.primary : scheme.surfaceContainerHighest,
+                  color: isSelected
+                      ? scheme.primary
+                      : scheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(999),
                   child: InkWell(
                     onTap: () => onSelected(src),
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8,),
                       child: Text(
                         src.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelLarge
-                            ?.copyWith(
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? scheme.onPrimary : scheme.onSurface,
+                              color: isSelected
+                                  ? scheme.onPrimary
+                                  : scheme.onSurface,
                             ),
                       ),
                     ),
@@ -911,14 +1078,16 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                 ? EmptyState(
                     icon: Icons.leaderboard_outlined,
                     title: l.noRankings,
-                    message:
-                        'Les tendances TMDB ne sont pas disponibles. '
+                    message: 'Les tendances TMDB ne sont pas disponibles. '
                         'Ajoutez une clé API TMDB dans Réglages '
                         '(ou TMDB_API_KEY dans .env).',
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    cacheExtent: 500,
+                    addAutomaticKeepAlives: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: 200,
                       childAspectRatio: 0.55,
                       crossAxisSpacing: 12,
@@ -976,7 +1145,8 @@ enum _RankSource {
   nowPlaying('En salle', '/movie/now_playing', null),
   topRated('Mieux notés', '/movie/top_rated', '/tv/top_rated'),
   upcoming('À venir', '/movie/upcoming', null),
-  trending('Tendance de la semaine', '/trending/movie/week', '/trending/tv/week'),
+  trending(
+      'Tendance de la semaine', '/trending/movie/week', '/trending/tv/week',),
   onTheAir('En diffusion', null, '/tv/on_the_air'),
   airingToday('Diffusion aujourd\'hui', null, '/tv/airing_today');
 
@@ -1020,13 +1190,17 @@ class _RankCard extends StatelessWidget {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
-        title: entry.title,
-        posterUrl: entry.posterUrl,
-        year: entry.year,
-        genre: entry.genreLabel,
-        rating: entry.rating,
-        ageLabel: null,
-        fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
+            title: entry.title,
+            posterUrl: entry.posterUrl,
+            year: entry.year,
+            // Catégorie retirée de la tuile (alignement chaînes).
+            genre: '',
+            rating: entry.rating,
+            ageLabel: null,
+            fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
+            // `contain` : l'affiche ne déborde plus de la tuile.
+            posterFit: BoxFit.contain,
+            posterPadding: const EdgeInsets.all(6),
         onTap: onOpen,
         voteCount: entry.voteCount,
         overview: entry.overview,
@@ -1088,9 +1262,7 @@ class _RankEntrySheet extends StatelessWidget {
                               imageUrl: entry.posterUrl,
                               fit: BoxFit.cover,
                               errorWidget: (_, __, ___) => Icon(
-                                entry.isTv
-                                    ? Icons.tv
-                                    : Icons.movie_outlined,
+                                entry.isTv ? Icons.tv : Icons.movie_outlined,
                                 color: scheme.primary,
                               ),
                             )
@@ -1140,8 +1312,8 @@ class _RankEntrySheet extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Synopsis',
-                  style:
-                      textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -1247,8 +1419,7 @@ class _UniversalCategoryRail extends StatelessWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: categories.length,
-              separatorBuilder: (context, index) =>
-                  const SizedBox(width: 8),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final cat = categories[index];
                 return TvFocus(
@@ -1264,8 +1435,7 @@ class _UniversalCategoryRail extends StatelessWidget {
                           horizontal: 14,
                           vertical: 10,
                         ),
-                        constraints:
-                            const BoxConstraints(maxWidth: 220),
+                        constraints: const BoxConstraints(maxWidth: 220),
                         child: Text.rich(
                           TextSpan(
                             children: [

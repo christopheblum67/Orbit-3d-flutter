@@ -19,7 +19,6 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
@@ -31,7 +30,8 @@ class UnifiedSettingsScreen extends ConsumerStatefulWidget {
   const UnifiedSettingsScreen({super.key});
 
   @override
-  ConsumerState<UnifiedSettingsScreen> createState() => _UnifiedSettingsScreenState();
+  ConsumerState<UnifiedSettingsScreen> createState() =>
+      _UnifiedSettingsScreenState();
 }
 
 class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
@@ -277,7 +277,8 @@ class _AccountSection extends ConsumerWidget {
 
   static void _importSettings(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    final backup = ref.read(storageServiceProvider).getSetting('settings_backup');
+    final backup =
+        ref.read(storageServiceProvider).getSetting('settings_backup');
     if (backup == null || backup.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -382,8 +383,10 @@ class _DnsProviderTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.dns_outlined,
-              color: Theme.of(context).colorScheme.primary,),
+          leading: Icon(
+            Icons.dns_outlined,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           title: Text(l.dnsProvider, style: const TextStyle(fontSize: 14)),
           subtitle: Text(
             l.dnsProviderSubtitle,
@@ -537,10 +540,11 @@ class _SecuritySection extends ConsumerWidget {
                         ),
                         deleteIcon: const Icon(Icons.close, size: 16),
                         onDeleted: () {
-                          final updated = [...s.certificatePinningFingerprints]..remove(fp);
+                          final updated = [...s.certificatePinningFingerprints]
+                            ..remove(fp);
                           n.setCertificatePinningFingerprints(updated);
                         },
-                      ))
+                      ),)
                   .toList(),
             ),
           const SizedBox(height: 12),
@@ -786,14 +790,16 @@ class _AdvancedSection extends ConsumerWidget {
           title: l.highContrast,
           subtitle: l.highContrastSubtitle,
           value: ref.watch(advancedSettingsProvider).highContrast,
-          onChanged: ref.read(advancedSettingsProvider.notifier).setHighContrast,
+          onChanged:
+              ref.read(advancedSettingsProvider.notifier).setHighContrast,
           icon: Icons.contrast_outlined,
         ),
         SettingsSwitchTile(
           title: l.dpadNavigation,
           subtitle: l.dpadNavigationSubtitle,
           value: ref.watch(advancedSettingsProvider).dpadNavigation,
-          onChanged: ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
+          onChanged:
+              ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
           icon: Icons.tv_rounded,
         ),
         SettingsSwitchTile(
@@ -802,8 +808,8 @@ class _AdvancedSection extends ConsumerWidget {
           value: ref.watch(advancedSettingsProvider).fontSizeScale > 1.0,
           onChanged: (value) {
             ref.read(advancedSettingsProvider.notifier).setFontSizeScale(
-              value ? 1.3 : 1.0,
-            );
+                  value ? 1.3 : 1.0,
+                );
           },
           icon: Icons.format_size_outlined,
         ),
@@ -818,6 +824,12 @@ class _AdvancedSection extends ConsumerWidget {
           subtitle: l.matchmakingSubtitle,
           onTap: () => context.go('/matchmaking'),
         ),
+        _NavTile(
+          icon: Icons.filter_list_rounded,
+          title: 'Filtres de catégories',
+          subtitle: 'Catégories masquées par abonnement',
+          onTap: () => context.push('/category-filters'),
+        ),
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionDiagnostics),
         _NavTile(
@@ -831,20 +843,23 @@ class _AdvancedSection extends ConsumerWidget {
           title: l.clearCaches,
           subtitle: l.clearCachesSubtitle,
           onTap: () => _clearAllCaches(context, ref),
-          trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          trailing: Icon(Icons.chevron_right,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,),
         ),
         _NavTile(
           icon: Icons.restart_alt_outlined,
           title: l.resetApp,
           subtitle: l.resetAppSubtitle,
           onTap: () => _factoryReset(context, ref),
-          trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.error),
+          trailing: Icon(Icons.chevron_right,
+              color: Theme.of(context).colorScheme.error,),
         ),
       ],
     );
   }
 
-  static Future<void> _clearAllCaches(BuildContext context, WidgetRef ref) async {
+  static Future<void> _clearAllCaches(
+      BuildContext context, WidgetRef ref,) async {
     final l = AppLocalizations.of(context);
     // Purge réelle : cache mémoire des images Flutter + cache disque
     // flutter_cache_manager (pochettes/stickers) + images vivantes.
@@ -902,14 +917,14 @@ class _AdvancedSection extends ConsumerWidget {
           ),
           Focus(
             focusNode: confirmFocus,
-onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  Navigator.pop(ctx);
-                  unawaited(_performFactoryReset(context, ref));
-                  return KeyEventResult.handled;
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                unawaited(_performFactoryReset(context, ref));
+                return KeyEventResult.handled;
               }
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.arrowRight ||
@@ -939,14 +954,15 @@ onKeyEvent: (node, event) {
     confirmFocus.dispose();
   }
 
-  static Future<void> _performFactoryReset(BuildContext context, WidgetRef ref) async {
+  static Future<void> _performFactoryReset(
+      BuildContext context, WidgetRef ref,) async {
     final l = AppLocalizations.of(context);
-    
+
     // 1) Purge caches (mémoire + disque)
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
     await DefaultCacheManager().emptyCache();
-    
+
 // 2) Clear all Hive boxes
     final boxNames = [
       'history',
@@ -960,25 +976,29 @@ onKeyEvent: (node, event) {
     ];
     for (final name in boxNames) {
       await safeAsync(() async {
-        final box = await Hive.openBox(name);
+        // Si la box est déjà ouverte (typage posé à l'initialisation par un
+        // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
+        // type levait « already open and of type Box<...> ». On réutilise donc
+        // l'instance existante, puis on la ferme pour purger le cache Hive.
+        final box = Hive.isBoxOpen(name) ? Hive.box<dynamic>(name) : await Hive.openBox(name);
         await box.clear();
         await box.close();
-      }, context: '_performFactoryReset Hive box $name');
+      }, context: '_performFactoryReset Hive box $name',);
     }
-    
+
     // 3) Clear SharedPreferences keys
     await safeAsync(() async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-    }, context: '_performFactoryReset SharedPreferences');
-      
-      // 4) Clear flutter_cache_manager disk cache
+    }, context: '_performFactoryReset SharedPreferences',);
+
+    // 4) Clear flutter_cache_manager disk cache
     await DefaultCacheManager().emptyCache();
-    
+
     // 5) Clear Flutter image cache
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
-    
+
     // 6) Navigate to onboarding (reset complete)
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1033,11 +1053,14 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
                   hintText: l.tmdbKeyHint,
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(
+                        _obscure ? Icons.visibility_off : Icons.visibility,),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
             ),
@@ -1077,7 +1100,9 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
 
   void _save() async {
     final key = _controller.text.trim();
-    await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride(key.isEmpty ? '' : key);
+    await ref
+        .read(tmdbApiKeyOverrideProvider.notifier)
+        .setOverride(key.isEmpty ? '' : key);
     if (mounted) setState(() {});
   }
 

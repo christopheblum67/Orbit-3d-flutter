@@ -28,8 +28,9 @@ class EpgMiniProgramBar extends StatelessWidget {
         return ValueListenableBuilder<String?>(
           valueListenable: controller.targetedChannel,
           builder: (context, channelName, _) {
-            final programs =
-                channelName == null ? const <EPGProgram>[] : (epgData[channelName] ?? const <EPGProgram>[]);
+            final programs = channelName == null
+                ? const <EPGProgram>[]
+                : (epgData[channelName] ?? const <EPGProgram>[]);
             final current = epgCurrentProgram(programs, now);
             final next = epgNextProgram(programs, now);
             return Container(
@@ -53,7 +54,8 @@ class EpgMiniProgramBar extends StatelessWidget {
                     child: channelName == null
                         ? const Text(
                             'Sélectionnez une chaîne pour voir son programme',
-                            style: TextStyle(color: Colors.white38, fontSize: 12),
+                            style:
+                                TextStyle(color: Colors.white38, fontSize: 12),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,

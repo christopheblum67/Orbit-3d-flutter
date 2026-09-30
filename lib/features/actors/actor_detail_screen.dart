@@ -298,7 +298,7 @@ class _FilmographyCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-ClipRRect(
+            ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: credit.posterUrl.isNotEmpty
                   ? OrbitCachedImage(

@@ -15,17 +15,24 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     final notifier = ref.read(preferencesProvider.notifier);
 
     return Scaffold(
-        appBar: AppBar(
-          leading: GoRouter.of(context).canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
-                  onPressed: () => GoRouter.of(context).pop(),
-                )
-              : null,
-          title: Text(l.preferences),
+      appBar: AppBar(
+        // Retour toujours visible : en route racine (accès direct par les
+        // réglages), `canPop()` est false et l'icône disparaissait.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Retour',
+          onPressed: () {
+            final router = GoRouter.of(context);
+            if (router.canPop()) {
+              router.pop();
+            } else {
+              router.go('/settings');
+            }
+          },
         ),
-        body: ListView(
+        title: Text(l.preferences),
+      ),
+      body: ListView(
         children: [
           SwitchListTile(
             secondary: const Icon(Icons.notifications_active_outlined),
@@ -97,8 +104,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           SwitchListTile(
             secondary: const Icon(Icons.visibility_outlined),
             title: Text(l.profileVisible),
-            subtitle:
-                Text(l.appearInSearchAndRecommendations),
+            subtitle: Text(l.appearInSearchAndRecommendations),
             value: prefs.profileVisible,
             onChanged: (v) => notifier.setProfileVisible(v),
           ),
@@ -107,7 +113,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             secondary: const Icon(Icons.video_camera_back_outlined),
             title: const Text('Autoriser l\'enregistrement'),
             subtitle: const Text(
-                'Permettre l\'enregistrement de mes contenus favoris',),
+              'Permettre l\'enregistrement de mes contenus favoris',
+            ),
             value: prefs.allowRecording,
             onChanged: (v) => notifier.setAllowRecording(v),
           ),
@@ -121,7 +128,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
-),
+          ),
         ],
       ),
     );
@@ -191,7 +198,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                       if (event is KeyDownEvent) {
                         if (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA ||
                             event.logicalKey == LogicalKeyboardKey.arrowRight ||
                             event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                           setState(() => enabled = !enabled);
@@ -228,12 +236,13 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                     },
                     child: DropdownButtonFormField<int>(
                       initialValue: ageRestriction,
-                      decoration:
-                          const InputDecoration(labelText: 'Restriction d\'âge'),
+                      decoration: const InputDecoration(
+                          labelText: 'Restriction d\'âge',),
                       items: [
                         const DropdownMenuItem(value: 0, child: Text('Aucune')),
                         for (final age in [7, 10, 12, 16, 18])
-                          DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
+                          DropdownMenuItem(
+                              value: age, child: Text(l.plusAgeYears(age)),),
                       ],
                       onChanged: (v) => setState(() => ageRestriction = v ?? 0),
                     ),
@@ -247,7 +256,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                     if (event is KeyDownEvent &&
                         (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA)) {
                       Navigator.pop(dialogContext);
                       return KeyEventResult.handled;
                     }
@@ -275,7 +285,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                     if (event is KeyDownEvent &&
                         (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA)) {
                       Navigator.pop(
                         dialogContext,
                         (enabled: enabled, ageRestriction: ageRestriction),

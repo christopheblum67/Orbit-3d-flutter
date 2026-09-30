@@ -35,8 +35,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
     final storage = ref.read(storageServiceProvider);
     await storage.setSetting(kLegalNoticeDoneKey, true);
     if (!mounted) return;
-    final onboardingDone =
-        storage.getSetting('onboarding_done') == true;
+    final onboardingDone = storage.getSetting('onboarding_done') == true;
     context.go(onboardingDone ? '/startup' : '/onboarding');
   }
 
@@ -141,8 +140,8 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       onPressed: _accepted ? null : _accept,
                       icon: const Icon(Icons.verified_outlined),
                       label: const Text(
-                          'J\'ai lu et j\'accepte · Continuer',
-                        ),
+                        'J\'ai lu et j\'accepte · Continuer',
+                      ),
                     )
                   : FilledButton.icon(
                       onPressed: () => context.pop(),
