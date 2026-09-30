@@ -14,6 +14,8 @@ import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/notification_service.dart';
@@ -39,6 +41,8 @@ import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/movie_compact.dart';
+import 'package:orbit_3d_flutter/models/series_compact.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -338,74 +342,58 @@ final searchServiceProvider = Provider<SearchService>((ref) {
           .read(recentlyWatchedServiceProvider)
           .loadForProfile(profile.id);
     },
-    // Plein-texte local : index tokenisé du catalogue (VOD + Séries + Live).
-    searchIndex: ref.watch(searchIndexServiceProvider),
+    // Plein-texte local : alimente l'index FTS5 (VOD + Séries + Live).
     loadCatalogue: () async {
-      final entries = <SearchIndexEntry>[];
-      final result = await safeAsync<List<SearchIndexEntry>>(
-        () async {
-        for (final c in ref.read(liveChannelsProvider).value ?? const <Channel>[]) {
-          entries.add(
-            SearchIndexEntry(
-              type: SearchType.live,
-              id: c.id,
-              title: c.name,
-              subtitle: c.groupLabel,
-              streamUrl: c.streamUrl,
-              posterUrl: c.logoUrl,
-              categoryId: c.categoryId,
-            ),
-          );
-        }
-        for (final m in ref.read(moviesProvider).value ?? const <Movie>[]) {
-          entries.add(
-            SearchIndexEntry(
-              type: SearchType.vod,
-              id: m.id,
-              title: m.title,
-              subtitle: m.genre,
-              streamUrl: m.streamUrl,
-              posterUrl: m.posterUrl,
-              categoryId: m.categoryId,
-            ),
-          );
-        }
-        for (final s in ref.read(seriesProvider).value ?? const <Series>[]) {
-          entries.add(
-            SearchIndexEntry(
-              type: SearchType.series,
-              id: s.id,
-              title: s.title,
-              subtitle: s.genre,
-              posterUrl: s.coverUrl,
-              categoryId: s.categoryId,
-            ),
-          );
-        }
-      return entries;
-        },
-        context: 'providers.loadCatalogue',
-        fallbackValue: entries,
+      final movies =
+          ref.read(moviesProvider).value ?? const <Movie>[];
+      final series =
+          ref.read(seriesProvider).value ?? const <Series>[];
+      final channels =
+          ref.read(liveChannelsProvider).value ?? const <Channel>[];
+      return SearchCatalogue(
+        movies: movies,
+        series: series,
+        channels: channels,
       );
-      return result.valueOrNull ?? entries;
     },
   );
   ref.onDispose(service.dispose);
   return service;
 });
 
+/// Clé de recherche normalisée : évite une entrée de cache par frappe.
+///
+/// Sans cela, taper « matrix » créait une entrée par fragment (« m », « ma »,
+/// « mat »…), chacune déclenchant FTS + TMDB + TVmaze + Xtream. Le cache
+/// gonflait indéfiniment et le réseau était martelé : la recherche paraissait
+/// ne pas fonctionner.
+String searchQueryKey(String query) =>
+    query.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
 final searchProvider =
-    FutureProvider.family<UnifiedSearchResult, String>((ref, query) async {
-  if (query.trim().isEmpty) return UnifiedSearchResult.empty();
-  return ref.watch(searchServiceProvider).search(query);
+    FutureProvider.autoDispose.family<UnifiedSearchResult, String>((ref, query) async {
+  final normalized = searchQueryKey(query);
+  if (normalized.length < 2) return UnifiedSearchResult.empty();
+  // Le masquage de catégories doit aussi s'appliquer à la recherche : sans
+  // cela, un contenu d'une catégorie masquée réapparaît dans les résultats de
+  // recherche alors qu'il a été retiré des grilles.
+  final filter = ref.watch(vodCategoryFilterProvider);
+  return ref.watch(searchServiceProvider).search(
+        normalized,
+        hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
+        hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList(),
+      );
 });
 
-final searchFilteredProvider = FutureProvider.family<UnifiedSearchResult,
-    ({String query, SearchType? filterType})>((ref, params) async {
-  if (params.query.trim().isEmpty) return UnifiedSearchResult.empty();
+final searchFilteredProvider = FutureProvider.autoDispose
+    .family<UnifiedSearchResult, ({String query, SearchType? filterType, String? categoryId})>(
+        (ref, params) async {
+  final normalized = searchQueryKey(params.query);
+  if (normalized.length < 2) return UnifiedSearchResult.empty();
+  final filter = ref.watch(vodCategoryFilterProvider);
   return ref
       .watch(searchServiceProvider)
-      .search(params.query, filterType: params.filterType);
+      .search(normalized, filterType: params.filterType, categoryId: params.categoryId, hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(), hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList());
 });
 
 final searchSuggestionsProvider = StreamProvider.autoDispose
@@ -469,12 +457,65 @@ final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   return filter.visibleList(await api.fetchLiveChannels());
 });
 
+/// Contexte de découverte des sous-titres pour le contenu en cours de lecture.
+///
+/// Renseigné par la fiche film / l'épisode avant d'ouvrir le lecteur, et lu
+/// par la feuille des sous-titres pour interroger `get_vod_info` ou
+/// `get_series_info`. `null` pour un flux live : les panels ne publient pas de
+/// sous-titres par chaîne, et la feuille retombe alors sur la saisie manuelle.
+class SubtitleContext {
+  const SubtitleContext({required this.contentId, required this.isSeries});
+
+  final String contentId;
+  final bool isSeries;
+}
+
+/// Contexte de découverte des sous-titres, alimenté par la fiche film ou
+/// l'épisode avant ouverture du lecteur.
+class ActiveSubtitleContextNotifier extends Notifier<SubtitleContext?> {
+  @override
+  SubtitleContext? build() => null;
+
+  void set(SubtitleContext? ctx) => state = ctx;
+}
+
+final activeSubtitleContextProvider =
+    NotifierProvider<ActiveSubtitleContextNotifier, SubtitleContext?>(
+  ActiveSubtitleContextNotifier.new,
+);
+
 final moviesProvider = FutureProvider<List<Movie>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
   final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null) return const <Movie>[];
   final api = ref.watch(apiServiceProvider);
-  return filter.visibleList(await api.fetchMovies());
+  // Journalisation explicite des deux étapes : « erreur de chargement » dans
+  // la section Films pouvait venir soit du réseau, soit du parsing
+  // (`filter.visibleList`), et rien ne le distinguait. On trace donc chacune.
+  final result = await safeAsync<List<Movie>>(
+    () => api.fetchMovies(),
+    context: 'moviesProvider.fetch',
+  );
+  if (result.isFailure) {
+    LoggerService.instance.error(
+      'moviesProvider: échec réseau '
+      '(${result.valueOrNull?.length ?? 0} films) : ${result.errorOrNull}',
+      tag: 'vod',
+      error: result.errorOrNull,
+    );
+    throw result.errorOrNull!;
+  }
+  final movies = result.valueOrNull ?? const <Movie>[];
+  try {
+    return filter.visibleList(movies);
+  } catch (e, st) {
+    LoggerService.instance.error(
+      'moviesProvider: échec du filtrage sur ${movies.length} films',
+      tag: 'vod',
+    );
+    LoggerService.instance.error('$st', tag: 'vod');
+    rethrow;
+  }
 });
 
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
@@ -519,6 +560,26 @@ final seriesInfoProvider =
     FutureProvider.family<Series, String>((ref, seriesId) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchSeriesInfo(seriesId);
+});
+
+// ==================== CATALOGUES COMPACTS (économie RAM) ====================
+//
+// `moviesProvider` / `seriesProvider` exposent les modèles complets (URL de
+// stream, description, cast) : ~13 Mo d'URL pour 100k films. Les écrans de
+// navigation n'ont besoin que du poster, du titre, de l'année, de la note et
+// de la catégorie, on projection donc d'abord en [MovieCompact] /
+// [SeriesCompact] avant de rendre la liste au widget.
+
+/// Films projetés en modèle compact pour la navigation.
+final moviesCompactProvider = FutureProvider<List<MovieCompact>>((ref) async {
+  final movies = await ref.watch(moviesProvider.future);
+  return movies.map(MovieCompact.fromMovie).toList(growable: false);
+});
+
+/// Séries projetées en modèle compact pour la navigation.
+final seriesCompactProvider = FutureProvider<List<SeriesCompact>>((ref) async {
+  final series = await ref.watch(seriesProvider.future);
+  return series.map(SeriesCompact.fromSeries).toList(growable: false);
 });
 
 // ==================== DÉTAILS ENRICHIS (MovieDetail, SeriesDetail) ====================
@@ -596,7 +657,45 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   // Changement d'abonnement actif => le cache n'est plus valable
   // (dépendance de re-fetch, la valeur elle-même ne nous sert pas ici).
   ref.watch(activeSubscriptionProvider);
-  return filter.visibleList(await replaysCache.fetch(api.fetchReplays));
+
+  // `get_short_epg` est plafonné à 4 entrées par les panels : il ne peut pas
+  // alimenter seul un replay multi-jours. L'EPG global est la source
+  // complète, `get_short_epg` ne sert qu'à rattraper les chaînes absentes
+  // du dump XMLTV.
+  final shortEpg = await replaysCache.fetch(api.fetchReplays);
+
+  // L'EPG global et la grille des chaînes sont un ENRICHISSEMENT, pas une
+  // dépendance dure : les deux peuvent échouer (429 du panneau) alors que la
+  // sonde `get_short_epg` a, elle, produit des programmes. En les attendant
+  // en dur, un échec de l'EPG faisait couler tout l'écran — et comme l'EPG se
+  // recharge en boucle, chaque relance relançait le Replay : l'écran restait
+  // indéfiniment en chargement.
+  final epgResult = await safeAsync<List<EPGProgram>>(
+    () => ref.watch(epgProgramsProvider.future),
+    context: 'replaysProvider.epg',
+    fallbackValue: const <EPGProgram>[],
+  );
+  final channelsResult = await safeAsync<List<Channel>>(
+    () => ref.watch(liveChannelsProvider.future),
+    context: 'replaysProvider.channels',
+    fallbackValue: const <Channel>[],
+  );
+
+  final fromEpg = await api.buildReplaysFromGlobalEpg(
+    programs: epgResult.valueOrNull ?? const <EPGProgram>[],
+    channels: channelsResult.valueOrNull ?? const <Channel>[],
+  );
+
+  final merged = ApiService.mergeReplays(fromEpg, shortEpg);
+  if (merged.isEmpty) {
+    // Aucun programme, mais on a peut-être été refusé par le panneau : on le
+    // dit, plutôt que d'afficher un vide muet que rien n'explique.
+    LoggerService.instance.warning(
+      'Replay vide court=${shortEpg.length} epg=${fromEpg.length}',
+      tag: 'replay',
+    );
+  }
+  return filter.visibleList(merged);
 });
 
 final epgProgramsProvider =
@@ -621,11 +720,32 @@ class EPGDataCache {
   /// (48 h) à chaque chaîne demandée.
   final Map<String, List<EPGProgram>> _byChannel = {};
 
+  /// Index de secours sur la clé normalisée (espaces retirés, minuscules).
+  ///
+  /// Les panels Xtream n'emploient pas toujours le même identifiant dans
+  /// l'API et dans le XMLTV : `"TF1"`, `"TF1 "`, `"tf1"` désignent la même
+  /// chaîne. Sans cette table, la ligne de la grille restait vide alors que le
+  /// guide était disponible — d'où les trous d'affichage dans les grilles.
+  final Map<String, String> _normalizedToChannelId = {};
+
+  static String _normalizeKey(String key) =>
+      key.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
   /// Retourne les programmes (triés par horaire) d'une chaîne, sans aucun
   /// re-parcours de la liste globale. Vide si le cache n'est pas encore chargé
   /// ou si la chaîne n'a pas d'entrées EPG.
-  List<EPGProgram> programsForChannel(String channelId) =>
-      _byChannel[channelId] ?? const <EPGProgram>[];
+  List<EPGProgram> programsForChannel(String channelId) {
+    final exact = _byChannel[channelId];
+    if (exact != null && exact.isNotEmpty) return exact;
+    final trimmed = _byChannel[channelId.trim()];
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    final resolved = _normalizedToChannelId[_normalizeKey(channelId)];
+    if (resolved != null) {
+      final fallback = _byChannel[resolved];
+      if (fallback != null) return fallback;
+    }
+    return const <EPGProgram>[];
+  }
 
   /// Charge l'intégralité du guide (filtre 48 h) UNE seule fois à la fois via
 
@@ -667,8 +787,15 @@ class EPGDataCache {
         .toList();
     // Index par chaîne, trié par horaire : recherches dichotomiques O(log N).
     _byChannel.clear();
+    _normalizedToChannelId.clear();
     for (final p in _all!) {
       (_byChannel[p.channelId] ??= <EPGProgram>[]).add(p);
+      // La clé normalisée ne remplace la clé exacte que si elle est libre :
+      // deux identifiants distincts ne doivent pas fusionner par accident.
+      _normalizedToChannelId.putIfAbsent(
+        _normalizeKey(p.channelId),
+        () => p.channelId,
+      );
     }
     for (final list in _byChannel.values) {
       list.sort((a, b) => a.start.compareTo(b.start));
@@ -692,25 +819,161 @@ final epgPreloadServiceProvider = Provider<EpgPreloadService>(
   (ref) => EpgPreloadService(cache: ref.watch(shortEpgCacheProvider)),
 );
 
-/// EPG d'une chaîne
+/// Fenêtre catch-up : on ne montre que les programmes terminés depuis 14 jours.
+const Duration kCatchUpWindow = Duration(days: 14);
 
-/// EPG d'une chaîne (par son `epg_channel_id`), chargé paresseusement puis
-/// mis en cache avec une expiration. Renvoie une liste vide si la chaîne
-/// n'a pas d'identifiant EPG ou aucun programme à venir.
+/// Programmes **terminés** d'une chaîne pour le rattrapage (catch-up).
+///
+/// Diffère de [channelEpgProvider] : l'EPG décrit l'avenir, le catch-up
+/// décrit le passé. Seuls les programmes dont la fin est passée et pas trop
+/// anciens ([kCatchUpWindow]) sont retournés, du plus récent au plus ancien.
+final channelCatchUpProvider =
+    FutureProvider.autoDispose.family<List<EPGProgram>, String>(
+  (ref, channelId) async {
+    if (channelId.isEmpty) return const <EPGProgram>[];
+
+    final cached = ref.watch(shortEpgCacheProvider).get(channelId);
+    if (cached != null) return _pastPrograms(cached);
+
+    final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
+    final channel = channels.cast<Channel?>().firstWhere(
+          (c) => c!.id == channelId,
+          orElse: () => null,
+        );
+    if (channel == null) return const <EPGProgram>[];
+
+    final result = await safeAsync<List<EPGProgram>>(
+      () => ref.read(apiServiceProvider).fetchChannelEpgPrograms(channel),
+      context: 'channelCatchUpProvider',
+    );
+    final programs = result.valueOrNull;
+    if (programs == null || programs.isEmpty) return const <EPGProgram>[];
+
+    ref.read(shortEpgCacheProvider).put(channelId, programs);
+    return _pastPrograms(programs);
+  },
+);
+
+List<EPGProgram> _pastPrograms(List<EPGProgram> programs) {
+  final now = DateTime.now();
+  final past = programs
+      .where((p) => p.end.isBefore(now))
+      .where((p) => now.difference(p.end) <= kCatchUpWindow)
+      .toList()
+    ..sort((a, b) => b.end.compareTo(a.end));
+  return past;
+}
+
+/// Cherche une entrée du cache court pour une forme d'identifiant donnée.
+///
+/// Le cache est écrit sous le `stream_id` nu, alors que l'appelant peut
+/// interroger la forme préfixée (`num:stream_id`) ou inversement. On tente donc
+/// les deux écritures possibles à partir de l'identifiant demandé.
+List<EPGProgram>? _findShortEpgForAnyCandidate(
+    ShortEpgCache cache, String epgChannelId) {
+  // Forme préfixée « num:stream_id » -> on tente le stream_id seul.
+  final colon = epgChannelId.indexOf(':');
+  if (colon > 0) {
+    final bare = epgChannelId.substring(colon + 1);
+    if (bare.isNotEmpty) {
+      final hit = cache.get(bare);
+      if (hit != null) return hit;
+    }
+  }
+  return null;
+}
+
+/// Programmes à venir, **triés par début croissant**.
+///
+/// `get_short_epg` n'a aucune garantie d'ordre : certains panels livrent la
+/// journée en mélange avec celle d'avant. Or `epgCurrentProgram` et
+/// `epgNextProgram` localisent par dichotomie, ce qui suppose un tri. Filtrer
+/// seul (`where`) conserve le désordre et la dichotomie renvoie alors un
+/// programme arbitraire — souvent vide, d'où une grille EPG « vide » alors que
+/// le panel répondait.
+List<EPGProgram> _upcomingSorted(List<EPGProgram> programs, DateTime now) {
+  return programs.where((p) => p.end.isAfter(now)).toList()
+    ..sort((a, b) => a.start.compareTo(b.start));
+}
+
+/// EPG d'une chaîne (par son `epg_channel_id` ou son `stream_id`).
+///
+/// Hydratation à la demande : on interroge `get_short_epg` pour **cette**
+/// chaîne au lieu de télécharger le dump XMLTV global (~48 h, plusieurs Mo).
+/// Le résultat est mis en cache 30 min par [ShortEpgCache].
+/// Renvoie une liste vide si aucun programme à venir n'est disponible.
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
   (ref, epgChannelId) async {
     if (epgChannelId.isEmpty) return const <EPGProgram>[];
-    final api = ref.watch(apiServiceProvider);
-    final cache = ref.watch(epgDataCacheProvider);
-    await cache.loadFull(api);
+
+    final cache = ref.watch(shortEpgCacheProvider);
     final now = DateTime.now();
-    // L'index construit par le cache (trié par horaire) évite un re-parcours
-    // de la liste globale (48 h) à chaque chaîne demandée.
-    return cache
-        .programsForChannel(epgChannelId)
-        .where((p) => p.end.isAfter(now))
-        .toList();
+
+    // 1. Cache court (aucun réseau).
+    //
+    // Le cache est indexé par `stream_id` (cf. l'écriture plus bas), mais
+    // l'appelant peut demander une autre forme (`num:stream_id`, ou un id
+    // XMLTV). Sans cette recherche multi-clés, une requête faite avec la forme
+    // préfixée relançait `get_short_epg` à chaque appel et — surtout —
+    // ne bénéficiait jamais du cache : l'EPG de la buttonbar du lecteur
+    // restait vide malgré un panel qui répondait.
+    final cachedShort = cache.get(epgChannelId) ??
+        _findShortEpgForAnyCandidate(cache, epgChannelId);
+    if (cachedShort != null) {
+      final upcoming = _upcomingSorted(cachedShort, now);
+      if (upcoming.isNotEmpty) return upcoming;
+    }
+
+    // 2. Si la chaîne est connue, on récupère son guide via le panel.
+    final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
+    Channel? channel;
+    for (final c in channels) {
+      // On compare sur TOUS les identifiants EPG possibles de la chaîne
+      // (`stream_id` et `num:stream_id`) : le XMLTV de ces panels utilise la
+      // forme préfixée, et ne tester qu'un seul forme faisait échouer la
+      // résolution.
+      if (c.id == epgChannelId || c.epgChannelIds.contains(epgChannelId)) {
+        channel = c;
+        break;
+      }
+    }
+    if (channel != null) {
+      final target = channel;
+      final result = await safeAsync<List<EPGProgram>>(
+        () => ref.read(apiServiceProvider).fetchChannelEpgPrograms(target),
+        context: 'channelEpgProvider',
+      );
+      final programs = result.valueOrNull;
+      if (programs != null && programs.isNotEmpty) {
+        cache.put(target.id, programs);
+        final upcoming = _upcomingSorted(programs, now);
+        if (upcoming.isNotEmpty) return upcoming;
+      }
+    }
+
+    // 3. Repli : le dump XMLTV global, chargé une seule fois et indexé.
+    final globalCache = ref.watch(epgDataCacheProvider);
+    await globalCache.loadFull(ref.read(apiServiceProvider));
+
+    // On essaie chaque identifiant candidat de la chaîne (forme simple et
+    // forme préfixée) : le premier qui trouve des programmes gagne.
+    final candidates = <String>[epgChannelId];
+    final matched = channel;
+    if (matched != null) {
+      candidates
+        ..clear()
+        ..addAll(matched.epgChannelIds);
+      if (matched.id.isNotEmpty) candidates.add(matched.id);
+    }
+    for (final candidate in candidates) {
+      final found = globalCache
+          .programsForChannel(candidate)
+          .where((p) => p.end.isAfter(now))
+          .toList();
+      if (found.isNotEmpty) return found;
+    }
+    return const <EPGProgram>[];
   },
 );
 
@@ -825,3 +1088,4 @@ Future<DateTime?> loadLastRefresh() async {
   );
   return result.valueOrNull;
 }
+
