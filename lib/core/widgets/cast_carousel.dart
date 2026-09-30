@@ -205,7 +205,7 @@ class _ActorCard extends StatelessWidget {
                       color: Colors.amber.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                          color: Colors.amber.withValues(alpha: 0.5)),
+                          color: Colors.amber.withValues(alpha: 0.5),),
                     ),
                     child: const Text(
                       'Invité',

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
 
 /// Résultat d'une opération asynchrone qui peut échouer gracieusement.
-/// 
+///
 /// Encapsule soit une valeur de succès `T`, soit une erreur `AppError`.
 /// Permet de traiter les erreurs de manière fonctionnelle sans try/catch dispersés.
 sealed class AsyncResult<T> {
@@ -60,7 +60,8 @@ sealed class AsyncResult<T> {
   }
 
   /// Récupère la valeur ou une valeur par défaut
-  T getOrElse(T defaultValue) => isSuccess ? (this as _Success<T>).value : defaultValue;
+  T getOrElse(T defaultValue) =>
+      isSuccess ? (this as _Success<T>).value : defaultValue;
 
   /// Applique une fonction si succès, sinon fait rien
   void ifSuccess(void Function(T) onSuccess) {
@@ -88,10 +89,10 @@ class _Failure<T> extends AsyncResult<T> {
 }
 
 /// Wrapper pour exécuter une opération asynchrone de manière sécurisée.
-/// 
+///
 /// Transforme toute exception en [AsyncResult.failure] au lieu de propager
 /// l'exception. Permet de chaîner les opérations avec [AsyncResult.flatMap].
-/// 
+///
 /// Exemple:
 /// ```dart
 /// final result = await safeAsync(() => api.fetchData());
@@ -172,23 +173,27 @@ extension SafeAsyncExtension<T> on Future<T> {
     bool reportToCrashlytics = true,
     T? fallbackValue,
   }) async {
-    return safeAsync(() => this, context: context, reportToCrashlytics: true, fallbackValue: fallbackValue);
+    return safeAsync(() => this,
+        context: context,
+        reportToCrashlytics: true,
+        fallbackValue: fallbackValue,);
   }
 }
 
 /// Helper pour exécuter plusieurs opérations en parallèle et collecter les résultats.
-/// 
+///
 /// Retourne une liste de [AsyncResult] - on peut ensuite filtrer les succès/échecs.
 Future<List<AsyncResult<T>>> safeAsyncAll<T>(
   Iterable<Future<T> Function()> operations, {
   String? context,
 }) async {
-  final futures = operations.map((op) => safeAsync(op, context: context)).toList();
+  final futures =
+      operations.map((op) => safeAsync(op, context: context)).toList();
   return Future.wait(futures);
 }
 
 /// Helper pour réessayer une opération avec backoff exponentiel.
-/// 
+///
 /// Retourne un [AsyncResult] - succès si une tentative réussit, échec après épuisement.
 Future<AsyncResult<T>> retryAsync<T>(
   Future<T> Function() operation, {
@@ -209,11 +214,15 @@ Future<AsyncResult<T>> retryAsync<T>(
     lastStack = result.errorOrNull?.stackTrace;
 
     final error = result.errorOrNull;
-    final shouldRetryAgain = shouldRetry?.call(error?.originalError ?? error) ?? true;
+    final shouldRetryAgain =
+        shouldRetry?.call(error?.originalError ?? error) ?? true;
 
     if (!shouldRetryAgain || attempt == maxAttempts - 1) break;
 
-    final delay = Duration(milliseconds: (baseDelay.inMilliseconds * math.pow(backoffFactor, attempt)).round());
+    final delay = Duration(
+        milliseconds:
+            (baseDelay.inMilliseconds * math.pow(backoffFactor, attempt))
+                .round(),);
     await Future.delayed(delay);
   }
 
@@ -229,23 +238,53 @@ Future<AsyncResult<T>> retryAsync<T>(
 
 /// Helper pour créer des erreurs typées selon le contexte.
 class AppErrors {
-  static AppError networkError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'NETWORK_ERROR', originalError: originalError, stackTrace: stackTrace);
+  static AppError networkError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'NETWORK_ERROR',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 
-  static AppError timeoutError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'TIMEOUT', originalError: originalError, stackTrace: stackTrace);
+  static AppError timeoutError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'TIMEOUT',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 
-  static AppError authError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'AUTH_ERROR', originalError: originalError, stackTrace: stackTrace);
+  static AppError authError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'AUTH_ERROR',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 
-  static AppError notFoundError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'NOT_FOUND', originalError: originalError, stackTrace: stackTrace);
+  static AppError notFoundError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'NOT_FOUND',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 
-  static AppError validationError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'VALIDATION_ERROR', originalError: originalError, stackTrace: stackTrace);
+  static AppError validationError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'VALIDATION_ERROR',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 
-  static AppError unknownError(String message, {Object? originalError, StackTrace? stackTrace}) =>
-      AppError(message: message, code: 'UNKNOWN_ERROR', originalError: originalError, stackTrace: stackTrace);
+  static AppError unknownError(String message,
+          {Object? originalError, StackTrace? stackTrace,}) =>
+      AppError(
+          message: message,
+          code: 'UNKNOWN_ERROR',
+          originalError: originalError,
+          stackTrace: stackTrace,);
 }
 
 /// Extension pour faciliter l'utilisation de [AsyncResult] dans l'UI.
@@ -260,7 +299,8 @@ extension AsyncResultUI<T> on AsyncResult<T> {
       return data((this as _Success).value);
     }
     if (isFailure) {
-      return (error?.call((this as _Failure).error) ?? _DefaultErrorWidget(error: (this as _Failure).error));
+      return (error?.call((this as _Failure).error) ??
+          _DefaultErrorWidget(error: (this as _Failure).error));
     }
     return (loading ?? const _DefaultLoadingWidget()) as Widget;
   }
@@ -276,10 +316,13 @@ class _DefaultErrorWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Theme.of(context).colorScheme.error),
+          Icon(Icons.error_outline,
+              size: 48, color: Theme.of(context).colorScheme.error,),
           const SizedBox(height: 16),
           Text(
-            error.code != null ? '${error.code}: ${error.message}' : error.message,
+            error.code != null
+                ? '${error.code}: ${error.message}'
+                : error.message,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),

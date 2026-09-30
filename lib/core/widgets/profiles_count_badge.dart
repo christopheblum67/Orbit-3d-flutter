@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 /// Badge compteur « X / max » (nombre de profils).
 class ProfilesCountBadge extends StatelessWidget {
-  const ProfilesCountBadge({super.key, required this.current, required this.max});
+  const ProfilesCountBadge(
+      {super.key, required this.current, required this.max,});
 
   final int current;
   final int max;

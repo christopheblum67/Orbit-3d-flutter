@@ -38,6 +38,27 @@
       }
     }
   },
+  "@currentProfileLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@profilesSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "@selectAtLeastOneProfile": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "accountDeviceProfile": "Profil appareil & Diagnostic",
   "accountDeviceProfileSubtitle": "Profil {label} · diagnostic lecteur",
   "accountNoSubscription": "Aucun abonnement actif",
@@ -104,6 +125,7 @@
   "createKidProfile": "Créer un profil Enfant",
   "createNewProfile": "Créer un nouveau profil",
   "createProfile": "Créer un profil",
+  "currentProfileLabel": "Profil courant : {name}",
   "dataAlreadyFresh": "Données déjà fraîches (moins de 30 min)",
   "dataAndPrivacy": "Données & confidentialité",
   "deleteAll": "Tout supprimer",
@@ -154,8 +176,6 @@
   "historyUnavailable": "Historique indisponible",
   "instantZapping": "Zapping Instantané (Prefetching)",
   "instantZappingSubtitle": "Précharge les chaînes adjacentes en mémoire tampon",
-  "kidsContent": "Contenus adaptés aux enfants",
-  "kidsMode": "Mode Enfants",
   "langArabic": "العربية",
   "langFrench": "Français",
   "langPortuguese": "Português",
@@ -180,6 +200,7 @@
   "matchmakingSubtitle": "Gérer l'appariement et les suggestions personnalisées",
   "maxProfilesReached": "Nombre maximal de profils atteint ({max})",
   "memory": "Mémoire",
+  "moreResults": "Voir plus de résultats",
   "moviesUnavailable": "Films indisponibles",
   "multiScreen": "Multi-écrans",
   "multiVideo": "Multi-vidéo",
@@ -204,6 +225,7 @@
   "noFavoriteMovies": "Aucun film favori",
   "noFavoriteReplays": "Aucun replay favori",
   "noFavoriteSeries": "Aucune série favorite",
+  "noGroupAffinity": "Aucune affinité commune trouvée",
   "noHistory": "Aucun historique",
   "noKidsChannels": "Aucune chaîne pour enfants",
   "noKidsMovies": "Aucun film pour enfants",
@@ -214,6 +236,7 @@
   "noProfilesYet": "Aucun profil pour le moment",
   "noProgramInfoAvailable": "Aucune information de programme disponible",
   "noRankings": "Aucun classement",
+  "noRecommendations": "Aucune recommandation disponible",
   "noReplaysInCategory": "Aucun replay dans cette catégorie",
   "noResultsFor": "Aucun résultat pour {query}",
   "noSeriesAvailable": "Aucune série disponible",
@@ -235,6 +258,7 @@
   "preferences": "Préférences",
   "previousChannel": "Chaîne précédente",
   "primaryEngine": "Moteur Principal",
+  "profilesSelected": "{count} profils sélectionnés",
   "profileVisible": "Profil visible",
   "programGrid": "Grille des programmes",
   "protectWithPin": "Protéger par code PIN",
@@ -288,6 +312,7 @@
   "sectionTmdb": "Classements TMDB",
   "sectionZapping": "Zapping & Performance",
   "select": "Sélectionner",
+  "selectAtLeastOneProfile": "Sélectionnez au moins 1 profil supplémentaire ({count}/4)",
   "selectProfileForRecommendations": "Sélectionnez un profil pour voir ses recommandations",
   "series": "Séries",
   "seriesNotFound": "Série introuvable",
@@ -343,6 +368,7 @@
   "unlockCloudflare": "Débloquer (Cloudflare)",
   "unstableConnection": "Connexion instable",
   "updateAllData": "Mettre à jour toutes les données",
+  "aiTopicsTitle": "Sujets recommandés par IA",
   "updateThisCategory": "Mettre à jour cette catégorie",
   "updating": "Mise à jour en cours…",
   "volumeNormalization": "Normalisation du volume",

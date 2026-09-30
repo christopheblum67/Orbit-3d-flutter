@@ -21,7 +21,8 @@ mixin FormBackHandler<T extends StatefulWidget> on State<T> {
   bool get isFormDirty;
 
   /// Message personnalisé pour la boîte de dialogue de confirmation.
-  String get discardDialogMessage => 'Des modifications non sauvegardées seront perdues. Quitter quand même ?';
+  String get discardDialogMessage =>
+      'Des modifications non sauvegardées seront perdues. Quitter quand même ?';
 
   /// Titre de la boîte de dialogue de confirmation.
   String get discardDialogTitle => 'Quitter sans sauvegarder ?';
@@ -57,7 +58,7 @@ mixin FormBackHandler<T extends StatefulWidget> on State<T> {
     if (!mounted) return false;
     // Reset focus to cancel button when dialog opens
     _cancelFocus.requestFocus();
-    
+
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: true,

@@ -27,9 +27,8 @@ class AppTheme {
       error: isDark ? AppConstants.darkErrorColor : AppConstants.errorColor,
     );
 
-    final contrastScheme = highContrast
-        ? _applyHighContrast(scheme, isDark)
-        : scheme;
+    final contrastScheme =
+        highContrast ? _applyHighContrast(scheme, isDark) : scheme;
 
     return ThemeData(
       useMaterial3: true,
@@ -69,7 +68,9 @@ class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? contrastScheme.primary : contrastScheme.onSurfaceVariant,
+            color: selected
+                ? contrastScheme.primary
+                : contrastScheme.onSurfaceVariant,
             size: selected ? 26 : 24,
           );
         }),
@@ -154,8 +155,8 @@ class AppTheme {
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: contrastScheme.onSurfaceVariant),
-        hintStyle:
-            TextStyle(color: contrastScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+        hintStyle: TextStyle(
+            color: contrastScheme.onSurfaceVariant.withValues(alpha: 0.7),),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           borderSide: BorderSide(color: contrastScheme.outlineVariant),
@@ -185,7 +186,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         ),
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(color: contrastScheme.primary),
+      progressIndicatorTheme:
+          ProgressIndicatorThemeData(color: contrastScheme.primary),
       textTheme: _buildTextTheme(contrastScheme, isDark),
     );
   }

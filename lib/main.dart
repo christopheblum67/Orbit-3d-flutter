@@ -1,14 +1,12 @@
 import 'dart:async';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:orbit_3d_flutter/services/analytics_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:intl/date_symbol_data_local.dart';
 // L'import ci-dessous (webview_flutter_android) charge et enregistre la
 // plateforme Android WebView au démarrage (dartPluginClass), requis par le
@@ -17,8 +15,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 // ignore: unused_import
 import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:orbit_3d_flutter/features/kids/kids_screen.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
+import 'package:orbit_3d_flutter/features/home/ai_topics_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -70,6 +68,7 @@ import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
 import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
 import 'package:orbit_3d_flutter/features/downloads/downloads_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -79,7 +78,6 @@ import 'package:orbit_3d_flutter/features/history/history_screen.dart';
 import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
-import 'package:orbit_3d_flutter/core/widgets/confirm_exit_app.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
 
@@ -107,17 +105,20 @@ Future<void> _bootstrap() async {
   // isOptional=true : sans .env (asset non embarqué), dotenv reste initialisé
   // avec une carte vide. Autrement dotenv.env lèverait NotInitializedError et
   // ferait échouer toute construction de service d'enrichissement métadonnées.
-  await safeAsync(() => dotenv.load(isOptional: true), context: 'dotenv.load', fallbackValue: null);
+  await safeAsync(() => dotenv.load(isOptional: true),
+      context: 'dotenv.load', fallbackValue: null,);
   await Hive.initFlutter();
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
   Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
+  Hive.registerAdapter<DownloadStatus>(DownloadStatusAdapter());
   Hive.registerAdapter<DownloadProgress>(DownloadProgressAdapter());
   Hive.registerAdapter<DownloadConfig>(DownloadConfigAdapter());
   Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
-  await safeAsync(() => initializeDateFormatting('fr_FR'), context: 'initializeDateFormatting', fallbackValue: null);
+  await safeAsync(() => initializeDateFormatting('fr_FR'),
+      context: 'initializeDateFormatting', fallbackValue: null,);
   final storageService = StorageService();
   await storageService.init();
   final favoritesService = FavoritesService();
@@ -175,8 +176,10 @@ Future<void> _bootstrap() async {
             .overrideWithBuild((ref, notifier) => lastRefresh),
         licenseManagerProvider.overrideWithValue(LicenseManager()),
         licenseCacheProvider.overrideWithValue(licenseCache),
-        drmManagerProvider.overrideWithValue(DrmManager(licenseManager: LicenseManager())),
-        widevineDelegateProvider.overrideWithValue(WidevineDelegate(licenseManager: LicenseManager())),
+        drmManagerProvider
+            .overrideWithValue(DrmManager(licenseManager: LicenseManager())),
+        widevineDelegateProvider.overrideWithValue(
+            WidevineDelegate(licenseManager: LicenseManager()),),
         widevineConfigProvider.overrideWithValue(null),
       ],
       child: const OrbitApp(),
@@ -204,6 +207,12 @@ String routerInitialLocation = '/profiles';
 /// Journalise un `screen_view` à chaque changement de route (Firebase Analytics).
 /// Fire-and-forget : aucun échec ne doit perturber la navigation.
 class AnalyticsRouteObserver extends NavigatorObserver {
+  /// Service injecte au moment de la construction du router. Un
+  /// `NavigatorObserver` n'a pas acces au `Ref`, donc on le capture ici.
+  final AnalyticsService analytics;
+
+  AnalyticsRouteObserver(this.analytics);
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _log(route);
@@ -224,8 +233,19 @@ class AnalyticsRouteObserver extends NavigatorObserver {
   }
 
   Future<void> _safeScreenView(String name) async {
+    // Passe par le service : il verifie que Firebase est reellement
+    // initialise. Un appel direct a `FirebaseAnalytics.instance` levait
+    // « No Firebase App '[DEFAULT]' has been created » a chaque navigation.
+    final analytics = this.analytics;
+    // Le router est construit avant l'init du service partage : on tente
+    // l'initialisation ici (idempotente) plutot que d'ignorer le premier
+    // evenement de navigation.
+    if (!analytics.isReady) {
+      await analytics.init();
+      if (!analytics.isReady) return;
+    }
     await safeAsync(
-      () => FirebaseAnalytics.instance.logScreenView(screenName: name),
+      () => analytics.logScreenView(name),
       context: '_safeScreenView',
       fallbackValue: null,
     );
@@ -234,21 +254,20 @@ class AnalyticsRouteObserver extends NavigatorObserver {
 
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
-  observers: <NavigatorObserver>[AnalyticsRouteObserver()],
+  observers: <NavigatorObserver>[AnalyticsRouteObserver(AnalyticsService())],
   routes: [
     GoRoute(
       path: '/legal',
       builder: (context, state) {
         final firstLaunch = state.uri.queryParameters['flow'] == 'first';
         return firstLaunch
-            ? const ConfirmExitApp(child: LegalNoticeScreen(firstLaunch: true))
+            ? const LegalNoticeScreen(firstLaunch: true)
             : const LegalNoticeScreen();
       },
     ),
     GoRoute(
       path: '/onboarding',
-      builder: (context, state) =>
-          const ConfirmExitApp(child: OnboardingConfigScreen()),
+      builder: (context, state) => const OnboardingConfigScreen(),
     ),
     GoRoute(
       path: '/profiles',
@@ -308,13 +327,6 @@ final GoRouter router = GoRouter(
       ),
     ),
     GoRoute(
-      path: '/kids',
-      builder: (context, state) => const ModalBackHandling(
-        meta: RouteMeta.popOrFallback('/home'),
-        child: KidsScreen(),
-      ),
-    ),
-    GoRoute(
       path: '/matchmaking',
       builder: (context, state) => const ModalBackHandling(
         meta: RouteMeta.popOrFallback('/home'),
@@ -333,6 +345,13 @@ final GoRouter router = GoRouter(
       builder: (context, state) => ModalBackHandling(
         meta: const RouteMeta.popOrFallback('/home'),
         child: MatchmakingScreen(initialGroup: state.extra as List<String>?),
+      ),
+    ),
+    GoRoute(
+      path: '/ai-topics',
+      builder: (context, state) => const ModalBackHandling(
+        meta: RouteMeta.popOrFallback('/home'),
+        child: AiTopicsScreen(),
       ),
     ),
     GoRoute(
@@ -417,6 +436,7 @@ final GoRouter router = GoRouter(
               initialIndex: routeData.index,
               progressId: routeData.progressId,
               initialPositionMs: routeData.initialPositionMs,
+              vodId: routeData.vodId,
               contentType: routeData.contentType,
               favorite: routeData.favorite,
               posterUrl: routeData.posterUrl,
@@ -485,6 +505,12 @@ final GoRouter router = GoRouter(
           child: () {
             final movie = state.extra;
             if (movie is Movie) return MovieDetailScreen(movie: movie);
+            // Navigation depuis un modèle compact : on reconstruit une fiche
+            // minimale, l'écran recharge le détail complet via son provider.
+            final id = state.uri.queryParameters['id'] ?? '';
+            if (id.isNotEmpty) {
+              return MovieDetailScreen(movie: Movie.fromStreamId(id));
+            }
             return const Material(child: SizedBox.shrink());
           }(),
         ),
@@ -556,7 +582,7 @@ final GoRouter router = GoRouter(
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'home',
-            child: const ConfirmExitApp(child: HomeScreen()),
+            child: const HomeScreen(),
           ),
         ),
         GoRoute(
@@ -661,13 +687,14 @@ final GoRouter router = GoRouter(
             ),
           ),
         ),
-GoRoute(
+        GoRoute(
           path: '/downloads',
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'downloads',
             child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
+              meta:
+                  RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
               child: DownloadsScreen(),
             ),
           ),
@@ -678,8 +705,10 @@ GoRoute(
             key: state.pageKey,
             restorationId: 'subscriptions',
             child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/home',
-                  restorationId: 'subscriptions',),
+              meta: RouteMeta.popOrFallback(
+                '/home',
+                restorationId: 'subscriptions',
+              ),
               child: SubscriptionsScreen(),
             ),
           ),
@@ -692,6 +721,18 @@ GoRoute(
             child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
               child: UnifiedSettingsScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/category-filters',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'category-filters',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/settings',
+                  restorationId: 'category-filters'),
+              child: CategoryFilterScreen(),
             ),
           ),
         ),
@@ -736,7 +777,7 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
       if (route != null) {
         router.go(route);
       }
-    }, context: '_handleWidgetLaunch');
+    }, context: '_handleWidgetLaunch',);
   }
 
   @override
@@ -760,15 +801,21 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
 
     return TvModeDetector(
       child: MaterialApp.router(
-        onGenerateTitle: (context) =>
-            AppLocalizations.of(context).appTitle,
+        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
         locale: resolveLocale(),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
         darkTheme:
             AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
-        themeMode: ThemeMode.system,
+        // Le thème est un réglage utilisateur (PreferencesNotifier.setTheme) :
+        // il était codé en dur sur `system`, ce qui rendait le thème clair
+        // inatteignable même en le sélectionnant dans les préférences.
+        themeMode: switch (prefs.theme) {
+          'light' => ThemeMode.light,
+          'dark' => ThemeMode.dark,
+          _ => ThemeMode.system,
+        },
         routerConfig: router,
       ),
     );

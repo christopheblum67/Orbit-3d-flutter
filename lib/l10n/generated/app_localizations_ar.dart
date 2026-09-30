@@ -222,6 +222,11 @@ class AppLocalizationsAr extends AppLocalizations {
   String get createProfile => 'إنشاء ملف شخصي';
 
   @override
+  String currentProfileLabel(String name) {
+    return 'الملف الشخصي الحالي: $name';
+  }
+
+  @override
   String get dataAlreadyFresh => 'البيانات محدثة (أقل من 30 دقيقة)';
 
   @override
@@ -382,12 +387,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'تحميل القنوات المجاورة مسبقًا في الذاكرة';
 
   @override
-  String get kidsContent => 'محتوى مناسب للأطفال';
-
-  @override
-  String get kidsMode => 'وضع الأطفال';
-
-  @override
   String get langArabic => 'العربية';
 
   @override
@@ -464,6 +463,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get memory => 'الذاكرة';
 
   @override
+  String get moreResults => 'عرض المزيد من النتائج';
+
+  @override
   String get moviesUnavailable => 'الأفلام غير متاحة';
 
   @override
@@ -537,6 +539,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noFavoriteSeries => 'لا توجد سلسل مفضلة';
 
   @override
+  String get noGroupAffinity => 'لم يتم العثور على تقارب مشترك';
+
+  @override
   String get noHistory => 'لا يوجد سجل';
 
   @override
@@ -565,6 +570,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get noRankings => 'لا توجد ترتيبات';
+
+  @override
+  String get noRecommendations => 'لا توجد توصيات متاحة';
 
   @override
   String get noReplaysInCategory => 'لا توجد إعادة مشاهدة في هذه الفئة';
@@ -632,6 +640,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get primaryEngine => 'المحرك الرئيسي';
+
+  @override
+  String profilesSelected(int count) {
+    return 'تم تحديد $count ملفات تعريف';
+  }
 
   @override
   String get profileVisible => 'ملف شخصي مرئي';
@@ -795,6 +808,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get select => 'اختيار';
+
+  @override
+  String selectAtLeastOneProfile(int count) {
+    return 'اختر ملفًا واحدًا على الأقل ($count/4)';
+  }
 
   @override
   String get selectProfileForRecommendations =>
@@ -969,6 +987,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get updateAllData => 'تحديث جميع البيانات';
+
+  @override
+  String get aiTopicsTitle => 'موضوعات مقترحة بالذكاء الاصطناعي';
 
   @override
   String get updateThisCategory => 'تحديث هذه الفئة';

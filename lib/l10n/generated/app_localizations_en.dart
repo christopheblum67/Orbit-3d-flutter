@@ -228,6 +228,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createProfile => 'Create a profile';
 
   @override
+  String currentProfileLabel(String name) {
+    return 'Current profile: $name';
+  }
+
+  @override
   String get dataAlreadyFresh => 'Data already up to date (less than 30 min)';
 
   @override
@@ -390,12 +395,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Prefetch adjacent channels into the buffer';
 
   @override
-  String get kidsContent => 'Kids-friendly content';
-
-  @override
-  String get kidsMode => 'Kids Mode';
-
-  @override
   String get langArabic => 'العربية';
 
   @override
@@ -473,6 +472,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memory => 'Memory';
 
   @override
+  String get moreResults => 'Show more results';
+
+  @override
   String get moviesUnavailable => 'Movies unavailable';
 
   @override
@@ -546,6 +548,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noFavoriteSeries => 'No favorite series';
 
   @override
+  String get noGroupAffinity => 'No shared affinity found';
+
+  @override
   String get noHistory => 'No history';
 
   @override
@@ -574,6 +579,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noRankings => 'No rankings';
+
+  @override
+  String get noRecommendations => 'No recommendations available';
 
   @override
   String get noReplaysInCategory => 'No replays in this category';
@@ -642,6 +650,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get primaryEngine => 'Primary engine';
+
+  @override
+  String profilesSelected(int count) {
+    return '$count profiles selected';
+  }
 
   @override
   String get profileVisible => 'Visible profile';
@@ -805,6 +818,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get select => 'Select';
+
+  @override
+  String selectAtLeastOneProfile(int count) {
+    return 'Select at least 1 additional profile ($count/4)';
+  }
 
   @override
   String get selectProfileForRecommendations =>
@@ -978,6 +996,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updateAllData => 'Update all data';
+
+  @override
+  String get aiTopicsTitle => 'AI Recommended Topics';
 
   @override
   String get updateThisCategory => 'Update this category';

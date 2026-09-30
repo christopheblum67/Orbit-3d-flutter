@@ -63,7 +63,9 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
   int countForType(ContentType type) {
     final profile = ref.read(currentProfileProvider);
     if (profile == null) return 0;
-    return state.values.where((e) => e.type == type && e.profileId == profile.id).length;
+    return state.values
+        .where((e) => e.type == type && e.profileId == profile.id)
+        .length;
   }
 
   Future<void> toggle(FavoriteEntry entry) async {
@@ -81,7 +83,8 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     final service = ref.read(favoritesServiceProvider);
     if (state.containsKey(entryWithProfile.key)) {
       await service.remove(entryWithProfile.key);
-      final next = Map<String, FavoriteEntry>.from(state)..remove(entryWithProfile.key);
+      final next = Map<String, FavoriteEntry>.from(state)
+        ..remove(entryWithProfile.key);
       state = next;
     } else {
       await service.save(entryWithProfile);

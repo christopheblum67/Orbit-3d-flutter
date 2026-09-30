@@ -502,6 +502,12 @@ abstract class AppLocalizations {
   /// **'Créer un profil'**
   String get createProfile;
 
+  /// No description provided for @currentProfileLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profil courant : {name}'**
+  String currentProfileLabel(String name);
+
   /// No description provided for @dataAlreadyFresh.
   ///
   /// In fr, this message translates to:
@@ -802,18 +808,6 @@ abstract class AppLocalizations {
   /// **'Précharge les chaînes adjacentes en mémoire tampon'**
   String get instantZappingSubtitle;
 
-  /// No description provided for @kidsContent.
-  ///
-  /// In fr, this message translates to:
-  /// **'Contenus adaptés aux enfants'**
-  String get kidsContent;
-
-  /// No description provided for @kidsMode.
-  ///
-  /// In fr, this message translates to:
-  /// **'Mode Enfants'**
-  String get kidsMode;
-
   /// No description provided for @langArabic.
   ///
   /// In fr, this message translates to:
@@ -957,6 +951,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Mémoire'**
   String get memory;
+
+  /// No description provided for @moreResults.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir plus de résultats'**
+  String get moreResults;
 
   /// No description provided for @moviesUnavailable.
   ///
@@ -1102,6 +1102,12 @@ abstract class AppLocalizations {
   /// **'Aucune série favorite'**
   String get noFavoriteSeries;
 
+  /// No description provided for @noGroupAffinity.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune affinité commune trouvée'**
+  String get noGroupAffinity;
+
   /// No description provided for @noHistory.
   ///
   /// In fr, this message translates to:
@@ -1161,6 +1167,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Aucun classement'**
   String get noRankings;
+
+  /// No description provided for @noRecommendations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune recommandation disponible'**
+  String get noRecommendations;
 
   /// No description provided for @noReplaysInCategory.
   ///
@@ -1287,6 +1299,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Moteur Principal'**
   String get primaryEngine;
+
+  /// No description provided for @profilesSelected.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} profils sélectionnés'**
+  String profilesSelected(int count);
 
   /// No description provided for @profileVisible.
   ///
@@ -1605,6 +1623,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Sélectionner'**
   String get select;
+
+  /// No description provided for @selectAtLeastOneProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez au moins 1 profil supplémentaire ({count}/4)'**
+  String selectAtLeastOneProfile(int count);
 
   /// No description provided for @selectProfileForRecommendations.
   ///
@@ -1935,6 +1959,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Mettre à jour toutes les données'**
   String get updateAllData;
+
+  /// No description provided for @aiTopicsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sujets recommandés par IA'**
+  String get aiTopicsTitle;
 
   /// No description provided for @updateThisCategory.
   ///

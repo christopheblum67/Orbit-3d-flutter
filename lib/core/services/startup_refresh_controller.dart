@@ -53,9 +53,11 @@ class StartupRefreshController extends ChangeNotifier {
   List<Movie> movies = const [];
   List<Series> series = const [];
 
-  StartupRefreshController(this._api,
-      {Set<StartupStep>? steps, EPGDataCache? epgCache,})
-      : _epgCache = epgCache,
+  StartupRefreshController(
+    this._api, {
+    Set<StartupStep>? steps,
+    EPGDataCache? epgCache,
+  })  : _epgCache = epgCache,
         _todo = steps ??
             {
               StartupStep.live,
@@ -130,8 +132,8 @@ class StartupRefreshController extends ChangeNotifier {
                 // Marqué comme traité même en erreur (non bloquant).
               }
             case StartupStep.ai:
-              // Étape purement indicative : marquée instantanément comme faite
-              // pour que la progression reste fluide sans latence.
+            // Étape purement indicative : marquée instantanément comme faite
+            // pour que la progression reste fluide sans latence.
           }
         },
       );

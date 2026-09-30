@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -84,7 +86,10 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     if (!actualChange) return;
 
     ref.invalidate(activeSubscriptionProvider);
-    // Invalide TOUS les fournisseurs de données pour forcer un rechargement
+    // Le classement « URL lente » de ApiService vaut pour un serveur donne :
+    // on le purge pour ne pas penaliser le nouvel abonnement.
+    ref.read(apiServiceProvider).forgetSlowUrls();
+    // Invalide TOUS les fournisseurs de donnees pour forcer un rechargement
     // complet au changement d'abonnement (changement de serveur/catalogue).
     ref.invalidate(liveChannelsProvider);
     ref.invalidate(moviesProvider);
@@ -112,6 +117,18 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     }
     if (activated != null && activated.type == SubscriptionType.xtream) {
       refreshValidity(id);
+      // Initialize Cloudflare session early (after Xtream activation).
+      // On conserve le SCHEMA reel de l'abonnement : forcer `https` faisait
+      // pointer la session sur un host qui ne correspondait pas (les panels
+      // servis en `http://` n'etaient jamais proteges).
+      final raw = activated.baseUrl;
+      if (raw != null && raw.isNotEmpty) {
+        unawaited(
+          ref
+              .read(cloudflareSessionProvider)
+              .initialize(baseUrl: Uri.parse(raw).origin),
+        );
+      }
     }
   }
 

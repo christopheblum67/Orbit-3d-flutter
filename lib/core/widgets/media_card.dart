@@ -23,7 +23,21 @@ class MediaCard extends ConsumerWidget {
     this.matchPercent, // % d'affinité matchmaking (affiché sur la ligne méta)
     this.voteCount, // Nombre de votes (ex: TMDB) - affiché sur la ligne méta
     this.overview, // Synopsis (aperçu 2 lignes sous la méta, si fourni)
+    this.posterFit = BoxFit.cover,
+    this.posterPadding = EdgeInsets.zero,
   });
+
+  /// Ajustement de l'image dans la tuile.
+  ///
+  /// `cover` convient aux affiches (films, séries) qui doivent remplir la
+  /// tuile. Les logos de chaînes sont des wordmarks très larges : en `cover`
+  /// dans une tuile haute, ils sont zoomés jusqu'à deborder puis rognés, ce
+  /// qui les rend « trop gros ». Passer `contain` avec une petite marge laisse
+  /// le logo entier visible à sa taille naturelle.
+  final BoxFit posterFit;
+
+  /// Marge intérieure autour de l'image (utile avec [posterFit] = contain).
+  final EdgeInsets posterPadding;
 
   final String title;
   final String posterUrl;
@@ -87,6 +101,10 @@ class MediaCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final fontScale = ref.watch(preferencesProvider).fontScale;
+    final metaStyle = TextStyle(
+      color: scheme.onSurfaceVariant,
+      fontSize: 12 * fontScale,
+    );
     return Semantics(
       container: true,
       label: _accessibilityLabel,
@@ -102,16 +120,21 @@ class MediaCard extends ConsumerWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  posterUrl.isNotEmpty
-                      ? OrbitCachedImage(
-                          imageUrl: posterUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => _PosterFallback(
-                              scheme: scheme, icon: fallbackIcon),
-                          errorWidget: (context, url, error) => _PosterFallback(
-                              scheme: scheme, icon: fallbackIcon),
-                        )
-                      : _PosterFallback(scheme: scheme, icon: fallbackIcon),
+                  Padding(
+                    padding: posterPadding,
+                    child: posterUrl.isNotEmpty
+                        ? OrbitCachedImage(
+                            imageUrl: posterUrl,
+                            fit: posterFit,
+                            placeholder: (context, url) => _PosterFallback(
+                                scheme: scheme, icon: fallbackIcon,),
+                            errorWidget: (context, url, error) =>
+                                _PosterFallback(
+                                    scheme: scheme, icon: fallbackIcon,),
+                          )
+                        : _PosterFallback(
+                            scheme: scheme, icon: fallbackIcon),
+                  ),
                   if (ageLabel != null && ageLabel!.isNotEmpty)
                     Positioned(
                       left: 8,
@@ -164,6 +187,12 @@ class MediaCard extends ConsumerWidget {
                       left: 8,
                       top: 8,
                       child: topBadge!,
+                    ),
+                  if (matchPercent != null && matchPercent! > 0)
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: _AffinityBadge(percent: matchPercent!),
                     ),
                   if (rating > 0)
                     Positioned(
@@ -223,24 +252,19 @@ class MediaCard extends ConsumerWidget {
                         .titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
-                  const SizedBox(height: 4),
+const SizedBox(height: 4),
                   if (year > 0 ||
-                      genre.isNotEmpty ||
-                      matchPercent != null ||
-                      _voteCountLabel != null)
-                    Text(
-                      [
-                        if (year > 0) '$year',
-                        if (genre.isNotEmpty) genre,
-                        if (_voteCountLabel != null) _voteCountLabel!,
-                        if (matchPercent != null) '♥ $matchPercent%',
-                      ].join(' • '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontSize: 12 * fontScale,
-                          ),
+                          genre.isNotEmpty ||
+                          _voteCountLabel != null)
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 2,
+                      children: [
+                        if (year > 0) Text('$year', style: metaStyle),
+                        if (genre.isNotEmpty) Text(genre, style: metaStyle),
+                        if (_voteCountLabel != null) Text(_voteCountLabel!, style: metaStyle),
+                      ],
                     ),
                   if (overview != null && overview!.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -264,8 +288,48 @@ class MediaCard extends ConsumerWidget {
   }
 }
 
+/// Badge d'affinité personnelle (matchmaking), ancré en bas à gauche du poster.
+///
+/// L'ancrage haut-droit porte déjà la note et le haut-gauche l'âge / NOUVEAU /
+/// rang ; le bas-droit est réservé au cœur favori. Le bas-gauche était donc le
+/// seul emplacement libre, et il laisse la ligne de méta (année, genre) nette.
+class _AffinityBadge extends StatelessWidget {
+  const _AffinityBadge({required this.percent});
+
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.favorite, size: 11, color: scheme.primary),
+          const SizedBox(width: 3),
+          Text(
+            '$percent%',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PosterFallback extends StatelessWidget {
   const _PosterFallback({required this.scheme, required this.icon});
+
 
   final ColorScheme scheme;
   final IconData icon;

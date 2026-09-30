@@ -81,35 +81,43 @@ class PersonalizedRecommendations {
           switch ((poolIndex + p) % pools.length) {
             case 0:
               mi++;
-              result.add(StartupRecommendation.fromMovie(
-                scored.movie!,
-                _reasonForMovie(scored.movie!, genref),
-              ),);
+              result.add(
+                StartupRecommendation.fromMovie(
+                  scored.movie!,
+                  _reasonForMovie(scored.movie!, genref),
+                ),
+              );
               break;
             case 1:
               si++;
-              result.add(StartupRecommendation.fromSeries(
-                scored.series!,
-                _reasonForSeries(scored.series!, genref),
-              ),);
+              result.add(
+                StartupRecommendation.fromSeries(
+                  scored.series!,
+                  _reasonForSeries(scored.series!, genref),
+                ),
+              );
               break;
             case 2:
               ri++;
-              result.add(StartupRecommendation.fromRadio(
-                scored.radio!,
-                'Station radio${scored.radio!.group.isNotEmpty ? " · ${scored.radio!.group}" : ""}',
-              ),);
+              result.add(
+                StartupRecommendation.fromRadio(
+                  scored.radio!,
+                  'Station radio${scored.radio!.group.isNotEmpty ? " · ${scored.radio!.group}" : ""}',
+                ),
+              );
               break;
             case 3:
               rpi++;
-              result.add(StartupRecommendation.fromReplay(
-                scored.replay!.title,
-                '', // ReplayItem n'a pas de posterUrl
-                'Replay',
-                scored.replay!.streamUrl,
-                rating: 0,
-                id: scored.replay!.id,
-              ),);
+              result.add(
+                StartupRecommendation.fromReplay(
+                  scored.replay!.title,
+                  '', // ReplayItem n'a pas de posterUrl
+                  'Replay',
+                  scored.replay!.streamUrl,
+                  rating: 0,
+                  id: scored.replay!.id,
+                ),
+              );
               break;
           }
           added = true;

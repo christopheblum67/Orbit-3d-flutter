@@ -117,8 +117,8 @@ const List<OrbitGradient> orbitGradientOptions = [
   ),
 ];
 
-/// Avatar de profil : icône prédéfinie ("icone:<id>"), dégradé orbital
-/// ("orbital:<index>"), image distante (URL) ou initiale du prénom en secours.
+/// Avatar de profil : icône prédéfinie (`icone:<id>`), dégradé orbital
+/// (`orbital:<index>`), image distante (URL) ou initiale du prénom en secours.
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({
     super.key,

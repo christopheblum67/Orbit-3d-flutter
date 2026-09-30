@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,11 +64,18 @@ class TvFocus extends ConsumerStatefulWidget {
   ConsumerState<TvFocus> createState() => _TvFocusState();
 }
 
-class _TvFocusState extends ConsumerState<TvFocus> with SingleTickerProviderStateMixin {
+class _TvFocusState extends ConsumerState<TvFocus>
+    with SingleTickerProviderStateMixin {
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
   bool _isFocused = false;
   bool _isTvMode = false;
+
+  /// Notifier lu une seule fois dans [initState] : Riverpod interdit d'utiliser
+  /// `ref` dans [dispose] (l'élément est déjà démonté), ce qui levait
+  /// « Bad state: Using "ref" when a widget is about to or has been unmounted »
+  /// à chaque sortie d'écran.
+  TvModeNotifier? _tvModeNotifier;
 
   @override
   void initState() {
@@ -81,19 +88,21 @@ class _TvFocusState extends ConsumerState<TvFocus> with SingleTickerProviderStat
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
     final notifier = ref.read(tvModeNotifierProvider);
+    _tvModeNotifier = notifier;
     _isTvMode = notifier.enabled;
     notifier.addListener(_onTvModeChange);
   }
 
   void _onTvModeChange() {
     if (mounted) {
-      setState(() => _isTvMode = ref.read(tvModeNotifierProvider).enabled);
+      setState(() => _isTvMode = _tvModeNotifier?.enabled ?? _isTvMode);
     }
   }
 
   @override
   void dispose() {
-    ref.read(tvModeNotifierProvider).removeListener(_onTvModeChange);
+    _tvModeNotifier?.removeListener(_onTvModeChange);
+    _tvModeNotifier = null;
     _scaleController.dispose();
     super.dispose();
   }

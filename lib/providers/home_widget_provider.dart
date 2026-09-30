@@ -27,7 +27,7 @@ class HomeWidgetSync {
       unawaited(HomeWidgetService.instance.updateWidgetData(
         profileName: profile?.firstName,
         favoritesCount: favorites.length,
-      ));
+      ),);
     });
     _ref.listen(currentProfileProvider, (_, profile) {
       final favorites = _ref.read(favoritesProvider);
@@ -35,7 +35,7 @@ class HomeWidgetSync {
       unawaited(HomeWidgetService.instance.updateWidgetData(
         profileName: profile?.firstName,
         favoritesCount: favorites.length,
-      ));
+      ),);
     });
   }
 

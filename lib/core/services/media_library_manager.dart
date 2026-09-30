@@ -25,7 +25,10 @@ class MediaItem {
   final double rating; // Note (ex: 8.5)
   final int releaseYear; // Année (ex: 2024)
   final int durationMinutes; // Durée en minutes
-  final DateTime addedDate; // Date d'import
+  /// Date d'import/addition. Nullable car tous les panels Xtream ne renvoie pas
+  /// le champ `added` : forcer `DateTime.now()` rendait le tri « récemment
+  /// ajouté » vide de sens (tous les items à l'heure courante).
+  final DateTime? addedDate;
 
   // Attributs de lecture dynamique
   bool isFavorite;
@@ -66,7 +69,7 @@ class MediaItem {
         'rating': rating,
         'releaseYear': releaseYear,
         'durationMinutes': durationMinutes,
-        'addedDate': addedDate.toIso8601String(),
+        'addedDate': addedDate?.toIso8601String(),
         'isFavorite': isFavorite,
         'lastPositionMs': lastPositionMs,
         'totalDurationMs': totalDurationMs,
@@ -195,11 +198,13 @@ class MediaLibraryManager extends ChangeNotifier {
     switch (mode) {
       case SortMode.nameAsc:
         sorted.sort(
-            (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),);
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
         break;
       case SortMode.nameDesc:
         sorted.sort(
-            (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),);
+          (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
+        );
         break;
       case SortMode.ratingDesc:
         sorted.sort((a, b) => b.rating.compareTo(a.rating));
@@ -208,7 +213,16 @@ class MediaLibraryManager extends ChangeNotifier {
         sorted.sort((a, b) => b.releaseYear.compareTo(a.releaseYear));
         break;
       case SortMode.recentlyAdded:
-        sorted.sort((a, b) => b.addedDate.compareTo(a.addedDate));
+        // Les items sans date d'ajout (panel qui n'envoie pas `added`) passent
+        // en fin de liste au lieu de planter la comparaison.
+        sorted.sort((a, b) {
+          final da = a.addedDate;
+          final db = b.addedDate;
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
         break;
       case SortMode.resumeFirst:
         // Priorité aux vidéos commencées non terminées, puis date de lecture

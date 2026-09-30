@@ -90,7 +90,7 @@ class HomeMenuDrawer extends ConsumerWidget {
       _MenuSection(
         header: 'Configuration',
         items: [
-          _MenuEntry(
+          const _MenuEntry(
             icon: Icons.dns_outlined,
             label: 'Abonnements',
             route: '/subscriptions',

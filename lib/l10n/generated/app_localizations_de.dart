@@ -230,6 +230,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get createProfile => 'Profil erstellen';
 
   @override
+  String currentProfileLabel(String name) {
+    return 'Aktuelles Profil: $name';
+  }
+
+  @override
   String get dataAlreadyFresh => 'Daten bereits aktuell (weniger als 30 Min.)';
 
   @override
@@ -392,12 +397,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Benachbarte Kanäle in den Puffer vorladen';
 
   @override
-  String get kidsContent => 'Kinderfreundliche Inhalte';
-
-  @override
-  String get kidsMode => 'Kindermode';
-
-  @override
   String get langArabic => 'العربية';
 
   @override
@@ -477,6 +476,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get memory => 'Speicher';
 
   @override
+  String get moreResults => 'Mehr Ergebnisse anzeigen';
+
+  @override
   String get moviesUnavailable => 'Filme nicht verfügbar';
 
   @override
@@ -550,6 +552,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noFavoriteSeries => 'Keine Lieblingsserien';
 
   @override
+  String get noGroupAffinity => 'Keine gemeinsame Affinität gefunden';
+
+  @override
   String get noHistory => 'Kein Verlauf';
 
   @override
@@ -578,6 +583,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get noRankings => 'Keine Rankings';
+
+  @override
+  String get noRecommendations => 'Keine Empfehlungen verfügbar';
 
   @override
   String get noReplaysInCategory => 'Keine Wiederholungen in dieser Kategorie';
@@ -647,6 +655,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get primaryEngine => 'Haupt-Engine';
+
+  @override
+  String profilesSelected(int count) {
+    return '$count Profile ausgewählt';
+  }
 
   @override
   String get profileVisible => 'Profil sichtbar';
@@ -810,6 +823,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get select => 'Auswählen';
+
+  @override
+  String selectAtLeastOneProfile(int count) {
+    return 'Wähle mindestens 1 weiteres Profil ($count/4)';
+  }
 
   @override
   String get selectProfileForRecommendations =>
@@ -989,6 +1007,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get updateAllData => 'Alle Daten aktualisieren';
+
+  @override
+  String get aiTopicsTitle => 'KI-Empfohlene Themen';
 
   @override
   String get updateThisCategory => 'Diese Kategorie aktualisieren';

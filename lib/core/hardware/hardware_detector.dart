@@ -101,7 +101,8 @@ class HardwareDetectorService {
     final info = (await safeAsync<AndroidDeviceInfo>(
       () => android,
       context: 'HardwareDetectorService.analyze.deviceInfo',
-    )).valueOrNull;
+    ))
+        .valueOrNull;
     if (info != null) {
       deviceName = '${info.brand} ${info.model}'.trim();
       brand = info.brand;
@@ -112,10 +113,11 @@ class HardwareDetectorService {
     // Diagnostic non bloquant : valeurs par défaut conservées.
 
     final memory = (await safeAsync<Map<Object?, Object?>?>(
-      () async => await _memoryChannel
-          .invokeMethod<Map<Object?, Object?>>('getMemory'),
+      () async =>
+          await _memoryChannel.invokeMethod<Map<Object?, Object?>>('getMemory'),
       context: 'HardwareDetectorService.analyze.memory',
-    )).valueOrNull;
+    ))
+        .valueOrNull;
     if (memory != null) {
       totalRamMb = (memory['totalMb'] as num?)?.toInt() ?? 0;
       lowRam = memory['lowRam'] as bool? ?? false;
@@ -126,7 +128,8 @@ class HardwareDetectorService {
     final results = (await safeAsync<List<ConnectivityResult>>(
       () => Connectivity().checkConnectivity(),
       context: 'HardwareDetectorService.analyze.connectivity',
-    )).valueOrNull;
+    ))
+        .valueOrNull;
     if (results != null && results.isNotEmpty) {
       connection = switch (results.first) {
         ConnectivityResult.ethernet => ConnectionKind.ethernet,
