@@ -6,7 +6,8 @@ import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_models.dart';
 /// snapshot. L'implémentation Firestore est branchée en production ; une
 /// implémentation en mémoire sert aux tests.
 abstract interface class CloudSyncGateway {
-  Future<CloudSyncSnapshot?> fetchSnapshot(CloudSyncScope scope, String profileId);
+  Future<CloudSyncSnapshot?> fetchSnapshot(
+      CloudSyncScope scope, String profileId,);
 
   Future<void> pushSnapshot(CloudSyncSnapshot snapshot);
 }
@@ -15,7 +16,8 @@ abstract interface class CloudSyncGateway {
 class InMemoryCloudSyncGateway implements CloudSyncGateway {
   final Map<String, CloudSyncSnapshot> store = {};
 
-  String key(CloudSyncScope scope, String profileId) => '${scope.name}:$profileId';
+  String key(CloudSyncScope scope, String profileId) =>
+      '${scope.name}:$profileId';
 
   @override
   Future<CloudSyncSnapshot?> fetchSnapshot(

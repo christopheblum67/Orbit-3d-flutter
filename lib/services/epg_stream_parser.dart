@@ -70,6 +70,17 @@ class EpgStreamParser {
       pos = closeIdx;
     }
 
+    // Les consommateurs (index global, `epgCurrentProgram`, `epgNextProgram`)
+    // locating par dichotomie supposent une liste triee par `start`. Or l'ordre
+    // du XMLTV n'est pas garanti : certains panels livrent les programmes dans
+    // le desordre, et `get_short_epg` renvoie frequemment une seule journee
+    // melee avec celle d'avant. Sans ce tri, la dichotomie renvoie un
+    // programme arbitraire — typiquement vide — alors que la grille parait
+    // correctement remplie.
+    if (programs.length > 1) {
+      programs.sort((a, b) => a.start.compareTo(b.start));
+    }
+
     return programs;
   }
 

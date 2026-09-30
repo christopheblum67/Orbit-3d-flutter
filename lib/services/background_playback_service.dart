@@ -15,9 +15,10 @@ class BackgroundPlaybackService {
   }) async {
     try {
       return await _channel.invokeMethod<bool>('start', {
-        'title': title,
-        'subtitle': subtitle,
-      }) ?? false;
+            'title': title,
+            'subtitle': subtitle,
+          }) ??
+          false;
     } on MissingPluginException {
       return false;
     }

@@ -85,7 +85,7 @@ class CastPlaybackService {
     return result.getOrElse(false);
   }
 
-  int _sessionCounter = 0;
+  final int _sessionCounter = 0;
 
   void _onMessage(Map<String, dynamic> payload) {
     final receiverSessionId = _receiverSessionId;
@@ -110,8 +110,7 @@ class CastPlaybackService {
       }
     }
     // Premier CONNECT établi : on ne relance pas un LAUNCH spontanément.
-    if (!_launched && receiverSessionId == null &&
-        _receiverSessionId != null) {
+    if (!_launched && receiverSessionId == null && _receiverSessionId != null) {
       _launched = true;
     }
   }
@@ -140,12 +139,14 @@ class CastPlaybackService {
     });
     // Attend un bref instant pour le statut du récepteur après le LAUNCH.
     await Future<void>.delayed(const Duration(milliseconds: 1200));
-    session.sendMessage(CastSession.kNamespaceMedia, buildLoadPayload(
-      contentId: url,
-      contentType: contentType,
-      sessionId: _receiverSessionId!,
-      streamType: isLive ? 'live' : null,
-    ));
+    session.sendMessage(
+        CastSession.kNamespaceMedia,
+        buildLoadPayload(
+          contentId: url,
+          contentType: contentType,
+          sessionId: _receiverSessionId!,
+          streamType: isLive ? 'live' : null,
+        ),);
     return true;
   }
 
@@ -173,8 +174,7 @@ class CastPlaybackService {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       final session = _session;
-      if (session != null &&
-          session.state == CastSessionState.connected) {
+      if (session != null && session.state == CastSessionState.connected) {
         session.sendMessage(CastSession.kNamespaceHeartbeat, {
           'type': 'PING',
         });

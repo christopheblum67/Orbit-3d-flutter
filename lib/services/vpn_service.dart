@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 /// Service VPN avec kill-switch intégré.
@@ -14,10 +14,12 @@ class VpnService extends ChangeNotifier {
 
   bool get isConnected => _isConnected;
   bool get killSwitchEnabled => _killSwitchEnabled;
-  bool get isTrafficBlocked => _killSwitchEnabled && !_isConnected && _wasConnectedBeforeDrop;
+  bool get isTrafficBlocked =>
+      _killSwitchEnabled && !_isConnected && _wasConnectedBeforeDrop;
 
   /// Stream notifiant les changements d'état du kill-switch (true = trafic bloqué).
-  Stream<bool> get killSwitchStream => _killSwitchController?.stream ?? const Stream.empty();
+  Stream<bool> get killSwitchStream =>
+      _killSwitchController?.stream ?? const Stream.empty();
 
   /// Active/désactive le kill-switch.
   void setKillSwitchEnabled(bool enabled) {

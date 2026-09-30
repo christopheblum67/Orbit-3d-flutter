@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
@@ -76,7 +77,8 @@ class DownloadManagerConfig {
   }) {
     return DownloadManagerConfig(
       wifiOnly: wifiOnly ?? this.wifiOnly,
-      maxConcurrentDownloads: maxConcurrentDownloads ?? this.maxConcurrentDownloads,
+      maxConcurrentDownloads:
+          maxConcurrentDownloads ?? this.maxConcurrentDownloads,
       retryAttempts: retryAttempts ?? this.retryAttempts,
       retryDelay: retryDelay ?? this.retryDelay,
       deleteAfterWatch: deleteAfterWatch ?? this.deleteAfterWatch,
@@ -101,10 +103,18 @@ class DownloadManager extends ChangeNotifier {
   final LoggerService _logger = LoggerService.instance;
 
   Box<DownloadTask>? _box;
+  /// Future d'initialisation en cours : `init()` est rappelé depuis l'écran
+  /// Téléchargements, le bouton de téléchargement de chaque fiche et le
+  /// démarrage. Sans cette garde, deux appels simultanés passaient tous deux
+  /// le test `isBoxOpen` (toujours faux avant l'ouverture) et le second
+  /// `openBox` échouait avec
+  /// « The box "downloads" is already open and of type Box<DownloadTask> ».
+  Future<void>? _initFuture;
   DownloadManagerConfig _config = const DownloadManagerConfig();
   final Map<String, Isolate> _workers = {};
   final Map<String, SendPort> _workerPorts = {};
-  final Map<String, StreamController<DownloadWorkerResponse>> _responseControllers = {};
+  final Map<String, StreamController<DownloadWorkerResponse>>
+      _responseControllers = {};
   int _activeDownloads = 0;
 
   /// Configuration actuelle.
@@ -117,15 +127,35 @@ class DownloadManager extends ChangeNotifier {
   List<DownloadTask> get activeTasks {
     if (_box == null) return [];
     return _box!.values
-        .where((t) => t.status == DownloadStatus.downloading || t.status == DownloadStatus.preparing)
+        .where((t) =>
+            t.status == DownloadStatus.downloading ||
+            t.status == DownloadStatus.preparing,)
         .toList();
   }
 
   /// Nombre de téléchargements actifs.
   int get activeCount => _activeDownloads;
 
-  /// Initialise le gestionnaire.
-  Future<void> init() async {
+  /// Initialise le gestionnaire. Idempotent et concurrent-safe : les appels
+  /// suivants partagent la première initialisation au lieu d'ouvrir la box
+  /// une seconde fois.
+  Future<void> init() {
+    final existing = _initFuture;
+    if (existing != null) return existing;
+    late final Future<void> future;
+    future = _doInit().catchError((Object error, StackTrace stack) {
+      // On libère le future en cas d'échec : sinon la box resterait
+      // « cassée » pour toute la session et chaque nouvel essai de
+      // téléchargement rejouerait la même erreur sans jamais retentir
+      // l'ouverture de la box.
+      if (identical(_initFuture, future)) _initFuture = null;
+      Error.throwWithStackTrace(error, stack);
+    });
+    _initFuture = future;
+    return future;
+  }
+
+  Future<void> _doInit() async {
     await _initBox();
     await _loadConfig();
     _recoverInterruptedDownloads();
@@ -133,11 +163,14 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> _initBox() async {
-    if (!Hive.isBoxOpen(_boxName)) {
-      _box = await Hive.openBox<DownloadTask>(_boxName);
-    } else {
-      _box = Hive.box<DownloadTask>(_boxName);
+    if (Hive.isBoxOpen(_boxName)) {
+      // La box a pu être ouverte par le chemin « reset usine » en
+      // `Box<dynamic>` : on la ferme pour la rouvrir au bon type plutôt que de
+      // subir « already open and of type Box<dynamic> » à la première écriture.
+      final existing = Hive.box<dynamic>(_boxName);
+      if (existing.isOpen) await existing.close();
     }
+    _box = await Hive.openBox<DownloadTask>(_boxName);
   }
 
   Future<void> _loadConfig() async {
@@ -179,7 +212,7 @@ class DownloadManager extends ChangeNotifier {
   Stream<List<DownloadTask>> _watchTasks() {
     if (_box == null) return Stream.value([]);
     return _box!.watch().map((_) => _box!.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),);
   }
 
   /// Récupère une tâche par son ID.
@@ -199,7 +232,11 @@ class DownloadManager extends ChangeNotifier {
     String? episodeTitle,
     Map<String, String>? headers,
   }) async {
-    if (_box == null) await _initBox();
+    // Passe par `init()` (idempotent + concurrent-safe) plutôt que par
+    // `_initBox()` : une création de tâche déclenchée en même temps que
+    // l'initialisation de l'écran pouvait encore ouvrir la box en double.
+    await init();
+    if (_box == null || !_box!.isOpen) await _initBox();
 
     final task = DownloadTask(
       id: 'dl_${mediaItemId}_${DateTime.now().millisecondsSinceEpoch}',
@@ -230,11 +267,13 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Démarre un téléchargement (crée le worker isolate).
-  void _startWorker(String taskId) {
+  Future<void> _startWorker(String taskId) async {
     if (_workers.containsKey(taskId)) return;
 
     final task = _box?.get(taskId);
-    if (task == null || (task.status != DownloadStatus.queued && task.status != DownloadStatus.paused)) {
+    if (task == null ||
+        (task.status != DownloadStatus.queued &&
+            task.status != DownloadStatus.paused)) {
       return;
     }
 
@@ -254,15 +293,18 @@ class DownloadManager extends ChangeNotifier {
       }
     });
 
-    Isolate.spawn(_downloadWorkerEntry, _DownloadWorkerParams(
-      taskId: taskId,
-      sendPort: receivePort.sendPort,
-      streamUrl: _box!.get(taskId)!.streamUrl,
-      headers: _getFreshHeaders(_box!.get(taskId)!),
-      drmToken: _box!.get(taskId)!.drmToken,
-      localPath: _getLocalPath(taskId),
-      config: _config,
-    )).then((isolate) {
+    final localPath = await _getLocalPath(taskId);
+    Isolate.spawn(
+        _downloadWorkerEntry,
+        _DownloadWorkerParams(
+          taskId: taskId,
+          sendPort: receivePort.sendPort,
+          streamUrl: _box!.get(taskId)!.streamUrl,
+          headers: _getFreshHeaders(_box!.get(taskId)!),
+          drmToken: _box!.get(taskId)!.drmToken,
+          localPath: localPath,
+          config: _config,
+        ),).then((isolate) {
       _workers[taskId] = isolate;
       _workerPorts[taskId] = receivePort.sendPort;
       _activeDownloads++;
@@ -344,7 +386,9 @@ class DownloadManager extends ChangeNotifier {
   void _recoverInterruptedDownloads() {
     if (_box == null) return;
     final interrupted = _box!.values
-        .where((t) => t.status == DownloadStatus.downloading || t.status == DownloadStatus.preparing)
+        .where((t) =>
+            t.status == DownloadStatus.downloading ||
+            t.status == DownloadStatus.preparing,)
         .toList();
 
     for (final task in interrupted) {
@@ -358,7 +402,8 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Envoie une commande au worker.
-  void _sendCommand(String taskId, DownloadWorkerCommand command, {dynamic payload}) {
+  void _sendCommand(String taskId, DownloadWorkerCommand command,
+      {dynamic payload,}) {
     final port = _workerPorts[taskId];
     if (port != null) {
       port.send(DownloadWorkerMessage(command, taskId, payload: payload));
@@ -441,9 +486,33 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _downloadsDirectory;
+
+  /// Répertoire racine des téléchargements.
+  ///
+  /// `Directory.current` vaut `/` sur Android : l'y écrire échoue (permission
+  /// refusée) ou dispersionne les fichiers hors du sandbox de l'app. On
+  /// utilise donc le répertoire privé de l'application, et on retombe sur le
+  /// répertoire courant si `path_provider` est indisponible.
+  Future<String> resolveDownloadsDirectory() async {
+    if (_downloadsDirectory != null) return _downloadsDirectory!;
+    var base = _config.downloadDirectory;
+    if (!base.startsWith('/')) {
+      try {
+        base = '${(await getApplicationDocumentsDirectory()).path}/$base';
+      } on Object catch (e) {
+        LoggerService.instance
+            .warning('DownloadManager: path_provider indisponible ($e)');
+        base = '${Directory.current.path}/${_config.downloadDirectory}';
+      }
+    }
+    return _downloadsDirectory = base;
+  }
+
   /// Chemin local pour un téléchargement.
-  String _getLocalPath(String taskId) {
-    final dir = Directory('${_getDownloadsDirectory()}/$_boxName');
+  Future<String> _getLocalPath(String taskId) async {
+    final root = await resolveDownloadsDirectory();
+    final dir = Directory('$root/$_boxName');
     if (!dir.existsSync()) dir.createSync(recursive: true);
     return '${dir.path}/$taskId.mp4';
   }
@@ -460,13 +529,13 @@ class DownloadManager extends ChangeNotifier {
     return headers;
   }
 
-  String _getDownloadsDirectory() {
-    return '${Directory.current.path}/${_config.downloadDirectory}';
-  }
+  /// Chemin du répertoire racine des téléchargements (pour l'affichage UI).
+  String? get downloadsDirectoryPath => _downloadsDirectory;
 
   /// Met à jour la configuration.
   Future<void> setConfig(DownloadManagerConfig config) async {
     _config = config;
+    _downloadsDirectory = null;
     await _saveConfig();
     notifyListeners();
   }
@@ -507,7 +576,8 @@ void _downloadWorkerEntry(_DownloadWorkerParams params) {
   params.sendPort.send(receivePort.sendPort);
 
   final httpClient = HttpClient();
-  httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  httpClient.badCertificateCallback =
+      (X509Certificate cert, String host, int port) => true;
 
   HttpClientRequest? currentRequest;
   IOSink? currentSink;
@@ -540,7 +610,9 @@ void _downloadWorkerEntry(_DownloadWorkerParams params) {
   });
 
   // Démarrer le téléchargement
-  _runDownload(params, httpClient, 
+  _runDownload(
+    params,
+    httpClient,
     onRequestCreated: (req) => currentRequest = req,
     onSinkCreated: (sink) => currentSink = sink,
     getPaused: () => isPaused,
@@ -552,15 +624,15 @@ void _downloadWorkerEntry(_DownloadWorkerParams params) {
 }
 
 Future<void> _runDownload(
-  _DownloadWorkerParams params, 
+  _DownloadWorkerParams params,
   HttpClient httpClient, {
-    required Function(HttpClientRequest) onRequestCreated,
-    required Function(IOSink) onSinkCreated,
-    required bool Function() getPaused,
-    required bool Function() getCancelled,
-    required int Function() getPausedBytes,
-    required void Function(int) setPausedBytes,
-  }) async {
+  required Function(HttpClientRequest) onRequestCreated,
+  required Function(IOSink) onSinkCreated,
+  required bool Function() getPaused,
+  required bool Function() getCancelled,
+  required int Function() getPausedBytes,
+  required void Function(int) setPausedBytes,
+}) async {
   httpClient.badCertificateCallback = (cert, host, port) => true;
 
   while (true) {
@@ -569,14 +641,15 @@ Future<void> _runDownload(
         taskId: params.taskId,
         status: DownloadStatus.cancelled,
         isComplete: true,
-      ));
+      ),);
       return;
     }
 
     final result = await safeAsync<void>(
       () async {
         // Construire la requête
-        final request = await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
+        final request =
+            await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
         onRequestCreated(request);
 
         // Ajouter les headers
@@ -611,7 +684,8 @@ Future<void> _runDownload(
         onSinkCreated(sink);
 
         int totalBytes = response.contentLength;
-        if (response.statusCode == 206 && response.headers.value('content-range') != null) {
+        if (response.statusCode == 206 &&
+            response.headers.value('content-range') != null) {
           final contentRange = response.headers.value('content-range')!;
           final parts = contentRange.split('/');
           if (parts.length == 2) {
@@ -621,14 +695,31 @@ Future<void> _runDownload(
 
         int bytesDownloaded = getPausedBytes();
         final stopwatch = Stopwatch()..start();
+        final head = <int>[];
 
         params.sendPort.send(DownloadWorkerResponse(
           taskId: params.taskId,
           status: DownloadStatus.downloading,
-          progress: DownloadProgress(totalBytes: totalBytes, bytesDownloaded: bytesDownloaded),
-        ));
+          progress: DownloadProgress(
+              totalBytes: totalBytes, bytesDownloaded: bytesDownloaded,),
+        ),);
 
         await for (final chunk in response) {
+          // Détection, au tout début d'un téléchargement (jamais en reprise),
+          // d'une playlist HLS/DASH SAVAIT réponse : un simple GET sur un flux
+          // .m3u8/.mpd sauverait la playlist (quelques Ko) et marquerait la
+          // tâche « terminée » à tort.
+          if (getPausedBytes() == 0 && head.length < _manifestHeadLimit) {
+            head.addAll(chunk);
+            if (head.length >= _manifestHeadLimit &&
+                _isPlaylistManifest(head)) {
+              throw Exception(
+                'Ce flux est une playlist HLS/DASH (m3u8/mpd) : le '
+                'téléchargement direct n\'est pas supporté.',
+              );
+            }
+          }
+
           while (getPaused() && !getCancelled()) {
             await Future.delayed(const Duration(milliseconds: 100));
           }
@@ -639,7 +730,7 @@ Future<void> _runDownload(
               taskId: params.taskId,
               status: DownloadStatus.cancelled,
               isComplete: true,
-            ));
+            ),);
             return;
           }
 
@@ -651,7 +742,8 @@ Future<void> _runDownload(
               ? bytesDownloaded / (elapsed.inMilliseconds / 1000)
               : 0.0;
           final remaining = speed > 0 && totalBytes > 0
-              ? Duration(seconds: ((totalBytes - bytesDownloaded) / speed).round())
+              ? Duration(
+                  seconds: ((totalBytes - bytesDownloaded) / speed).round(),)
               : Duration.zero;
 
           params.sendPort.send(DownloadWorkerResponse(
@@ -663,7 +755,7 @@ Future<void> _runDownload(
               speedBytesPerSec: speed,
               estimatedTimeRemaining: remaining,
             ),
-          ));
+          ),);
         }
 
         await sink.flush();
@@ -672,9 +764,10 @@ Future<void> _runDownload(
         params.sendPort.send(DownloadWorkerResponse(
           taskId: params.taskId,
           status: DownloadStatus.completed,
-          progress: DownloadProgress(bytesDownloaded: totalBytes, totalBytes: totalBytes),
+          progress: DownloadProgress(
+              bytesDownloaded: totalBytes, totalBytes: totalBytes,),
           isComplete: true,
-        ));
+        ),);
       },
       context: 'DownloadManager._runDownload',
     );
@@ -683,9 +776,21 @@ Future<void> _runDownload(
         taskId: params.taskId,
         status: DownloadStatus.failed,
         errorMessage: result.errorOrNull?.message,
-      ));
+      ),);
       return;
     }
     return;
   }
+}
+
+/// Nombre d'octets à inspecter au début d'un téléchargement pour détecter un
+/// manifest HLS/DASH et refuser la tâche avec un message explicite.
+const int _manifestHeadLimit = 16;
+
+/// Détecte une playlist HLS/DASH (m3u8/mpd) depuis ses premiers octets.
+bool _isPlaylistManifest(List<int> bytes) {
+  final preview = String.fromCharCodes(bytes).trimLeft();
+  return preview.startsWith('#EXTM3U') ||
+      preview.startsWith('#EXT-X') ||
+      preview.startsWith('<?xml');
 }

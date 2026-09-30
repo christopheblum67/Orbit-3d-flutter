@@ -104,7 +104,8 @@ class SearchIndexService {
       if (hits.length >= limit) break;
       final entry = _byKey[e.key];
       if (entry == null) continue;
-      hits.add(SearchIndexHit(entry: entry, rank: _clamp01(e.value / (tokens.length * 2))));
+      hits.add(SearchIndexHit(
+          entry: entry, rank: _clamp01(e.value / (tokens.length * 2)),),);
     }
     return hits;
   }
@@ -158,8 +159,7 @@ class SearchIndexService {
   /// Tokens normalisés (minuscules, accents repliés, alphanumériques + tirets).
   static List<String> _tokens(String text) {
     final folded = _norm(text);
-    final matches =
-        RegExp(r"[\p{L}\p{N}-]+", unicode: true).allMatches(folded);
+    final matches = RegExp(r"[\p{L}\p{N}-]+", unicode: true).allMatches(folded);
     final out = <String>[];
     for (final m in matches) {
       final token = m.group(0);
@@ -180,12 +180,35 @@ class SearchIndexService {
   }
 
   static const Map<int, String> _folded = {
-    0xE0: 'a', 0xE2: 'a', 0xE4: 'a', 0xE3: 'a', 0xE5: 'a', 0xE6: 'ae',
-    0xE7: 'c', 0xE8: 'e', 0xE9: 'e', 0xEA: 'e', 0xEB: 'e',
-    0xEC: 'i', 0xED: 'i', 0xEE: 'i', 0xEF: 'i',
-    0xF0: 'd', 0xF1: 'n', 0xF2: 'o', 0xF3: 'o', 0xF4: 'o', 0xF6: 'o', 0xF8: 'o', 0xF5: 'o',
-    0xF9: 'u', 0xFA: 'u', 0xFB: 'u', 0xFC: 'u',
-    0xFD: 'y', 0xFF: 'y',
+    0xE0: 'a',
+    0xE2: 'a',
+    0xE4: 'a',
+    0xE3: 'a',
+    0xE5: 'a',
+    0xE6: 'ae',
+    0xE7: 'c',
+    0xE8: 'e',
+    0xE9: 'e',
+    0xEA: 'e',
+    0xEB: 'e',
+    0xEC: 'i',
+    0xED: 'i',
+    0xEE: 'i',
+    0xEF: 'i',
+    0xF0: 'd',
+    0xF1: 'n',
+    0xF2: 'o',
+    0xF3: 'o',
+    0xF4: 'o',
+    0xF6: 'o',
+    0xF8: 'o',
+    0xF5: 'o',
+    0xF9: 'u',
+    0xFA: 'u',
+    0xFB: 'u',
+    0xFC: 'u',
+    0xFD: 'y',
+    0xFF: 'y',
     0x141: 'l',
   };
 }

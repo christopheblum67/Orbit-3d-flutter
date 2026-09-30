@@ -6,8 +6,12 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Gestionnaire de session Cloudflare pour le zapping IPTV.
 ///
-/// Intercepte le challenge Cloudflare via WebView invisible, extrait les cookies
-/// (cf_clearance) et le User-Agent, et les injecte dans les headers du lecteur vidéo.
+/// Intercepte le challenge Cloudflare via WebView headless, extrait les cookies
+/// (cf_clearance) et le User-Agent, et les injecte dans les headers du lecteur video.
+///
+/// Ce service est volontairement independant de l'UI : il ne manipule aucun
+/// BuildContext. Le fallback manuel (WebView visible) est du ressort de
+/// [PlayerScreen] via `CloudflareBypassService.obtainHeaders(context, host)`.
 class CloudflareSessionManager extends ChangeNotifier {
   static final CloudflareSessionManager _instance =
       CloudflareSessionManager._internal();
@@ -17,211 +21,284 @@ class CloudflareSessionManager extends ChangeNotifier {
   static const String _defaultUserAgent =
       'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36';
 
+  /// Budget par tentative. Les delais sont reellement appliques via
+  /// `Future.timeout`, ce qui evite qu'un challenge bloque indefiniment.
+  static const List<Duration> _attemptTimeouts = <Duration>[
+    Duration(seconds: 20),
+    Duration(seconds: 30),
+    Duration(seconds: 45),
+  ];
+
+  /// Duree de vie prudente d'un cookie cf_clearance avant renouvellement.
+  static const Duration _cookieLifetime = Duration(hours: 2);
+
   final String _userAgent = _defaultUserAgent;
+
   String _cookies = '';
   String _baseUrl = '';
   DateTime? _cookieExpiry;
   bool _isInitialized = false;
   bool _isChallenging = false;
+  bool _disposed = false;
+
+  /// Le panneau ne presente aucun challenge Cloudflare : la page se charge
+  /// normalement et aucun `cf_clearance` n'est emis. Exiger ce cookie faisait
+  /// echouer l'initialisation apres 3 tentatives (et bruyait `getFreshHeaders`
+  /// d'un renouvellement a chaque appel) alors que la lecture fonctionne.
+  bool _noChallengeRequired = false;
   Timer? _renewalTimer;
-  Completer<void>? _challengeLock; // Mutex pour éviter race conditions
+
+  /// Chaine de serialisation des challenges. Un simpleFuture se terminant
+  /// toujours sans erreur evite les deadlocks du type "s'auto-verrouiller".
+  Future<void> _lock = Future<void>.value();
 
   String get userAgent => _userAgent;
   String get cookies => _cookies;
-  bool get isReady => _isInitialized && _cookies.isNotEmpty;
+  String get baseUrl => _baseUrl;
+  bool get isReady =>
+      _isInitialized && (_cookies.isNotEmpty || _noChallengeRequired);
   bool get isChallenging => _isChallenging;
 
-  /// Headers HTTP à injecter dans le lecteur vidéo (video_player, fijkplayer, etc.)
-  Map<String, String> get videoHeaders => {
-        'User-Agent': _userAgent,
-        'Cookie': _cookies,
-        'Referer': _baseUrl,
-        'Accept': '*/*',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-      };
+  /// Vrai si un cookie de clearance est present et encore dans sa fenetre.
+  bool get hasClearance => _cookiesValid;
 
-  /// Initialise la session Cloudflare : lance le challenge WebView invisible.
-  /// À appeler au démarrage de l'app (ex: dans StartupSplashScreen).
-  Future<void> initialize({required String baseUrl}) async {
-    if (_isInitialized && _cookies.isNotEmpty) return;
+  /// Headers HTTP a injecter dans le lecteur video (video_player, fijkplayer).
+  /// Inclut les hints Sec-CH-UA attendus par la detection navigateur Cloudflare.
+  Map<String, String> get videoHeaders {
+    final headers = <String, String>{
+      'User-Agent': _userAgent,
+      'Referer': _baseUrl,
+      'Accept': '*/*',
+      'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Sec-CH-UA': '"Chromium";v="119", "Not?A_Brand";v="24"',
+      'Sec-CH-UA-Mobile': '?1',
+      'Sec-CH-UA-Platform': '"Android"',
+      'Sec-Fetch-Dest': 'video',
+      'Sec-Fetch-Mode': 'playback',
+      'Sec-Fetch-Site': 'cross-site',
+    };
+    // Un header Cookie vide est rejete par certains serveurs : ne l'envoie
+    // que si des cookies ont reellement ete captures.
+    if (_cookies.isNotEmpty) headers['Cookie'] = _cookies;
+    return headers;
+  }
 
-    // Acquérir le lock pour éviter race condition initialize/renew/getFreshHeaders
-    await _acquireChallengeLock();
+  /// Serialise [action] derriere le challenge en cours.
+  Future<T> _synchronized<T>(Future<T> Function() action) {
+    final run = _lock.then((_) => action());
+    _lock = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
 
-    try {
+  void _notify() {
+    if (_disposed) return;
+    notifyListeners();
+  }
+
+  /// Initialise la session Cloudflare : lance le challenge WebView headless.
+  /// Idempotent : si une session valide existe deja, ne relance rien.
+  Future<void> initialize({required String baseUrl}) {
+    return _synchronized(() async {
+      // Le singleton est partage : on peut avoir ete dispose par un provider.
+      _disposed = false;
+      if (isReady && _cookiesValid) return;
+
+      // Un changement d'hote peut reintroduire un challenge : on repart de zero.
+      if (_baseUrl != baseUrl) {
+        _noChallengeRequired = false;
+        _cookies = '';
+        _cookieExpiry = null;
+      }
       _baseUrl = baseUrl;
-      _isChallenging = true;
-      notifyListeners();
+      _isInitialized = false;
+      await _runChallenge();
+    });
+  }
 
+  /// Force un nouveau challenge (cookie expire, erreur 403, zapping changement
+  /// de host). Ne deadloque pas : le corps du challenge est inline.
+  Future<void> renewSession() {
+    return _synchronized(() async {
+      _disposed = false;
+      if (isReady && _cookiesValid) return;
+
+      debugPrint('☁️ [CF] renewing Cloudflare session for $_baseUrl');
+      _noChallengeRequired = false;
+      _cookies = '';
+      _cookieExpiry = null;
+      _isInitialized = false;
+      await _runChallenge();
+    });
+  }
+
+  /// Headers a utiliser pour une lecture. Declenche un renouvellement
+  /// non bloquant si la session a expire.
+  Map<String, String> getFreshHeaders() {
+    // Ne relance un renouvellement que si un challenge avait reellement ete
+    // obtenu. Sans clearance, boucler ne ferait que recreer l'echec initial.
+    if (!_cookiesValid && !_noChallengeRequired) {
+      unawaited(renewSession());
+    }
+    return videoHeaders;
+  }
+
+  /// Demarre un renouvellement preventif periodique.
+  void _startRenewalTimer() {
+    _renewalTimer?.cancel();
+    if (_noChallengeRequired) return;
+    _renewalTimer = Timer.periodic(const Duration(hours: 1), (_) {
+      if (!_cookiesValid) {
+        unawaited(renewSession());
+      }
+    });
+  }
+
+  bool get _cookiesValid =>
+      _cookies.isNotEmpty &&
+      _cookieExpiry != null &&
+      DateTime.now().isBefore(_cookieExpiry!);
+
+  /// Execute le challenge sous le drapeau _isChallenging et valide le resultat.
+  Future<void> _runChallenge() async {
+    if (_baseUrl.isEmpty) {
+      throw StateError('CloudflareSessionManager: baseUrl not set');
+    }
+
+    _isChallenging = true;
+    _notify();
+    try {
       final result = await safeAsync<void>(
         _performChallenge,
-        context: 'CloudflareSessionManager.initialize',
+        context: 'CloudflareSessionManager.challenge',
         reportToCrashlytics: false,
       );
       if (result.isFailure) {
-        _isChallenging = false;
-        notifyListeners();
-        throw result.errorOrNull!.originalError ?? result.errorOrNull!;
+        final err = result.errorOrNull!;
+        throw err.originalError ?? err;
+      }
+      if (!_cookiesValid && !_noChallengeRequired) {
+        throw StateError(
+          'Cloudflare challenge finished but no cf_clearance cookie captured',
+        );
       }
       _isInitialized = true;
-      _isChallenging = false;
       _startRenewalTimer();
-      notifyListeners();
     } finally {
-      _releaseChallengeLock();
+      _isChallenging = false;
+      _notify();
     }
   }
 
-  /// Acquiert le mutex pour challenge Cloudflare (évite appels parallèles).
-  Future<void> _acquireChallengeLock() async {
-    if (_challengeLock != null) {
-      await _challengeLock!.future;
-    }
-    _challengeLock = Completer<void>();
-  }
-
-  /// Libère le mutex.
-  void _releaseChallengeLock() {
-    _challengeLock?.complete();
-    _challengeLock = null;
-  }
-
-  /// Effectue le challenge Cloudflare via WebView headless.
+  /// Challenge WebView headless avec tentatives budgetisees.
   Future<void> _performChallenge() async {
+    Object? lastError;
+    for (var attempt = 0; attempt < _attemptTimeouts.length; attempt++) {
+      final timeout = _attemptTimeouts[attempt];
+      final startedAt = DateTime.now();
+      debugPrint('☁️ [CF] attempt ${attempt + 1}/${_attemptTimeouts.length} '
+          '(budget ${timeout.inSeconds}s) for $_baseUrl');
+      try {
+        await _runSingleAttempt(timeout);
+        if (_cookiesValid) {
+          debugPrint('☁️ [CF] clearance obtained on attempt ${attempt + 1} '
+              'in ${DateTime.now().difference(startedAt).inMilliseconds}ms');
+          return;
+        }
+        // La page s'est chargee normalement sans emettre de cf_clearance :
+        // cet hote n'est pas derriere un challenge. Inutile d'insister.
+        _noChallengeRequired = true;
+        debugPrint('☁️ [CF] $_baseUrl ne requiert pas de challenge Cloudflare '
+            '(page chargee en ${DateTime.now().difference(startedAt).inMilliseconds}ms)');
+        return;
+      } catch (e) {
+        lastError = e;
+        debugPrint('☁️ [CF] attempt ${attempt + 1} failed: $e');
+      }
+    }
+    throw StateError('Cloudflare challenge failed: $lastError');
+  }
+
+  /// Une tentative de navigation, plafonnee par [timeout].
+  Future<void> _runSingleAttempt(Duration timeout) async {
     final controller = WebViewController();
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(_userAgent);
 
-    // Configuration Android spécifique pour les cookies
-    if (controller.platform is AndroidWebViewController) {
-      final androidController = controller.platform as AndroidWebViewController;
-      androidController.setMediaPlaybackRequiresUserGesture(false);
-      androidController.setMixedContentMode(MixedContentMode.alwaysAllow);
+    final platform = controller.platform;
+    if (platform is AndroidWebViewController) {
+      platform
+        ..setMediaPlaybackRequiresUserGesture(false)
+        ..setMixedContentMode(MixedContentMode.alwaysAllow);
     }
 
     final cookieManager = WebViewCookieManager();
     final completer = Completer<void>();
 
-    void onPageStarted(String url) {
-      // Page de challenge Cloudflare chargee
-    }
-
     Future<void> onPageFinished(String url) async {
-      // Challenge reussi, on recupere les cookies
+      if (completer.isCompleted) return;
       await _extractCookies(cookieManager, url);
       if (!completer.isCompleted) completer.complete();
     }
 
-    NavigationDecision onNavigationRequest(NavigationRequest request) {
-      // Suivre les redirections Cloudflare
-      return NavigationDecision.navigate;
-    }
-
     void onHttpError(HttpResponseError error) {
-      // Erreur HTTP pendant le challenge
-      if (!completer.isCompleted) {
-        completer.completeError(
-          Exception(
-            'Cloudflare challenge failed: ${error.response?.statusCode}',
-          ),
-        );
-      }
+      if (completer.isCompleted) return;
+      completer.completeError(
+        StateError('HTTP ${error.response?.statusCode} during CF challenge'),
+      );
     }
 
-    controller.setNavigationDelegate(NavigationDelegate(
-      onPageStarted: onPageStarted,
-      onPageFinished: onPageFinished,
-      onNavigationRequest: onNavigationRequest,
-      onHttpError: onHttpError,
-    ),
+    controller.setNavigationDelegate(
+      NavigationDelegate(
+        onPageFinished: onPageFinished,
+        onNavigationRequest: (NavigationRequest request) =>
+            NavigationDecision.navigate,
+        onHttpError: onHttpError,
+      ),
     );
 
     await controller.loadRequest(Uri.parse(_baseUrl));
-    await completer.future;
+    await completer.future.timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException(
+        'CF challenge still pending after ${timeout.inSeconds}s',
+        timeout,
+      ),
+    );
   }
 
-  /// Extrait les cookies Cloudflare (cf_clearance, etc.) après le challenge.
+  /// Extrait les cookies Cloudflare apres le challenge.
+  /// Les valeurs ne sont jamais journalisees.
   Future<void> _extractCookies(
     WebViewCookieManager cookieManager,
     String url,
   ) async {
     final uri = Uri.parse(url);
     final cookies = await cookieManager.getCookies(domain: uri);
-    if (cookies.isEmpty) return;
-
-    // Filtrer les cookies pertinents (cf_clearance, session, etc.)
-    final relevantCookies = cookies
-        .where(
-          (c) =>
-              c.name.contains('cf_') ||
-              c.name.toLowerCase().contains('session') ||
-              c.name.toLowerCase().contains('auth') ||
-              c.name.toLowerCase().contains('token'),
-        )
-        .toList();
-
-    if (relevantCookies.isNotEmpty) {
-      _cookies = relevantCookies.map((c) => '${c.name}=${c.value}').join('; ');
-      // Estimer l'expiration (Cloudflare ~ quelques heures)
-      _cookieExpiry = DateTime.now().add(const Duration(hours: 3));
-      debugPrint(
-        '☁️ Cloudflare session cookies updated: ${_cookies.length} chars',
-      );
+    if (cookies.isEmpty) {
+      debugPrint('☁️ [CF] no cookies returned for $url');
+      return;
     }
 
-    // Aussi récupérer tous les cookies en fallback
-    if (_cookies.isEmpty) {
-      _cookies = cookies.map((c) => '${c.name}=${c.value}').join('; ');
-      _cookieExpiry = DateTime.now().add(const Duration(hours: 3));
-    }
+    final relevant = cookies.where((c) {
+      final n = c.name.toLowerCase();
+      return n.startsWith('cf_') ||
+          n.contains('session') ||
+          n.contains('auth') ||
+          n.contains('token');
+    }).toList();
+
+    final kept = relevant.isNotEmpty ? relevant : cookies;
+    _cookies = kept.map((c) => '${c.name}=${c.value}').join('; ');
+    _cookieExpiry = DateTime.now().add(_cookieLifetime);
+
+    final hasClearance =
+        kept.any((c) => c.name.toLowerCase() == 'cf_clearance');
+    debugPrint('☁️ [CF] cookies captured: ${kept.length} entries, '
+        '${_cookies.length} chars, cf_clearance=$hasClearance');
   }
 
-  /// Renouvelle la session (re-challenge) si cookies expirés ou invalides.
-  Future<void> renewSession() async {
-    // Attendre si un challenge est en cours (mutex)
-    if (_challengeLock != null) {
-      await _challengeLock!.future;
-    }
-    if (_isChallenging) return;
-    
-    await _acquireChallengeLock();
-    try {
-      debugPrint('☁️ Renewing Cloudflare session...');
-      _cookies = '';
-      _cookieExpiry = null;
-      await initialize(baseUrl: _baseUrl);
-    } finally {
-      _releaseChallengeLock();
-    }
-  }
-
-  /// Vérifie si les cookies sont encore valides.
-  bool get _cookiesValid =>
-      _cookies.isNotEmpty &&
-      _cookieExpiry != null &&
-      DateTime.now().isBefore(_cookieExpiry!);
-
-  /// Démarre un timer de renouvellement préventif (toutes les 2h).
-  void _startRenewalTimer() {
-    _renewalTimer?.cancel();
-    _renewalTimer = Timer.periodic(const Duration(hours: 2), (_) async {
-      if (!_cookiesValid) {
-        await renewSession();
-      }
-    });
-  }
-
-  /// Force le rafraîchissement des headers (appelé avant chaque zapping).
-  Map<String, String> getFreshHeaders() {
-    if (!_cookiesValid) {
-      // Trigger renewal asynchrone sans bloquer (fire-and-forget)
-      unawaited(renewSession());
-    }
-    return videoHeaders;
-  }
-
-  /// Détecte si une erreur de lecture est due à Cloudflare (403, challenge page, etc.)
+  /// Detecte si une erreur de lecture est imputable a Cloudflare.
   bool isCloudflareError(dynamic error) {
     final msg = error.toString().toLowerCase();
     return msg.contains('403') ||
@@ -235,7 +312,8 @@ class CloudflareSessionManager extends ChangeNotifier {
   @override
   void dispose() {
     _renewalTimer?.cancel();
-    _challengeLock?.complete();
+    _renewalTimer = null;
+    _disposed = true;
     super.dispose();
   }
 }

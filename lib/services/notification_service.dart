@@ -16,7 +16,13 @@ class NotificationService {
   Future<void> init() async {
     await safeAsync<void>(
       () async {
-        await Firebase.initializeApp();
+        // Comme pour l'analytics : si l'app Firebase existe deja (init par
+        // un autre service, ou build precedent), on ne re-initialise pas.
+        // Sinon `initializeApp()` sans config leve « No Firebase App
+        // '[DEFAULT]' has been created ».
+        if (Firebase.apps.isEmpty) {
+          await Firebase.initializeApp();
+        }
         _messaging = FirebaseMessaging.instance;
 
         const androidSettings =

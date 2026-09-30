@@ -66,8 +66,7 @@ class _PinningHttpClientAdapter implements HttpClientAdapter {
       final sha256 = _certificateSha256(cert);
       final isAllowed = allowedFingerprints.contains(sha256);
       if (!isAllowed) {
-        logger?.warning(
-            'Certificate pinning failed for $host:$port. '
+        logger?.warning('Certificate pinning failed for $host:$port. '
             'Expected one of: $allowedFingerprints, got: $sha256');
         return false;
       }

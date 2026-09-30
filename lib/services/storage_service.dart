@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 class StorageService {
   static const String _profilesBox = 'profiles';
@@ -18,15 +19,29 @@ class StorageService {
   }
 
   Future<void> saveProfile(UserProfile profile) async {
-    await HiveSync.writeAsync(_profilesBox, (box) => box.put(profile.id, profile.toMap()));
+    await HiveSync.writeAsync(
+        _profilesBox, (box) => box.put(profile.id, profile.toMap()),);
   }
 
   Future<List<UserProfile>> getProfiles() async {
     return HiveSync.read(_profilesBox, (box) {
-      return box.values
-          .whereType<Map>()
-          .map((e) => UserProfile.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+      // `try/catch` par entree : une seule fiche corrompue faisait echouer
+      // tout `getProfiles()`, ce qui mettait `profilesProvider` en erreur et
+      // faisait afficher « aucune affinite commune » alors que le catalogue
+      // etait correct. Une panne silencieuse, la pire des deux.
+      final out = <UserProfile>[];
+      for (final e in box.values) {
+        if (e is! Map) continue;
+        try {
+          out.add(UserProfile.fromMap(Map<String, dynamic>.from(e)));
+        } catch (err) {
+          LoggerService.instance.warning(
+            'profil illisible, ignore',
+            error: err,
+          );
+        }
+      }
+      return out;
     });
   }
 
@@ -38,7 +53,8 @@ class StorageService {
   static const String _parentalPinKey = 'parental_pin';
 
   Future<void> savePreferences(UserPreferences prefs) async {
-    await HiveSync.writeAsync(_settingsBox, (box) => box.put(_prefsKey, prefs.toMap()));
+    await HiveSync.writeAsync(
+        _settingsBox, (box) => box.put(_prefsKey, prefs.toMap()),);
   }
 
   Future<UserPreferences> getPreferences() async {
@@ -52,7 +68,8 @@ class StorageService {
   }
 
   Future<void> setParentalPin(String pin) async {
-    await HiveSync.writeAsync(_settingsBox, (box) => box.put(_parentalPinKey, pin));
+    await HiveSync.writeAsync(
+        _settingsBox, (box) => box.put(_parentalPinKey, pin),);
   }
 
   Future<String?> getParentalPin() async {
@@ -60,7 +77,8 @@ class StorageService {
   }
 
   Future<void> clearParentalPin() async {
-    await HiveSync.writeAsync(_settingsBox, (box) => box.delete(_parentalPinKey));
+    await HiveSync.writeAsync(
+        _settingsBox, (box) => box.delete(_parentalPinKey),);
   }
 
   Future<void> setSetting(String key, dynamic value) async {
@@ -75,11 +93,13 @@ class StorageService {
   // --- Subscriptions ---
 
   Future<void> saveSubscription(Subscription subscription) async {
-    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.put(subscription.id, subscription));
+    await HiveSync.writeAsync(
+        _subscriptionsBox, (box) => box.put(subscription.id, subscription),);
   }
 
   Future<List<Subscription>> getSubscriptions() async {
-    return HiveSync.read(_subscriptionsBox, (box) => box.values.cast<Subscription>().toList());
+    return HiveSync.read(
+        _subscriptionsBox, (box) => box.values.cast<Subscription>().toList(),);
   }
 
   Future<Subscription?> getActiveSubscription() async {
@@ -116,8 +136,9 @@ class StorageService {
     });
   }
 
-Future<void> migrateFromSharedPreferences() async {
-    final hasExisting = await HiveSync.read(_subscriptionsBox, (box) => box.isNotEmpty);
+  Future<void> migrateFromSharedPreferences() async {
+    final hasExisting =
+        await HiveSync.read(_subscriptionsBox, (box) => box.isNotEmpty);
     if (hasExisting) return;
 
     final prefs = await SharedPreferences.getInstance();

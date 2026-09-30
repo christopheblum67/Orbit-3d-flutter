@@ -22,9 +22,10 @@ class PipService {
   Future<bool> enter({int width = 16, int height = 9}) async {
     try {
       return await _channel.invokeMethod<bool>('enter', {
-        'width': width,
-        'height': height,
-      }) ?? false;
+            'width': width,
+            'height': height,
+          }) ??
+          false;
     } on MissingPluginException {
       return false;
     }

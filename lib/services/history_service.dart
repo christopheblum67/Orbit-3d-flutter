@@ -1,4 +1,4 @@
-﻿import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
 class HistoryService {

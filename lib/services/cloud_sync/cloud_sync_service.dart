@@ -100,8 +100,7 @@ class CloudSyncService {
             localWrites[key] = j;
           }
           if (j.isNotEmpty) {
-            mergedEntries[key] =
-                CloudSyncEntry(json: j, updatedAt: remoteTs);
+            mergedEntries[key] = CloudSyncEntry(json: j, updatedAt: remoteTs);
           }
         } else {
           // Local gagne (indifférent) : la valeur locale sera poussée.
@@ -123,7 +122,8 @@ class CloudSyncService {
               CloudSyncEntry(json: localJson, updatedAt: localTs);
         }
       } else if (localJson != null && localJson.isNotEmpty) {
-        mergedEntries[key] = CloudSyncEntry(json: localJson, updatedAt: localTs);
+        mergedEntries[key] =
+            CloudSyncEntry(json: localJson, updatedAt: localTs);
       }
     }
 

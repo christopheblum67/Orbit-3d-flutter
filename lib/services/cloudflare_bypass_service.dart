@@ -118,7 +118,8 @@ class CloudflareBypassService {
       final entries = _CfEntries.fromCookies(cookies);
       _byHost[host] = entries;
       debugPrint(
-          '[CloudflareBypass] Host=$host headers=${entries.toHeaders()}',);
+        '[CloudflareBypass] Host=$host headers=${entries.toHeaders()}',
+      );
       return entries;
     } finally {
       if (entry.mounted) entry.remove();
@@ -138,7 +139,8 @@ class CloudflareBypassService {
           if (c.name.trim().isNotEmpty) {
             map[c.name] = c.value;
             debugPrint(
-                '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...',);
+              '[CloudflareBypass] Cookie: ${c.name}=${c.value.substring(0, c.value.length > 20 ? 20 : c.value.length)}...',
+            );
           }
         }
         final ua = await _tryGetUserAgent(controller);
@@ -259,14 +261,16 @@ class _BypassOverlayState extends State<_BypassOverlay> {
           }
         }
         if (hasCf) {
-          debugPrint('[CloudflareBypass] cf_clearance detected, auto-completing');
+          debugPrint(
+              '[CloudflareBypass] cf_clearance detected, auto-completing',);
           widget.onDone(map);
           return;
         }
         _pageLoadCount++;
         // Recharger la page toutes les 2 vérifications si pas de cookie
         if (_pageLoadCount % 2 == 0) {
-          debugPrint('[CloudflareBypass] Reloading page to trigger challenge...');
+          debugPrint(
+              '[CloudflareBypass] Reloading page to trigger challenge...',);
           await safeAsync<void>(
             () => widget.controller
                 .loadRequest(Uri.parse('https://${widget.host}/')),

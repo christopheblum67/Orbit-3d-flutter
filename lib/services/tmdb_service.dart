@@ -29,6 +29,13 @@ class TmdbService {
             baseUrl: _baseUrl,
             connectTimeout: const Duration(seconds: 10),
             receiveTimeout: const Duration(seconds: 20),
+            // TMDB renvoie du JSON : sans `responseType` explicite, Dio peut
+            // livrer un `Map<dynamic, dynamic>` et le cast
+            // `as Map<String, dynamic>` des parseurs échoue
+            // (type '_Map<dynamic, dynamic>' is not a subtype of
+            // 'Map<String, dynamic>'), ce qui faisait planter la fiche d'un
+            // film téléchargé / en cache.
+            responseType: ResponseType.json,
             queryParameters: {
               'language': 'fr-FR',
             },
@@ -336,7 +343,7 @@ class TmdbService {
           Map<String, dynamic>.from(results.first as Map),
         );
         await _setCache(
-            cacheKey, Map<String, dynamic>.from(results.first as Map));
+            cacheKey, Map<String, dynamic>.from(results.first as Map),);
         return entry;
       },
       context: 'TmdbService.searchMovieLight',
@@ -454,7 +461,7 @@ class TmdbService {
       director: _extractDirector(crewList),
       rating: (data['vote_average'] as num?)?.toDouble() ?? 0,
       pegi: _parseCertification(data),
-      streamUrl: '', // Sera rempli par Xtream
+      streamId: '', // Sera rempli par Xtream
       tmdbId: tmdbId,
       imdbId: imdbId,
       tvmazeId: tvmazeId,
@@ -524,7 +531,8 @@ class TmdbService {
       () async {
         final detailResponse = await _dio.get('/person/$personId');
         if (detailResponse.data == null) return null;
-        final creditsResponse = await _dio.get('/person/$personId/movie_credits');
+        final creditsResponse =
+            await _dio.get('/person/$personId/movie_credits');
         final credits = creditsResponse.data as Map<String, dynamic>? ??
             const <String, dynamic>{};
         final detail = PersonDetail.fromTmdbJson(
@@ -788,15 +796,25 @@ class TmdbService {
   }) async {
     if (!hasApiKey) return const <TmdbRankEntry>[];
     final cacheKey = _cacheKey(isTv ? 'rank_tv' : 'rank_movie', '$path:$page');
+    // Chemin cache : NON protege par `safeAsync` (contrairement au chemin
+    // reseau plus bas). Une entree de cache illisibile faisait echouer tout le
+    // classement, donc le signal « recommandation » du matchmaking de groupe.
     final cached = _getCached(cacheKey, (d) {
-      final results = d['results'] as List<dynamic>? ?? [];
-      return results
-          .map(
-            (r) => isTv
-                ? TmdbRankEntry.fromTvJson(Map<String, dynamic>.from(r))
-                : TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),
-          )
-          .toList();
+      final results = d['results'];
+      if (results is! List) return <TmdbRankEntry>[];
+      final out = <TmdbRankEntry>[];
+      for (final r in results) {
+        if (r is! Map) continue;
+        try {
+          final map = Map<String, dynamic>.from(r);
+          out.add(
+            isTv ? TmdbRankEntry.fromTvJson(map) : TmdbRankEntry.fromMovieJson(map),
+          );
+        } catch (_) {
+          // entree de cache illisible ignoree
+        }
+      }
+      return out;
     });
     if (cached != null) return cached;
 
@@ -867,7 +885,8 @@ class TmdbService {
         await _setCache(cacheKey, response.data);
         final results = response.data['results'] as List<dynamic>? ?? [];
         return results
-            .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+            .map((r) =>
+                TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),)
             .toList();
       },
       context: 'TmdbService.getSimilarMovies',
@@ -942,7 +961,8 @@ class TmdbService {
         await _setCache(cacheKey, response.data);
         final results = response.data['results'] as List<dynamic>? ?? [];
         return results
-            .map((r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)))
+            .map((r) =>
+                TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),)
             .toList();
       },
       context: 'TmdbService.getMovieRecommendations',

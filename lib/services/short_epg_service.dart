@@ -1,111 +1,96 @@
 import 'dart:async';
 
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
-/// Chargeur d'EPG court pour une chaîne (injectable pour les tests).
-typedef ChannelEpgLoader = Future<List<EPGProgram>> Function(Channel channel);
+/// Fenêtre de conservation du cache : 30 minutes.
+const Duration kShortEpgTtl = Duration(minutes: 30);
 
-/// Cache en mémoire, borné et horodaté, des guides courts par chaîne (S4).
+/// Cache mémoire des guides courts (`get_short_epg`) par `stream_id`.
 ///
-/// La précharge 7 jours passe par `get_short_epg` par chaîne : les résultats
-/// sont conservés ici (TTL 30 min, cap de chaînes gardées) pour éviter de
-/// marteler le panel à chaque ouverture de l'écran EPG.
+/// Évite de re-interroger le panel à chaque ouverture de catch-up ou de grille
+/// EPG d'une chaîne. L'entrée est considered périmée après [kShortEpgTtl].
 class ShortEpgCache {
-  ShortEpgCache({DateTime Function()? now}) : _now = now ?? DateTime.now;
+  final Map<String, _ShortEpgEntry> _entries = <String, _ShortEpgEntry>{};
 
-  final DateTime Function() _now;
+  /// Nombre d'entrées en cache (diagnostic/tests).
+  int get length => _entries.length;
 
-  static const Duration ttl = Duration(minutes: 30);
-  static const int maxChannels = 256;
-
-  final Map<String, List<EPGProgram>> _byChannel = {};
-  final Map<String, DateTime> _fetchedAt = {};
-
-  /// Programmes en cache et frais d'une chaîne, sinon null.
-  List<EPGProgram>? programsFor(String channelId) {
-    final at = _fetchedAt[channelId];
-    if (at == null || !_byChannel.containsKey(channelId)) return null;
-    if (_now().difference(at) >= ttl) {
-      _byChannel.remove(channelId);
-      _fetchedAt.remove(channelId);
+  /// Retourne la liste en cache si elle est encore valide.
+  List<EPGProgram>? get(String streamId) {
+    final entry = _entries[streamId];
+    if (entry == null) return null;
+    if (DateTime.now().isAfter(entry.expiresAt)) {
+      _entries.remove(streamId);
       return null;
     }
-    return _byChannel[channelId];
+    return entry.programs;
   }
 
-  bool isFresh(String channelId) => programsFor(channelId) != null;
-
-  void put(String channelId, List<EPGProgram> programs, {DateTime? at}) {
-    _byChannel[channelId] = programs;
-    _fetchedAt[channelId] = at ?? _now();
-    // Borne mémoire : évince les chaînes les plus anciennes au-delà du cap.
-    while (_byChannel.length > maxChannels) {
-      String? oldest;
-      DateTime? oldestAt;
-      for (final e in _fetchedAt.entries) {
-        if (oldestAt == null || e.value.isBefore(oldestAt)) {
-          oldest = e.key;
-          oldestAt = e.value;
-        }
-      }
-      if (oldest == null) break;
-      _byChannel.remove(oldest);
-      _fetchedAt.remove(oldest);
-    }
+  /// Stocke une liste de programmes pour une chaîne.
+  void put(String streamId, List<EPGProgram> programs) {
+    _entries[streamId] = _ShortEpgEntry(
+      programs: List<EPGProgram>.unmodifiable(programs),
+      expiresAt: DateTime.now().add(kShortEpgTtl),
+    );
   }
 
-  void invalidate(String channelId) {
-    _byChannel.remove(channelId);
-    _fetchedAt.remove(channelId);
-  }
+  void invalidate(String streamId) => _entries.remove(streamId);
 
-  int get size => _byChannel.length;
+  void clear() => _entries.clear();
 }
 
-/// Précharge 7 jours des guides courts par chaîne, exécutée en arrière-plan
-/// avec un parallélisme borné (évite de saturer le panel Xtream).
+class _ShortEpgEntry {
+  _ShortEpgEntry({required this.programs, required this.expiresAt});
+
+  final List<EPGProgram> programs;
+  final DateTime expiresAt;
+}
+
+/// Précharge en tâche de fond le guide court des chaînes de l'abonnement.
+///
+/// Lançé au démarrage (idle), il évite la latence du premier `get_short_epg`
+/// sans jamais bloquer le chargement de l'application.
 class EpgPreloadService {
-  EpgPreloadService({
-    ShortEpgCache? cache,
-    this.concurrency = 4,
-  }) : cache = cache ?? ShortEpgCache();
+  EpgPreloadService({required this.cache, this.ttl = kShortEpgTtl});
 
   final ShortEpgCache cache;
-  final int concurrency;
 
-  /// Remplit le cache pour [channels]. Ne refait pas les chaînes déjà fraîches.
-  /// Retourne le nombre de chaînes effectivement préchargées.
-  Future<int> preload(List<Channel> channels, ChannelEpgLoader loader) async {
+  /// Durée maximale de la précharge (garde-fou temps réel).
+  final Duration ttl;
+
+  bool _running = false;
+  bool get isRunning => _running;
+
+  /// Précharge les [limit] premières chaînes, sans jamais dépasser [ttl].
+  Future<int> preload(ApiService api, List<Channel> channels, {int limit = 20}) async {
+    if (_running) return 0;
+    _running = true;
+    final deadline = DateTime.now().add(ttl);
     var loaded = 0;
-    var index = 0;
-    while (index < channels.length) {
-      final batch =
-          channels.skip(index).take(concurrency).toList();
-      await Future.wait([
-        for (final channel in batch)
-          _preloadOne(channel, loader).then((ok) {
-            if (ok) loaded++;
-          }),
-      ]);
-      index += concurrency;
+    try {
+      for (final channel in channels.take(limit)) {
+        if (DateTime.now().isAfter(deadline)) break;
+        if (cache.get(channel.id) != null) continue;
+        final result = await safeAsync<List<EPGProgram>>(
+          () => api.fetchChannelEpgPrograms(channel),
+          context: 'EpgPreloadService.preload',
+        );
+        final programs = result.valueOrNull;
+        if (programs == null || programs.isEmpty) continue;
+        cache.put(channel.id, programs);
+        loaded++;
+      }
+    } finally {
+      _running = false;
+    }
+    if (loaded > 0) {
+      LoggerService.instance
+          .info('EpgPreloadService: $loaded guides courts préchargés');
     }
     return loaded;
-  }
-
-  Future<bool> _preloadOne(Channel channel, ChannelEpgLoader loader) async {
-    if (channel.epgChannelId.isEmpty) return false;
-    if (cache.isFresh(channel.epgChannelId)) return false;
-    final result = await safeAsync<List<EPGProgram>>(
-      () => loader(channel),
-      context: '_preloadOne loader',
-      fallbackValue: <EPGProgram>[],
-    );
-    final programs = result.valueOrNull ?? [];
-    if (programs.isEmpty) return false;
-    cache.put(channel.epgChannelId, programs);
-    return true;
   }
 }

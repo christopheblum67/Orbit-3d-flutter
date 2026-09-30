@@ -4,12 +4,38 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
-import 'package:orbit_3d_flutter/services/search_index_service.dart';
+import 'package:orbit_3d_flutter/services/search_fts_service.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
+
+/// Entrée du cache court des résultats distants.
+class _RemoteCacheEntry {
+  _RemoteCacheEntry(this.items, this.at);
+
+  final List<SearchItem> items;
+  final DateTime at;
+}
+
+/// Instantané du catalogue local servant à alimenter l'index FTS5.
+class SearchCatalogue {
+  const SearchCatalogue({
+    this.movies = const <Movie>[],
+    this.series = const <Series>[],
+    this.channels = const <Channel>[],
+  });
+
+  final List<Movie> movies;
+  final List<Series> series;
+  final List<Channel> channels;
+
+  bool get isEmpty => movies.isEmpty && series.isEmpty && channels.isEmpty;
+}
 
 class SearchService {
   static const String _historyBoxName = 'search_history';
@@ -23,15 +49,14 @@ class SearchService {
   /// Charge les favoris du profil courant, ou une liste vide si absent.
   final Future<List<FavoriteEntry>> Function()? _loadFavorites;
 
-  /// Charge le « récemment regardé » du profil courant, ou vide si absent.
+  /// Charge le récemment regardé du profil courant, ou vide si absent.
   final Future<List<RecentEntry>> Function()? _loadRecentlyWatched;
 
-  /// Index plein-texte local du catalogue (VOD/Séries/Live), optionnel.
-  final SearchIndexService? _index;
+  /// Charge le catalogue (Live + VOD + Séries) pour alimenter l'index FTS5.
+  final Future<SearchCatalogue> Function()? _loadCatalogue;
 
-  /// Charge les entrées du catalogue à indexer (toute la VOD/Séries/Live),
-  /// ou null si absent. Appelé une seule fois (mémorisé).
-  final Future<List<SearchIndexEntry>> Function()? _loadCatalogue;
+  /// Service FTS5 SQLite pour la recherche plein-texte persistante.
+  final SearchFtsService _fts = SearchFtsService.instance;
 
   Future<void>? _indexingJob;
 
@@ -41,14 +66,12 @@ class SearchService {
     required TvmazeService tvmaze,
     Future<List<FavoriteEntry>> Function()? loadFavorites,
     Future<List<RecentEntry>> Function()? loadRecentlyWatched,
-    SearchIndexService? searchIndex,
-    Future<List<SearchIndexEntry>> Function()? loadCatalogue,
+    Future<SearchCatalogue> Function()? loadCatalogue,
   })  : _api = api,
         _tmdb = tmdb,
         _tvmaze = tvmaze,
         _loadFavorites = loadFavorites,
         _loadRecentlyWatched = loadRecentlyWatched,
-        _index = searchIndex,
         _loadCatalogue = loadCatalogue {
     _initHistoryBox();
   }
@@ -165,22 +188,83 @@ class SearchService {
     return score.clamp(0.0, 1.0);
   }
 
-  Future<UnifiedSearchResult> search(String query, {int limit = 50, SearchType? filterType, AppLocalizations? l}) async {
+  /// Masque un résultat dont la catégorie figure dans les catégories
+  /// masquées de l'abonnement actif (les deux listes sont optionnelles pour
+  /// ne pas casser les appelants existants).
+  bool _shouldHideCategory(SearchItem item,
+      List<String>? hiddenVodCategoryIds,
+      List<String>? hiddenSeriesCategoryIds) {
+    if (hiddenVodCategoryIds == null && hiddenSeriesCategoryIds == null) {
+      return false;
+    }
+    final categoryId = item.categoryId;
+    if (categoryId == null || categoryId.isEmpty) return false;
+    if (item.type == SearchType.vod && hiddenVodCategoryIds != null) {
+      return hiddenVodCategoryIds.contains(categoryId);
+    }
+    if (item.type == SearchType.series && hiddenSeriesCategoryIds != null) {
+      return hiddenSeriesCategoryIds.contains(categoryId);
+    }
+    return false;
+  }
+
+  /// Restreint (ou élargit) les résultats à une catégorie de section.
+  ///
+  /// C'est le pendant du filtrage par catégorie déjà appliqué dans les grilles
+  /// VOD / Séries / Chaînes : la recherche doit suivre exactement la même
+  /// règle, sinon l'utilisateur sélectionne une catégorie et découvre des
+  /// résultats qui ne lui appartiennent pas.
+  ///
+  /// `null` = pas de filtre (toutes les catégories de la section). Une chaîne
+  /// vide est traitée comme « pas de filtre » : c'est ce que renvoie un
+  /// sélecteur de catégorie sur mobile quand aucune n'est choisie.
+  static bool _matchesCategory(SearchItem item, String? categoryId) {
+    if (categoryId == null || categoryId.isEmpty) return true;
+    return item.categoryId == categoryId;
+  }
+
+  Future<UnifiedSearchResult> search(String query,
+      {int limit = 50,
+      SearchType? filterType,
+      AppLocalizations? l,
+      List<String>? hiddenVodCategoryIds,
+      List<String>? hiddenSeriesCategoryIds,
+      String? categoryId,}) async {
     final normalized = _normalize(query);
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
-    // 1. Paralléliser les 3 branches : local, index, remote
+    // Clé de cache des résultats distants : elle inclut le filtre de type, car
+    // « matrix » en Films et en Séries ne renvoient pas les mêmes éléments.
+    // Elle inclut aussi les catégories masquées : sans cela, modifier le
+    // masquage servirait des résultats distants calculés avec l'ancien
+    // filtre, et du contenu masqué réapparaîtrait en recherche.
+    final hiddenKey = [
+      ...?hiddenVodCategoryIds,
+      ...?hiddenSeriesCategoryIds,
+    ].join(',');
+    final remoteKey =
+        '${filterType?.name ?? 'all'}|$normalized|${hiddenKey.hashCode}';
+    final cachedRemote = _cachedRemote(remoteKey);
+
+    // 1. Paralléliser les 3 branches : local, FTS, remote
     await _ensureCatalogueIndexed();
-    final results = await Future.wait([
+    final results = await Future.wait<List<SearchItem>>([
       _searchLocal(normalized, l),
-      Future.value(_searchIndex(normalized, filterType: filterType)),
-      _searchRemote(normalized, filterType: filterType),
+      _fts.search(query: query, type: filterType).then(
+        (hits) => hits.map((h) => h.toSearchItem()).toList(),
+      ),
+      if (cachedRemote != null)
+        Future<List<SearchItem>>.value(cachedRemote)
+      else
+        _searchRemote(normalized, filterType: filterType),
     ]);
 
     final localResults = results[0];
     final ftsResults = results[1];
     final remoteResults = results[2];
-
+    if (cachedRemote == null) {
+      _cacheRemote(remoteKey, remoteResults);
+    }
     // 4. Fusion & déduplication
     final allItems = <SearchItem>[];
     allItems.addAll(localResults);
@@ -195,72 +279,96 @@ class SearchService {
       if (seen.add(key)) unique.add(item);
     }
 
+    // Catégories masquées par abonnement : on retire ces résultats avant le
+    // tri pour que les compteurs et le classement restent cohérents.
+    final withoutHidden = unique
+        .where((item) => !_shouldHideCategory(
+            item, hiddenVodCategoryIds, hiddenSeriesCategoryIds))
+        .toList();
+
+    // Restriction à la catégorie sélectionnée, appliquée après le masquage :
+    // l'ordre des filtres n'est pas décoratif, il garantit que les compteurs
+    // par type et le classement portent sur les seuls résultats visibles.
+    final visible = categoryId == null || categoryId.isEmpty
+        ? withoutHidden
+        : withoutHidden
+            .where((item) => _matchesCategory(item, categoryId))
+            .toList();
+
     // Scoring & tri
-    unique.sort((a, b) => _calculateScore(normalized, b).compareTo(_calculateScore(normalized, a)));
+    visible.sort((a, b) => _calculateScore(normalized, b)
+        .compareTo(_calculateScore(normalized, a)),);
 
     // Historique
     await addToHistory(normalized);
 
     return UnifiedSearchResult(
-      items: unique.take(limit).toList(),
+      items: visible.take(limit).toList(),
       timestamp: DateTime.now(),
     );
   }
 
-  Future<List<SearchItem>> _searchLocal(String query, AppLocalizations? l) async {
+  Future<List<SearchItem>> _searchLocal(
+      String query, AppLocalizations? l,) async {
     final items = <SearchItem>[];
 
 // Historique de recherche - on ajoute comme suggestions textuelles
-      await safeAsync<void>(
-        () async {
-          final history = await getHistory();
-          for (final h in history) {
-            items.add(SearchItem(
-              id: 'history-$h',
-              type: SearchType.vod, // type par défaut pour l'affichage
-              title: h,
-              subtitle: l?.recentSearch ?? 'Recherche récente',
-              posterUrl: '',
-              score: 0.5,
-              source: SearchSource.local,
-            ));
-          }
-        },
-        context: 'SearchService._searchLocal history',
-      );
+    await safeAsync<void>(
+      () async {
+        final history = await getHistory();
+        for (final h in history) {
+          items.add(SearchItem(
+            id: 'history-$h',
+            type: SearchType.vod, // type par défaut pour l'affichage
+            title: h,
+            subtitle: l?.recentSearch ?? 'Recherche récente',
+            posterUrl: '',
+            score: 0.5,
+            source: SearchSource.local,
+          ),);
+        }
+      },
+      context: 'SearchService._searchLocal history',
+    );
 
 // Favoris
-      await safeAsync<void>(
-        () async {
-          items.addAll(await _getFavorites());
-        },
-        context: 'SearchService._searchLocal favorites',
-      );
+    await safeAsync<void>(
+      () async {
+        items.addAll(await _getFavorites());
+      },
+      context: 'SearchService._searchLocal favorites',
+    );
 
-      // Récemment regardé
-      await safeAsync<void>(
-        () async {
-          items.addAll(await _getRecentlyWatched());
-        },
-        context: 'SearchService._searchLocal recently watched',
-      );
+    // Récemment regardé
+    await safeAsync<void>(
+      () async {
+        items.addAll(await _getRecentlyWatched());
+      },
+      context: 'SearchService._searchLocal recently watched',
+    );
 
     return items;
   }
 
-  /// Construit l'index plein-texte du catalogue une seule fois (mémorisé).
+  /// Initialise l'index FTS5 et l'alimente avec le catalogue local (une fois).
   Future<void> _ensureCatalogueIndexed() async {
-    if (_index == null) return;
-    if (_index!.isBuilt) return;
+    if (_fts.isReady) return;
     final job = _indexingJob;
     if (job != null) return job;
-    final loader = _loadCatalogue;
-    if (loader == null) return;
     final future = () async {
       await safeAsync<void>(
         () async {
-          final entries = await loader();
-          _index!.build(entries);
+          await _fts.init();
+          final loader = _loadCatalogue;
+          if (loader == null) return;
+          // L'index est persistant : on ne le reconstruit que s'il est vide.
+          if (await _fts.count > 0) return;
+          final catalogue = await loader();
+          await _fts.rebuild(
+            movies: catalogue.movies,
+            series: catalogue.series,
+            channels: catalogue.channels,
+          );
         },
         context: 'SearchService._ensureCatalogueIndexed',
       );
@@ -270,51 +378,87 @@ class SearchService {
     return future;
   }
 
-  /// Recherche plein-texte dans l'index local du catalogue, mappée en
-  /// [SearchItem] (source locale) avec un score dérivé du rang.
-  List<SearchItem> _searchIndex(String query, {SearchType? filterType}) {
-    final index = _index;
-    if (index == null) return const [];
-    final hits = index.search(query, type: filterType);
-    return [
-      for (final hit in hits)
-        SearchItem(
-          id: hit.entry.id,
-          type: hit.entry.type,
-          title: hit.entry.title,
-          subtitle: hit.entry.subtitle,
-          posterUrl: hit.entry.posterUrl,
-          streamUrl: hit.entry.streamUrl.isEmpty ? null : hit.entry.streamUrl,
-          categoryId: hit.entry.categoryId.isEmpty ? null : hit.entry.categoryId,
-          score: (0.3 + 0.6 * hit.rank).clamp(0.0, 1.0),
-          source: SearchSource.local,
-        ),
-    ];
-  }
-
-  Future<List<SearchItem>> _searchRemote(String query, {SearchType? filterType}) async {
+  Future<List<SearchItem>> _searchRemote(String query,
+      {SearchType? filterType,}) async {
     final futures = <Future<List<SearchItem>>>[];
 
-    // TMDB (films + séries) — parallélisé
-    if (filterType == null || filterType == SearchType.vod || filterType == SearchType.series) {
-      futures.add(_searchTmdb(query, filterType: filterType));
+    // Seuil de déclenchement des sources distantes : en dessous de 3 caractères
+    // les APIs de recherche ne renvoient que du bruit, et surtout le taper de
+    // l'utilisateur déclencherait une requête réseau par frappe. On s'appuie
+    // alors sur l'index local/FTS, qui répond instantanément.
+    if (query.trim().length >= _remoteMinLength) {
+      // TMDB (films + séries) — parallélisé
+      if (filterType == null ||
+          filterType == SearchType.vod ||
+          filterType == SearchType.series) {
+        futures.add(_searchTmdb(query, filterType: filterType));
+      }
+
+      // TVmaze (séries) — parallélisé
+      if (filterType == null || filterType == SearchType.series) {
+        futures.add(_searchTvmaze(query));
+      }
+
+      // API Xtream (live + VOD + séries) — parallélisé
+      if (filterType == null ||
+          filterType == SearchType.live ||
+          filterType == SearchType.vod ||
+          filterType == SearchType.series) {
+        futures.add(_searchXtream(query));
+      }
     }
 
-    // TVmaze (séries) — parallélisé
-    if (filterType == null || filterType == SearchType.series) {
-      futures.add(_searchTvmaze(query));
-    }
-
-    // API Xtream (live + VOD + séries) — parallélisé
-    if (filterType == null || filterType == SearchType.live || filterType == SearchType.vod || filterType == SearchType.series) {
-      futures.add(_searchXtream(query));
-    }
-
+    if (futures.isEmpty) return const <SearchItem>[];
     final allResults = await Future.wait(futures);
     return allResults.expand((e) => e).toList();
   }
 
-  Future<List<SearchItem>> _searchTmdb(String query, {SearchType? filterType}) async {
+  /// Longueur minimale pour interroger les sources distantes.
+  static const int _remoteMinLength = 3;
+
+  /// Cache mémoire court des résultats distants, par requête normalisée.
+  ///
+  /// Sans lui, revenir sur une requête déjà tapée relançait TMDB + TVmaze +
+  /// Xtream alors que le résultat était identique quelques secondes plus tôt.
+  /// La clé inclut le filtre de type pour ne pas mélanger les jeux.
+  final Map<String, _RemoteCacheEntry> _remoteCache = {};
+
+  /// Nombre maximal d'entrées (les quelques dernières requêtes suffisent).
+  static const int _remoteCacheMaxEntries = 40;
+
+  /// Durée de vie d'une entrée, alignée sur le TTL du cache applicatif.
+  static const Duration _remoteCacheTtl = Duration(minutes: 5);
+
+  List<SearchItem>? _cachedRemote(String key) {
+    final entry = _remoteCache[key];
+    if (entry == null) return null;
+    if (DateTime.now().difference(entry.at) > _remoteCacheTtl) {
+      _remoteCache.remove(key);
+      return null;
+    }
+    return entry.items;
+  }
+
+  void _cacheRemote(String key, List<SearchItem> items) {
+    if (_remoteCache.length >= _remoteCacheMaxEntries) {
+      // Purge des entrées les plus anciennes.
+      final stale = _remoteCache.entries
+          .where((e) =>
+              DateTime.now().difference(e.value.at) > _remoteCacheTtl)
+          .map((e) => e.key)
+          .toList();
+      for (final key in stale) {
+        _remoteCache.remove(key);
+      }
+      if (_remoteCache.length >= _remoteCacheMaxEntries) {
+        _remoteCache.remove(_remoteCache.keys.first);
+      }
+    }
+    _remoteCache[key] = _RemoteCacheEntry(items, DateTime.now());
+  }
+
+  Future<List<SearchItem>> _searchTmdb(String query,
+      {SearchType? filterType,}) async {
     final result = await safeAsync<List<SearchItem>>(
       () async {
         final results = <SearchItem>[];
@@ -324,7 +468,8 @@ class SearchService {
           if (movieId != null) {
             final movie = await _tmdb.getMovieDetail(movieId);
             if (movie != null) {
-              results.add(SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb));
+              results.add(
+                  SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb),);
             }
           }
         }
@@ -334,7 +479,8 @@ class SearchService {
           if (tvId != null) {
             final series = await _tmdb.getTvDetail(tvId);
             if (series != null) {
-              results.add(SearchItem.fromSeriesDetail(series, source: SearchSource.tmdb));
+              results.add(SearchItem.fromSeriesDetail(series,
+                  source: SearchSource.tmdb,),);
             }
           }
         }
@@ -354,7 +500,8 @@ class SearchService {
         if (showId != null) {
           final show = await _tvmaze.getShowDetail(showId);
           if (show != null) {
-            results.add(SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze));
+            results.add(
+                SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze),);
           }
         }
         return results;
@@ -378,7 +525,8 @@ class SearchService {
   }
 
   Future<void> addToHistory(String query) async {
-    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName, (box) async {
+    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName,
+        (box) async {
       final normalized = _normalize(query);
       if (normalized.length < 2) return;
 
@@ -419,7 +567,8 @@ class SearchService {
   }
 
   Future<List<String>> getHistory() async {
-    return HiveSync.readBox<SearchHistoryEntry, List<String>>(_historyBoxName, (box) {
+    return HiveSync.readBox<SearchHistoryEntry, List<String>>(_historyBoxName,
+        (box) {
       final entries = box.values.toList()
         ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
@@ -428,7 +577,8 @@ class SearchService {
   }
 
   Future<void> clearHistory() async {
-    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName, (box) async {
+    await HiveSync.writeBoxAsync<SearchHistoryEntry, void>(_historyBoxName,
+        (box) async {
       await box.clear();
     });
   }
@@ -455,7 +605,7 @@ class SearchService {
                   score: 0.6,
                   source: SearchSource.local,
                   originalObject: f,
-                ))
+                ),)
             .toList();
       },
       context: 'SearchService._getFavorites',
@@ -486,7 +636,7 @@ class SearchService {
                   score: 0.5,
                   source: SearchSource.local,
                   originalObject: r,
-                ))
+                ),)
             .toList();
       },
       context: 'SearchService._getRecentlyWatched',

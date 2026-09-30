@@ -1,6 +1,4 @@
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
-import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 
 /// Pont vers le widget d'accueil Android (home_widget).
@@ -14,7 +12,16 @@ class HomeWidgetService {
 
   static final HomeWidgetService instance = HomeWidgetService._();
 
+  /// Nom simple du provider (declenche APPWIDGET_UPDATE dans le manifest).
   static const _widgetName = 'OrbitHomeWidgetProvider';
+
+  /// Nom QUALIFIE obligatoire ici : le package Kotlin du widget est
+  /// `com.example.orbit_3d_flutter` alors que l'`applicationId` de l'app est
+  /// `orbit.app`. Sans ce nom qualifie, home_widget resolvait le nom contre
+  /// l'applicationId et levait `ClassNotFoundException: orbit.app
+  /// .OrbitHomeWidgetProvider` a chaque appel.
+  static const _qualifiedWidgetName =
+      'com.example.orbit_3d_flutter.$_widgetName';
 
   /// Publie [profileName] et [favoritesCount] dans le widget puis le
   /// rafraîchit. Appelé à chaque changement pertinent (favoris, profil).
@@ -38,8 +45,8 @@ class HomeWidgetService {
         'widget_favorites',
         '$count ${count > 1 ? 'favoris' : 'favori'}',
       );
-      await HomeWidget.updateWidget(name: _widgetName);
-    }, context: 'updateWidgetData');
+      await HomeWidget.updateWidget(qualifiedAndroidName: _qualifiedWidgetName);
+    }, context: 'updateWidgetData',);
   }
 
   /// Abonnement aux données de lancement via le widget (tap / action rapide).

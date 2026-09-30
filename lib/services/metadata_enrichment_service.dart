@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
+import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Orchestrateur principal d'enrichissement des métadonnées
 /// Chaîne les fallbacks : Xtream → TMDB/TVmaze → OMDB
@@ -27,13 +28,29 @@ class MetadataEnrichmentService {
         _omdb = omdb;
 
   /// Enrichit un film (VOD) avec toutes les métadonnées disponibles
+  ///
+  /// ## Isolation des sources
+  ///
+  /// Chaque appel réseau est enveloppé dans [safeAsync]. Sans cela, une seule
+  /// source indisponible (TMDB en timeout, OMDb hors quota, TVmaze injoignable)
+  /// faisait échouer [enrichMovie] **entièrement** et l'écran de détail
+  /// n'affichait qu'une erreur — alors même que les données Xtream, elles,
+  /// étaient bien arrivées. L'enrichissement est un bonus : il ne doit jamais
+  /// pouvoir faire perdre la fiche de base.
   Future<MovieDetail> enrichMovie(Movie movie) async {
     // 0. XTREAM BASE (sans clé) : `get_vod_info` du panel fournit déjà
     //    synopsis, année, genre, réalisateur, note, PEGI et parfois cast/crew
     //    réels (format TMDB-like) en plus des données de liste.
-    final xtreamMovie = await _api.fetchMovieDetail(movie);
+    // `get_vod_info` peut échouer (panel lent, série de films, réseau instable).
+    // On retombe alors sur la donnée de grille : une fiche partielle vaut
+    // toujours mieux qu'un écran d'erreur.
+    final xtreamMovie =
+        (await safeAsync<Movie>(() => _api.fetchMovieDetail(movie))).valueOrNull ??
+            movie;
     var detail = MovieDetail.fromMovie(xtreamMovie);
-    final credits = await _api.fetchMovieCredits(xtreamMovie.id);
+    final credits = (await safeAsync<MovieCredits?>(
+            () => _api.fetchMovieCredits(xtreamMovie.id)))
+        .valueOrNull;
     if (credits != null &&
         (credits.cast.isNotEmpty || credits.crew.isNotEmpty)) {
       detail = detail.copyWith(
@@ -44,26 +61,28 @@ class MetadataEnrichmentService {
 
     // 1. TMDB PRIMAIRE (recherche par titre + année si pas d'ID connu)
     if (_tmdb.hasApiKey) {
-      int? tmdbId;
+      await safeAsync<void>(() async {
+        int? tmdbId;
 
-      // Si on a déjà un IMDB ID dans les données Xtream, on pourrait le mapper
-      // Sinon, recherche par titre + année
-      tmdbId = await _tmdb.searchMovieId(
-        movie.title,
-        year: movie.year > 0 ? movie.year : null,
-      );
+        // Si on a déjà un IMDB ID dans les données Xtream, on pourrait le mapper
+        // Sinon, recherche par titre + année
+        tmdbId = await _tmdb.searchMovieId(
+          movie.title,
+          year: movie.year > 0 ? movie.year : null,
+        );
 
-      // Nouveau : si l'ajout de l'année fait échouer la recherche (TMDb
-      // renvoie 404 pour certains titres combinés à une année), on retente
-      // sans contrainte d'année pour ne pas perdre l'enrichissement.
-      tmdbId ??= await _tmdb.searchMovieId(movie.title);
+        // Nouveau : si l'ajout de l'année fait échouer la recherche (TMDb
+        // renvoie 404 pour certains titres combinés avec une année), on retente
+        // sans contrainte d'année pour ne pas perdre l'enrichissement.
+        tmdbId ??= await _tmdb.searchMovieId(movie.title);
 
-      if (tmdbId != null) {
-        final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
-        if (tmdbDetail != null) {
-          detail = _mergeMovieDetail(detail, tmdbDetail);
+        if (tmdbId != null) {
+          final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
+          if (tmdbDetail != null) {
+            detail = _mergeMovieDetail(detail, tmdbDetail);
+          }
         }
-      }
+      });
     }
 
     // 2. OMDB FALLBACK (si année/runtime/director manquent)
@@ -71,28 +90,32 @@ class MetadataEnrichmentService {
         detail.runtime == 0 ||
         detail.director.isEmpty ||
         detail.imdbId.isEmpty) {
-      final omdbDetail = await _omdb.fillMissingMovie(detail);
-      if (omdbDetail != detail) {
-        detail = _mergeMovieDetail(detail, omdbDetail);
-      }
+      await safeAsync<void>(() async {
+        final omdbDetail = await _omdb.fillMissingMovie(detail);
+        if (omdbDetail != detail) {
+          detail = _mergeMovieDetail(detail, omdbDetail);
+        }
+      });
     }
 
     // 3. TVMAZE FALLBACK COMPLET (si cast/année/genre manquants) :
     //    comble aussi les métadonnées (année, genre, affiche, pays, langues)
     //    comme pour les séries, pas seulement le casting.
     if (detail.cast.isEmpty || detail.year == 0 || detail.genre.isEmpty) {
-      // TVmaze n'a pas besoin de clé ; on passe l'année pour désambiguïser
-      // (remakes, séquelles) dans la recherche de films.
-      final tvmazeId = await _tvmaze.searchMovieId(
-        movie.title,
-        year: movie.year > 0 ? movie.year : null,
-      );
-      if (tvmazeId != null) {
-        final tvmazeDetail = await _tvmaze.getMovieDetail(tvmazeId);
-        if (tvmazeDetail != null) {
-          detail = _mergeMovieDetail(detail, tvmazeDetail);
+      await safeAsync<void>(() async {
+        // TVmaze n'a pas besoin de clé ; on passe l'année pour désambiguïser
+        // (remakes, séquelles) dans la recherche de films.
+        final tvmazeId = await _tvmaze.searchMovieId(
+          movie.title,
+          year: movie.year > 0 ? movie.year : null,
+        );
+        if (tvmazeId != null) {
+          final tvmazeDetail = await _tvmaze.getMovieDetail(tvmazeId);
+          if (tvmazeDetail != null) {
+            detail = _mergeMovieDetail(detail, tvmazeDetail);
+          }
         }
-      }
+      });
     }
 
     return detail;
@@ -113,7 +136,8 @@ class MetadataEnrichmentService {
     }
 
     // 2. TMDB FALLBACK: Main cast + Guest stars (si TVmaze n'a pas le cast principal ou les guest stars par saison)
-    if ((detail.cast.isEmpty || detail.guestStarsPerSeason.isEmpty) && _tmdb.hasApiKey) {
+    if ((detail.cast.isEmpty || detail.guestStarsPerSeason.isEmpty) &&
+        _tmdb.hasApiKey) {
       int? tmdbId;
       if (detail.tmdbId > 0) {
         tmdbId = detail.tmdbId;

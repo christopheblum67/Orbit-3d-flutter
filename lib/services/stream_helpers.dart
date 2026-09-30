@@ -10,6 +10,31 @@ const playbackUserAgents = <String>[
   'XCIPTV-v7.0-2000',
 ];
 
+/// Index du User-Agent de reference (capture PCAP XCIPTV) qui obtient
+/// systematiquement le 302 vers le CDN signe sur les panneaux de type draap.
+const int kPreferredPlaybackUserAgentIndex = 3;
+
+/// Ordre de tentative des User-Agent pour la lecture.
+///
+/// Le UA de reference passe **toujours en premier** : Placé en dernier il
+/// coutait le timeout de chaque echec precedent, soit ~30 s d'ecran fige
+/// avant meme que la lecture demarre. Les autres UA conservent l'ordre
+/// historique (inverse quand l'impersonation TLS est desactivee).
+List<int> playbackUserAgentOrder({required bool tlsImpersonation}) {
+  const preferred = kPreferredPlaybackUserAgentIndex;
+  final others = <int>[];
+  if (tlsImpersonation) {
+    for (var i = 0; i < playbackUserAgents.length; i++) {
+      if (i != preferred) others.add(i);
+    }
+  } else {
+    for (var i = playbackUserAgents.length - 1; i >= 0; i--) {
+      if (i != preferred) others.add(i);
+    }
+  }
+  return <int>[preferred, ...others];
+}
+
 String refererFor(Uri uri) {
   final port = uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80);
   return '${uri.scheme}://${uri.host}:$port/';
@@ -195,14 +220,23 @@ DateTime? parseXmltvDate(String raw) {
   final hour = int.parse(m.group(4)!);
   final minute = int.parse(m.group(5)!);
   final second = int.parse(m.group(6)!);
-  DateTime value = DateTime.utc(year, month, day, hour, minute, second);
   final offset = m.group(7);
-  if (offset != null && offset.length == 5) {
-    final sign = offset[0] == '-' ? -1 : 1;
-    final hours = int.parse(offset.substring(1, 3));
-    final minutes = int.parse(offset.substring(3, 5));
-    value =
-        value.subtract(Duration(hours: sign * hours, minutes: sign * minutes));
+
+  // Sans décalage explicite, l'heure est celle du panel (heure locale du
+  // serveur), PAS de l'UTC. Construire en `DateTime.utc` puis convertir en
+  // local décalait l'intégralité du guide de 1 à 2 h selon la saison : le
+  // programme « en cours » n'était plus retrouvé au bon moment et les barres
+  // horaires tombaient à côté de la ligne « maintenant ».
+  if (offset == null) {
+    return DateTime(year, month, day, hour, minute, second);
   }
-  return value.toLocal();
+
+  // Avec un décalage explicite (« +0100 »), on calcule l'instant absolu puis on
+  // l'exprime en heure locale de l'appareil.
+  final sign = offset[0] == '-' ? -1 : 1;
+  final hours = int.parse(offset.substring(1, 3));
+  final minutes = int.parse(offset.substring(3, 5));
+  final utc = DateTime.utc(year, month, day, hour, minute, second)
+      .subtract(Duration(hours: sign * hours, minutes: sign * minutes));
+  return utc.toLocal();
 }

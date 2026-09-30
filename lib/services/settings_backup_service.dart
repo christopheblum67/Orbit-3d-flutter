@@ -71,11 +71,13 @@ class SettingsBackupService {
         final map = jsonDecode(json) as Map<String, dynamic>;
 
         if (map['app'] != _appName) {
-          return SettingsBackupResult.failure('Fichier invalide : application non reconnue');
+          return SettingsBackupResult.failure(
+              'Fichier invalide : application non reconnue',);
         }
         final version = map['version'] as int?;
         if (version == null || version > _version) {
-          return SettingsBackupResult.failure('Version de backup non supportée ($version)');
+          return SettingsBackupResult.failure(
+              'Version de backup non supportée ($version)',);
         }
 
         final advJson = map['advancedSettings'] as Map<String, dynamic>?;
@@ -100,7 +102,7 @@ class SettingsBackupService {
         return SettingsBackupResult.failure('JSON invalide');
       }
       return SettingsBackupResult.failure(
-          'Erreur lors de l\'import: ${error?.originalError ?? error?.message}',
+        'Erreur lors de l\'import: ${error?.originalError ?? error?.message}',
       );
     }
     return result.valueOrNull!;
@@ -118,7 +120,8 @@ class SettingsBackupService {
       nightFocusEnabled: map['nightFocusEnabled'] ?? false,
       nightFocusDialogueBoost: map['nightFocusDialogueBoost'] ?? true,
       nightFocusBassKiller: map['nightFocusBassKiller'] ?? true,
-      nightFocusVocalGainDb: (map['nightFocusVocalGainDb'] as num?)?.toDouble() ?? 3.0,
+      nightFocusVocalGainDb:
+          (map['nightFocusVocalGainDb'] as num?)?.toDouble() ?? 3.0,
       nightFocusAudioShiftMs: map['nightFocusAudioShiftMs'] ?? 0,
       highContrast: map['highContrast'] ?? false,
     );

@@ -31,17 +31,25 @@ class OmdbService {
   DateTime _lastRequest = DateTime.fromMillisecondsSinceEpoch(0);
 
   OmdbService()
-      : _dio = Dio(BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 20),
-        ),) {
+      : _dio = Dio(
+          BaseOptions(
+            baseUrl: _baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 20),
+            // OMDb renvoie du JSON ; sans `responseType` explicite le cast
+            // `data as Map<String, dynamic>` du parseur pouvait échouer sur un
+            // `Map<dynamic, dynamic>` et faire tomber l'enrichissement.
+            responseType: ResponseType.json,
+          ),
+        ) {
     _initCache();
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: false,
-      responseBody: false,
-      logPrint: (msg) => _logger.debug('[OMDB] $msg'),
-    ),);
+    _dio.interceptors.add(
+      LogInterceptor(
+        requestBody: false,
+        responseBody: false,
+        logPrint: (msg) => _logger.debug('[OMDB] $msg'),
+      ),
+    );
   }
 
   Future<void> _initCache() async {
@@ -104,11 +112,14 @@ class OmdbService {
     await _waitForRateLimit();
 
     final result = await safeAsync<Map<String, dynamic>?>(() async {
-      final response = await _dio.get('/', queryParameters: {
-        'i': imdbId,
-        'plot': 'full',
-        'apikey': _apiKey,
-      },);
+      final response = await _dio.get(
+        '/',
+        queryParameters: {
+          'i': imdbId,
+          'plot': 'full',
+          'apikey': _apiKey,
+        },
+      );
 
       if (response.data['Response'] == 'True') {
         await _setCache(cacheKey, response.data);
@@ -117,7 +128,7 @@ class OmdbService {
         _logger.warning('OMDB error: ${response.data['Error']}');
         return null;
       }
-    }, context: 'getByImdbId', fallbackValue: null);
+    }, context: 'getByImdbId', fallbackValue: null,);
     return result.valueOrNull;
   }
 
@@ -150,7 +161,7 @@ class OmdbService {
         _logger.warning('OMDB search error: ${response.data['Error']}');
         return null;
       }
-    }, context: 'searchByTitle', fallbackValue: null);
+    }, context: 'searchByTitle', fallbackValue: null,);
     return result.valueOrNull;
   }
 
@@ -169,8 +180,10 @@ class OmdbService {
 
     // Fallback par titre + année
     if (data == null && detail.title.isNotEmpty) {
-      data = await searchByTitle(detail.title,
-          year: detail.year > 0 ? detail.year : null,);
+      data = await searchByTitle(
+        detail.title,
+        year: detail.year > 0 ? detail.year : null,
+      );
     }
 
     if (data == null) return detail;
@@ -222,8 +235,10 @@ class OmdbService {
     }
 
     if (data == null && detail.title.isNotEmpty) {
-      data = await searchByTitle(detail.title,
-          year: detail.year > 0 ? detail.year : null,);
+      data = await searchByTitle(
+        detail.title,
+        year: detail.year > 0 ? detail.year : null,
+      );
     }
 
     if (data == null) return detail;
@@ -232,7 +247,9 @@ class OmdbService {
   }
 
   SeriesDetail _mergeOmdbSeriesData(
-      SeriesDetail detail, Map<String, dynamic> data,) {
+    SeriesDetail detail,
+    Map<String, dynamic> data,
+  ) {
     final year = _parseYear(data['Year']);
     final runtime = _parseRuntime(data['Runtime']);
     final genre = data['Genre'] as String? ?? '';

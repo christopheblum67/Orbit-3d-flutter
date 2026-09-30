@@ -19,7 +19,8 @@ class WatchedEpisodesService {
   }
 
   Future<void> save(WatchedEpisodeEntry entry) async {
-    await HiveSync.writeAsync(_boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())));
+    await HiveSync.writeAsync(
+        _boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())),);
   }
 
   Future<void> remove(String key) async {
@@ -48,7 +49,8 @@ class WatchedEpisodesService {
         if (result.isSuccess && result.valueOrNull != null) {
           entries.add(result.valueOrNull!);
         } else if (result.isFailure) {
-          LoggerService.instance.warning('loadAll decode failed', error: result.errorOrNull);
+          LoggerService.instance
+              .warning('loadAll decode failed', error: result.errorOrNull);
         }
       }
       return entries;

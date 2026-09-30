@@ -177,7 +177,16 @@ class EpgAiEngine {
     required List<Channel> channels,
     int limit = _defaultLimit,
   }) {
-    final byChannel = {for (final c in channels) c.epgChannelId: c};
+    // On indexe sur TOUS les identifiants EPG possibles d'une chaîne
+    // (`stream_id` et `num:stream_id`) : n'indexer que le premier faisait
+    // perdre les programmes dont le XMLTV utilise la forme préfixée.
+    final byChannel = <String, Channel>{};
+    for (final c in channels) {
+      for (final id in c.epgChannelIds) {
+        byChannel.putIfAbsent(id, () => c);
+      }
+      if (c.id.isNotEmpty) byChannel.putIfAbsent(c.id, () => c);
+    }
     final now = DateTime.now();
     final scored = <EpgSearchResult>[];
 

@@ -20,17 +20,28 @@ class TvmazeService {
   DateTime _lastRequest = DateTime.fromMillisecondsSinceEpoch(0);
 
   TvmazeService()
-      : _dio = Dio(BaseOptions(
-          baseUrl: _baseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 20),
-        ),) {
+      : _dio = Dio(
+          BaseOptions(
+            baseUrl: _baseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 20),
+            // TVmaze renvoie du JSON. Sans `responseType` explicite, Dio peut
+            // livrer un `Map<dynamic, dynamic>` et les cast
+            // `results.first['show'] as Map<String, dynamic>?` échouaient
+            // (« type '_Map<dynamic, dynamic>' is not a subtype of
+            // 'Map<String, dynamic>' »), ce qui faisait échouer l'enrichissement
+            // d'une fiche film ou série.
+            responseType: ResponseType.json,
+          ),
+        ) {
     _initCache();
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: false,
-      responseBody: false,
-      logPrint: (msg) => _logger.debug('[TVmaze] $msg'),
-    ),);
+    _dio.interceptors.add(
+      LogInterceptor(
+        requestBody: false,
+        responseBody: false,
+        logPrint: (msg) => _logger.debug('[TVmaze] $msg'),
+      ),
+    );
   }
 
   Future<void> _initCache() async {
@@ -89,9 +100,12 @@ class TvmazeService {
 
     final result = await safeAsync<int?>(
       () async {
-        final response = await _dio.get('/search/shows', queryParameters: {
-          'q': title,
-        },);
+        final response = await _dio.get(
+          '/search/shows',
+          queryParameters: {
+            'q': title,
+          },
+        );
         final results = response.data as List?;
         if (results != null && results.isNotEmpty) {
           Map<String, dynamic>? firstMovie;
@@ -136,11 +150,14 @@ class TvmazeService {
 
     final result = await safeAsync<MovieDetail?>(
       () async {
-        final futures = await Future.wait([
-          _dio.get('/shows/$tvmazeId'),
-          _dio.get('/shows/$tvmazeId/cast'),
-          _dio.get('/shows/$tvmazeId/images'),
-        ], eagerError: false,);
+        final futures = await Future.wait(
+          [
+            _dio.get('/shows/$tvmazeId'),
+            _dio.get('/shows/$tvmazeId/cast'),
+            _dio.get('/shows/$tvmazeId/images'),
+          ],
+          eagerError: false,
+        );
 
         final showData = futures[0].data;
         final castData = futures[1].data as List<dynamic>? ?? [];
@@ -156,8 +173,12 @@ class TvmazeService {
     return result.valueOrNull;
   }
 
-  MovieDetail _parseMovieDetail(Map<String, dynamic> data, int tvmazeId,
-      [List<dynamic>? castData, List<dynamic>? imagesData,]) {
+  MovieDetail _parseMovieDetail(
+    Map<String, dynamic> data,
+    int tvmazeId, [
+    List<dynamic>? castData,
+    List<dynamic>? imagesData,
+  ]) {
     final externals = data['externals'] as Map<String, dynamic>? ?? {};
     final imdbId = externals['imdb'] as String? ?? '';
     final tmdbId = externals['themoviedb'] as int? ?? 0;
@@ -193,7 +214,7 @@ class TvmazeService {
           '', // TVmaze ne donne pas le réalisateur directement pour les films
       rating: (data['rating']?['average'] as num?)?.toDouble() ?? 0,
       pegi: data['rating']?['rating']?.toString() ?? '',
-      streamUrl: '',
+      streamId: '',
       tvmazeId: tvmazeId,
       imdbId: imdbId,
       tmdbId: tmdbId,
@@ -216,9 +237,12 @@ class TvmazeService {
 
     final result = await safeAsync<int?>(
       () async {
-        final response = await _dio.get('/search/shows', queryParameters: {
-          'q': title,
-        },);
+        final response = await _dio.get(
+          '/search/shows',
+          queryParameters: {
+            'q': title,
+          },
+        );
         final results = response.data as List?;
         if (results != null && results.isNotEmpty) {
           // Filtrer pour ne garder que les séries (type: "Scripted", "Documentary", etc.)
@@ -249,11 +273,14 @@ class TvmazeService {
     final result = await safeAsync<SeriesDetail?>(
       () async {
         // Paralléliser : show + cast + seasons + episodes
-        final futures = await Future.wait([
-          _dio.get('/shows/$tvmazeId', queryParameters: {'embed': 'cast'}),
-          _dio.get('/shows/$tvmazeId/seasons'),
-          _dio.get('/shows/$tvmazeId/episodes'),
-        ], eagerError: false,);
+        final futures = await Future.wait(
+          [
+            _dio.get('/shows/$tvmazeId', queryParameters: {'embed': 'cast'}),
+            _dio.get('/shows/$tvmazeId/seasons'),
+            _dio.get('/shows/$tvmazeId/episodes'),
+          ],
+          eagerError: false,
+        );
 
         final showData = futures[0].data;
         final seasonsData = futures[1].data as List<dynamic>? ?? [];
@@ -285,8 +312,12 @@ class TvmazeService {
     return result.valueOrNull ?? const [];
   }
 
-  SeriesDetail _parseShowDetail(Map<String, dynamic> data, int tvmazeId,
-      [List<dynamic>? seasonsData, List<dynamic>? episodesData,]) {
+  SeriesDetail _parseShowDetail(
+    Map<String, dynamic> data,
+    int tvmazeId, [
+    List<dynamic>? seasonsData,
+    List<dynamic>? episodesData,
+  ]) {
     final externals = data['externals'] as Map<String, dynamic>? ?? {};
     final imdbId = externals['imdb'] as String? ?? '';
     final tmdbId = externals['themoviedb'] as int? ?? 0;
@@ -295,8 +326,7 @@ class TvmazeService {
     List<Actor> mainCast = [];
     final embedded = data['_embedded'] as Map<String, dynamic>? ?? {};
     final castEmbed = embedded['cast'] as List<dynamic>? ?? [];
-    mainCast = castEmbed
-        .indexed
+    mainCast = castEmbed.indexed
         .map((entry) {
           final index = entry.$1;
           final e = entry.$2;

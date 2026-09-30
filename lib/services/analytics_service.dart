@@ -1,6 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Service minimal d'analyse Firebase (FirebaseAnalytics).
@@ -12,11 +11,25 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 class AnalyticsService {
   FirebaseAnalytics? _analytics;
 
+  /// Vrai seulement si Firebase est reellement initialise ET exploitable.
+  /// Permet aux appelants de ne pas toucher `FirebaseAnalytics.instance`
+  /// quand aucune config google-services n'est disponible.
+  bool get isReady => _analytics != null;
+
   /// Idempotent : prépare l'accès à FirebaseAnalytics sans échouer.
   Future<void> init() async {
     if (_analytics != null) return;
     final result = await safeAsync(
       () async {
+        // `Firebase.initializeApp()` sans options ne trouve que la config
+        // generee par le plugin google-services. Sur un build sans
+        // `google-services.json` exploitable (ex. flavor debug, CI) il leve
+        // « No Firebase App '[DEFAULT]' has been created » a chaque appel.
+        // On court-circuite des que l'app existe deja.
+        final apps = Firebase.apps;
+        if (apps.isNotEmpty) {
+          return FirebaseAnalytics.instance;
+        }
         await Firebase.initializeApp();
         return FirebaseAnalytics.instance;
       },

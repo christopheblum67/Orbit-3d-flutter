@@ -226,8 +226,10 @@ class RustProxyManager {
           request.headers.set(HttpHeaders.acceptHeader, 'application/json');
           final response = await request.close().timeout(_pingTimeout);
           if (response.statusCode != HttpStatus.ok) return false;
-          final body =
-              await response.transform(utf8.decoder).join().timeout(_pingTimeout);
+          final body = await response
+              .transform(utf8.decoder)
+              .join()
+              .timeout(_pingTimeout);
           _tryParseStatus(body);
           return true;
         },
