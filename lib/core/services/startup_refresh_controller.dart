@@ -115,9 +115,15 @@ class StartupRefreshController extends ChangeNotifier {
             case StartupStep.radio:
               await _api.fetchRadioChannels();
             case StartupStep.replay:
-              // Passe par le cache partagé (TTL 5 min + déduction en vol)
-              // pour ne jamais sonder le panel deux fois d'affilée.
-              await replaysCache.fetch(_api.fetchReplays);
+              // Aucun appel. Le Replay se charge chaîne par chaîne, à la
+              // demande, quand l'utilisateur ouvre une chaîne (voir
+              // `channelReplaysProvider`).
+              //
+              // Cet appel sondait 40 chaînes au DÉMARRAGE : le panel répondait
+              // 429, et la tempête hammering qui suivait faisait échouer l'EPG,
+              // les Films et le Live TV au même moment. Le Replay était la
+              // cause de pannes générales, pour un écran que presque personne
+              // n'ouvre.
             case StartupStep.epg:
               try {
                 // Précharge le guide dans le cache partagé, une seule fois :

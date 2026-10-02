@@ -2,26 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
-import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
+import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_grid_card.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
-/// Replays groupés par chaîne.
+/// Replay (catch-up) — navigation à deux niveaux.
 ///
-/// Les panels Xtream n'exposent le timeshift que chaîne par chaîne : lister
-/// 14 jours de programmes de toutes les chaînes à plat oblige à parcourir un
-/// flux interminable. On part donc des chaînes qui ont du replay, et le choix
-/// d'une chaîne révèle ses programmes (navigation à 2 niveaux).
+/// ## Ce que le Replay n'est pas
+///
+/// Le Replay n'est pas la grille des programmes lue à l'envers. La grille
+/// ([EPG (grille)]) décrit ce qui passe et ce qui va passer ; le Replay décrit
+/// ce que le panel permet **de rattraper**, et cette information ne vit pas
+/// dans la grille. Mesuré sur le panel du 30/09 : l'EPG global ne fournit
+/// **aucun** programme rejouable (`epg=0`), parce qu'un guide TV est tourné
+/// vers l'avenir. Confondre les deux donnait un écran vide.
+///
+/// ## Pourquoi deux écrans
+///
+/// Le catalogue annonce plus de 1400 chaînes réplayables, et le panel ne
+/// publie le catch-up que chaîne par chaîne (`get_short_epg`, un appel). Tout
+/// sonder en bloc — ce que faisait la sonde de 40 chaînes au démarrage —
+/// déclenche une tempête de 429 qui fait échouer l'EPG, les Films et le Live
+/// TV au passage. Le découpage en deux niveaux est donc une contrainte du
+/// panel, pas un choix de présentation :
+///
+/// - **niveau 1** : les chaînes replayables, lues dans le catalogue déjà
+///   chargé, groupées par pays. Aucun appel réseau ;
+/// - **niveau 2** : les programmes d'une chaîne, un seul appel, au choix.
+///
+/// Le niveau 1 réutilise la tuile de chaîne du Live TV : c'est le même objet,
+/// il doit avoir la même taille et la même apparence.
 class ReplayScreen extends ConsumerStatefulWidget {
   const ReplayScreen({super.key});
 
@@ -29,176 +49,120 @@ class ReplayScreen extends ConsumerStatefulWidget {
   ConsumerState<ReplayScreen> createState() => _ReplayScreenState();
 }
 
-/// Replays d'une chaîne, rangés par jour.
-class _ChannelReplays {
-  _ChannelReplays({required this.id, required this.name, required this.items});
-
-  final String id;
-  final String name;
-  final List<ReplayItem> items;
-
-  DateTime? get latestStart {
-    DateTime? latest;
-    for (final item in items) {
-      final d = item.startDate;
-      if (d != null && (latest == null || d.isAfter(latest))) latest = d;
-    }
-    return latest;
-  }
-}
-
 class _ReplayScreenState extends ConsumerState<ReplayScreen> {
-  /// Chaîne sélectionnée, ou null pour la liste des chaînes.
-  String? _selectedChannelId;
+  /// Chaîne ouverte au niveau 2, ou `null` au niveau 1.
+  Channel? _selected;
 
-  /// Ouvre le détail replay d'une chaîne (niveau 2).
-  void selectChannel(String channelId) {
-    setState(() => _selectedChannelId = channelId);
-  }
+  void _open(Channel channel) => setState(() => _selected = channel);
 
-  @override
-  void initState() {
-    super.initState();
-    // Sonde `get_short_epg` en tâche de fond.
-    //
-    // L'écran ne l'attend PAS : `replaysProvider` se rend avec l'EPG global,
-    // disponible immédiatement. La sonde porte sur 40 chaînes, sérialisées par
-    // le portillon du panneau pour ne pas déclencher son quota — elle prend
-    // donc bien plus d'une minute et l'attendre donnaait un chargement
-    // perpétuel.
-    //
-    // Quand elle aboutit, son résultat est en cache : on invalide alors
-    // `replaysProvider` pour que la fusion se refasse avec les programmes
-    // ajoutés, et l'écran se complète tout seul.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(replaysProbeProvider.future).then((_) {
-        if (mounted) ref.invalidate(replaysProvider);
-      });
-    });
-  }
+  void _close() => setState(() => _selected = null);
 
   @override
   Widget build(BuildContext context) {
-    final replaysAsync = ref.watch(replaysProvider);
+    final channelsAsync = ref.watch(liveChannelsProvider);
+    final selected = _selected;
 
     return Scaffold(
       appBar: AppBar(
-        // Retour toujours visible : au 2e niveau il ramène à la liste des
-        // chaînes, au 1er niveau il quitte l'écran.
+        // Le retour remonte d'un cran : du niveau 2 vers la grille des
+        // chaînes, et de la grille vers l'écran précédent.
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Retour',
           onPressed: () {
-            final channelId = _selectedChannelId;
-            if (channelId != null) {
-              setState(() => _selectedChannelId = null);
+            if (selected != null) {
+              _close();
             } else {
               context.canPop() ? context.pop() : context.go('/home');
             }
           },
         ),
-        title: Text(_selectedChannelId == null
-            ? 'Replay'
-            : (_channels(replaysAsync.value ?? const <ReplayItem>[])
-                    .where((c) => c.id == _selectedChannelId)
-                    .firstOrNull
-                    ?.name ??
-                'Replay')),
+        title: Text(selected?.name ?? 'Replay'),
         actions: [
-          IconButton(
-            tooltip: 'Rafraîchir',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(replaysProvider),
-          ),
+          if (selected != null)
+            IconButton(
+              tooltip: 'Rafraîchir',
+              icon: const Icon(Icons.refresh),
+              // On recharge CETTE chaîne, pas tout le catalogue : c'est le
+              // seul appel que l'écran est autorisé à faire.
+              onPressed: () =>
+                  ref.invalidate(channelReplaysProvider(selected.id)),
+            ),
         ],
       ),
-      body: replaysAsync.when(
+      body: channelsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text(userFriendlyError(err))),
-        data: (replays) {
-          if (replays.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.replay_rounded, size: 64),
-                  SizedBox(height: 12),
-                  Text('Aucun replay disponible'),
-                ],
-              ),
-            );
+        data: (channels) {
+          // Le catalogue est la seule source du niveau 1 : `supportsReplay`
+          // vient de `get_live_streams`, déjà chargé pour le Live TV. Aucun
+          // appel supplémentaire.
+          final replayable = channels.where((c) => c.supportsReplay).toList();
+          final open = selected;
+          if (open == null) {
+            if (replayable.isEmpty) {
+              return const _NoReplayAtAll();
+            }
+            return _ChannelGrid(channels: replayable, onOpen: _open);
           }
-
-          final groups = _channels(replays)
-            ..sort((a, b) => (b.latestStart ?? DateTime(1900))
-                .compareTo(a.latestStart ?? DateTime(1900)));
-
-          final selected =
-              groups.where((c) => c.id == _selectedChannelId).firstOrNull;
-          if (selected == null) {
-            return _ChannelList(groups: groups);
-          }
-          return _ReplayDayView(channel: selected);
+          return _ChannelReplaysView(channel: open);
         },
       ),
     );
   }
+}
 
-  /// Regroupe les replays par chaîne, du plus récent au plus ancien.
-  static List<_ChannelReplays> _channels(List<ReplayItem> replays) {
-    final grouped = <String, List<ReplayItem>>{};
-    final names = <String, String>{};
-    for (final r in replays) {
-      final key = r.channelId.isNotEmpty
-          ? r.channelId
-          : (r.channelName.isNotEmpty ? r.channelName : 'sans chaîne');
-      grouped.putIfAbsent(key, () => <ReplayItem>[]).add(r);
-      if (r.channelName.isNotEmpty) names.putIfAbsent(key, () => r.channelName);
-    }
-    return [
-      for (final entry in grouped.entries)
-        _ChannelReplays(
-          id: entry.key,
-          name: names[entry.key] ?? 'Chaîne inconnue',
-          items: entry.value,
+/// AucunReplay : le panel ne publie de catch-up sur aucune chaîne du
+/// catalogue.
+class _NoReplayAtAll extends StatelessWidget {
+  const _NoReplayAtAll();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.replay_rounded, size: 56, color: theme.colorScheme.outline),
+            const SizedBox(height: 12),
+            Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Text(
+              "Aucune chaîne de cet abonnement ne déclare de catch-up.",
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
         ),
-    ];
+      ),
+    );
   }
 }
 
-/// Niveau 1 : les chaînes qui proposent du replay, classables par catégorie.
-///
-/// Même modèle que l'écran Live TV : un rail « Tous / Favoris / Récemment /
-/// groupes » à gauche, appliqué ici au sous-ensemble des chaînes qui ont du
-/// replay. Les favoris et chaînes récentes sont ceux du catalogue live
-/// (recroisés par identifiant de chaîne), pour une expérience cohérente.
-class _ChannelList extends ConsumerStatefulWidget {
-  const _ChannelList({required this.groups});
+/// Niveau 1 : les chaînes replayables, groupées par pays.
+class _ChannelGrid extends ConsumerStatefulWidget {
+  const _ChannelGrid({required this.channels, required this.onOpen});
 
-  final List<_ChannelReplays> groups;
+  final List<Channel> channels;
+  final ValueChanged<Channel> onOpen;
 
   @override
-  ConsumerState<_ChannelList> createState() => _ChannelListState();
+  ConsumerState<_ChannelGrid> createState() => _ChannelGridState();
 }
 
-class _ChannelListState extends ConsumerState<_ChannelList> {
-  /// Catégorie sélectionnée dans le rail : vide = tous.
+class _ChannelGridState extends ConsumerState<_ChannelGrid> {
+  /// Catégorie du rail ; vide = toutes.
   String _selectedGroup = '';
 
   @override
   Widget build(BuildContext context) {
-    // Logos : le ReplayItem ne les porte pas, on les récupère via le catalogue
-    // live en recoupant sur l'identifiant de chaîne.
-    final liveChannels =
-        ref.watch(liveChannelsProvider).value ?? const <Channel>[];
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
 
-    final byId = <String, Channel>{
-      for (final c in liveChannels)
-        if (c.id.isNotEmpty) c.id: c,
-    };
     final favIds = favoriteEntries.values
         .where((e) => e.type == ContentType.live)
         .map((e) => e.id)
@@ -208,20 +172,20 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
         .map((e) => e.id)
         .toSet();
 
-    final channelGroups = buildLiveChannelGroups(liveChannels);
-    final grouped =
-        channelGroups.length > 1 || channelGroups.firstOrNull?.name.isNotEmpty == true;
+    // Les groupes viennent du catalogue live, mais on ne retient que les
+    // chaînes qui ont du replay : le rail ne propose pas de groupe vide.
+    final groups = buildLiveChannelGroups(widget.channels);
+    final grouped = groups.length > 1 || groups.firstOrNull?.name.isNotEmpty == true;
 
-    final visible = _visibleGroups(
-      widget.groups,
-      channelGroups: channelGroups,
+    final visible = _visible(
+      widget.channels,
+      groups: groups,
       favIds: favIds,
       recentIds: recentIds,
     );
-
-    final categories = _groupToCategories(
-      channelGroups,
-      replayGroups: widget.groups,
+    final categories = _categories(
+      groups,
+      replayIds: {for (final c in widget.channels) c.id},
       favIds: favIds,
       recentIds: recentIds,
     );
@@ -237,35 +201,28 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
           ),
         Expanded(
           child: visible.isEmpty
-              ? _EmptyCategory(
-                  groupId: _selectedGroup,
-                )
+              ? _EmptyCategory(groupId: _selectedGroup)
               : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 260,
-                    childAspectRatio: 0.42,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
+                  padding: channelGridPadding,
+                  // Même tuile que le Live TV : le Replay montre des chaînes,
+                  // il doit les montrer comme le Live TV.
+                  gridDelegate: channelGridDelegate,
                   itemCount: visible.length,
                   itemBuilder: (context, index) {
-                    final group = visible[index];
-                    final channel = byId[group.id];
-                    final latest = group.latestStart;
-                    return _ChannelReplayCard(
-                      name: group.name,
-                      logoUrl: channel?.logoUrl ?? '',
-                      programCount: group.items.length,
-                      latestLabel: latest == null
-                          ? null
-                          : 'Dernier : ${_formatDay(latest)}',
-                      onTap: () {
-                        // Le parent gère la sélection : on remonte l'id.
-                        final state = context
-                            .findAncestorStateOfType<_ReplayScreenState>();
-                        state?.selectChannel(group.id);
-                      },
+                    final channel = visible[index];
+                    return ChannelGridCard(
+                      name: channel.name,
+                      logoUrl: channel.logoUrl,
+                      badgeNumber: channel.orderNum,
+                      favoriteEntry: FavoriteEntry(
+                        type: ContentType.live,
+                        id: channel.id,
+                        title: channel.name,
+                        posterUrl: channel.logoUrl,
+                        subtitle: channel.groupLabel,
+                        streamUrl: channel.streamUrl,
+                      ),
+                      onTap: () => widget.onOpen(channel),
                     );
                   },
                 ),
@@ -274,123 +231,152 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
     );
   }
 
-  /// Sous-ensemble des chaînes à replay selon la catégorie sélectionnée.
-  List<_ChannelReplays> _visibleGroups(
-    List<_ChannelReplays> groups, {
-    required List<ChannelGroup> channelGroups,
+  List<Channel> _visible(
+    List<Channel> channels, {
+    required List<ChannelGroup> groups,
     required Set<String> favIds,
     required Set<String> recentIds,
   }) {
-    final List<_ChannelReplays> visible;
+    final List<Channel> visible;
     if (_selectedGroup == 'fav') {
-      visible = groups.where((g) => favIds.contains(g.id)).toList();
+      visible = channels.where((c) => favIds.contains(c.id)).toList();
     } else if (_selectedGroup == 'recent') {
-      visible = groups.where((g) => recentIds.contains(g.id)).toList();
+      visible = channels.where((c) => recentIds.contains(c.id)).toList();
     } else if (_selectedGroup.startsWith('g')) {
       final index = int.tryParse(_selectedGroup.substring(1));
-      if (index != null && index >= 0 && index < channelGroups.length) {
-        final ids =
-            channelGroups[index].channels.map((c) => c.id).toSet();
-        visible = groups.where((g) => ids.contains(g.id)).toList();
+      if (index != null && index >= 0 && index < groups.length) {
+        final ids = groups[index].channels.map((c) => c.id).toSet();
+        visible = channels.where((c) => ids.contains(c.id)).toList();
       } else {
         visible = const [];
       }
     } else {
-      visible = groups;
+      visible = channels;
     }
-    return visible
-      ..sort(
-        (a, b) => (b.latestStart ?? DateTime(1900))
-            .compareTo(a.latestStart ?? DateTime(1900)),
-      );
+    return visible..sort((a, b) {
+        final numA = a.orderNum > 0 ? a.orderNum : 1 << 30;
+        final numB = b.orderNum > 0 ? b.orderNum : 1 << 30;
+        return numA.compareTo(numB);
+      });
   }
 
-  /// Rail de catégories, appliqué au sous-ensemble des chaînes à replay.
-  static List<MediaCategory> _groupToCategories(
-    List<ChannelGroup> channelGroups, {
-    required List<_ChannelReplays> replayGroups,
+  /// Rail « Tous / Favoris / Récemment / pays », décompté sur les chaînes
+  /// rejouables et non sur le catalogue complet.
+  static List<MediaCategory> _categories(
+    List<ChannelGroup> groups, {
+    required Set<String> replayIds,
     required Set<String> favIds,
     required Set<String> recentIds,
   }) {
-    final replayIds = {for (final g in replayGroups) g.id};
     return [
-      MediaCategory(id: '', name: 'Tous', count: replayGroups.length),
+      MediaCategory(id: '', name: 'Tous', count: replayIds.length),
       MediaCategory(
         id: 'fav',
         name: 'Favoris',
-        count: replayGroups.where((g) => favIds.contains(g.id)).length,
+        count: replayIds.where(favIds.contains).length,
       ),
       MediaCategory(
         id: 'recent',
         name: 'Récemment',
-        count: replayGroups.where((g) => recentIds.contains(g.id)).length,
+        count: replayIds.where(recentIds.contains).length,
       ),
-      for (var i = 0; i < channelGroups.length; i++)
+      for (var i = 0; i < groups.length; i++)
         MediaCategory(
           id: 'g$i',
-          name: channelGroups[i].name.isEmpty
-              ? 'Non groupé'
-              : channelGroups[i].name,
-          count: channelGroups[i]
-              .channels
+          name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
+          count: groups[i].channels
               .where((c) => replayIds.contains(c.id))
               .length,
         ),
     ];
   }
+}
 
-  static String _formatDay(DateTime d) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(d.year, d.month, d.day);
-    final diff = today.difference(day).inDays;
-    if (diff == 0) return "aujourd'hui";
-    if (diff == 1) return 'hier';
-    if (diff < 7) return 'il y a $diff jours';
-    return '${d.day}/${d.month}';
+/// Niveau 2 : les programmes rejouables d'UNE chaîne.
+///
+/// Un seul appel réseau, au montage ([channelReplaysProvider]). Le détail est
+/// donc indisponible tant que la réponse n'est pas là, ce qui est le prix de
+/// la fenêtre par compte : on ne peut pas lister 14 jours de toutes les chaînes
+/// sans que le panel nous coupe.
+class _ChannelReplaysView extends ConsumerWidget {
+  const _ChannelReplaysView({required this.channel});
+
+  final Channel channel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(channelReplaysProvider(channel.id));
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                userFriendlyError(err),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.tonal(
+                onPressed: () =>
+                    ref.invalidate(channelReplaysProvider(channel.id)),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (items) => _ReplayDayView(channel: channel, items: items),
+    );
   }
 }
 
-/// État vide d'une catégorie du rail (favoris, récents, groupe vide).
-class _EmptyCategory extends StatelessWidget {
-  const _EmptyCategory({required this.groupId});
+/// Bandeau de chaîne : numéro et nom brut, comme sur la maquette.
+///
+/// L'AppBar porte le même nom, mais le bandeau identifie la ligne dans le flux
+/// du programme et reste visible quand la liste défile.
+class _ChannelBand extends StatelessWidget {
+  const _ChannelBand({required this.channel});
 
-  final String groupId;
+  final Channel channel;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final (icon, title, message) = switch (groupId) {
-      'fav' => (
-          Icons.favorite_border_rounded,
-          'Aucune chaîne favorite',
-          "Appuie sur le cœur d'une chaîne pour la retrouver ici.",
-        ),
-      'recent' => (
-          Icons.history_rounded,
-          'Aucune chaîne récente',
-          'Les chaînes regardées s\'afficheront ici.',
-        ),
-      _ => (
-          Icons.live_tv_outlined,
-          'Aucune chaîne dans ce groupe',
-          'Ce groupe ne contient aucune chaîne.',
-        ),
-    };
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Container(
+      color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Row(
         children: [
-          Icon(icon, size: 48, color: scheme.outline),
-          const SizedBox(height: 12),
-          Text(title, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 4),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: scheme.onSurfaceVariant),
+          if (channel.orderNum > 0) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '.${channel.orderNum}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: scheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              channel.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -398,109 +384,13 @@ class _EmptyCategory extends StatelessWidget {
   }
 }
 
-/// Tuile de chaîne du niveau 1.
-class _ChannelReplayCard extends StatelessWidget {
-  const _ChannelReplayCard({
-    required this.name,
-    required this.logoUrl,
-    required this.programCount,
-    required this.latestLabel,
-    required this.onTap,
-  });
-
-  final String name;
-  final String logoUrl;
-  final int programCount;
-  final String? latestLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return TvFocus(
-      onActivate: onTap,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Card(
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: scheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Center(
-                    child: logoUrl.isEmpty
-                        ? Icon(Icons.live_tv_rounded,
-                            size: 40, color: scheme.outline)
-                        : OrbitCachedImage(
-                            imageUrl: logoUrl,
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => Icon(
-                              Icons.live_tv_rounded,
-                              size: 40,
-                              color: scheme.outline,
-                            ),
-                            errorWidget: (context, url, error) => Icon(
-                              Icons.live_tv_rounded,
-                              size: 40,
-                              color: scheme.outline,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.replay_rounded, size: 12, color: scheme.primary),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$programCount',
-                      style: theme.textTheme.labelMedium
-                          ?.copyWith(color: scheme.primary),
-                    ),
-                    if (latestLabel != null) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          latestLabel!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// et une heure.
+/// Le détail : bandeau de chaîne, onglets de jours, puis les programmes du
+/// jour en lignes de table.
 class _ReplayDayView extends StatefulWidget {
-  const _ReplayDayView({required this.channel});
+  const _ReplayDayView({required this.channel, required this.items});
 
-  final _ChannelReplays channel;
+  final Channel channel;
+  final List<ReplayItem> items;
 
   @override
   State<_ReplayDayView> createState() => _ReplayDayViewState();
@@ -521,9 +411,13 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    final sorted = [...widget.channel.items]
-      ..sort((a, b) => (b.startAt ?? b.startDate ?? DateTime(1900))
-          .compareTo(a.startAt ?? a.startDate ?? DateTime(1900)));
+    // Ordre chronologique ASCENDANT : la journée se lit comme une grille TV,
+    // de 00:00 en haut à 23:59 en bas. L'ordre inverse (20:50, 20:45, 20:00…)
+    // imposait de remonter la liste pour suivre l'heure.
+    final sorted = [...widget.items]..sort(
+        (a, b) => (a.startAt ?? a.startDate ?? DateTime(1900))
+            .compareTo(b.startAt ?? b.startDate ?? DateTime(1900)),
+      );
 
     // Regroupement par jour local.
     final byDay = <DateTime, List<ReplayItem>>{};
@@ -534,33 +428,49 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
           .putIfAbsent(DateTime(d.year, d.month, d.day), () => <ReplayItem>[])
           .add(item);
     }
+
     if (byDay.isEmpty) {
-      return Center(
-        child: Text(
-          'Aucun replay disponible',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant),
-        ),
+      // Le bandeau reste affiché même sans programme : c'est lui qui dit de
+      // quelle chaîne il s'agit, et l'utilisateur vient de choisir cette
+      // chaîne. Le faire disparaître avec la liste rendait l'écran vide sans
+      // sujet.
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ChannelBand(channel: widget.channel),
+          const Divider(height: 1),
+          Expanded(child: _noProgram(theme, scheme)),
+        ],
       );
     }
 
-    final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
-    final active = days.contains(_selectedDay) ? _selectedDay! : days.first;
+    // Le jour le plus récent reste le jour affiché par défaut (c'est le cas
+    // d'usage dominant), mais les onglets se lisent de gauche à droite dans le
+    // sens du temps : le plus ancien à gauche, aujourd'hui à droite. L'ordre
+    // inverse — aujourd'hui, hier, avant-hier — se lisait à l'envers.
+    final newestFirst = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+    final active = newestFirst.contains(_selectedDay)
+        ? _selectedDay!
+        : newestFirst.first;
+    final tabs = newestFirst.reversed.toList(growable: false);
     final items = byDay[active] ?? const <ReplayItem>[];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── Bandeau de chaîne ──────────────────────────────────────────────
+        _ChannelBand(channel: widget.channel),
+        const Divider(height: 1),
         // ── Onglets de jours ─────────────────────────────────────────────
         SizedBox(
           height: 48,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: days.length,
+            itemCount: tabs.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, i) {
-              final day = days[i];
+              final day = tabs[i];
               final isActive = day == active;
               return ChoiceChip(
                 label: Text(_tabLabel(day)),
@@ -582,23 +492,58 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
           ),
         ),
         const Divider(height: 1),
-        // ── Fiches du jour sélectionné ──────────────────────────────────
+        // ── Lignes du jour sélectionné ───────────────────────────────────
         Expanded(
           child: ListView.separated(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) =>
-                _ReplaySlotRow(slot: items[i], dayStamp: _stampPrefix(active)),
+            // Un filet entre les lignes : la lecture est verticale et continue,
+            // comme les bandes de la grille des programmes.
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) => _ReplaySlotRow(
+              slot: items[i],
+              dayStamp: _stampPrefix(active),
+            ),
           ),
         ),
       ],
     );
   }
 
-  /// Préfixe de date commun à toutes les fiches d'un même jour : « sept. 12 ».
-  String _stampPrefix(DateTime day) {
-    return '${day.day} ${_months[day.month - 1]}';
+  /// Préfixe de date commun à toutes les lignes d'un même jour : « sept. 12 ».
+  String _stampPrefix(DateTime day) => '${day.day} ${_months[day.month - 1]}';
+
+  /// Message quand la chaîne n'a rien de rejouable.
+  ///
+  /// Les deux causes sont distinguées dans le texte : soit le panel ne publie
+  /// rien pour cette chaîne, soit la fenêtre du compte ne couvre pas ce
+  /// programme. Un « aucun replay » nu ne permettait aucune de ces réponses.
+  Widget _noProgram(ThemeData theme, ColorScheme scheme) {
+    final days = widget.channel.archiveDays;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.replay_rounded, size: 48, color: scheme.outline),
+            const SizedBox(height: 12),
+            Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Text(
+              days > 0
+                  ? 'Aucun programme déjà diffusé dans les $days jours '
+                      'd\'archives de ce compte pour cette chaîne.'
+                  : 'Le panel ne publie aucun programme déjà diffusé pour cette '
+                      'chaîne.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _tabLabel(DateTime day) {
@@ -611,6 +556,7 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   }
 }
 
+/// Une ligne de la table : titre, intervalle daté, description.
 class _ReplaySlotRow extends StatelessWidget {
   const _ReplaySlotRow({required this.slot, this.dayStamp});
 
@@ -646,26 +592,32 @@ class _ReplaySlotRow extends StatelessWidget {
     final theme = Theme.of(context);
     return TvFocus(
       onActivate: () => _play(context),
-      child: Card(
-        margin: EdgeInsets.zero,
+      // Ligne de table : ni carte ni ombre. Le relief faisait lire ces
+      // programmes comme des objets empilés, alors que la maquette les veut en
+      // bandes successives.
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: () => _play(context),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Titre d'abord, puis l'intervalle : l'ordre de la maquette.
+                // L'inverser donnait l'horaire comme une ligne d'en-tête et le
+                // titre comme une légende.
+                Text(
+                  slot.title,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   _range,
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  slot.title,
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (slot.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -733,6 +685,53 @@ class _ReplaySlotRow extends StatelessWidget {
           subtitle: subtitle,
           streamUrl: slot.streamUrl,
         ),
+      ),
+    );
+  }
+}
+
+/// État vide d'une catégorie du rail (favoris, récents, groupe vide).
+class _EmptyCategory extends StatelessWidget {
+  const _EmptyCategory({required this.groupId});
+
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final (icon, title, message) = switch (groupId) {
+      'fav' => (
+          Icons.favorite_border_rounded,
+          'Aucune chaîne favorite',
+          "Appuie sur le cœur d'une chaîne pour la retrouver ici.",
+        ),
+      'recent' => (
+          Icons.history_rounded,
+          'Aucune chaîne récente',
+          'Les chaînes regardées s\'afficheront ici.',
+        ),
+      _ => (
+          Icons.live_tv_outlined,
+          'Aucune chaîne dans ce groupe',
+          'Ce groupe ne contient aucune chaîne rejouable.',
+        ),
+    };
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 48, color: scheme.outline),
+          const SizedBox(height: 12),
+          Text(title, style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

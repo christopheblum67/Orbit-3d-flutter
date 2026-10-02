@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 
@@ -27,6 +28,23 @@ class Channel {
   /// replay et la fenêtre peut s'ouvrir jusqu'à la valeur annoncée.
   final int archiveDays;
 
+  /// Mode de substitution du catch-up, tel que le provider le déclare :
+  /// `default`, `append`, `shift`, `flussonic`, `xc`.
+  ///
+  /// Le mode ne sert pas à piloter le lecteur mais à interpréter
+  /// [catchupSource] : `append` construit l'URL à partir du flux live, `shift`
+  /// et `xc` attendent `start`/`duration` en secondes, `flussonic` un chemin
+  /// horodaté. Ignorer ce champ et toujours fabriquer un `timeshift.php`
+  /// produisait des URL que le panel ne reconnaît pas.
+  final String catchupMode;
+
+  /// Modèle d'URL du catch-up (`catchup-source`), avec ses variables `{utc}`,
+  /// `{duration}`, `{offset}`, `{Y}`… à substituer au moment de la lecture.
+  ///
+  /// C'est la source de vérité du chemin de replay : l'URL doit venir
+  /// d'ici, pas d'une convention devinée.
+  final String catchupSource;
+
   /// Identifiants EPG candidats pour cette chaîne (formes `{stream_id}` et
   /// `{num}:{stream_id}`), déduits de [epgChannelId].
   ///
@@ -46,6 +64,23 @@ class Channel {
   String get primaryEpgChannelId =>
       epgChannelIds.isEmpty ? '' : epgChannelIds.first;
 
+  /// La chaîne archive au-delà de 48 h — « grand replay ».
+  ///
+  /// Le seuil est de **3 jours** : `tv_archive_duration > 2`, soit
+  /// `catchup-days > 2` en M3U. 48 h est le cas particulier de 2 jours, pas la
+  /// borne haute : un compte à 7 ou 14 jours sort du lot, et c'est cette
+  /// information qui décide si l'onglet des jours d'une chaîne mérite
+  /// d'exister ou s'il ne peut structurellement contenir que la grille.
+  bool get hasExtendedCatchup => supportsReplay && archiveDays > 2;
+
+  /// Rétention annoncée, en jours, ou `null` si le panel ne déclare rien.
+  ///
+  /// `null` et `0` ne veulent pas dire la même chose : `0` signifie « cette
+  /// chaîne n'archive pas », `null` « le panel ne l'a pas dit ». L'écran Replay
+  /// distingue les deux dans son message, sinon un vide muet était
+  /// indifférenciable d'une fenêtre dépassée.
+  int? get catchupDays => archiveDays > 0 ? archiveDays : null;
+
   Channel({
     required this.id,
     required this.name,
@@ -59,15 +94,27 @@ class Channel {
     this.supportsReplay = false,
     this.timeshift = Duration.zero,
     this.archiveDays = 0,
+    this.catchupMode = '',
+    this.catchupSource = '',
   });
 
   factory Channel.fromMap(Map<String, dynamic> map) {
+    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    map = PanelText.decodeMap(map);
     final radioTv = map['radio_tv']?.toString().toLowerCase() ?? '';
     final tvArchive = map['tv_archive']?.toString().toLowerCase();
     final hasArchive =
         tvArchive == '1' || tvArchive == 'true' || tvArchive == 'yes';
     final timeshiftSeconds =
         int.tryParse('${map['timeshift_seconds'] ?? '0'}') ?? 0;
+    // Certains panels Xtream renvoient les mêmes attributs que le M3U, et
+    // d'autres n'en renvoient aucun. On les lit quand ils existent : sans eux
+    // la fenêtre retombe sur la valeur par défaut et le chemin de replay reste
+    // celui de `timeshift.php`.
+    final catchupMode = map['catchup']?.toString().trim().toLowerCase() ?? '';
+    final catchupSource = map['catchup_source']?.toString().trim() ?? '';
+    final catchupDays = int.tryParse('${map['catchup_days'] ?? ''}') ?? 0;
+    final archiveDaysField = int.tryParse('${map['tv_archive_duration'] ?? ''}') ?? 0;
     final streamId = firstNonEmpty([map['stream_id'], map['id']]);
     final channelNum = map['num']?.toString() ?? '';
     // Xtream ne renvoie AUCUN champ `epg_channel_id` : la liaison vers le
@@ -95,11 +142,23 @@ class Channel {
       epgChannelId: epgCandidates.join(','),
       orderNum: _parseNumValue(map['num']),
       rating: (map['rating'] as num?)?.toDouble() ?? 0,
-      supportsReplay: radioTv == 'dvr' || hasArchive || timeshiftSeconds > 0,
+      supportsReplay: radioTv == 'dvr' ||
+          hasArchive ||
+          timeshiftSeconds > 0 ||
+          catchupDays > 0 ||
+          catchupSource.isNotEmpty,
       timeshift: Duration(seconds: timeshiftSeconds),
-      archiveDays: hasArchive
-          ? (int.tryParse('${map['tv_archive_duration'] ?? ''}') ?? 0)
-          : 0,
+      // La fenêtre est prioritairement celle annoncée par le panel. Avant,
+      // `hasArchive` à lui seul suffisait à remettre la fenêtre à zéro, et une
+      // chaîne qui archive bel et bien se retrouvait filtrée comme si elle
+      // n'archivait rien.
+      archiveDays: archiveDaysField > 0
+          ? archiveDaysField
+          : catchupDays > 0
+              ? catchupDays
+              : 0,
+      catchupMode: catchupMode,
+      catchupSource: catchupSource,
     );
   }
 
