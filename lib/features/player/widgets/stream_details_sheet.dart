@@ -98,7 +98,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       } else {
         _subtitleTracks = const <SubtitleTrackRef>[];
         _subtitleGuessed = false;
-        _subtitleError = 'Le panel n\'a pas répondu.';
+        _subtitleError = AppLocalizations.of(context).subtitleProviderNoAnswer;
       }
     });
   }
@@ -198,7 +198,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Fermer',
+                    tooltip: l.close,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close),
                   ),
@@ -223,8 +223,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 color: scheme.error,
                               ),
                               const SizedBox(height: 12),
-                              const Text(
-                                'Impossible de lire les pistes de ce flux.',
+                              Text(
+                                l.streamTracksError,
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 12),
@@ -238,13 +238,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                       : ListView(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           children: [
-                            _sectionTitle('Audio'),
+                            _sectionTitle(l.audioSection),
                             if (_audioTracks.isEmpty)
                               _EmptyRow(label: l.noAudioTrackDetected)
                             else
                               for (final track in _audioTracks)
                                 _TrackTile(
-                                  title: _audioLabel(track),
+                                  title: _audioLabel(track, l),
                                   // Pas de ligne de métadonnées : les pistes
                                   // audio s'identifient par leur langue, et
                                   // les canaux/codecs n'aidaient pas à choisir.
@@ -253,9 +253,9 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                   onTap: () => _selectAudio(track.id),
                                 ),
                             const SizedBox(height: 12),
-                            _sectionTitle('Vidéo'),
+                            _sectionTitle(l.videoSection),
                             _TrackTile(
-                              title: 'Automatique',
+                              title: l.autoQuality,
                               subtitle: l.autoQualityDescription,
                               selected: _selectedVideoId == 'auto',
                               onTap: () => _selectVideo(null),
@@ -265,13 +265,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                             else
                               for (final track in _videoTracks)
                                 _TrackTile(
-                                  title: _videoLabel(track),
+                                  title: _videoLabel(track, l),
                                   subtitle: _videoMeta(track),
                                   selected: _selectedVideoId == track.id,
                                   onTap: () => _selectVideo(track.id),
                                 ),
                             const SizedBox(height: 12),
-                            _sectionTitle('Sous-titres'),
+                            _sectionTitle(l.subtitleSection),
                             ..._buildSubtitleSection(),
                             const SizedBox(height: 16),
                           ],
@@ -293,6 +293,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// pouvait pas distinguer un panel qui ne publie rien d'un pansement de
   /// l'interface.
   List<Widget> _buildSubtitleSection() {
+    final l = AppLocalizations.of(context);
     final ctx = ref.read(activeSubtitleContextProvider);
     final active = ref.watch(subtitleControllerProvider).activeTrack;
 
@@ -300,18 +301,18 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       // Flux live : aucun identifiant de contenu, donc aucune découverte
       // possible. Dit explicitement, plutôt qu'un « indisponible » qui
       // ressemble à un défaut.
-      return const [
+      return [
         _EmptyRow(
-          label: 'Non applicable',
-          info: 'Un flux direct ne publie pas de piste de sous-titre.',
+          label: l.subtitleNotApplicable,
+          info: l.subtitleNotApplicableInfo,
         ),
       ];
     }
 
     if (_subtitleLoading) {
-      return const [
+      return [
         Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Center(
             child: SizedBox(
               width: 18,
@@ -325,27 +326,22 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
     if (_subtitleError != null) {
       return [
-        _EmptyRow(label: 'Indisponible', info: _subtitleError!),
+        _EmptyRow(label: l.subtitleUnavailable, info: _subtitleError!),
       ];
     }
 
     final tracks = _subtitleTracks;
     if (tracks.isEmpty) {
-      return const [
-        _EmptyRow(
-          label: 'Aucune piste',
-          info: 'Le panel ne publie de sous-titre pour ce contenu.',
-        ),
+      return [
+        _EmptyRow(label: l.subtitleNoTrack, info: l.subtitleNoTrackInfo),
       ];
     }
 
     return [
       if (_subtitleGuessed)
-        const _EmptyRow(
-          label: 'Pistes déduites',
-          info: 'Le panel ne déclare pas ses sous-titres : ces pistes sont '
-              'obtenues par convention d\'URL. Celle qui n\'existe pas signale '
-              'une erreur à l\'activation.',
+        _EmptyRow(
+          label: l.subtitleGuessed,
+          info: l.subtitleGuessedInfo,
         ),
       for (final track in tracks)
         _TrackTile(
@@ -365,6 +361,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
   Future<void> _selectSubtitle(SubtitleTrackRef track) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = AppLocalizations.of(context);
     // Une piste est une LANGUE, pas une URL : on essaie la forme principale
     // puis ses variantes (`12345_fr.srt`, puis `12345_fre.srt`). Le panel n'en
     // sert en général qu'une, et l'autre répond 200 avec une page d'erreur —
@@ -400,8 +397,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       SnackBar(
         content: Text(
           lastError == null
-              ? 'Sous-titre indisponible'
-              : 'Sous-titre indisponible : $lastError',
+              ? l.subtitleUnavailableToast
+              : l.subtitleUnavailableDetail('$lastError'),
         ),
       ),
     );
@@ -430,21 +427,21 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// Español, et toutes les autres formesCourantes). Sans cela la liste
   /// affichait « eng » ou « fre », ce qui n'est pas une information pour
   /// l'utilisateur.
-  static String _audioLabel(VideoAudioTrack track) {
+  static String _audioLabel(VideoAudioTrack track, AppLocalizations l) {
     final label = track.label;
     if (label != null && label.isNotEmpty && label != 'Audio') {
       return LanguageLabel.of(label, fallback: label);
     }
-    return LanguageLabel.of(track.language, fallback: 'Piste audio');
+    return LanguageLabel.of(track.language, fallback: l.audioTrackFallback);
   }
 
-  static String _videoLabel(VideoTrack track) {
+  static String _videoLabel(VideoTrack track, AppLocalizations l) {
     final label = track.label;
     if (label != null && label.isNotEmpty) return label;
     if (track.width != null && track.height != null) {
       return '${track.width}×${track.height}';
     }
-    return 'Qualité vidéo';
+    return l.videoQualityFallback;
   }
 
   static String _videoMeta(VideoTrack track) {

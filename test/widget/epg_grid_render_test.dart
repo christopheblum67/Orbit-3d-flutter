@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/utils/epg_gap_filler.dart' as gap;
 
@@ -10,7 +12,8 @@ List<EPGProgram> fillForTest({
   required DateTime start,
   required DateTime end,
 }) =>
-    gap.EpgGapFiller.fill(programs: programs, windowStart: start, windowEnd: end);
+    gap.EpgGapFiller.fill(
+        programs: programs, windowStart: start, windowEnd: end);
 
 /// Programme d'une heure, dans la fenêtre de la journée.
 EPGProgram prog(String title, int startHour) {
@@ -29,6 +32,17 @@ EPGProgram prog(String title, int startHour) {
 /// page réelle (le `Expanded` de l'écran).
 Widget harness(List<String> channels, Map<String, List<EPGProgram>> data) {
   return MaterialApp(
+    // Les delegates sont nécessaires : la grille lit ses libellés via
+    // `AppLocalizations.of(context)`, qui renvoie null sans eux. Un test sans
+    // delegates échouerait alors même que l'écran, lui, fonctionne.
+    locale: const Locale('fr'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(
       body: Center(
         child: SizedBox(
@@ -62,9 +76,9 @@ void main() {
         reason: 'la grille doit se monter même sans aucune donnée',
       );
 
-      final before =
-          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView))
-              .debugDataRevision;
+      final before = tester
+          .state<EpgGrid2DViewState>(find.byType(EpgGrid2DView))
+          .debugDataRevision;
 
       // Les données arrivent après coup, comme le fait le chargement EPG.
       await tester.pumpWidget(
@@ -77,9 +91,9 @@ void main() {
 
       // C'est l'assertion qui compte : la révision doit avoir changé, sinon
       // aucune ligne déjà affichée ne se repeint et la grille reste vide.
-      final after =
-          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView))
-              .debugDataRevision;
+      final after = tester
+          .state<EpgGrid2DViewState>(find.byType(EpgGrid2DView))
+          .debugDataRevision;
       expect(
         after,
         greaterThan(before),
@@ -92,7 +106,9 @@ void main() {
     testWidgets('des données identiques ne déclenchent pas de repeint inutile',
         (tester) async {
       await tester.pumpWidget(
-        harness(['TF1 HD'], {
+        harness([
+          'TF1 HD'
+        ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
       );
@@ -102,7 +118,9 @@ void main() {
       final revision = state.debugDataRevision;
 
       await tester.pumpWidget(
-        harness(['TF1 HD'], {
+        harness([
+          'TF1 HD'
+        ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
       );
@@ -119,7 +137,10 @@ void main() {
     testWidgets('les canaux sans données ne provoquent pas d\'exception',
         (tester) async {
       await tester.pumpWidget(
-        harness(['A', 'B'], {
+        harness([
+          'A',
+          'B'
+        ], {
           'A': [prog('X', 8)],
           // 'B' volontairement absent : c'est le cas réel de la plupart des
           // chaînes d'un panel.
@@ -129,16 +150,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('un changement de catégorie reconstruit la grille', (tester) async {
+    testWidgets('un changement de catégorie reconstruit la grille',
+        (tester) async {
       await tester.pumpWidget(
-        harness(['TF1 HD'], {
+        harness([
+          'TF1 HD'
+        ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
       );
       await tester.pump();
 
       await tester.pumpWidget(
-        harness(['SPORT 1'], {
+        harness([
+          'SPORT 1'
+        ], {
           'SPORT 1': [prog('FOOT', 20)],
         }),
       );

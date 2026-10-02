@@ -1035,4 +1035,89 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get yourChannelsAndContent => 'Ihre Sender & Inhalte';
+
+  @override
+  String get subtitleSection => 'Untertitel';
+
+  @override
+  String get audioSection => 'Audio';
+
+  @override
+  String get videoSection => 'Video';
+
+  @override
+  String get autoQuality => 'Automatisch';
+
+  @override
+  String get subtitleNotApplicable => 'Nicht zutreffend';
+
+  @override
+  String get subtitleNotApplicableInfo =>
+      'Ein Livestream stellt keine Untertitelspur bereit.';
+
+  @override
+  String get subtitleUnavailable => 'Nicht verfügbar';
+
+  @override
+  String get subtitleNoTrack => 'Keine Spur';
+
+  @override
+  String get subtitleNoTrackInfo =>
+      'Der Anbieter liefert für diesen Inhalt keine Untertitel.';
+
+  @override
+  String get subtitleGuessed => 'Ermittelte Spuren';
+
+  @override
+  String get subtitleGuessedInfo =>
+      'Der Anbieter deklariert keine Untertitel: Diese Spuren werden aus einer URL-Konvention abgeleitet. Eine nicht vorhandene Spur meldet beim Aktivieren einen Fehler.';
+
+  @override
+  String get subtitleUnavailableToast => 'Untertitel nicht verfügbar';
+
+  @override
+  String get audioTrackFallback => 'Tonspur';
+
+  @override
+  String get subtitleLoading => 'Untertitel werden geladen…';
+
+  @override
+  String get videoQualityFallback => 'Videoqualität';
+
+  @override
+  String get close => 'Schließen';
+
+  @override
+  String get streamTracksError =>
+      'Die Spuren dieses Streams konnten nicht gelesen werden.';
+
+  @override
+  String get subtitleProviderNoAnswer => 'Der Anbieter hat nicht geantwortet.';
+
+  @override
+  String subtitleUnavailableDetail(Object reason) {
+    return 'Untertitel nicht verfügbar: $reason';
+  }
+
+  @override
+  String get epgNoDataTitle => 'Keine Programmdaten';
+
+  @override
+  String get epgLiveNow => 'Live';
+
+  @override
+  String get epgSelectChannelHint =>
+      'Wählen Sie einen Sender, um sein Programm zu sehen';
+
+  @override
+  String get epgNow => 'Jetzt';
+
+  @override
+  String get epgZoomIn => 'Vergrößern';
+
+  @override
+  String get epgZoomOut => 'Verkleinern';
+
+  @override
+  String get epgNoCurrentProgram => 'Kein laufendes Programm';
 }

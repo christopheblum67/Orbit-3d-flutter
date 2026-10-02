@@ -2013,6 +2013,162 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Vos chaînes & contenus'**
   String get yourChannelsAndContent;
+
+  /// No description provided for @subtitleSection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres'**
+  String get subtitleSection;
+
+  /// No description provided for @audioSection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Audio'**
+  String get audioSection;
+
+  /// No description provided for @videoSection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vidéo'**
+  String get videoSection;
+
+  /// No description provided for @autoQuality.
+  ///
+  /// In fr, this message translates to:
+  /// **'Automatique'**
+  String get autoQuality;
+
+  /// No description provided for @subtitleNotApplicable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non applicable'**
+  String get subtitleNotApplicable;
+
+  /// No description provided for @subtitleNotApplicableInfo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un flux direct ne publie pas de piste de sous-titre.'**
+  String get subtitleNotApplicableInfo;
+
+  /// No description provided for @subtitleUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Indisponible'**
+  String get subtitleUnavailable;
+
+  /// No description provided for @subtitleNoTrack.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune piste'**
+  String get subtitleNoTrack;
+
+  /// No description provided for @subtitleNoTrackInfo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel ne publie de sous-titre pour ce contenu.'**
+  String get subtitleNoTrackInfo;
+
+  /// No description provided for @subtitleGuessed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pistes déduites'**
+  String get subtitleGuessed;
+
+  /// No description provided for @subtitleGuessedInfo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel ne déclare pas ses sous-titres : ces pistes sont obtenues par convention d\'URL. Celle qui n\'existe pas signale une erreur à l\'activation.'**
+  String get subtitleGuessedInfo;
+
+  /// No description provided for @subtitleUnavailableToast.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titre indisponible'**
+  String get subtitleUnavailableToast;
+
+  /// No description provided for @audioTrackFallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Piste audio'**
+  String get audioTrackFallback;
+
+  /// No description provided for @subtitleLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement des sous-titres…'**
+  String get subtitleLoading;
+
+  /// No description provided for @videoQualityFallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Qualité vidéo'**
+  String get videoQualityFallback;
+
+  /// No description provided for @close.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermer'**
+  String get close;
+
+  /// No description provided for @streamTracksError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lire les pistes de ce flux.'**
+  String get streamTracksError;
+
+  /// No description provided for @subtitleProviderNoAnswer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel n\'a pas répondu.'**
+  String get subtitleProviderNoAnswer;
+
+  /// No description provided for @subtitleUnavailableDetail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titre indisponible : {reason}'**
+  String subtitleUnavailableDetail(Object reason);
+
+  /// No description provided for @epgNoDataTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune donnée de programme'**
+  String get epgNoDataTitle;
+
+  /// No description provided for @epgLiveNow.
+  ///
+  /// In fr, this message translates to:
+  /// **'En Direct'**
+  String get epgLiveNow;
+
+  /// No description provided for @epgSelectChannelHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez une chaîne pour voir son programme'**
+  String get epgSelectChannelHint;
+
+  /// No description provided for @epgNow.
+  ///
+  /// In fr, this message translates to:
+  /// **'Maintenant'**
+  String get epgNow;
+
+  /// No description provided for @epgZoomIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Zoomer'**
+  String get epgZoomIn;
+
+  /// No description provided for @epgZoomOut.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dézoomer'**
+  String get epgZoomOut;
+
+  /// No description provided for @epgNoCurrentProgram.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun programme en cours'**
+  String get epgNoCurrentProgram;
 }
 
 class _AppLocalizationsDelegate

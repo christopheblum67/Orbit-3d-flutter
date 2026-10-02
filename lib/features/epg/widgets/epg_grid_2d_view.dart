@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerScaleEvent;
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
@@ -448,6 +449,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   @override
   Widget build(BuildContext context) {
     _rebuildRenderCache();
+    final l = AppLocalizations.of(context);
 
     // Largeur de la journée = 24 h × échelle. Elle doit valoir EXACTEMENT ce que
     // valent les positions des programmes (`minutes × pixelsPerMinute`), sinon
@@ -474,9 +476,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                 Container(
                   width: channelWidth,
                   alignment: Alignment.center,
-                  child: const Text(
-                    'En Direct',
-                    style: TextStyle(
+                  child: Text(
+                    l.epgLiveNow,
+                    style: const TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.bold,
                       fontSize: 11,
@@ -485,14 +487,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.zoom_out, size: 18),
-                  tooltip: 'Dézoomer',
+                  tooltip: l.epgZoomOut,
                   color: Colors.white70,
                   visualDensity: VisualDensity.compact,
                   onPressed: _zoomOut,
                 ),
                 IconButton(
                   icon: const Icon(Icons.access_time, size: 18),
-                  tooltip: 'Maintenant',
+                  tooltip: l.epgNow,
                   color: const Color(0xFF8B5CF6),
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
@@ -501,7 +503,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.zoom_in, size: 18),
-                  tooltip: 'Zoomer',
+                  tooltip: l.epgZoomIn,
                   color: Colors.white70,
                   visualDensity: VisualDensity.compact,
                   onPressed: _zoomIn,

@@ -1015,4 +1015,85 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get yourChannelsAndContent => 'قنواتك ومحتواك';
+
+  @override
+  String get subtitleSection => 'الترجمة';
+
+  @override
+  String get audioSection => 'الصوت';
+
+  @override
+  String get videoSection => 'الفيديو';
+
+  @override
+  String get autoQuality => 'تلقائي';
+
+  @override
+  String get subtitleNotApplicable => 'لا ينطبق';
+
+  @override
+  String get subtitleNotApplicableInfo => 'البث المباشر لا يوفر مسار ترجمة.';
+
+  @override
+  String get subtitleUnavailable => 'غير متاح';
+
+  @override
+  String get subtitleNoTrack => 'لا يوجد مسار';
+
+  @override
+  String get subtitleNoTrackInfo => 'لا يوفّر المزوّد ترجمات لهذا المحتوى.';
+
+  @override
+  String get subtitleGuessed => 'مسارات مُستنتجة';
+
+  @override
+  String get subtitleGuessedInfo =>
+      'لا يعلن المزوّد ترجماته: تُشتق هذه المسارات من اصطلاح عنوان URL. وأي مسار غير موجود سيُبلّغ عن خطأ عند التفعيل.';
+
+  @override
+  String get subtitleUnavailableToast => 'الترجمة غير متاحة';
+
+  @override
+  String get audioTrackFallback => 'مسار صوتي';
+
+  @override
+  String get subtitleLoading => 'جارٍ تحميل الترجمة…';
+
+  @override
+  String get videoQualityFallback => 'جودة الفيديو';
+
+  @override
+  String get close => 'إغلاق';
+
+  @override
+  String get streamTracksError => 'تعذّرت قراءة مسارات هذا البث.';
+
+  @override
+  String get subtitleProviderNoAnswer => 'لم يستجب المزوّد.';
+
+  @override
+  String subtitleUnavailableDetail(Object reason) {
+    return 'الترجمة غير متاحة: $reason';
+  }
+
+  @override
+  String get epgNoDataTitle => 'لا توجد بيانات برامج';
+
+  @override
+  String get epgLiveNow => 'مباشر';
+
+  @override
+  String get epgSelectChannelHint => 'اختر قناة لعرض برنامجها';
+
+  @override
+  String get epgNow => 'الآن';
+
+  @override
+  String get epgZoomIn => 'تكبير';
+
+  @override
+  String get epgZoomOut => 'تصغير';
+
+  @override
+  String get epgNoCurrentProgram => 'لا يوجد برنامج جارٍ';
 }

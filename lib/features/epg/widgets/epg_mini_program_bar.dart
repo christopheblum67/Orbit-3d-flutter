@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
@@ -22,6 +24,7 @@ class EpgMiniProgramBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return ValueListenableBuilder<DateTime>(
       valueListenable: controller.now,
       builder: (context, now, _) {
@@ -52,10 +55,10 @@ class EpgMiniProgramBar extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: channelName == null
-                        ? const Text(
-                            'Sélectionnez une chaîne pour voir son programme',
-                            style:
-                                TextStyle(color: Colors.white38, fontSize: 12),
+                        ? Text(
+                            l.epgSelectChannelHint,
+                            style: const TextStyle(
+                                color: Colors.white38, fontSize: 12),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -77,7 +80,7 @@ class EpgMiniProgramBar extends StatelessWidget {
                                       current != null
                                           ? '${current.title}  '
                                               '${_fmt(current.start)} - ${_fmt(current.end)}'
-                                          : 'Aucun programme en cours',
+                                          : l.epgNoCurrentProgram,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
