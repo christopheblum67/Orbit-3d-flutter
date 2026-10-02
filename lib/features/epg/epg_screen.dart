@@ -19,6 +19,8 @@ import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/utils/epg_search.dart';
+import 'package:orbit_3d_flutter/utils/epg_gap_filler.dart';
+import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
@@ -48,8 +50,9 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    final gridStartTime = DateTime(now.year, now.month, now.day, now.hour - 1);
+// Fenêtre de la journée, partagée avec le Replay : une seule définition de
+    // « la journée » dans toute l'application.
+    final gridStartTime = EpgDayWindow.ofNow().start;
     _timelineController = EpgTimelineController(
       gridStartTime: gridStartTime,
       pixelsPerMinute: 4.0,
@@ -509,26 +512,40 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     Map<String, List<EPGProgram>> out,
   ) async {
     final result = await safeAsync(
-      () => ref.read(channelEpgProvider(epgId).future),
-      context: '_loadOne channelEpgProvider',
+      // Variante GRILLE : programmes passés compris. La barre du lecteur ne veut
+      // que « en cours / à venir », mais la grille représente une journée
+      // entière — lui servir du « à venir » laissait la matinée vide, comblée par
+      // des blocs de trou alors que les données existaient dans le dump.
+      () => ref.read(channelEpgWindowProvider(epgId).future),
+      context: '_loadOne channelEpgWindowProvider',
     );
     if (result.isSuccess) {
-      // Fenêtre alignée sur la grille : elle démarre 1 h avant l'heure courante
-      // et couvre 24 h (cf. `EpgGrid2DView` : `_gridStartTime = now - 1h` et
-      // `totalWidth = 24 * 60 * pixelsPerMinute`).
+      // Fenêtre de la journée : minuit → minuit, et une seule définition pour
+      // toute l'application.
       //
-      // Le filtre d'origine (30 min avant / 3 h après) ne chargeait que
-      // ~10 % de la largeur utile : les 21 heures restantes s'affichaient
-      // vides, ce qui donnait l'impression d'un guide incomplet.
-      const windowStartOffset = -3600; // -1 h
-      const windowEndOffset = 86400; // +24 h
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final filtered = EPGSearchEngine.getProgramsInWindow(
+      // La grille commençait à « maintenant moins 1 h », ce qui décalait tout
+      // d'une heure par rapport au Replay (00:00 → 24 h) : deux définitions de la
+      // même journée, donc deux heures différentes pour un même programme. La
+      // spec est nette — T_start = 00:00, T_end = T_start + 24 h.
+      final window = EpgDayWindow.ofNow();
+      final windowStart = window.start;
+      final windowEnd = window.end;
+      final windowStartSec = windowStart.millisecondsSinceEpoch ~/ 1000;
+      final windowEndSec = windowEnd.millisecondsSinceEpoch ~/ 1000;
+      final inWindow = EPGSearchEngine.getProgramsInWindow(
         result.valueOrNull!,
-        now + windowStartOffset,
-        now + windowEndOffset,
+        windowStartSec,
+        windowEndSec,
       );
-      out[channelName] = filtered;
+      // Comblement des trous : l'axe de la grille est continu, donc une absence
+      // de données doit être un bloc, pas un blanc. Sans lui, un trou de 40 min
+      // se lisait comme un programme manquant et décalait la lecture de l'axe.
+      out[channelName] = EpgGapFiller.fill(
+        programs: inWindow,
+        windowStart: windowStart,
+        windowEnd: windowEnd,
+        channelId: channel.id,
+      );
     } else {
       LoggerService.instance
           .warning('_loadOne failed', error: result.errorOrNull);

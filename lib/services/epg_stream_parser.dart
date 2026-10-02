@@ -118,15 +118,51 @@ class EpgStreamParser {
 
   /// Extrait le contenu texte d'un sous-élément dans un bloc de texte brut.
   /// `<title>Mon programme</title>` → `"Mon programme"`.
+  ///
+  /// Le texte est dé-échappé : le XMLTV échappe l'apostrophe en `&apos;` et les
+  /// guillemets en `&quot;`, et le parseur travaille sur la chaîne BRUTE (pas
+  /// via un DOM XML), donc ces entités arrivaient telles quelles jusqu'à
+  /// l'écran. L'utilisateur lisait « C dans l&apos;achat ».
+  ///
+  /// `&amp;` est traité en DERNIER : un seul passage de dé-échappement, sinon
+  /// `&amp;apos;` se transformerait à tort en apostrophe.
   static String _extractElement(String body, String name) {
     final open = body.indexOf('<$name>');
     if (open == -1) return '';
     final contentStart = open + '<$name>'.length;
     final close = body.indexOf('</$name>', contentStart);
-    if (close == -1) {
-      // Pas de balise fermante : prendre jusqu'à la fin du bloc.
-      return body.substring(contentStart).trim();
-    }
-    return body.substring(contentStart, close).trim();
+    final raw = close == -1
+        // Pas de balise fermante : prendre jusqu'à la fin du bloc.
+        ? body.substring(contentStart)
+        : body.substring(contentStart, close);
+    return _unescapeXml(raw.trim());
+  }
+
+  /// Résout les cinq entités XML standard, plus les références numériques
+  /// (`&#39;`, `&#x27;`).
+  static String _unescapeXml(String value) {
+    if (!value.contains('&')) return value;
+    return value
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAllMapped(
+      RegExp(r'&#(\d+);'),
+      (m) {
+        final code = int.tryParse(m.group(1)!);
+        if (code == null || code < 0 || code > 0x10FFFF) return m.group(0)!;
+        return String.fromCharCode(code);
+      },
+    ).replaceAllMapped(
+      RegExp(r'&#[xX]([0-9a-fA-F]+);'),
+      (m) {
+        final code = int.tryParse(m.group(1)!, radix: 16);
+        if (code == null || code < 0 || code > 0x10FFFF) return m.group(0)!;
+        return String.fromCharCode(code);
+      },
+    )
+        // En dernier : `&amp;lt;` doit donner `&lt;` et non `<`.
+        .replaceAll('&amp;', '&');
   }
 }

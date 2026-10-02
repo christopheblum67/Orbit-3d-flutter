@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 enum ProgramCategory {
   movie,
@@ -90,8 +90,15 @@ class EPGProgram {
   final DateTime start;
   final DateTime end;
   final ProgramCategory category;
-  final int? startEpochSec;
-  final int? endEpochSec;
+
+  /// Programme factice, généré pour combler un trou de l'EPG.
+  ///
+  /// Les panels laissent des trous entre deux émissions. Sans bloc de
+  /// remplacement, la grille affichait un vide et surtout décalait la lecture :
+  /// l'axe horaire étant continu, un trou de 40 min se lisait comme une
+  /// absence de programme alors que c'en était un de données. Un bloc
+  /// explicite rend le trou visible **et** dit pourquoi.
+  final bool isDummy;
 
   EPGProgram({
     required this.channelId,
@@ -100,8 +107,7 @@ class EPGProgram {
     required this.start,
     required this.end,
     this.category = ProgramCategory.other,
-    this.startEpochSec,
-    this.endEpochSec,
+    this.isDummy = false,
   });
 
   DateTime get startTime => start;
@@ -115,9 +121,6 @@ class EPGProgram {
 
 extension EPGProgramX on EPGProgram {
   int get durationSec => end.difference(start).inSeconds;
-
-  int get startEpochSec => start.millisecondsSinceEpoch ~/ 1000;
-  int get endEpochSec => end.millisecondsSinceEpoch ~/ 1000;
 
   bool get isLiveNow {
     final now = DateTime.now();
