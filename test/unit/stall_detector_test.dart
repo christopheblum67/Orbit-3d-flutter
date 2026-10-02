@@ -1,3 +1,5 @@
+import 'dart:ui' show Size;
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
@@ -215,6 +217,164 @@ void main() {
         player.value = _playing(position: const Duration(seconds: 42));
         fa.elapse(_interval);
         expect(detector.isStalling, isFalse);
+        detector.dispose();
+      });
+    });
+
+    test('tampon profond + position figée au début : gel de DÉMARRAGE', () {
+      // C'est le cas relevé sur S20 : le flux arrivait (28 s de tampon) mais la
+      // position restait à 0 s, sur une piste 4K. Annoncer « connexion instable
+      // » aurait été faux — le réseau n'était pas en cause.
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(milliseconds: 1),
+            buffered: <DurationRange>[DurationRange(Duration.zero, const Duration(seconds: 28))],
+            size: const Size(3840, 2160),
+          ),
+        );
+        detector.start(player);
+        fa.elapse(_elapse);
+
+        expect(detector.isStalling, isTrue);
+        expect(detector.stallKind, StallKind.notStarted);
+        detector.dispose();
+      });
+    });
+
+    test('position figée en cours de lecture : gel de LECTURE', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(minutes: 12),
+            buffered: <DurationRange>[DurationRange(Duration.zero, const Duration(seconds: 30))],
+          ),
+        );
+        detector.start(player);
+        fa.elapse(_elapse);
+
+        expect(detector.isStalling, isTrue);
+        expect(detector.stallKind, StallKind.frozen);
+        detector.dispose();
+      });
+    });
+
+    test('buffering continu : gel de BUFFERING (le seul cas réseau)', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          const VideoPlayerValue(
+            duration: Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: false,
+            isBuffering: true,
+            position: Duration(minutes: 12),
+          ),
+        );
+        detector.start(player);
+        fa.elapse(_elapse);
+
+        expect(detector.isStalling, isTrue);
+        expect(detector.stallKind, StallKind.buffering);
+        detector.dispose();
+      });
+    });
+
+    test('la reprise remet la cause à none', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(minutes: 12),
+            buffered: <DurationRange>[DurationRange(Duration.zero, const Duration(seconds: 30))],
+          ),
+        );
+        detector.start(player);
+        fa.elapse(_elapse);
+        expect(detector.stallKind, isNot(StallKind.none));
+
+        player.value = const VideoPlayerValue(
+          duration: Duration(hours: 2),
+          isInitialized: true,
+          isPlaying: true,
+          position: Duration(minutes: 13),
+        );
+        fa.elapse(_interval);
+        expect(detector.stallKind, StallKind.none);
+        detector.dispose();
+      });
+    });
+
+    test('position figée MAIS tampon qui avance : aucun gel', () {
+      // Le cas mesuré sur S20 : la vidéo rend à l'écran, `position` reste à
+      // 1 ms, et seul le tampon progresse. Juger sur la position seule
+      // affichait « Aperçu figé » sur un flux parfaitement sain.
+      fakeAsync((fa) {
+        final detector = _detector();
+        var bufferedEnd = const Duration(seconds: 20);
+        final player = _FakePlayer(
+          VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(milliseconds: 1),
+            buffered: <DurationRange>[DurationRange(Duration.zero, bufferedEnd)],
+          ),
+        );
+        detector.start(player);
+
+        // Le tampon avance de 3 s à chaque check, la position jamais.
+        for (var i = 0; i < 6; i++) {
+          bufferedEnd += const Duration(seconds: 3);
+          player.value = VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(milliseconds: 1),
+            buffered: <DurationRange>[
+              DurationRange(Duration.zero, bufferedEnd),
+            ],
+          );
+          fa.elapse(_interval);
+        }
+
+        expect(detector.isStalling, isFalse);
+        expect(detector.stallKind, StallKind.none);
+        detector.dispose();
+      });
+    });
+
+    test('ni position ni tampon qui bougent : gel de LECTURE', () {
+      fakeAsync((fa) {
+        final detector = _detector();
+        final player = _FakePlayer(
+          VideoPlayerValue(
+            duration: const Duration(hours: 2),
+            isInitialized: true,
+            isPlaying: true,
+            position: const Duration(minutes: 12),
+            buffered: <DurationRange>[
+              DurationRange(Duration.zero, const Duration(seconds: 30)),
+            ],
+          ),
+        );
+        detector.start(player);
+        // Le tampon ne bouge pas d'un check à l'autre.
+        fa.elapse(_elapse);
+
+        expect(detector.isStalling, isTrue);
+        expect(detector.stallKind, StallKind.frozen);
         detector.dispose();
       });
     });

@@ -73,6 +73,14 @@ class Media3PlaybackProfile {
           maxBufferMs: 10000,
           bufferForPlaybackMs: 800,
           bufferForPlaybackAfterRebufferMs: 1200,
+          // Plafond à 1440p, malgré le nom du profil. Sans plafond, ExoPlayer
+          // négocie une piste 4K (3840×2160) sur des sources IPTV HEVC dont le
+          // décodage dépasse ce que le matériel sustained : le tampon se
+          // remplissait (28 s relevés) et la position restait bloquée à 0 s, ce
+          // qui se manifestait comme une fausse « connexion instable » alors
+          // que le flux arrivait très bien. 1440p passe sans saccade sur les
+          // appareils de cette gamme.
+          maxVideoHeight: 1440,
         ),
     };
   }

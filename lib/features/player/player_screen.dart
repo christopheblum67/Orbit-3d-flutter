@@ -36,7 +36,6 @@ import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/subtitle_controls_sheet.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -286,7 +285,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         return;
       }
       ref.read(activeSubtitleContextProvider.notifier).set(
-            SubtitleContext(contentId: contentId, isSeries: seriesId != null),
+            SubtitleContext(
+              contentId: contentId,
+              isSeries: seriesId != null,
+              // Pour un épisode, la découverte a besoin du stream id brut de
+              // l'épisode : `series_id` ne permet pas de synthétiser l'URL d'une
+              // piste, et l'écran finissait par n'en proposer aucune.
+              streamId: seriesId != null ? (widget.episode?.streamId ?? '') : '',
+            ),
           );
     });
     _channels = widget.channels;
@@ -1645,9 +1651,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
           onPip: onPip,
-          onSeekBack10: null,
           onSeekBack30: null,
-          onSeekForward10: null,
           onSeekForward30: null,
           castButton: castButton,
           streamDetails: streamDetails,
@@ -1667,9 +1671,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onNext: _hasNext ? _goNext : null,
           onTogglePlayPause: _togglePlayPause,
           onPip: onPip,
-          onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
-          onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
           castButton: castButton,
           streamDetails: streamDetails,
@@ -1687,9 +1689,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           onExit: _requestExit,
           onTogglePlayPause: _togglePlayPause,
           onPip: onPip,
-          onSeekBack10: () => _seekBy(const Duration(seconds: -10)),
           onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
-          onSeekForward10: () => _seekBy(const Duration(seconds: 10)),
           onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
           castButton: castButton,
           streamDetails: streamDetails,
@@ -1789,37 +1789,6 @@ Widget _fbNightFocus({
   );
 }
 
-/// Icône Sous-titres de la footerbar : ouvre le panneau de sélection/chargement.
-Widget _fbSubtitle({
-  required BuildContext context,
-  required WidgetRef ref,
-}) {
-  return IconButton(
-    tooltip: 'Sous-titres',
-    visualDensity: VisualDensity.compact,
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-    onPressed: () => showSubtitleControlsSheet(
-      context,
-      // Contexte de découverte des sous-titres. Un flux live ne publie rien :
-      // l'identifiant reste alors nul et la feuille retombe sur la saisie
-      // manuelle d'URL.
-      contentId: ref.read(activeSubtitleContextProvider)?.contentId,
-      isSeries: ref.read(activeSubtitleContextProvider)?.isSeries ?? false,
-    ),    icon: Consumer(
-      builder: (_, ref, __) {
-        final hasTrack =
-            ref.watch(subtitleControllerProvider).activeTrack != null;
-        return Icon(
-          hasTrack ? Icons.subtitles : Icons.subtitles_outlined,
-          color: hasTrack ? const Color(0xFF00CFE8) : Colors.white70,
-          size: 22,
-        );
-      },
-    ),
-  );
-}
-
 /// Petit badge numéro de chaîne / étiquette genre (#num ou chip métadonnée).
 class _ChannelBadge extends StatelessWidget {
   const _ChannelBadge({
@@ -1898,9 +1867,7 @@ class _LiveFooterBar extends ConsumerWidget {
     this.onNext,
     required this.onTogglePlayPause,
     this.onPip,
-    this.onSeekBack10,
     this.onSeekBack30,
-    this.onSeekForward10,
     this.onSeekForward30,
     this.castButton,
     required this.streamDetails,
@@ -1920,9 +1887,7 @@ class _LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onNext;
   final VoidCallback onTogglePlayPause;
   final VoidCallback? onPip;
-  final VoidCallback? onSeekBack10;
   final VoidCallback? onSeekBack30;
-  final VoidCallback? onSeekForward10;
   final VoidCallback? onSeekForward30;
   final Widget? castButton;
   final _FooterStreamDetails streamDetails;
@@ -2025,30 +1990,15 @@ class _LiveFooterBar extends ConsumerWidget {
                 onPrevious,
                 tooltip: l.previousChannel,
               ),
-            if (showSeek) ...[
+            if (showSeek)
               _fbIcon(
                 Icons.replay_30,
                 onSeekBack30,
                 tooltip: l.rewind30s,
                 color: Colors.white,
               ),
-              const SizedBox(width: 4),
-              _fbIcon(
-                Icons.replay_10,
-                onSeekBack10,
-                tooltip: l.rewind10s,
-                color: Colors.white,
-              ),
-            ],
             _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
             if (showSeek) ...[
-              _fbIcon(
-                Icons.forward_10,
-                onSeekForward10,
-                tooltip: l.forward10s,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 4),
               _fbIcon(
                 Icons.forward_30,
                 onSeekForward30,
@@ -2064,7 +2014,6 @@ class _LiveFooterBar extends ConsumerWidget {
               ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,
@@ -2095,9 +2044,7 @@ class _VodFooterBar extends ConsumerWidget {
     required this.isPlaying,
     required this.onExit,
     required this.onTogglePlayPause,
-    required this.onSeekBack10,
     required this.onSeekBack30,
-    required this.onSeekForward10,
     required this.onSeekForward30,
     this.onPip,
     this.castButton,
@@ -2116,9 +2063,7 @@ class _VodFooterBar extends ConsumerWidget {
   final VoidCallback onExit;
   final VoidCallback onTogglePlayPause;
   final VoidCallback? onPip;
-  final VoidCallback onSeekBack10;
   final VoidCallback onSeekBack30;
-  final VoidCallback onSeekForward10;
   final VoidCallback onSeekForward30;
   final Widget? castButton;
   final _FooterStreamDetails streamDetails;
@@ -2207,21 +2152,7 @@ class _VodFooterBar extends ConsumerWidget {
               tooltip: l.rewind30s,
               color: Colors.white,
             ),
-            const SizedBox(width: 4),
-            _fbIcon(
-              Icons.replay_10,
-              onSeekBack10,
-              tooltip: l.rewind10s,
-              color: Colors.white,
-            ),
             _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-            _fbIcon(
-              Icons.forward_10,
-              onSeekForward10,
-              tooltip: l.forward10s,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 4),
             _fbIcon(
               Icons.forward_30,
               onSeekForward30,
@@ -2230,7 +2161,6 @@ class _VodFooterBar extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            _fbSubtitle(context: context, ref: ref),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,

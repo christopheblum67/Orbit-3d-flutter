@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/services/stall_detector.dart';
 
 /// Overlay non-intrusif affichant l'état du monitoring réseau/stall/cooldown
 /// pendant la lecture. Se place au-dessus du player vidéo.
@@ -54,7 +55,7 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
                     if (stallDetector.isStalling &&
                         connectivity.isOnline &&
                         !isInCooldown)
-                      _buildStallingCard(context),
+                      _buildStallingCard(context, stallDetector.stallKind),
                     if (isInCooldown)
                       _buildCooldownCard(context, cooldownMessage!),
                   ],
@@ -81,13 +82,37 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildStallingCard(BuildContext context) {
+  Widget _buildStallingCard(BuildContext context, StallKind kind) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    // Le message nomme la CAUSE mesurée, pas une supposition. Dire
+    // « connexion instable » pour un flux dont le tampon est rempli (28 s
+    // relevés) alors que la position reste bloquée envoie l'utilisateur
+    // debugger sa box alors que le réseau fonctionne : c'est la lecture qui
+    // bloque, très souvent sur une piste trop lourde pour l'appareil.
+    final (title, message) = switch (kind) {
+      StallKind.notStarted => (
+          l.unstableConnection,
+          'Le flux est bien reçu mais la lecture ne démarre pas. '
+              'La piste est peut-être trop lourde pour cet appareil.',
+        ),
+      StallKind.frozen => (
+          l.unstableConnection,
+          'Le flux est reçu mais la lecture est figée.',
+        ),
+      StallKind.buffering => (
+          l.unstableConnection,
+          'Le flux ne progresse plus. Tentative de récupération…',
+        ),
+      StallKind.none => (
+          l.unstableConnection,
+          'Le flux ne progresse plus. Tentative de récupération…',
+        ),
+    };
     return _MonitorCard(
       icon: Icons.wifi_tethering_rounded,
-      title: l.unstableConnection,
-      message: 'Le flux ne progresse plus. Tentative de récupération…',
+      title: title,
+      message: message,
       showSpinner: true,
       iconColor: scheme.tertiary,
       backgroundColor: scheme.tertiaryContainer.withValues(alpha: 0.9),

@@ -5,6 +5,30 @@ import 'package:video_player/video_player.dart';
 
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
+/// Cause d'un gel de lecture.
+///
+/// La distinction est nécessaire parce que les remèdes n'ont rien de commun,
+/// et surtout parce qu'annoncer « connexion instable » pour un défaut de
+/// décodage envoie l'utilisateur debugger sa box alors que son réseau
+/// fonctionne parfaitement.
+enum StallKind {
+  /// Pas de gel.
+  none,
+
+  /// Le flux n'a jamais démarré : le tampon est rempli, mais la position
+  /// reste collée au début. Le réseau et le panel sont donc hors de cause —
+  /// c'est la lecture (piste trop lourde,surface absente) qui bloque.
+  notStarted,
+
+  /// La lecture a démarré puis s'est figée en cours de route, sans mise en
+  /// tampon : le flux est reçu, la position ne progresse plus.
+  frozen,
+
+  /// Le lecteur remplit sa mémoire tampon : c'est le seul cas où l'on peut
+  /// parler d'un problème de liaison ou de débit.
+  buffering,
+}
+
 /// Détecteur de « stall » (flux figé) pendant la lecture.
 ///
 /// Sur un flux LIVE, `controller.value.position` n'avance pas de façon continue :
@@ -62,6 +86,24 @@ class StallDetector extends ChangeNotifier {
   StallWatchable? _controller;
   Duration _lastPosition = Duration.zero;
 
+  /// Fin de la dernière plage de tampon vue.
+  ///
+  /// C'est le signal de progression retenu quand la position ne bouge pas : sur
+  /// les sources de ce panel la vidéo rend à l'écran alors que `position`
+  /// reste figée à 1 ms. L'extrémité du tampon est monotone et suit
+  /// réellement l'arrivée des données.
+  Duration _lastBufferedEnd = Duration.zero;
+
+  /// Fin de la dernière plage de tampon annoncée, ou zéro si aucune.
+  static Duration _bufferedEnd(VideoPlayerValue v) {
+    if (v.buffered.isEmpty) return Duration.zero;
+    var end = Duration.zero;
+    for (final range in v.buffered) {
+      if (range.end > end) end = range.end;
+    }
+    return end;
+  }
+
   /// Temps cumulé écoulé depuis [start], incrémenté de [checkInterval] à
   /// chaque check.
   ///
@@ -82,6 +124,7 @@ class StallDetector extends ChangeNotifier {
   int _bufferingChecks = 0;
   bool _isStalling = false;
   bool _isRunning = false;
+  StallKind _stallKind = StallKind.none;
 
   /// Nombre de checks consécutifs passé en état `isBuffering`.
   ///
@@ -92,6 +135,32 @@ class StallDetector extends ChangeNotifier {
 
   bool get isStalling => _isStalling;
   bool get isRunning => _isRunning;
+
+  /// Cause du gel courant, pour que l'interface puisse nommer le problème.
+  StallKind get stallKind => _stallKind;
+
+  /// Tampon encore disponible devant la position de lecture, en secondes.
+  ///
+  /// Sert à distinguer un gel de décodage (tampon profond, le flux EST là)
+  /// d'une coupure de liaison (tampon vide).
+  static double _bufferedAheadSeconds(VideoPlayerValue v) {
+    if (v.buffered.isEmpty) return 0;
+    final pos = v.position;
+    for (final range in v.buffered) {
+      if (range.end >= pos) {
+        final ahead = (range.end - pos).inMilliseconds / 1000.0;
+        return ahead < 0 ? 0 : ahead;
+      }
+    }
+    return 0;
+  }
+
+  /// Tampon jugé « profond » : le panel a bien livré la suite du flux.
+  static const double _deepBufferSeconds = 5.0;
+
+  /// Position considered « jamais démarrée » (le lecteur n'a pas rendu sa
+  /// première image).
+  static const Duration _notStartedPosition = Duration(seconds: 2);
 
   /// Le contrôleur actuellement observé (pour des redémarrages idempotents).
   StallWatchable? get controller => _controller;
@@ -108,13 +177,15 @@ class StallDetector extends ChangeNotifier {
     }
     _controller = controller;
     _lastPosition = controller.value.position;
+    _lastBufferedEnd = _bufferedEnd(controller.value);
     _elapsed = Duration.zero;
     _lastProgressElapsed = Duration.zero;
     _stallStartedElapsed = Duration.zero;
-    _stallChecks = 0;
-    _bufferingChecks = 0;
-    _isStalling = false;
-    _isRunning = true;
+      _stallChecks = 0;
+      _bufferingChecks = 0;
+      _isStalling = false;
+      _stallKind = StallKind.none;
+      _isRunning = true;
 
     _timer = Timer.periodic(checkInterval, _check);
     final v = controller.value;
@@ -134,10 +205,11 @@ class StallDetector extends ChangeNotifier {
     _isRunning = false;
     // Journalisé AVANT la remise à zéro : sans cela, le log affichait
     // toujours `stalling=false`.
-    LoggerService.instance
-        .debug('StallDetector: stop (stalling=$_isStalling)', tag: 'stall');
-    _isStalling = false;
-  }
+      LoggerService.instance
+          .debug('StallDetector: stop (stalling=$_isStalling)', tag: 'stall');
+      _isStalling = false;
+      _stallKind = StallKind.none;
+    }
 
   void _check(Timer timer) {
     final controller = _controller;
@@ -155,6 +227,18 @@ class StallDetector extends ChangeNotifier {
     final currentPosition = v.position;
     final stalledFor = _elapsed - _lastProgressElapsed;
 
+    // Progression = le flux avance. On regarde le tampon ET la position.
+    //
+    // La position SEULE ne suffit pas, et c'est mesuré : sur les sources de ce
+    // panel la vidéo rend à l'écran alors que `position` reste figée à 1 ms
+    // (relevé : pos=0:00:00.001 avec 20,8 s de tampon, image Moving). Juger sur
+    // la position seule donnait un « gel » sur un flux parfaitement sain.
+    // L'extrémité du tampon, elle, est monotone et suit réellement l'arrivée
+    // des données.
+    final bufferedEnd = _bufferedEnd(v);
+    final progressed =
+        currentPosition != _lastPosition || bufferedEnd != _lastBufferedEnd;
+
     // Un lecteur en train de remplir sa mémoire tampon n'est PAS un flux
     // bloqué : c'est le comportement attendu sur un flux live ou une
     // connexion instable. On ne lève un stall que si le buffering est
@@ -168,31 +252,33 @@ class StallDetector extends ChangeNotifier {
           _bufferingChecks >= minChecksForStall &&
           stalledFor >= stallThreshold) {
         _isStalling = true;
+        _stallKind = StallKind.buffering;
         _stallStartedElapsed = _elapsed;
         notifyListeners();
         // Journalisé SANS kDebugMode : en release, `debugPrint` est muet, ce
         // qui rendait tout diagnostic de la lecture impossible à partir d'un
         // logcat.
         LoggerService.instance.warning(
-          'StallDetector: BLOCAGE EN BUFFERING '
+          'StallDetector: BUFFERING '
           'depuis ${stalledFor.inSeconds}s '
           'pos=$currentPosition bufChecks=$_bufferingChecks '
-          'buf=${_bufferedDuration(v)} isLive=${_isLive(v)}',
+          'buf=${_bufferedAheadSeconds(v)}s isLive=${_isLive(v)}',
           tag: 'stall',
         );
       }
       return;
     }
 
-    if (currentPosition != _lastPosition) {
+    if (progressed) {
       // La position a avancé : c'est la preuve que le flux progresse.
       if (_isStalling) {
         LoggerService.instance.info(
           'StallDetector: stall récupéré, pos=$currentPosition '
           'après ${(_elapsed - _stallStartedElapsed).inSeconds}s',
-          tag: 'stall',
-        );
+            tag: 'stall',
+          );
         _isStalling = false;
+        _stallKind = StallKind.none;
         notifyListeners();
       }
       if (_bufferingChecks > 0) {
@@ -205,6 +291,7 @@ class StallDetector extends ChangeNotifier {
       _stallChecks = 0;
       _bufferingChecks = 0;
       _lastPosition = currentPosition;
+      _lastBufferedEnd = bufferedEnd;
       _lastProgressElapsed = _elapsed;
       return;
     }
@@ -213,6 +300,14 @@ class StallDetector extends ChangeNotifier {
     _stallChecks++;
     if (_stallChecks >= minChecksForStall && stalledFor >= stallThreshold) {
       if (!_isStalling) {
+        // Le tampon tranche entre les deux causes : profond, le panel a bien
+        // livré la suite et c'est la LECTURE qui bloque (piste trop lourde,
+        // première image jamais rendue) ; vide, c'est bien la liaison.
+        final ahead = _bufferedAheadSeconds(v);
+        final notStarted = currentPosition <= _notStartedPosition;
+        _stallKind = (notStarted && ahead >= _deepBufferSeconds)
+            ? StallKind.notStarted
+            : StallKind.frozen;
         _isStalling = true;
         _stallStartedElapsed = _elapsed;
         notifyListeners();
@@ -221,10 +316,11 @@ class StallDetector extends ChangeNotifier {
         // logcat. Les compteurs environnants sont indispensables pour
         // distinguer un vrai blocage d'un faux positif.
         LoggerService.instance.warning(
-          'StallDetector: STALL après ${stalledFor.inSeconds}s '
+          'StallDetector: ${_stallKind.name.toUpperCase()} '
+          'après ${stalledFor.inSeconds}s '
           'pos=$currentPosition '
           'checks=$_stallChecks bufChecks=$_bufferingChecks '
-          'buf=${_bufferedDuration(v)} '
+          'buf=${ahead}s '
           'isLive=${_isLive(v)} '
           'w=${v.size.width}x${v.size.height}',
           tag: 'stall',
