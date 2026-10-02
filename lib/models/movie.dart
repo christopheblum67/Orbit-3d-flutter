@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -115,6 +116,8 @@ class Movie {
   }
 
   factory Movie.fromMap(Map<String, dynamic> map) {
+    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    map = PanelText.decodeMap(map);
     // `cast` et `crew` ne sont pas presents sur `get_vod_streams` et certains
     // panels les renvoient en chaine ou avec des cles non-String : on ignore
     // silencieusement ce qui n'est pas exploitable plutot que de faire echouer

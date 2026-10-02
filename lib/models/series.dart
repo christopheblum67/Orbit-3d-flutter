@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -42,6 +43,8 @@ class Series {
   }
 
   factory Series.fromMap(Map<String, dynamic> map) {
+    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    map = PanelText.decodeMap(map);
     final rawRating = map['rating'];
     final parsedRating = rawRating is num
         ? rawRating.toDouble()
@@ -151,6 +154,8 @@ class Episode {
   }) : _streamId = streamUrl ?? streamId ?? '';
 
   factory Episode.fromMap(Map<String, dynamic> map) {
+    // Textes du panel décodés une fois pour toutes (cf. PanelText).
+    map = PanelText.decodeMap(map);
     final rawSeason = map['season'];
     final rawEp = map['episode'] ?? map['episode_num'];
     return Episode(
@@ -171,6 +176,53 @@ class Episode {
       streamId: ref,
       type: 'series',
     ) ?? '';
+  }
+
+  /// Identifiant de flux BRUT de l'épisode, tel que le panel le publie.
+  ///
+  /// C'est cet identifiant, et non [streamUrl], qu'attend la découverte de
+  /// sous-titres d'une série : la convention de nommage des pistes référence le
+  /// stream id de l'épisode, et `series_id` ne suffit pas. Sans lui, aucune
+  /// piste n'est proposée — c'est ce qui se produisait : le champ `url` de ce
+  /// panel est une URL complète, donc l'identifiant était invisible et la
+  /// découverte ne synthétisait rien.
+  ///
+  /// Deux formes sont acceptées : l'identifiant nu (`12345`), et une URL
+  /// complète, dont on extrait le dernier segment en retirant l'extension
+  /// (`…/series/user/pass/12345.mkv` → `12345`). C'est ce que fait le panel
+  /// lui-même pour construire l'URL d'une piste.
+  ///
+  /// Si aucun identifiant n'est identifiable, on renvoie la chaîne vide : la
+  /// découverte ne propose alors RIEN plutôt qu'une piste qui pointerait vers
+  /// un autre média.
+  String get streamId {
+    final ref = _streamId.trim();
+    if (ref.isEmpty) return '';
+    if (!ref.startsWith('http')) return ref;
+
+    final uri = Uri.tryParse(ref);
+    if (uri == null) return '';
+
+    // Un identifiant passé en paramètre d'URL prime sur le chemin.
+    for (final key in const ['stream_id', 'stream', 'id']) {
+      final value = uri.queryParameters[key];
+      if (value != null && value.trim().isNotEmpty) return value.trim();
+    }
+
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.isEmpty) return '';
+    final last = segments.last;
+    final dot = last.lastIndexOf('.');
+    // On ne retire l'extension que si elle ressemble à un format de média :
+    // un point fait partie de certains identifiants.
+    if (dot > 0) {
+      final ext = last.substring(dot + 1).toLowerCase();
+      const mediaExtensions = {
+        'mkv', 'mp4', 'avi', 'ts', 'm3u8', 'mpg', 'mpeg', 'flv', 'mov', 'wmv',
+      };
+      if (mediaExtensions.contains(ext)) return last.substring(0, dot);
+    }
+    return last;
   }
 
   String requireStreamUrl() =>

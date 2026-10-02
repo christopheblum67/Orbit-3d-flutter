@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 
 part 'subscription.g.dart';
 
@@ -101,6 +102,8 @@ class Subscription extends HiveObject {
   }
 
   factory Subscription.fromMap(Map<String, dynamic> map) {
+    // Textes du panel décodés une fois pour toutes (cf. PanelText).
+    map = PanelText.decodeMap(map);
     return Subscription(
       id: map['id'] ?? '',
       name: map['name'] ?? '',

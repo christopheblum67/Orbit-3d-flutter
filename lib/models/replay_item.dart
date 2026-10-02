@@ -1,5 +1,6 @@
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 
 class ReplayItem {
   final String id;
@@ -44,6 +45,8 @@ class ReplayItem {
   });
 
   factory ReplayItem.fromMap(Map<String, dynamic> map) {
+    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    map = PanelText.decodeMap(map);
     return ReplayItem(
       id: map['id']?.toString() ?? '',
       title: map['title'] ?? '',
