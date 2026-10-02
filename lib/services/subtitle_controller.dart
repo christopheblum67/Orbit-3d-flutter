@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
@@ -65,16 +66,30 @@ class SubtitleController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadAndSetTrack(String url,
-      {String language = 'und', String? label,}) async {
+  Future<void> loadAndSetTrack(
+    String url, {
+    String language = 'und',
+    String? label,
+  }) async {
     final result = await safeAsync<void>(
       () async {
-        final track = await SubtitleParser.parseFromUrl(url,
-            language: language, label: label,);
+        final track = await SubtitleParser.parseFromUrl(
+          url,
+          language: language,
+          label: label,
+        );
         _loadedTracks[url] = track;
         _activeTrack = track;
         _activeTrackUrl = url;
         notifyListeners();
+        // DIAGNOSTIC : la position d'un cue sert à distinguer « fichier vide »
+        // d'un simple décalage avec la vidéo (voir ci-dessous).
+        LoggerService.instance.info(
+          'subs ok lang=$language cues=${track.cues.length} '
+          'first=${_describeCue(track, 0)} '
+          'last=${_describeCue(track, track.cues.length - 1)} '
+          'file=${url.split('/').last}',
+        );
       },
       context: 'SubtitleController.loadAndSetTrack',
     );
@@ -89,6 +104,13 @@ class SubtitleController extends ChangeNotifier {
   /// à la charger puis à l'activer.
   Future<void> selectDiscoveredTrack(SubtitleTrackRef ref) async {
     await loadAndSetTrack(ref.url, language: ref.language, label: ref.label);
+  }
+
+  /// Décrit un cue pour le journal de diagnostic.
+  static String _describeCue(SubtitleTrack track, int index) {
+    if (index < 0 || index >= track.cues.length) return '-';
+    final c = track.cues[index];
+    return '${c.startMs}-${c.endMs} "${c.text.length > 40 ? c.text.substring(0, 40) : c.text}"';
   }
 
   void setActiveTrack(String url) {

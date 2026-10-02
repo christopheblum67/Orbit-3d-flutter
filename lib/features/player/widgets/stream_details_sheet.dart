@@ -365,23 +365,43 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
   Future<void> _selectSubtitle(SubtitleTrackRef track) async {
     final messenger = ScaffoldMessenger.of(context);
-    final result = await safeAsync(
-      () => ref
-          .read(subtitleControllerProvider)
-          .loadAndSetTrack(track.url, label: track.label),
-      context: 'StreamDetailsSheet _selectSubtitle',
-    );
+    // Une piste est une LANGUE, pas une URL : on essaie la forme principale
+    // puis ses variantes (`12345_fr.srt`, puis `12345_fre.srt`). Le panel n'en
+    // sert en général qu'une, et l'autre répond 200 avec une page d'erreur —
+    // sans cet essai, l'utilisateur tombait sur « sous-titre indisponible » en
+    // choisissant « Français », alors que la piste existait.
+    //
+    // L'erreur retenue est celle de la DERNIÈRE tentative : c'est la seule qui
+    // dit quelque chose d'utile quand aucune forme ne marche.
+    Object? lastError;
+    var loaded = false;
+    for (final candidate in track.candidates) {
+      final result = await safeAsync(
+        () => ref.read(subtitleControllerProvider).loadAndSetTrack(
+              candidate.url,
+              // La langue manquait : la piste chargée était étiquetée « und ».
+              language: candidate.language,
+              label: candidate.label,
+            ),
+        context: 'StreamDetailsSheet _selectSubtitle',
+      );
+      if (result.isSuccess) {
+        loaded = true;
+        break;
+      }
+      lastError = result.errorOrNull;
+    }
     if (!mounted) return;
-    if (result.isSuccess) {
+    if (loaded) {
       setState(() {});
       return;
     }
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          result.errorOrNull == null
+          lastError == null
               ? 'Sous-titre indisponible'
-              : 'Sous-titre indisponible : ${result.errorOrNull}',
+              : 'Sous-titre indisponible : $lastError',
         ),
       ),
     );
@@ -416,16 +436,6 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       return LanguageLabel.of(label, fallback: label);
     }
     return LanguageLabel.of(track.language, fallback: 'Piste audio');
-  }
-
-  static String _audioMeta(VideoAudioTrack track) {
-    final parts = <String>[
-      if (track.channelCount != null) '${track.channelCount} can.',
-      if (track.codec != null && track.codec!.isNotEmpty) track.codec!,
-      if (track.bitrate != null && track.bitrate! > 0)
-        '${(track.bitrate! / 1000).round()} kbps',
-    ];
-    return parts.join(' · ');
   }
 
   static String _videoLabel(VideoTrack track) {

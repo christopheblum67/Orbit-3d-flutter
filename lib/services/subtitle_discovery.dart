@@ -69,6 +69,7 @@ class SubtitleTrackRef {
     required this.language,
     required this.label,
     this.cues,
+    this.alternates = const <SubtitleTrackRef>[],
   });
 
   /// URL de téléchargement renvoyée par le panel.
@@ -81,11 +82,27 @@ class SubtitleTrackRef {
   /// Libellé affiché (« Français », « English », ...). Falls back sur le code.
   final String label;
 
+  /// Autres URL servant la MÊME langue, essayées si [url] échoue.
+  ///
+  /// La convention Xtream existe en forme courte et longue : `12345_fr.srt`
+  /// comme `12345_fre.srt`. Les deux affichent « Français », et le panel ne
+  /// sert souvent que l'une des deux — l'autre répond 200 avec sa page
+  /// d'erreur. Présenter les deux donnait une liste à doublons dont la moitié
+  /// était morte. On n'en montre qu'une, et celle-ci essaie les autres en
+  /// silence avant d'abandonner.
+  final List<SubtitleTrackRef> alternates;
+
   /// Rempli après téléchargement ([SubtitleController.loadAndSetTrack]).
   ///
   /// `null` tant que la piste n'a pas été chargée : l'interface masque alors le
   /// nombre de cues, qui serait trompeur.
   final List<SubtitleCue>? cues;
+
+  /// Cette piste et toutes ses variantes, la principale d'abord.
+  ///
+  /// Une piste n'est donc jamais « juste celle-ci » : elle représente une
+  /// langue, et l'interface n'a pas à savoir quel code le panel honore.
+  List<SubtitleTrackRef> get candidates => [this, ...alternates];
 
   @override
   bool operator ==(Object other) =>
@@ -98,6 +115,16 @@ class SubtitleTrackRef {
 
   @override
   String toString() => 'SubtitleTrackRef($language, $label)';
+
+  /// Copie avec des variantes supplémentaires.
+  SubtitleTrackRef copyWith({List<SubtitleTrackRef>? alternates}) =>
+      SubtitleTrackRef(
+        url: url,
+        language: language,
+        label: label,
+        cues: cues,
+        alternates: alternates ?? this.alternates,
+      );
 }
 
 /// Découvre les pistes de sous-titres annoncées par un panel Xtream.
@@ -252,22 +279,34 @@ class SubtitleDiscovery {
     if (context.streamId == null || context.streamId!.isEmpty) {
       return const <SubtitleTrackRef>[];
     }
-    final out = <SubtitleTrackRef>[];
-    final seen = <String>{};
+    // Regroupement par LANGUE RÉSOLUE, pas par code brut : `fr` et `fre`
+    // désignent la même piste pour l'utilisateur. Sans ce regroupement, la
+    // liste affichait « Français, Français, English, English » et la moitié
+    // des entrées ne servait rien — le panel ne sert en général qu'une des
+    // deux formes (`12345_fr.srt` ou `12345_fre.srt`), l'autre répondant 200
+    // avec sa page d'erreur.
+    final byLanguage = <String, List<SubtitleTrackRef>>{};
     for (final lang in languages) {
       final code = lang.trim().toLowerCase();
-      if (code.isEmpty || !seen.add(code)) continue;
+      if (code.isEmpty) continue;
       final url = context.urlForLanguage(code);
       if (url == null) continue;
-      out.add(
-        SubtitleTrackRef(
-          url: url,
-          language: code,
-          label: _labelFromLanguage(code),
-        ),
+      final label = _labelFromLanguage(code);
+      final ref = SubtitleTrackRef(
+        url: url,
+        language: code,
+        label: label,
       );
+      final bucket = byLanguage.putIfAbsent(label, () => <SubtitleTrackRef>[]);
+      if (bucket.any((r) => r.url == url)) continue;
+      bucket.add(ref);
     }
-    return out;
+
+    return [
+      for (final bucket in byLanguage.values)
+        if (bucket.isNotEmpty)
+          bucket.first.copyWith(alternates: bucket.skip(1).toList()),
+    ];
   }
 
   /// Langues candidates lorsqu'un panel ne déclare RIEN.
