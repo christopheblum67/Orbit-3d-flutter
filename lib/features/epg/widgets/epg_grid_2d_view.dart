@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerScaleEvent;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
@@ -51,10 +52,10 @@ class EpgGrid2DView extends StatefulWidget {
   });
 
   @override
-  State<EpgGrid2DView> createState() => _EpgGrid2DViewState();
+  State<EpgGrid2DView> createState() => EpgGrid2DViewState();
 }
 
-class _EpgGrid2DViewState extends State<EpgGrid2DView> {
+class EpgGrid2DViewState extends State<EpgGrid2DView> {
   late Timer _timer;
   final ScrollController _verticalController = ScrollController();
 
@@ -89,6 +90,15 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// cycle de vie du widget.
   final ValueNotifier<int> _dataRevision = ValueNotifier<int>(0);
 
+  /// Révision du cache de rendu, exposée pour les tests.
+  ///
+  /// C'est le mécanisme qui a été corrigé : sans cet incrément, les lignes déjà
+  /// construites ne se repeignaient pas et la grille restait vide malgré les
+  /// données chargées. Un test qui vérifie qu'il change quand [epgData] change
+  /// protège exactement cette correction.
+  @visibleForTesting
+  int get debugDataRevision => _dataRevision.value;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +120,9 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
       _ownsTimelineController = true;
     }
     _timelineController.scheduledJump.addListener(_consumeJump);
+    _timelineController.targetedChannel.addListener(
+      () => _revealChannel(_timelineController.targetedChannel.value ?? ''),
+    );
 
     // La colonne des noms suit le défilement vertical de la grille. Recopie
     // d'offset, pas partage de controller : Flutter n'autorise qu'une position
@@ -181,6 +194,52 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
     _scrollToTime(target);
   }
 
+  /// Amène la ligne de [channelName] dans la vue si elle est hors écran.
+  ///
+  /// La grille compte plusieurs centaines de chaînes : sélectionner une chaîne
+  /// depuis la headbar ou la frise ne faisait rien à l'écran, la ligne restait
+  /// hors du viewport et l'utilisateur ne voyait pas ce qu'il venait
+  /// choisir. Le centrage n'a lieu que si la ligne est réellement absente ou
+  /// tronquée — sinon un changement de chaîne ferait sauter la liste, ce qui
+  /// est pire.
+  void _revealChannel(String channelName) {
+    if (!_verticalController.hasClients) return;
+    final index = widget.channels.indexOf(channelName);
+    if (index < 0) return;
+
+    const rowHeight = 60.0;
+    const rowStride = rowHeight + 2;
+    final viewport = _verticalController.position.viewportDimension;
+    final top = index * rowStride;
+    final bottom = top + rowHeight;
+    final current = _verticalController.offset;
+
+    if (top >= current && bottom <= current + viewport) return;
+
+    _syncingVertical = true;
+    try {
+      // Centré quand la ligne est entièrement hors écran, aligné en haut
+      // quand elle est seulement tronquée : dans ce cas, la centrer ferait
+      // passer le contexte uselessement.
+      final target = top < current || bottom > current + viewport
+          ? (top - (viewport - rowHeight) / 2).clamp(0.0, _maxVerticalOffset)
+          : top;
+      _verticalController.jumpTo(target);
+      _namesVerticalController.jumpTo(target);
+    } finally {
+      _syncingVertical = false;
+    }
+  }
+
+  double get _maxVerticalOffset {
+    final content = widget.channels.length * (60.0 + 2);
+    final viewport = _verticalController.hasClients
+        ? _verticalController.position.viewportDimension
+        : 0.0;
+    final span = content - viewport;
+    return span > 0 ? span : 0.0;
+  }
+
   /// Largeur visible de la zone grille, mesurée par le `LayoutBuilder`.
   ///
   /// Elle dimensionne désormais chaque ligne : c'est ce qui remplace les
@@ -214,6 +273,65 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   void _scrollToCurrentTime() {
     _setHorizontalOffset(_getOffsetForTime(DateTime.now()) - 120);
+  }
+
+  /// Bornes du zoom, en px/min.
+  ///
+  /// En bas, 4 px/min est le minimum lisible : la grille tient alors 6 h de la
+  /// journée dans la largeur de l'écran, et un programme de 30 min occupe
+  /// 120 px — son titre tient sur deux mots. En haut, 14 px/min : au-delà, une
+  /// heure dépasse largement l'écran et le défilement devient le seul moyen de
+  /// lire l'axe, ce qui n'apporte rien sur un téléphone.
+  static const double _minPixelsPerMinute = 4.0;
+  static const double _maxPixelsPerMinute = 14.0;
+
+  /// Paliers du zoom, pour que les boutons `−` et `+` restent réversibles.
+  static const List<double> _zoomSteps = [
+    4.0,
+    5.0,
+    6.5,
+    8.5,
+    11.0,
+    14.0,
+  ];
+
+  double get _zoomFactor => _pixelsPerMinute / _minPixelsPerMinute;
+
+  /// Applique un facteur de zoom en gardant l'heure CIBLE immobile.
+  ///
+  /// [anchorX] est la position écran à conserver : sans cette correction, un
+  /// zoom recentrait simplement sur le bord gauche, et la minute que l'on
+  /// regardait disparaissait de l'écran. On reprojette donc le décalage pour
+  /// que l'heure sous [anchorX] y reste.
+  void _zoomBy(double factor, double anchorX) {
+    final target = (_pixelsPerMinute * factor).clamp(
+      _minPixelsPerMinute,
+      _maxPixelsPerMinute,
+    );
+    if (target == _pixelsPerMinute) return;
+
+    // Heure actuellement sous le point d'ancrage, avant le changement.
+    final anchoredMinutes =
+        (_horizontalOffset.value + anchorX) / _pixelsPerMinute;
+    _pixelsPerMinute = target;
+    // Le contrôleur est la source de vérité partagée avec la frise.
+    _timelineController.pixelsPerMinute = target;
+    _setHorizontalOffset(anchoredMinutes * target - anchorX);
+    _rebuildRenderCache();
+    setState(() {});
+  }
+
+  void _zoomIn() => _zoomBy(_nextZoomStep(_pixelsPerMinute, up: true), 140);
+
+  void _zoomOut() => _zoomBy(_nextZoomStep(_pixelsPerMinute, up: false), 140);
+
+  /// Facteur pour passer au palier suivant (ou précédent).
+  static double _nextZoomStep(double current, {required bool up}) {
+    for (final step in _zoomSteps) {
+      if (up && step > current + 0.01) return step / current;
+      if (!up && step < current - 0.01) return step / current;
+    }
+    return 1.0;
   }
 
   double _getOffsetForTime(DateTime time) {
@@ -366,16 +484,11 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.remove, size: 18),
-                  tooltip: '-1h',
+                  icon: const Icon(Icons.zoom_out, size: 18),
+                  tooltip: 'Dézoomer',
                   color: Colors.white70,
                   visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final t = _timelineController
-                        .pixelsToTime(_timelineController.gridOffset.value)
-                        .add(const Duration(hours: -1));
-                    _timelineController.jumpTo(t);
-                  },
+                  onPressed: _zoomOut,
                 ),
                 IconButton(
                   icon: const Icon(Icons.access_time, size: 18),
@@ -387,16 +500,25 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add, size: 18),
-                  tooltip: '+1h',
+                  icon: const Icon(Icons.zoom_in, size: 18),
+                  tooltip: 'Zoomer',
                   color: Colors.white70,
                   visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final t = _timelineController
-                        .pixelsToTime(_timelineController.gridOffset.value)
-                        .add(const Duration(hours: 1));
-                    _timelineController.jumpTo(t);
-                  },
+                  onPressed: _zoomIn,
+                ),
+                // Facteur de zoom courant : l'utilisateur sait où il en est,
+                // et il sait que le bouton a atteint sa borne.
+                Container(
+                  width: 34,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${_zoomFactor.toStringAsFixed(1)}×',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -506,6 +628,14 @@ class _EpgGrid2DViewState extends State<EpgGrid2DView> {
                             _setHorizontalOffset(_horizontalOffset.value);
                           }
                           return Listener(
+                            // Pinch : le geste naturel du zoom sur un
+                            // téléphone. On ancre sur la position donnée par
+                            // l'événement, sinon la minute visée dérive pendant
+                            // le geste.
+                            onPointerSignal: (event) {
+                              if (event is! PointerScaleEvent) return;
+                              _zoomBy(event.scale, event.localPosition.dx);
+                            },
                             onPointerDown: (event) {
                               _tapDownPos = event.localPosition;
                               _tapDownTime = DateTime.now();
