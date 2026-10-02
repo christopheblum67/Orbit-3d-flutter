@@ -291,7 +291,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
               // Pour un épisode, la découverte a besoin du stream id brut de
               // l'épisode : `series_id` ne permet pas de synthétiser l'URL d'une
               // piste, et l'écran finissait par n'en proposer aucune.
-              streamId: seriesId != null ? (widget.episode?.streamId ?? '') : '',
+              streamId:
+                  seriesId != null ? (widget.episode?.streamId ?? '') : '',
             ),
           );
     });
@@ -1593,15 +1594,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                       ),
                     ),
                     // Overlay sous-titres (au-dessus vidéo, sous footerbar)
+                    //
+                    // C'est l'overlay qui s'abonne à la position du lecteur :
+                    // le passer en paramètre figeait le cue à l'instant du
+                    // choix de la piste, et rien ne se rejouait ensuite.
                     Consumer(
                       builder: (_, ref, __) {
-                        final subtitleCtrl =
-                            ref.watch(subtitleControllerProvider);
-                        final track = subtitleCtrl.activeTrack;
-                        if (track == null) return const SizedBox.shrink();
-                        return AnimatedSubtitleOverlay(
+                        final track =
+                            ref.watch(subtitleControllerProvider).activeTrack;
+                        return VideoSubtitleOverlay(
+                          controller: player,
                           track: track,
-                          positionMs: player.value.position.inMilliseconds,
                           bottomPadding: 100, // au-dessus footerbar
                         );
                       },

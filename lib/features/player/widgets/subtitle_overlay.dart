@@ -1,5 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
+
+/// Overlay de sous-titre relié directement à la position du lecteur.
+///
+/// ## Pourquoi ce wrapper existe
+///
+/// [AnimatedSubtitleOverlay] ne connaît que `positionMs`, reçu par
+/// constructeur. Son parent (l'écran de lecture) ne se reconstruit pas pendant
+/// la lecture : il ne se rebuild que quand le contrôleur de sous-titres
+/// notifie, c'est-à-dire au moment du CHOIX de la piste. La position était
+/// donc figée à l'instant de la sélection, et le cue affiché ne changeait plus
+/// ensuite : la piste paraissait muette alors qu'elle était bien chargée.
+///
+/// Ce widget s'abonne au `VideoPlayerController` — qui est un
+/// `ValueNotifier<VideoPlayerValue>` — et ne redemande le cue qu'à chaque
+/// frame. Seule la position est lue ici ; l'écran de lecture n'est jamais
+/// reconstruit.
+class VideoSubtitleOverlay extends StatelessWidget {
+  const VideoSubtitleOverlay({
+    super.key,
+    required this.controller,
+    required this.track,
+    this.style,
+    this.bottomPadding = 80,
+    this.maxWidthFraction = 0.9,
+    this.fadeDuration = const Duration(milliseconds: 200),
+    this.slideDuration = const Duration(milliseconds: 250),
+  });
+
+  final VideoPlayerController controller;
+  final SubtitleTrack? track;
+  final TextStyle? style;
+  final double bottomPadding;
+  final double maxWidthFraction;
+  final Duration fadeDuration;
+  final Duration slideDuration;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = track;
+    if (current == null) return const SizedBox.shrink();
+    return ValueListenableBuilder<VideoPlayerValue>(
+      valueListenable: controller,
+      builder: (context, value, _) => AnimatedSubtitleOverlay(
+        track: current,
+        positionMs: value.position.inMilliseconds,
+        style: style,
+        bottomPadding: bottomPadding,
+        maxWidthFraction: maxWidthFraction,
+        fadeDuration: fadeDuration,
+        slideDuration: slideDuration,
+      ),
+    );
+  }
+}
 
 /// Overlay qui affiche le sous-titre actif synchronisé avec la position vidéo.
 class SubtitleOverlay extends StatelessWidget {
