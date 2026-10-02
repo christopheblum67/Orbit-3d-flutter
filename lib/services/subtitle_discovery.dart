@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:orbit_3d_flutter/core/utils/language_label.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 
 /// Contexte permettant de transformer une annonce « fr » en URL
@@ -136,11 +137,30 @@ class SubtitleDiscovery {
   ];
 
   /// Clés d'URL, par ordre de préférence.
-  static const List<String> _urlKeys = ['url', 'file', 'file_name', 'path', 'src', 'link'];
+  static const List<String> _urlKeys = [
+    'url',
+    'file',
+    'file_name',
+    'path',
+    'src',
+    'link'
+  ];
 
   /// Clés de langue / libellé.
-  static const List<String> _langKeys = ['language', 'lang', 'name', 'label', 'title'];
-  static const List<String> _labelKeys = ['name', 'label', 'title', 'language', 'lang'];
+  static const List<String> _langKeys = [
+    'language',
+    'lang',
+    'name',
+    'label',
+    'title'
+  ];
+  static const List<String> _labelKeys = [
+    'name',
+    'label',
+    'title',
+    'language',
+    'lang'
+  ];
 
   /// Extractions des pistes depuis la réponse `player_api.php`.
   ///
@@ -149,6 +169,149 @@ class SubtitleDiscovery {
   /// contiennent aucune URL et sont donc ignorés.
   ///
   /// Retourne une liste vide si rien n'est exploitable — jamais d'exception.
+  /// Codes langue Announces par le panel, cherchés dans TOUTE la réponse.
+  ///
+  /// /// Pourquoi une recherche large
+  ///
+  /// Un panel peut placer ses sous-titres à la racine, dans `info`, ou — pour
+  /// une série — **dans chaque objet épisode**. Le champ n'a pas d'emplacement
+  /// normalisé : sur le panel testé, `get_series_info` n'en exposait aucun à la
+  /// racine, et les pistes étaient.portées par les épisodes.
+  ///
+  /// On ne récupère que les CODES, jamais les URL : pour une série, l'URL
+  /// d'une piste se construit avec le stream id de l'épisode PLAYED, pas avec
+  /// celui de l'épisode porteur de la déclaration. La synthèse se fait donc
+  /// dans [ApiService.discoverSubtitles], qui connaît l'épisode courant.
+  static Set<String> collectLanguageCodes(Object? data) {
+    final codes = <String>{};
+    var depth = 0;
+    void walk(Object? node) {
+      if (depth > 6) return;
+      depth++;
+      if (node is Map) {
+        for (final entry in node.entries) {
+          final key = entry.key.toString().toLowerCase();
+          if (_containerKeys.contains(key)) {
+            _addCodes(entry.value, codes);
+          } else {
+            walk(entry.value);
+          }
+        }
+      } else if (node is List) {
+        for (final item in node) {
+          walk(item);
+        }
+      }
+    }
+
+    walk(data);
+    return codes;
+  }
+
+  /// Extrait des codes langue d'un champ heterogene : liste de chaînes, liste
+  /// d'objets, chaîne seule.
+  static void _addCodes(Object? node, Set<String> out) {
+    if (node is String) {
+      final code = node.trim();
+      // On écarte ce qui ressemble à une URL : c'est une piste déjà adressable,
+      // pas un code langue.
+      if (code.isNotEmpty && !code.contains('/') && code.length <= 12) {
+        out.add(code.toLowerCase());
+      }
+      return;
+    }
+    if (node is List) {
+      for (final item in node) {
+        _addCodes(item, out);
+      }
+      return;
+    }
+    if (node is Map) {
+      final map = Map<String, dynamic>.from(node);
+      for (final key in const ['lang', 'language', 'code', 'name', 'label']) {
+        final value = map[key];
+        if (value is String && value.trim().isNotEmpty) {
+          out.add(value.trim().toLowerCase());
+          return;
+        }
+      }
+    }
+  }
+
+  /// Construit une piste par convention d'URL, pour les panels qui ne
+  /// déclarent rien.
+  ///
+  /// L'URL ne peut pas être devinée : `/subtitles/{user}/{pass}/{id}_{lang}.srt`
+  /// est la convention Xtream, mais rien ne garantit qu'elle s'applique. La
+  /// piste est donc marquée comme CONVENTIONNELLE, et l'interface ne présente
+  /// jamais cela comme une certitude.
+  static List<SubtitleTrackRef> synthesizeFromConvention({
+    required SubtitleDiscoveryContext context,
+    required Iterable<String> languages,
+  }) {
+    if (context.streamId == null || context.streamId!.isEmpty) {
+      return const <SubtitleTrackRef>[];
+    }
+    final out = <SubtitleTrackRef>[];
+    final seen = <String>{};
+    for (final lang in languages) {
+      final code = lang.trim().toLowerCase();
+      if (code.isEmpty || !seen.add(code)) continue;
+      final url = context.urlForLanguage(code);
+      if (url == null) continue;
+      out.add(
+        SubtitleTrackRef(
+          url: url,
+          language: code,
+          label: _labelFromLanguage(code),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Langues candidates lorsqu'un panel ne déclare RIEN.
+  ///
+  /// /// Pourquoi deviner, et pourquoi peu
+  ///
+  /// Certains panels ne publient aucune déclaration de sous-titre — mesuré sur
+  /// un panel réel : `get_series_info` ne contient ni champ ni code langue, sur
+  /// aucune profondeur — tout en servant bien les fichiers. Leur interface
+  /// construit alors l'URL par convention, avec une liste de langues qu'elle
+  /// connaît par ailleurs. Sans candidate, l'app ne peut rien proposer, alors
+  /// que la piste existe.
+  ///
+  /// On reste donc restreint : la langue de l'appareil, l'anglais et le
+  /// français, sous forme courte (2 lettres) ET longue (3 lettres), car les
+  /// fichiers de panel suivent les deux (`12345_fr.srt` comme `12345_fre.srt`).
+  /// Une piste devinée qui n'existe pas se signale d'elle-même à l'activation,
+  /// et l'interface affiche l'erreur par piste.
+  static List<String> defaultConventionLanguages({
+    String? deviceLanguageCode,
+  }) {
+    final base = <String>{
+      (deviceLanguageCode ?? '').trim().toLowerCase(),
+      'fr',
+      'en',
+    }..removeWhere((e) => e.isEmpty);
+    final out = <String>[];
+    const longForms = {
+      'fr': 'fre',
+      'en': 'eng',
+      'de': 'ger',
+      'es': 'spa',
+      'it': 'ita',
+      'nl': 'dut',
+      'pt': 'por',
+    };
+    for (final code in base) {
+      out.add(code);
+      final long = longForms[code];
+      if (long != null) out.add(long);
+    }
+    return out;
+  }
+
   static List<SubtitleTrackRef> parse(
     Object? response, {
     SubtitleDiscoveryContext? context,
@@ -204,12 +367,9 @@ class SubtitleDiscovery {
           if (entry is String) {
             final raw = entry.trim();
             if (raw.isEmpty) continue;
-            final lang = _looksLikeSubtitleUrl(raw)
-                ? _langFromUrl(raw)
-                : raw;
-            var url = _looksLikeSubtitleUrl(raw)
-                ? raw
-                : context?.urlForLanguage(raw);
+            final lang = _looksLikeSubtitleUrl(raw) ? _langFromUrl(raw) : raw;
+            var url =
+                _looksLikeSubtitleUrl(raw) ? raw : context?.urlForLanguage(raw);
             // Un chemin relatif (`1234_fr.srt`) se résout sur le panel.
             if (url == null && context != null) {
               final resolved = context.resolvePath(raw);
@@ -312,7 +472,9 @@ class SubtitleDiscovery {
     // (`/subtitles/123/fr`). On retient alors si le chemin mentionne le
     // concept, mais on rejette les URLs de flux.
     if (lower.contains('/sub') || lower.contains('subtitle')) return true;
-    if (lower.contains('live/') || lower.contains('/movie/') || lower.contains('/series/')) {
+    if (lower.contains('live/') ||
+        lower.contains('/movie/') ||
+        lower.contains('/series/')) {
       return lower.contains('sub');
     }
     return false;
@@ -352,31 +514,10 @@ class SubtitleDiscovery {
   }
 
   /// Libellé lisible à partir d'un code langue.
-  static String _labelFromLanguage(String lang) {
-    const names = {
-      'fre': 'Français',
-      'fra': 'Français',
-      'fr': 'Français',
-      'french': 'Français',
-      'eng': 'English',
-      'en': 'English',
-      'english': 'English',
-      'spa': 'Español',
-      'es': 'Español',
-      'spanish': 'Español',
-      'ger': 'Deutsch',
-      'de': 'Deutsch',
-      'german': 'Deutsch',
-      'ita': 'Italiano',
-      'it': 'Italiano',
-      'por': 'Português',
-      'pt': 'Português',
-      'nld': 'Nederlands',
-      'nl': 'Nederlands',
-      'dutch': 'Nederlands',
-      'und': 'Sous-titres',
-    };
-    final key = lang.trim().toLowerCase();
-    return names[key] ?? (key.isEmpty || key == 'und' ? 'Sous-titres' : key);
-  }
+  /// Traduit un code langue en nom affichable.
+  ///
+  /// La table vit dans [LanguageLabel], partagée avec les pistes audio : la
+  /// garder ici aurait produit deux listes divergentes, dont une seule audible
+  /// par l'utilisateur.
+  static String _labelFromLanguage(String lang) => LanguageLabel.of(lang);
 }

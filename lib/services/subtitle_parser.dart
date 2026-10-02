@@ -1,6 +1,23 @@
 import 'dart:async';
+
+/// Erreur levée quand une URL de sous-titre répond sans contenu exploitable.
+///
+/// Distincte d'une erreur réseau : le réseau a marché, c'est le panel
+/// qui n'a pas servi de sous-titre.
 import 'dart:convert';
 import 'dart:io';
+
+/// Erreur levée quand une URL de sous-titre répond sans contenu exploitable.
+///
+/// Distincte d'une erreur réseau : le réseau a marché, c'est le panel qui
+/// n'a pas servi de sous-titre.
+class SubtitlePayloadException implements Exception {
+  final String message;
+  const SubtitlePayloadException(this.message);
+
+  @override
+  String toString() => 'SubtitlePayloadException: $message';
+}
 
 /// Modèle d'une ligne de sous-titre (cue).
 class SubtitleCue {
@@ -46,13 +63,45 @@ class SubtitleTrack {
 
 /// Parser pour formats SRT et VTT (WebVTT).
 class SubtitleParser {
+  /// Charge une piste et la valide avant de la renvoyer.
+  ///
+  /// Un panel répond volontiers `200 OK` avec une page HTML d'erreur ou un
+  /// corps vide à une URL de sous-titre inexistante. Une telle piste s'affichait
+  /// dans la liste, se chargeait sans erreur, et n'affichait jamais rien à
+  /// l'écran — impossible à distinguer d'un bug de rendu. On préfère donc
+  /// refuser explicitement un contenu qui n'est pas un sous-titre.
   static Future<SubtitleTrack> parseFromUrl(
     String url, {
     String language = 'und',
     String? label,
   }) async {
     final response = await _fetchWithTimeout(url);
-    return parse(response, language: language, label: label);
+    final track = parse(response, language: language, label: label);
+    if (!isUsable(response, track)) {
+      throw SubtitlePayloadException(
+        'Contenu non exploitable pour « ${label ?? language} » '
+        '(${track.cues.length} cue(s))',
+      );
+    }
+    return track;
+  }
+
+  /// Un contenu est exploitable s'il ressemble à un sous-titre et contient au
+  /// moins un cue.
+  ///
+  /// On refuse le HTML même s'il contient des chiffres : une balise `<html>`
+  /// servie par le panel en guise de sous-titre est le cas le plus fréquent,
+  /// et elle produit une piste muette.
+  static bool isUsable(String content, SubtitleTrack track) {
+    if (track.cues.isEmpty) return false;
+    final trimmed = content.trimLeft().toLowerCase();
+    if (trimmed.startsWith('<!doctype html') ||
+        trimmed.startsWith('<html') ||
+        trimmed.startsWith('<?xml') ||
+        trimmed.startsWith('<error')) {
+      return false;
+    }
+    return true;
   }
 
   static Future<String> _fetchWithTimeout(String url) async {
@@ -130,16 +179,21 @@ class SubtitleParser {
           lines.skip(2).where((l) => l.trim().isNotEmpty).join('\n');
       final times = _parseSrtTimecode(timecode);
       if (times != null && textLines.isNotEmpty) {
-        cues.add(SubtitleCue(
-          startMs: times[0],
-          endMs: times[1],
-          text: _cleanText(textLines),
-        ),);
+        cues.add(
+          SubtitleCue(
+            startMs: times[0],
+            endMs: times[1],
+            text: _cleanText(textLines),
+          ),
+        );
       }
     }
     cues.sort((a, b) => a.startMs.compareTo(b.startMs));
     return SubtitleTrack(
-        language: language, label: label ?? language, cues: cues,);
+      language: language,
+      label: label ?? language,
+      cues: cues,
+    );
   }
 
   static SubtitleTrack _parseVtt(
@@ -171,18 +225,23 @@ class SubtitleParser {
         final text = _cleanText(textLines.join('\n'));
         final times = _parseVttTimecode(timecode);
         if (times != null && text.isNotEmpty) {
-          cues.add(SubtitleCue(
-            startMs: times[0],
-            endMs: times[1],
-            text: text,
-          ),);
+          cues.add(
+            SubtitleCue(
+              startMs: times[0],
+              endMs: times[1],
+              text: text,
+            ),
+          );
         }
       }
       i++;
     }
     cues.sort((a, b) => a.startMs.compareTo(b.startMs));
     return SubtitleTrack(
-        language: language, label: label ?? language, cues: cues,);
+      language: language,
+      label: label ?? language,
+      cues: cues,
+    );
   }
 
   static List<int>? _parseSrtTimecode(String timecode) {

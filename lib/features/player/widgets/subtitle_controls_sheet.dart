@@ -12,6 +12,7 @@ Future<void> showSubtitleControlsSheet(
   BuildContext context, {
   String? contentId,
   bool isSeries = false,
+  String? streamId,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -20,16 +21,26 @@ Future<void> showSubtitleControlsSheet(
     builder: (_) => SubtitleControlsSheet(
       contentId: contentId,
       isSeries: isSeries,
+      streamId: streamId,
     ),
   );
 }
 
 class SubtitleControlsSheet extends ConsumerStatefulWidget {
-  const SubtitleControlsSheet({super.key, this.contentId, this.isSeries = false});
+  const SubtitleControlsSheet({
+    super.key,
+    this.contentId,
+    this.isSeries = false,
+    this.streamId,
+  });
 
   /// Identifiant du contenu lu (film ou série), utilisé pour interroger le
   /// panel. `null` pour un flux live, qui ne publie pas de sous-titres.
   final String? contentId;
+
+  /// Stream id brut du média, nécessaire pour une série : `series_id` ne
+  /// permet pas de synthétiser l'URL d'une piste.
+  final String? streamId;
 
   /// `true` si [contentId] désigne une série (épisode en cours).
   final bool isSeries;
@@ -70,12 +81,13 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     // restaient affichées pour de bon. L'utilisateur voyait alors les
     // sous-titres d'un autre film, ce qui est pire que de n'en voir aucun.
     ctrl.setDiscovered(const <SubtitleTrackRef>[]);
-    final tracks = await ref.read(apiServiceProvider).discoverSubtitles(
+    final found = await ref.read(apiServiceProvider).discoverSubtitles(
           contentId,
           isSeries: widget.isSeries,
+          streamId: widget.streamId,
         );
     if (!mounted) return;
-    ctrl.setDiscovered(tracks);
+    ctrl.setDiscovered(found.tracks);
   }
 
   // Focus nodes for TV/D-pad navigation

@@ -2,15 +2,16 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
+import 'package:orbit_3d_flutter/core/utils/language_label.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sous-fenêtre « Détails du flux » ouverte depuis la footerbar (icône ⚙️).
 ///
-/// Liste les pistes audio et les qualités vidéo détectées par le lecteur
-/// (ExoPlayer) et permet de les sélectionner. Les sous-titres ne sont pas
-/// pris en charge par le lecteur embarqué : la section affiche un état
-/// « non disponibles ».
+/// Liste les pistes audio, les qualités vidéo et les sous-titres détectés, et
+/// permet de les sélectionner.
 Future<void> showStreamDetailsSheet(
   BuildContext context,
   VideoPlayerController controller,
@@ -49,10 +50,57 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   bool _loading = true;
   String? _error;
 
+  /// Pistes de sous-titre découvertes sur le panel, et état de la requête.
+  List<SubtitleTrackRef> _subtitleTracks = const [];
+  bool _subtitleLoading = false;
+  bool _subtitleGuessed = false;
+  String? _subtitleError;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _discoverSubtitles();
+  }
+
+  /// Interroge le panel sur les sous-titres du contenu lu.
+  ///
+  /// L'échec n'est pas silencieux : sans message, un 429 ou un panel sans
+  /// piste affichent la même chose, et l'utilisateur ne peut pas savoir s'il
+  /// doit réessayer ou attendre.
+  Future<void> _discoverSubtitles() async {
+    final ctx = ref.read(activeSubtitleContextProvider);
+    if (ctx == null || ctx.contentId.isEmpty) return;
+    if (mounted) {
+      setState(() {
+        _subtitleLoading = true;
+        _subtitleError = null;
+      });
+    }
+    final result =
+        await safeAsync<({List<SubtitleTrackRef> tracks, bool guessed})>(
+      () => ref.read(apiServiceProvider).discoverSubtitles(
+            ctx.contentId,
+            isSeries: ctx.isSeries,
+            streamId: ctx.streamId,
+          ),
+      context: 'StreamDetailsSheet _discoverSubtitles',
+    );
+    if (!mounted) return;
+    setState(() {
+      _subtitleLoading = false;
+      if (result.isSuccess) {
+        final found = result.valueOrNull ??
+            (tracks: const <SubtitleTrackRef>[], guessed: false);
+        _subtitleTracks = found.tracks;
+        _subtitleGuessed = found.guessed;
+        _subtitleError = null;
+      } else {
+        _subtitleTracks = const <SubtitleTrackRef>[];
+        _subtitleGuessed = false;
+        _subtitleError = 'Le panel n\'a pas répondu.';
+      }
+    });
   }
 
   String get _selectedAudioId => _audioSelection ?? '';
@@ -63,11 +111,14 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       _loading = true;
       _error = null;
     });
-    final result = await safeAsync(() async {
-      final audio = await widget.controller.getAudioTracks();
-      final video = await widget.controller.getVideoTracks();
-      return (audio: audio, video: video);
-    }, context: 'StreamDetailsSheet _load',);
+    final result = await safeAsync(
+      () async {
+        final audio = await widget.controller.getAudioTracks();
+        final video = await widget.controller.getVideoTracks();
+        return (audio: audio, video: video);
+      },
+      context: 'StreamDetailsSheet _load',
+    );
 
     if (!mounted) return;
 
@@ -194,7 +245,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                               for (final track in _audioTracks)
                                 _TrackTile(
                                   title: _audioLabel(track),
-                                  subtitle: _audioMeta(track),
+                                  // Pas de ligne de métadonnées : les pistes
+                                  // audio s'identifient par leur langue, et
+                                  // les canaux/codecs n'aidaient pas à choisir.
+                                  subtitle: null,
                                   selected: _selectedAudioId == track.id,
                                   onTap: () => _selectAudio(track.id),
                                 ),
@@ -218,17 +272,116 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 ),
                             const SizedBox(height: 12),
                             _sectionTitle('Sous-titres'),
-                            _EmptyRow(
-                              label: l.subtitlesUnavailable,
-                              info:
-                                  'Le lecteur embarqué ne gère pas les sous-titres '
-                                  'sur ce flux.',
-                            ),
+                            ..._buildSubtitleSection(),
                             const SizedBox(height: 16),
                           ],
                         ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Section « Sous-titres » : la liste réelle, ou la raison exacte du vide.
+  ///
+  /// Elle était auparavant un texte fixe — « le lecteur embarqué ne gère pas
+  /// les sous-titres sur ce flux » — affiché quelle que soit la chaîne. C'est
+  /// ce texte, et non une requête, qui produisait le « indisponible » que
+  /// l'utilisateur voyait sur TOUT contenu, y compris des films dont le panel
+  /// publie des pistes. Le vide muet rendait la découverte inutilisable : on ne
+  /// pouvait pas distinguer un panel qui ne publie rien d'un pansement de
+  /// l'interface.
+  List<Widget> _buildSubtitleSection() {
+    final ctx = ref.read(activeSubtitleContextProvider);
+    final active = ref.watch(subtitleControllerProvider).activeTrack;
+
+    if (ctx == null || ctx.contentId.isEmpty) {
+      // Flux live : aucun identifiant de contenu, donc aucune découverte
+      // possible. Dit explicitement, plutôt qu'un « indisponible » qui
+      // ressemble à un défaut.
+      return const [
+        _EmptyRow(
+          label: 'Non applicable',
+          info: 'Un flux direct ne publie pas de piste de sous-titre.',
+        ),
+      ];
+    }
+
+    if (_subtitleLoading) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    if (_subtitleError != null) {
+      return [
+        _EmptyRow(label: 'Indisponible', info: _subtitleError!),
+      ];
+    }
+
+    final tracks = _subtitleTracks;
+    if (tracks.isEmpty) {
+      return const [
+        _EmptyRow(
+          label: 'Aucune piste',
+          info: 'Le panel ne publie de sous-titre pour ce contenu.',
+        ),
+      ];
+    }
+
+    return [
+      if (_subtitleGuessed)
+        const _EmptyRow(
+          label: 'Pistes déduites',
+          info: 'Le panel ne déclare pas ses sous-titres : ces pistes sont '
+              'obtenues par convention d\'URL. Celle qui n\'existe pas signale '
+              'une erreur à l\'activation.',
+        ),
+      for (final track in tracks)
+        _TrackTile(
+          // Langue seule. L'URL de la piste n'a aucun intérêt pour
+          // l'utilisateur et occupait la ligne du dessous, où l'on attendait
+          // l'intitulé.
+          title: LanguageLabel.of(track.language, fallback: track.label),
+          subtitle: null,
+          // La piste active est un `SubtitleTrack` (des cues), pas une
+          // référence : l'identité se lit donc sur le libellé, le seul champ
+          // commun aux deux.
+          selected: active?.label == track.label,
+          onTap: () => _selectSubtitle(track),
+        ),
+    ];
+  }
+
+  Future<void> _selectSubtitle(SubtitleTrackRef track) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await safeAsync(
+      () => ref
+          .read(subtitleControllerProvider)
+          .loadAndSetTrack(track.url, label: track.label),
+      context: 'StreamDetailsSheet _selectSubtitle',
+    );
+    if (!mounted) return;
+    if (result.isSuccess) {
+      setState(() {});
+      return;
+    }
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.errorOrNull == null
+              ? 'Sous-titre indisponible'
+              : 'Sous-titre indisponible : ${result.errorOrNull}',
         ),
       ),
     );
@@ -250,16 +403,19 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     );
   }
 
+  /// Nom affichable d'une piste audio.
+  ///
+  /// Le libellé du lecteur est prioritaire quand il est lisible ; sinon on
+  /// traduit le code langue (`en` → English, `fr` → Français, `es`/`sp` →
+  /// Español, et toutes les autres formesCourantes). Sans cela la liste
+  /// affichait « eng » ou « fre », ce qui n'est pas une information pour
+  /// l'utilisateur.
   static String _audioLabel(VideoAudioTrack track) {
     final label = track.label;
     if (label != null && label.isNotEmpty && label != 'Audio') {
-      return label;
+      return LanguageLabel.of(label, fallback: label);
     }
-    final language = track.language;
-    if (language != null && language.isNotEmpty && language != 'und') {
-      return language;
-    }
-    return 'Piste audio';
+    return LanguageLabel.of(track.language, fallback: 'Piste audio');
   }
 
   static String _audioMeta(VideoAudioTrack track) {
