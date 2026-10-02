@@ -16,7 +16,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 // ignore: unused_import
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
-import 'package:orbit_3d_flutter/features/home/ai_topics_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -345,13 +344,6 @@ final GoRouter router = GoRouter(
       builder: (context, state) => ModalBackHandling(
         meta: const RouteMeta.popOrFallback('/home'),
         child: MatchmakingScreen(initialGroup: state.extra as List<String>?),
-      ),
-    ),
-    GoRoute(
-      path: '/ai-topics',
-      builder: (context, state) => const ModalBackHandling(
-        meta: RouteMeta.popOrFallback('/home'),
-        child: AiTopicsScreen(),
       ),
     ),
     GoRoute(

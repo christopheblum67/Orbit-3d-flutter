@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
@@ -59,6 +60,7 @@ import 'package:orbit_3d_flutter/providers/content_filter_provider.dart';
 export 'profile_type_provider.dart';
 export 'content_filter_provider.dart';
 export 'subscription_provider.dart';
+
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
 
 final analyticsServiceProvider = Provider<AnalyticsService>((ref) {
@@ -344,10 +346,8 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     },
     // Plein-texte local : alimente l'index FTS5 (VOD + Séries + Live).
     loadCatalogue: () async {
-      final movies =
-          ref.read(moviesProvider).value ?? const <Movie>[];
-      final series =
-          ref.read(seriesProvider).value ?? const <Series>[];
+      final movies = ref.read(moviesProvider).value ?? const <Movie>[];
+      final series = ref.read(seriesProvider).value ?? const <Series>[];
       final channels =
           ref.read(liveChannelsProvider).value ?? const <Channel>[];
       return SearchCatalogue(
@@ -370,8 +370,8 @@ final searchServiceProvider = Provider<SearchService>((ref) {
 String searchQueryKey(String query) =>
     query.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
-final searchProvider =
-    FutureProvider.autoDispose.family<UnifiedSearchResult, String>((ref, query) async {
+final searchProvider = FutureProvider.autoDispose
+    .family<UnifiedSearchResult, String>((ref, query) async {
   final normalized = searchQueryKey(query);
   if (normalized.length < 2) return UnifiedSearchResult.empty();
   // Le masquage de catégories doit aussi s'appliquer à la recherche : sans
@@ -385,15 +385,21 @@ final searchProvider =
       );
 });
 
-final searchFilteredProvider = FutureProvider.autoDispose
-    .family<UnifiedSearchResult, ({String query, SearchType? filterType, String? categoryId})>(
-        (ref, params) async {
+final searchFilteredProvider = FutureProvider.autoDispose.family<
+    UnifiedSearchResult,
+    ({
+      String query,
+      SearchType? filterType,
+      String? categoryId
+    })>((ref, params) async {
   final normalized = searchQueryKey(params.query);
   if (normalized.length < 2) return UnifiedSearchResult.empty();
   final filter = ref.watch(vodCategoryFilterProvider);
-  return ref
-      .watch(searchServiceProvider)
-      .search(normalized, filterType: params.filterType, categoryId: params.categoryId, hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(), hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList());
+  return ref.watch(searchServiceProvider).search(normalized,
+      filterType: params.filterType,
+      categoryId: params.categoryId,
+      hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
+      hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList());
 });
 
 final searchSuggestionsProvider = StreamProvider.autoDispose
@@ -427,7 +433,8 @@ final playbackProgressProvider =
   return ref.watch(playbackProgressServiceProvider).get(id);
 });
 
-final currentProfileProvider = NotifierProvider<CurrentProfileNotifier, UserProfile?>(
+final currentProfileProvider =
+    NotifierProvider<CurrentProfileNotifier, UserProfile?>(
   CurrentProfileNotifier.new,
 );
 
@@ -449,13 +456,16 @@ final profilesProvider = FutureProvider<List<UserProfile>>((ref) async {
   return storage.getProfiles();
 });
 
-final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final filter = ref.watch(contentFilterProvider);
-  final sub = ref.watch(activeSubscriptionProvider);
-  if (sub == null) return const <Channel>[];
-  final api = ref.watch(apiServiceProvider);
-  return filter.visibleList(await api.fetchLiveChannels());
-}, retry: _retryUnlessRateLimited,);
+final liveChannelsProvider = FutureProvider<List<Channel>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null) return const <Channel>[];
+    final api = ref.watch(apiServiceProvider);
+    return filter.visibleList(await api.fetchLiveChannels());
+  },
+  retry: _retryUnlessRateLimited,
+);
 
 /// Contexte de découverte des sous-titres pour le contenu en cours de lecture.
 ///
@@ -464,10 +474,23 @@ final liveChannelsProvider = FutureProvider<List<Channel>>((ref) async {
 /// `get_series_info`. `null` pour un flux live : les panels ne publient pas de
 /// sous-titres par chaîne, et la feuille retombe alors sur la saisie manuelle.
 class SubtitleContext {
-  const SubtitleContext({required this.contentId, required this.isSeries});
+  const SubtitleContext({
+    required this.contentId,
+    required this.isSeries,
+    this.streamId = '',
+  });
 
   final String contentId;
   final bool isSeries;
+
+  /// Stream id brut du média lu.
+  ///
+  /// Pour un film, [contentId] EST le stream id. Pour une série, `series_id`
+  /// ne l'est pas : la convention de nommage des sous-titres attend le stream id
+  /// de l'ÉPISODE. Sans ce champ, la découverte d'une série ne peut rien
+  /// synthétiser et l'écran affiche « aucune piste disponible » — un chemin
+  /// mort, alors que la donnée était disponible dans l'écran de lecture.
+  final String streamId;
 }
 
 /// Contexte de découverte des sous-titres, alimenté par la fiche film ou
@@ -484,39 +507,42 @@ final activeSubtitleContextProvider =
   ActiveSubtitleContextNotifier.new,
 );
 
-final moviesProvider = FutureProvider<List<Movie>>((ref) async {
-  final filter = ref.watch(contentFilterProvider);
-  final sub = ref.watch(activeSubscriptionProvider);
-  if (sub == null) return const <Movie>[];
-  final api = ref.watch(apiServiceProvider);
-  // Journalisation explicite des deux étapes : « erreur de chargement » dans
-  // la section Films pouvait venir soit du réseau, soit du parsing
-  // (`filter.visibleList`), et rien ne le distinguait. On trace donc chacune.
-  final result = await safeAsync<List<Movie>>(
-    () => api.fetchMovies(),
-    context: 'moviesProvider.fetch',
-  );
-  if (result.isFailure) {
-    LoggerService.instance.error(
-      'moviesProvider: échec réseau '
-      '(${result.valueOrNull?.length ?? 0} films) : ${result.errorOrNull}',
-      tag: 'vod',
-      error: result.errorOrNull,
+final moviesProvider = FutureProvider<List<Movie>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null) return const <Movie>[];
+    final api = ref.watch(apiServiceProvider);
+    // Journalisation explicite des deux étapes : « erreur de chargement » dans
+    // la section Films pouvait venir soit du réseau, soit du parsing
+    // (`filter.visibleList`), et rien ne le distinguait. On trace donc chacune.
+    final result = await safeAsync<List<Movie>>(
+      () => api.fetchMovies(),
+      context: 'moviesProvider.fetch',
     );
-    throw result.errorOrNull!;
-  }
-  final movies = result.valueOrNull ?? const <Movie>[];
-  try {
-    return filter.visibleList(movies);
-  } catch (e, st) {
-    LoggerService.instance.error(
-      'moviesProvider: échec du filtrage sur ${movies.length} films',
-      tag: 'vod',
-    );
-    LoggerService.instance.error('$st', tag: 'vod');
-    rethrow;
-  }
-}, retry: _retryUnlessRateLimited,);
+    if (result.isFailure) {
+      LoggerService.instance.error(
+        'moviesProvider: échec réseau '
+        '(${result.valueOrNull?.length ?? 0} films) : ${result.errorOrNull}',
+        tag: 'vod',
+        error: result.errorOrNull,
+      );
+      throw result.errorOrNull!;
+    }
+    final movies = result.valueOrNull ?? const <Movie>[];
+    try {
+      return filter.visibleList(movies);
+    } catch (e, st) {
+      LoggerService.instance.error(
+        'moviesProvider: échec du filtrage sur ${movies.length} films',
+        tag: 'vod',
+      );
+      LoggerService.instance.error('$st', tag: 'vod');
+      rethrow;
+    }
+  },
+  retry: _retryUnlessRateLimited,
+);
 
 /// Catégories Live TV extraites des group-titres M3U (pour playlists M3U)
 final liveCategoriesFromM3UProvider =
@@ -561,29 +587,36 @@ Duration? _retryUnlessRateLimited(int retryCount, Object error) {
 /// refus de quota.
 const int _maxAutoRetries = 3;
 
-final vodCategoriesProvider =
-    FutureProvider<List<MediaCategory>>((ref) async {
-  final api = ref.watch(apiServiceProvider);
-  // Dépend de l'abonnement actif pour recharger les catégories VOD
-  final sub = ref.watch(activeSubscriptionProvider);
-  if (sub == null || sub.type != SubscriptionType.xtream) return const [];
-  return api.fetchVodCategories();
-}, retry: _retryUnlessRateLimited,);
+final vodCategoriesProvider = FutureProvider<List<MediaCategory>>(
+  (ref) async {
+    final api = ref.watch(apiServiceProvider);
+    // Dépend de l'abonnement actif pour recharger les catégories VOD
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null || sub.type != SubscriptionType.xtream) return const [];
+    return api.fetchVodCategories();
+  },
+  retry: _retryUnlessRateLimited,
+);
 
-final seriesCategoriesProvider =
-    FutureProvider<List<MediaCategory>>((ref) async {
-  final api = ref.watch(apiServiceProvider);
-  ref.watch(activeSubscriptionProvider);
-  return api.fetchSeriesCategories();
-}, retry: _retryUnlessRateLimited,);
+final seriesCategoriesProvider = FutureProvider<List<MediaCategory>>(
+  (ref) async {
+    final api = ref.watch(apiServiceProvider);
+    ref.watch(activeSubscriptionProvider);
+    return api.fetchSeriesCategories();
+  },
+  retry: _retryUnlessRateLimited,
+);
 
-final seriesProvider = FutureProvider<List<Series>>((ref) async {
-  final filter = ref.watch(contentFilterProvider);
-  final sub = ref.watch(activeSubscriptionProvider);
-  if (sub == null) return const <Series>[];
-  final api = ref.watch(apiServiceProvider);
-  return filter.visibleList(await api.fetchSeries());
-}, retry: _retryUnlessRateLimited,);
+final seriesProvider = FutureProvider<List<Series>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null) return const <Series>[];
+    final api = ref.watch(apiServiceProvider);
+    return filter.visibleList(await api.fetchSeries());
+  },
+  retry: _retryUnlessRateLimited,
+);
 
 final seriesInfoProvider =
     FutureProvider.family<Series, String>((ref, seriesId) async {
@@ -625,12 +658,15 @@ final seriesDetailProvider =
   return ref.watch(enrichmentServiceProvider).enrichSeries(series);
 });
 
-final radioChannelsProvider = FutureProvider<List<Channel>>((ref) async {
-  final sub = ref.watch(activeSubscriptionProvider);
-  if (sub == null) return const <Channel>[];
-  final api = ref.watch(apiServiceProvider);
-  return api.fetchRadioChannels();
-}, retry: _retryUnlessRateLimited,);
+final radioChannelsProvider = FutureProvider<List<Channel>>(
+  (ref) async {
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null) return const <Channel>[];
+    final api = ref.watch(apiServiceProvider);
+    return api.fetchRadioChannels();
+  },
+  retry: _retryUnlessRateLimited,
+);
 
 /// Cache partagé des replays, avec expiration : relister les chaînes DVR
 /// (get_short_epg) à chaque ouverture de l'écran Replay martèlerait le panel
@@ -760,6 +796,62 @@ final replaysProbeProvider = FutureProvider<List<ReplayItem>>((ref) async {
   return replaysCache.fetch(api.fetchReplays);
 });
 
+/// Petits cache par chaîne pour le détail Replay.
+///
+/// Revenir sur une chaîne déjà consultée ne doit pas coûter un appel : le panel
+/// est fragile et l'utilisateur alterne entre deux chaînes. TTL court,
+/// le cache est vidé au changement d'abonnement.
+class _ChannelReplaysCache {
+  static const _ttl = Duration(minutes: 10);
+
+  final Map<String, List<ReplayItem>> _items = {};
+  final Map<String, DateTime> _at = {};
+
+  List<ReplayItem>? peek(String channelId) {
+    final at = _at[channelId];
+    if (at == null || DateTime.now().difference(at) >= _ttl) return null;
+    return _items[channelId];
+  }
+
+  void put(String channelId, List<ReplayItem> items) {
+    _items[channelId] = items;
+    _at[channelId] = DateTime.now();
+  }
+
+  void invalidate() {
+    _items.clear();
+    _at.clear();
+  }
+}
+
+final channelReplaysCache = _ChannelReplaysCache();
+
+/// Replays d'**une** chaîne, chargés à la demande.
+///
+/// Un appel par chaîne, et un seul : c'est le point délicat du Replay. Le
+/// catalogue compte plus de 1400 chaînes réplayables, donc tout ce qui sonde en
+/// bloc (ce que faisait la sonde de 40 chaînes au démarrage) sature le quota du
+/// panel — le 429 qui suit ne fait pas que ralentir le Replay, il vide aussi
+/// l'EPG et les Films.
+///
+/// `autoDispose` : quitter le détail rend l'entrée au cache et libère le
+/// provider, sans jamais déclencher de requête tout seul.
+final channelReplaysProvider = FutureProvider.autoDispose
+    .family<List<ReplayItem>, String>((ref, id) async {
+  final api = ref.watch(apiServiceProvider);
+  ref.watch(activeSubscriptionProvider);
+  final channels = await ref.watch(liveChannelsProvider.future);
+  final channel = channels.where((c) => c.id == id).firstOrNull;
+  if (channel == null) return const <ReplayItem>[];
+
+  final cached = channelReplaysCache.peek(id);
+  if (cached != null) return cached;
+
+  final items = await api.fetchChannelReplays(channel);
+  channelReplaysCache.put(id, items);
+  return items;
+});
+
 final epgProgramsProvider =
     AsyncNotifierProvider<EPGProgramsNotifier, List<EPGProgram>>(
   EPGProgramsNotifier.new,
@@ -837,15 +929,19 @@ class EPGDataCache {
 
   Future<List<EPGProgram>> _fetchAndFilter(ApiService api) async {
     final programs = await api.fetchEpg();
-    // Ne conserve que les programmes à venir (48 h) : l'XMLTV draap contient
-    // ~94 000 entrées, inutile de les garder toutes en mémoire pour la grille.
+    // On borne la conservation entre le DÉBUT de la journée en cours et +48 h.
+    //
+    // La borne basse était « maintenant ». La grille représente une journée
+    // entière (minuit → minuit) : tout ce qui s'est terminé ce matin était donc
+    // jeté au chargement, et la matinée s'affichait en « aucune donnée » alors
+    // que le dump XMLTV la contenait — 93 128 entrées récupérées, aucune
+    // affichée. Couper à minuit couvre la journée affichée sans garder les
+    // semaines précédentes contenues dans le dump.
     final now = DateTime.now();
+    final dayStart = EpgDayWindow.ofNow().start;
+    final horizon = now.add(const Duration(hours: 48));
     _all = programs
-        .where(
-          (p) =>
-              p.end.isAfter(now) &&
-              p.end.isBefore(now.add(const Duration(hours: 48))),
-        )
+        .where((p) => p.end.isAfter(dayStart) && p.end.isBefore(horizon))
         .toList();
     // Index par chaîne, trié par horaire : recherches dichotomiques O(log N).
     _byChannel.clear();
@@ -894,7 +990,8 @@ final channelCatchUpProvider =
   (ref, channelId) async {
     if (channelId.isEmpty) return const <EPGProgram>[];
 
-    final cached = ref.watch(shortEpgCacheProvider).get(channelId);
+    final cache = ref.read(shortEpgCacheProvider);
+    final cached = cache.get(channelId);
     if (cached != null) return _pastPrograms(cached);
 
     final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
@@ -904,14 +1001,20 @@ final channelCatchUpProvider =
         );
     if (channel == null) return const <EPGProgram>[];
 
+    // L'API est lue AVANT le `await` : ce provider est `autoDispose`, et si
+    // l'écran se ferme pendant l'appel, le `ref` est déjà détruit. Un
+    // `ref.read(...)` placé après l'attente levait alors « Cannot use the Ref
+    // … after it has been disposed » — ce que le journaligrams showed quand on
+    // ouvrait la grille EPG.
+    final api = ref.read(apiServiceProvider);
     final result = await safeAsync<List<EPGProgram>>(
-      () => ref.read(apiServiceProvider).fetchChannelEpgPrograms(channel),
+      () => api.fetchChannelEpgPrograms(channel),
       context: 'channelCatchUpProvider',
     );
     final programs = result.valueOrNull;
     if (programs == null || programs.isEmpty) return const <EPGProgram>[];
 
-    ref.read(shortEpgCacheProvider).put(channelId, programs);
+    cache.put(channelId, programs);
     return _pastPrograms(programs);
   },
 );
@@ -964,79 +1067,114 @@ List<EPGProgram> _upcomingSorted(List<EPGProgram> programs, DateTime now) {
 /// chaîne au lieu de télécharger le dump XMLTV global (~48 h, plusieurs Mo).
 /// Le résultat est mis en cache 30 min par [ShortEpgCache].
 /// Renvoie une liste vide si aucun programme à venir n'est disponible.
+/// Corps de résolution de l'EPG d'une chaîne, partagé par deux providers.
+///
+/// [includePast] change ce que l'on garde, pas la SOURCE :
+/// - `false` (barre du lecteur, bouton de zapping) : uniquement ce qui est en
+///   cours ou à venir ;
+/// - `true` (grille EPG) : tout, passé compris.
+///
+/// Ce filtre était appliqué dans les TROIS branches, y compris le repli sur le
+/// dump XMLTV global — qui est pourtant la seule source qui contient du passé. Une
+/// grille démarrant à minuit ne pouvait donc jamais afficher les premières
+/// heures de la journée : elles étaient supprimées en amont, et le comblement
+/// de trous les remplaçait par un bloc « aucune donnée ».
+Future<List<EPGProgram>> _resolveChannelEpg(
+  Ref ref,
+  String epgChannelId, {
+  required bool includePast,
+}) async {
+  if (epgChannelId.isEmpty) return const <EPGProgram>[];
+
+  final cache = ref.watch(shortEpgCacheProvider);
+  final now = DateTime.now();
+  List<EPGProgram> keep(List<EPGProgram> list) => includePast
+      ? (list..sort((a, b) => a.start.compareTo(b.start)))
+      : _upcomingSorted(list, now);
+
+  // 1. Cache court (aucun réseau).
+  //
+  // Le cache est indexé par `stream_id` (cf. l'écriture plus bas), mais
+  // l'appelant peut demander une autre forme (`num:stream_id`, ou un id
+  // XMLTV). Sans cette recherche multi-clés, une requête faite avec la forme
+  // préfixée relançait `get_short_epg` à chaque appel et — surtout —
+  // ne bénéficiait jamais du cache : l'EPG de la buttonbar du lecteur
+  // restait vide malgré un panel qui répondait.
+  final cachedShort = cache.get(epgChannelId) ??
+      _findShortEpgForAnyCandidate(cache, epgChannelId);
+  if (cachedShort != null) {
+    final kept = keep(cachedShort);
+    if (kept.isNotEmpty) return kept;
+  }
+
+  // Tout ce dont le corps a besoin est lu AVANT le premier `await` : ces
+  // providers sont `autoDispose`, donc un `ref` touché après une attente peut
+  // déjà avoir été détruit si l'appeleur a quitté l'écran entre-temps.
+  final api = ref.read(apiServiceProvider);
+  final globalCache = ref.watch(epgDataCacheProvider);
+  final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
+  Channel? channel;
+  for (final c in channels) {
+    // On compare sur TOUS les identifiants EPG possibles de la chaîne
+    // (`stream_id` et `num:stream_id`) : le XMLTV de ces panels utilise la
+    // forme préfixée, et ne tester qu'un seul forme faisait échouer la
+    // résolution.
+    if (c.id == epgChannelId || c.epgChannelIds.contains(epgChannelId)) {
+      channel = c;
+      break;
+    }
+  }
+  if (channel != null) {
+    final target = channel;
+    final result = await safeAsync<List<EPGProgram>>(
+      () => api.fetchChannelEpgPrograms(target),
+      context: 'channelEpgProvider',
+    );
+    final programs = result.valueOrNull;
+    if (programs != null && programs.isNotEmpty) {
+      cache.put(target.id, programs);
+      final kept = keep(programs);
+      if (kept.isNotEmpty) return kept;
+    }
+  }
+
+  // 3. Repli : le dump XMLTV global, chargé une seule fois et indexé.
+  await globalCache.loadFull(api);
+
+  // On essaie chaque identifiant candidat de la chaîne (forme simple et
+  // forme préfixée) : le premier qui trouve des programmes gagne.
+  final candidates = <String>[epgChannelId];
+  final matched = channel;
+  if (matched != null) {
+    candidates
+      ..clear()
+      ..addAll(matched.epgChannelIds);
+    if (matched.id.isNotEmpty) candidates.add(matched.id);
+  }
+  for (final candidate in candidates) {
+    final found = keep(globalCache.programsForChannel(candidate).toList());
+    if (found.isNotEmpty) return found;
+  }
+  return const <EPGProgram>[];
+}
+
+/// EPG d'une chaîne pour la barre du lecteur : uniquement « en cours » et
+/// « à venir ». Voir [channelEpgWindowProvider] pour la grille.
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
-  (ref, epgChannelId) async {
-    if (epgChannelId.isEmpty) return const <EPGProgram>[];
+  (ref, epgChannelId) =>
+      _resolveChannelEpg(ref, epgChannelId, includePast: false),
+);
 
-    final cache = ref.watch(shortEpgCacheProvider);
-    final now = DateTime.now();
-
-    // 1. Cache court (aucun réseau).
-    //
-    // Le cache est indexé par `stream_id` (cf. l'écriture plus bas), mais
-    // l'appelant peut demander une autre forme (`num:stream_id`, ou un id
-    // XMLTV). Sans cette recherche multi-clés, une requête faite avec la forme
-    // préfixée relançait `get_short_epg` à chaque appel et — surtout —
-    // ne bénéficiait jamais du cache : l'EPG de la buttonbar du lecteur
-    // restait vide malgré un panel qui répondait.
-    final cachedShort = cache.get(epgChannelId) ??
-        _findShortEpgForAnyCandidate(cache, epgChannelId);
-    if (cachedShort != null) {
-      final upcoming = _upcomingSorted(cachedShort, now);
-      if (upcoming.isNotEmpty) return upcoming;
-    }
-
-    // 2. Si la chaîne est connue, on récupère son guide via le panel.
-    final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
-    Channel? channel;
-    for (final c in channels) {
-      // On compare sur TOUS les identifiants EPG possibles de la chaîne
-      // (`stream_id` et `num:stream_id`) : le XMLTV de ces panels utilise la
-      // forme préfixée, et ne tester qu'un seul forme faisait échouer la
-      // résolution.
-      if (c.id == epgChannelId || c.epgChannelIds.contains(epgChannelId)) {
-        channel = c;
-        break;
-      }
-    }
-    if (channel != null) {
-      final target = channel;
-      final result = await safeAsync<List<EPGProgram>>(
-        () => ref.read(apiServiceProvider).fetchChannelEpgPrograms(target),
-        context: 'channelEpgProvider',
-      );
-      final programs = result.valueOrNull;
-      if (programs != null && programs.isNotEmpty) {
-        cache.put(target.id, programs);
-        final upcoming = _upcomingSorted(programs, now);
-        if (upcoming.isNotEmpty) return upcoming;
-      }
-    }
-
-    // 3. Repli : le dump XMLTV global, chargé une seule fois et indexé.
-    final globalCache = ref.watch(epgDataCacheProvider);
-    await globalCache.loadFull(ref.read(apiServiceProvider));
-
-    // On essaie chaque identifiant candidat de la chaîne (forme simple et
-    // forme préfixée) : le premier qui trouve des programmes gagne.
-    final candidates = <String>[epgChannelId];
-    final matched = channel;
-    if (matched != null) {
-      candidates
-        ..clear()
-        ..addAll(matched.epgChannelIds);
-      if (matched.id.isNotEmpty) candidates.add(matched.id);
-    }
-    for (final candidate in candidates) {
-      final found = globalCache
-          .programsForChannel(candidate)
-          .where((p) => p.end.isAfter(now))
-          .toList();
-      if (found.isNotEmpty) return found;
-    }
-    return const <EPGProgram>[];
-  },
+/// EPG d'une chaîne pour la GRILLE : programmes passés compris.
+///
+/// La grille représente une journée entière ; lui fournir seulement « à venir »
+/// laissait la matinée entière vide, comblée par des blocs de trou alors que le
+/// dump XMLTV contenait bel et bien ces programmes.
+final channelEpgWindowProvider =
+    FutureProvider.autoDispose.family<List<EPGProgram>, String>(
+  (ref, epgChannelId) =>
+      _resolveChannelEpg(ref, epgChannelId, includePast: true),
 );
 
 class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
@@ -1098,7 +1236,8 @@ final downloadTasksStreamProvider = StreamProvider<List<DownloadTask>>((ref) {
 /// Nombre de téléchargements actifs
 final activeDownloadsCountProvider = StreamProvider<int>((ref) {
   final manager = ref.watch(downloadManagerProvider);
-  return manager.tasksStream.map((tasks) => tasks.where((t) => t.isActive).length);
+  return manager.tasksStream
+      .map((tasks) => tasks.where((t) => t.isActive).length);
 });
 
 class StreamAiException implements Exception {
@@ -1150,4 +1289,3 @@ Future<DateTime?> loadLastRefresh() async {
   );
   return result.valueOrNull;
 }
-

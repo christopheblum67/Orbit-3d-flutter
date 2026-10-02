@@ -103,6 +103,21 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     // l'invalider explicitement, sinon le TTL 5 min sert les replays de
     // l'ancien abonnement au nouveau.
     replaysCache.invalidate();
+    // Cache des replays PAR CHAÎNE (singleton global, lui aussi).
+    //
+    // Il est indexé sur l'identifiant de chaîne, or deux abonnements attribuent
+    // souvent le MÊME `stream_id` à des chaînes différentes : sans purge, le
+    // nouveau serveur se voyait servir les replays de l'ancien pour un
+    // identifiant identique. Même défaut que le cache court ci-dessous, et les
+    // deux sont invisibles tant qu'on ne change pas d'abonnement.
+    channelReplaysCache.invalidate();
+    // Cache court d'EPG, également indexé sur le `stream_id`.
+    //
+    // `shortEpgCacheProvider` est un `Provider` mutable : l'invalider remplace
+    // l'instance, ce qui vide le cache. Sans cela, l'EPG d'une chaîne pouvait
+    // venir de l'abonnement précédent — symptôme : des programmes et des
+    // catégories qui ne « complètent » pas après un changement.
+    ref.invalidate(shortEpgCacheProvider);
     // Outrepasse la règle des 30 min : on marque les données comme non
     // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
     // re-autorisé immédiatement après un changement d'abonnement.

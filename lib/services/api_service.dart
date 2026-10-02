@@ -15,11 +15,13 @@ import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/services/catchup_url_builder.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 
 class StreamNetworkException implements Exception {
@@ -65,6 +67,7 @@ class ApiService {
     _subUsername = sub['username'];
     _subPassword = sub['password'];
   }
+
   static Set<String>? _certificateFingerprints;
 
   /// Configure les fingerprints SHA-256 autorisés pour le certificate pinning.
@@ -321,9 +324,7 @@ class ApiService {
       final isRateLimited = status == 429;
       final retriable = !isRateLimited &&
           e.type == DioExceptionType.badResponse &&
-          (status == null ||
-              status == 408 ||
-              (status >= 500 && status < 600));
+          (status == null || status == 408 || (status >= 500 && status < 600));
       if (isRateLimited) {
         // Le gate relève son espacement : le panel vient de refuser.
         _apiGate.onRateLimited();
@@ -877,14 +878,21 @@ class ApiService {
   ///
   /// Retourne une liste vide si le panel n'en publie pas ou si l'appel échoue :
   /// l'absence de sous-titres ne doit pas être une erreur.
-  Future<List<SubtitleTrackRef>> discoverSubtitles(
+  /// Découvre les sous-titres d'un contenu.
+  ///
+  /// Renvoie les pistes trouvées et si elles sont DÉDUITES : des panels ne
+  /// déclarent rien et servent les fichiers par convention d'URL, et
+  /// l'interface doit le dire plutôt que présenter une supposition comme une
+  /// certitude.
+  Future<({List<SubtitleTrackRef> tracks, bool guessed})> discoverSubtitles(
     String contentId, {
     required bool isSeries,
     String? streamId,
   }) async {
-    if (contentId.isEmpty) return const <SubtitleTrackRef>[];
+    const nothing = (tracks: <SubtitleTrackRef>[], guessed: false);
+    if (contentId.isEmpty) return nothing;
     final sub = await _activeSub();
-    if (sub['type'] != 'xtream') return const <SubtitleTrackRef>[];
+    if (sub['type'] != 'xtream') return nothing;
 
     final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
       'username': sub['username']!,
@@ -906,15 +914,116 @@ class ApiService {
       streamId: isSeries ? streamId : contentId,
     );
 
-    final result = await safeAsync<List<SubtitleTrackRef>>(
+    final result =
+        await safeAsync<({List<SubtitleTrackRef> tracks, bool guessed})>(
       () async {
         final response = await _get(url);
-        return SubtitleDiscovery.parse(response.data, context: context);
+        // Relevé de la charge utile : « aucune piste disponible » est
+        // indifférenciable entre un panel qui ne publie rien et un câblage
+        // cassé de notre côté.
+        _logSubtitlePayload(
+          action: isSeries ? 'get_series_info' : 'get_vod_info',
+          contentId: contentId,
+          streamId: context.streamId ?? '',
+          data: response.data,
+        );
+
+        final declared =
+            SubtitleDiscovery.parse(response.data, context: context);
+        if (declared.isNotEmpty) {
+          return (tracks: declared, guessed: false);
+        }
+
+        // Aucune piste adressable dans la réponse. Deuxième voie : les codes
+        // langue peuvent être déclarés PLUS PROFOND, notamment dans les objets
+        // épisode d'une série, où le parseur ne va pas les chercher.
+        var codes =
+            SubtitleDiscovery.collectLanguageCodes(response.data).toList();
+        var guessed = false;
+        if (codes.isEmpty) {
+          // Troisième voie : le panel ne déclare rien du tout — mesuré sur deux
+          // contenus d'un même panel, `get_vod_info` comme `get_series_info`.
+          // Ses fichiers existent pourtant, servis par convention d'URL. Sans
+          // candidates, l'app ne peut rien proposer alors que la piste existe.
+          codes = SubtitleDiscovery.defaultConventionLanguages(
+            deviceLanguageCode: PlatformDispatcher.instance.locale.languageCode,
+          );
+          guessed = true;
+        }
+
+        // L'URL d'une piste se construit avec le stream id de l'épisode lu, pas
+        // avec celui de l'épisode qui porte la déclaration.
+        final synthesized = SubtitleDiscovery.synthesizeFromConvention(
+          context: context,
+          languages: codes,
+        );
+        _logger.info(
+          'Sous-titres $contentId : ${synthesized.length} piste(s) '
+          '${guessed ? 'CONVENTIONNELLES (le panel ne déclare rien)' : 'déclarées'} '
+          '-> ${(codes.toList()..sort()).join(', ')}',
+          tag: 'subtitle',
+        );
+        return (tracks: synthesized, guessed: guessed);
       },
       context: 'ApiService.discoverSubtitles',
-      fallbackValue: const <SubtitleTrackRef>[],
+      fallbackValue: (tracks: const <SubtitleTrackRef>[], guessed: false),
     );
-    return result.valueOrNull ?? const <SubtitleTrackRef>[];
+    final found = result.valueOrNull ??
+        (tracks: const <SubtitleTrackRef>[], guessed: false);
+    final effectiveStreamId = context.streamId ?? '';
+    _logger.info(
+      'Sous-titres ${isSeries ? 'série' : 'film'} $contentId : '
+      '${found.tracks.length} piste(s), stream id « $effectiveStreamId »'
+      '${effectiveStreamId.isEmpty ? ' (AUCUN : URL non synthétisable)' : ''}',
+      tag: 'subtitle',
+    );
+    return found;
+  }
+
+  /// Journalise la forme de la réponse `subtitles` renvoyée par le panel.
+  void _logSubtitlePayload({
+    required String action,
+    required String contentId,
+    required String streamId,
+    required Object? data,
+  }) {
+    Map<String, dynamic>? found;
+    var depth = 0;
+    void walk(Object? node) {
+      if (depth > 4 || found != null) return;
+      depth++;
+      if (node is Map) {
+        final map = Map<String, dynamic>.from(node);
+        for (final key in const [
+          'subtitles',
+          'subtitle',
+        ]) {
+          if (map.containsKey(key)) {
+            found = {'$action.$key': map[key]};
+            return;
+          }
+        }
+        walk(map['info']);
+      }
+    }
+
+    walk(data);
+    if (found == null) {
+      _logger.info(
+        'Sous-titres $action $contentId : aucun champ « subtitles » dans la '
+        'réponse (stream id « $streamId »)',
+        tag: 'subtitle',
+      );
+      return;
+    }
+    final raw = found!.values.first;
+    final summary = raw is List
+        ? '${raw.length} entrée(s) : ${raw.take(3).join(' | ')}'
+        : '$raw';
+    _logger.info(
+      'Sous-titres $action $contentId : $summary',
+      tag: 'subtitle',
+    );
   }
 
   Future<Series> fetchSeriesInfo(String seriesId) async {
@@ -933,16 +1042,16 @@ class ApiService {
       'action': 'get_series_info',
       'series_id': seriesId,
     });
-        // `get_short_epg` renvoie du JSON dont les titres/descriptions sont en
-        // UTF-8, alors que le panel_Xtream sert souvent `text/html` ou
-        // `text/xml` SANS charset : Dio applique alors son défaut (latin1) et
-        // chaque accent devenait illisible (« à caractères spéciaux »). On
-        // récupère donc les octets bruts et on décode nous-mêmes.
-        final response = await _get(
-          url,
-          options: Options(responseType: ResponseType.bytes),
-        );
-        final data = _decodeJsonPayload(response);
+    // `get_short_epg` renvoie du JSON dont les titres/descriptions sont en
+    // UTF-8, alors que le panel_Xtream sert souvent `text/html` ou
+    // `text/xml` SANS charset : Dio applique alors son défaut (latin1) et
+    // chaque accent devenait illisible (« à caractères spéciaux »). On
+    // récupère donc les octets bruts et on décode nous-mêmes.
+    final response = await _get(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final data = _decodeJsonPayload(response);
     Map<String, dynamic> root;
     if (data is List) {
       if (data.isEmpty) {
@@ -1149,11 +1258,9 @@ class ApiService {
       if (!isReplayableProgram(p, now: now, channelSupportsReplay: true)) {
         continue;
       }
-      // Fenêtre de rétroactivité propre à la chaîne, comme en short_epg.
-      final window = channel.archiveDays > 2
-          ? Duration(days: channel.archiveDays)
-          : _replayWindow;
-      if (now.difference(p.start) > window) continue;
+      // Fenêtre propre à la chaîne : `catchup-days` de l'abonnement quand le
+      // provider le déclare, 48 h sinon.
+      if (now.difference(p.start) > archiveWindow(channel)) continue;
 
       final startEpoch = p.start.millisecondsSinceEpoch ~/ 1000;
       final endEpoch = p.end.millisecondsSinceEpoch ~/ 1000;
@@ -1166,13 +1273,13 @@ class ApiService {
         ReplayItem(
           id: key,
           title: title,
-          streamUrl: buildXtreamTimeshiftUrl(
-            baseUrl,
-            username,
-            password,
-            channel.id,
-            start: startEpoch,
-            end: endEpoch,
+          streamUrl: replayStreamUrl(
+            channel: channel,
+            baseUrl: baseUrl,
+            username: username,
+            password: password,
+            startEpoch: startEpoch,
+            endEpoch: endEpoch,
           ),
           startTime: _formatReplayTime(p.start, now),
           endTime: _formatReplayTime(p.end, now),
@@ -1223,7 +1330,7 @@ class ApiService {
     if (sub['type'] == 'm3u') {
       return _fetchM3uReplays(sub);
     }
-      throw StreamNetworkException('Aucun abonnement configuré.');
+    throw StreamNetworkException('Aucun abonnement configuré.');
   }
 
   /// Replay Xtream : les chaînes DVR (tv_archive / timeshift) exposent leurs
@@ -1374,12 +1481,23 @@ class ApiService {
 
   static const String _unknownGroupLabel = '(sans groupe)';
 
-  /// Programmes EPG d'une chaîne via `get_short_epg` (JSON) — précharge S4.
+  /// Point d'entrée de test pour le décodage des textes de panel.
   ///
-  /// Complément au XMLTV global : renseigne le guide d'une chaîne en direct,
-  /// sans télécharger l'intégralité du dump. La liste couvre généralement
-  /// plusieurs jours (passé + futur). Échec ⇒ liste vide (le flux principal
-  /// XMLTV reste la source de référence).
+  /// Le décodeur unique vit dans [PanelText]. Il était dupliqué ici : deux
+  /// implémentations du même garde-fou finissent toujours par diverger, et c'est
+  /// cette divergence qui avait laissé des titres en base64 à côté de titres
+  /// corrects dans une même liste.
+  @visibleForTesting
+  static String decodeEpgTextForTest(String raw) => PanelText.decode(raw);
+
+  /// Programmes EPG d'une chaîne via `get_short_epg` (JSON).
+  ///
+  /// Complément au XMLTV global : renseigne le guide d'une chaîne en direct sans
+  /// télécharger l'intégralité du dump. Échec ⇒ liste vide, le flux principal
+  /// (XMLTV) reste la référence.
+  ///
+  /// Les titres et synopsis de certains panels arrivent encodés en base64 ; le
+  /// décodage passe désormais par [PanelText], qui porte les garde-fous.
   Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream') return const <EPGProgram>[];
@@ -1405,7 +1523,9 @@ class ApiService {
               _parseReplayDate(map['start_timestamp'] ?? map['start']);
           final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
           if (start == null || end == null || !end.isAfter(start)) continue;
-          final title = map['title']?.toString().trim() ?? '';
+          final title = PanelText.decode(
+            map['title']?.toString().trim() ?? '',
+          );
           if (title.isEmpty) continue;
           programs.add(
             EPGProgram(
@@ -1415,8 +1535,9 @@ class ApiService {
                   ? channel.primaryEpgChannelId
                   : channel.id,
               title: title,
-              description:
-                  (map['description'] ?? map['plot'] ?? '').toString().trim(),
+              description: PanelText.decode(
+                (map['description'] ?? map['plot'] ?? '').toString().trim(),
+              ),
               start: start,
               end: end,
             ),
@@ -1428,6 +1549,222 @@ class ApiService {
       fallbackValue: const <EPGProgram>[],
     );
     return result.getOrElse(const <EPGProgram>[]);
+  }
+
+  /// Programmes rejouables d'**une seule** chaîne : un appel.
+  ///
+  /// ## L'endpoint qui compte
+  ///
+  /// `get_short_epg` ne sert **pas** à ça. Sa documentation le dit : « aperçu
+  /// rapide des **prochains** programmes ». Il renvoie 4 entrées, toutes
+  /// futures, et le filtre « terminé » les élimine toutes — d'où un Replay vide
+  /// alors que le panel archive bien. Mesuré le 30/09 : `0 programme(s)
+  /// rejouable(s) sur 4 renvoyés par get_short_epg`.
+  ///
+  /// L'EPG complet d'une chaîne, celui qui est « nécessaire pour calculer le
+  /// Replay », vient de `get_simple_data_table&stream_id=…`. Cet appel n'était
+  /// fait nulle part dans l'application.
+  ///
+  /// Un seul appel par chaîne, comme le niveau 1 de l'écran : le catalogue
+  /// compte plus de 1400 chaînes rejouables, et les sonder toutes déclencherait
+  /// la tempête de 429 qui vide l'EPG, les Films et le Live TV.
+  Future<List<ReplayItem>> fetchChannelReplays(Channel channel) async {
+    final sub = await _activeSub();
+    if (sub['type'] != 'xtream') return const <ReplayItem>[];
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+    final now = DateTime.now();
+
+    final entries = await _fetchChannelFullEpg(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+      channel: channel,
+    );
+
+    // Repli : certains panels ne servent pas l'EPG complet par cet appel. On
+    // retente alors avec l'aperçu court, qui ne donnera que les rares
+    // programmes déjà diffusés — moins de résultats, mais mieux que rien.
+    if (entries.isEmpty) {
+      return _fetchChannelReplayPrograms(
+        baseUrl: baseUrl,
+        username: username,
+        password: password,
+        channel: channel,
+        now: now,
+      );
+    }
+
+    // Fenêtre de l'abonnement pour CETTE chaîne (`tv_archive_duration`). Le tri
+    // par jour est fait par l'écran ; on renvoie du plus récent au plus ancien,
+    // qui est l'ordre de lecture attendu.
+    final window = archiveWindow(channel);
+    final items = <ReplayItem>[];
+    final seen = <int>{};
+    for (final e in entries) {
+      final map = Map<String, dynamic>.from(e);
+      final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+      final end = _parseReplayDate(
+        map['stop_timestamp'] ?? map['stop'] ?? map['end'],
+      );
+      if (start == null || end == null) continue;
+      if (!end.isBefore(now)) continue; // pas encore terminé
+      if (now.difference(start) > window) continue; // hors fenêtre du compte
+      // Ce panel encode les titres et descriptifs en base64 : sans décodage,
+      // la table affichait « TxkgTWlsbGlvbg== » là où il faut lire
+      // « Le Bulletin ». Le décodage est prudent (longueur, alphabet, contrôle
+      // de caractères) : un titre en clair qui ressemblerait à du base64 n'est
+      // jamais altéré.
+      final title = PanelText.decode(
+        map['title']?.toString().trim() ?? '',
+      );
+      if (title.isEmpty) continue;
+      final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
+      if (!seen.add(startEpoch)) continue;
+      items.add(
+        ReplayItem(
+          id: '${channel.id}_$startEpoch',
+          title: title,
+          streamUrl: replayStreamUrl(
+            channel: channel,
+            baseUrl: baseUrl,
+            username: username,
+            password: password,
+            startEpoch: startEpoch,
+            endEpoch: end.millisecondsSinceEpoch ~/ 1000,
+          ),
+          startTime: _formatReplayTime(start, now),
+          endTime: _formatReplayTime(end, now),
+          categoryId: channel.groupLabel,
+          channelId: channel.id,
+          channelName: channel.name,
+          startDate: start,
+          description: PanelText.decode(
+            _firstString(map, const [
+              'description',
+              'plot',
+              'desc',
+              'summary',
+            ]),
+          ),
+          host: PanelText.decode(
+            _firstString(map, const [
+              'name',
+              'presenter',
+              'host',
+              'director',
+              'actor',
+            ]),
+          ),
+          startAt: start,
+          endAt: end,
+        ),
+      );
+    }
+    items.sort(
+      (a, b) => (b.startAt ?? b.startDate ?? DateTime(1900))
+          .compareTo(a.startAt ?? a.startDate ?? DateTime(1900)),
+    );
+
+    _logger.info(
+      'Replay ${channel.name}: ${items.length} programme(s) rejouable(s) '
+      'sur ${entries.length} de l\'EPG complet '
+      '(fenêtre ${window.inDays} j, archive ${channel.archiveDays} j)',
+      tag: 'replay',
+    );
+    return items;
+  }
+
+  /// EPG complet d'une chaîne (`get_simple_data_table&stream_id=…`).
+  ///
+  /// Séparé de [fetchChannelReplays] pour que le tri, le filtre et la
+  /// construction d'URL soient testables sans réseau.
+  Future<List<Map<String, dynamic>>> _fetchChannelFullEpg({
+    required String baseUrl,
+    required String username,
+    required String password,
+    required Channel channel,
+  }) async {
+    final result = await safeAsync<List<Map<String, dynamic>>>(
+      () async {
+        final url = _playerApiUrl(baseUrl, 'player_api.php', {
+          'username': username,
+          'password': password,
+          'action': 'get_simple_data_table',
+          'stream_id': channel.id,
+        });
+        final response = await _get(url);
+        final data = response.data;
+        // Trois formes rencontrées : liste nue, `epg_listings` (variante
+        // get_short_epg) et `epg_programmes` (variante get_simple_data_table).
+        final list = data is List
+            ? data
+            : (data is Map
+                ? (data['epg_programmes'] as List? ??
+                    data['epg_listings'] as List? ??
+                    const <dynamic>[])
+                : const <dynamic>[]);
+        final entries = <Map<String, dynamic>>[];
+        for (final e in list.whereType<Map>()) {
+          entries.add(Map<String, dynamic>.from(e));
+        }
+        _logger.info(
+          'EPG complet ${channel.name} (${channel.id}): ${entries.length} '
+          'programme(s) via get_simple_data_table',
+          tag: 'replay',
+        );
+        return entries;
+      },
+      context: 'ApiService._fetchChannelFullEpg',
+      fallbackValue: const <Map<String, dynamic>>[],
+    );
+    return result.getOrElse(const <Map<String, dynamic>>[]);
+  }
+
+  /// URL de lecture d'un programme de replay.
+  ///
+  /// Le template `catchup-source` déclaré par le provider, s'il y en a un,
+  /// **prime sur tout** : c'est lui qui décrit le chemin de replay réel. En
+  /// son absence on applique la convention Xtream Codes
+  /// (`/timeshift/user/pass/durée/date/id.ext`), qui est celle de ce panel —
+  /// `get_live_streams` n'y expose pas de `catchup-source`, contrairement aux
+  /// playlists M3U qui en déclarent toujours un.
+  ///
+  /// Inventer une URL alors qu'un template est disponible donnait des liens
+  /// morts : le programme était listé, puis la lecture échouait.
+  String replayStreamUrl({
+    required Channel channel,
+    required String baseUrl,
+    required String username,
+    required String password,
+    required int startEpoch,
+    required int endEpoch,
+  }) {
+    final fromTemplate = CatchupUrl.build(
+      channel: channel,
+      start: DateTime.fromMillisecondsSinceEpoch(startEpoch * 1000),
+      end: DateTime.fromMillisecondsSinceEpoch(endEpoch * 1000),
+    );
+    if (fromTemplate != null && fromTemplate.isNotEmpty) return fromTemplate;
+    return buildXtreamTimeshiftUrl(
+      baseUrl,
+      username,
+      password,
+      channel.id,
+      start: startEpoch,
+      end: endEpoch,
+    );
+  }
+
+  /// Fenêtre de retroactivité d'une chaîne.
+  ///
+  /// `catchup-days` / `tv_archive_duration` est la fenêtre **de l'abonnement**
+  /// — 48 h, 7 jours, 14 jours selon le compte. C'est donc elle qu'on lit, et
+  /// le 48 h n'est plus qu'un repli pour les panels qui ne déclarent rien.
+  static Duration archiveWindow(Channel channel) {
+    if (channel.archiveDays > 0) return Duration(days: channel.archiveDays);
+    return _replayWindow;
   }
 
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
@@ -1468,22 +1805,56 @@ class ApiService {
           'Replay ${channel.name} (${channel.id}): short_epg limit=$_replayLimit '
           '-> ${list.length} entrées brutes',
         );
+        // Relevé des entrées brutes : sans lui, « 0 programme rejouable sur 4 »
+        // est indécidable. Les 4 peuvent être toutes futures (le panel ne
+        // publie pas d'historique par cet appel), ou des passées rejetées par
+        // notre filtre — et les deux appellent des corrections opposées.
+        final window = archiveWindow(channel);
+        final sample = <String>[];
+        for (final e in list.whereType<Map>().take(6)) {
+          final map = Map<String, dynamic>.from(e);
+          final s = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+          final en = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
+          if (s == null || en == null) {
+            sample.add('?');
+            continue;
+          }
+          final delta = now.difference(s);
+          final hours = (delta.inMinutes / 60).round();
+          final state = en.isBefore(now) ? 'terminé' : 'à venir';
+          final tooOld = delta > window ? ', hors fenêtre' : '';
+          sample.add(
+            '${_formatReplayTime(s, now)} ($hours h, $state$tooOld)',
+          );
+        }
+        if (sample.isNotEmpty) {
+          _logger.info(
+            'Replay ${channel.name}: entrées = ${sample.join(' | ')} '
+            '(fenêtre ${window.inDays} j)',
+            tag: 'replay',
+          );
+        }
         for (final e in list.whereType<Map>()) {
           final map = Map<String, dynamic>.from(e);
           final start =
               _parseReplayDate(map['start_timestamp'] ?? map['start']);
           final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
           if (start == null || end == null) continue;
-          if (!end.isBefore(now)) continue; // programme pas encore terminé          // Fenêtre de rétroactivité : on retient la plus large entre le
-          // défaut (48 h) et ce que le panel déclare pour CETTE chaîne
-          // (`tv_archive_duration`). Fixer 48 h éliminait à tort les replays
-          // d'un panel annonçant 7 jours — le programme était bien servi,
-          // il était filtré de notre côté.
-          final window = channel.archiveDays > 2
-              ? Duration(days: channel.archiveDays)
-              : _replayWindow;
-          if (now.difference(start) > window) continue; // trop ancien
-          final title = map['title']?.toString().trim() ?? '';
+          if (!end.isBefore(now)) continue; // programme pas encore terminé
+          // Fenêtre de rétroactivité : `catchup-days` de l'abonnement quand le
+          // provider le déclare (48 h, 7 j, 14 j selon le compte), 48 h sinon.
+          // Fixer 48 h en dur éliminait à tort les replays d'un compte
+          // annonçant 7 jours : le programme était bien servi, il était
+          // filtré de notre côté.
+          if (now.difference(start) > archiveWindow(channel))
+            continue; // trop ancien
+          // Même décodage que le chemin `get_simple_data_table` : ce panel
+          // encode les titres en base64 sur les deux appels. Sans lui, les
+          // chaînes servies par ce repli affichaient « QWxsZSwgbGUgbG9pciI »
+          // alors que les autres étaient lisibles.
+          final title = PanelText.decode(
+            map['title']?.toString().trim() ?? '',
+          );
           if (title.isEmpty) continue;
           final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
           final endEpoch = end.millisecondsSinceEpoch ~/ 1000;
@@ -1491,13 +1862,13 @@ class ApiService {
             ReplayItem(
               id: '${channel.id}_$startEpoch',
               title: title,
-              streamUrl: buildXtreamTimeshiftUrl(
-                baseUrl,
-                username,
-                password,
-                channel.id,
-                start: startEpoch,
-                end: endEpoch,
+              streamUrl: replayStreamUrl(
+                channel: channel,
+                baseUrl: baseUrl,
+                username: username,
+                password: password,
+                startEpoch: startEpoch,
+                endEpoch: endEpoch,
               ),
               startTime: _formatReplayTime(start, now),
               endTime: _formatReplayTime(end, now),
@@ -1508,19 +1879,23 @@ class ApiService {
               // Résumé et présentation : `get_short_epg` les fournit sous
               // des noms de champs variables selon les panels. On les lit
               // tous, et l'affichage masque ce qui est vide.
-              description: _firstString(map, const [
-                'description',
-                'plot',
-                'desc',
-                'summary',
-              ]),
-              host: _firstString(map, const [
-                'name',
-                'presenter',
-                'host',
-                'director',
-                'actor',
-              ]),
+              description: PanelText.decode(
+                _firstString(map, const [
+                  'description',
+                  'plot',
+                  'desc',
+                  'summary',
+                ]),
+              ),
+              host: PanelText.decode(
+                _firstString(map, const [
+                  'name',
+                  'presenter',
+                  'host',
+                  'director',
+                  'actor',
+                ]),
+              ),
               startAt: start,
               endAt: end,
             ),
@@ -1532,7 +1907,8 @@ class ApiService {
         );
         return items;
       },
-      context: 'ApiService._fetchChannelReplayPrograms',      fallbackValue: const <ReplayItem>[],
+      context: 'ApiService._fetchChannelReplayPrograms',
+      fallbackValue: const <ReplayItem>[],
     );
     return result.getOrElse(const <ReplayItem>[]);
   }
@@ -1576,14 +1952,26 @@ class ApiService {
       if (raw == null) continue;
       var v = raw.toString().trim();
       if (v.isEmpty) continue;
+      // Le XMLTV échappe l'apostrophe en `&apos;` : sans cette correction le
+      // titre s'affichait littéralement « C dans l&apos;achat ».
+      //
+      // `&amp;` passe en DERNIER : le dé-échapprement doit être unique,
+      // sinon un `&amp;apos;` légitime deviendrait une apostrophe.
+      v = v
+          .replaceAll('&apos;', "'")
+          .replaceAll('&#39;', "'")
+          .replaceAll('&quot;', '"')
+          .replaceAll('&nbsp;', ' ')
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>')
+          .replaceAll('&amp;', '&');
       if (v.contains('<')) {
+        // Le nettoyage des balises vient APRÈS l'échappement : sinon
+        // `&lt;b&gt;` redeviendrait une balise et disparaîtrait au lieu de
+        // s'afficher.
         v = v
             .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
             .replaceAll(RegExp(r'<[^>]*>'), '')
-            .replaceAll('&nbsp;', ' ')
-            .replaceAll('&amp;', '&')
-            .replaceAll('&quot;', '"')
-            .replaceAll('&#39;', "'")
             .trim();
       }
       if (v.isNotEmpty) return v;
@@ -1737,8 +2125,11 @@ class ApiService {
       if (name == 'utf-8' || name == 'utf8') {
         return utf8.decode(bytes);
       }
-      if (name == 'iso-8859-1' || name == 'latin1' || name == 'iso8859-1' ||
-          name == 'windows-1252' || name == 'cp1252') {
+      if (name == 'iso-8859-1' ||
+          name == 'latin1' ||
+          name == 'iso8859-1' ||
+          name == 'windows-1252' ||
+          name == 'cp1252') {
         return latin1.decode(bytes, allowInvalid: true);
       }
     } catch (_) {
@@ -1884,6 +2275,17 @@ class ApiService {
     final channels = <Channel>[];
     String? currentName;
     String? currentGroup;
+    // Attributs catch-up de la ligne #EXTINF en cours.
+    //
+    // Ils étaient lus sur la ligne d'URL qui suit, où ils n'existent pas :
+    // `catchup`, `catchup-days` et `timeshift` revenaient donc VIDES, et
+    // `supportsReplay` valait toujours `false` en M3U — le replay était mort
+    // avant même d'être cherché. Les attributs sont déclarés sur #EXTINF, il
+    // faut donc les lire là, au moment où on la parse.
+    var catchupMode = '';
+    var catchupSource = '';
+    var catchupDays = 0;
+    var timeshift = 0;
     for (final line in lines) {
       if (line.startsWith('#EXTINF')) {
         final nameMatch = RegExp(r',(.+)$').firstMatch(line);
@@ -1891,11 +2293,12 @@ class ApiService {
           currentName = nameMatch.group(1)!.trim();
         }
         currentGroup = _m3uAttr(line, 'group-title').trim();
+        catchupMode = _m3uAttr(line, 'catchup').trim().toLowerCase();
+        catchupSource = _m3uAttr(line, 'catchup-source').trim();
+        catchupDays = int.tryParse(_m3uAttr(line, 'catchup-days').trim()) ?? 0;
+        timeshift = int.tryParse(_m3uAttr(line, 'timeshift').trim()) ?? 0;
       } else if (line.isNotEmpty && !line.startsWith('#')) {
         if (currentName != null) {
-          final catchup = _m3uAttr(line, 'catchup').trim().toLowerCase();
-          final catchupDays = int.tryParse(_m3uAttr(line, 'catchup-days')) ?? 0;
-          final timeshift = int.tryParse(_m3uAttr(line, 'timeshift')) ?? 0;
           channels.add(
             Channel(
               id: channels.length.toString(),
@@ -1906,14 +2309,27 @@ class ApiService {
                 label: currentName,
               ),
               group: currentGroup ?? '',
-              supportsReplay: (catchup.isNotEmpty && catchup != 'none') ||
-                  catchupDays > 0 ||
-                  timeshift > 0,
+              // `catchup="none"` est la valeur d'absence explicite : elle ne
+              // doit pas compter comme un mode de substitution.
+              supportsReplay:
+                  (catchupMode.isNotEmpty && catchupMode != 'none') ||
+                      catchupSource.isNotEmpty ||
+                      catchupDays > 0 ||
+                      timeshift > 0,
               timeshift: Duration(seconds: timeshift),
+              // `catchup-days` EST la fenêtre de l'abonnement. C'est elle qui
+              // remplace le 48 h deviné : 48 h, 7 j ou 14 j selon le compte.
+              archiveDays: catchupDays,
+              catchupMode: catchupMode,
+              catchupSource: catchupSource,
             ),
           );
           currentName = null;
           currentGroup = null;
+          catchupMode = '';
+          catchupSource = '';
+          catchupDays = 0;
+          timeshift = 0;
         }
       }
     }
@@ -1971,7 +2387,8 @@ class ApiService {
               (c) => SearchItem.fromChannel(c, source: SearchSource.xtream),
             ),
             ...vod.map(
-                (m) => SearchItem.fromMovie(m, source: SearchSource.xtream),),
+              (m) => SearchItem.fromMovie(m, source: SearchSource.xtream),
+            ),
             ...series.map(
               (s) => SearchItem.fromSeries(s, source: SearchSource.xtream),
             ),
@@ -2045,9 +2462,8 @@ class _ApiGate {
     _consecutive429++;
     final scaled = _minGap.inMilliseconds * (_consecutive429 + 1);
     _gap = Duration(
-      milliseconds: scaled > _maxGap.inMilliseconds
-          ? _maxGap.inMilliseconds
-          : scaled,
+      milliseconds:
+          scaled > _maxGap.inMilliseconds ? _maxGap.inMilliseconds : scaled,
     );
     _nextAllowedAt = DateTime.now().add(_gap);
   }

@@ -10,7 +10,6 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-import 'package:orbit_3d_flutter/features/home/widgets/ai_topics_carousel.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -807,13 +806,6 @@ class _OrbitItem {
         color: const Color(0xFFFF3D3D),
         subtitle: l.forYouAndDuo,
         route: '/matchmaking',
-      ),
-      _OrbitItem(
-        title: 'AI Topics',
-        icon: Icons.auto_awesome_rounded,
-        color: const Color(0xFF6C5CE7),
-        subtitle: 'Recommandations par IA',
-        route: '/ai-topics',
       ),
       _OrbitItem(
         title: 'Replay',
