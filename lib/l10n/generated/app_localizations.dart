@@ -2169,6 +2169,36 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Aucun programme en cours'**
   String get epgNoCurrentProgram;
+
+  /// No description provided for @replayWindowBadge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Replay {days} j'**
+  String replayWindowBadge(Object days);
+
+  /// No description provided for @replayWindowBadgeHours.
+  ///
+  /// In fr, this message translates to:
+  /// **'Replay {hours} h'**
+  String replayWindowBadgeHours(Object hours);
+
+  /// No description provided for @replayNoAvailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun replay disponible'**
+  String get replayNoAvailable;
+
+  /// No description provided for @replayNoneInArchiveDays.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun programme déjà diffusé dans les {days} jours d\'archives de ce compte pour cette chaîne.'**
+  String replayNoneInArchiveDays(Object days);
+
+  /// No description provided for @replayNonePublished.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel ne publie aucun programme déjà diffusé pour cette chaîne.'**
+  String get replayNonePublished;
 }
 
 class _AppLocalizationsDelegate

@@ -343,5 +343,10 @@
   "epgNow": "Now",
   "epgZoomIn": "Zoom in",
   "epgZoomOut": "Zoom out",
-  "epgNoCurrentProgram": "No current programme"
+  "epgNoCurrentProgram": "No current programme",
+  "replayWindowBadge": "Replay {days} d",
+  "replayWindowBadgeHours": "Replay {hours} h",
+  "replayNoAvailable": "No replay available",
+  "replayNoneInArchiveDays": "No programme already aired within this account's {days}-day archive for this channel.",
+  "replayNonePublished": "The provider publishes no already-aired programme for this channel."
 }

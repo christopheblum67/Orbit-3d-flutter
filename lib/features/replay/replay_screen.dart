@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
@@ -13,6 +15,7 @@ import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
@@ -126,7 +129,8 @@ class _NoReplayAtAll extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.replay_rounded, size: 56, color: theme.colorScheme.outline),
+            Icon(Icons.replay_rounded,
+                size: 56, color: theme.colorScheme.outline),
             const SizedBox(height: 12),
             Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
             const SizedBox(height: 6),
@@ -175,7 +179,8 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
     // Les groupes viennent du catalogue live, mais on ne retient que les
     // chaînes qui ont du replay : le rail ne propose pas de groupe vide.
     final groups = buildLiveChannelGroups(widget.channels);
-    final grouped = groups.length > 1 || groups.firstOrNull?.name.isNotEmpty == true;
+    final grouped =
+        groups.length > 1 || groups.firstOrNull?.name.isNotEmpty == true;
 
     final visible = _visible(
       widget.channels,
@@ -253,7 +258,8 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
     } else {
       visible = channels;
     }
-    return visible..sort((a, b) {
+    return visible
+      ..sort((a, b) {
         final numA = a.orderNum > 0 ? a.orderNum : 1 << 30;
         final numB = b.orderNum > 0 ? b.orderNum : 1 << 30;
         return numA.compareTo(numB);
@@ -284,9 +290,8 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
         MediaCategory(
           id: 'g$i',
           name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
-          count: groups[i].channels
-              .where((c) => replayIds.contains(c.id))
-              .length,
+          count:
+              groups[i].channels.where((c) => replayIds.contains(c.id)).length,
         ),
     ];
   }
@@ -347,6 +352,7 @@ class _ChannelBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l = AppLocalizations.of(context);
     return Container(
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -370,17 +376,48 @@ class _ChannelBand extends StatelessWidget {
             const SizedBox(width: 10),
           ],
           Expanded(
-            child: Text(
-              channel.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  channel.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                if (channel.supportsReplay)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _archiveBadgeLabel(l, channel),
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Fenêtre de replay du compte, en clair.
+  ///
+  /// `catchup-days` / `tv_archive_duration` décrit ce que le compte permet
+  /// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
+  /// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
+  /// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
+  static String _archiveBadgeLabel(
+    AppLocalizations l,
+    Channel channel,
+  ) {
+    final days = channel.archiveDays;
+    if (days > 0) return l.replayWindowBadge(days);
+    final hours = ApiService.archiveWindow(channel).inHours;
+    return l.replayWindowBadgeHours(hours);
   }
 }
 
@@ -402,8 +439,18 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   DateTime? _selectedDay;
 
   static const _months = [
-    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+    'janv.',
+    'févr.',
+    'mars',
+    'avr.',
+    'mai',
+    'juin',
+    'juil.',
+    'août',
+    'sept.',
+    'oct.',
+    'nov.',
+    'déc.',
   ];
 
   @override
@@ -449,9 +496,8 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     // sens du temps : le plus ancien à gauche, aujourd'hui à droite. L'ordre
     // inverse — aujourd'hui, hier, avant-hier — se lisait à l'envers.
     final newestFirst = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
-    final active = newestFirst.contains(_selectedDay)
-        ? _selectedDay!
-        : newestFirst.first;
+    final active =
+        newestFirst.contains(_selectedDay) ? _selectedDay! : newestFirst.first;
     final tabs = newestFirst.reversed.toList(growable: false);
     final items = byDay[active] ?? const <ReplayItem>[];
 
@@ -519,6 +565,7 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   /// rien pour cette chaîne, soit la fenêtre du compte ne couvre pas ce
   /// programme. Un « aucun replay » nu ne permettait aucune de ces réponses.
   Widget _noProgram(ThemeData theme, ColorScheme scheme) {
+    final l = AppLocalizations.of(context);
     final days = widget.channel.archiveDays;
     return Center(
       child: Padding(
@@ -528,14 +575,12 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
           children: [
             Icon(Icons.replay_rounded, size: 48, color: scheme.outline),
             const SizedBox(height: 12),
-            Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
+            Text(l.replayNoAvailable, style: theme.textTheme.titleSmall),
             const SizedBox(height: 6),
             Text(
               days > 0
-                  ? 'Aucun programme déjà diffusé dans les $days jours '
-                      'd\'archives de ce compte pour cette chaîne.'
-                  : 'Le panel ne publie aucun programme déjà diffusé pour cette '
-                      'chaîne.',
+                  ? l.replayNoneInArchiveDays(days)
+                  : l.replayNonePublished,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: scheme.onSurfaceVariant),

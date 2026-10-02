@@ -1119,4 +1119,26 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get epgNoCurrentProgram => 'Nessun programma in corso';
+
+  @override
+  String replayWindowBadge(Object days) {
+    return 'Replay $days g';
+  }
+
+  @override
+  String replayWindowBadgeHours(Object hours) {
+    return 'Replay $hours h';
+  }
+
+  @override
+  String get replayNoAvailable => 'Nessun replay disponibile';
+
+  @override
+  String replayNoneInArchiveDays(Object days) {
+    return 'Nessun programma già andato in onda nell\'archivio di $days giorni di questo account per questo canale.';
+  }
+
+  @override
+  String get replayNonePublished =>
+      'Il provider non pubblica programmi già andati in onda per questo canale.';
 }

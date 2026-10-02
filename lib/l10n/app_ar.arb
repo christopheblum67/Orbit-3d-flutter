@@ -343,5 +343,10 @@
   "epgNow": "الآن",
   "epgZoomIn": "تكبير",
   "epgZoomOut": "تصغير",
-  "epgNoCurrentProgram": "لا يوجد برنامج جارٍ"
+  "epgNoCurrentProgram": "لا يوجد برنامج جارٍ",
+  "replayWindowBadge": "إعادة {days} يوم",
+  "replayWindowBadgeHours": "إعادة {hours} ساعة",
+  "replayNoAvailable": "لا توجد إعادة متاحة",
+  "replayNoneInArchiveDays": "لا يوجد برنامج عُرض سابقًا ضمن أرشيف {days} يومًا لهذا الحساب في هذه القناة.",
+  "replayNonePublished": "لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة."
 }

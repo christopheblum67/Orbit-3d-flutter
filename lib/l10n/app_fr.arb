@@ -402,5 +402,10 @@
   "epgNow": "Maintenant",
   "epgZoomIn": "Zoomer",
   "epgZoomOut": "Dézoomer",
-  "epgNoCurrentProgram": "Aucun programme en cours"
+  "epgNoCurrentProgram": "Aucun programme en cours",
+  "replayWindowBadge": "Replay {days} j",
+  "replayWindowBadgeHours": "Replay {hours} h",
+  "replayNoAvailable": "Aucun replay disponible",
+  "replayNoneInArchiveDays": "Aucun programme déjà diffusé dans les {days} jours d'archives de ce compte pour cette chaîne.",
+  "replayNonePublished": "Le panel ne publie aucun programme déjà diffusé pour cette chaîne."
 }

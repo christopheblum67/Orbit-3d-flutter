@@ -343,5 +343,10 @@
   "epgNow": "Ahora",
   "epgZoomIn": "Acercar",
   "epgZoomOut": "Alejar",
-  "epgNoCurrentProgram": "Ningún programa en curso"
+  "epgNoCurrentProgram": "Ningún programa en curso",
+  "replayWindowBadge": "Replay {days} d",
+  "replayWindowBadgeHours": "Replay {hours} h",
+  "replayNoAvailable": "No hay replay disponible",
+  "replayNoneInArchiveDays": "Ningún programa ya emitido dentro del archivo de {days} días de esta cuenta para este canal.",
+  "replayNonePublished": "El proveedor no publica ningún programa ya emitido para este canal."
 }

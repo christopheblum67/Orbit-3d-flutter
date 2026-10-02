@@ -1096,4 +1096,26 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get epgNoCurrentProgram => 'لا يوجد برنامج جارٍ';
+
+  @override
+  String replayWindowBadge(Object days) {
+    return 'إعادة $days يوم';
+  }
+
+  @override
+  String replayWindowBadgeHours(Object hours) {
+    return 'إعادة $hours ساعة';
+  }
+
+  @override
+  String get replayNoAvailable => 'لا توجد إعادة متاحة';
+
+  @override
+  String replayNoneInArchiveDays(Object days) {
+    return 'لا يوجد برنامج عُرض سابقًا ضمن أرشيف $days يومًا لهذا الحساب في هذه القناة.';
+  }
+
+  @override
+  String get replayNonePublished =>
+      'لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة.';
 }
