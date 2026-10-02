@@ -29,11 +29,11 @@ class SearchFtsService {
   Future<void> init() async {
     if (_initialized) return;
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'orbit_search.db');
+    final path = join(dbPath, _dbName);
 
     _db = await openDatabase(
       path,
-      version: 1,
+      version: _schemaVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );

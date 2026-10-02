@@ -186,10 +186,9 @@ class LicenseManager {
   DateTime _lastRequest = DateTime.fromMillisecondsSinceEpoch(0);
 
   Future<void> _waitForRateLimit() async {
-    final now = DateTime.now();
     final elapsed = DateTime.now().difference(_lastRequest);
-    if (elapsed < const Duration(seconds: 1)) {
-      await Future.delayed(const Duration(seconds: 1) - elapsed);
+    if (elapsed < _minRequestInterval) {
+      await Future.delayed(_minRequestInterval - elapsed);
     }
     _lastRequest = DateTime.now();
   }

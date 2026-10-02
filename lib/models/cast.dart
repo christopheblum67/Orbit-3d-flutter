@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 
 /// Source des données de l'acteur
 enum ActorSource {

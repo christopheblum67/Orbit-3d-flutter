@@ -125,7 +125,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         return _buildContent(
           icon: Icons.movie_outlined,
           title: 'Films',
-          categories: categoriesAsync.value ?? _categoriesFromMoviesCompact(movies),
+          categories:
+              categoriesAsync.value ?? _categoriesFromMoviesCompact(movies),
           items: filtered,
           isSeries: false,
           allItems: movies,
@@ -139,39 +140,6 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         onRetry: () => ref.invalidate(moviesCompactProvider),
       ),
     );
-  }
-
-  List<Movie> _filterMovies(List<Movie> movies) {
-    final hidden = ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
-    final favIds = ref
-        .read(favoritesProvider)
-        .values
-        .where((e) => e.type == ContentType.vod)
-        .map((e) => e.id)
-        .toSet();
-    final recentIds = ref
-        .read(recentlyWatchedProvider)
-        .values
-        .where((e) => e.type == ContentType.vod)
-        .map((e) => e.id)
-        .toSet();
-    final q = _query.trim().toLowerCase();
-    return movies.where((m) {
-      if (hidden.contains(m.categoryId)) return false;
-      switch (_selectedCategoryId) {
-        case 'fav':
-          if (!favIds.contains(m.id)) return false;
-        case 'recent':
-          if (!recentIds.contains(m.id)) return false;
-        case '':
-          break;
-        default:
-          if (m.categoryId != _selectedCategoryId) return false;
-      }
-      if (q.isEmpty) return true;
-      return m.title.toLowerCase().contains(q) ||
-          m.genre.toLowerCase().contains(q);
-    }).toList();
   }
 
   List<MovieCompact> _filterMoviesCompact(List<MovieCompact> movies) {
@@ -243,40 +211,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     );
   }
 
-  List<Series> _filterSeries(List<Series> seriesList) {
-    final favIds = ref
-        .read(favoritesProvider)
-        .values
-        .where((e) => e.type == ContentType.series)
-        .map((e) => e.id)
-        .toSet();
-    final recentIds = ref
-        .read(recentlyWatchedProvider)
-        .values
-        .where((e) => e.type == ContentType.series)
-        .map((e) => e.id)
-        .toSet();
-    final q = _query.trim().toLowerCase();
-    return seriesList.where((s) {
-      switch (_selectedCategoryId) {
-        case 'fav':
-          if (!favIds.contains(s.id)) return false;
-        case 'recent':
-          if (!recentIds.contains(s.id)) return false;
-        case '':
-          break;
-        default:
-          if (s.categoryId != _selectedCategoryId) return false;
-      }
-      if (q.isEmpty) return true;
-      return s.title.toLowerCase().contains(q) ||
-          s.genre.toLowerCase().contains(q);
-    }).toList();
-  }
-
   List<SeriesCompact> _filterSeriesCompact(List<SeriesCompact> seriesList) {
-    final hidden =
-        ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
+    final hidden = ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
     final favIds = ref
         .read(favoritesProvider)
         .values
@@ -345,9 +281,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         : allItems
             .where((e) => !hidden.contains(e.categoryId as String))
             .toList(growable: false);
-    final visibleCategories = categories
-        .where((c) => !hidden.contains(c.id))
-        .toList(growable: false);
+    final visibleCategories =
+        categories.where((c) => !hidden.contains(c.id)).toList(growable: false);
     final favIds = ref
         .read(favoritesProvider)
         .values
@@ -638,18 +573,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
-                      title: cardTitle,
-                      posterUrl: poster,
-                      year: year,
-                      // Catégorie retirée de la tuile (alignement chaînes).
-                      genre: '',
-                      rating: rating,
-                      ageLabel: ageLabel,
-                      fallbackIcon: isSeries ? Icons.tv : Icons.movie_outlined,
-                      // `contain` : l'affiche ne déborde plus de la tuile.
-                      posterFit: BoxFit.contain,
-                      posterPadding: const EdgeInsets.all(6),
-                      matchPercent: affinityPercent,
+        title: cardTitle,
+        posterUrl: poster,
+        year: year,
+        // Catégorie retirée de la tuile (alignement chaînes).
+        genre: '',
+        rating: rating,
+        ageLabel: ageLabel,
+        fallbackIcon: isSeries ? Icons.tv : Icons.movie_outlined,
+        // `contain` : l'affiche ne déborde plus de la tuile.
+        posterFit: BoxFit.contain,
+        posterPadding: const EdgeInsets.all(6),
+        matchPercent: affinityPercent,
         favoriteOverlay: FavoriteToggle.overlay(
           entry: FavoriteEntry(
             type: type,
@@ -722,11 +657,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
   }
 
-  static List<MediaCategory> _categoriesFromMoviesCompact(List<MovieCompact> movies) {
+  static List<MediaCategory> _categoriesFromMoviesCompact(
+      List<MovieCompact> movies) {
     return _categoriesFrom(movies.map((m) => (m.categoryId, m.genre)));
   }
 
-  static List<MediaCategory> _categoriesFromSeriesCompact(List<SeriesCompact> seriesList) {
+  static List<MediaCategory> _categoriesFromSeriesCompact(
+      List<SeriesCompact> seriesList) {
     return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
   }
 
@@ -875,7 +812,9 @@ class RankingsViewState extends ConsumerState<RankingsView> {
   ];
 
   FutureProvider<List<TmdbRankEntry>> _providerFor(
-      bool isTv, _RankSource source,) {
+    bool isTv,
+    _RankSource source,
+  ) {
     if (isTv) {
       switch (source) {
         case _RankSource.popular:
@@ -1053,7 +992,9 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8,),
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       child: Text(
                         src.label,
                         maxLines: 1,
@@ -1146,7 +1087,10 @@ enum _RankSource {
   topRated('Mieux notés', '/movie/top_rated', '/tv/top_rated'),
   upcoming('À venir', '/movie/upcoming', null),
   trending(
-      'Tendance de la semaine', '/trending/movie/week', '/trending/tv/week',),
+    'Tendance de la semaine',
+    '/trending/movie/week',
+    '/trending/tv/week',
+  ),
   onTheAir('En diffusion', null, '/tv/on_the_air'),
   airingToday('Diffusion aujourd\'hui', null, '/tv/airing_today');
 
@@ -1190,17 +1134,17 @@ class _RankCard extends StatelessWidget {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
-            title: entry.title,
-            posterUrl: entry.posterUrl,
-            year: entry.year,
-            // Catégorie retirée de la tuile (alignement chaînes).
-            genre: '',
-            rating: entry.rating,
-            ageLabel: null,
-            fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
-            // `contain` : l'affiche ne déborde plus de la tuile.
-            posterFit: BoxFit.contain,
-            posterPadding: const EdgeInsets.all(6),
+        title: entry.title,
+        posterUrl: entry.posterUrl,
+        year: entry.year,
+        // Catégorie retirée de la tuile (alignement chaînes).
+        genre: '',
+        rating: entry.rating,
+        ageLabel: null,
+        fallbackIcon: entry.isTv ? Icons.tv : Icons.movie_outlined,
+        // `contain` : l'affiche ne déborde plus de la tuile.
+        posterFit: BoxFit.contain,
+        posterPadding: const EdgeInsets.all(6),
         onTap: onOpen,
         voteCount: entry.voteCount,
         overview: entry.overview,

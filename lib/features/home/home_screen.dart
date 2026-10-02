@@ -45,7 +45,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _confirmExit(BuildContext context) async {
-    final l = AppLocalizations.of(context);
     final shouldExit = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -316,7 +315,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCard(_OrbitItem item, bool focused) {
-    final l = AppLocalizations.of(context);
     return Center(
       child: GestureDetector(
         onTap: () => _openItem(context, item),

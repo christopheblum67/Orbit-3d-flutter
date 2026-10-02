@@ -1,6 +1,5 @@
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
-import 'package:orbit_3d_flutter/models/movie_compact.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
 

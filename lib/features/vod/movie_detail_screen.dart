@@ -909,7 +909,6 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 

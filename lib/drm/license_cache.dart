@@ -110,8 +110,7 @@ class LicenseCache {
       final meta = _metaBox!.get(key);
       if (meta == null) continue;
       final expiresAt = meta['expiresAt'] as int?;
-      if (expiresAt != null &&
-          DateTime.now().millisecondsSinceEpoch > expiresAt) {
+      if (expiresAt != null && now > expiresAt) {
         await _box!.delete(key);
         await _metaBox!.delete(key);
         count++;

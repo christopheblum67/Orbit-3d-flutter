@@ -1,6 +1,5 @@
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
-import 'package:orbit_3d_flutter/models/series_compact.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
 

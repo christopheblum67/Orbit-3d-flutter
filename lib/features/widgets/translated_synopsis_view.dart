@@ -20,9 +20,6 @@ class TranslatedSynopsisView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-
     if (rawSynopsis.trim().isEmpty) return const SizedBox.shrink();
 
     final async = ref.watch(

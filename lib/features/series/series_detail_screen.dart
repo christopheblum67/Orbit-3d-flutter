@@ -1005,7 +1005,6 @@ class _SeriesAudioLanguageSelectorState
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 

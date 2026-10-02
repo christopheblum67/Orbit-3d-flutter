@@ -456,8 +456,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildBody() {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final showPin = _type == ProfileType.child || _type == ProfileType.expert;
 
     return ListView(

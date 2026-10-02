@@ -1,8 +1,6 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/synopsis_translation_service.dart';
-import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
 /// Service de traduction, partagé.
 final synopsisTranslationServiceProvider = Provider<SynopsisTranslationService>(
