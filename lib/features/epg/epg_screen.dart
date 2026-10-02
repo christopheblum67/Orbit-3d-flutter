@@ -320,15 +320,19 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       );
       return;
     }
-    final url = buildXtreamReplayUrl(
-      baseUrl: sub.baseUrl!,
-      username: sub.username!,
-      password: sub.password!,
-      channelId: channel.id,
-      start: program.start,
-      end: program.end,
-    );
-    if (url == null) {
+    // Même constructeur unique que le Replay et le rattrapage : le
+    // `catchup-source` du panel prime, et la convention `/timeshift/...` sert
+    // de repli. Cette copie locale produisait un format différent, qui ne
+    // fonctionne pas sur ce panel.
+    final url = ref.read(apiServiceProvider).replayStreamUrl(
+          channel: channel,
+          baseUrl: sub.baseUrl!,
+          username: sub.username!,
+          password: sub.password!,
+          startEpoch: program.start.millisecondsSinceEpoch ~/ 1000,
+          endEpoch: program.end.millisecondsSinceEpoch ~/ 1000,
+        );
+    if (url.isEmpty) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(l.unableToBuildReplayUrl),

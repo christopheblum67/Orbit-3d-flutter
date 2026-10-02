@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
-import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sous-fenêtre « Sous-titres » ouverte depuis le lecteur.
@@ -381,7 +380,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   // découverte n'a pas encore de cues.
                   final isActive = activeTrackUrl == track.url ||
                       (activeTrack != null &&
-                          activeTrack!.label == track.label &&
+                          activeTrack.label == track.label &&
                           track.cues == null);
                   final tileColor = isActive
                       ? Theme.of(context)

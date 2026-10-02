@@ -39,23 +39,27 @@ class CatchUpScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-title: Row(
-            children: [
-              if (channel.logoUrl.isNotEmpty)
-                CachedImage(
-                  imageUrl: channel.logoUrl,
-                  height: 28,
-                  width: 28,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(Icons.tv, color: Colors.white70, size: 28),
-                )
-              else
-                const Icon(Icons.tv, color: Colors.white70, size: 28),
+        title: Row(
+          children: [
+            if (channel.logoUrl.isNotEmpty)
+              CachedImage(
+                imageUrl: channel.logoUrl,
+                height: 28,
+                width: 28,
+                fit: BoxFit.contain,
+                errorWidget: (_, __, ___) =>
+                    const Icon(Icons.tv, color: Colors.white70, size: 28),
+              )
+            else
+              const Icon(Icons.tv, color: Colors.white70, size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 channel.name,
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -79,12 +83,13 @@ title: Row(
             (byDate[key] ??= <EPGProgram>[]).add(p);
           }
           // Trier les dates : plus récent d'abord
-          final dates = byDate.keys.toList()
-            ..sort((a, b) => b.compareTo(a));
+          final dates = byDate.keys.toList()..sort((a, b) => b.compareTo(a));
           // Date sélectionnée par défaut : aujourd'hui si présent, sinon la plus récente
           final now = DateTime.now();
           final todayKey = _dateKey(now);
-          final defaultDate = dates.contains(todayKey) ? todayKey : (dates.isNotEmpty ? dates.first : null);
+          final defaultDate = dates.contains(todayKey)
+              ? todayKey
+              : (dates.isNotEmpty ? dates.first : null);
 
           return _CatchUpContent(
             channel: channel,
@@ -99,7 +104,8 @@ title: Row(
     );
   }
 
-  String _dateKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _dateKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
 /// Contenu avec état (date sélectionnée)
@@ -170,7 +176,8 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
                       program: program,
                       channel: widget.channel,
                       replayable: replayable,
-                      onReplayTap: replayable ? () => _playReplay(program) : null,
+                      onReplayTap:
+                          replayable ? () => _playReplay(program) : null,
                     );
                   },
                 ),
@@ -191,23 +198,32 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
         sub.password == null) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Replay indisponible : non pris en charge par cet abonnement (M3U).'),
+          content: Text(
+              'Replay indisponible : non pris en charge par cet abonnement (M3U).'),
           duration: Duration(seconds: 3),
         ),
       );
       return;
     }
 
-    final url = buildXtreamReplayUrl(
-      baseUrl: sub.baseUrl!,
-      username: sub.username!,
-      password: sub.password!,
-      channelId: widget.channel.id,
-      start: program.start,
-      end: program.end,
-    );
+    // Un seul constructeur d'URL de replay pour toute l'application.
+    //
+    // Cet écran construisait l'URL lui-même, au format
+    // `/streaming/timeshift.php?...`, alors que le Replay passait par
+    // `replayStreamUrl`, qui essaie d'abord le `catchup-source` du panel puis la
+    // convention `/timeshift/...`. Deux formats pour la même chose, dont un seul
+    // fonctionne sur ce panel : le rattrapage depuis l'EPG échouait là où le
+    // Replay aboutissait.
+    final url = ref.read(apiServiceProvider).replayStreamUrl(
+          channel: widget.channel,
+          baseUrl: sub.baseUrl!,
+          username: sub.username!,
+          password: sub.password!,
+          startEpoch: program.start.millisecondsSinceEpoch ~/ 1000,
+          endEpoch: program.end.millisecondsSinceEpoch ~/ 1000,
+        );
 
-    if (url == null) {
+    if (url.isEmpty) {
       messenger.showSnackBar(
         SnackBar(
           content: Text(userFriendlyError(Exception('URL replay invalide'))),
@@ -273,7 +289,8 @@ class _DatePickerBar extends StatelessWidget {
             onSelected: (_) => onDateSelected(key),
             selectedColor: const Color(0xFF6EE7B7),
             backgroundColor: const Color(0xFF1A1D26),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             side: BorderSide(
               color: isSelected ? Colors.transparent : Colors.white12,
               width: 1,
@@ -288,8 +305,19 @@ class _DatePickerBar extends StatelessWidget {
 
   String _monthShortFr(int m) {
     const months = [
-      '', 'JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN',
-      'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC',
+      '',
+      'JANV',
+      'FÉVR',
+      'MARS',
+      'AVR',
+      'MAI',
+      'JUIN',
+      'JUIL',
+      'AOÛT',
+      'SEPT',
+      'OCT',
+      'NOV',
+      'DÉC',
     ];
     return months[m];
   }
@@ -330,34 +358,45 @@ class _ProgramTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   program.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (program.categoryDisplayName.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: catColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     program.categoryDisplayName,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               if (replayable) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6EE7B7),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
                     'REPLAY',
-                    style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -369,7 +408,8 @@ class _ProgramTile extends StatelessWidget {
             children: [
               const Icon(Icons.access_time, size: 14, color: Colors.white54),
               const SizedBox(width: 6),
-              Text(timeStr, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+              Text(timeStr,
+                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
             ],
           ),
           // Description
@@ -377,7 +417,8 @@ class _ProgramTile extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               program.description,
-              style: const TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+              style: const TextStyle(
+                  color: Colors.white60, fontSize: 13, height: 1.4),
             ),
           ],
           // Bouton Replay
@@ -392,7 +433,8 @@ class _ProgramTile extends StatelessWidget {
                   backgroundColor: const Color(0xFF6EE7B7),
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 onPressed: onReplayTap,
               ),
@@ -403,5 +445,6 @@ class _ProgramTile extends StatelessWidget {
     );
   }
 
-  String _fmt(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  String _fmt(DateTime dt) =>
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
