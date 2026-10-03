@@ -1222,4 +1222,19 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get subtitleOnlineQuota =>
       'OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen.';
+
+  @override
+  String get favorites => 'Favoriten';
+
+  @override
+  String get films => 'Filme';
+
+  @override
+  String get replay => 'Replay';
+
+  @override
+  String get myContent => 'Meine Inhalte';
+
+  @override
+  String get contentTypeSelector => 'Inhaltstyp';
 }

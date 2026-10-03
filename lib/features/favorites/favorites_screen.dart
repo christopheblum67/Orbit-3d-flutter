@@ -17,83 +17,8 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-/// Écran Favoris v2 : 4 sections (Live, Films, Séries, Replay).
-///
-/// La liste est pilotée par [favoritesProvider] (réactif). Les cartes sont
-/// résolues depuis les catalogues quand ils sont chargés, sinon les données
-/// mémorisées dans l'entrée favorite suffisent à l'affichage et à la lecture.
-class FavoritesScreen extends ConsumerWidget {
-  const FavoritesScreen({super.key});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final favorites = ref.watch(favoritesProvider);
-    int count(ContentType type) =>
-        favorites.values.where((e) => e.type == type).length;
-    String label(String base, int n) => n > 0 ? '$base ($n)' : base;
-
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          // Toujours afficher le retour : Favoris est accessible en route racine
-          // (menu latéral), où `canPop()` est false et l'icône disparaissait.
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
-            tooltip: 'Retour',
-            onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/home'),
-          ),
-          title: const Text('Favoris'),
-          actions: [
-            if (favorites.isNotEmpty)
-              IconButton(
-                tooltip: l.deleteAll,
-                icon: const Icon(Icons.delete_sweep),
-                onPressed: () => _confirmClearAll(
-                  context,
-                  ref,
-                  favorites.length,
-                ),
-              ),
-          ],
-          bottom: TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(
-                icon: const Icon(Icons.live_tv),
-                text: label('Live', count(ContentType.live)),
-              ),
-              Tab(
-                icon: const Icon(Icons.movie),
-                text: label('Films', count(ContentType.vod)),
-              ),
-              Tab(
-                icon: const Icon(Icons.tv),
-                text: label('Séries', count(ContentType.series)),
-              ),
-              Tab(
-                icon: const Icon(Icons.replay),
-                text: label('Replay', count(ContentType.replay)),
-              ),
-            ],
-          ),
-        ),
-        body: const TabBarView(
-          children: [
-            _LiveFavoritesTab(),
-            _VodFavoritesTab(),
-            _SeriesFavoritesTab(),
-            _ReplayFavoritesTab(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Future<void> _confirmClearAll(
+Future<void> confirmClearAllFavorites(
   BuildContext context,
   WidgetRef ref,
   int total,
@@ -173,8 +98,8 @@ Future<void> _confirmClearAll(
   }
 }
 
-class _LiveFavoritesTab extends ConsumerWidget {
-  const _LiveFavoritesTab();
+class FavoritesLiveSection extends ConsumerWidget {
+  const FavoritesLiveSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -275,8 +200,8 @@ class _DismissBackground extends StatelessWidget {
   }
 }
 
-class _VodFavoritesTab extends ConsumerWidget {
-  const _VodFavoritesTab();
+class FavoritesVodSection extends ConsumerWidget {
+  const FavoritesVodSection();
 
   /// Films téléchargés et lisibles hors-ligne, les plus récents d'abord.
   ///
@@ -461,8 +386,8 @@ class _VodFavoriteItem {
   bool get isNew => movie?.isNew ?? false;
 }
 
-class _SeriesFavoritesTab extends ConsumerWidget {
-  const _SeriesFavoritesTab();
+class FavoritesSeriesSection extends ConsumerWidget {
+  const FavoritesSeriesSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -541,8 +466,8 @@ class _SeriesFavoritesTab extends ConsumerWidget {
   }
 }
 
-class _ReplayFavoritesTab extends ConsumerWidget {
-  const _ReplayFavoritesTab();
+class FavoritesReplaySection extends ConsumerWidget {
+  const FavoritesReplaySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -370,5 +370,10 @@
   "opensubtitlesKeyAnonymous": "Sin clave: la búsqueda funciona, 5 descargas por IP y 24 h.",
   "opensubtitlesKeyDelete": "Borrar la clave",
   "subtitleOnlineNoApiKey": "Falta la clave API de OpenSubtitles: introdúcela en Ajustes para activar la búsqueda en línea.",
-  "subtitleOnlineQuota": "Cuota de descarga de OpenSubtitles alcanzada hoy. Inténtalo mañana."
+  "subtitleOnlineQuota": "Cuota de descarga de OpenSubtitles alcanzada hoy. Inténtalo mañana.",
+  "favorites": "Favoritos",
+  "films": "Películas",
+  "replay": "Replay",
+  "myContent": "Mi contenido",
+  "contentTypeSelector": "Tipo de contenido"
 }

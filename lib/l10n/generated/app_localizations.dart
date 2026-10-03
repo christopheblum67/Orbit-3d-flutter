@@ -2331,6 +2331,36 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.'**
   String get subtitleOnlineQuota;
+
+  /// No description provided for @favorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'Favoris'**
+  String get favorites;
+
+  /// No description provided for @films.
+  ///
+  /// In fr, this message translates to:
+  /// **'Films'**
+  String get films;
+
+  /// No description provided for @replay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Replay'**
+  String get replay;
+
+  /// No description provided for @myContent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes contenus'**
+  String get myContent;
+
+  /// No description provided for @contentTypeSelector.
+  ///
+  /// In fr, this message translates to:
+  /// **'Type de contenu'**
+  String get contentTypeSelector;
 }
 
 class _AppLocalizationsDelegate

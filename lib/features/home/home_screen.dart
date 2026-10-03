@@ -789,11 +789,18 @@ class _OrbitItem {
         refreshCategory: _RefreshCategory.epg,
       ),
       _OrbitItem(
-        title: 'Favoris',
+        title: l.favorites,
         icon: Icons.favorite_rounded,
         color: const Color(0xFFFF6FA8),
         subtitle: l.yourChannelsAndContent,
         route: '/favorites',
+      ),
+      _OrbitItem(
+        title: l.downloads,
+        icon: Icons.download_rounded,
+        color: const Color(0xFF4DB6FF),
+        subtitle: l.noDownloads,
+        route: '/downloads',
       ),
       _OrbitItem(
         title: 'Matchmaking',

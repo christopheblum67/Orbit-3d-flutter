@@ -1221,4 +1221,19 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get subtitleOnlineQuota =>
       'Cuota de descarga de OpenSubtitles alcanzada hoy. Inténtalo mañana.';
+
+  @override
+  String get favorites => 'Favoritos';
+
+  @override
+  String get films => 'Películas';
+
+  @override
+  String get replay => 'Replay';
+
+  @override
+  String get myContent => 'Mi contenido';
+
+  @override
+  String get contentTypeSelector => 'Tipo de contenido';
 }

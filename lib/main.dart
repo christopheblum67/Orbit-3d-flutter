@@ -69,11 +69,10 @@ import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
-import 'package:orbit_3d_flutter/features/downloads/downloads_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/multivideo/multivideo_screen.dart';
-import 'package:orbit_3d_flutter/features/favorites/favorites_screen.dart';
+import 'package:orbit_3d_flutter/features/library/library_screen.dart';
 import 'package:orbit_3d_flutter/features/history/history_screen.dart';
 import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
@@ -555,7 +554,7 @@ final GoRouter router = GoRouter(
         restorationId: 'favorites',
         child: const WithBackHandling(
           meta: RouteMeta.pop(restorationId: 'favorites'),
-          child: FavoritesScreen(),
+          child: const LibraryScreen(),
         ),
       ),
     ),
@@ -695,7 +694,7 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta:
                   RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
-              child: DownloadsScreen(),
+              child: const LibraryScreen(initialTab: 1),
             ),
           ),
         ),

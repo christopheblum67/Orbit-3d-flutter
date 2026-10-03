@@ -1208,4 +1208,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get subtitleOnlineQuota =>
       'OpenSubtitles download quota reached for today. Try again tomorrow.';
+
+  @override
+  String get favorites => 'Favorites';
+
+  @override
+  String get films => 'Movies';
+
+  @override
+  String get replay => 'Replay';
+
+  @override
+  String get myContent => 'My content';
+
+  @override
+  String get contentTypeSelector => 'Content type';
 }

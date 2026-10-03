@@ -1198,4 +1198,19 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get subtitleOnlineQuota =>
       'تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.';
+
+  @override
+  String get favorites => 'المفضلة';
+
+  @override
+  String get films => 'أفلام';
+
+  @override
+  String get replay => 'إعادة';
+
+  @override
+  String get myContent => 'محتواي';
+
+  @override
+  String get contentTypeSelector => 'نوع المحتوى';
 }

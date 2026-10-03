@@ -370,5 +370,10 @@
   "opensubtitlesKeyAnonymous": "بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.",
   "opensubtitlesKeyDelete": "امسح المفتاح",
   "subtitleOnlineNoApiKey": "مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.",
-  "subtitleOnlineQuota": "تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا."
+  "subtitleOnlineQuota": "تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.",
+  "favorites": "المفضلة",
+  "films": "أفلام",
+  "replay": "إعادة",
+  "myContent": "محتواي",
+  "contentTypeSelector": "نوع المحتوى"
 }

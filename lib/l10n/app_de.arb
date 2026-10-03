@@ -370,5 +370,10 @@
   "opensubtitlesKeyAnonymous": "Kein Schlüssel: Suche möglich, 5 Downloads pro IP und 24 h.",
   "opensubtitlesKeyDelete": "Schlüssel löschen",
   "subtitleOnlineNoApiKey": "OpenSubtitles-API-Schlüssel fehlt: In den Einstellungen eintragen, um die Online-Suche zu aktivieren.",
-  "subtitleOnlineQuota": "OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen."
+  "subtitleOnlineQuota": "OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen.",
+  "favorites": "Favoriten",
+  "films": "Filme",
+  "replay": "Replay",
+  "myContent": "Meine Inhalte",
+  "contentTypeSelector": "Inhaltstyp"
 }

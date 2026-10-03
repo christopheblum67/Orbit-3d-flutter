@@ -66,12 +66,20 @@ class HomeMenuDrawer extends ConsumerWidget {
         ],
       ),
       _MenuSection(
-        header: 'Mes contenus',
+        header: l.myContent,
         items: [
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.favorite,
-            label: 'Favoris',
+            label: l.favorites,
             route: '/favorites',
+          ),
+          // Téléchargements n'avait aucune entrée : la route existait, aucun
+          // lien n'y menait. Les deux pointsent le même écran, sur l'onglet
+          // correspondant.
+          _MenuEntry(
+            icon: Icons.download,
+            label: l.downloads,
+            route: '/downloads',
           ),
           const _MenuEntry(
             icon: Icons.history,

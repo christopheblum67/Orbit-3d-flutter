@@ -370,5 +370,10 @@
   "opensubtitlesKeyAnonymous": "No key: search works, 5 downloads per IP per 24 h.",
   "opensubtitlesKeyDelete": "Clear the key",
   "subtitleOnlineNoApiKey": "OpenSubtitles API key missing: enter it in Settings to enable online search.",
-  "subtitleOnlineQuota": "OpenSubtitles download quota reached for today. Try again tomorrow."
+  "subtitleOnlineQuota": "OpenSubtitles download quota reached for today. Try again tomorrow.",
+  "favorites": "Favorites",
+  "films": "Movies",
+  "replay": "Replay",
+  "myContent": "My content",
+  "contentTypeSelector": "Content type"
 }

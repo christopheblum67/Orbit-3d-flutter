@@ -61,12 +61,16 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     child: Center(
                       child: Chip(
                         label: Text(l.activeCountOngoing(activeCount)),
-                        avatar: Icon(Icons.download_for_offline,
-                            size: 16, color: scheme.onPrimaryContainer,),
+                        avatar: Icon(
+                          Icons.download_for_offline,
+                          size: 16,
+                          color: scheme.onPrimaryContainer,
+                        ),
                         backgroundColor: scheme.primaryContainer,
                         labelStyle: TextStyle(
-                            color: scheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,),
+                          color: scheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   );
@@ -97,85 +101,111 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             );
           }
 
-          // Trier: actifs d'abord, puis terminés, puis échoués
-          final sortedTasks = [...tasks]..sort((a, b) {
-              final aOrder = _statusOrder(a.status);
-              final bOrder = _statusOrder(b.status);
-              if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-              return b.createdAt.compareTo(a.createdAt);
-            });
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            cacheExtent: 500,
-            addAutomaticKeepAlives: false,
-            itemCount: sortedTasks.length,
-            itemBuilder: (context, index) {
-              return DownloadTile(
-                task: sortedTasks[index],
-                onPause: () => _downloadManager.pause(sortedTasks[index].id),
-                onResume: () => _downloadManager.resume(sortedTasks[index].id),
-                onCancel: () => _downloadManager.cancel(sortedTasks[index].id),
-                onDelete: () => _downloadManager.delete(sortedTasks[index].id),
-                onRetry: () => _downloadManager.retry(sortedTasks[index].id),
-                onTap: () => _openContent(sortedTasks[index]),
-              );
-            },
-          );
+          return DownloadList(tasks: tasks);
         },
       ),
     );
   }
 
-  int _statusOrder(DownloadStatus status) {
-    switch (status) {
-      case DownloadStatus.downloading:
-      case DownloadStatus.preparing:
-        return 0;
-      case DownloadStatus.paused:
-        return 1;
-      case DownloadStatus.completed:
-        return 2;
-      case DownloadStatus.failed:
-        return 3;
-      case DownloadStatus.cancelled:
-        return 4;
-      case DownloadStatus.queued:
-        return 4;
-    }
+}
+
+/// Rang d'affichage d'un statut : actifs d'abord, puis terminés, puis échoués.
+///
+/// Exposée pour que l'écran « Mes contenus » trie ses sections de la même
+/// façon, sans dupliquer une règle qui n'a de sens qu'à un endroit.
+int downloadStatusOrder(DownloadStatus status) {
+  switch (status) {
+    case DownloadStatus.downloading:
+    case DownloadStatus.preparing:
+      return 0;
+    case DownloadStatus.queued:
+      return 1;
+    case DownloadStatus.paused:
+      return 2;
+    case DownloadStatus.completed:
+      return 3;
+    case DownloadStatus.failed:
+      return 4;
+    case DownloadStatus.cancelled:
+      return 5;
   }
+}
 
-  void _openContent(DownloadTask task) {
-    final type = task.contentType;
-    final id = task.mediaItemId;
-    final seriesId = task.seriesId;
-    final season = task.seasonNumber;
-    final episode = task.episodeNumber;
+/// Liste de téléchargements, filtrable par l'appelant.
+///
+/// Extraite de l'écran pour être réutilisée telle quelle par « Mes contenus » :
+/// `DownloadTile` exige six callbacks, dont l'ouverture du contenu, qui
+/// reposait sur du code privé. Dupliquer cette logique aurait produit deux
+/// listes qui divergent au premier correctif.
+class DownloadList extends StatelessWidget {
+  const DownloadList({super.key, required this.tasks});
 
-    switch (type) {
-      case 'vod':
-        context.go('/vod/detail', extra: {'id': id});
-        break;
-      case 'series':
-        if (seriesId != null && season != null && episode != null) {
-          context.go('/series/detail', extra: {
-            'seriesId': seriesId,
-            'season': season,
-            'episode': episode,
-          },);
-        } else if (seriesId != null) {
-          context.go('/series/detail', extra: {'id': seriesId});
-        }
-        break;
-      case 'live':
-        context.go('/live/detail', extra: {'id': id});
-        break;
-      case 'replay':
-        context.go('/replay/detail', extra: {'id': id});
-        break;
-      default:
-        context.go('/home');
-    }
+  final List<DownloadTask> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    final manager = DownloadManager();
+    final sorted = [...tasks]..sort((a, b) {
+        final byStatus = downloadStatusOrder(a.status)
+            .compareTo(downloadStatusOrder(b.status));
+        if (byStatus != 0) return byStatus;
+        return b.createdAt.compareTo(a.createdAt);
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      cacheExtent: 500,
+      addAutomaticKeepAlives: false,
+      itemCount: sorted.length,
+      itemBuilder: (context, index) {
+        final task = sorted[index];
+        return DownloadTile(
+          task: task,
+          onPause: () => manager.pause(task.id),
+          onResume: () => manager.resume(task.id),
+          onCancel: () => manager.cancel(task.id),
+          onDelete: () => manager.delete(task.id),
+          onRetry: () => manager.retry(task.id),
+          onTap: () => openDownloadedContent(context, task),
+        );
+      },
+    );
+  }
+}
+
+/// Ouvre le contenu d'un téléchargement terminé.
+///
+/// Les routes `/live/detail` et `/replay/detail` n'existent pas : y naviguer
+/// depuis une liste ne pouvait donc rien ouvrir. On renvoie vers l'accueil
+/// plutôt que de pousser une route inconnue.
+void openDownloadedContent(BuildContext context, DownloadTask task) {
+  final id = task.mediaItemId;
+  final seriesId = task.seriesId;
+  final season = task.seasonNumber;
+  final episode = task.episodeNumber;
+
+  switch (task.contentType) {
+    case 'vod':
+      context.go('/vod/detail', extra: {'id': id});
+    case 'series':
+      if (seriesId != null && season != null && episode != null) {
+        context.go('/series/detail', extra: {
+          'seriesId': seriesId,
+          'season': season,
+          'episode': episode,
+        });
+      } else if (seriesId != null) {
+        context.go('/series/detail', extra: {'id': seriesId});
+      }
+    // Aucun téléchargement Live ni Replay n'est possible : le gestionnaire
+    // refuse les playlists HLS. Le cas reste traité pour ne pas rester muet si
+    // un fichier direct se glisse dans la liste un jour.
+    case 'live':
+      context.go('/live');
+    case 'replay':
+      context.go('/replay');
+    default:
+      context.go('/home');
   }
 }
 
@@ -227,7 +257,8 @@ class DownloadTile extends ConsumerWidget {
                         ? CachedImage(
                             imageUrl: task.posterUrl!,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => _posterFallback(context),
+                            errorWidget: (_, __, ___) =>
+                                _posterFallback(context),
                           )
                         : _posterFallback(context),
                   ),
@@ -324,8 +355,11 @@ class DownloadTile extends ConsumerWidget {
   Widget _posterFallback(BuildContext context) {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Icon(Icons.movie_outlined,
-          color: Theme.of(context).colorScheme.onSurfaceVariant, size: 32,),
+      child: Icon(
+        Icons.movie_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 32,
+      ),
     );
   }
 }
@@ -459,11 +493,13 @@ class _ProgressBar extends StatelessWidget {
         LinearProgressIndicator(
           value: fraction,
           backgroundColor: scheme.surfaceContainerHighest,
-          valueColor: AlwaysStoppedAnimation<Color>(fraction >= 1.0
-              ? Colors.green
-              : (isPaused
-                  ? Colors.orange
-                  : Theme.of(context).colorScheme.primary),),
+          valueColor: AlwaysStoppedAnimation<Color>(
+            fraction >= 1.0
+                ? Colors.green
+                : (isPaused
+                    ? Colors.orange
+                    : Theme.of(context).colorScheme.primary),
+          ),
           minHeight: 6,
           borderRadius: BorderRadius.circular(3),
         ),
