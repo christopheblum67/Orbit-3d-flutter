@@ -131,32 +131,174 @@ class OpenSubtitlesService {
     );
   }
 
+  /// Cherche des sous-titres par TEXTE, quand aucun identifiant TMDB n'est
+  /// disponible.
+  ///
+  /// C'est le chemin de secours qui fonctionne sans clé API : la plupart des
+  /// panels ne publient pas de `tmdb_id`, et l'enrichissement TMDB demande une
+  /// clé que l'utilisateur n'a pas saisie. `/subtitles` accepte un `query`, ce
+  /// qui évite les deux.
+  Future<List<OpenSubtitlesHit>> searchByTitle(
+    String title, {
+    int? season,
+    int? episode,
+    String languages = defaultLanguages,
+  }) =>
+      search(
+        query: title,
+        seasonNumber: season,
+        episodeNumber: episode,
+        languages: languages,
+      );
+
   Future<List<OpenSubtitlesHit>> search({
-    required int tmdbId,
+    int? tmdbId,
+    String? query,
     String languages = defaultLanguages,
     int? seasonNumber,
     int? episodeNumber,
   }) async {
-    if (tmdbId <= 0) return const [];
+    final cleaned = cleanSearchTitle(query ?? '');
+    // Sans identifiant, il ne reste qu'un texte à interroger : sans titre
+    // exploitable, la requête ne viserait aucun média en particulier.
+    if ((tmdbId == null || tmdbId <= 0) && cleaned.isEmpty) return const [];
 
-    final query = <String, String>{
-      'tmdb_id': '$tmdbId',
+    final params = <String, String>{
+      if (tmdbId != null && tmdbId > 0) 'tmdb_id': '$tmdbId',
+      if (cleaned.isNotEmpty) 'query': cleaned,
       'languages': languages,
       if (seasonNumber != null) 'season_number': '$seasonNumber',
       if (episodeNumber != null) 'episode_number': '$episodeNumber',
     };
 
     final result = await safeAsync<List<OpenSubtitlesHit>>(
-      () => _get('/subtitles', query),
+      () => _get('/subtitles', params),
       context: 'OpenSubtitlesService.search',
     );
     final hits = result.valueOrNull ?? const <OpenSubtitlesHit>[];
     LoggerService.instance.info(
-      'opensubtitles tmdb=$tmdbId '
+      'opensubtitles tmdb=${tmdbId ?? '-'} '
       'saison=${seasonNumber ?? '-'} episode=${episodeNumber ?? '-'} '
+      'requete="${cleaned.isEmpty ? '-' : cleaned}" '
       '→ ${hits.length} résultat(s)',
     );
     return hits;
+  }
+
+  /// Ne garde d'un nom de release que la partie utile à une recherche texte.
+  ///
+  /// Les panels Servent des noms d'episode bruts, faits de ILLUSTRATIONs :
+  /// `|FR| Monstre : L'histoire de Lizzie Borden 01x02 - Une chatte tenace
+  /// (MULTI)`. Envoyé tel quel à `query`, il ne matche aucun index : les
+  /// parenthèses de diffusion et le numéro d'épisode font office de bruit.
+  ///
+  /// On retire donc, dans cet ordre : le marqueur de diffusion `|XX|`, les
+  /// métadonnées de fin entre parenthèses, le couple `SxxEyy` — dont on a déjà
+  /// l'équivalent en `season_number`/`episode_number` — et le reste des
+  /// marqueurs techniques (`1080p`, `WEB-DL`, `x264`…).
+  static String cleanSearchTitle(String raw) {
+    var text = raw.trim();
+    if (text.isEmpty) return '';
+
+    // 0. Année conservée avant tout nettoyage : « (1979) » ou « - 1979 » est
+    // souvent le seul élément discriminant entre deux contenus au même titre,
+    // et les parenthèses sont retirées juste après.
+    final year = RegExp(r'\b(19\d{2}|20\d{2})\b').firstMatch(text)?.group(0);
+
+    // 1. Marqueur de diffusion en tête : |FR|, |VF|, |HD|…
+    text = text.replaceAll(RegExp(r'^\s*\|[^|]{1,6}\|\s*'), '');
+
+    // 2. Épisode « S01E02 » ou « 1x02 ».
+    //
+    // On ne retire PAS les nombres de trois chiffres isolés : le motif visait
+    // les numéros d'épisode à trois chiffres (« 102 »), mais il dévorait
+    // aussi les codecs — « x265 » devenait « x », un mot parasite qui faussait
+    // la requête. Les deux formes ci-dessus suffisent en pratique.
+    text = text
+        .replaceAll(
+          RegExp(r'\bS\d{1,2}[\s._-]?E\d{1,3}\b', caseSensitive: false),
+          ' ',
+        )
+        .replaceAll(RegExp(r'\b\d{1,2}x\d{2}\b'), ' ');
+
+    // 3. Métadonnées entre parenthèses : (MULTI), (VF), (1080p), [FR]…
+    text = text
+        .replaceAll(RegExp(r'[\(\[\{][^\)\]\}]*[\)\]\}]'), ' ')
+        // 4. Tirets de séparation laissés par les retraits ci-dessus.
+        .replaceAll(RegExp(r'\s*[-–—]\s*$'), '')
+        .replaceAll(RegExp(r'^\s*[-–—]\s*'), '')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+
+    // 5. Marqueurs techniques restants, sans toucher aux mots du titre.
+    const noise = [
+      '1080p',
+      '720p',
+      '480p',
+      '2160p',
+      '4k',
+      'fhd',
+      'hd',
+      'sd',
+      'web-dl',
+      'webrip',
+      'web',
+      'bluray',
+      'blu-ray',
+      'bdrip',
+      'brrip',
+      'dvdrip',
+      'hdtv',
+      'remux',
+      'x264',
+      'x265',
+      'h264',
+      'h265',
+      'hevc',
+      'aac',
+      'ac3',
+      'eac3',
+      'dts',
+      'mp3',
+      'truehd',
+      'atmos',
+      'hdr',
+      'sdr',
+      'dolby',
+      'vision',
+      'hq',
+      'cam',
+      'hdcam',
+      'telesync',
+      'workprint',
+      'dubbed',
+      'stereo',
+      'mono',
+      '5.1',
+      'vostfr',
+      'vo',
+      'vf',
+      'fr',
+      'multi',
+      'vff',
+      'hd',
+      'sdt',
+    ];
+    var words = text
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w.replaceAll(RegExp("[^A-Za-z0-9À-ɏ:'’\\- ]"), '').trim())
+        .where((w) => w.isNotEmpty)
+        .toList();
+    words = words.where((w) => !noise.contains(w.toLowerCase())).toList();
+
+    text = words.join(' ').trim();
+    if (year != null && !text.contains(year)) {
+      text = '$text $year';
+    }
+    // Un mot unique est trop ambigu : OpenSubtitles renverrait les sous-titres
+    // d'un contenu homonyme, ce que l'utilisateur lirait comme un bug.
+    return words.length >= 2 ? text : '';
   }
 
   /// Télécharge le sous-titre et le convertit en piste exploitable.

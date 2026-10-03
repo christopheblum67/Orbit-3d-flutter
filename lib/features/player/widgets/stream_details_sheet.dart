@@ -267,29 +267,33 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       // chargement du panneau.
       var resolved = _panelTmdbId;
       if (resolved <= 0) {
-        final tmdb = ref.read(tmdbServiceProvider);
-        resolved = await (ctx.isSeries
-                ? tmdb.searchTvId(
-                    ctx.title,
-                    year: ctx.year > 0 ? ctx.year : null,
-                  )
-                : tmdb.searchMovieId(
-                    ctx.title,
-                    year: ctx.year > 0 ? ctx.year : null,
-                  )) ??
-            0;
-      }
-      if (!mounted) return;
-      if (resolved <= 0) {
-        LoggerService.instance.info(
-          'opensubtitles : aucun identifiant TMDB '
-          '(panel=${_panelTmdbId}, titre=${ctx.title.isEmpty ? '-' : ctx.title})',
+        final cleaned = OpenSubtitlesService.cleanSearchTitle(ctx.title);
+        if (cleaned.isEmpty) {
+          if (!mounted) return;
+          LoggerService.instance.info(
+            'opensubtitles : aucun identifiant TMDB et titre inexploitable',
+          );
+          setState(() {
+            _onlineSearching = false;
+            _onlineSearched = true;
+            _onlineError = l.subtitleOnlineNoTmdb;
+          });
+          return;
+        }
+        final hits = await service.searchByTitle(
+          cleaned,
+          season: ctx.isSeries ? ctx.season : null,
+          episode: ctx.isSeries ? ctx.episode : null,
         );
+        if (!mounted) return;
         setState(() {
           _onlineSearching = false;
           _onlineSearched = true;
-          _onlineError = l.subtitleOnlineNoTmdb;
+          _onlineHits = hits;
         });
+        if (hits.isEmpty) {
+          setState(() => _onlineError = l.subtitleOnlineEmpty);
+        }
         return;
       }
 
