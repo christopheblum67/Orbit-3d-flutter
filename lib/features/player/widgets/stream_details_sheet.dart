@@ -226,8 +226,15 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// l'ouverture du panneau.
   Future<void> _searchOnline() async {
     final ctx = ref.read(activeSubtitleContextProvider);
+    final l = AppLocalizations.of(context);
+    // `setState` est indispensable : sans lui, l'erreur est écrite dans le
+    // champ mais l'écran ne se redessine pas, et l'utilisateur voit un bouton
+    // qui ne semble ne faire rien.
     if (ctx == null || ctx.title.trim().isEmpty) {
-      _onlineError = AppLocalizations.of(context).subtitleOnlineNoTmdb;
+      setState(() {
+        _onlineError = l.subtitleOnlineNoTmdb;
+        _onlineSearched = true;
+      });
       return;
     }
     setState(() {
@@ -493,8 +500,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     }
 
     if (_subtitleError != null) {
+      // L'explication ne doit pas fermer la porte : quand le panel ne sert
+      // rien, la recherche en ligne est la seule voie restante. Ce retour
+      // anticipé la masquait — l'utilisateur lisait « indisponible » sans
+      // aucun moyen d'agir, ce qui est le pire des deux mondes.
       return [
         _EmptyRow(label: l.subtitleUnavailable, info: _subtitleError!),
+        ..._buildOnlineRow(l),
       ];
     }
 
