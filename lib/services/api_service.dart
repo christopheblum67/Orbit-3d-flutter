@@ -880,16 +880,24 @@ class ApiService {
   /// l'absence de sous-titres ne doit pas être une erreur.
   /// Découvre les sous-titres d'un contenu.
   ///
-  /// Renvoie les pistes trouvées et si elles sont DÉDUITES : des panels ne
+  /// Renvoie les pistes trouvées, si elles sont DÉDUITES — des panels ne
   /// déclarent rien et servent les fichiers par convention d'URL, et
   /// l'interface doit le dire plutôt que présenter une supposition comme une
-  /// certitude.
-  Future<({List<SubtitleTrackRef> tracks, bool guessed})> discoverSubtitles(
+  /// certitude — et l'identifiant TMDB que le panel a lui-même publié.
+  ///
+  /// Ce dernier point évite une dépendance inutile : beaucoup de panels
+  /// renvoient `tmdb_id` dans `get_vod_info` et `get_series_info`. Résoudre
+  /// l'identifiant par notre propre recherche TMDB exige une clé API que
+  /// l'utilisateur n'a pas forcément saisie, et le contenu devenait
+  /// introuvable alors que l'information était dans la réponse que nous
+  /// venions de lire.
+  Future<({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>
+      discoverSubtitles(
     String contentId, {
     required bool isSeries,
     String? streamId,
   }) async {
-    const nothing = (tracks: <SubtitleTrackRef>[], guessed: false);
+    const nothing = (tracks: <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
     if (contentId.isEmpty) return nothing;
     final sub = await _activeSub();
     if (sub['type'] != 'xtream') return nothing;
@@ -914,8 +922,8 @@ class ApiService {
       streamId: isSeries ? streamId : contentId,
     );
 
-    final result =
-        await safeAsync<({List<SubtitleTrackRef> tracks, bool guessed})>(
+    final result = await safeAsync<
+        ({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>(
       () async {
         final response = await _get(url);
         // Relevé de la charge utile : « aucune piste disponible » est
@@ -930,8 +938,9 @@ class ApiService {
 
         final declared =
             SubtitleDiscovery.parse(response.data, context: context);
+        final panelTmdbId = _tmdbIdFrom(response.data);
         if (declared.isNotEmpty) {
-          return (tracks: declared, guessed: false);
+          return (tracks: declared, guessed: false, tmdbId: panelTmdbId);
         }
 
         // Aucune piste adressable dans la réponse. Deuxième voie : les codes
@@ -963,13 +972,21 @@ class ApiService {
           '-> ${(codes.toList()..sort()).join(', ')}',
           tag: 'subtitle',
         );
-        return (tracks: synthesized, guessed: guessed);
+        return (
+          tracks: synthesized,
+          guessed: guessed,
+          tmdbId: panelTmdbId,
+        );
       },
       context: 'ApiService.discoverSubtitles',
-      fallbackValue: (tracks: const <SubtitleTrackRef>[], guessed: false),
+      fallbackValue: (
+        tracks: const <SubtitleTrackRef>[],
+        guessed: false,
+        tmdbId: 0,
+      ),
     );
     final found = result.valueOrNull ??
-        (tracks: const <SubtitleTrackRef>[], guessed: false);
+        (tracks: const <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
     final effectiveStreamId = context.streamId ?? '';
     _logger.info(
       'Sous-titres ${isSeries ? 'série' : 'film'} $contentId : '
@@ -977,6 +994,36 @@ class ApiService {
       '${effectiveStreamId.isEmpty ? ' (AUCUN : URL non synthétisable)' : ''}',
       tag: 'subtitle',
     );
+    return found;
+  }
+
+  /// Identifiant TMDB publié par le panel, s'il en fournit un.
+  ///
+  /// Cherché à la racine ET dans les objets infos/épisodes : selon le panel,
+  /// `tmdb_id` est soit au niveau du contenu, soit attaché à chaque épisode.
+  /// On garde le premier trouvé, les valeurs divergentes étant rares.
+  static int _tmdbIdFrom(Object? data) {
+    var found = 0;
+    void walk(Object? node, int depth) {
+      if (found != 0 || node is! Map || depth > 4) return;
+      for (final entry in node.entries) {
+        if (found != 0) return;
+        final key = entry.key.toString().toLowerCase();
+        if (key == 'tmdb_id') {
+          final value = entry.value;
+          final id = value is int
+              ? value
+              : value is num
+                  ? value.toInt()
+                  : int.tryParse('$value');
+          if (id != null && id > 0) found = id;
+        } else if (entry.value is Map || entry.value is List) {
+          walk(entry.value, depth + 1);
+        }
+      }
+    }
+
+    walk(data, 0);
     return found;
   }
 

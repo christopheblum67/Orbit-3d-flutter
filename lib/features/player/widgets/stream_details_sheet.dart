@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
@@ -71,6 +72,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   int? _onlineBusyId;
   String? _onlineError;
 
+  /// Identifiant TMDB fourni par le panel pour ce contenu.
+  ///
+  /// Recoveru de la reponse get_vod_info / get_series_info. Prefere a
+  /// notre propre recherche TMDB : elle ne demande aucune cle API, alors que
+  /// l'utilisateur n'en saisit pas toujours une.
+  int _panelTmdbId = 0;
+
   /// Une recherche a-t-elle déjà été lancée ? Sert à distinguer « pas encore
   /// cherché » de « cherché, rien trouvé ».
   bool _onlineSearched = false;
@@ -97,8 +105,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         _subtitleError = null;
       });
     }
-    final result =
-        await safeAsync<({List<SubtitleTrackRef> tracks, bool guessed})>(
+    final result = await safeAsync<
+        ({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>(
       () => ref.read(apiServiceProvider).discoverSubtitles(
             ctx.contentId,
             isSeries: ctx.isSeries,
@@ -107,10 +115,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       context: 'StreamDetailsSheet _discoverSubtitles',
     );
     if (!mounted) return;
-    final found = result.isSuccess
-        ? result.valueOrNull ??
-            (tracks: const <SubtitleTrackRef>[], guessed: false)
-        : (tracks: const <SubtitleTrackRef>[], guessed: false);
+    final found = result.valueOrNull ??
+        (tracks: const <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
+
+    // Identifiant TMDB publié par le panel : il épargne la recherche TMDB, et
+    // donc une clé API que l'utilisateur n'a pas forcément saisie.
+    if (found.tmdbId > 0) _panelTmdbId = found.tmdbId;
 
     if (!result.isSuccess) {
       setState(() {
@@ -243,27 +253,42 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     });
 
     final apiKey = ref.read(openSubtitlesApiKeyProvider);
-    final tmdb = ref.read(tmdbServiceProvider);
     final service = OpenSubtitlesService(apiKey: apiKey);
 
     try {
-      // OpenSubtitles n'accepte qu'un identifiant TMDB : on le résout d'abord
-      // à partir du titre, que le panel ne fournit jamais.
-      final tmdbId = ctx.isSeries
-          ? await tmdb.searchTvId(
-              ctx.title,
-              year: ctx.year > 0 ? ctx.year : null,
-            )
-          : await tmdb.searchMovieId(
-              ctx.title,
-              year: ctx.year > 0 ? ctx.year : null,
-            );
-      final resolved = tmdbId ?? 0;
+      // Deux voies, dans cet ordre :
+      //
+      // 1. l'identifiant que le panel a lui-même publié dans sa réponse. Il est
+      //    déjà connu, donc gratuit et instantané ;
+      // 2. à défaut, notre recherche par titre, qui exige une clé API TMDB.
+      //
+      // La 2e voie échouait sur un message « impossible d'identifier le
+      // contenu » alors que la 1e avait la réponse sous les yeux depuis le
+      // chargement du panneau.
+      var resolved = _panelTmdbId;
+      if (resolved <= 0) {
+        final tmdb = ref.read(tmdbServiceProvider);
+        resolved = await (ctx.isSeries
+                ? tmdb.searchTvId(
+                    ctx.title,
+                    year: ctx.year > 0 ? ctx.year : null,
+                  )
+                : tmdb.searchMovieId(
+                    ctx.title,
+                    year: ctx.year > 0 ? ctx.year : null,
+                  )) ??
+            0;
+      }
       if (!mounted) return;
       if (resolved <= 0) {
+        LoggerService.instance.info(
+          'opensubtitles : aucun identifiant TMDB '
+          '(panel=${_panelTmdbId}, titre=${ctx.title.isEmpty ? '-' : ctx.title})',
+        );
         setState(() {
           _onlineSearching = false;
-          _onlineError = AppLocalizations.of(context).subtitleOnlineNoTmdb;
+          _onlineSearched = true;
+          _onlineError = l.subtitleOnlineNoTmdb;
         });
         return;
       }
