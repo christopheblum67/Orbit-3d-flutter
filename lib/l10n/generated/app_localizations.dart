@@ -2319,6 +2319,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Effacer la clé'**
   String get opensubtitlesKeyDelete;
+
+  /// No description provided for @subtitleOnlineNoApiKey.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.'**
+  String get subtitleOnlineNoApiKey;
+
+  /// No description provided for @subtitleOnlineQuota.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.'**
+  String get subtitleOnlineQuota;
 }
 
 class _AppLocalizationsDelegate

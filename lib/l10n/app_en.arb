@@ -368,5 +368,7 @@
   "opensubtitlesKeyHint": "API key — optional",
   "opensubtitlesKeyActive": "Key saved: higher download quota.",
   "opensubtitlesKeyAnonymous": "No key: search works, 5 downloads per IP per 24 h.",
-  "opensubtitlesKeyDelete": "Clear the key"
+  "opensubtitlesKeyDelete": "Clear the key",
+  "subtitleOnlineNoApiKey": "OpenSubtitles API key missing: enter it in Settings to enable online search.",
+  "subtitleOnlineQuota": "OpenSubtitles download quota reached for today. Try again tomorrow."
 }

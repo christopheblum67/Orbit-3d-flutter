@@ -368,5 +368,7 @@
   "opensubtitlesKeyHint": "مفتاح API — اختياري",
   "opensubtitlesKeyActive": "المفتاح محفوظ: حصة تنزيل أعلى.",
   "opensubtitlesKeyAnonymous": "بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.",
-  "opensubtitlesKeyDelete": "امسح المفتاح"
+  "opensubtitlesKeyDelete": "امسح المفتاح",
+  "subtitleOnlineNoApiKey": "مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.",
+  "subtitleOnlineQuota": "تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا."
 }

@@ -368,5 +368,7 @@
   "opensubtitlesKeyHint": "API-Schlüssel — optional",
   "opensubtitlesKeyActive": "Schlüssel gespeichert: höheres Download-Limit.",
   "opensubtitlesKeyAnonymous": "Kein Schlüssel: Suche möglich, 5 Downloads pro IP und 24 h.",
-  "opensubtitlesKeyDelete": "Schlüssel löschen"
+  "opensubtitlesKeyDelete": "Schlüssel löschen",
+  "subtitleOnlineNoApiKey": "OpenSubtitles-API-Schlüssel fehlt: In den Einstellungen eintragen, um die Online-Suche zu aktivieren.",
+  "subtitleOnlineQuota": "OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen."
 }

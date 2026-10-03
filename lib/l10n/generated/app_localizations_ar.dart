@@ -1190,4 +1190,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get opensubtitlesKeyDelete => 'امسح المفتاح';
+
+  @override
+  String get subtitleOnlineNoApiKey =>
+      'مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.';
+
+  @override
+  String get subtitleOnlineQuota =>
+      'تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.';
 }

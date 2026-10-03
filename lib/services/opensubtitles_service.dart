@@ -175,6 +175,25 @@ class OpenSubtitlesService {
     );
   }
 
+  /// Vérifie qu'une clé API est disponible avant d'interroger le service.
+  ///
+  /// `/subtitles` et `/features` exigent tous deux l'en-tête `Api-Key` : sans
+  /// clé, la réponse est un 401 dont le corps ne contient pas de champ `data`.
+  /// Ce corps était donc lu comme « aucun résultat », et une recherche made
+  /// échouée se confondait avec un média absent de la base — plusieurs
+  /// diagnostics ont été guidés par cette confusion.
+  ///
+  /// On refuse donc de partir sans clé, et on le dit explicitement : la
+  /// conduite à tenir est de la saisir dans les réglages, pas de chercher un
+  /// autre titre.
+  void _requireApiKey() {
+    if (apiKey.trim().isEmpty) {
+      throw const SubtitlePayloadException(
+        'Clé API OpenSubtitles absente — à saisir dans les réglages',
+      );
+    }
+  }
+
   /// Traduit un titre de diffusion vers l'entrée indexée par OpenSubtitles.
   ///
   /// ## Pourquoi cette étape est indispensable
@@ -188,32 +207,109 @@ class OpenSubtitlesService {
   /// `full_search` interroge aussi les titres traduits (`title_aka`), et
   /// `/features` accepte `type` pour ne remonter que des séries. C'est la voie
   /// documentée : « Consider querying /features first ».
+  ///
+  /// ## Pourquoi plusieurs requêtes
+  ///
+  /// La recherche plein texte exige que les termes correspondent presque tous.
+  /// Le nom de diffusion complet est donc trop long : sur
+  /// « Monstre : l'histoire de Lizzie Borden - Une chatte tenace », le titre
+  /// de l'épisode et l'accroche d'ouverture ne figurent dans aucune entrée et font
+  /// échouer la recherche. On essaie donc des formes de plus en plus courtes,
+  /// de la plus spécifique à la plus large, et on s'arrête à la première qui
+  /// trouve.
   Future<List<OpenSubtitlesFeature>> searchFeatures(
     String query, {
     String type = '',
   }) async {
-    final cleaned = cleanSearchTitle(query);
-    if (cleaned.isEmpty) return const [];
+    _requireApiKey();
+    for (final variant in titleVariants(query)) {
+      final params = <String, String>{
+        'query': variant.toLowerCase(),
+        // Inclut les titres traduits : c'est ce paramètre qui fait la
+        // différence entre un nom de diffusion et un titre indexé.
+        'full_search': 'true',
+        if (type.isNotEmpty) 'type': type,
+      };
 
-    final params = <String, String>{
-      'query': cleaned.toLowerCase(),
-      // Inclut les titres traduits : c'est ce paramètre qui fait la différence
-      // entre un nom de diffusion et un titre indexé.
-      'full_search': 'true',
-      if (type.isNotEmpty) 'type': type,
-    };
+      final result = await safeAsync<List<OpenSubtitlesFeature>>(
+        () => _getFeatures(params),
+        context: 'OpenSubtitlesService.searchFeatures',
+      );
 
-    final result = await safeAsync<List<OpenSubtitlesFeature>>(
-      () => _getFeatures(params),
-      context: 'OpenSubtitlesService.searchFeatures',
-    );
-    final features = result.valueOrNull ?? const <OpenSubtitlesFeature>[];
-    LoggerService.instance.info(
-      'opensubtitles /features type=${type.isEmpty ? 'all' : type} '
-      'requete="${cleaned.toLowerCase()}" → ${features.length} résultat(s)'
-      '${features.isEmpty ? '' : ' (${features.take(3).map((f) => f.title).join(' | ')})'}',
-    );
-    return features;
+      if (result.isFailure) {
+        // Échec HTTP : inutile d'insister sur des variantes plus courtes, la
+        // cause n'est pas le titre. Le message remonte à l'utilisateur.
+        final error = result.errorOrNull;
+        LoggerService.instance.info(
+          'opensubtitles /features en échec : ${error?.originalError ?? error?.message}',
+        );
+        throw error?.originalError ??
+            SubtitlePayloadException(error?.message ?? 'Recherche impossible');
+      }
+
+      final features = result.valueOrNull ?? const <OpenSubtitlesFeature>[];
+      LoggerService.instance.info(
+        'opensubtitles /features type=${type.isEmpty ? 'all' : type} '
+        'requete="${variant.toLowerCase()}" → ${features.length} résultat(s)'
+        '${features.isEmpty ? '' : ' (${features.take(3).map((f) => f.title).join(' | ')})'}',
+      );
+      if (features.isNotEmpty) return features;
+    }
+    return const [];
+  }
+
+  /// Formes successives d'un nom de release, de la plus précise à la plus large.
+  ///
+  /// Ordre choisi d'après un titre réel de panel :
+  /// `|FR| Monstre : L'histoire de Lizzie Borden 01x02 - Une chatte tenace (MULTI)`
+  ///
+  /// 1. le titre complet, trop long et donc inopérant ;
+  /// 2. sans le titre d'épisode, qui suit le dernier tiret ;
+  /// 3. sans l'accroche d'ouverture qui précède le deux-points ;
+  /// 4. les derniers mots significatifs, qui portent le plus souvent le nom
+  ///    original — « Lizzie Borden » — retrouvé par `full_search`.
+  ///
+  /// Les variantes trop courtes sont écartées : en dessous de deux mots, la
+  /// recherche ramène des contenus homonymes.
+  static List<String> titleVariants(String raw) {
+    final full = cleanSearchTitle(raw);
+    if (full.isEmpty) return const [];
+
+    final out = <String>{full};
+
+    // Retire ce qui suit le dernier « - » : c'est le titre de l'épisode, sans
+    // rapport avec le nom de la série.
+    final lastDash = full.lastIndexOf(RegExp(r'\s[-–—]\s'));
+    final withoutEpisode =
+        lastDash > 0 ? full.substring(0, lastDash).trim() : full;
+    if (withoutEpisode != full) out.add(withoutEpisode);
+
+    // Retire l'accroche d'ouverture : les panels préfixent souvent le nom de
+    // diffusion d'un nom de chaîne ou d'un genre (« Monstre : … »).
+    final colon = withoutEpisode.indexOf(':');
+    var base = withoutEpisode;
+    if (colon > 0 && colon < withoutEpisode.length - 4) {
+      base = withoutEpisode.substring(colon + 1).trim();
+      out.add(base);
+    }
+
+    // Les derniers mots de `base`, JAMAIS ceux du titre complet : les derniers
+    // mots du nom complet sont ceux de l'épisode — « Une chatte tenace » — qui
+    // ne mènent nulle part. C'est en fin de nom de diffusion que se trouve le
+    // plus souvent le titre original, « Lizzie Borden », que `full_search`
+    // rapproche alors du titre indexé.
+    final words = base.split(RegExp(r'\s+'));
+    for (final take in [4, 3, 2]) {
+      if (words.length > take) {
+        out.add(words.sublist(words.length - take).join(' '));
+      }
+    }
+
+    return out
+        .map((v) => v.trim())
+        .where((v) => v.length > 2)
+        .where((v) => v.split(RegExp(r'\s+')).length >= 2)
+        .toList();
   }
 
   Future<List<OpenSubtitlesFeature>> _getFeatures(
@@ -354,6 +450,7 @@ class OpenSubtitlesService {
     int? seasonNumber,
     int? episodeNumber,
   }) async {
+    _requireApiKey();
     final cleaned = cleanSearchTitle(query ?? '');
     // Sans identifiant, il ne reste qu'un texte à interroger : sans titre
     // exploitable, la requête ne viserait aucun média en particulier.
@@ -575,6 +672,7 @@ class OpenSubtitlesService {
   /// de quota restant est tracé, pour que « quota épuisé » soit distinguable
   /// d'une panne réseau.
   Future<Uri> _requestDownloadLink(OpenSubtitlesHit hit) async {
+    _requireApiKey();
     final body = await _post('/download', {
       'file_id': hit.fileId,
       'sub_format': 'srt',
@@ -741,7 +839,21 @@ class OpenSubtitlesService {
       request.followRedirects = true;
       final response =
           await request.close().timeout(const Duration(seconds: 15));
-      return await _collect(response, uri);
+      final bytes = await _collect(response, uri);
+
+      // Sans ce contrôle, un 401 (clé refusée) ou un 429 (quota) se lisaient
+      // exactement comme « aucun résultat » : la recherche partait, le
+      // diagnostic concluait à tort que le média était absent de la base. On
+      // distingue donc l'échec HTTP de l'absence de résultat, qui n'a pas la
+      // même cause ni le même remède.
+      if (response.statusCode != HttpStatus.ok) {
+        final path = _isSignedLink(uri) ? 'lien de téléchargement' : uri.path;
+        throw SubtitlePayloadException(
+          'OpenSubtitles $path http=${response.statusCode}'
+          '${_messageOf(bytes)}',
+        );
+      }
+      return bytes;
     } finally {
       client.close();
     }

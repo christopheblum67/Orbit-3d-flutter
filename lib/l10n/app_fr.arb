@@ -427,5 +427,7 @@
   "opensubtitlesKeyHint": "Clé API — facultative",
   "opensubtitlesKeyActive": "Clé enregistrée : quota de téléchargement relevé.",
   "opensubtitlesKeyAnonymous": "Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.",
-  "opensubtitlesKeyDelete": "Effacer la clé"
+  "opensubtitlesKeyDelete": "Effacer la clé",
+  "subtitleOnlineNoApiKey": "Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.",
+  "subtitleOnlineQuota": "Quota de téléchargement OpenSubtitles atteint pour aujourd'hui. Réessayez demain."
 }

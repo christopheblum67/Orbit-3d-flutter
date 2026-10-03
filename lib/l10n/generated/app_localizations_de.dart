@@ -1214,4 +1214,12 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get opensubtitlesKeyDelete => 'Schlüssel löschen';
+
+  @override
+  String get subtitleOnlineNoApiKey =>
+      'OpenSubtitles-API-Schlüssel fehlt: In den Einstellungen eintragen, um die Online-Suche zu aktivieren.';
+
+  @override
+  String get subtitleOnlineQuota =>
+      'OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen.';
 }

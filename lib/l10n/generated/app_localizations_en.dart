@@ -1200,4 +1200,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get opensubtitlesKeyDelete => 'Clear the key';
+
+  @override
+  String get subtitleOnlineNoApiKey =>
+      'OpenSubtitles API key missing: enter it in Settings to enable online search.';
+
+  @override
+  String get subtitleOnlineQuota =>
+      'OpenSubtitles download quota reached for today. Try again tomorrow.';
 }

@@ -314,9 +314,28 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       if (!mounted) return;
       setState(() {
         _onlineSearching = false;
-        _onlineError = '$error';
+        _onlineSearched = true;
+        _onlineError = _onlineErrorText(error, l);
       });
     }
+  }
+
+  /// Message d'erreur conceived pour l'utilisateur, pas pour un journal.
+  ///
+  /// Un 401 sans clé se traduisait par une suite de messages techniques
+  /// (« SubtitlePayloadException : … http=401 ») qui ne disait pas ce qu'il
+  /// fallait faire. La conduite à tenir est une seule : saisir la clé dans les
+  /// réglages.
+  String _onlineErrorText(Object error, AppLocalizations l) {
+    final text = '$error';
+    if (text.contains('Clé API OpenSubtitles absente') ||
+        text.contains('http=401')) {
+      return l.subtitleOnlineNoApiKey;
+    }
+    if (text.contains('http=429')) {
+      return l.subtitleOnlineQuota;
+    }
+    return text;
   }
 
   /// Télécharge un sous-titre en ligne et l'active.

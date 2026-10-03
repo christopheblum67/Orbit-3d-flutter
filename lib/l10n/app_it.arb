@@ -368,5 +368,7 @@
   "opensubtitlesKeyHint": "Chiave API — facoltativa",
   "opensubtitlesKeyActive": "Chiave salvata: quota di download più alta.",
   "opensubtitlesKeyAnonymous": "Nessuna chiave: ricerca disponibile, 5 download per IP ogni 24 h.",
-  "opensubtitlesKeyDelete": "Cancella la chiave"
+  "opensubtitlesKeyDelete": "Cancella la chiave",
+  "subtitleOnlineNoApiKey": "Chiave API OpenSubtitles mancante: inseriscila nelle Impostazioni per attivare la ricerca online.",
+  "subtitleOnlineQuota": "Quota di download OpenSubtitles raggiunto per oggi. Riprova domani."
 }

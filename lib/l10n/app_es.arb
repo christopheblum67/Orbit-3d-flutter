@@ -368,5 +368,7 @@
   "opensubtitlesKeyHint": "Clave API — opcional",
   "opensubtitlesKeyActive": "Clave guardada: mayor cuota de descarga.",
   "opensubtitlesKeyAnonymous": "Sin clave: la búsqueda funciona, 5 descargas por IP y 24 h.",
-  "opensubtitlesKeyDelete": "Borrar la clave"
+  "opensubtitlesKeyDelete": "Borrar la clave",
+  "subtitleOnlineNoApiKey": "Falta la clave API de OpenSubtitles: introdúcela en Ajustes para activar la búsqueda en línea.",
+  "subtitleOnlineQuota": "Cuota de descarga de OpenSubtitles alcanzada hoy. Inténtalo mañana."
 }
