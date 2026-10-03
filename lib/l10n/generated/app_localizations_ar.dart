@@ -1147,4 +1147,47 @@ class AppLocalizationsAr extends AppLocalizations {
   String subtitleVerifying(Object count) {
     return 'جارٍ التحقق من الترجمة… ($count)';
   }
+
+  @override
+  String get subtitleSearchOnline => 'ابحث عبر الإنترنت';
+
+  @override
+  String get subtitleSearchOnlineInfo =>
+      'لا يوفّر المزوّد شيئًا لهذا المحتوى. قد يعثر البحث عبر الإنترنت على ترجمة.';
+
+  @override
+  String get subtitleSearchOnlineRunning => 'جارٍ البحث…';
+
+  @override
+  String get subtitleOnlineResults => 'ترجمات عُثر عليها عبر الإنترنت';
+
+  @override
+  String get subtitleOnlineEmpty =>
+      'لم يُعثر على ترجمة عبر الإنترنت لهذا المحتوى.';
+
+  @override
+  String subtitleOnlineDownloads(Object count) {
+    return '$count تنزيل';
+  }
+
+  @override
+  String get subtitleOnlineNoTmdb =>
+      'تعذّر تحديد هذا المحتوى على TMDB: يحتاج البحث عبر الإنترنت إلى معرّفه.';
+
+  @override
+  String get opensubtitlesKeyLabel =>
+      'البحث عن ترجمة عبر الإنترنت (OpenSubtitles)';
+
+  @override
+  String get opensubtitlesKeyHint => 'مفتاح API — اختياري';
+
+  @override
+  String get opensubtitlesKeyActive => 'المفتاح محفوظ: حصة تنزيل أعلى.';
+
+  @override
+  String get opensubtitlesKeyAnonymous =>
+      'بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.';
+
+  @override
+  String get opensubtitlesKeyDelete => 'امسح المفتاح';
 }

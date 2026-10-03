@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -58,6 +60,20 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// Nombre de pistes encore à vérifier (section « Pistes déduites »).
   /// 0 = aucune vérification en cours.
   int _subtitleVerifying = 0;
+
+  /// Recherche en ligne : résultats, état d'avancement, erreur.
+  ///
+  /// Volontairement déclenchée par un bouton et non au chargement : une
+  /// requête externe à l'ouverture du panneau coûterait de la latence et du
+  /// quota pour rien, quand le panel fournit déjà ses pistes.
+  List<OpenSubtitlesHit> _onlineHits = const [];
+  bool _onlineSearching = false;
+  int? _onlineBusyId;
+  String? _onlineError;
+
+  /// Une recherche a-t-elle déjà été lancée ? Sert à distinguer « pas encore
+  /// cherché » de « cherché, rien trouvé ».
+  bool _onlineSearched = false;
   String? _subtitleError;
 
   @override
@@ -119,9 +135,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         _subtitleTracks = const <SubtitleTrackRef>[];
         _subtitleVerifying = found.tracks.length;
       });
-      final verified = await ref
-          .read(subtitleControllerProvider)
-          .verifyTracks(found.tracks);
+      final verified =
+          await ref.read(subtitleControllerProvider).verifyTracks(found.tracks);
       if (!mounted) return;
       setState(() {
         _subtitleVerifying = 0;
@@ -200,6 +215,95 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
           .selectVideoTrack(id == null ? null : _videoTrackFor(id)),
       context: 'StreamDetailsSheet _selectVideo',
     );
+  }
+
+  /// Recherche un sous-titre EN LIGNE, quand le panel n'en propose aucun.
+  ///
+  /// Le panel peut ne publier aucun sous-titre et ne pas servir le chemin
+  /// `/subtitles/...` — mesuré : réponse vide. OpenSubtitles est alors la seule
+  /// source restante. On ne l'interroge que sur action explicite, jamais au
+  /// chargement, pour ne pas consommer de quota ni introduire de latence à
+  /// l'ouverture du panneau.
+  Future<void> _searchOnline() async {
+    final ctx = ref.read(activeSubtitleContextProvider);
+    if (ctx == null || ctx.title.trim().isEmpty) {
+      _onlineError = AppLocalizations.of(context).subtitleOnlineNoTmdb;
+      return;
+    }
+    setState(() {
+      _onlineSearching = true;
+      _onlineError = null;
+    });
+
+    final apiKey = ref.read(openSubtitlesApiKeyProvider);
+    final tmdb = ref.read(tmdbServiceProvider);
+    final service = OpenSubtitlesService(apiKey: apiKey);
+
+    try {
+      // OpenSubtitles n'accepte qu'un identifiant TMDB : on le résout d'abord
+      // à partir du titre, que le panel ne fournit jamais.
+      final tmdbId = ctx.isSeries
+          ? await tmdb.searchTvId(ctx.title,
+              year: ctx.year > 0 ? ctx.year : null)
+          : await tmdb.searchMovieId(
+              ctx.title,
+              year: ctx.year > 0 ? ctx.year : null,
+            );
+      final resolved = tmdbId ?? 0;
+      if (!mounted) return;
+      if (resolved <= 0) {
+        setState(() {
+          _onlineSearching = false;
+          _onlineError = AppLocalizations.of(context).subtitleOnlineNoTmdb;
+        });
+        return;
+      }
+
+      final hits = ctx.isSeries
+          ? await service.searchEpisode(
+              resolved,
+              season: ctx.season,
+              episode: ctx.episode,
+            )
+          : await service.searchMovie(resolved);
+      if (!mounted) return;
+      setState(() {
+        _onlineSearching = false;
+        _onlineSearched = true;
+        _onlineHits = hits;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _onlineSearching = false;
+        _onlineError = '$error';
+      });
+    }
+  }
+
+  /// Télécharge un sous-titre en ligne et l'active.
+  Future<void> _selectOnline(OpenSubtitlesHit hit) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _onlineBusyId = hit.fileId);
+    final service = OpenSubtitlesService(
+      apiKey: ref.read(openSubtitlesApiKeyProvider),
+    );
+    try {
+      final track = await service.download(hit, language: hit.language);
+      if (!mounted) return;
+      ref.read(subtitleControllerProvider).adoptTrack(track, hit.label);
+      setState(() => _onlineBusyId = null);
+      messenger.showSnackBar(
+        SnackBar(content: Text(hit.label)),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _onlineBusyId = null);
+      final l = AppLocalizations.of(context);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${l.subtitleUnavailableToast} : $error')),
+      );
+    }
   }
 
   VideoTrack? _videoTrackFor(String id) {
@@ -396,8 +500,11 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
     final tracks = _subtitleTracks;
     if (tracks.isEmpty) {
+      // Aucune piste du panel : on propose la recherche en ligne, qui est la
+      // seule source restante quand le panel ne sert rien.
       return [
         _EmptyRow(label: l.subtitleNoTrack, info: l.subtitleNoTrackInfo),
+        ..._buildOnlineRow(l),
       ];
     }
 
@@ -467,6 +574,73 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       ),
     );
   }
+
+  /// Recherche en ligne : bouton, état d'avancement, résultats.
+  ///
+  /// Toujours en BAS de la liste, jamais à la place des pistes du panel : la
+  /// source de l'abonnement reste prioritaire, et une source externe n'est
+  /// proposée que lorsque le panel n'a rien donné.
+  List<Widget> _buildOnlineRow(AppLocalizations l) {
+    if (_onlineSearching) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l.subtitleSearchOnlineRunning,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    if (_onlineError != null) {
+      return [
+        _EmptyRow(label: l.subtitleUnavailable, info: _onlineError!),
+        _onlineButton(l),
+      ];
+    }
+
+    if (_onlineHits.isEmpty) {
+      return [
+        if (_onlineSearched) _EmptyRow(label: '', info: l.subtitleOnlineEmpty),
+        _onlineButton(l),
+      ];
+    }
+
+    return [
+      _EmptyRow(label: l.subtitleOnlineResults, info: ''),
+      for (final hit in _onlineHits)
+        _TrackTile(
+          title: hit.label,
+          // Le nombre de téléchargements est le meilleur proxy de fiabilité,
+          // l'API ne renvoyant plus le nom du fichier.
+          subtitle: l.subtitleOnlineDownloads(hit.downloadCount),
+          selected: false,
+          onTap: _onlineBusyId == hit.fileId ? () {} : () => _selectOnline(hit),
+        ),
+    ];
+  }
+
+  Widget _onlineButton(AppLocalizations l) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: OutlinedButton.icon(
+          onPressed: _searchOnline,
+          icon: const Icon(Icons.travel_explore, size: 18),
+          label: Text(l.subtitleSearchOnline),
+        ),
+      );
 
   Widget _sectionTitle(String label) {
     final scheme = Theme.of(context).colorScheme;

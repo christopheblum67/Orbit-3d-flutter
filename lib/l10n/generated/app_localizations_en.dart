@@ -1158,4 +1158,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String subtitleVerifying(Object count) {
     return 'Checking subtitles… ($count)';
   }
+
+  @override
+  String get subtitleSearchOnline => 'Search online';
+
+  @override
+  String get subtitleSearchOnlineInfo =>
+      'The provider offers nothing for this content. An online search may find a subtitle.';
+
+  @override
+  String get subtitleSearchOnlineRunning => 'Searching…';
+
+  @override
+  String get subtitleOnlineResults => 'Subtitles found online';
+
+  @override
+  String get subtitleOnlineEmpty =>
+      'No subtitle found online for this content.';
+
+  @override
+  String subtitleOnlineDownloads(Object count) {
+    return '$count downloads';
+  }
+
+  @override
+  String get subtitleOnlineNoTmdb =>
+      'This content could not be identified on TMDB: the online search needs its id.';
+
+  @override
+  String get opensubtitlesKeyLabel => 'Online subtitle search (OpenSubtitles)';
+
+  @override
+  String get opensubtitlesKeyHint => 'API key — optional';
+
+  @override
+  String get opensubtitlesKeyActive => 'Key saved: higher download quota.';
+
+  @override
+  String get opensubtitlesKeyAnonymous =>
+      'No key: search works, 5 downloads per IP per 24 h.';
+
+  @override
+  String get opensubtitlesKeyDelete => 'Clear the key';
 }

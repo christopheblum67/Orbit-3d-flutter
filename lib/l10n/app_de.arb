@@ -356,5 +356,17 @@
   "epgBack": "Zurück",
   "epgWatchChannel": "{name} ansehen",
   "subtitleNoneServedByPanel": "Der Anbieter liefert keine Untertitel für diesen Inhalt.",
-  "subtitleVerifying": "Untertitel werden geprüft… ({count})"
+  "subtitleVerifying": "Untertitel werden geprüft… ({count})",
+  "subtitleSearchOnline": "Online suchen",
+  "subtitleSearchOnlineInfo": "Der Anbieter bietet für diesen Inhalt nichts an. Eine Online-Suche findet möglicherweise einen Untertitel.",
+  "subtitleSearchOnlineRunning": "Suche läuft…",
+  "subtitleOnlineResults": "Online gefundene Untertitel",
+  "subtitleOnlineEmpty": "Kein Untertitel online für diesen Inhalt gefunden.",
+  "subtitleOnlineDownloads": "{count} Downloads",
+  "subtitleOnlineNoTmdb": "Dieser Inhalt konnte auf TMDB nicht identifiziert werden: Die Online-Suche benötigt seine Kennung.",
+  "opensubtitlesKeyLabel": "Online-Untertitelsuche (OpenSubtitles)",
+  "opensubtitlesKeyHint": "API-Schlüssel — optional",
+  "opensubtitlesKeyActive": "Schlüssel gespeichert: höheres Download-Limit.",
+  "opensubtitlesKeyAnonymous": "Kein Schlüssel: Suche möglich, 5 Downloads pro IP und 24 h.",
+  "opensubtitlesKeyDelete": "Schlüssel löschen"
 }

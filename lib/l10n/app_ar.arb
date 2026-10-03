@@ -356,5 +356,17 @@
   "epgBack": "رجوع",
   "epgWatchChannel": "شاهد {name}",
   "subtitleNoneServedByPanel": "لا يوفّر المزوّد ترجمات لهذا المحتوى.",
-  "subtitleVerifying": "جارٍ التحقق من الترجمة… ({count})"
+  "subtitleVerifying": "جارٍ التحقق من الترجمة… ({count})",
+  "subtitleSearchOnline": "ابحث عبر الإنترنت",
+  "subtitleSearchOnlineInfo": "لا يوفّر المزوّد شيئًا لهذا المحتوى. قد يعثر البحث عبر الإنترنت على ترجمة.",
+  "subtitleSearchOnlineRunning": "جارٍ البحث…",
+  "subtitleOnlineResults": "ترجمات عُثر عليها عبر الإنترنت",
+  "subtitleOnlineEmpty": "لم يُعثر على ترجمة عبر الإنترنت لهذا المحتوى.",
+  "subtitleOnlineDownloads": "{count} تنزيل",
+  "subtitleOnlineNoTmdb": "تعذّر تحديد هذا المحتوى على TMDB: يحتاج البحث عبر الإنترنت إلى معرّفه.",
+  "opensubtitlesKeyLabel": "البحث عن ترجمة عبر الإنترنت (OpenSubtitles)",
+  "opensubtitlesKeyHint": "مفتاح API — اختياري",
+  "opensubtitlesKeyActive": "المفتاح محفوظ: حصة تنزيل أعلى.",
+  "opensubtitlesKeyAnonymous": "بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.",
+  "opensubtitlesKeyDelete": "امسح المفتاح"
 }

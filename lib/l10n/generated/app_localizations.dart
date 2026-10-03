@@ -2247,6 +2247,78 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Vérification des sous-titres… ({count})'**
   String subtitleVerifying(Object count);
+
+  /// No description provided for @subtitleSearchOnline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher en ligne'**
+  String get subtitleSearchOnline;
+
+  /// No description provided for @subtitleSearchOnlineInfo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel ne propose rien pour ce contenu. Une recherche en ligne peut trouver un sous-titre.'**
+  String get subtitleSearchOnlineInfo;
+
+  /// No description provided for @subtitleSearchOnlineRunning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche en cours…'**
+  String get subtitleSearchOnlineRunning;
+
+  /// No description provided for @subtitleOnlineResults.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres trouvés en ligne'**
+  String get subtitleOnlineResults;
+
+  /// No description provided for @subtitleOnlineEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun sous-titre trouvé en ligne pour ce contenu.'**
+  String get subtitleOnlineEmpty;
+
+  /// No description provided for @subtitleOnlineDownloads.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} téléchargements'**
+  String subtitleOnlineDownloads(Object count);
+
+  /// No description provided for @subtitleOnlineNoTmdb.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'identifier ce contenu sur TMDB : la recherche en ligne a besoin de son identifiant.'**
+  String get subtitleOnlineNoTmdb;
+
+  /// No description provided for @opensubtitlesKeyLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche de sous-titres en ligne (OpenSubtitles)'**
+  String get opensubtitlesKeyLabel;
+
+  /// No description provided for @opensubtitlesKeyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé API — facultative'**
+  String get opensubtitlesKeyHint;
+
+  /// No description provided for @opensubtitlesKeyActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé enregistrée : quota de téléchargement relevé.'**
+  String get opensubtitlesKeyActive;
+
+  /// No description provided for @opensubtitlesKeyAnonymous.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.'**
+  String get opensubtitlesKeyAnonymous;
+
+  /// No description provided for @opensubtitlesKeyDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer la clé'**
+  String get opensubtitlesKeyDelete;
 }
 
 class _AppLocalizationsDelegate

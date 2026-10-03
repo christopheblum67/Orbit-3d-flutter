@@ -478,6 +478,10 @@ class SubtitleContext {
     required this.contentId,
     required this.isSeries,
     this.streamId = '',
+    this.title = '',
+    this.year = 0,
+    this.season = 0,
+    this.episode = 0,
   });
 
   final String contentId;
@@ -491,6 +495,23 @@ class SubtitleContext {
   /// synthétiser et l'écran affiche « aucune piste disponible » — un chemin
   /// mort, alors que la donnée était disponible dans l'écran de lecture.
   final String streamId;
+
+  /// Titre du média, pour résoudre un identifiant TMDB.
+  ///
+  /// OpenSubtitles ne cherche pas par nom : il attend un identifiant TMDB, ou
+  /// un MovieHash. Le titre sert donc à retrouver cet identifiant via notre
+  /// enrichissement TMDB, quand le panel n'en fournit pas.
+  final String title;
+
+  final int year;
+
+  /// Saison et numéro d'épisode.
+  ///
+  /// OpenSubtitles n'a pas de hash d'épisode : la recherche d'un épisode exige
+  /// ces deux nombres, sans quoi elle renverrait les sous-titres de la série
+  /// entière.
+  final int season;
+  final int episode;
 }
 
 /// Contexte de découverte des sous-titres, alimenté par la fiche film ou

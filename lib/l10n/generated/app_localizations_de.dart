@@ -1171,4 +1171,47 @@ class AppLocalizationsDe extends AppLocalizations {
   String subtitleVerifying(Object count) {
     return 'Untertitel werden geprüft… ($count)';
   }
+
+  @override
+  String get subtitleSearchOnline => 'Online suchen';
+
+  @override
+  String get subtitleSearchOnlineInfo =>
+      'Der Anbieter bietet für diesen Inhalt nichts an. Eine Online-Suche findet möglicherweise einen Untertitel.';
+
+  @override
+  String get subtitleSearchOnlineRunning => 'Suche läuft…';
+
+  @override
+  String get subtitleOnlineResults => 'Online gefundene Untertitel';
+
+  @override
+  String get subtitleOnlineEmpty =>
+      'Kein Untertitel online für diesen Inhalt gefunden.';
+
+  @override
+  String subtitleOnlineDownloads(Object count) {
+    return '$count Downloads';
+  }
+
+  @override
+  String get subtitleOnlineNoTmdb =>
+      'Dieser Inhalt konnte auf TMDB nicht identifiziert werden: Die Online-Suche benötigt seine Kennung.';
+
+  @override
+  String get opensubtitlesKeyLabel => 'Online-Untertitelsuche (OpenSubtitles)';
+
+  @override
+  String get opensubtitlesKeyHint => 'API-Schlüssel — optional';
+
+  @override
+  String get opensubtitlesKeyActive =>
+      'Schlüssel gespeichert: höheres Download-Limit.';
+
+  @override
+  String get opensubtitlesKeyAnonymous =>
+      'Kein Schlüssel: Suche möglich, 5 Downloads pro IP und 24 h.';
+
+  @override
+  String get opensubtitlesKeyDelete => 'Schlüssel löschen';
 }

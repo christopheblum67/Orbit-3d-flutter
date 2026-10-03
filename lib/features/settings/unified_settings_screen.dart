@@ -20,6 +20,7 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
@@ -533,18 +534,20 @@ class _SecuritySection extends ConsumerWidget {
               spacing: 8,
               runSpacing: 8,
               children: s.certificatePinningFingerprints
-                  .map((fp) => Chip(
-                        label: Text(
-                          fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          final updated = [...s.certificatePinningFingerprints]
-                            ..remove(fp);
-                          n.setCertificatePinningFingerprints(updated);
-                        },
-                      ),)
+                  .map(
+                    (fp) => Chip(
+                      label: Text(
+                        fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () {
+                        final updated = [...s.certificatePinningFingerprints]
+                          ..remove(fp);
+                        n.setCertificatePinningFingerprints(updated);
+                      },
+                    ),
+                  )
                   .toList(),
             ),
           const SizedBox(height: 12),
@@ -817,6 +820,9 @@ class _AdvancedSection extends ConsumerWidget {
         SettingsSectionTitle(l.sectionTmdb),
         const _TmdbApiKeyTile(),
         const SizedBox(height: 16),
+        SettingsSectionTitle(l.subtitleSearchOnline),
+        const _OpenSubtitlesApiKeyTile(),
+        const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionRecommendations),
         _NavTile(
           icon: Icons.recommend_rounded,
@@ -843,23 +849,29 @@ class _AdvancedSection extends ConsumerWidget {
           title: l.clearCaches,
           subtitle: l.clearCachesSubtitle,
           onTap: () => _clearAllCaches(context, ref),
-          trailing: Icon(Icons.chevron_right,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         _NavTile(
           icon: Icons.restart_alt_outlined,
           title: l.resetApp,
           subtitle: l.resetAppSubtitle,
           onTap: () => _factoryReset(context, ref),
-          trailing: Icon(Icons.chevron_right,
-              color: Theme.of(context).colorScheme.error,),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: Theme.of(context).colorScheme.error,
+          ),
         ),
       ],
     );
   }
 
   static Future<void> _clearAllCaches(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     // Purge réelle : cache mémoire des images Flutter + cache disque
     // flutter_cache_manager (pochettes/stickers) + images vivantes.
@@ -955,7 +967,9 @@ class _AdvancedSection extends ConsumerWidget {
   }
 
   static Future<void> _performFactoryReset(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
 
     // 1) Purge caches (mémoire + disque)
@@ -975,22 +989,30 @@ class _AdvancedSection extends ConsumerWidget {
       'history',
     ];
     for (final name in boxNames) {
-      await safeAsync(() async {
-        // Si la box est déjà ouverte (typage posé à l'initialisation par un
-        // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
-        // type levait « already open and of type Box<...> ». On réutilise donc
-        // l'instance existante, puis on la ferme pour purger le cache Hive.
-        final box = Hive.isBoxOpen(name) ? Hive.box<dynamic>(name) : await Hive.openBox(name);
-        await box.clear();
-        await box.close();
-      }, context: '_performFactoryReset Hive box $name',);
+      await safeAsync(
+        () async {
+          // Si la box est déjà ouverte (typage posé à l'initialisation par un
+          // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
+          // type levait « already open and of type Box<...> ». On réutilise donc
+          // l'instance existante, puis on la ferme pour purger le cache Hive.
+          final box = Hive.isBoxOpen(name)
+              ? Hive.box<dynamic>(name)
+              : await Hive.openBox(name);
+          await box.clear();
+          await box.close();
+        },
+        context: '_performFactoryReset Hive box $name',
+      );
     }
 
     // 3) Clear SharedPreferences keys
-    await safeAsync(() async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-    }, context: '_performFactoryReset SharedPreferences',);
+    await safeAsync(
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+      },
+      context: '_performFactoryReset SharedPreferences',
+    );
 
     // 4) Clear flutter_cache_manager disk cache
     await DefaultCacheManager().emptyCache();
@@ -1054,11 +1076,13 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: IconButton(
                     icon: Icon(
-                        _obscure ? Icons.visibility_off : Icons.visibility,),
+                      _obscure ? Icons.visibility_off : Icons.visibility,
+                    ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
@@ -1110,5 +1134,124 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
     await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride('');
     _controller.clear();
     if (mounted) setState(() {});
+  }
+}
+
+/// Clé API OpenSubtitles, saisie une fois pour la recherche de sous-titres.
+///
+/// Sans clé, la recherche en ligne fonctionne quand même, mais le quota de
+/// téléchargement tombe à 5 par IP et par 24 h au lieu de 20 pour un compte
+/// gratuit. La clé n'est jamais écrite dans le code : elle vit dans les
+/// préférences de l'application.
+class _OpenSubtitlesApiKeyTile extends ConsumerWidget {
+  const _OpenSubtitlesApiKeyTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final key = ref.watch(openSubtitlesApiKeyProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l.opensubtitlesKeyLabel,
+            style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 8),
+        _ApiKeyField(
+          value: key,
+          hint: l.opensubtitlesKeyHint,
+          onSubmitted: (value) async {
+            await ref
+                .read(openSubtitlesApiKeyProvider.notifier)
+                .setApiKey(value);
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          key.isEmpty ? l.opensubtitlesKeyAnonymous : l.opensubtitlesKeyActive,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: key.isEmpty ? scheme.onSurfaceVariant : scheme.primary,
+              ),
+        ),
+        if (key.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await ref
+                  .read(openSubtitlesApiKeyProvider.notifier)
+                  .setApiKey('');
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: Text(l.opensubtitlesKeyDelete),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: scheme.error,
+              side: BorderSide(color: scheme.error),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Champ de saisie de clé : masqué par défaut, œil pour basculer.
+class _ApiKeyField extends StatefulWidget {
+  const _ApiKeyField({
+    required this.value,
+    required this.hint,
+    required this.onSubmitted,
+  });
+
+  final String value;
+  final String hint;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  State<_ApiKeyField> createState() => _ApiKeyFieldState();
+}
+
+class _ApiKeyFieldState extends State<_ApiKeyField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.value);
+  bool _obscure = true;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            obscureText: _obscure,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              prefixIcon: const Icon(Icons.vpn_key_outlined),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          onPressed: () => widget.onSubmitted(_controller.text.trim()),
+          icon: const Icon(Icons.save_rounded),
+          label: Text(l.save),
+        ),
+      ],
+    );
   }
 }

@@ -356,5 +356,17 @@
   "epgBack": "Back",
   "epgWatchChannel": "Watch {name}",
   "subtitleNoneServedByPanel": "The provider serves no subtitles for this content.",
-  "subtitleVerifying": "Checking subtitles… ({count})"
+  "subtitleVerifying": "Checking subtitles… ({count})",
+  "subtitleSearchOnline": "Search online",
+  "subtitleSearchOnlineInfo": "The provider offers nothing for this content. An online search may find a subtitle.",
+  "subtitleSearchOnlineRunning": "Searching…",
+  "subtitleOnlineResults": "Subtitles found online",
+  "subtitleOnlineEmpty": "No subtitle found online for this content.",
+  "subtitleOnlineDownloads": "{count} downloads",
+  "subtitleOnlineNoTmdb": "This content could not be identified on TMDB: the online search needs its id.",
+  "opensubtitlesKeyLabel": "Online subtitle search (OpenSubtitles)",
+  "opensubtitlesKeyHint": "API key — optional",
+  "opensubtitlesKeyActive": "Key saved: higher download quota.",
+  "opensubtitlesKeyAnonymous": "No key: search works, 5 downloads per IP per 24 h.",
+  "opensubtitlesKeyDelete": "Clear the key"
 }

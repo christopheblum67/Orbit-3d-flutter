@@ -10,6 +10,10 @@ class SubtitleController extends ChangeNotifier {
   String? _activeTrackUrl;
   final Map<String, SubtitleTrack> _loadedTracks = {};
 
+  /// Pistes adoptées depuis une source externe (recherche en ligne),
+  /// indexées sur leur libellé faute d'URL connue.
+  final Map<String, SubtitleTrack> _adoptedTracks = {};
+
   /// Pistes annoncées par le panel, discovery compris.
   ///
   /// On ne renvoie plus seulement [_loadedTracks] : l'onglet sous-titres
@@ -182,8 +186,22 @@ class SubtitleController extends ChangeNotifier {
     return '${c.startMs}-${c.endMs} "${c.text.length > 40 ? c.text.substring(0, 40) : c.text}"';
   }
 
+/// Adopte une piste déjà téléchargée (recherche en ligne).
+  ///
+  /// Le contrôleur ne connaissait que les pistes qu'il avait lui-même
+  /// chargées depuis une URL : sans cette porte d'entrée, un sous-titre
+  /// trouvé en ligne ne pouvait pas être activé une fois téléchargé.
+  void adoptTrack(SubtitleTrack track, String label) {
+    // L'URL n'est pas connue ici ; la piste est indexée sur son libellé, ce qui
+    // suffit à l'identifier pour l'affiche et à la désactivation.
+    _adoptedTracks[label] = track;
+    _activeTrack = track;
+    _activeTrackUrl = label;
+    notifyListeners();
+  }
+
   void setActiveTrack(String url) {
-    final track = _loadedTracks[url];
+    final track = _loadedTracks[url] ?? _adoptedTracks[url];
     if (track == null) return;
     _activeTrack = track;
     _activeTrackUrl = url;

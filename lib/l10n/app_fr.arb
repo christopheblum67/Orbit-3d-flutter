@@ -415,5 +415,17 @@
   "epgBack": "Retour",
   "epgWatchChannel": "Regarder {name}",
   "subtitleNoneServedByPanel": "Le panel ne sert aucun sous-titre pour ce contenu.",
-  "subtitleVerifying": "Vérification des sous-titres… ({count})"
+  "subtitleVerifying": "Vérification des sous-titres… ({count})",
+  "subtitleSearchOnline": "Rechercher en ligne",
+  "subtitleSearchOnlineInfo": "Le panel ne propose rien pour ce contenu. Une recherche en ligne peut trouver un sous-titre.",
+  "subtitleSearchOnlineRunning": "Recherche en cours…",
+  "subtitleOnlineResults": "Sous-titres trouvés en ligne",
+  "subtitleOnlineEmpty": "Aucun sous-titre trouvé en ligne pour ce contenu.",
+  "subtitleOnlineDownloads": "{count} téléchargements",
+  "subtitleOnlineNoTmdb": "Impossible d'identifier ce contenu sur TMDB : la recherche en ligne a besoin de son identifiant.",
+  "opensubtitlesKeyLabel": "Recherche de sous-titres en ligne (OpenSubtitles)",
+  "opensubtitlesKeyHint": "Clé API — facultative",
+  "opensubtitlesKeyActive": "Clé enregistrée : quota de téléchargement relevé.",
+  "opensubtitlesKeyAnonymous": "Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.",
+  "opensubtitlesKeyDelete": "Effacer la clé"
 }

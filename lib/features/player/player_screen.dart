@@ -293,6 +293,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
               // piste, et l'écran finissait par n'en proposer aucune.
               streamId:
                   seriesId != null ? (widget.episode?.streamId ?? '') : '',
+              // Titre et saison/épisode servent à la recherche EN LIGNE : sans
+              // identifiant TMDB, OpenSubtitles ne peut pas être interrogé.
+              title: widget.episode?.title ?? _playbackTitle,
+              season: widget.episode?.season ?? 0,
+              episode: widget.episode?.episodeNumber ?? 0,
             ),
           );
     });
