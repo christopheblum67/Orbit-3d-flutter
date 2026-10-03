@@ -1118,4 +1118,24 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get replayNonePublished =>
       'لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة.';
+
+  @override
+  String get epgActionFavorite => 'مفضّل';
+
+  @override
+  String get epgActionRecording => 'تسجيل';
+
+  @override
+  String get epgActionReminder => 'تذكير';
+
+  @override
+  String get epgStartReplay => 'بدء الإعادة';
+
+  @override
+  String get epgBack => 'رجوع';
+
+  @override
+  String epgWatchChannel(Object name) {
+    return 'شاهد $name';
+  }
 }

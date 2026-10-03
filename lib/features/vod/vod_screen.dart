@@ -100,7 +100,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                   .where((m) => !hiddenCategories.contains(m.categoryId))
                   .toList(growable: false);
           final categories = _withRealCounts(
-              serverCategories, categoryVisibleMovies.map((m) => m.categoryId),);
+            serverCategories,
+            categoryVisibleMovies.map((m) => m.categoryId),
+          );
           final vodFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.vod)
               .map((e) => e.id)
@@ -110,7 +112,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               .map((e) => e.id)
               .toSet();
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: categoryVisibleMovies.length),
+            MediaCategory(
+                id: '', name: 'Tous', count: categoryVisibleMovies.length),
             MediaCategory(
               id: 'fav',
               name: 'Favoris',
@@ -135,14 +138,15 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 .map((e) => e.id)
                 .toSet();
             filteredMovies = categoryVisibleMovies
-                .where((m) => favIds.contains(m.id)).toList();
+                .where((m) => favIds.contains(m.id))
+                .toList();
           } else if (_selectedCategoryId == 'recent') {
-            final recentIds = recentEntries.values
-                .where((e) => e.type == ContentType.vod)
-                .map((e) => e.id)
-                .toSet();
+            // `vodRecentIds` est déjà construit plus haut (l.108) : en
+            // recalculer un second ensemble identique ici coûtait une seconde
+            // itération sur toutes les entrées pour rien.
             filteredMovies = categoryVisibleMovies
-                .where((m) => vodRecentIds.contains(m.id)).toList();
+                .where((m) => vodRecentIds.contains(m.id))
+                .toList();
           } else if (_selectedCategoryId.isEmpty) {
             filteredMovies = categoryVisibleMovies;
           } else {
@@ -304,7 +308,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     posterPadding: const EdgeInsets.all(6),
                                     // Affinité personnelle du profil courant
                                     // (calculée par le module matchmaking).
-                                    matchPercent: affinity?.percentForMovie(movie),
+                                    matchPercent:
+                                        affinity?.percentForMovie(movie),
                                     voteCount: enrichments[movie.id]?.voteCount,
                                     overview: enrichments[movie.id]?.overview,
                                     favoriteOverlay: FavoriteToggle.overlay(

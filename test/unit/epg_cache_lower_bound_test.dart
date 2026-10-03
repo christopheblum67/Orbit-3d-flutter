@@ -87,7 +87,16 @@ void main() {
       final kept = filterLikeCache(
         [
           p('Matin', window.start, window.start.add(const Duration(hours: 6))),
-          p('Après-midi', now, now.add(const Duration(hours: 1))),
+          // Programme à midi et non « maintenant » : entre minuit et 6 h, un
+          // programme calé sur l'heure courante tombait DANS celui de 00:00-06:00,
+          // le comblement le recouvrait et il n'en restait qu'un. Le test passait
+          // l'après-midi et échouait chaque nuit — un faux signal sur un
+          // comportement correct.
+          p(
+            'Midi',
+            window.start.add(const Duration(hours: 12)),
+            window.start.add(const Duration(hours: 13)),
+          ),
         ],
         lowerBound: window.start,
         horizon: now.add(const Duration(hours: 48)),

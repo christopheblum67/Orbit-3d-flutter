@@ -51,11 +51,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.power_settings_new_rounded,
-                color: Colors.redAccent, size: 26,),
+            Icon(
+              Icons.power_settings_new_rounded,
+              color: Colors.redAccent,
+              size: 26,
+            ),
             SizedBox(width: 10),
-            Text('Quitter Orbit IPTV',
-                style: TextStyle(color: Colors.white, fontSize: 18),),
+            Text(
+              'Quitter Orbit IPTV',
+              style: TextStyle(color: Colors.white, fontSize: 18),
+            ),
           ],
         ),
         content: const Text(
@@ -66,9 +71,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Non',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold,),),
+            child: const Text(
+              'Non',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -78,9 +87,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: const Color(0xFFFF6B6B),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('Oui',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold,),),
+              child: const Text(
+                'Oui',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
         ],
@@ -266,24 +279,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
   }
 
-  void _refreshOne(_RefreshCategory category) {
-    switch (category) {
-      case _RefreshCategory.live:
-        ref.invalidate(liveChannelsProvider);
-      case _RefreshCategory.series:
-        ref.invalidate(seriesProvider);
-      case _RefreshCategory.vod:
-        ref.invalidate(moviesProvider);
-      case _RefreshCategory.radio:
-        ref.invalidate(radioChannelsProvider);
-      case _RefreshCategory.replay:
-        ref.invalidate(replaysProvider);
-      case _RefreshCategory.epg:
-        ref.invalidate(epgProgramsProvider);
-        ref.invalidate(epgDataCacheProvider);
-    }
-  }
-
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
     return PageView.builder(
       controller: _pageController,
@@ -436,7 +431,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     },
                   ),
                 ),
-              
             ],
           ),
         ),
@@ -733,7 +727,8 @@ class _NoSubscriptionChip extends StatelessWidget {
   }
 }
 
-enum _RefreshCategory { live, series, vod, radio, replay, epg }
+/// Catégories rafraîchissables depuis l'accueil.
+enum _RefreshCategory { live, series, vod, replay, epg }
 
 class _OrbitItem {
   final String title;
@@ -754,8 +749,10 @@ class _OrbitItem {
 
   bool get hasRoute => route != null;
 
-  static List<_OrbitItem> buildAll(
-      {required bool isM3u, required AppLocalizations l,}) {
+  static List<_OrbitItem> buildAll({
+    required bool isM3u,
+    required AppLocalizations l,
+  }) {
     return [
       _OrbitItem(
         title: l.tvChannels,
@@ -828,14 +825,15 @@ class _UpdateButton extends StatelessWidget {
   const _UpdateButton({
     required this.onPressed,
     this.tooltip = 'Mettre à jour',
-    this.icon = Icons.refresh_rounded,
-    this.color = const Color(0xFF00CFE8),
   });
 
   final VoidCallback onPressed;
   final String tooltip;
-  final IconData icon;
-  final Color color;
+
+  /// Teinte et icône fixes : aucun appelant ne les surchargait, les paramètres
+  /// ne servaient donc à rien et le.style était mort.
+  static const Color _tint = Color(0xFF00CFE8);
+  static const IconData _glyph = Icons.refresh_rounded;
 
   @override
   Widget build(BuildContext context) {
@@ -847,11 +845,11 @@ class _UpdateButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
+            color: _tint.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
+            border: Border.all(color: _tint.withValues(alpha: 0.4)),
           ),
-          child: Icon(icon, size: 18, color: color),
+          child: const Icon(_glyph, size: 18, color: _tint),
         ),
       ),
     );

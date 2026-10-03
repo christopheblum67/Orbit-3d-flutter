@@ -339,6 +339,7 @@ class _ProgramTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final timeStr = '${_fmt(program.start)} - ${_fmt(program.end)}';
     final catColor = program.categoryColor;
 
@@ -428,7 +429,7 @@ class _ProgramTile extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 icon: const Icon(Icons.replay, size: 18),
-                label: const Text('Lancer le replay'),
+                label: Text(l.epgStartReplay),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF6EE7B7),
                   foregroundColor: Colors.black,

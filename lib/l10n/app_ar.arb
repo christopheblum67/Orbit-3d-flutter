@@ -348,5 +348,11 @@
   "replayWindowBadgeHours": "إعادة {hours} ساعة",
   "replayNoAvailable": "لا توجد إعادة متاحة",
   "replayNoneInArchiveDays": "لا يوجد برنامج عُرض سابقًا ضمن أرشيف {days} يومًا لهذا الحساب في هذه القناة.",
-  "replayNonePublished": "لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة."
+  "replayNonePublished": "لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة.",
+  "epgActionFavorite": "مفضّل",
+  "epgActionRecording": "تسجيل",
+  "epgActionReminder": "تذكير",
+  "epgStartReplay": "بدء الإعادة",
+  "epgBack": "رجوع",
+  "epgWatchChannel": "شاهد {name}"
 }

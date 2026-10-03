@@ -414,7 +414,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final showPin = _type == ProfileType.child || _type == ProfileType.expert;
+    // `showPin` vit dans `_buildBody` : c'est là que la section PIN est
+    // insérée. Il existait aussi ici, en doublon, sans être lu — l'avertissement
+    // d'analyse signalait cette copie morte, pas une fonctionnalité manquante.
 
     if (!_isEdit) return _scaffold(_buildBody());
 

@@ -2199,6 +2199,42 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Le panel ne publie aucun programme déjà diffusé pour cette chaîne.'**
   String get replayNonePublished;
+
+  /// No description provided for @epgActionFavorite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Favori'**
+  String get epgActionFavorite;
+
+  /// No description provided for @epgActionRecording.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enreg.'**
+  String get epgActionRecording;
+
+  /// No description provided for @epgActionReminder.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rappel'**
+  String get epgActionReminder;
+
+  /// No description provided for @epgStartReplay.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lancer le replay'**
+  String get epgStartReplay;
+
+  /// No description provided for @epgBack.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour'**
+  String get epgBack;
+
+  /// No description provided for @epgWatchChannel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Regarder {name}'**
+  String epgWatchChannel(Object name);
 }
 
 class _AppLocalizationsDelegate

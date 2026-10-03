@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -431,6 +433,7 @@ class _ActionButtonsWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -438,7 +441,7 @@ class _ActionButtonsWidget extends StatelessWidget {
         _ActionButton(
           icon: isFavorite ? Icons.favorite : Icons.favorite_border,
           activeColor: Colors.redAccent,
-          label: 'Favori',
+          label: l.epgActionFavorite,
           isActive: isFavorite,
           onTap: onFavoriteToggle,
         ),
@@ -446,7 +449,7 @@ class _ActionButtonsWidget extends StatelessWidget {
         _ActionButton(
           icon: Icons.fiber_manual_record,
           activeColor: Colors.redAccent,
-          label: 'Enreg.',
+          label: l.epgActionRecording,
           isActive: isRecording,
           onTap: onRecordToggle,
         ),
@@ -456,7 +459,7 @@ class _ActionButtonsWidget extends StatelessWidget {
               ? Icons.notifications_active
               : Icons.notifications_none,
           activeColor: scheme.tertiary,
-          label: 'Rappel',
+          label: l.epgActionReminder,
           isActive: hasReminder,
           onTap: onReminderToggle,
         ),

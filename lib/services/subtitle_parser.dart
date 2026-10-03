@@ -10,6 +10,8 @@ import 'dart:io';
 // depreciee : l'import explicite evite l'avertissement.
 import 'dart:typed_data' show BytesBuilder;
 
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+
 /// Erreur levée quand une URL de sous-titre répond sans contenu exploitable.
 ///
 /// Distincte d'une erreur réseau : le réseau a marché, c'est le panel qui
@@ -78,12 +80,29 @@ class SubtitleParser {
     String language = 'und',
     String? label,
   }) async {
-    final response = await _fetchWithTimeout(url);
+    final fetched = await _fetchWithTimeout(url);
+    final response = fetched.body;
     final track = parse(response, language: language, label: label);
     if (!isUsable(response, track)) {
+      // Le code HTTP est la information la plus utile ici, et elle manquait : un
+      // 404 et une page d'erreur-produisant 0 cue se terminaient par le même
+      // message, alors que le premier signifie « cette URL n'existe pas » et le
+      // second « le panel a mal servi le fichier ». Sur ce panel mesuré, la
+      // réponse était VIDE : le fichier n'existe pas à cette adresse.
+      LoggerService.instance.warning(
+        'subtitle payload refusé : http=${fetched.statusCode} '
+        'type=${fetched.contentType} cues=${track.cues.length} '
+        'octets=${response.length} fichier=${_fileNameOf(url)}',
+      );
       throw SubtitlePayloadException(
-        'Contenu non exploitable pour « ${label ?? language} » '
-        '(${track.cues.length} cue(s))',
+        _refusalReason(
+          label: label,
+          language: language,
+          statusCode: fetched.statusCode,
+          contentType: fetched.contentType,
+          bytes: response.length,
+          cues: track.cues.length,
+        ),
       );
     }
     return track;
@@ -107,7 +126,44 @@ class SubtitleParser {
     return true;
   }
 
-  static Future<String> _fetchWithTimeout(String url) async {
+  /// Nom de fichier seul, pour le journal : l'URL Xtream des sous-titres
+  /// contient le nom d'utilisateur et le mot de passe, qui ne doivent jamais
+  /// être journalisés.
+  static String _fileNameOf(String url) {
+    final path = Uri.tryParse(url)?.path ?? '';
+    final name = path.split('/').where((s) => s.isNotEmpty).lastOrNull ?? '?';
+    return name;
+  }
+
+  /// Message d'erreur qui dit ce qui a échoué.
+  ///
+  /// « 0 cue » seul ne permettait aucune action : il faut le code HTTP, qui
+  /// distingue un fichier absent d'un fichier mal servi.
+  static String _refusalReason({
+    required String? label,
+    required String language,
+    required int? statusCode,
+    required String? contentType,
+    required int bytes,
+    required int cues,
+  }) {
+    final name = label ?? language;
+    if (statusCode != null && statusCode != 200) {
+      return 'Le panel ne sert pas ce fichier (HTTP $statusCode) pour « $name ». '
+          'L\'URL est déduite, elle peut ne pas correspondre à ce panel.';
+    }
+    if (bytes == 0) {
+      return 'Le panel renvoie un fichier vide pour « $name ». '
+          'Sous-titre probablement indisponible sur ce compte.';
+    }
+    final type = contentType ?? 'type inconnu';
+    return 'Contenu non exploitable pour « $name » ($cues cue(s), $type).';
+  }
+
+  /// Réponse HTTP : le corps seul ne suffisait pas à dire pourquoi un fichier
+  /// de sous-titre était refusé.
+  static Future<({String body, int? statusCode, String? contentType})>
+      _fetchWithTimeout(String url) async {
     // Utilisation directe de HttpClient pour éviter d'ajouter dio comme dépendance dure ici.
     final client = HttpClient();
     try {
@@ -124,7 +180,11 @@ class SubtitleParser {
       await for (final chunk in response) {
         builder.add(chunk);
       }
-      return _decodeSubtitleBytes(builder.takeBytes());
+      return (
+        body: _decodeSubtitleBytes(builder.takeBytes()),
+        statusCode: response.statusCode,
+        contentType: response.headers.contentType?.mimeType,
+      );
     } finally {
       client.close();
     }

@@ -1143,4 +1143,24 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get replayNonePublished =>
       'Le panel ne publie aucun programme déjà diffusé pour cette chaîne.';
+
+  @override
+  String get epgActionFavorite => 'Favori';
+
+  @override
+  String get epgActionRecording => 'Enreg.';
+
+  @override
+  String get epgActionReminder => 'Rappel';
+
+  @override
+  String get epgStartReplay => 'Lancer le replay';
+
+  @override
+  String get epgBack => 'Retour';
+
+  @override
+  String epgWatchChannel(Object name) {
+    return 'Regarder $name';
+  }
 }
