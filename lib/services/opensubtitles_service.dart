@@ -16,6 +16,8 @@ class OpenSubtitlesHit {
     required this.language,
     this.release = '',
     this.fileName = '',
+    this.season,
+    this.episode,
     this.isForced = false,
     this.isHearingImpaired = false,
     this.downloadCount = 0,
@@ -39,9 +41,18 @@ class OpenSubtitlesHit {
   /// Nom du fichier téléposable, tel que publié par le contributeur.
   ///
   /// C'est la seule source fiable des qualificatifs : l'API a un champ
-  /// `foreign_parts_only`, mais il est souvent absent alors que le nom,
-  /// lui, dit « forced » ou « sdh ».
+  /// `foreign_parts_only`, mais il est souvent absent alors que le nom, lui,
+  /// dit « forced » ou « sdh ».
   final String fileName;
+
+  /// Numéro de saison et d'épisode déclarés par l'entrée.
+  ///
+  /// Indispensables pour filtrer une recherche texte : sans identifiant de
+  /// série parent, `/subtitles` ne sait pas restreindre à un épisode et
+  /// ramène tout ce qui porte un nom approchant. `null` sur un saison pack,
+  /// qui couvre plusieurs épisodes.
+  final int? season;
+  final int? episode;
 
   final bool isForced;
   final bool isHearingImpaired;
@@ -138,19 +149,48 @@ class OpenSubtitlesService {
   /// panels ne publient pas de `tmdb_id`, et l'enrichissement TMDB demande une
   /// clé que l'utilisateur n'a pas saisie. `/subtitles` accepte un `query`, ce
   /// qui évite les deux.
+  ///
+  /// ## Pourquoi le filtrage se fait ici, et pas dans la requête
+  ///
+  /// La documentation est explicite : `season_number` ne s'emploie
+  /// **qu'avec** `parent_imdb_id` ou `parent_tmdb_id`. Envoyé avec un simple
+  /// `query`, le service répond 0 résultat sans erreur — combinaison ignorée,
+  /// donc une recherche qui ne visait plus rien. On interroge donc par texte
+  /// seul, puis on retient l'épisode voulu sur les champs `season_number` et
+  /// `episode_number` de chaque réponse.
+  ///
+  /// Un saison pack (saison sans numéro d'épisode) est conservé en dernier :
+  /// il couvre l'épisode, mais moins bien qu'un sous-titre ciblé.
   Future<List<OpenSubtitlesHit>> searchByTitle(
     String title, {
     int? season,
     int? episode,
     String languages = defaultLanguages,
-  }) =>
-      search(
-        query: title,
-        seasonNumber: season,
-        episodeNumber: episode,
-        languages: languages,
-      );
+  }) async {
+    final found = await search(query: title, languages: languages);
+    if (season == null || episode == null || found.isEmpty) return found;
 
+    final exact = <OpenSubtitlesHit>[];
+    final packs = <OpenSubtitlesHit>[];
+    for (final hit in found) {
+      if (hit.season == season && hit.episode == episode) {
+        exact.add(hit);
+      } else if (hit.episode == null && hit.season == season) {
+        packs.add(hit);
+      }
+    }
+    LoggerService.instance.info(
+      'opensubtitles filtrage S${season}E$episode : '
+      '${exact.length} ciblé(s), ${packs.length} pack(s) de la saison',
+    );
+    return [...exact, ...packs];
+  }
+
+  /// Interroge `/subtitles`.
+  ///
+  /// `season_number` et `episode_number` ne sont transmis que si un
+  /// identifiant de la série parent est présent : sans lui, l'API ignore
+  /// silencieusement la combinaison et ne renvoie rien.
   Future<List<OpenSubtitlesHit>> search({
     int? tmdbId,
     String? query,
@@ -163,13 +203,13 @@ class OpenSubtitlesService {
     // exploitable, la requête ne viserait aucun média en particulier.
     if ((tmdbId == null || tmdbId <= 0) && cleaned.isEmpty) return const [];
 
-    final params = <String, String>{
-      if (tmdbId != null && tmdbId > 0) 'tmdb_id': '$tmdbId',
-      if (cleaned.isNotEmpty) 'query': cleaned,
-      'languages': languages,
-      if (seasonNumber != null) 'season_number': '$seasonNumber',
-      if (episodeNumber != null) 'episode_number': '$episodeNumber',
-    };
+    final params = buildSearchParams(
+      tmdbId: tmdbId,
+      cleanedTitle: cleaned,
+      languages: languages,
+      seasonNumber: seasonNumber,
+      episodeNumber: episodeNumber,
+    );
 
     final result = await safeAsync<List<OpenSubtitlesHit>>(
       () => _get('/subtitles', params),
@@ -179,10 +219,37 @@ class OpenSubtitlesService {
     LoggerService.instance.info(
       'opensubtitles tmdb=${tmdbId ?? '-'} '
       'saison=${seasonNumber ?? '-'} episode=${episodeNumber ?? '-'} '
-      'requete="${cleaned.isEmpty ? '-' : cleaned}" '
+      'requete="${cleaned.isEmpty ? '-' : cleaned.toLowerCase()}" '
       '→ ${hits.length} résultat(s)',
     );
     return hits;
+  }
+
+  /// Paramètres de `/subtitles`, isolés pour être testables.
+  ///
+  /// Deux règles de la documentation y sont appliquées, chacune vérifiée par un
+  /// test :
+  ///
+  /// - `season_number` et `episode_number` ne voyagent qu'avec un identifiant
+  ///   de la série parent. Sans lui, l'API ignore la combinaison et ne renvoie
+  ///   rien, sans signaler d'erreur ;
+  /// - `query` part en minuscules, l'index comparant sensiblement à la casse.
+  static Map<String, String> buildSearchParams({
+    int? tmdbId,
+    String cleanedTitle = '',
+    String languages = defaultLanguages,
+    int? seasonNumber,
+    int? episodeNumber,
+  }) {
+    final scoped = tmdbId != null && tmdbId > 0;
+    return <String, String>{
+      if (scoped) 'tmdb_id': '$tmdbId',
+      if (cleanedTitle.trim().isNotEmpty)
+        'query': cleanedTitle.trim().toLowerCase(),
+      'languages': languages,
+      if (seasonNumber != null && scoped) 'season_number': '$seasonNumber',
+      if (episodeNumber != null && scoped) 'episode_number': '$episodeNumber',
+    };
   }
 
   /// Ne garde d'un nom de release que la partie utile à une recherche texte.
@@ -470,6 +537,8 @@ class OpenSubtitlesService {
           language: (attrs['language'] ?? 'und').toString(),
           release: (attrs['release'] ?? '').toString(),
           fileName: fileName,
+          season: _asInt(attrs['season_number']),
+          episode: _asInt(attrs['episode_number']),
           isForced: forced,
           isHearingImpaired: hearing,
           downloadCount: _asInt(attrs['download_count']) ??
