@@ -74,6 +74,39 @@ class OpenSubtitlesHit {
   String toString() => 'OpenSubtitlesHit($fileId, $label)';
 }
 
+/// Un contenu indexé par OpenSubtitles : film, série ou épisode.
+///
+/// Sert à translator un titre de diffusion — souvent traduit, donc absent de
+/// l'index — vers l'identifiant que l'API comprend.
+@immutable
+class OpenSubtitlesFeature {
+  const OpenSubtitlesFeature({
+    required this.featureId,
+    required this.title,
+    this.featureType = '',
+    this.tmdbId = 0,
+    this.imdbId = 0,
+    this.year,
+  });
+
+  /// Identifiant interne OpenSubtitles, à passer en `parent_feature_id`.
+  final int featureId;
+
+  /// Titre tel qu'indexé, généralement en minuscules.
+  final String title;
+
+  /// `Movie`, `Tvshow` ou `Episode`.
+  final String featureType;
+
+  /// Identifiants externes, absents sur certaines entrées.
+  final int tmdbId;
+  final int imdbId;
+  final int? year;
+
+  @override
+  String toString() => 'OpenSubtitlesFeature($featureId, $title)';
+}
+
 /// Client OpenSubtitles, pour les sous-titres absents de l'abonnement.
 ///
 /// ## Pourquoi
@@ -142,31 +175,118 @@ class OpenSubtitlesService {
     );
   }
 
+  /// Traduit un titre de diffusion vers l'entrée indexée par OpenSubtitles.
+  ///
+  /// ## Pourquoi cette étape est indispensable
+  ///
+  /// Un panel francophone nomme les séries avec leur **titre de diffusion** :
+  /// « Monstre : l'histoire de Lizzie Borden ». OpenSubtitles indexe sous le
+  /// titre original, « Lizzie Borden murders ». Une recherche `/subtitles` sur
+  /// le nom français rend donc zéro, sans erreur : impossible de distinguer
+  /// « série absente » de « titre non reconnu ».
+  ///
+  /// `full_search` interroge aussi les titres traduits (`title_aka`), et
+  /// `/features` accepte `type` pour ne remonter que des séries. C'est la voie
+  /// documentée : « Consider querying /features first ».
+  Future<List<OpenSubtitlesFeature>> searchFeatures(
+    String query, {
+    String type = '',
+  }) async {
+    final cleaned = cleanSearchTitle(query);
+    if (cleaned.isEmpty) return const [];
+
+    final params = <String, String>{
+      'query': cleaned.toLowerCase(),
+      // Inclut les titres traduits : c'est ce paramètre qui fait la différence
+      // entre un nom de diffusion et un titre indexé.
+      'full_search': 'true',
+      if (type.isNotEmpty) 'type': type,
+    };
+
+    final result = await safeAsync<List<OpenSubtitlesFeature>>(
+      () => _getFeatures(params),
+      context: 'OpenSubtitlesService.searchFeatures',
+    );
+    final features = result.valueOrNull ?? const <OpenSubtitlesFeature>[];
+    LoggerService.instance.info(
+      'opensubtitles /features type=${type.isEmpty ? 'all' : type} '
+      'requete="${cleaned.toLowerCase()}" → ${features.length} résultat(s)'
+      '${features.isEmpty ? '' : ' (${features.take(3).map((f) => f.title).join(' | ')})'}',
+    );
+    return features;
+  }
+
+  Future<List<OpenSubtitlesFeature>> _getFeatures(
+      Map<String, String> params) async {
+    final uri = Uri.parse('$baseUrl/features').replace(queryParameters: params);
+    final body = await _read(uri);
+    if (body.isEmpty) return const [];
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) return const [];
+    final data = decoded['data'];
+    if (data is! List) return const [];
+
+    final out = <OpenSubtitlesFeature>[];
+    for (final entry in data) {
+      if (entry is! Map) continue;
+      final attrs = entry['attributes'];
+      if (attrs is! Map) continue;
+      final featureId = _asInt(attrs['feature_id']) ?? _asInt(entry['id']);
+      if (featureId == null || featureId <= 0) continue;
+      out.add(
+        OpenSubtitlesFeature(
+          featureId: featureId,
+          title: (attrs['title'] ?? '').toString(),
+          featureType: (attrs['feature_type'] ?? '').toString(),
+          tmdbId: _asInt(attrs['tmdb_id']) ?? 0,
+          imdbId: _asInt(attrs['imdb_id']) ?? 0,
+          year: _asInt(attrs['year']),
+        ),
+      );
+    }
+    return out;
+  }
+
   /// Cherche des sous-titres par TEXTE, quand aucun identifiant TMDB n'est
   /// disponible.
   ///
-  /// C'est le chemin de secours qui fonctionne sans clé API : la plupart des
-  /// panels ne publient pas de `tmdb_id`, et l'enrichissement TMDB demande une
-  /// clé que l'utilisateur n'a pas saisie. `/subtitles` accepte un `query`, ce
-  /// qui évite les deux.
+  /// Trois tentatives, de la plus précise à la plus large :
   ///
-  /// ## Pourquoi le filtrage se fait ici, et pas dans la requête
-  ///
-  /// La documentation est explicite : `season_number` ne s'emploie
-  /// **qu'avec** `parent_imdb_id` ou `parent_tmdb_id`. Envoyé avec un simple
-  /// `query`, le service répond 0 résultat sans erreur — combinaison ignorée,
-  /// donc une recherche qui ne visait plus rien. On interroge donc par texte
-  /// seul, puis on retient l'épisode voulu sur les champs `season_number` et
-  /// `episode_number` de chaque réponse.
-  ///
-  /// Un saison pack (saison sans numéro d'épisode) est conservé en dernier :
-  /// il couvre l'épisode, mais moins bien qu'un sous-titre ciblé.
+  /// 1. `/features` résout le titre de diffusion vers la série indexée, puis
+  ///    les sous-titres sont demandés par `parent_feature_id` avec saison et
+  ///    épisode — la voie recommandée par la documentation ;
+  /// 2. à défaut d'identifiant, recherche texte seule, filtrée côté client ;
+  /// 3. les deux échouant, une recherche d'épisodes par nom, qui peut trouver
+  ///    une entrée indexée sous un titre encore différent.
   Future<List<OpenSubtitlesHit>> searchByTitle(
     String title, {
     int? season,
     int? episode,
     String languages = defaultLanguages,
   }) async {
+    if (season != null && episode != null && season > 0 && episode > 0) {
+      final scoped = await _searchEpisodeViaFeature(
+        title,
+        season: season,
+        episode: episode,
+        languages: languages,
+      );
+      if (scoped.isNotEmpty) return scoped;
+    } else {
+      // Film : même problème de titre traduit, même résolution par `/features`.
+      // L'identifiant TMDB obtenu est la voie la plus précise pour les films.
+      final features = await searchFeatures(title, type: 'movie');
+      for (final feature in features.take(3)) {
+        if (feature.tmdbId <= 0) continue;
+        final hits = await search(tmdbId: feature.tmdbId, languages: languages);
+        LoggerService.instance.info(
+          'opensubtitles film « ${feature.title} » (tmdb=${feature.tmdbId}) '
+          '→ ${hits.length} résultat(s)',
+        );
+        if (hits.isNotEmpty) return hits;
+      }
+    }
+
     final found = await search(query: title, languages: languages);
     if (season == null || episode == null || found.isEmpty) return found;
 
@@ -184,6 +304,42 @@ class OpenSubtitlesService {
       '${exact.length} ciblé(s), ${packs.length} pack(s) de la saison',
     );
     return [...exact, ...packs];
+  }
+
+  /// Sous-titres d'un épisode, en passant par la résolution du titre.
+  Future<List<OpenSubtitlesHit>> _searchEpisodeViaFeature(
+    String title, {
+    required int season,
+    required int episode,
+    required String languages,
+  }) async {
+    final features = await searchFeatures(title, type: 'tvshow');
+    if (features.isEmpty) return const [];
+
+    for (final feature in features.take(3)) {
+      // `parent_tmdb_id` est la voie la mieux indexée ; `parent_feature_id`
+      // sert de repli quand l'entrée n'expose pas d'identifiant TMDB.
+      final params = <String, String>{
+        'languages': languages,
+        'season_number': '$season',
+        'episode_number': '$episode',
+        if (feature.tmdbId > 0)
+          'parent_tmdb_id': '${feature.tmdbId}'
+        else
+          'parent_feature_id': '${feature.featureId}',
+      };
+      final result = await safeAsync<List<OpenSubtitlesHit>>(
+        () => _get('/subtitles', params),
+        context: 'OpenSubtitlesService._searchEpisodeViaFeature',
+      );
+      final hits = result.valueOrNull ?? const <OpenSubtitlesHit>[];
+      LoggerService.instance.info(
+        'opensubtitles S${season}E$episode via « ${feature.title} » '
+        '(tmdb=${feature.tmdbId}) → ${hits.length} résultat(s)',
+      );
+      if (hits.isNotEmpty) return hits;
+    }
+    return const [];
   }
 
   /// Interroge `/subtitles`.
