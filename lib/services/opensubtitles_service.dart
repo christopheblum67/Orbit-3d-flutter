@@ -15,28 +15,33 @@ class OpenSubtitlesHit {
     required this.fileId,
     required this.language,
     this.release = '',
+    this.fileName = '',
     this.isForced = false,
     this.isHearingImpaired = false,
     this.downloadCount = 0,
     this.rating = 0,
   });
 
-  /// Identifiant du fichier chez OpenSubtitles.
+  /// Identifiant du FICHIER chez OpenSubtitles, exigé par `/download`.
   ///
-  /// L'API le renvoie comme **chaîne** dans le champ `id` de l'enveloppe. Le
-  /// champ `attributes.file_id` n'existe plus : le lire renvoyait une chaîne
-  /// vide, et le téléchargement répondait 0 octet.
+  /// Point delicate de l'API : l'enveloppe porte un `id` qui identifie le
+  /// SOUS-TITRE, pas le fichier. Le `/download` attend le `file_id` Ranges dans
+  /// `attributes.files[]`. Utiliser l'`id` de l'enveloppe ne renvoyait pas une
+  /// erreur mais un corps vide : aucun statut HTTP ne distinguait les deux.
   final int fileId;
 
   /// Code langue renvoyé par le service (`fr`, `en`).
   final String language;
 
   /// Édition (« Director's Cut », « VOSTFR »…).
-  ///
-  /// Remplace le nom de fichier, que l'API ne renvoie plus. C'est ce qui
-  /// distingue deux sous-titres de la même langue : sans lui, deux entrées
-  /// françaises seraient indiscernables.
   final String release;
+
+  /// Nom du fichier téléposable, tel que publié par le contributeur.
+  ///
+  /// C'est la seule source fiable des qualificatifs : l'API a un champ
+  /// `foreign_parts_only`, mais il est souvent absent alors que le nom,
+  /// lui, dit « forced » ou « sdh ».
+  final String fileName;
 
   final bool isForced;
   final bool isHearingImpaired;
@@ -45,13 +50,13 @@ class OpenSubtitlesHit {
 
   /// Libellé affichable.
   ///
-  /// On réutilise [LanguageLabel] : la table de traduction est unique dans
-  /// l'application. L'édition est ajoutée à la suite quand elle existe, sinon
-  /// deux pistes de la même langue seraient impossibles à distinguer.
+  /// La langue et ses qualificateurs sortent de [LanguageLabel] : la table de
+  /// traduction est unique dans l'application, et le nom de fichier est passé
+  /// avec pour que « forced » / « sdh » soient détectés sans les dupliquer.
   String get label {
-    final base = LanguageLabel.of(language, fallback: language);
-    final trimmed = release.trim();
-    return trimmed.isEmpty ? base : '$base — $trimmed';
+    final base = LanguageLabel.of('$language $fileName', fallback: language);
+    final detail = release.trim().isNotEmpty ? release.trim() : '';
+    return detail.isEmpty ? base : '$base — $detail';
   }
 
   @override
@@ -156,18 +161,24 @@ class OpenSubtitlesService {
 
   /// Télécharge le sous-titre et le convertit en piste exploitable.
   ///
-  /// Le service renvoie le fichier **compressé en gzip** : sans décompression,
-  /// le corps binaire ne produit aucun cue et la piste est muette — exactement
-  /// le symptôme que nous cherchions à expliquer.
+  /// ## Pourquoi deux requêtes
+  ///
+  /// L'API ne sert pas le fichier sur `/download` : elle renvoie une **URL
+  /// temporaire** qu'il faut aller chercher ensuite. On avait supposé un
+  /// `GET /subtitle/{id}` renvoyant le contenu — d'où un corps vide sans
+  /// erreur visible, le pire des deux mondes pour un diagnostic.
+  ///
+  /// `sub_format: srt` est demandé explicitement : la base regorge de
+  /// MicroDVD (`.sub`) que notre parser ne sait pas lire, et convertir coûte
+  /// plus de temps que de demander directement le bon format.
   Future<SubtitleTrack> download(
     OpenSubtitlesHit hit, {
     String language = 'fr',
   }) async {
     final result = await safeAsync<SubtitleTrack>(
       () async {
-        final bytes = await _getBytes(
-          Uri.parse('$baseUrl/subtitle/${hit.fileId}'),
-        );
+        final link = await _requestDownloadLink(hit);
+        final bytes = await _getBytes(link);
         final text = _decodeMaybeGzip(bytes);
         final track = SubtitleParser.parse(
           text,
@@ -192,6 +203,85 @@ class OpenSubtitlesService {
     return track;
   }
 
+  /// Demande l'URL temporaire de téléchargement d'un fichier.
+  ///
+  /// Répond `{"url": "...", "remaining": N, "message": ...}`. `url` est un
+  /// lien signé à usage unique : il n'est jamais journalisé. Seul le compteur
+  /// de quota restant est tracé, pour que « quota épuisé » soit distinguable
+  /// d'une panne réseau.
+  Future<Uri> _requestDownloadLink(OpenSubtitlesHit hit) async {
+    final body = await _post('/download', {
+      'file_id': hit.fileId,
+      'sub_format': 'srt',
+    });
+    if (body.isEmpty) {
+      throw SubtitlePayloadException('Réponse de /download vide');
+    }
+
+    final decoded = jsonDecode(body);
+    final map = decoded is Map ? decoded : const <String, Object?>{};
+    final remaining = map['remaining'];
+    final message = map['message']?.toString();
+    final url = map['url']?.toString() ?? '';
+
+    LoggerService.instance.info(
+      'opensubtitles /download file=${hit.fileId} '
+      'quota_restant=$remaining url_presente=${url.isNotEmpty}',
+    );
+    if (url.isEmpty) {
+      throw SubtitlePayloadException(
+        message ?? 'OpenSubtitles n\'a pas fourni de lien de téléchargement',
+      );
+    }
+    return Uri.parse(url);
+  }
+
+  /// POST JSON authentifié, avec contrôle du statut HTTP.
+  Future<String> _post(String path, Map<String, Object?> payload) async {
+    final client = HttpClient();
+    try {
+      final request = await client.postUrl(Uri.parse('$baseUrl$path'));
+      request.headers.set(HttpHeaders.userAgentHeader, userAgent);
+      request.headers.contentType = ContentType.json;
+      if (apiKey.isNotEmpty) {
+        request.headers.set('Api-Key', apiKey);
+      }
+      request.add(utf8.encode(jsonEncode(payload)));
+
+      final response =
+          await request.close().timeout(const Duration(seconds: 15));
+      final body = await _collect(response, Uri.parse('$baseUrl$path'));
+      if (response.statusCode != HttpStatus.ok) {
+        // 429 = quota épuisé, 401 = clé refusée : deux causes qu'il ne faut pas
+        // confondre avec une panne réseau dans le message affiché.
+        throw SubtitlePayloadException(
+          'OpenSubtitles $path http=${response.statusCode}${_messageOf(body)}',
+        );
+      }
+      return _decodeMaybeGzip(body);
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Champ `message` d'une réponse d'erreur, mis en forme pour l'affichage.
+  ///
+  /// 429 = quota épuisé, 401 = clé refusée : sans ce texte, l'utilisateur ne
+  /// verrait qu'un « http=429 » qui ne lui dit rien sur ce qu'il peut faire.
+  static String _messageOf(List<int> body) {
+    if (body.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(_decodeMaybeGzip(body));
+      if (decoded is Map) {
+        final message = decoded['message']?.toString() ?? '';
+        if (message.isNotEmpty) return ' ($message)';
+      }
+    } catch (_) {
+      // Corps non JSON : le statut HTTP suffira au diagnostic.
+    }
+    return '';
+  }
+
   /// Lecture d'une réponse JSON, avec les deux codes de sortie de l'API.
   Future<List<OpenSubtitlesHit>> _get(
     String path,
@@ -211,17 +301,35 @@ class OpenSubtitlesService {
       if (entry is! Map) continue;
       final attrs = entry['attributes'];
       if (attrs is! Map) continue;
-      // `id` est une CHAINE dans l'API actuelle ; on accepte les deux formes
-      // pour ne pas casser si elle redevient numérique.
-      final id = _asInt(entry['id']);
-      if (id == null) continue;
+
+      final files = attrs['files'];
+      final first = files is List && files.isNotEmpty ? files.first : null;
+      final file = first is Map ? first : const <String, Object?>{};
+      final fileName = (file['file_name'] ?? '').toString();
+
+      // Le `/download` attend le `file_id` du FICHIER, rangé dans
+      // `attributes.files[]`. L'`id` de l'enveloppe est celui de la fiche et
+      // produit une réponse vide sans erreur — c'est ce qui a fait croire
+      // longtemps à un blocage réseau. On garde l'`id` en repli, pour les
+      // entrées atypiques où `files` serait absent.
+      final fileId = _asInt(file['file_id']) ?? _asInt(entry['id']) ?? 0;
+      if (fileId <= 0) continue;
+
+      // Le nom de fichier est plus fiable que `foreign_parts_only`, souvent
+      // absent : « forced » et « sdh » n'apparaissent que là.
+      final forced = _flag(attrs['foreign_parts_only']) ||
+          LanguageLabel.isForced(fileName);
+      final hearing = _flag(attrs['hearing_impaired']) ||
+          LanguageLabel.isHearingImpaired(fileName);
+
       out.add(
         OpenSubtitlesHit(
-          fileId: id,
+          fileId: fileId,
           language: (attrs['language'] ?? 'und').toString(),
           release: (attrs['release'] ?? '').toString(),
-          isForced: attrs['foreign_parts_only'] == 1,
-          isHearingImpaired: attrs['hearing_impaired'] == 1,
+          fileName: fileName,
+          isForced: forced,
+          isHearingImpaired: hearing,
           downloadCount: _asInt(attrs['download_count']) ??
               _asInt(attrs['new_download_count']) ??
               0,
@@ -230,7 +338,7 @@ class OpenSubtitlesService {
       );
     }
     // Les plus téléchargés d'abord : c'est le meilleur proxy de fiabilité
-    // quand l'API ne renvoie plus le nom du fichier.
+    // quand deux entrées de même langue ne sont distinguées que par leur nom.
     out.sort((a, b) => b.downloadCount.compareTo(a.downloadCount));
     return out;
   }
@@ -258,20 +366,32 @@ class OpenSubtitlesService {
     try {
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.userAgentHeader, userAgent);
-      if (apiKey.isNotEmpty) {
+      if (apiKey.isNotEmpty && !_isSignedLink(uri)) {
+        // Le lien signé de `/download` porte sa propre authentification ;
+        // lui réinjecter la clé n'a rien créé et peut faire rejeter la requête.
         request.headers.set('Api-Key', apiKey);
       }
       request.followRedirects = true;
       final response =
           await request.close().timeout(const Duration(seconds: 15));
-      final builder = BytesBuilder(copy: false);
-      await for (final chunk in response) {
-        builder.add(chunk);
-      }
-      return builder.takeBytes();
+      return await _collect(response, uri);
     } finally {
       client.close();
     }
+  }
+
+  /// Un lien temporaire porte-t-il déjà ses identifiants ?
+  static bool _isSignedLink(Uri uri) =>
+      uri.queryParameters.containsKey('signature') ||
+      uri.host != Uri.parse(OpenSubtitlesService.baseUrl).host;
+
+  /// Lit tout le corps d'une reponse.
+  Future<List<int>> _collect(HttpClientResponse response, Uri uri) async {
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response) {
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
   }
 
   /// Décompresse le gzip quand le corps en est un.
@@ -302,6 +422,14 @@ class OpenSubtitlesService {
     }
     return relaxed;
   }
+
+  /// Booleen d'API, tolérant aux trois formes rencontrées.
+  ///
+  /// L'API renvoie `1`, `"1"` ou `true` selon l'endpoint et la version : un
+  /// `== 1` laissait passer à `false` le drapeau `foreign_parts_only`, ce qui
+  /// faisait classer un sous-titre forcé comme une sous-titre normal.
+  static bool _flag(Object? value) =>
+      value == true || value == 1 || value == '1';
 
   static int? _asInt(Object? value) {
     if (value is int) return value;
