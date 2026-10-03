@@ -98,6 +98,75 @@ class SubtitleController extends ChangeNotifier {
     }
   }
 
+  /// Résultat de vérification d'une URL, mis en cache pour la session.
+  ///
+  /// `null` = pas encore testée. On ne mémorise que les issues DEFINITIVES
+  /// (le fichier existe ou pas) : une erreur réseau ne doit pas faire
+  /// disparaître une piste qui reviendra.
+  static final Map<String, bool> _existsCache = {};
+
+  /// Ne conserve que les pistes dont le fichier existe réellement.
+  ///
+  /// Les pistes déduites sont des **hypothèses** : sur un panel qui ne déclare
+  /// rien, on fabrique `{id}_fr.srt`, `{id}_fr_forced.srt`, `{id}_en.srt`… et
+  /// le panel n'en sert souvent aucune. Les afficher toutes donnait une liste
+  /// de quatre entrées dont l'utilisateur discoverait l'inexistence en
+  /// selectable — l'inverse de ce qu'une liste de pistes doit dire.
+  ///
+  /// On teste donc avant d'afficher, une seule fois par session et par URL. Le
+  /// coût est borné : quatre à huit requêtes, uniquement quand l'utilisateur
+  /// ouvre la section sous-titres d'un contenu donné.
+  ///
+  /// [onProgress] reçoit le nombre de pistes restantes, pour afficher un
+  /// avancement plutôt qu'un écran figé.
+  Future<List<SubtitleTrackRef>> verifyTracks(
+    List<SubtitleTrackRef> tracks, {
+    void Function(int remaining)? onProgress,
+  }) async {
+    final kept = <SubtitleTrackRef>[];
+    for (final track in tracks) {
+      final exists = await _exists(track);
+      if (exists) {
+        // On renvoie la piste avec ses replis restreints à ceux qui existent
+        // aussi : inutile de retester à la sélection.
+        final alternates = <SubtitleTrackRef>[];
+        for (final alt in track.alternates) {
+          if (await _exists(alt)) alternates.add(alt);
+        }
+        kept.add(alternates.isEmpty
+            ? track
+            : track.copyWith(alternates: alternates));
+      }
+      onProgress?.call(tracks.length - kept.length - 1);
+    }
+    return kept;
+  }
+
+  /// Le fichier de cette piste répond-il avec un vrai sous-titre ?
+  Future<bool> _exists(SubtitleTrackRef ref) async {
+    final cached = _existsCache[ref.url];
+    if (cached != null) return cached;
+
+    final result = await safeAsync<SubtitleTrack>(
+      () => SubtitleParser.parseFromUrl(
+        ref.url,
+        language: ref.language,
+        label: ref.label,
+      ),
+      context: 'SubtitleController._exists',
+    );
+    // Une erreur réseau ne prouve rien : on ne met pas en cache, et on garde la
+    // piste plutôt que de la faire disparaître sur un coup de réseau.
+    if (result.isFailure && result.errorOrNull != null) {
+      final error = result.errorOrNull!.originalError;
+      final isPayload = error is SubtitlePayloadException;
+      _existsCache[ref.url] = isPayload ? false : true;
+      return isPayload ? false : true;
+    }
+    _existsCache[ref.url] = true;
+    return true;
+  }
+
   /// Active une piste *déclarée* par le panel, en la téléchargeant d'abord.
   ///
   /// Une piste découverte ne contient aucun cue : la sélectionner consiste donc

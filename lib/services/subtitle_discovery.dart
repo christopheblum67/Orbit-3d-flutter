@@ -35,13 +35,45 @@ class SubtitleDiscoveryContext {
     return b.endsWith('/') ? b.substring(0, b.length - 1) : b;
   }
 
-  /// URL d'un sous-titre externe pour [language], ou `null` si le contexte ne
-  /// permet pas de la construire.
-  String? urlForLanguage(String language) {
+  /// Formes d'URL rencontrées pour un sous-titre externe.
+  ///
+  /// La convention Xtream documentée est `/subtitles/{user}/{pass}/{id}_{lang}.srt`,
+  /// mais elle n'est qu'une convention parmi plusieurs : le même panel peut
+  /// servir `{id}.{lang}.srt`, ou un préfixe `timingsubtitles`, ou du `.vtt`.
+  /// Tester une seule forme revenait à conclure « pas de sous-titre » alors que
+  /// le fichier existe peut-être sous une autre forme.
+  ///
+  /// L'ordre est celui du plus probable au moins probable : on teste donc les
+  /// premières en premier, et la vérification s'arrête à la première qui répond.
+  static const List<_SubtitleShape> _shapes = [
+    _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'srt'),
+    _SubtitleShape(separator: '.', directory: 'subtitles', extension: 'srt'),
+    _SubtitleShape(
+        separator: '_', directory: 'timingsubtitles', extension: 'srt'),
+    _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'vtt'),
+  ];
+
+  /// Toutes les URL possibles pour [language], dans l'ordre de probabilité.
+  List<String> urlsForLanguage(String language) {
     final id = streamId?.trim();
     final code = language.trim().toLowerCase();
-    if (id == null || id.isEmpty || code.isEmpty) return null;
-    return '$_base/subtitles/$username/$password/${id}_$code.srt';
+    if (id == null || id.isEmpty || code.isEmpty) return const [];
+    final out = <String>[];
+    for (final shape in _shapes) {
+      final url =
+          '$_base/${shape.directory}/$username/$password/${id}${shape.separator}$code.${shape.extension}';
+      if (!out.contains(url)) out.add(url);
+    }
+    return out;
+  }
+
+  /// URL d'un sous-titre externe pour [language], ou `null` si le contexte ne
+  /// permet pas de la construire.
+  ///
+  /// Première forme seulement : [urlsForLanguage] liste les variantes.
+  String? urlForLanguage(String language) {
+    final urls = urlsForLanguage(language);
+    return urls.isEmpty ? null : urls.first;
   }
 
   /// Résout un chemin relatif renvoyé par le panel (`1234_fr.srt`).
@@ -289,17 +321,14 @@ class SubtitleDiscovery {
     for (final lang in languages) {
       final code = lang.trim().toLowerCase();
       if (code.isEmpty) continue;
-      final url = context.urlForLanguage(code);
-      if (url == null) continue;
+      final urls = context.urlsForLanguage(code);
+      if (urls.isEmpty) continue;
       final label = _labelFromLanguage(code);
-      final ref = SubtitleTrackRef(
-        url: url,
-        language: code,
-        label: label,
-      );
       final bucket = byLanguage.putIfAbsent(label, () => <SubtitleTrackRef>[]);
-      if (bucket.any((r) => r.url == url)) continue;
-      bucket.add(ref);
+      for (final url in urls) {
+        if (bucket.any((r) => r.url == url)) continue;
+        bucket.add(SubtitleTrackRef(url: url, language: code, label: label));
+      }
     }
 
     return [
@@ -347,6 +376,13 @@ class SubtitleDiscovery {
       out.add(code);
       final long = longForms[code];
       if (long != null) out.add(long);
+      // Variante FORCÉE : les panels publient couramment une piste
+      // supplémentaire `12345_fr_forced.srt` (dialogues en langue originale ou
+      // hors-field). Elle est une piste à part entière, pas un doublon de la
+      // piste normale : sans elle, un film sous-titré en version forcée n'était
+      // proposé dans aucune langue.
+      out.add('${code}_forced');
+      if (long != null) out.add('${long}_forced');
     }
     return out;
   }
@@ -559,4 +595,28 @@ class SubtitleDiscovery {
   /// garder ici aurait produit deux listes divergentes, dont une seule audible
   /// par l'utilisateur.
   static String _labelFromLanguage(String lang) => LanguageLabel.of(lang);
+}
+
+/// Une forme d'URL de sous-titre : le dossier, le séparateur et l'extension.
+///
+/// Les panels ne suivent pas tous la convention Xtream, alors que rien ne le
+/// dit dans leur réponse : la forme se devine donc en les testant une à une.
+class _SubtitleShape {
+  const _SubtitleShape({
+    required this.separator,
+    required this.directory,
+    required this.extension,
+  });
+
+  /// `_` ou `.` entre l'identifiant du média et le code langue.
+  final String separator;
+
+  /// `subtitles` sur la plupart des panels, `timingsubtitles` sur d'autres.
+  final String directory;
+
+  /// `srt` ou `vtt`.
+  final String extension;
+
+  @override
+  String toString() => '$directory/{id}$separator{lang}.$extension';
 }

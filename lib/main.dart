@@ -29,6 +29,7 @@ import 'package:orbit_3d_flutter/providers/home_widget_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
@@ -104,8 +105,11 @@ Future<void> _bootstrap() async {
   // isOptional=true : sans .env (asset non embarqué), dotenv reste initialisé
   // avec une carte vide. Autrement dotenv.env lèverait NotInitializedError et
   // ferait échouer toute construction de service d'enrichissement métadonnées.
-  await safeAsync(() => dotenv.load(isOptional: true),
-      context: 'dotenv.load', fallbackValue: null,);
+  await safeAsync(
+    () => dotenv.load(isOptional: true),
+    context: 'dotenv.load',
+    fallbackValue: null,
+  );
   await Hive.initFlutter();
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
@@ -116,8 +120,11 @@ Future<void> _bootstrap() async {
   Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
-  await safeAsync(() => initializeDateFormatting('fr_FR'),
-      context: 'initializeDateFormatting', fallbackValue: null,);
+  await safeAsync(
+    () => initializeDateFormatting('fr_FR'),
+    context: 'initializeDateFormatting',
+    fallbackValue: null,
+  );
   final storageService = StorageService();
   await storageService.init();
   final favoritesService = FavoritesService();
@@ -178,7 +185,8 @@ Future<void> _bootstrap() async {
         drmManagerProvider
             .overrideWithValue(DrmManager(licenseManager: LicenseManager())),
         widevineDelegateProvider.overrideWithValue(
-            WidevineDelegate(licenseManager: LicenseManager()),),
+          WidevineDelegate(licenseManager: LicenseManager()),
+        ),
         widevineConfigProvider.overrideWithValue(null),
       ],
       child: const OrbitApp(),
@@ -747,8 +755,13 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     // Riverpod 3 : build() doit être passé avant toute utilisation du notifier.
     ref.read(advancedSettingsProvider);
     ref.read(tmdbApiKeyOverrideProvider);
+    ref.read(openSubtitlesApiKeyProvider);
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
     unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
+    // Clé OpenSubtitles pour la recherche de sous-titres en ligne. Facultative :
+    // sans elle, la recherche fonctionne mais avec un quota de téléchargement
+    // anonyme bien plus bas.
+    unawaited(ref.read(openSubtitlesApiKeyProvider.notifier).load());
     // Analytics : init non bloquante (fire-and-forget après le premier frame).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(analyticsServiceProvider).init());
@@ -763,13 +776,16 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   }
 
   Future<void> _handleWidgetLaunch() async {
-    await safeAsync(() async {
-      final uri = await HomeWidgetService.instance.initiallyLaunched();
-      final route = routeForWidgetUri(uri);
-      if (route != null) {
-        router.go(route);
-      }
-    }, context: '_handleWidgetLaunch',);
+    await safeAsync(
+      () async {
+        final uri = await HomeWidgetService.instance.initiallyLaunched();
+        final route = routeForWidgetUri(uri);
+        if (route != null) {
+          router.go(route);
+        }
+      },
+      context: '_handleWidgetLaunch',
+    );
   }
 
   @override

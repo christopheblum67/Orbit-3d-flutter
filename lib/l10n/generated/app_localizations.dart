@@ -2235,6 +2235,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Regarder {name}'**
   String epgWatchChannel(Object name);
+
+  /// No description provided for @subtitleNoneServedByPanel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le panel ne sert aucun sous-titre pour ce contenu.'**
+  String get subtitleNoneServedByPanel;
+
+  /// No description provided for @subtitleVerifying.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification des sous-titres… ({count})'**
+  String subtitleVerifying(Object count);
 }
 
 class _AppLocalizationsDelegate

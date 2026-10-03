@@ -1160,4 +1160,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String epgWatchChannel(Object name) {
     return 'Ver $name';
   }
+
+  @override
+  String get subtitleNoneServedByPanel =>
+      'El proveedor no sirve subtítulos para este contenido.';
+
+  @override
+  String subtitleVerifying(Object count) {
+    return 'Comprobando subtítulos… ($count)';
+  }
 }

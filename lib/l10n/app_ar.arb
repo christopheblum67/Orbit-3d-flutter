@@ -354,5 +354,7 @@
   "epgActionReminder": "تذكير",
   "epgStartReplay": "بدء الإعادة",
   "epgBack": "رجوع",
-  "epgWatchChannel": "شاهد {name}"
+  "epgWatchChannel": "شاهد {name}",
+  "subtitleNoneServedByPanel": "لا يوفّر المزوّد ترجمات لهذا المحتوى.",
+  "subtitleVerifying": "جارٍ التحقق من الترجمة… ({count})"
 }

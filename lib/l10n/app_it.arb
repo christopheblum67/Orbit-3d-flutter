@@ -354,5 +354,7 @@
   "epgActionReminder": "Promemoria",
   "epgStartReplay": "Avvia replay",
   "epgBack": "Indietro",
-  "epgWatchChannel": "Guarda {name}"
+  "epgWatchChannel": "Guarda {name}",
+  "subtitleNoneServedByPanel": "Il provider non serve sottotitoli per questo contenuto.",
+  "subtitleVerifying": "Verifica dei sottotitoli… ({count})"
 }

@@ -354,5 +354,7 @@
   "epgActionReminder": "Reminder",
   "epgStartReplay": "Start replay",
   "epgBack": "Back",
-  "epgWatchChannel": "Watch {name}"
+  "epgWatchChannel": "Watch {name}",
+  "subtitleNoneServedByPanel": "The provider serves no subtitles for this content.",
+  "subtitleVerifying": "Checking subtitles… ({count})"
 }

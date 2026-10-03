@@ -1162,4 +1162,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String epgWatchChannel(Object name) {
     return '$name ansehen';
   }
+
+  @override
+  String get subtitleNoneServedByPanel =>
+      'Der Anbieter liefert keine Untertitel für diesen Inhalt.';
+
+  @override
+  String subtitleVerifying(Object count) {
+    return 'Untertitel werden geprüft… ($count)';
+  }
 }

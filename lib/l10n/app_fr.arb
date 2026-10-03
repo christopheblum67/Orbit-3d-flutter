@@ -413,5 +413,7 @@
   "epgActionReminder": "Rappel",
   "epgStartReplay": "Lancer le replay",
   "epgBack": "Retour",
-  "epgWatchChannel": "Regarder {name}"
+  "epgWatchChannel": "Regarder {name}",
+  "subtitleNoneServedByPanel": "Le panel ne sert aucun sous-titre pour ce contenu.",
+  "subtitleVerifying": "Vérification des sous-titres… ({count})"
 }

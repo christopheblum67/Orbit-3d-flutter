@@ -54,6 +54,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   List<SubtitleTrackRef> _subtitleTracks = const [];
   bool _subtitleLoading = false;
   bool _subtitleGuessed = false;
+
+  /// Nombre de pistes encore à vérifier (section « Pistes déduites »).
+  /// 0 = aucune vérification en cours.
+  int _subtitleVerifying = 0;
   String? _subtitleError;
 
   @override
@@ -87,19 +91,55 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       context: 'StreamDetailsSheet _discoverSubtitles',
     );
     if (!mounted) return;
-    setState(() {
-      _subtitleLoading = false;
-      if (result.isSuccess) {
-        final found = result.valueOrNull ??
-            (tracks: const <SubtitleTrackRef>[], guessed: false);
-        _subtitleTracks = found.tracks;
-        _subtitleGuessed = found.guessed;
-        _subtitleError = null;
-      } else {
+    final found = result.isSuccess
+        ? result.valueOrNull ??
+            (tracks: const <SubtitleTrackRef>[], guessed: false)
+        : (tracks: const <SubtitleTrackRef>[], guessed: false);
+
+    if (!result.isSuccess) {
+      setState(() {
+        _subtitleLoading = false;
         _subtitleTracks = const <SubtitleTrackRef>[];
         _subtitleGuessed = false;
+        _subtitleVerifying = 0;
         _subtitleError = AppLocalizations.of(context).subtitleProviderNoAnswer;
-      }
+      });
+      return;
+    }
+
+    if (found.guessed && found.tracks.isNotEmpty) {
+      // Pistes DÉDUITES : on ne les affiche qu'après avoir vérifié que le
+      // fichier existe. Sans cela, la section annonçait quatre pistes dont
+      // l'utilisateur découvrait l'inexistance en les sélectionnant une à
+      // une — et sur un panel qui n'en sert aucune, la liste mentait quatre
+      // fois.
+      setState(() {
+        _subtitleLoading = false;
+        _subtitleGuessed = true;
+        _subtitleTracks = const <SubtitleTrackRef>[];
+        _subtitleVerifying = found.tracks.length;
+      });
+      final verified = await ref
+          .read(subtitleControllerProvider)
+          .verifyTracks(found.tracks);
+      if (!mounted) return;
+      setState(() {
+        _subtitleVerifying = 0;
+        _subtitleTracks = verified;
+        _subtitleError = verified.isEmpty
+            ? AppLocalizations.of(context).subtitleNoneServedByPanel
+            : null;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _subtitleLoading = false;
+      _subtitleGuessed = found.guessed;
+      _subtitleTracks = found.tracks;
+      _subtitleVerifying = 0;
+      _subtitleError = null;
     });
   }
 
@@ -319,6 +359,30 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
+          ),
+        ),
+      ];
+    }
+
+    if (_subtitleVerifying > 0) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l.subtitleVerifying(_subtitleVerifying),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
           ),
         ),
       ];

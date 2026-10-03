@@ -1138,4 +1138,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String epgWatchChannel(Object name) {
     return 'شاهد $name';
   }
+
+  @override
+  String get subtitleNoneServedByPanel =>
+      'لا يوفّر المزوّد ترجمات لهذا المحتوى.';
+
+  @override
+  String subtitleVerifying(Object count) {
+    return 'جارٍ التحقق من الترجمة… ($count)';
+  }
 }
