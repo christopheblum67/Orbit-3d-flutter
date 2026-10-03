@@ -250,8 +250,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       // OpenSubtitles n'accepte qu'un identifiant TMDB : on le résout d'abord
       // à partir du titre, que le panel ne fournit jamais.
       final tmdbId = ctx.isSeries
-          ? await tmdb.searchTvId(ctx.title,
-              year: ctx.year > 0 ? ctx.year : null)
+          ? await tmdb.searchTvId(
+              ctx.title,
+              year: ctx.year > 0 ? ctx.year : null,
+            )
           : await tmdb.searchMovieId(
               ctx.title,
               year: ctx.year > 0 ? ctx.year : null,
