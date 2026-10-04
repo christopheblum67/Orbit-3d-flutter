@@ -386,5 +386,14 @@
   "history": "السجل",
   "explore": "استكشاف",
   "downloadsEmptyHint": "أضف محتوى من صفحة تفاصيل فيلم أو مسلسل.",
-  "downloadsLocation": "الملفات"
+  "downloadsLocation": "الملفات",
+  "advancedSettingsTitle": "إعدادات متقدمة",
+  "advancedSettingsIntro": "بيانات API وإعدادات الشبكة. هذه الإعدادات تربط حسابك بخدمات خارجية: مفتاح مشترك يستهلك حصته، وإعداد شبكة خاطئ قد يمنع التطبيق من البدء.",
+  "advancedSubtitlesProvider": "مزوّد الترجمة",
+  "advancedStatus": "حالة بيانات الاعتماد",
+  "advancedAccessTitle": "وصول محجوز",
+  "advancedAccessHint": "الرمز",
+  "advancedAccessConfirm": "فتح",
+  "advancedAccessWrong": "رمز غير صحيح",
+  "advancedHiddenHint": "اضغط مطولاً للإعدادات المتقدمة"
 }

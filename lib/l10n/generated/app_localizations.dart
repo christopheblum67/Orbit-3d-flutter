@@ -2427,6 +2427,60 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Fichiers'**
   String get downloadsLocation;
+
+  /// No description provided for @advancedSettingsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réglages avancés'**
+  String get advancedSettingsTitle;
+
+  /// No description provided for @advancedSettingsIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiants d\'API et paramètres réseau. Ces réglages engagent votre compte auprès de services tiers : une clé partagée consomme son quota, et une mauvaise manipulation du réseau peut empêcher l\'application de démarrer.'**
+  String get advancedSettingsIntro;
+
+  /// No description provided for @advancedSubtitlesProvider.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fournisseur de sous-titres'**
+  String get advancedSubtitlesProvider;
+
+  /// No description provided for @advancedStatus.
+  ///
+  /// In fr, this message translates to:
+  /// **'État des identifiants'**
+  String get advancedStatus;
+
+  /// No description provided for @advancedAccessTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès réservé'**
+  String get advancedAccessTitle;
+
+  /// No description provided for @advancedAccessHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code'**
+  String get advancedAccessHint;
+
+  /// No description provided for @advancedAccessConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir'**
+  String get advancedAccessConfirm;
+
+  /// No description provided for @advancedAccessWrong.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code incorrect'**
+  String get advancedAccessWrong;
+
+  /// No description provided for @advancedHiddenHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Maintenir appuyé pour les réglages avancés'**
+  String get advancedHiddenHint;
 }
 
 class _AppLocalizationsDelegate

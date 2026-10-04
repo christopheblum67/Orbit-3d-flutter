@@ -386,5 +386,14 @@
   "history": "History",
   "explore": "Explore",
   "downloadsEmptyHint": "Add content from a movie or series detail page.",
-  "downloadsLocation": "Files"
+  "downloadsLocation": "Files",
+  "advancedSettingsTitle": "Advanced settings",
+  "advancedSettingsIntro": "API credentials and network settings. These settings commit your account to third-party services: a shared key uses up its quota, and a wrong network setting can stop the app from starting.",
+  "advancedSubtitlesProvider": "Subtitle provider",
+  "advancedStatus": "Credential status",
+  "advancedAccessTitle": "Restricted access",
+  "advancedAccessHint": "Code",
+  "advancedAccessConfirm": "Open",
+  "advancedAccessWrong": "Wrong code",
+  "advancedHiddenHint": "Long press for advanced settings"
 }

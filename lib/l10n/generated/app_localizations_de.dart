@@ -1271,4 +1271,33 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get downloadsLocation => 'Dateien';
+
+  @override
+  String get advancedSettingsTitle => 'Erweiterte Einstellungen';
+
+  @override
+  String get advancedSettingsIntro =>
+      'API-Zugangsdaten und Netzwerkeinstellungen. Diese Einstellungen binden Ihr Konto an Drittanbieter: Ein geteilter Schlüssel verbraucht dessen Kontingent, und eine falsche Netzwerkeinstellung kann den Start der App verhindern.';
+
+  @override
+  String get advancedSubtitlesProvider => 'Untertitel-Anbieter';
+
+  @override
+  String get advancedStatus => 'Status der Zugangsdaten';
+
+  @override
+  String get advancedAccessTitle => 'Geschützter Zugang';
+
+  @override
+  String get advancedAccessHint => 'Code';
+
+  @override
+  String get advancedAccessConfirm => 'Öffnen';
+
+  @override
+  String get advancedAccessWrong => 'Falscher Code';
+
+  @override
+  String get advancedHiddenHint =>
+      'Für erweiterte Einstellungen gedrückt halten';
 }

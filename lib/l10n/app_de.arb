@@ -386,5 +386,14 @@
   "history": "Verlauf",
   "explore": "Entdecken",
   "downloadsEmptyHint": "Inhalte über die Detailseite eines Films oder einer Serie hinzufügen.",
-  "downloadsLocation": "Dateien"
+  "downloadsLocation": "Dateien",
+  "advancedSettingsTitle": "Erweiterte Einstellungen",
+  "advancedSettingsIntro": "API-Zugangsdaten und Netzwerkeinstellungen. Diese Einstellungen binden Ihr Konto an Drittanbieter: Ein geteilter Schlüssel verbraucht dessen Kontingent, und eine falsche Netzwerkeinstellung kann den Start der App verhindern.",
+  "advancedSubtitlesProvider": "Untertitel-Anbieter",
+  "advancedStatus": "Status der Zugangsdaten",
+  "advancedAccessTitle": "Geschützter Zugang",
+  "advancedAccessHint": "Code",
+  "advancedAccessConfirm": "Öffnen",
+  "advancedAccessWrong": "Falscher Code",
+  "advancedHiddenHint": "Für erweiterte Einstellungen gedrückt halten"
 }

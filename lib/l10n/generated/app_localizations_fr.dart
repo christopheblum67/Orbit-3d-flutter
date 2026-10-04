@@ -1273,4 +1273,32 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get downloadsLocation => 'Fichiers';
+
+  @override
+  String get advancedSettingsTitle => 'Réglages avancés';
+
+  @override
+  String get advancedSettingsIntro =>
+      'Identifiants d\'API et paramètres réseau. Ces réglages engagent votre compte auprès de services tiers : une clé partagée consomme son quota, et une mauvaise manipulation du réseau peut empêcher l\'application de démarrer.';
+
+  @override
+  String get advancedSubtitlesProvider => 'Fournisseur de sous-titres';
+
+  @override
+  String get advancedStatus => 'État des identifiants';
+
+  @override
+  String get advancedAccessTitle => 'Accès réservé';
+
+  @override
+  String get advancedAccessHint => 'Code';
+
+  @override
+  String get advancedAccessConfirm => 'Ouvrir';
+
+  @override
+  String get advancedAccessWrong => 'Code incorrect';
+
+  @override
+  String get advancedHiddenHint => 'Maintenir appuyé pour les réglages avancés';
 }

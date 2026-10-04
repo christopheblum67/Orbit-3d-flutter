@@ -11,9 +11,12 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -817,12 +820,6 @@ class _AdvancedSection extends ConsumerWidget {
           icon: Icons.format_size_outlined,
         ),
         const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionTmdb),
-        const _TmdbApiKeyTile(),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.subtitleSearchOnline),
-        const _OpenSubtitlesApiKeyTile(),
-        const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionRecommendations),
         _NavTile(
           icon: Icons.recommend_rounded,
@@ -864,6 +861,8 @@ class _AdvancedSection extends ConsumerWidget {
             color: Theme.of(context).colorScheme.error,
           ),
         ),
+        const SizedBox(height: 24),
+        const _AdvancedEntry(),
       ],
     );
   }
@@ -1031,227 +1030,45 @@ class _AdvancedSection extends ConsumerWidget {
   }
 }
 
-/// ─── CLÉ API TMDB (inchangé) ────────────────────────────────────
-class _TmdbApiKeyTile extends ConsumerStatefulWidget {
-  const _TmdbApiKeyTile();
-
-  @override
-  ConsumerState<_TmdbApiKeyTile> createState() => _TmdbApiKeyTileState();
-}
-
-class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
-  final _controller = TextEditingController();
-  bool _obscure = true;
-
-  @override
-  void initState() {
-    super.initState();
-    final override = ref.read(tmdbApiKeyOverrideProvider);
-    _controller.text = override;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    final hasOverride = ref.watch(tmdbApiKeyOverrideProvider).isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                obscureText: _obscure,
-                decoration: InputDecoration(
-                  labelText: l.tmdbKeyLabel,
-                  hintText: l.tmdbKeyHint,
-                  prefixIcon: const Icon(Icons.vpn_key_outlined),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save_rounded),
-              label: Text(l.save),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          hasOverride ? l.tmdbKeyActive : l.tmdbKeyShared,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: hasOverride ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-        ),
-        if (hasOverride) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _clear,
-            icon: const Icon(Icons.delete_outline),
-            label: Text(l.tmdbKeyDelete),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _save() async {
-    final key = _controller.text.trim();
-    await ref
-        .read(tmdbApiKeyOverrideProvider.notifier)
-        .setOverride(key.isEmpty ? '' : key);
-    if (mounted) setState(() {});
-  }
-
-  void _clear() async {
-    await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride('');
-    _controller.clear();
-    if (mounted) setState(() {});
-  }
-}
-
-/// Clé API OpenSubtitles, saisie une fois pour la recherche de sous-titres.
+/// Porte d'entrée des réglages sensibles.
 ///
-/// Sans clé, la recherche en ligne fonctionne quand même, mais le quota de
-/// téléchargement tombe à 5 par IP et par 24 h au lieu de 20 pour un compte
-/// gratuit. La clé n'est jamais écrite dans le code : elle vit dans les
-/// préférences de l'application.
-class _OpenSubtitlesApiKeyTile extends ConsumerWidget {
-  const _OpenSubtitlesApiKeyTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final key = ref.watch(openSubtitlesApiKeyProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(l.opensubtitlesKeyLabel,
-            style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: 8),
-        _ApiKeyField(
-          value: key,
-          hint: l.opensubtitlesKeyHint,
-          onSubmitted: (value) async {
-            await ref
-                .read(openSubtitlesApiKeyProvider.notifier)
-                .setApiKey(value);
-          },
-        ),
-        const SizedBox(height: 8),
-        Text(
-          key.isEmpty ? l.opensubtitlesKeyAnonymous : l.opensubtitlesKeyActive,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: key.isEmpty ? scheme.onSurfaceVariant : scheme.primary,
-              ),
-        ),
-        if (key.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () async {
-              await ref
-                  .read(openSubtitlesApiKeyProvider.notifier)
-                  .setApiKey('');
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: Text(l.opensubtitlesKeyDelete),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Champ de saisie de clé : masqué par défaut, œil pour basculer.
-class _ApiKeyField extends StatefulWidget {
-  const _ApiKeyField({
-    required this.value,
-    required this.hint,
-    required this.onSubmitted,
-  });
-
-  final String value;
-  final String hint;
-  final ValueChanged<String> onSubmitted;
-
-  @override
-  State<_ApiKeyField> createState() => _ApiKeyFieldState();
-}
-
-class _ApiKeyFieldState extends State<_ApiKeyField> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.value);
-  bool _obscure = true;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+/// Discrète par choix : une longue pression sur une zone vide, en bas de
+/// l'onglet Avancé. Un utilisateur qui ne sait pas qu'elle existe ne la
+/// rencontrera jamais ; un appui simple ne l'ouvre pas, ce qui évite le
+/// déclencheur accidentel au doigt.
+class _AdvancedEntry extends StatelessWidget {
+  const _AdvancedEntry();
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            obscureText: _obscure,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              hintText: widget.hint,
-              prefixIcon: const Icon(Icons.vpn_key_outlined),
-              suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: l.advancedHiddenHint,
+      child: InkWell(
+        onLongPress: () => _open(context),
+        onTap: () {},
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: Center(
+            child: Text(
+              '· · ·',
+              style: TextStyle(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
+                letterSpacing: 4,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: () => widget.onSubmitted(_controller.text.trim()),
-          icon: const Icon(Icons.save_rounded),
-          label: Text(l.save),
-        ),
-      ],
+      ),
     );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    if (await requestAdvancedAccess(context) && context.mounted) {
+      await context.push('/settings/advanced');
+    }
   }
 }

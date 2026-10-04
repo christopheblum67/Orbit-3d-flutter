@@ -67,7 +67,9 @@ import 'package:orbit_3d_flutter/features/radio/radio_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/epg_screen.dart';
 import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -719,6 +721,18 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'settings'),
               child: UnifiedSettingsScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/settings/advanced',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'settings-advanced',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/settings',
+                  restorationId: 'settings-advanced'),
+              child: AdvancedSettingsScreen(),
             ),
           ),
         ),

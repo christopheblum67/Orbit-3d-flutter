@@ -386,5 +386,14 @@
   "history": "Cronologia",
   "explore": "Esplora",
   "downloadsEmptyHint": "Aggiungi contenuti dalla scheda di un film o una serie.",
-  "downloadsLocation": "File"
+  "downloadsLocation": "File",
+  "advancedSettingsTitle": "Impostazioni avanzate",
+  "advancedSettingsIntro": "Credenziali API e impostazioni di rete. Queste impostazioni vincolano il tuo account a servizi di terze parti: una chiave condivisa consuma la sua quota e un'impostazione di rete errata può impedire l'avvio dell'app.",
+  "advancedSubtitlesProvider": "Fornitore di sottotitoli",
+  "advancedStatus": "Stato delle credenziali",
+  "advancedAccessTitle": "Accesso riservato",
+  "advancedAccessHint": "Codice",
+  "advancedAccessConfirm": "Apri",
+  "advancedAccessWrong": "Codice errato",
+  "advancedHiddenHint": "Tieni premuto per le impostazioni avanzate"
 }

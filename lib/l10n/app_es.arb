@@ -386,5 +386,14 @@
   "history": "Historial",
   "explore": "Explorar",
   "downloadsEmptyHint": "Añade contenido desde la ficha de una película o serie.",
-  "downloadsLocation": "Archivos"
+  "downloadsLocation": "Archivos",
+  "advancedSettingsTitle": "Ajustes avanzados",
+  "advancedSettingsIntro": "Credenciales de API y ajustes de red. Estos ajustes comprometen tu cuenta con servicios de terceros: una clave compartida consume su cuota y un ajuste de red erróneo puede impedir que la aplicación arranque.",
+  "advancedSubtitlesProvider": "Proveedor de subtítulos",
+  "advancedStatus": "Estado de las credenciales",
+  "advancedAccessTitle": "Acceso restringido",
+  "advancedAccessHint": "Código",
+  "advancedAccessConfirm": "Abrir",
+  "advancedAccessWrong": "Código incorrecto",
+  "advancedHiddenHint": "Mantén pulsado para los ajustes avanzados"
 }

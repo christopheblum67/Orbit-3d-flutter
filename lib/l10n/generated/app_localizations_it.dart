@@ -1271,4 +1271,32 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get downloadsLocation => 'File';
+
+  @override
+  String get advancedSettingsTitle => 'Impostazioni avanzate';
+
+  @override
+  String get advancedSettingsIntro =>
+      'Credenziali API e impostazioni di rete. Queste impostazioni vincolano il tuo account a servizi di terze parti: una chiave condivisa consuma la sua quota e un\'impostazione di rete errata può impedire l\'avvio dell\'app.';
+
+  @override
+  String get advancedSubtitlesProvider => 'Fornitore di sottotitoli';
+
+  @override
+  String get advancedStatus => 'Stato delle credenziali';
+
+  @override
+  String get advancedAccessTitle => 'Accesso riservato';
+
+  @override
+  String get advancedAccessHint => 'Codice';
+
+  @override
+  String get advancedAccessConfirm => 'Apri';
+
+  @override
+  String get advancedAccessWrong => 'Codice errato';
+
+  @override
+  String get advancedHiddenHint => 'Tieni premuto per le impostazioni avanzate';
 }

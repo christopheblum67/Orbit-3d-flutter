@@ -1246,4 +1246,32 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get downloadsLocation => 'الملفات';
+
+  @override
+  String get advancedSettingsTitle => 'إعدادات متقدمة';
+
+  @override
+  String get advancedSettingsIntro =>
+      'بيانات API وإعدادات الشبكة. هذه الإعدادات تربط حسابك بخدمات خارجية: مفتاح مشترك يستهلك حصته، وإعداد شبكة خاطئ قد يمنع التطبيق من البدء.';
+
+  @override
+  String get advancedSubtitlesProvider => 'مزوّد الترجمة';
+
+  @override
+  String get advancedStatus => 'حالة بيانات الاعتماد';
+
+  @override
+  String get advancedAccessTitle => 'وصول محجوز';
+
+  @override
+  String get advancedAccessHint => 'الرمز';
+
+  @override
+  String get advancedAccessConfirm => 'فتح';
+
+  @override
+  String get advancedAccessWrong => 'رمز غير صحيح';
+
+  @override
+  String get advancedHiddenHint => 'اضغط مطولاً للإعدادات المتقدمة';
 }

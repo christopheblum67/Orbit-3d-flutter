@@ -1257,4 +1257,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get downloadsLocation => 'Files';
+
+  @override
+  String get advancedSettingsTitle => 'Advanced settings';
+
+  @override
+  String get advancedSettingsIntro =>
+      'API credentials and network settings. These settings commit your account to third-party services: a shared key uses up its quota, and a wrong network setting can stop the app from starting.';
+
+  @override
+  String get advancedSubtitlesProvider => 'Subtitle provider';
+
+  @override
+  String get advancedStatus => 'Credential status';
+
+  @override
+  String get advancedAccessTitle => 'Restricted access';
+
+  @override
+  String get advancedAccessHint => 'Code';
+
+  @override
+  String get advancedAccessConfirm => 'Open';
+
+  @override
+  String get advancedAccessWrong => 'Wrong code';
+
+  @override
+  String get advancedHiddenHint => 'Long press for advanced settings';
 }
