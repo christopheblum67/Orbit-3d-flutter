@@ -1242,10 +1242,14 @@ final stallDetectorProvider = Provider<StallDetector>((ref) {
 });
 
 /// Gestionnaire de téléchargements hors-ligne
+///
+/// [DownloadManager] est un singleton prévu pour vivre toute la durée de la
+/// session : il ne doit PAS être disposé quand le provider est démonté. Il
+/// l'était, ce qui fermait la boîte Hive au sortir de l'écran Téléchargements
+/// alors que le bouton de téléchargement d'un film la réutilisait ensuite —
+/// d'où « box downloads is already open and of type Box<DownloadTask> ».
 final downloadManagerProvider = Provider<DownloadManager>((ref) {
-  final manager = DownloadManager();
-  ref.onDispose(manager.dispose);
-  return manager;
+  return DownloadManager();
 });
 
 /// Stream des tâches de téléchargement

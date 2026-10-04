@@ -97,15 +97,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
         ],
         bottom: TabBar(
           controller: _tabs,
+          // Texte seul : les icônes n'apportaient rien ici et mangeaient la
+          // hauteur d'une barre déjà en concurrence avec les puces de type.
           tabs: [
+            Tab(text: _withCount(l.favorites, favorites.length)),
             Tab(
-              icon: const Icon(Icons.favorite),
-              text: _withCount(l.favorites, favorites.length),
-            ),
-            Tab(
-              icon: const Icon(Icons.download),
               text: _withCount(
-                  l.downloads, dlCounts.values.fold(0, (a, b) => a + b)),
+                l.downloads,
+                dlCounts.values.fold(0, (a, b) => a + b),
+              ),
             ),
           ],
         ),
@@ -128,6 +128,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               ContentTypeSelector(
                 selected: _downloadsType,
                 counts: dlCounts,
+                // Le direct n'est pas téléchargeable : proposer « Live » et
+                // « Replay » ne montrerait qu'une liste vide.
+                types: const [ContentType.vod, ContentType.series],
                 onChanged: (t) => setState(() => _downloadsType = t),
               ),
               Expanded(child: DownloadsSection(type: _downloadsType)),

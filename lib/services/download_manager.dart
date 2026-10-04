@@ -103,6 +103,7 @@ class DownloadManager extends ChangeNotifier {
   final LoggerService _logger = LoggerService.instance;
 
   Box<DownloadTask>? _box;
+
   /// Future d'initialisation en cours : `init()` est rappelé depuis l'écran
   /// Téléchargements, le bouton de téléchargement de chaque fiche et le
   /// démarrage. Sans cette garde, deux appels simultanés passaient tous deux
@@ -127,9 +128,11 @@ class DownloadManager extends ChangeNotifier {
   List<DownloadTask> get activeTasks {
     if (_box == null) return [];
     return _box!.values
-        .where((t) =>
-            t.status == DownloadStatus.downloading ||
-            t.status == DownloadStatus.preparing,)
+        .where(
+          (t) =>
+              t.status == DownloadStatus.downloading ||
+              t.status == DownloadStatus.preparing,
+        )
         .toList();
   }
 
@@ -140,14 +143,22 @@ class DownloadManager extends ChangeNotifier {
   /// suivants partagent la première initialisation au lieu d'ouvrir la box
   /// une seconde fois.
   Future<void> init() {
+    // La boîte peut avoir été fermée depuis la dernière initialisation : par
+    // le chemin « reset usine », qui l'ouvre en `Box<dynamic>`, ou par un
+    // démontage de provider. Mémoriser un succès périmé faisait ensuite
+    // ré-ouvrir une boîte déjà ouverte, d'où « already open and of type
+    // Box<DownloadTask> » au premier téléchargement.
+    final box = _box;
+    if (box != null && box.isOpen) return Future<void>.value();
+
     final existing = _initFuture;
     if (existing != null) return existing;
     late final Future<void> future;
     future = _doInit().catchError((Object error, StackTrace stack) {
-      // On libère le future en cas d'échec : sinon la box resterait
+      // On libère le future en cas d'échec : sinon la boîte resterait
       // « cassée » pour toute la session et chaque nouvel essai de
       // téléchargement rejouerait la même erreur sans jamais retentir
-      // l'ouverture de la box.
+      // l'ouverture de la boîte.
       if (identical(_initFuture, future)) _initFuture = null;
       Error.throwWithStackTrace(error, stack);
     });
@@ -211,8 +222,10 @@ class DownloadManager extends ChangeNotifier {
 
   Stream<List<DownloadTask>> _watchTasks() {
     if (_box == null) return Stream.value([]);
-    return _box!.watch().map((_) => _box!.values.toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),);
+    return _box!.watch().map(
+          (_) => _box!.values.toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+        );
   }
 
   /// Récupère une tâche par son ID.
@@ -232,11 +245,12 @@ class DownloadManager extends ChangeNotifier {
     String? episodeTitle,
     Map<String, String>? headers,
   }) async {
-    // Passe par `init()` (idempotent + concurrent-safe) plutôt que par
-    // `_initBox()` : une création de tâche déclenchée en même temps que
-    // l'initialisation de l'écran pouvait encore ouvrir la box en double.
+    // Passe par `init()` plutôt que par `_initBox()` : `init()` re-vérifie que
+    // la boîte est ouverte ET sérialise les ouvertures concurrentes. Appeler
+    // `_initBox()` ici, hors de cette sérialisation, laissait deux requêtes
+    // se franchir mutuellement : la seconde voyait la boîte fermée, la
+    /// première l'ouvrait, et la seconde obtenait « already open ».
     await init();
-    if (_box == null || !_box!.isOpen) await _initBox();
 
     final task = DownloadTask(
       id: 'dl_${mediaItemId}_${DateTime.now().millisecondsSinceEpoch}',
@@ -295,16 +309,17 @@ class DownloadManager extends ChangeNotifier {
 
     final localPath = await _getLocalPath(taskId);
     Isolate.spawn(
-        _downloadWorkerEntry,
-        _DownloadWorkerParams(
-          taskId: taskId,
-          sendPort: receivePort.sendPort,
-          streamUrl: _box!.get(taskId)!.streamUrl,
-          headers: _getFreshHeaders(_box!.get(taskId)!),
-          drmToken: _box!.get(taskId)!.drmToken,
-          localPath: localPath,
-          config: _config,
-        ),).then((isolate) {
+      _downloadWorkerEntry,
+      _DownloadWorkerParams(
+        taskId: taskId,
+        sendPort: receivePort.sendPort,
+        streamUrl: _box!.get(taskId)!.streamUrl,
+        headers: _getFreshHeaders(_box!.get(taskId)!),
+        drmToken: _box!.get(taskId)!.drmToken,
+        localPath: localPath,
+        config: _config,
+      ),
+    ).then((isolate) {
       _workers[taskId] = isolate;
       _workerPorts[taskId] = receivePort.sendPort;
       _activeDownloads++;
@@ -386,9 +401,11 @@ class DownloadManager extends ChangeNotifier {
   void _recoverInterruptedDownloads() {
     if (_box == null) return;
     final interrupted = _box!.values
-        .where((t) =>
-            t.status == DownloadStatus.downloading ||
-            t.status == DownloadStatus.preparing,)
+        .where(
+          (t) =>
+              t.status == DownloadStatus.downloading ||
+              t.status == DownloadStatus.preparing,
+        )
         .toList();
 
     for (final task in interrupted) {
@@ -402,8 +419,11 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Envoie une commande au worker.
-  void _sendCommand(String taskId, DownloadWorkerCommand command,
-      {dynamic payload,}) {
+  void _sendCommand(
+    String taskId,
+    DownloadWorkerCommand command, {
+    dynamic payload,
+  }) {
     final port = _workerPorts[taskId];
     if (port != null) {
       port.send(DownloadWorkerMessage(command, taskId, payload: payload));
@@ -637,11 +657,13 @@ Future<void> _runDownload(
 
   while (true) {
     if (getCancelled()) {
-      params.sendPort.send(DownloadWorkerResponse(
-        taskId: params.taskId,
-        status: DownloadStatus.cancelled,
-        isComplete: true,
-      ),);
+      params.sendPort.send(
+        DownloadWorkerResponse(
+          taskId: params.taskId,
+          status: DownloadStatus.cancelled,
+          isComplete: true,
+        ),
+      );
       return;
     }
 
@@ -697,12 +719,16 @@ Future<void> _runDownload(
         final stopwatch = Stopwatch()..start();
         final head = <int>[];
 
-        params.sendPort.send(DownloadWorkerResponse(
-          taskId: params.taskId,
-          status: DownloadStatus.downloading,
-          progress: DownloadProgress(
-              totalBytes: totalBytes, bytesDownloaded: bytesDownloaded,),
-        ),);
+        params.sendPort.send(
+          DownloadWorkerResponse(
+            taskId: params.taskId,
+            status: DownloadStatus.downloading,
+            progress: DownloadProgress(
+              totalBytes: totalBytes,
+              bytesDownloaded: bytesDownloaded,
+            ),
+          ),
+        );
 
         await for (final chunk in response) {
           // Détection, au tout début d'un téléchargement (jamais en reprise),
@@ -726,11 +752,13 @@ Future<void> _runDownload(
           if (getCancelled()) {
             await sink.flush();
             await sink.close();
-            params.sendPort.send(DownloadWorkerResponse(
-              taskId: params.taskId,
-              status: DownloadStatus.cancelled,
-              isComplete: true,
-            ),);
+            params.sendPort.send(
+              DownloadWorkerResponse(
+                taskId: params.taskId,
+                status: DownloadStatus.cancelled,
+                isComplete: true,
+              ),
+            );
             return;
           }
 
@@ -743,40 +771,49 @@ Future<void> _runDownload(
               : 0.0;
           final remaining = speed > 0 && totalBytes > 0
               ? Duration(
-                  seconds: ((totalBytes - bytesDownloaded) / speed).round(),)
+                  seconds: ((totalBytes - bytesDownloaded) / speed).round(),
+                )
               : Duration.zero;
 
-          params.sendPort.send(DownloadWorkerResponse(
-            taskId: params.taskId,
-            status: DownloadStatus.downloading,
-            progress: DownloadProgress(
-              bytesDownloaded: bytesDownloaded,
-              totalBytes: totalBytes,
-              speedBytesPerSec: speed,
-              estimatedTimeRemaining: remaining,
+          params.sendPort.send(
+            DownloadWorkerResponse(
+              taskId: params.taskId,
+              status: DownloadStatus.downloading,
+              progress: DownloadProgress(
+                bytesDownloaded: bytesDownloaded,
+                totalBytes: totalBytes,
+                speedBytesPerSec: speed,
+                estimatedTimeRemaining: remaining,
+              ),
             ),
-          ),);
+          );
         }
 
         await sink.flush();
         await sink.close();
 
-        params.sendPort.send(DownloadWorkerResponse(
-          taskId: params.taskId,
-          status: DownloadStatus.completed,
-          progress: DownloadProgress(
-              bytesDownloaded: totalBytes, totalBytes: totalBytes,),
-          isComplete: true,
-        ),);
+        params.sendPort.send(
+          DownloadWorkerResponse(
+            taskId: params.taskId,
+            status: DownloadStatus.completed,
+            progress: DownloadProgress(
+              bytesDownloaded: totalBytes,
+              totalBytes: totalBytes,
+            ),
+            isComplete: true,
+          ),
+        );
       },
       context: 'DownloadManager._runDownload',
     );
     if (result.isFailure) {
-      params.sendPort.send(DownloadWorkerResponse(
-        taskId: params.taskId,
-        status: DownloadStatus.failed,
-        errorMessage: result.errorOrNull?.message,
-      ),);
+      params.sendPort.send(
+        DownloadWorkerResponse(
+          taskId: params.taskId,
+          status: DownloadStatus.failed,
+          errorMessage: result.errorOrNull?.message,
+        ),
+      );
       return;
     }
     return;

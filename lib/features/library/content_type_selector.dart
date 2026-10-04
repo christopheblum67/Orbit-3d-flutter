@@ -18,11 +18,20 @@ class ContentTypeSelector extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     this.counts = const {},
+    this.types = ContentType.values,
   });
 
   final ContentType selected;
   final ValueChanged<ContentType> onChanged;
   final Map<ContentType, int> counts;
+
+  /// Types proposés.
+  ///
+  /// Le direct n'est pas téléchargeable : le gestionnaire refuse les playlists
+  /// HLS. Proposer « Live » et « Replay » dans l'onglet Téléchargements ne
+  /// promettait qu'une liste vide par construction — mieux vaut ne pas proposer
+  /// ce qui n'existe pas.
+  final List<ContentType> types;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +48,7 @@ class ContentTypeSelector extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
-          for (final type in ContentType.values)
+          for (final type in types)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(

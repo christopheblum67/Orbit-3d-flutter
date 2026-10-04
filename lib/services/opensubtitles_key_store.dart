@@ -10,12 +10,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// clé d'API en dur dans le dépôt finit par fuiter, et celle-ci permet de
 /// consommer le quota de téléchargement d'un compte.
 ///
-/// ## Pourquoi c'est facultatif
+/// ## Pourquoi la clé est obligatoire
 ///
-/// L'API autorise la recherche anonyme, limitée à 5 téléchargements par IP et
-/// par 24 h. La clé lève ce plafond et permet le `/login` pour aller jusqu'à
-/// 20 par jour. L'application reste donc utilisable sans clé — seulement moins
-/// generous.
+/// Une hypothèse de recherche anonyme avait été écrite ici, sur la foi d'un
+/// commentaire de bibliothèque tierce : elle était fausse. `/subtitles` et
+/// `/features` exigent tous deux l'en-tête `Api-Key` et répondent 401 sans
+/// clé. Le mode anonyme n'existe pas sur cette API.
 class OpenSubtitlesKeyStore {
   OpenSubtitlesKeyStore._();
 
@@ -27,8 +27,7 @@ class OpenSubtitlesKeyStore {
 
   String _key = '';
 
-  /// Clé saisie par l'utilisateur. Vide si l'utilisateur en est au mode
-  /// anonyme.
+  /// Clé saisie par l'utilisateur. Vide = aucune recherche possible.
   String get apiKey => _key;
 
   bool get hasKey => _key.isNotEmpty;
@@ -46,7 +45,8 @@ class OpenSubtitlesKeyStore {
     _key = result.valueOrNull ?? '';
   }
 
-  /// Persiste la clé. Une valeur vide efface le réglage et repasse en anonyme.
+  /// Persiste la clé. Une valeur vide l'efface : la recherche en ligne devient
+  /// alors impossible, l'API refusant toute requête sans clé.
   Future<void> setApiKey(String value) async {
     _key = value.trim();
     await safeAsync<void>(

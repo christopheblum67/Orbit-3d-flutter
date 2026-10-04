@@ -3,8 +3,9 @@ import 'package:orbit_3d_flutter/services/opensubtitles_key_store.dart';
 
 /// Clé API OpenSubtitles saisie par l'utilisateur.
 ///
-/// Vide = recherche anonyme (limitée à 5 téléchargements par IP et par 24 h).
-/// Voir [OpenSubtitlesKeyStore] pour le stockage.
+/// L'API refusant toute requête sans clé, une valeur vide rend la recherche
+/// en ligne indisponible — elle n'est pas un mode dégradé. Voir
+/// [OpenSubtitlesKeyStore] pour le stockage.
 final openSubtitlesApiKeyProvider =
     NotifierProvider<OpenSubtitlesApiKeyNotifier, String>(
   OpenSubtitlesApiKeyNotifier.new,

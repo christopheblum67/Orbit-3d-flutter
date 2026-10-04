@@ -224,7 +224,7 @@ class OpenSubtitlesService {
     _requireApiKey();
     for (final variant in titleVariants(query)) {
       final params = <String, String>{
-        'query': variant.toLowerCase(),
+        'query': variant.query.toLowerCase(),
         // Inclut les titres traduits : c'est ce paramètre qui fait la
         // différence entre un nom de diffusion et un titre indexé.
         'full_search': 'true',
@@ -250,10 +250,23 @@ class OpenSubtitlesService {
       final features = result.valueOrNull ?? const <OpenSubtitlesFeature>[];
       LoggerService.instance.info(
         'opensubtitles /features type=${type.isEmpty ? 'all' : type} '
-        'requete="${variant.toLowerCase()}" → ${features.length} résultat(s)'
+        'requete="${variant.query.toLowerCase()}" '
+        '${variant.trusted ? 'fidèle' : 'tronquée'} → ${features.length} résultat(s)'
         '${features.isEmpty ? '' : ' (${features.take(3).map((f) => f.title).join(' | ')})'}',
       );
-      if (features.isNotEmpty) return features;
+      if (features.isEmpty) continue;
+
+      // Un résultat obtenu par une variante tronquée n'est pas retenu : on ne
+      // peut pas garantir qu'il s'agit du contenu recherché, et un homonyme
+      // produirait des sous-titres décalés — pire que de n'en proposer aucun.
+      if (!variant.trusted) {
+        LoggerService.instance.info(
+          'opensubtitles : résultat ignoré, requête tronquée trop ambiguë '
+          '("${features.first.title}")',
+        );
+        continue;
+      }
+      return features;
     }
     return const [];
   }
@@ -271,7 +284,16 @@ class OpenSubtitlesService {
   ///
   /// Les variantes trop courtes sont écartées : en dessous de deux mots, la
   /// recherche ramène des contenus homonymes.
-  static List<String> titleVariants(String raw) {
+  ///
+  /// Une variante de requête, et si elle est assez fidèle pour être acceptée.
+  ///
+  /// Une variante tronquée — les deux derniers mots du nom de série — trouve
+  /// facilement un homonyme : « lizzie borden » mène à « The Lizzie Borden
+  /// Chronicles », une autre série. Servir ses sous-titres serait pire que de ne
+  /// rien proposer : l'utilisateur croirait lire les sous-titres du film qu'il
+  /// regarde, et ceux d'une autre œuvre seraient décalés. Une variante tronquée
+  /// sert donc à orienter, jamais à valider.
+  static List<({String query, bool trusted})> titleVariants(String raw) {
     final full = cleanSearchTitle(raw);
     if (full.isEmpty) return const [];
 
@@ -293,23 +315,29 @@ class OpenSubtitlesService {
       out.add(base);
     }
 
+    final trusted = out
+        .map((v) => v.trim())
+        .where((v) => v.split(RegExp(r'\s+')).length >= 2)
+        .toList();
+
     // Les derniers mots de `base`, JAMAIS ceux du titre complet : les derniers
     // mots du nom complet sont ceux de l'épisode — « Une chatte tenace » — qui
-    // ne mènent nulle part. C'est en fin de nom de diffusion que se trouve le
-    // plus souvent le titre original, « Lizzie Borden », que `full_search`
-    // rapproche alors du titre indexé.
+    // ne mènent nulle part. Ces variantes servent à trouver, pas à valider.
     final words = base.split(RegExp(r'\s+'));
+    final tails = <({String query, bool trusted})>[];
     for (final take in [4, 3, 2]) {
       if (words.length > take) {
-        out.add(words.sublist(words.length - take).join(' '));
+        final tail = words.sublist(words.length - take).join(' ').trim();
+        if (tail.isNotEmpty && !trusted.contains(tail)) {
+          tails.add((query: tail, trusted: false));
+        }
       }
     }
 
-    return out
-        .map((v) => v.trim())
-        .where((v) => v.length > 2)
-        .where((v) => v.split(RegExp(r'\s+')).length >= 2)
-        .toList();
+    return [
+      for (final query in trusted) (query: query, trusted: true),
+      ...tails,
+    ];
   }
 
   Future<List<OpenSubtitlesFeature>> _getFeatures(
@@ -835,6 +863,13 @@ class OpenSubtitlesService {
         // Le lien signé de `/download` porte sa propre authentification ;
         // lui réinjecter la clé n'a rien créé et peut faire rejeter la requête.
         request.headers.set('Api-Key', apiKey);
+        // Trace de diagnostic : présence et longueur, jamais la valeur. Un 401
+        // avec une clé de longueur inattendue permet de spotting le cas « secret
+        // collé à la place de la clé » sans jamais l'exposer.
+        LoggerService.instance.info(
+          'opensubtitles ${uri.path.replaceFirst('/api/v1', '')} '
+          'avec Api-Key (longueur ${apiKey.length})',
+        );
       }
       request.followRedirects = true;
       final response =
@@ -848,14 +883,31 @@ class OpenSubtitlesService {
       // même cause ni le même remède.
       if (response.statusCode != HttpStatus.ok) {
         final path = _isSignedLink(uri) ? 'lien de téléchargement' : uri.path;
+        // Le corps d'erreur est journalisé, tronqué : il ne contient aucune
+        // donnée sensible — c'est un message du service. Le 401 en particulier
+        // reste muet sinon, et « clé absente » comme « clé refusée » deviennent
+        // le même écran.
         throw SubtitlePayloadException(
           'OpenSubtitles $path http=${response.statusCode}'
-          '${_messageOf(bytes)}',
+          '${_messageOf(bytes)}${_bodyExcerpt(bytes)}',
         );
       }
       return bytes;
     } finally {
       client.close();
+    }
+  }
+
+  /// Extrait court d'un corps d'erreur illisible comme JSON.
+  static String _bodyExcerpt(List<int> body) {
+    if (body.isEmpty) return '';
+    try {
+      final text =
+          _decodeMaybeGzip(body).trim().replaceAll(RegExp(r'\s+'), ' ');
+      if (text.isEmpty) return '';
+      return ' corps="${text.length > 160 ? '${text.substring(0, 160)}…' : text}"';
+    } catch (_) {
+      return '';
     }
   }
 
