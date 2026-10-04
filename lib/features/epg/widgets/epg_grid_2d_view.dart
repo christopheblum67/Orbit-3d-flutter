@@ -113,6 +113,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
     if (widget.timelineController != null) {
       _timelineController = widget.timelineController!;
+      // La grille fait autorité sur la géométrie, et l'écrit dans le
+      // contrôleur. Sans cela, les programmes étaient posés avec
+      // `_gridStartTime` / `_pixelsPerMinute` tandis que la ligne « maintenant »
+      // et la frise lisaient les valeurs du contrôleur : deux référentiels
+      // cohabitant, la ligne rouge ne tombait plus sur l'heure annoncée par
+      // l'axe, et l'écart grandissait avec la distance au début de la journée.
+      _timelineController.gridStartTime = _gridStartTime;
+      _timelineController.pixelsPerMinute = _pixelsPerMinute;
     } else {
       _timelineController = EpgTimelineController(
         gridStartTime: _gridStartTime,
@@ -278,16 +286,24 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   /// Bornes du zoom, en px/min.
   ///
-  /// En bas, 4 px/min est le minimum lisible : la grille tient alors 6 h de la
-  /// journée dans la largeur de l'écran, et un programme de 30 min occupe
-  /// 120 px — son titre tient sur deux mots. En haut, 14 px/min : au-delà, une
-  /// heure dépasse largement l'écran et le défilement devient le seul moyen de
-  /// lire l'axe, ce qui n'apporte rien sur un téléphone.
-  static const double _minPixelsPerMinute = 4.0;
+  /// En bas, 2,2 px/min : la grille montre alors environ 7 heures dans la
+  /// largeur de l'écran. Un programme de 30 min occupe 66 px — son titre tient
+  /// sur un mot ou deux, ce qui suffit à l'identifier. En haut, 14 px/min :
+  /// au-delà, une heure dépasse largement l'écran et le défilement devient le
+  /// seul moyen de lire l'axe, ce qui n'apporte rien sur un téléphone.
+  static const double _minPixelsPerMinute = 2.2;
   static const double _maxPixelsPerMinute = 14.0;
 
   /// Paliers du zoom, pour que les boutons `−` et `+` restent réversibles.
+  ///
+  /// Les deux premiers paliers sont plus serrés qu'avant : à 2,2 px/min une
+  /// heure occupe 132 px, ce qui fait tenir environ 7 heures dans la largeur
+  /// utile d'un téléphone au lieu de 3 h 45. Presque le double : c'est ce qui
+  /// permet de lire une soirée entière d'un coup d'œil, et d'afficher plus de
+  /// chaînes en même temps qu'on zoome pour voir le détail.
   static const List<double> _zoomSteps = [
+    2.2,
+    3.0,
     4.0,
     5.0,
     6.5,
@@ -295,6 +311,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     11.0,
     14.0,
   ];
+
 
   double get _zoomFactor => _pixelsPerMinute / _minPixelsPerMinute;
 

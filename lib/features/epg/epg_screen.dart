@@ -55,7 +55,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     final gridStartTime = EpgDayWindow.ofNow().start;
     _timelineController = EpgTimelineController(
       gridStartTime: gridStartTime,
-      pixelsPerMinute: 4.0,
+      pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
     );
   }
 
@@ -566,7 +566,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       child: EpgGrid2DView(
         channels: widget.channels,
         epgData: _epgData,
-        pixelsPerMinute: 4.0,
+      pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
         replayChannels: {
           for (final c in widget.channelObjects)
             if (c.supportsReplay) c.name,

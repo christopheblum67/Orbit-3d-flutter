@@ -1,6 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 class EpgTimelineController {
+  /// Densité par défaut de la frise et de la grille, en px/min.
+  ///
+  /// Vivait dans EpgGrid2DView, qui n'est qu'un des deux consommateurs :
+  /// le définir ici évite a l ecran EPG de dependre de la vue pour choisir
+  /// une valeur.
+  static const double defaultPixelsPerMinute = 4.0;
+
   EpgTimelineController({
     required DateTime gridStartTime,
     required double pixelsPerMinute,
