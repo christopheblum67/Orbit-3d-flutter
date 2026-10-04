@@ -31,7 +31,6 @@ class MediaItem {
   final DateTime? addedDate;
 
   // Attributs de lecture dynamique
-  bool isFavorite;
   int lastPositionMs;
   int totalDurationMs;
   DateTime? lastWatchedAt;
@@ -46,7 +45,6 @@ class MediaItem {
     this.releaseYear = 0,
     this.durationMinutes = 0,
     required this.addedDate,
-    this.isFavorite = false,
     this.lastPositionMs = 0,
     this.totalDurationMs = 0,
     this.lastWatchedAt,
@@ -70,7 +68,6 @@ class MediaItem {
         'releaseYear': releaseYear,
         'durationMinutes': durationMinutes,
         'addedDate': addedDate?.toIso8601String(),
-        'isFavorite': isFavorite,
         'lastPositionMs': lastPositionMs,
         'totalDurationMs': totalDurationMs,
         'lastWatchedAt': lastWatchedAt?.toIso8601String(),
@@ -86,7 +83,6 @@ class MediaItem {
         releaseYear: json['releaseYear'] ?? 0,
         durationMinutes: json['durationMinutes'] ?? 0,
         addedDate: DateTime.parse(json['addedDate']),
-        isFavorite: json['isFavorite'] ?? false,
         lastPositionMs: json['lastPositionMs'] ?? 0,
         totalDurationMs: json['totalDurationMs'] ?? 0,
         lastWatchedAt: json['lastWatchedAt'] != null
@@ -96,16 +92,16 @@ class MediaItem {
 }
 
 /// Service de Gestion du Stockage & des Métadonnées
+///
+/// Les favoris ne font PAS partie de ce service : ils sont gérés par
+/// `favoritesProvider`, sur Hive, avec une clé par profil. Ce service en
+/// portait une seconde implémentation dans `shared_preferences`, jamais appelée
+/// — deux systèmes de favoris parallèles pour un seul écran.
 class MediaLibraryManager extends ChangeNotifier {
-  static const String _favsKey = 'orbit_favorites_ids';
   static const String _historyKey = 'orbit_recently_watched';
 
   List<MediaItem> _allItems = [];
-  Set<String> _favoriteIds = {};
   List<MediaItem> _historyItems = [];
-
-  List<MediaItem> get favorites =>
-      _allItems.where((item) => _favoriteIds.contains(item.id)).toList();
 
   List<MediaItem> get recentlyWatched => _historyItems;
 
@@ -114,35 +110,11 @@ class MediaLibraryManager extends ChangeNotifier {
     _allItems = rawPlaylist;
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. Charger les Favoris
-    final favList = prefs.getStringList(_favsKey) ?? [];
-    _favoriteIds = favList.toSet();
-
-    for (var item in _allItems) {
-      if (_favoriteIds.contains(item.id)) {
-        item.isFavorite = true;
-      }
-    }
-
-    // 2. Charger les Récemment Regardés
+    // Historique des contenus regardés.
     final historyJson = prefs.getStringList(_historyKey) ?? [];
     _historyItems =
         historyJson.map((str) => MediaItem.fromJson(jsonDecode(str))).toList();
 
-    notifyListeners();
-  }
-
-  /// Basculer l'état Favori
-  Future<void> toggleFavorite(MediaItem item) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_favoriteIds.contains(item.id)) {
-      _favoriteIds.remove(item.id);
-      item.isFavorite = false;
-    } else {
-      _favoriteIds.add(item.id);
-      item.isFavorite = true;
-    }
-    await prefs.setStringList(_favsKey, _favoriteIds.toList());
     notifyListeners();
   }
 
@@ -178,16 +150,6 @@ class MediaLibraryManager extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_historyKey);
     _historyItems.clear();
-    notifyListeners();
-  }
-
-  Future<void> clearFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_favsKey);
-    _favoriteIds.clear();
-    for (var item in _allItems) {
-      item.isFavorite = false;
-    }
     notifyListeners();
   }
 

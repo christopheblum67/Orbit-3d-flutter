@@ -1270,4 +1270,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get downloadsEmptyHint =>
       'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.';
+
+  @override
+  String get downloadsLocation => 'Fichiers';
 }

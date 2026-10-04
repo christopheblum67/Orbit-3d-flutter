@@ -385,5 +385,6 @@
   "downloadStatusQueued": "In coda",
   "history": "Cronologia",
   "explore": "Esplora",
-  "downloadsEmptyHint": "Aggiungi contenuti dalla scheda di un film o una serie."
+  "downloadsEmptyHint": "Aggiungi contenuti dalla scheda di un film o una serie.",
+  "downloadsLocation": "File"
 }

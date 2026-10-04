@@ -385,5 +385,6 @@
   "downloadStatusQueued": "Queued",
   "history": "History",
   "explore": "Explore",
-  "downloadsEmptyHint": "Add content from a movie or series detail page."
+  "downloadsEmptyHint": "Add content from a movie or series detail page.",
+  "downloadsLocation": "Files"
 }

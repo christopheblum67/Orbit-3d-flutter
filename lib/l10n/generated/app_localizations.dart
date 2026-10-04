@@ -2421,6 +2421,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.'**
   String get downloadsEmptyHint;
+
+  /// No description provided for @downloadsLocation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichiers'**
+  String get downloadsLocation;
 }
 
 class _AppLocalizationsDelegate

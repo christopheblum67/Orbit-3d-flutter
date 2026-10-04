@@ -1243,4 +1243,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get downloadsEmptyHint => 'أضف محتوى من صفحة تفاصيل فيلم أو مسلسل.';
+
+  @override
+  String get downloadsLocation => 'الملفات';
 }

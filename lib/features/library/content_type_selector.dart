@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/download_manager.dart';
 
 /// Sélecteur du type de contenu, commun aux deux onglets.
 ///
@@ -107,9 +108,76 @@ class DownloadsSection extends ConsumerWidget {
     final wanted = _keys[type]!;
     final mine = tasks.where((t) => t.contentType == wanted).toList();
     if (mine.isEmpty) {
-      return _Empty(icon: Icons.download_outlined, message: l.noDownloads);
+      return Column(
+        children: [
+          Expanded(
+            child: _Empty(icon: Icons.download_outlined, message: l.noDownloads),
+          ),
+          const _DownloadsLocation(),
+        ],
+      );
     }
-    return DownloadList(tasks: mine);
+    return Column(
+      children: [
+        Expanded(child: DownloadList(tasks: mine)),
+        const _DownloadsLocation(),
+      ],
+    );
+  }
+}
+
+/// Emplacement des fichiers téléchargés.
+///
+/// Le gestionnaire résout ce chemin mais ne l'affichait nulle part : un
+/// utilisateur dont le téléchargement « disparaît » n'avait aucun moyen de
+/// retrouver ses fichiers. Le chemin est affiché une fois résolu, et son
+/// absence ne perturbe pas la liste.
+class _DownloadsLocation extends StatefulWidget {
+  const _DownloadsLocation();
+
+  @override
+  State<_DownloadsLocation> createState() => _DownloadsLocationState();
+}
+
+class _DownloadsLocationState extends State<_DownloadsLocation> {
+  String? _path;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  Future<void> _resolve() async {
+    try {
+      final path = await DownloadManager().resolveDownloadsDirectory();
+      if (!mounted) return;
+      setState(() => _path = path);
+    } catch (_) {
+      // `path_provider` peut manquer sur un appareil Android mal configuré :
+      // l'écran doit rester utilisable, on se contente de ne pas afficher le
+      // chemin.
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final path = _path;
+    if (_failed || path == null || path.isEmpty) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      child: Text(
+        '${l.downloadsLocation}: $path',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+      ),
+    );
   }
 }
 

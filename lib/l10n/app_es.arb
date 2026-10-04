@@ -385,5 +385,6 @@
   "downloadStatusQueued": "En cola",
   "history": "Historial",
   "explore": "Explorar",
-  "downloadsEmptyHint": "Añade contenido desde la ficha de una película o serie."
+  "downloadsEmptyHint": "Añade contenido desde la ficha de una película o serie.",
+  "downloadsLocation": "Archivos"
 }

@@ -1268,4 +1268,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get downloadsEmptyHint =>
       'Aggiungi contenuti dalla scheda di un film o una serie.';
+
+  @override
+  String get downloadsLocation => 'File';
 }

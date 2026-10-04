@@ -385,5 +385,6 @@
   "downloadStatusQueued": "في الانتظار",
   "history": "السجل",
   "explore": "استكشاف",
-  "downloadsEmptyHint": "أضف محتوى من صفحة تفاصيل فيلم أو مسلسل."
+  "downloadsEmptyHint": "أضف محتوى من صفحة تفاصيل فيلم أو مسلسل.",
+  "downloadsLocation": "الملفات"
 }

@@ -444,5 +444,6 @@
   "downloadStatusQueued": "En file",
   "history": "Historique",
   "explore": "Explorer",
-  "downloadsEmptyHint": "Ajoutez des contenus depuis les détails d'un film ou d'une série."
+  "downloadsEmptyHint": "Ajoutez des contenus depuis les détails d'un film ou d'une série.",
+  "downloadsLocation": "Fichiers"
 }

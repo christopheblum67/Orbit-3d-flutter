@@ -385,5 +385,6 @@
   "downloadStatusQueued": "In der Warteschlange",
   "history": "Verlauf",
   "explore": "Entdecken",
-  "downloadsEmptyHint": "Inhalte über die Detailseite eines Films oder einer Serie hinzufügen."
+  "downloadsEmptyHint": "Inhalte über die Detailseite eines Films oder einer Serie hinzufügen.",
+  "downloadsLocation": "Dateien"
 }
