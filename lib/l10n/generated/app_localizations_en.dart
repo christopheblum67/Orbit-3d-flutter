@@ -1223,4 +1223,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get contentTypeSelector => 'Content type';
+
+  @override
+  String get downloadStatusDownloading => 'Downloading';
+
+  @override
+  String get downloadStatusPreparing => 'Preparing';
+
+  @override
+  String get downloadStatusPaused => 'Paused';
+
+  @override
+  String get downloadStatusCompleted => 'Completed';
+
+  @override
+  String get downloadStatusFailed => 'Failed';
+
+  @override
+  String get downloadStatusCancelled => 'Cancelled';
+
+  @override
+  String get downloadStatusQueued => 'Queued';
+
+  @override
+  String get history => 'History';
+
+  @override
+  String get explore => 'Explore';
+
+  @override
+  String get downloadsEmptyHint =>
+      'Add content from a movie or series detail page.';
 }

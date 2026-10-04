@@ -375,5 +375,15 @@
   "films": "أفلام",
   "replay": "إعادة",
   "myContent": "محتواي",
-  "contentTypeSelector": "نوع المحتوى"
+  "contentTypeSelector": "نوع المحتوى",
+  "downloadStatusDownloading": "جارٍ التنزيل",
+  "downloadStatusPreparing": "جارٍ التحضير",
+  "downloadStatusPaused": "متوقف مؤقتًا",
+  "downloadStatusCompleted": "مكتمل",
+  "downloadStatusFailed": "فشل",
+  "downloadStatusCancelled": "أُلغي",
+  "downloadStatusQueued": "في الانتظار",
+  "history": "السجل",
+  "explore": "استكشاف",
+  "downloadsEmptyHint": "أضف محتوى من صفحة تفاصيل فيلم أو مسلسل."
 }

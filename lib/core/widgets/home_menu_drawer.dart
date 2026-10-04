@@ -35,7 +35,7 @@ class HomeMenuDrawer extends ConsumerWidget {
           ),
           if (!isM3u) ...[
             _MenuEntry(icon: Icons.tv, label: l.series, route: '/series'),
-            const _MenuEntry(icon: Icons.movie, label: 'VOD', route: '/vod'),
+            _MenuEntry(icon: Icons.movie, label: l.films, route: '/vod'),
           ],
         ],
       ),
@@ -81,9 +81,9 @@ class HomeMenuDrawer extends ConsumerWidget {
             label: l.downloads,
             route: '/downloads',
           ),
-          const _MenuEntry(
-            icon: Icons.history,
-            label: 'Historique',
+_MenuEntry(
+        icon: Icons.history,
+        label: l.history,
             route: '/history',
           ),
           _MenuEntry(

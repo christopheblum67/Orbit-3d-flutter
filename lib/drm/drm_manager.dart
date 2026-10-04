@@ -10,11 +10,18 @@ import 'package:flutter/foundation.dart';
 /// Orchestre la configuration, la création de sessions MediaDrm,
 /// la gestion des licences, le renouvellement et le nettoyage.
 class DrmManager {
-  final LicenseManager _licenseManager;
+  /// Gestionnaire de licences injecté.
+  ///
+  /// Conservé pour le câblage : DRM n'est pas implémenté, et l'avertissement
+  /// « champ jamais lu » signalait un travail commencé puis abandonné, pas une
+  /// erreur. Le renommer en `unUsedLicenseManager` le rend explicite sans
+  /// prétend que le code fait usage de la licence.
+  // ignore: unused_field
+  final LicenseManager unUsedLicenseManager;
   final LoggerService _logger = LoggerService.instance;
 
   DrmManager({LicenseManager? licenseManager})
-      : _licenseManager = licenseManager ?? LicenseManager();
+      : unUsedLicenseManager = licenseManager ?? LicenseManager();
 
   /// Prépare la configuration DRM pour un flux donné.
   Future<DrmConfig> prepareConfig({

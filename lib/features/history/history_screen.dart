@@ -145,7 +145,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text('Historique'),
+        title: Text(l.history),
       ),
       body: body,
     );

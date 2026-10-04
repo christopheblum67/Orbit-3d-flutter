@@ -49,55 +49,6 @@ class DownloadProgressAdapter extends TypeAdapter<DownloadProgress> {
           typeId == other.typeId;
 }
 
-class DownloadConfigAdapter extends TypeAdapter<DownloadConfig> {
-  @override
-  final int typeId = 52;
-
-  @override
-  DownloadConfig read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return DownloadConfig(
-      wifiOnly: fields[0] as bool,
-      maxConcurrentDownloads: fields[1] as int,
-      retryAttempts: fields[2] as int,
-      retryDelay: fields[3] as Duration,
-      deleteAfterWatch: fields[4] as bool,
-      preferredQuality: fields[5] as String,
-    );
-  }
-
-  @override
-  void write(BinaryWriter writer, DownloadConfig obj) {
-    writer
-      ..writeByte(6)
-      ..writeByte(0)
-      ..write(obj.wifiOnly)
-      ..writeByte(1)
-      ..write(obj.maxConcurrentDownloads)
-      ..writeByte(2)
-      ..write(obj.retryAttempts)
-      ..writeByte(3)
-      ..write(obj.retryDelay)
-      ..writeByte(4)
-      ..write(obj.deleteAfterWatch)
-      ..writeByte(5)
-      ..write(obj.preferredQuality);
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DownloadConfigAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
 class DownloadTaskAdapter extends TypeAdapter<DownloadTask> {
   @override
   final int typeId = 53;

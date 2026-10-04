@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/features/browse/browse_screen.dart'
     show RankingsView;
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.dart'
     show MatchmakingTab;
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 
 /// Ouvre un contenu recommandé (série → détail, film → lecteur).
@@ -65,6 +66,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -72,7 +74,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: const Text('Matchmaking'),
+        title: Text(l.matchmaking),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [

@@ -375,5 +375,15 @@
   "films": "Películas",
   "replay": "Replay",
   "myContent": "Mi contenido",
-  "contentTypeSelector": "Tipo de contenido"
+  "contentTypeSelector": "Tipo de contenido",
+  "downloadStatusDownloading": "Descargando",
+  "downloadStatusPreparing": "Preparando",
+  "downloadStatusPaused": "En pausa",
+  "downloadStatusCompleted": "Completado",
+  "downloadStatusFailed": "Fallido",
+  "downloadStatusCancelled": "Cancelado",
+  "downloadStatusQueued": "En cola",
+  "history": "Historial",
+  "explore": "Explorar",
+  "downloadsEmptyHint": "Añade contenido desde la ficha de una película o serie."
 }

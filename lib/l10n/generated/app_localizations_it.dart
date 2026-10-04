@@ -1237,4 +1237,35 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get contentTypeSelector => 'Tipo di contenuto';
+
+  @override
+  String get downloadStatusDownloading => 'Download in corso';
+
+  @override
+  String get downloadStatusPreparing => 'Preparazione';
+
+  @override
+  String get downloadStatusPaused => 'In pausa';
+
+  @override
+  String get downloadStatusCompleted => 'Completato';
+
+  @override
+  String get downloadStatusFailed => 'Non riuscito';
+
+  @override
+  String get downloadStatusCancelled => 'Annullato';
+
+  @override
+  String get downloadStatusQueued => 'In coda';
+
+  @override
+  String get history => 'Cronologia';
+
+  @override
+  String get explore => 'Esplora';
+
+  @override
+  String get downloadsEmptyHint =>
+      'Aggiungi contenuti dalla scheda di un film o una serie.';
 }

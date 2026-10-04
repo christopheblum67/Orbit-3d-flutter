@@ -91,12 +91,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             return EmptyState(
               icon: Icons.download_for_offline_outlined,
               title: l.noDownloads,
-              message:
-                  'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.',
+              message: l.downloadsEmptyHint,
               action: TextButton.icon(
                 onPressed: () => context.go('/home'),
                 icon: const Icon(Icons.explore),
-                label: const Text('Explorer'),
+                label: Text(l.explore),
               ),
             );
           }
@@ -373,27 +372,40 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     final (label, color, icon) = switch (status) {
       DownloadStatus.downloading => (
-          'Téléchargement',
+          l.downloadStatusDownloading,
           scheme.primary,
           Icons.download_for_offline
         ),
       DownloadStatus.preparing => (
-          'Préparation',
+          l.downloadStatusPreparing,
           scheme.primary,
           Icons.hourglass_top
         ),
       DownloadStatus.paused => (
-          'En pause',
+          l.downloadStatusPaused,
           scheme.secondary,
           Icons.pause_circle
         ),
-      DownloadStatus.completed => ('Terminé', Colors.green, Icons.check_circle),
-      DownloadStatus.failed => ('Échec', scheme.error, Icons.error),
-      DownloadStatus.cancelled => ('Annulé', scheme.outline, Icons.cancel),
-      DownloadStatus.queued => ('En file', scheme.secondary, Icons.schedule),
+      DownloadStatus.completed => (
+        l.downloadStatusCompleted,
+        Colors.green,
+        Icons.check_circle,
+      ),
+      DownloadStatus.failed => (l.downloadStatusFailed, scheme.error, Icons.error),
+      DownloadStatus.cancelled => (
+        l.downloadStatusCancelled,
+        scheme.outline,
+        Icons.cancel,
+      ),
+      DownloadStatus.queued => (
+        l.downloadStatusQueued,
+        scheme.secondary,
+        Icons.schedule,
+      ),
     };
 
     return Container(

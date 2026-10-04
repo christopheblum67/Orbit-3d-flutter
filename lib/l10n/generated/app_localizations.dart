@@ -2361,6 +2361,66 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Type de contenu'**
   String get contentTypeSelector;
+
+  /// No description provided for @downloadStatusDownloading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargement'**
+  String get downloadStatusDownloading;
+
+  /// No description provided for @downloadStatusPreparing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Préparation'**
+  String get downloadStatusPreparing;
+
+  /// No description provided for @downloadStatusPaused.
+  ///
+  /// In fr, this message translates to:
+  /// **'En pause'**
+  String get downloadStatusPaused;
+
+  /// No description provided for @downloadStatusCompleted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Terminé'**
+  String get downloadStatusCompleted;
+
+  /// No description provided for @downloadStatusFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échec'**
+  String get downloadStatusFailed;
+
+  /// No description provided for @downloadStatusCancelled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annulé'**
+  String get downloadStatusCancelled;
+
+  /// No description provided for @downloadStatusQueued.
+  ///
+  /// In fr, this message translates to:
+  /// **'En file'**
+  String get downloadStatusQueued;
+
+  /// No description provided for @history.
+  ///
+  /// In fr, this message translates to:
+  /// **'Historique'**
+  String get history;
+
+  /// No description provided for @explore.
+  ///
+  /// In fr, this message translates to:
+  /// **'Explorer'**
+  String get explore;
+
+  /// No description provided for @downloadsEmptyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.'**
+  String get downloadsEmptyHint;
 }
 
 class _AppLocalizationsDelegate

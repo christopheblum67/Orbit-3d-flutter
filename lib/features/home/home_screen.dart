@@ -803,7 +803,7 @@ class _OrbitItem {
         route: '/downloads',
       ),
       _OrbitItem(
-        title: 'Matchmaking',
+        title: l.matchmaking,
         icon: Icons.auto_awesome,
         color: const Color(0xFFFF3D3D),
         subtitle: l.forYouAndDuo,

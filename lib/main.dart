@@ -115,7 +115,6 @@ Future<void> _bootstrap() async {
   Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
   Hive.registerAdapter<DownloadStatus>(DownloadStatusAdapter());
   Hive.registerAdapter<DownloadProgress>(DownloadProgressAdapter());
-  Hive.registerAdapter<DownloadConfig>(DownloadConfigAdapter());
   Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.

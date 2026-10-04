@@ -375,5 +375,15 @@
   "films": "Movies",
   "replay": "Replay",
   "myContent": "My content",
-  "contentTypeSelector": "Content type"
+  "contentTypeSelector": "Content type",
+  "downloadStatusDownloading": "Downloading",
+  "downloadStatusPreparing": "Preparing",
+  "downloadStatusPaused": "Paused",
+  "downloadStatusCompleted": "Completed",
+  "downloadStatusFailed": "Failed",
+  "downloadStatusCancelled": "Cancelled",
+  "downloadStatusQueued": "Queued",
+  "history": "History",
+  "explore": "Explore",
+  "downloadsEmptyHint": "Add content from a movie or series detail page."
 }

@@ -1213,4 +1213,34 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get contentTypeSelector => 'نوع المحتوى';
+
+  @override
+  String get downloadStatusDownloading => 'جارٍ التنزيل';
+
+  @override
+  String get downloadStatusPreparing => 'جارٍ التحضير';
+
+  @override
+  String get downloadStatusPaused => 'متوقف مؤقتًا';
+
+  @override
+  String get downloadStatusCompleted => 'مكتمل';
+
+  @override
+  String get downloadStatusFailed => 'فشل';
+
+  @override
+  String get downloadStatusCancelled => 'أُلغي';
+
+  @override
+  String get downloadStatusQueued => 'في الانتظار';
+
+  @override
+  String get history => 'السجل';
+
+  @override
+  String get explore => 'استكشاف';
+
+  @override
+  String get downloadsEmptyHint => 'أضف محتوى من صفحة تفاصيل فيلم أو مسلسل.';
 }

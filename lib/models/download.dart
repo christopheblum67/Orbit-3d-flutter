@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 
 part 'download.g.dart';
 
@@ -79,56 +78,6 @@ class DownloadProgress extends HiveObject {
       speedBytesPerSec: speedBytesPerSec ?? this.speedBytesPerSec,
       estimatedTimeRemaining:
           estimatedTimeRemaining ?? this.estimatedTimeRemaining,
-    );
-  }
-}
-
-/// Configuration d'un téléchargement (qualité, wifi-only, etc.).
-@HiveType(typeId: 52)
-class DownloadConfig extends HiveObject {
-  @HiveField(0)
-  final bool wifiOnly;
-
-  @HiveField(1)
-  final int maxConcurrentDownloads;
-
-  @HiveField(2)
-  final int retryAttempts;
-
-  @HiveField(3)
-  final Duration retryDelay;
-
-  @HiveField(4)
-  final bool deleteAfterWatch;
-
-  @HiveField(5)
-  final String preferredQuality; // 'auto', '1080p', '720p', '480p'
-
-  DownloadConfig({
-    this.wifiOnly = true,
-    this.maxConcurrentDownloads = 2,
-    this.retryAttempts = 3,
-    this.retryDelay = const Duration(seconds: 10),
-    this.deleteAfterWatch = false,
-    this.preferredQuality = 'auto',
-  });
-
-  DownloadConfig copyWith({
-    bool? wifiOnly,
-    int? maxConcurrentDownloads,
-    int? retryAttempts,
-    Duration? retryDelay,
-    bool? deleteAfterWatch,
-    String? preferredQuality,
-  }) {
-    return DownloadConfig(
-      wifiOnly: wifiOnly ?? this.wifiOnly,
-      maxConcurrentDownloads:
-          maxConcurrentDownloads ?? this.maxConcurrentDownloads,
-      retryAttempts: retryAttempts ?? this.retryAttempts,
-      retryDelay: retryDelay ?? this.retryDelay,
-      deleteAfterWatch: deleteAfterWatch ?? this.deleteAfterWatch,
-      preferredQuality: preferredQuality ?? this.preferredQuality,
     );
   }
 }
@@ -218,25 +167,6 @@ class DownloadTask extends HiveObject {
     this.episodeTitle,
     this.headers,
   }) : progress = progress ?? DownloadProgress();
-
-  /// Crée une tâche depuis un MediaItem.
-  factory DownloadTask.fromMediaItem(MediaItem item,
-      {String? preferredQuality,}) {
-    return DownloadTask(
-      id: 'dl_${item.id}_${DateTime.now().millisecondsSinceEpoch}',
-      mediaItemId: item.id,
-      title: item.title,
-      posterUrl: item.posterUrl,
-      streamUrl: item.streamUrl,
-      contentType: _inferContentType(item),
-      createdAt: DateTime.now(),
-    );
-  }
-
-  static String _inferContentType(MediaItem item) {
-    // À affiner selon le type réel de l'item
-    return 'vod';
-  }
 
   /// Chemin local complet du fichier téléchargé.
   String get fullLocalPath => localPath.isNotEmpty ? localPath : '';
