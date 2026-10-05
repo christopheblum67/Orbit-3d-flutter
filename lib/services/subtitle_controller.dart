@@ -114,12 +114,24 @@ class SubtitleController extends ChangeNotifier {
   /// Les pistes déduites sont des **hypothèses** : sur un panel qui ne déclare
   /// rien, on fabrique `{id}_fr.srt`, `{id}_fr_forced.srt`, `{id}_en.srt`… et
   /// le panel n'en sert souvent aucune. Les afficher toutes donnait une liste
-  /// de quatre entrées dont l'utilisateur discoverait l'inexistence en
-  /// selectable — l'inverse de ce qu'une liste de pistes doit dire.
+  /// de quatre entrées dont l'utilisateur decouvrait l'inexistence en
+  /// selectionnant — l'inverse de ce qu'une liste de pistes doit dire.
   ///
-  /// On teste donc avant d'afficher, une seule fois par session et par URL. Le
-  /// coût est borné : quatre à huit requêtes, uniquement quand l'utilisateur
-  /// ouvre la section sous-titres d'un contenu donné.
+  /// ## Coût et exactitude
+  ///
+  /// Les candidats sont essayés **dans l'ordre, jusqu'au premier succès**, et
+  /// l'on s'arrête là. Deux raisons, l'une économique et l'autre corrective :
+  ///
+  /// - auparavant, si la forme principale répondait vide, les replis n'étaient
+  ///   jamais testés et la piste disparaissait — à tort, puisqu'elle pouvait
+  ///   exister sous une autre forme d'URL ;
+  /// - si la forme principale répondait, on testait *tous* les replis alors que
+  ///   la sélection n'utiliserait que le premier. Chaque réponse positive
+  /// inutile, sur un panel qui répond lentement.
+  ///
+  /// Le cas courant coûte donc une requête par piste au lieu d'une requête
+  /// plus tous les replis, et le cache de session rend les ouvertures
+  /// suivantes gratuites.
   ///
   /// [onProgress] reçoit le nombre de pistes restantes, pour afficher un
   /// avancement plutôt qu'un écran figé.
@@ -128,21 +140,45 @@ class SubtitleController extends ChangeNotifier {
     void Function(int remaining)? onProgress,
   }) async {
     final kept = <SubtitleTrackRef>[];
-    for (final track in tracks) {
-      final exists = await _exists(track);
-      if (exists) {
-        // On renvoie la piste avec ses replis restreints à ceux qui existent
-        // aussi : inutile de retester à la sélection.
-        final alternates = <SubtitleTrackRef>[];
-        for (final alt in track.alternates) {
-          if (await _exists(alt)) alternates.add(alt);
+    var probes = 0;
+    for (var i = 0; i < tracks.length; i++) {
+      final track = tracks[i];
+      final candidates = track.candidates;
+      SubtitleTrackRef? hit;
+      var hitIndex = -1;
+      for (var c = 0; c < candidates.length; c++) {
+        probes++;
+        if (await _exists(candidates[c])) {
+          hit = candidates[c];
+          hitIndex = c;
+          break;
         }
-        kept.add(alternates.isEmpty
-            ? track
-            : track.copyWith(alternates: alternates));
       }
-      onProgress?.call(tracks.length - kept.length - 1);
+
+      if (hit != null) {
+        // On ne garde que les candidats *jusqu'au* premier qui répond : les
+        // suivants n'ont pas servi et seraient retestés à la sélection.
+        //
+        // Le candidat gagnant devient l'URL principale de la piste : c'est lui
+        // que l'utilisateur choisira, et pour éviter de retester une forme morte.
+        final verified = candidates.sublist(0, hitIndex + 1);
+        kept.add(
+          verified.length == 1
+              ? hit
+              : track.copyWith(
+                  url: hit.url,
+                  language: hit.language,
+                  alternates: verified.skip(1).toList(),
+                ),
+        );
+      }
+      onProgress?.call(tracks.length - i - 1);
     }
+    LoggerService.instance.info(
+      'Sous-titres : ${tracks.length} piste(s) déduites, $probes requête(s) '
+      'de vérification, ${kept.length} retenue(s)',
+      tag: 'subtitle',
+    );
     return kept;
   }
 

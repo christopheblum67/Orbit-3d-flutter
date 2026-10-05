@@ -149,10 +149,14 @@ class SubtitleTrackRef {
   String toString() => 'SubtitleTrackRef($language, $label)';
 
   /// Copie avec des variantes supplémentaires.
-  SubtitleTrackRef copyWith({List<SubtitleTrackRef>? alternates}) =>
+  SubtitleTrackRef copyWith({
+    List<SubtitleTrackRef>? alternates,
+    String? url,
+    String? language,
+  }) =>
       SubtitleTrackRef(
-        url: url,
-        language: language,
+        url: url ?? this.url,
+        language: language ?? this.language,
         label: label,
         cues: cues,
         alternates: alternates ?? this.alternates,
