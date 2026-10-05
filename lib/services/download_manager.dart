@@ -140,7 +140,7 @@ class DownloadManager extends ChangeNotifier {
   int get activeCount => _activeDownloads;
 
   /// Initialise le gestionnaire. Idempotent et concurrent-safe : les appels
-  /// suivants partagent la première initialisation au lieu d'ouvrir la box
+  /// suivants partagent la première initialisation au lieu d'ouvrir la boîte
   /// une seconde fois.
   Future<void> init() {
     // La boîte peut avoir été fermée depuis la dernière initialisation : par
@@ -167,21 +167,53 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> _doInit() async {
-    await _initBox();
+    await _openBoxOnce();
     await _loadConfig();
     _recoverInterruptedDownloads();
     _logger.info('DownloadManager initialized');
   }
 
+  /// Sérialise l'ouverture de la boîte.
+  ///
+  /// `init()` sérialise déjà les initialisations, mais une réinitialisation
+  /// d'usine ouvre la boîte par un chemin parallèle : sans ce verrou, deux
+  /// appels se franchissent mutuellement et l'un d'eux reçoit « already
+  /// open ». Le verrou rend l'opération réellement unique.
+  Future<void>? _boxOpFuture;
+
+  Future<void> _openBoxOnce() {
+    return _boxOpFuture ??= _initBox().whenComplete(() {
+      _boxOpFuture = null;
+    });
+  }
+
   Future<void> _initBox() async {
     if (Hive.isBoxOpen(_boxName)) {
-      // La box a pu être ouverte par le chemin « reset usine » en
-      // `Box<dynamic>` : on la ferme pour la rouvrir au bon type plutôt que de
-      // subir « already open and of type Box<dynamic> » à la première écriture.
-      final existing = Hive.box<dynamic>(_boxName);
-      if (existing.isOpen) await existing.close();
+      // La boîte est DÉJÀ ouverte : on l'adopte.
+      //
+      // Le code la refermait pour la rouvrir au bon type. Cette fermeture puis
+      // réouverture est une fenêtre : entre les deux, un second appel voit
+      // `isBoxOpen` à faux, ouvre la boîte, et le premier reçoit alors
+      // « already open and of type Box<DownloadTask> ». C'est exactement
+      // l'erreur constatée au téléchargement d'un film.
+      //
+      // Si la boîte a été ouverte avec un AUTRE type — le chemin « reset
+      // usine » l'ouvre en `Box<dynamic>` — l'adoption échoue et il faut
+      // vraiment la refermer pour la rouvrir au bon type.
+      try {
+        _box = Hive.box<DownloadTask>(_boxName);
+        _logger.info('DownloadManager: boîte « $_boxName » déjà ouverte, '
+            'adoptée');
+        return;
+      } on Object catch (error) {
+        _logger.info('DownloadManager: boîte « $_boxName » ouverte avec un '
+            'autre type ($error), réouverture au bon type');
+        final existing = Hive.box<dynamic>(_boxName);
+        if (existing.isOpen) await existing.close();
+      }
     }
     _box = await Hive.openBox<DownloadTask>(_boxName);
+    _logger.info('DownloadManager: boîte « $_boxName » ouverte');
   }
 
   Future<void> _loadConfig() async {
