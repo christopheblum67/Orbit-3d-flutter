@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 
@@ -118,6 +119,9 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
                 ),
           ),
           const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionCertPinning),
+          const _CertPinningSection(),
+          const SizedBox(height: 24),
           SettingsSectionTitle(l.sectionTmdb),
           const TmdbApiKeyTile(),
           const SizedBox(height: 24),
@@ -135,6 +139,119 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Certificat pinning (SHA-256).
+///
+/// Retiré de l'onglet Sécurité et placé ici : désactiver l'épinglage affranchit
+/// l'application de la vérification du certificat du serveur. C'est un levier
+/// de sécurité, pas une préférence de confort — le laisser à un simple
+/// interrupteur dans un onglet « Sécurité » pleine de contrôle parental
+/// exposait à le couper sans savoir.
+class _CertPinningSection extends ConsumerStatefulWidget {
+  const _CertPinningSection();
+
+  @override
+  ConsumerState<_CertPinningSection> createState() =>
+      _CertPinningSectionState();
+}
+
+class _CertPinningSectionState extends ConsumerState<_CertPinningSection> {
+  final _fingerprints = TextEditingController();
+
+  @override
+  void dispose() {
+    _fingerprints.dispose();
+    super.dispose();
+  }
+
+  List<String> _parse(String raw) => raw
+      .split('\n')
+      .map((e) => e.trim().toUpperCase())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final s = ref.watch(advancedSettingsProvider);
+    final n = ref.read(advancedSettingsProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SettingsSwitchTile(
+          title: l.certPinning,
+          subtitle: l.certPinningSubtitle,
+          value: s.certificatePinningEnabled,
+          onChanged: n.setCertificatePinningEnabled,
+          icon: Icons.security_outlined,
+        ),
+        if (!s.certificatePinningEnabled)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              l.certPinningHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+            ),
+          ),
+        if (s.certificatePinningEnabled) ...[
+          const SizedBox(height: 8),
+          Text(
+            l.certPinningHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _fingerprints,
+            maxLines: 4,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: InputDecoration(
+              hintText: 'A1B2C3D4E5F6...\n7890ABCDEF1234...\n...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+            onSubmitted: (value) =>
+                n.setCertificatePinningFingerprints(_parse(value)),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () {
+              n.setCertificatePinningFingerprints(_parse(_fingerprints.text));
+              _fingerprints.clear();
+            },
+            icon: const Icon(Icons.add),
+            label: Text(l.certPinningAdd),
+          ),
+          if (s.certificatePinningFingerprints.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: s.certificatePinningFingerprints.map((fp) {
+                return InputChip(
+                  label: Text(
+                    fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  onDeleted: () {
+                    final updated = [...s.certificatePinningFingerprints]
+                      ..remove(fp);
+                    n.setCertificatePinningFingerprints(updated);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ],
     );
   }
 }

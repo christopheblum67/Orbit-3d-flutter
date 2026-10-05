@@ -484,7 +484,6 @@ class _SecuritySection extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
-    final TextEditingController fingerprintController = TextEditingController();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -496,78 +495,6 @@ class _SecuritySection extends ConsumerWidget {
           subtitle: l.parentalControlSubtitle,
           onTap: () => context.go('/parental'),
         ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionCertPinning),
-        SettingsSwitchTile(
-          title: l.certPinning,
-          subtitle: l.certPinningSubtitle,
-          value: s.certificatePinningEnabled,
-          onChanged: n.setCertificatePinningEnabled,
-          icon: Icons.security_outlined,
-        ),
-        if (s.certificatePinningEnabled) ...[
-          const SizedBox(height: 8),
-          Text(
-            l.certPinningHint,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: fingerprintController,
-            maxLines: 4,
-            decoration: InputDecoration(
-              hintText: 'A1B2C3D4E5F6...\n7890ABCDEF1234...\n...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: const EdgeInsets.all(12),
-            ),
-            onSubmitted: (value) {
-              final fps = value
-                  .split('\n')
-                  .map((e) => e.trim().toUpperCase())
-                  .where((e) => e.isNotEmpty)
-                  .toList();
-              n.setCertificatePinningFingerprints(fps);
-            },
-          ),
-          const SizedBox(height: 8),
-          if (s.certificatePinningFingerprints.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: s.certificatePinningFingerprints
-                  .map(
-                    (fp) => Chip(
-                      label: Text(
-                        fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () {
-                        final updated = [...s.certificatePinningFingerprints]
-                          ..remove(fp);
-                        n.setCertificatePinningFingerprints(updated);
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              final fps = fingerprintController.text
-                  .split('\n')
-                  .map((e) => e.trim().toUpperCase())
-                  .where((e) => e.isNotEmpty)
-                  .toList();
-              n.setCertificatePinningFingerprints(fps);
-              fingerprintController.clear();
-            },
-            icon: const Icon(Icons.add),
-            label: Text(l.certPinningAdd),
-          ),
-        ],
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionResilience),
         SettingsSwitchTile(
