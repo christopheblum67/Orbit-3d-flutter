@@ -522,7 +522,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                     children: [
                       _AxisButton(
                         icon: Icons.zoom_out,
-                        tooltip: l.epgZoomOut,
+                        tooltip: '${l.epgZoomOut} '
+                            '(${_zoomFactor.toStringAsFixed(1)}×)',
                         onPressed: _zoomOut,
                       ),
                       _AxisButton(
@@ -534,22 +535,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                       ),
                       _AxisButton(
                         icon: Icons.zoom_in,
-                        tooltip: l.epgZoomIn,
+                        tooltip: '${l.epgZoomIn} '
+                            '(${_zoomFactor.toStringAsFixed(1)}×)',
                         onPressed: _zoomIn,
-                      ),
-                      // Facteur de zoom courant : l'utilisateur sait où il en
-                      // est, et il sait que le bouton a atteint sa borne.
-                      SizedBox(
-                        width: 30,
-                        child: Text(
-                          '${_zoomFactor.toStringAsFixed(1)}×',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -769,13 +757,18 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 /// une fois et réutilisée : jamais recalculée à la main.
 const double kGridLeftInset = 4.0;
 
-/// Bouton compact du bandeau d'axe.
+/// Bouton du bandeau d'axe.
 ///
-/// Trois boutons doivent tenir dans la bande des noms de chaînes, 144 px. Un
-/// `IconButton` en prend 40 px même en densité compacte, et déborde de 6 px.
-/// On impose donc la taille exacte avec un `SizedBox`, et l'info-bulle à la
-/// main — `IconButton` ne permet pas de borner l'encombrement sans conflit
-/// avec sa zone tactile.
+/// Les trois boutons occupent la bande des noms de chaînes, 144 px. Un
+/// `IconButton` fait 40 px en densité compacte, et ne respecte pas
+/// `tightFor` : il faut donc compter 3 × 40 = 120 px et ne rien ajouter à
+/// côté. C'est pour cela que le facteur de zoom vit dans les info-bulles
+/// plutôt qu'en texte à côté des boutons.
+///
+/// C'est un vrai `IconButton`, et non un `InkWell` nu : l'info-bulle,
+/// l'ondulation et surtout le **focus** en dépendent. Un `InkWell` ne reçoit
+/// pas le focus, et les boutons devenaient inatteignables au D-pad — le zoom
+/// était alors inutilisable à la télécommande.
 class _AxisButton extends StatelessWidget {
   const _AxisButton({
     required this.icon,
@@ -784,9 +777,6 @@ class _AxisButton extends StatelessWidget {
     this.color = Colors.white70,
   });
 
-  /// 32 px : trois boutons et le facteur tiennent dans 144 px.
-  static const double size = 32.0;
-
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
@@ -794,17 +784,13 @@ class _AxisButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(icon, size: 18, color: color),
-        ),
-      ),
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      tooltip: tooltip,
+      color: color,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed,
     );
   }
 }

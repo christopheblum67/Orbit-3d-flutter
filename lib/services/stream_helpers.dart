@@ -63,6 +63,25 @@ Map<String, String> streamHeaders(
   return headers;
 }
 
+/// Erreur de flux réseau, avec la décision de réessai qui va avec.
+///
+/// [isRetriable] n'est pas décorative : `retryStream` la consulte. Une
+/// limitation de débit doit être `false` — réessayer pendant un quota épuisé
+/// ne fait qu'aggraver la situation.
+class StreamNetworkException implements Exception {
+  StreamNetworkException(
+    this.message, {
+    this.original,
+    this.isRetriable = false,
+  });
+
+  final String message;
+  final Object? original;
+  final bool isRetriable;
+
+  @override
+  String toString() => message;
+}
 class StreamUrlEmptyException implements Exception {
   StreamUrlEmptyException(this.message);
 
@@ -200,8 +219,14 @@ Future<T> retryStream<T>(
     if (result.isSuccess) return result.getOrThrow();
     lastError = result.errorOrNull?.originalError ?? result.errorOrNull;
     final error = lastError!;
-    final retriable =
-        shouldRetry?.call(error) ?? (error is! StreamUrlEmptyException);
+    // Une exception réseau porte sa propre décision : une limitation de
+    // débit (429) se patiente, elle ne se réessaie pas. Sans cette ligne, la
+    // règle par défaut réessayait tout sauf une URL vide — donc aussi les
+    // 429 — et l'application martelait le quota du panel, qui bloquait
+    // d'autant plus longtemps et laissait Films et Séries vides.
+    final retriable = shouldRetry?.call(error) ??
+        (error is! StreamUrlEmptyException &&
+            (error is! StreamNetworkException || error.isRetriable));
     if (!retriable || attempt == attempts - 1) break;
     await Future<void>.delayed(delay);
   }

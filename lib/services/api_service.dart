@@ -19,25 +19,12 @@ import 'package:orbit_3d_flutter/services/catchup_url_builder.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
+import 'package:orbit_3d_flutter/services/stream_helpers.dart'
+    show StreamNetworkException;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
 import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
-
-class StreamNetworkException implements Exception {
-  StreamNetworkException(
-    this.message, {
-    this.original,
-    this.isRetriable = false,
-  });
-
-  final String message;
-  final Object? original;
-  final bool isRetriable;
-
-  @override
-  String toString() => message;
-}
 
 class ApiService {
   /// Instance courante, utilisée par le builder global d'URLs de stream.
@@ -380,6 +367,55 @@ class ApiService {
     return end < 0 ? rest : rest.substring(0, end);
   }
 
+  /// Heure de réinitialisation du quota, déduite des en-têtes du serveur.
+  ///
+  /// Trois conventions coexistent sur les API Xtream : `Retry-After` en
+  /// secondes, et `X-RateLimit-Reset` en epoch **secondes** ou en epoch
+  /// **millisecondes**. On les essaie toutes — deviner entre secondes et
+  /// millisecondes donnerait une date fausse, ce qui est pire que pas de date.
+  ///
+  /// Renvoie `null` si le serveur n'en donne pas : on affiche alors un message
+  /// sans heure, jamais une heure inventée.
+  static String? rateLimitResetHint(Headers? headers) {
+    if (headers == null || headers.isEmpty) return null;
+
+    String? read(List<String> keys) {
+      for (final key in keys) {
+        final value = headers.value(key)?.trim();
+        if (value != null && value.isNotEmpty) return value;
+      }
+      return null;
+    }
+
+    final raw = read([
+          'retry-after',
+          'Retry-After',
+          'x-ratelimit-reset',
+          'X-RateLimit-Reset',
+        ]) ??
+        read(['ratelimit-reset', 'RateLimit-Reset']);
+    if (raw == null) return null;
+
+    DateTime? at;
+    final seconds = int.tryParse(raw) ?? double.tryParse(raw)?.round();
+    if (seconds != null) {
+      // Epoch en secondes : autour de 1,7e9. En millisecondes : 1,7e12.
+      at = seconds > 100000000000
+          ? DateTime.fromMillisecondsSinceEpoch(seconds)
+          : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+    } else {
+      at = DateTime.tryParse(raw);
+    }
+    if (at == null) return null;
+
+    at = at.toLocal();
+    if (at.isBefore(DateTime.now())) return null;
+    final minutes = at.difference(DateTime.now()).inMinutes + 1;
+    final h = at.hour.toString().padLeft(2, '0');
+    final m = at.minute.toString().padLeft(2, '0');
+    return 'Quota réinitialisé à $h:$m (dans ~$minutes min).';
+  }
+
   StreamNetworkException _toNetworkException(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -426,6 +462,7 @@ class ApiService {
         return StreamNetworkException('Requête annulée.', original: e);
       case DioExceptionType.badResponse:
         final status = e.response?.statusCode;
+        final headers = e.response?.headers;
         final message = switch (status) {
           401 => 'Accès refusé par le serveur (code 401). '
               'Vérifiez vos identifiants Xtream.',
@@ -433,15 +470,24 @@ class ApiService {
               'L\'abonnement est peut-être bloqué.',
           404 => 'Ressource introuvable (code 404). '
               'Vérifiez l\'adresse du serveur.',
+          // « Réessayez dans quelques instants » n'était qu'une phrase. Le
+          // serveur, lui, sait dire QUAND : son en-tête de réinitialisation
+          // donne l'heure exacte, ce qui répond à la seule question utile —
+          // « quand est-ce que ça repart ? ».
           429 => 'Limite de requêtes dépassée (code 429). '
-              'Le serveur limite le nombre de requêtes. '
-              'Réessayez dans quelques instants.',
+              '${rateLimitResetHint(e.response?.headers) ?? 'Le serveur limite le nombre de requêtes.'} '
+              'Aucune relance automatique : réessayer pendant une limitation '
+              'ne fait qu\'allonger la limitation.',
           _ => 'Le serveur a renvoyé une erreur (code ${status ?? 'inconnu'}).',
         };
         return StreamNetworkException(
           message,
           original: e,
-          isRetriable: status == 429,
+          // 429 n'est PAS réessayable : c'est une demande de patienter, pas
+          // une panne passagère. Le marqué comme réessayable faisait boucler
+          // l'application contre le quota, et le panel bloquait d'autant plus
+          // longtemps — Films et Séries restaient vides au lieu de revenir.
+          isRetriable: status != 429,
         );
       case DioExceptionType.unknown:
         return StreamNetworkException(
