@@ -7,14 +7,14 @@ void main() {
     test('la forme usuelle est reconnue', () {
       expect(LanguageLabel.of('fr_forced'), 'Français (forcé)');
       expect(LanguageLabel.of('fr-forced'), 'Français (forcé)');
-      expect(LanguageLabel.of('eng_forced'), 'English (forcé)');
+      expect(LanguageLabel.of('eng_forced'), 'Anglais (forcé)');
     });
 
     test('la forme inversée est reconnue aussi', () {
       // Sans ce cas, le premier jeton vaut « forced » et s'affiche comme un nom
       // de langue.
       expect(LanguageLabel.of('forced_fr'), 'Français (forcé)');
-      expect(LanguageLabel.of('forced-en'), 'English (forcé)');
+      expect(LanguageLabel.of('forced-en'), 'Anglais (forcé)');
     });
 
     test('la forme collée et le nom de fichier sont reconnus', () {
@@ -39,7 +39,7 @@ void main() {
     test('SDH et malentendants', () {
       expect(
         LanguageLabel.of('en_sdh'),
-        'English (sourds et malentendants)',
+        'Anglais (sourds et malentendants)',
       );
       expect(
         LanguageLabel.of('fr-cc'),
@@ -63,7 +63,20 @@ void main() {
 
     test('un libellé déjà rédigé reste tel quel', () {
       expect(LanguageLabel.of('Français'), 'Français');
-      expect(LanguageLabel.of('English (forced)'), 'English (forcé)');
+      // « English » est aussi une clé de la table, donc il est traduit :
+      // « Anglais (forcé) ». Les modificateurs, eux, s'appliquent dans la
+      // langue de l'interface — « forced » devient « forcé ».
+      expect(LanguageLabel.of('English (forced)'), 'Anglais (forcé)');
+    });
+
+    test('la langue suit celle de l’interface', () {
+      // La piste s'affiche dans la langue de l'utilisateur : « Anglais » pour
+      // une interface française, « English » pour une interface anglaise.
+      expect(LanguageLabel.of('en'), 'Anglais');
+      expect(LanguageLabel.of('en', localeCode: 'en'), 'English');
+      expect(LanguageLabel.of('de'), 'Allemand');
+      expect(LanguageLabel.of('it'), 'Italien');
+      expect(LanguageLabel.of('nl'), 'Néerlandais');
     });
   });
 

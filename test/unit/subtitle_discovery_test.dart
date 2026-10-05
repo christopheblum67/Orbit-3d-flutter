@@ -31,7 +31,7 @@ void main() {
       );
       expect(tracks.map((t) => t.language), ['fre', 'eng', 'esp']);
       expect(tracks.first.label, 'Français');
-      expect(tracks[1].label, 'English');
+      expect(tracks[1].label, 'Anglais');
     });
 
     test('accepte les noms de langue complets', () {
@@ -48,7 +48,7 @@ void main() {
       // Un nom de langue connu est traduit : l'app est localisée, et un
       // utilisateur francophone ne doit pas lire « French ».
       expect(tracks.first.label, 'Français');
-      expect(tracks[1].label, 'Deutsch');
+      expect(tracks[1].label, 'Allemand');
     });
 
     test('sans contexte, une liste de codes ne produit aucune piste', () {

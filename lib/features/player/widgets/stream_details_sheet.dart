@@ -445,7 +445,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                             else
                               for (final track in _audioTracks)
                                 _TrackTile(
-                                  title: _audioLabel(track, l),
+                                  title: _audioLabel(context, track, l),
                                   // Pas de ligne de métadonnées : les pistes
                                   // audio s'identifient par leur langue, et
                                   // les canaux/codecs n'aidaient pas à choisir.
@@ -581,7 +581,11 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
           // Langue seule. L'URL de la piste n'a aucun intérêt pour
           // l'utilisateur et occupait la ligne du dessous, où l'on attendait
           // l'intitulé.
-          title: LanguageLabel.of(track.language, fallback: track.label),
+          title: LanguageLabel.of(
+            track.language,
+            fallback: track.label,
+            localeCode: Localizations.localeOf(context).languageCode,
+          ),
           subtitle: null,
           // La piste active est un `SubtitleTrack` (des cues), pas une
           // référence : l'identité se lit donc sur le libellé, le seul champ
@@ -727,12 +731,21 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// Español, et toutes les autres formesCourantes). Sans cela la liste
   /// affichait « eng » ou « fre », ce qui n'est pas une information pour
   /// l'utilisateur.
-  static String _audioLabel(VideoAudioTrack track, AppLocalizations l) {
+  static String _audioLabel(
+    BuildContext context,
+    VideoAudioTrack track,
+    AppLocalizations l,
+  ) {
+    final locale = Localizations.localeOf(context).languageCode;
     final label = track.label;
     if (label != null && label.isNotEmpty && label != 'Audio') {
-      return LanguageLabel.of(label, fallback: label);
+      return LanguageLabel.of(label, fallback: label, localeCode: locale);
     }
-    return LanguageLabel.of(track.language, fallback: l.audioTrackFallback);
+    return LanguageLabel.of(
+      track.language,
+      fallback: l.audioTrackFallback,
+      localeCode: locale,
+    );
   }
 
   static String _videoLabel(VideoTrack track, AppLocalizations l) {
