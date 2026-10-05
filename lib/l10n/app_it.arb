@@ -395,5 +395,6 @@
   "advancedAccessHint": "Codice",
   "advancedAccessConfirm": "Apri",
   "advancedAccessWrong": "Codice errato",
-  "advancedHiddenHint": "Tieni premuto per le impostazioni avanzate"
+  "advancedHiddenHint": "Tieni premuto per le impostazioni avanzate",
+  "favoritesAndDownloads": "Preferiti e Download"
 }

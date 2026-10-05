@@ -395,5 +395,6 @@
   "advancedAccessHint": "Code",
   "advancedAccessConfirm": "Öffnen",
   "advancedAccessWrong": "Falscher Code",
-  "advancedHiddenHint": "Für erweiterte Einstellungen gedrückt halten"
+  "advancedHiddenHint": "Für erweiterte Einstellungen gedrückt halten",
+  "favoritesAndDownloads": "Favoriten & Downloads"
 }

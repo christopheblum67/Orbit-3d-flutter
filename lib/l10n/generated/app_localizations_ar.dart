@@ -1274,4 +1274,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get advancedHiddenHint => 'اضغط مطولاً للإعدادات المتقدمة';
+
+  @override
+  String get favoritesAndDownloads => 'المفضلة والتنزيلات';
 }

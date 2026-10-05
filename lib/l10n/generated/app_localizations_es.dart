@@ -1298,4 +1298,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get advancedHiddenHint => 'Mantén pulsado para los ajustes avanzados';
+
+  @override
+  String get favoritesAndDownloads => 'Favoritos y Descargas';
 }

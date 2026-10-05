@@ -2481,6 +2481,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Maintenir appuyé pour les réglages avancés'**
   String get advancedHiddenHint;
+
+  /// No description provided for @favoritesAndDownloads.
+  ///
+  /// In fr, this message translates to:
+  /// **'Favoris et Téléchargements'**
+  String get favoritesAndDownloads;
 }
 
 class _AppLocalizationsDelegate

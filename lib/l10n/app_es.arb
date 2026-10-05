@@ -395,5 +395,6 @@
   "advancedAccessHint": "Código",
   "advancedAccessConfirm": "Abrir",
   "advancedAccessWrong": "Código incorrecto",
-  "advancedHiddenHint": "Mantén pulsado para los ajustes avanzados"
+  "advancedHiddenHint": "Mantén pulsado para los ajustes avanzados",
+  "favoritesAndDownloads": "Favoritos y Descargas"
 }

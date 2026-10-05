@@ -65,25 +65,20 @@ class HomeMenuDrawer extends ConsumerWidget {
           ),
         ],
       ),
-      _MenuSection(
+_MenuSection(
         header: l.myContent,
         items: [
+          // Une seule entrée pour les deux listes. Elles sont sur le même
+          // écran, en onglets : deux entrées qui ouvrent le même écran sur deux
+          // onglets différents n'aidaient pas à choisir.
           _MenuEntry(
             icon: Icons.favorite,
-            label: l.favorites,
+            label: l.favoritesAndDownloads,
             route: '/favorites',
           ),
-          // Téléchargements n'avait aucune entrée : la route existait, aucun
-          // lien n'y menait. Les deux pointsent le même écran, sur l'onglet
-          // correspondant.
           _MenuEntry(
-            icon: Icons.download,
-            label: l.downloads,
-            route: '/downloads',
-          ),
-_MenuEntry(
-        icon: Icons.history,
-        label: l.history,
+            icon: Icons.history,
+            label: l.history,
             route: '/history',
           ),
           _MenuEntry(

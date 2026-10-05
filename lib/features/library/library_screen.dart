@@ -83,7 +83,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: Text(l.myContent),
+        title: Text(l.favoritesAndDownloads),
         actions: [
           // L'action reste sur l'onglet Favoris et suit l'onglet sélectionné :
           // « tout supprimer » n'a pas de sens sur les téléchargements.

@@ -1300,4 +1300,7 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get advancedHiddenHint =>
       'Für erweiterte Einstellungen gedrückt halten';
+
+  @override
+  String get favoritesAndDownloads => 'Favoriten & Downloads';
 }

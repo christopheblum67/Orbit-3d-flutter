@@ -1299,4 +1299,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get advancedHiddenHint => 'Tieni premuto per le impostazioni avanzate';
+
+  @override
+  String get favoritesAndDownloads => 'Preferiti e Download';
 }

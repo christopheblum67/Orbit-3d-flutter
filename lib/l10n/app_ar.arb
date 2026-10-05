@@ -395,5 +395,6 @@
   "advancedAccessHint": "الرمز",
   "advancedAccessConfirm": "فتح",
   "advancedAccessWrong": "رمز غير صحيح",
-  "advancedHiddenHint": "اضغط مطولاً للإعدادات المتقدمة"
+  "advancedHiddenHint": "اضغط مطولاً للإعدادات المتقدمة",
+  "favoritesAndDownloads": "المفضلة والتنزيلات"
 }

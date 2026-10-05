@@ -1285,4 +1285,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get advancedHiddenHint => 'Long press for advanced settings';
+
+  @override
+  String get favoritesAndDownloads => 'Favorites & Downloads';
 }
