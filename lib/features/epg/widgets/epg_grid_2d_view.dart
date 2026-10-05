@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
 /// Grille EPG haute performance avec CustomPainter (canvas unique).
@@ -479,67 +483,77 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     const rowHeight = 60.0;
     const channelWidth = 140.0;
 
+    /// Abscisse à laquelle commence l'axe du temps, en pixels depuis la
+    /// gauche de la grille.
+    ///
+    /// Colonnes des noms (140) plus gouttière (4). Cette valeur doit servir
+    /// aux TROIS emplacements qui partagent le même repère : la bande de
+    /// l'axe, la position de la ligne « maintenant », et la lecture d'une
+    /// abscisse en heure. C'était la duplication de `channelWidth` partout,
+    /// sans la gouttière, qui produisait un décalage de quelques pixels —
+    /// et l'axe, plus loin encore, un décalage de dizaines de minutes.
+    const gridLeftInset = channelWidth + 4.0;
+
     return Container(
       color: const Color(0xFF0D0E12),
       child: Column(
         children: [
           // Frise temporelle + barre de navigation
+          //
+          // L'axe doit COMMENCER AU MÊME X QUE LA GRILLE. Les boutons de
+          // navigation étaient entre la colonne des noms et la frise : la
+          // frise démarrait donc ~150 px plus loin, et chaque libellé d'heure
+          // se lisait à ce décalage. La ligne « maintenant », correctement
+          // posée sur la grille, tombait alors vers 7 h 35 quand l'axe
+          // annonçait l'heure réelle.
+          //
+          // Les boutons occupent désormais la bande gauche — celle des noms
+          // de chaînes, large de `gridLeftInset` — et l'axe s'ouvre juste
+          // après, aligné sur la grille.
           Container(
             height: 44,
             color: const Color(0xFF0D0E12),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                Container(
-                  width: channelWidth,
-                  alignment: Alignment.center,
-                  child: Text(
-                    l.epgLiveNow,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
+                SizedBox(
+                  width: gridLeftInset,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _AxisButton(
+                        icon: Icons.zoom_out,
+                        tooltip: l.epgZoomOut,
+                        onPressed: _zoomOut,
+                      ),
+                      _AxisButton(
+                        icon: Icons.access_time,
+                        tooltip: l.epgNow,
+                        color: const Color(0xFF8B5CF6),
+                        onPressed: () =>
+                            _timelineController.jumpTo(DateTime.now()),
+                      ),
+                      _AxisButton(
+                        icon: Icons.zoom_in,
+                        tooltip: l.epgZoomIn,
+                        onPressed: _zoomIn,
+                      ),
+                      // Facteur de zoom courant : l'utilisateur sait où il en
+                      // est, et il sait que le bouton a atteint sa borne.
+                      SizedBox(
+                        width: 30,
+                        child: Text(
+                          '${_zoomFactor.toStringAsFixed(1)}×',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.zoom_out, size: 18),
-                  tooltip: l.epgZoomOut,
-                  color: Colors.white70,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _zoomOut,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.access_time, size: 18),
-                  tooltip: l.epgNow,
-                  color: const Color(0xFF8B5CF6),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    _timelineController.jumpTo(DateTime.now());
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.zoom_in, size: 18),
-                  tooltip: l.epgZoomIn,
-                  color: Colors.white70,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _zoomIn,
-                ),
-                // Facteur de zoom courant : l'utilisateur sait où il en est,
-                // et il sait que le bouton a atteint sa borne.
-                Container(
-                  width: 34,
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${_zoomFactor.toStringAsFixed(1)}×',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomLeft,
@@ -748,6 +762,53 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   }
 }
 
+/// Gouttière entre la colonne des noms et la grille, en pixels.
+///
+/// C'est cette valeur qui manquait dans le calcul de la position de la ligne
+/// « maintenant » et dans la lecture inverse de l'abscisse. Elle est déclarée
+/// une fois et réutilisée : jamais recalculée à la main.
+const double kGridLeftInset = 4.0;
+
+/// Bouton compact du bandeau d'axe.
+///
+/// Trois boutons doivent tenir dans la bande des noms de chaînes, 144 px. Un
+/// `IconButton` en prend 40 px même en densité compacte, et déborde de 6 px.
+/// On impose donc la taille exacte avec un `SizedBox`, et l'info-bulle à la
+/// main — `IconButton` ne permet pas de borner l'encombrement sans conflit
+/// avec sa zone tactile.
+class _AxisButton extends StatelessWidget {
+  const _AxisButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color = Colors.white70,
+  });
+
+  /// 32 px : trois boutons et le facteur tiennent dans 144 px.
+  static const double size = 32.0;
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(icon, size: 18, color: color),
+        ),
+      ),
+    );
+  }
+}
+
 /// Programme préparé pour le rendu (positions précalculées).
 class _RenderProgram {
   final EPGProgram program;
@@ -809,7 +870,33 @@ class _NowLineOverlay extends StatelessWidget {
         return ValueListenableBuilder<DateTime>(
           valueListenable: controller.now,
           builder: (context, now, _) {
-            final x = channelWidth + controller.timeToPixels(now) - offset;
+            final x = channelWidth + kGridLeftInset + controller.timeToPixels(now) - offset;
+
+            // Mesure du décalage, et non plus supposition.
+            //
+            // « La ligne rouge n'est pas à la bonne heure » a resistsé à une
+            // correction : la ligne et la frise partageaient déjà le même
+            // contrôleur. Reste à savoir de combien elles divergent, et dans
+            // quel sens — sans nombre, tout correctif suivant serait une
+            // hypothèse de plus.
+            //
+            // On relit l'heure que la frise affichera à cette position x, via
+            // la même conversion aller-retour, en retirant la colonne des noms
+            // que la ligne franchit en plus.
+            final axisTime = controller.pixelsToTime(
+              x - channelWidth - kGridLeftInset + offset,
+            );
+            final drift = now.difference(axisTime).inSeconds;
+            if (drift.abs() >= 30) {
+              LoggerService.instance.info(
+                'EPG : ligne « maintenant » décalée de ${drift}s — '
+                'axe=$axisTime grille=$now '
+                '(décalage=$offset, colonne=$channelWidth, '
+                'densité=${controller.pixelsPerMinuteValue})',
+                tag: 'epg',
+              );
+            }
+
             return ExcludeSemantics(
               child: CustomPaint(
                 painter: _NowLinePainter(x),
