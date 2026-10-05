@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_grid_card.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -697,12 +698,18 @@ class _ReplaySlotRow extends StatelessWidget {
                         Icons.play_circle_outline_rounded,
                         size: 26,
                       ),
+                      const SizedBox(width: 8),
+                      FavoriteToggle(entry: _favoriteEntry),
                     ],
                   ),
                 ] else
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Icon(Icons.play_circle_outline_rounded, size: 26),
+                  Row(
+                    children: [
+                      const Spacer(),
+                      const Icon(Icons.play_circle_outline_rounded, size: 26),
+                      const SizedBox(width: 8),
+                      FavoriteToggle(entry: _favoriteEntry),
+                    ],
                   ),
               ],
             ),
@@ -712,10 +719,26 @@ class _ReplaySlotRow extends StatelessWidget {
     );
   }
 
+  /// Libellé de l'intervalle, repris par le bouton favori et par la lecture.
+  String get _slotSubtitle => slot.startTime.isEmpty
+      ? 'Replay disponible'
+      : '${slot.startTime} - ${slot.endTime}';
+
+  /// Entrée favorite du créneau.
+  ///
+  /// L'onglet Replay des favoris était vide : rien ne permetait d'y ajouter
+  /// un replay, `ContentType.replay` n'étant créé que pour l'historique de
+  /// lecture. Ce bouton est ce qui manquait.
+  FavoriteEntry get _favoriteEntry => FavoriteEntry(
+        type: ContentType.replay,
+        id: slot.id,
+        title: slot.title,
+        subtitle: _slotSubtitle,
+        streamUrl: slot.streamUrl,
+      );
+
   void _play(BuildContext context) {
-    final subtitle = slot.startTime.isEmpty
-        ? 'Replay disponible'
-        : '${slot.startTime} - ${slot.endTime}';
+    final subtitle = _slotSubtitle;
     context.push(
       '/player',
       extra: PlayerRouteData(
