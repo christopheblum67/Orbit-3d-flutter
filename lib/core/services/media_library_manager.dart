@@ -15,6 +15,9 @@ enum SortMode {
   durationLong, // Durée : Plus longs d'abord
 }
 
+/// Epoch utilisé comme borne basse des dates de lecture, hors comparateur.
+final DateTime _epoch = DateTime.fromMillisecondsSinceEpoch(0);
+
 /// Modèle Unifié pour Chaîne, Film ou Série
 class MediaItem {
   final String id;
@@ -155,18 +158,30 @@ class MediaLibraryManager extends ChangeNotifier {
 
   /// Moteur de tri appliqué à une liste
   List<MediaItem> applySort(List<MediaItem> inputList, SortMode mode) {
+    // Tri par nom : clé de comparaison calculée UNE fois par item.
+    //
+    // `a.title.toLowerCase().compareTo(b.title.toLowerCase())` allouait deux
+    // chaînes À CHAQUE comparaison. `List.sort` est un quicksort dual-pivot en
+    // place, donc O(n log n) comparaisons : trier 10 000 films produisait
+    // ~260 000 allocations de chaînes, et ce tri se relançait à chaque frappe
+    // au clavier dans la grille VOD.
+    if (mode == SortMode.nameAsc || mode == SortMode.nameDesc) {
+      final keyed = [
+        for (final item in inputList) (item, item.title.toLowerCase()),
+      ];
+      keyed.sort(mode == SortMode.nameAsc
+          ? (a, b) => a.$2.compareTo(b.$2)
+          : (a, b) => b.$2.compareTo(a.$2));
+      return [for (final e in keyed) e.$1];
+    }
+
     final List<MediaItem> sorted = List.from(inputList);
 
     switch (mode) {
       case SortMode.nameAsc:
-        sorted.sort(
-          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        );
-        break;
       case SortMode.nameDesc:
-        sorted.sort(
-          (a, b) => b.title.toLowerCase().compareTo(a.title.toLowerCase()),
-        );
+        // Inatteignables : traités et retournés avant le switch. Conservés
+        // uniquement pour l'exhaustivité de l'analyse de switch.
         break;
       case SortMode.ratingDesc:
         sorted.sort((a, b) => b.rating.compareTo(a.rating));
@@ -191,9 +206,11 @@ class MediaLibraryManager extends ChangeNotifier {
         sorted.sort((a, b) {
           if (a.isUnfinished && !b.isUnfinished) return -1;
           if (!a.isUnfinished && b.isUnfinished) return 1;
-          final aTime = a.lastWatchedAt ?? DateTime(1970);
-          final bTime = b.lastWatchedAt ?? DateTime(1970);
-          return bTime.compareTo(aTime);
+          // Constante hissée hors du comparateur : `DateTime(1970)` était
+          // alloué à chaque comparaison pour chaque item sans date de lecture,
+          // soit O(n log n) allocations pour un tri.
+          return (b.lastWatchedAt ?? _epoch)
+              .compareTo(a.lastWatchedAt ?? _epoch);
         });
         break;
       case SortMode.durationShort:

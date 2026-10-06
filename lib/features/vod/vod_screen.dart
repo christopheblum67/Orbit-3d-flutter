@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/features/vod/vod_catalog_pipeline.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
@@ -30,12 +32,69 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  /// Pipeline catalogue mémoïsé.
+  ///
+  /// Le catalogue fait ~100 000 entrées. Tout ce travail tournait dans
+  /// uild(), donc à chaque frappe au clavier (setState(_query)) :
+  /// refiltrage par catégorie sur 100 000 films, 	oLowerCase() sur le titre ET
+  /// le genre de chaque film (~200 000 allocations), une allocation de
+  /// MediaItem par film filtré, puis un tri, une Map id'film et un map-back
+  /// vers Movie. GridView.builder était bien virtualise, mais ce travail en
+  /// amont annulait tout le benefice.
+  ///
+  /// La logique est extraite et testee dans VodCatalogPipeline.
+  late final VodCatalogPipeline _pipeline = VodCatalogPipeline(
+    sorter: (movies, mode) => _sortAndMapBack(movies, mode),
+  );
+
+  /// Tri des films puis retour aux Movie d'origine.
+  List<Movie> _sortAndMapBack(List<Movie> source, String mode) {
+    final libraryManager = ref.read(mediaLibraryManagerProvider);
+    final mediaItems = source
+        .map(
+          (m) => MediaItem(
+            id: m.id,
+            title: m.title,
+            streamUrl: m.streamUrl,
+            posterUrl: m.posterUrl,
+            categoryId: m.categoryId,
+            rating: m.rating,
+            releaseYear: m.year,
+            durationMinutes: 0, // Movie model doesn't have duration
+            // Date d'ajout reelle du panel (champ Xtream dded) : avec
+            // DateTime.now() tous les films avaient la meme date et le tri
+            // « recemment ajoute » revenait a l'ordre de la liste source.
+            addedDate: m.addedDate,
+          ),
+        )
+        .toList();
+    final sortedItems =
+        libraryManager.applySort(mediaItems, _sortModeFrom(mode));
+    // Index direct au lieu d'une Map de N entrees suivie d'un irstWhere
+    // de repli : la Map etait reconstruite a chaque build puis reparcourue.
+    final byId = <String, Movie>{
+      for (final m in source)
+        if (m.id.isNotEmpty) m.id: m,
+    };
+    final result = <Movie>[];
+    for (final item in sortedItems) {
+      final movie = byId[item.id];
+      if (movie != null) {
+        result.add(movie);
+      } else if (source.isNotEmpty) {
+        // Repli historique : un item trie sans film correspondant retombait
+        // sur le premier film de la liste.
+        result.add(source.first);
+      }
+    }
+    return result;
   }
 
+  /// Nom du mode de tri, pour cle d'egalite stable dans le pipeline.
+  static String _sortModeName(SortMode mode) => mode.name;
+
+  static SortMode _sortModeFrom(String name) =>
+      SortMode.values.firstWhere((m) => m.name == name);
   void _openSortDialog() {
     SortOptionsDialogTV.show(
       context,
@@ -89,20 +148,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               message: 'La bibliothèque VOD est vide pour le moment.',
             );
           }
-          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
-              .where((c) => !hiddenCategories.contains(c.id))
-              .toList(growable: false);
-          // Filtrée par catégories masquées ; distincte de `visibleMovies`
-          // (plus bas) qui ne fait que réordonner selon le tri choisi.
-          final categoryVisibleMovies = hiddenCategories.isEmpty
-              ? movies
-              : movies
-                  .where((m) => !hiddenCategories.contains(m.categoryId))
-                  .toList(growable: false);
-          final categories = _withRealCounts(
-            serverCategories,
-            categoryVisibleMovies.map((m) => m.categoryId),
-          );
           final vodFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.vod)
               .map((e) => e.id)
@@ -111,90 +156,37 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               .where((e) => e.type == ContentType.vod)
               .map((e) => e.id)
               .toSet();
+          // Un seul passage sur le catalogue : categories, filtres, recherche
+          // et tri sont memoises dans le pipeline.
+          final catalog = _pipeline.apply(
+            movies: movies,
+            hiddenCategories: hiddenCategories,
+            categoryId: _selectedCategoryId,
+            favoriteIds: vodFavIds,
+            recentIds: vodRecentIds,
+            query: _query,
+            sortMode: _sortModeName(_selectedSortMode),
+          );
+          final visibleMovies = catalog.visibleMovies;
+          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+              .where((c) => !hiddenCategories.contains(c.id))
+              .toList(growable: false);
+          // Les compteurs du rail viennent du pipeline, qui les a déjà
+          // calculés sur les films hors catégories masquées. On ne recompte
+          // donc pas 100 000 films à chaque build.
+          final categories = _withRealCounts(
+            serverCategories,
+            catalog.categoryCounts,
+          );
           final railCategories = <MediaCategory>[
+            MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
             MediaCategory(
-                id: '', name: 'Tous', count: categoryVisibleMovies.length),
+                id: 'fav', name: 'Favoris', count: catalog.favoriteCount),
             MediaCategory(
-              id: 'fav',
-              name: 'Favoris',
-              count: categoryVisibleMovies
-                  .where((m) => vodFavIds.contains(m.id))
-                  .length,
-            ),
-            MediaCategory(
-              id: 'recent',
-              name: 'Récemment',
-              count: categoryVisibleMovies
-                  .where((m) => vodRecentIds.contains(m.id))
-                  .length,
-            ),
+                id: 'recent', name: 'Récemment', count: catalog.recentCount),
             ...categories,
           ];
-          final q = _query.trim().toLowerCase();
-          final List<Movie> filteredMovies;
-          if (_selectedCategoryId == 'fav') {
-            final favIds = favoriteEntries.values
-                .where((e) => e.type == ContentType.vod)
-                .map((e) => e.id)
-                .toSet();
-            filteredMovies = categoryVisibleMovies
-                .where((m) => favIds.contains(m.id))
-                .toList();
-          } else if (_selectedCategoryId == 'recent') {
-            // `vodRecentIds` est déjà construit plus haut (l.108) : en
-            // recalculer un second ensemble identique ici coûtait une seconde
-            // itération sur toutes les entrées pour rien.
-            filteredMovies = categoryVisibleMovies
-                .where((m) => vodRecentIds.contains(m.id))
-                .toList();
-          } else if (_selectedCategoryId.isEmpty) {
-            filteredMovies = categoryVisibleMovies;
-          } else {
-            filteredMovies = categoryVisibleMovies
-                .where((movie) => movie.categoryId == _selectedCategoryId)
-                .toList();
-          }
-          final queryFiltered = q.isEmpty
-              ? filteredMovies
-              : filteredMovies
-                  .where(
-                    (m) =>
-                        m.title.toLowerCase().contains(q) ||
-                        m.genre.toLowerCase().contains(q),
-                  )
-                  .toList();
-          final libraryManager = ref.read(mediaLibraryManagerProvider);
-          final mediaItems = queryFiltered
-              .map(
-                (m) => MediaItem(
-                  id: m.id,
-                  title: m.title,
-                  streamUrl: m.streamUrl,
-                  posterUrl: m.posterUrl,
-                  categoryId: m.categoryId,
-                  rating: m.rating,
-                  releaseYear: m.year,
-                  durationMinutes: 0, // Movie model doesn't have duration
-                  // Date d'ajout réelle du panel (champ Xtream `added`) : avec
-                  // DateTime.now() tous les films avaient la même date et le tri
-                  // « récemment ajouté » revenait à l'ordre de la liste source.
-                  addedDate: m.addedDate,
-                ),
-              )
-              .toList();
-          final sortedItems =
-              libraryManager.applySort(mediaItems, _selectedSortMode);
-          final movieById = <String, Movie>{
-            for (final m in queryFiltered)
-              if (m.id.isNotEmpty) m.id: m,
-          };
-          final visibleMovies = sortedItems.map<Movie>((item) {
-            return movieById[item.id] ??
-                queryFiltered.firstWhere(
-                  (m) => m.id == item.id,
-                  orElse: () => queryFiltered.first,
-                );
-          }).toList();
+
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -351,15 +343,11 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
   static List<MediaCategory> _withRealCounts(
     List<MediaCategory> serverCategories,
-    Iterable<String> itemCategoryIds,
+    Map<String, int> countsByCategory,
   ) {
-    final counts = <String, int>{};
-    for (final id in itemCategoryIds) {
-      if (id.isNotEmpty) counts[id] = (counts[id] ?? 0) + 1;
-    }
     return serverCategories
-        .where((c) => c.id.isNotEmpty && (counts[c.id] ?? 0) > 0)
-        .map((c) => c.copyWith(count: counts[c.id] ?? 0))
+        .where((c) => c.id.isNotEmpty && (countsByCategory[c.id] ?? 0) > 0)
+        .map((c) => c.copyWith(count: countsByCategory[c.id] ?? 0))
         .toList();
   }
 }

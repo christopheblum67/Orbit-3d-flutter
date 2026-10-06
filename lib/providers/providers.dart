@@ -126,16 +126,21 @@ final tvmazeServiceProvider = Provider<TvmazeService>((ref) {
 /// Classements populaires TMDB (onglet FlixPatrol de Parcourir).
 /// Changement de clé API (Réglages → override) ⇒ invalidation automatique.
 /// Un provider par couple (mode, film/série) pour stockage indépendant.
-final flixPatrolMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
-  (ref) {
-    ref.watch(tmdbApiKeyOverrideProvider);
-    return ref
-        .watch(tmdbServiceProvider)
-        .getRankings('/movie/popular', isTv: false);
-  },
-);
+///
+/// `autoDispose` sur les 10 classements : chacun retenait sa
+/// `List<TmdbRankEntry>` en mémoire pour toute la session dès la première
+/// consultation. Les résultats sont déjà en cache Hive (`getRankings` /
+/// `searchMovieLight`), donc les recharger après un aller-retour dans Parcourir
+/// ne rejoue pas le réseau.
+final flixPatrolMoviesProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>((ref) {
+  ref.watch(tmdbApiKeyOverrideProvider);
+  return ref
+      .watch(tmdbServiceProvider)
+      .getRankings('/movie/popular', isTv: false);
+});
 
-final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolTvProvider = FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -144,7 +149,8 @@ final flixPatrolTvProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolTrendingMoviesProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -153,7 +159,8 @@ final flixPatrolTrendingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolTrendingTvProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -162,7 +169,8 @@ final flixPatrolTrendingTvProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolTopRatedMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolTopRatedMoviesProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -171,7 +179,8 @@ final flixPatrolTopRatedMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolTopRatedTvProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolTopRatedTvProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -180,7 +189,8 @@ final flixPatrolTopRatedTvProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolNowPlayingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolNowPlayingMoviesProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -189,7 +199,8 @@ final flixPatrolNowPlayingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolUpcomingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolUpcomingMoviesProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -198,7 +209,8 @@ final flixPatrolUpcomingMoviesProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolOnTheAirTvProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolOnTheAirTvProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -207,7 +219,8 @@ final flixPatrolOnTheAirTvProvider = FutureProvider<List<TmdbRankEntry>>(
   },
 );
 
-final flixPatrolAiringTodayTvProvider = FutureProvider<List<TmdbRankEntry>>(
+final flixPatrolAiringTodayTvProvider =
+    FutureProvider.autoDispose<List<TmdbRankEntry>>(
   (ref) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref
@@ -222,8 +235,14 @@ final flixPatrolAiringTodayTvProvider = FutureProvider<List<TmdbRankEntry>>(
 /// mise en cache Hive 24h). Quota borné pour respecter le rate-limit TMDB :
 /// à chaque invalidation on avance d'une tranche, les films déjà enrichis
 /// (ou introuvables) étant mémorisés dans le cache Hive.
+///
+/// `autoDispose` : ce provider déclenchait jusqu'à 30 requêtes TMDB
+/// séquentielles dès l'ouverture d'une grille et, sans `autoDispose`, il
+/// les gardait en vie pour toute la session.
+/// `searchMovieLight` lit et écrit un cache Hive (y compris les résultats
+/// négatifs), donc le repasser après un aller-retour ne rejoue pas le réseau.
 final vodGridEnrichmentsProvider =
-    FutureProvider<Map<String, TmdbRankEntry>>((ref) async {
+    FutureProvider.autoDispose<Map<String, TmdbRankEntry>>((ref) async {
   ref.watch(tmdbApiKeyOverrideProvider);
   final movies = ref.watch(moviesProvider).value ?? const <Movie>[];
   if (movies.isEmpty) return const <String, TmdbRankEntry>{};
@@ -254,7 +273,7 @@ final vodGridEnrichmentsProvider =
 
 /// Films similaires TMDB (pour page détail film)
 final tmdbSimilarMoviesProvider =
-    FutureProvider.family<List<TmdbRankEntry>, int>(
+    FutureProvider.autoDispose.family<List<TmdbRankEntry>, int>(
   (ref, tmdbId) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref.watch(tmdbServiceProvider).getSimilarMovies(tmdbId);
@@ -262,7 +281,8 @@ final tmdbSimilarMoviesProvider =
 );
 
 /// Séries similaires TMDB (pour page détail série)
-final tmdbSimilarTvProvider = FutureProvider.family<List<TmdbRankEntry>, int>(
+final tmdbSimilarTvProvider =
+    FutureProvider.autoDispose.family<List<TmdbRankEntry>, int>(
   (ref, tmdbId) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref.watch(tmdbServiceProvider).getSimilarTv(tmdbId);
@@ -271,7 +291,7 @@ final tmdbSimilarTvProvider = FutureProvider.family<List<TmdbRankEntry>, int>(
 
 /// Recommandations films TMDB
 final tmdbMovieRecommendationsProvider =
-    FutureProvider.family<List<TmdbRankEntry>, int>(
+    FutureProvider.autoDispose.family<List<TmdbRankEntry>, int>(
   (ref, tmdbId) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref.watch(tmdbServiceProvider).getMovieRecommendations(tmdbId);
@@ -280,7 +300,7 @@ final tmdbMovieRecommendationsProvider =
 
 /// Recommandations séries TMDB
 final tmdbTvRecommendationsProvider =
-    FutureProvider.family<List<TmdbRankEntry>, int>(
+    FutureProvider.autoDispose.family<List<TmdbRankEntry>, int>(
   (ref, tmdbId) {
     ref.watch(tmdbApiKeyOverrideProvider);
     return ref.watch(tmdbServiceProvider).getTvRecommendations(tmdbId);
@@ -289,13 +309,13 @@ final tmdbTvRecommendationsProvider =
 
 /// Détail d'une personne TMDB (bio + filmographie) pour l'écran acteur
 final tmdbPersonDetailProvider =
-    FutureProvider.family<PersonDetail?, int>((ref, personId) {
+    FutureProvider.autoDispose.family<PersonDetail?, int>((ref, personId) {
   ref.watch(tmdbApiKeyOverrideProvider);
   return ref.watch(tmdbServiceProvider).getPersonDetail(personId);
 });
 
 /// Recherche TMDB d'une personne par nom (acteurs hors TMDB) → ID (0 si absent)
-final tmdbPersonSearchProvider = FutureProvider.family<int, String>(
+final tmdbPersonSearchProvider = FutureProvider.autoDispose.family<int, String>(
   (ref, name) async {
     ref.watch(tmdbApiKeyOverrideProvider);
     final id = await ref.watch(tmdbServiceProvider).searchPerson(name);
@@ -640,7 +660,7 @@ final seriesProvider = FutureProvider<List<Series>>(
 );
 
 final seriesInfoProvider =
-    FutureProvider.family<Series, String>((ref, seriesId) async {
+    FutureProvider.autoDispose.family<Series, String>((ref, seriesId) async {
   final api = ref.watch(apiServiceProvider);
   return api.fetchSeriesInfo(seriesId);
 });
@@ -668,12 +688,20 @@ final seriesCompactProvider = FutureProvider<List<SeriesCompact>>((ref) async {
 // ==================== DÉTAILS ENRICHIS (MovieDetail, SeriesDetail) ====================
 
 /// Film enrichi avec métadonnées TMDB/TVmaze/OMDB/IA
+///
+/// Volontairement NON `autoDispose`, contrairement aux `.family` TMDB voisins :
+/// la clé est l'objet `Movie` ENTIER. Un film sans `tmdbId` garde une identité
+/// neuve à chaque ouverture de sa fiche, donc un `.family` `autoDispose`
+/// keyé sur l'objet ne se réutiliserait jamais et frapperait le réseau à
+/// chaque visite. Gardé en mémoire, le résultat est réutilisé.
 final movieDetailProvider =
     FutureProvider.family<MovieDetail, Movie>((ref, movie) async {
   return ref.watch(enrichmentServiceProvider).enrichMovie(movie);
 });
 
 /// Série enrichie avec métadonnées TVmaze/TMDB/OMDB/IA
+///
+/// Idem [movieDetailProvider] : la clé est l'objet `Series` entier, pas un id.
 final seriesDetailProvider =
     FutureProvider.family<SeriesDetail, Series>((ref, series) async {
   return ref.watch(enrichmentServiceProvider).enrichSeries(series);
@@ -1253,16 +1281,15 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
 });
 
 /// Stream des tâches de téléchargement
-final downloadTasksStreamProvider = StreamProvider<List<DownloadTask>>((ref) {
+///
+/// `autoDispose` : ce `StreamProvider` maintient une subscription
+/// `box.watch()` Hive. Sans `autoDispose`, elle restait active pour toute la
+/// session même quand aucun écran n'affichait de téléchargements, et le
+/// `.toList()..sort()` complet se rejouait à chaque écriture de tâche.
+final downloadTasksStreamProvider =
+    StreamProvider.autoDispose<List<DownloadTask>>((ref) {
   final manager = ref.watch(downloadManagerProvider);
   return manager.tasksStream;
-});
-
-/// Nombre de téléchargements actifs
-final activeDownloadsCountProvider = StreamProvider<int>((ref) {
-  final manager = ref.watch(downloadManagerProvider);
-  return manager.tasksStream
-      .map((tasks) => tasks.where((t) => t.isActive).length);
 });
 
 class StreamAiException implements Exception {
