@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
+import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/live_channel_video.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -347,9 +348,7 @@ class _ChannelList extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             child: Material(
-              color: isSelected
-                  ? scheme.primaryContainer
-                  : Colors.transparent,
+              color: isSelected ? scheme.primaryContainer : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               // Geste tactile : sans lui, la seule façon de changer de chaîne
               // était la télécommande.
@@ -364,10 +363,18 @@ class _ChannelList extends StatelessWidget {
                       SizedBox(
                         width: 52,
                         height: 32,
-                        child: Image.network(
-                          channel.logoUrl,
+                        child: CachedImage(
+                          // 52x32 logiques : borné à ~112 px physiques, donc
+                          // pas de décodage d'un logo de 1024 px en mémoire
+                          // (une image `original` 2000×3000 = ~24 Mo).
+                          // Passe aussi par le cache disque partagé
+                          // (5000 objets, TTL 30 j) au lieu de le contourner.
+                          imageUrl: channel.logoUrl,
+                          width: 52,
+                          height: 32,
+                          memCacheWidth: 112,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorWidget: (_, __, ___) => Icon(
                             Icons.tv_rounded,
                             size: 20,
                             color: scheme.onSurfaceVariant,
@@ -381,9 +388,8 @@ class _ChannelList extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.bodyMedium?.copyWith(
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w400,
                           ),
                         ),
                       ),
@@ -440,15 +446,19 @@ class _ChannelStrip extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => onSelect(channel),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Image.network(
-                          channel.logoUrl,
+                        child: CachedImage(
+                          // Bandeau horizontal : la bande défilait en
+                          // logos décodés en pleine résolution.
+                          imageUrl: channel.logoUrl,
+                          memCacheWidth: 112,
                           fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorWidget: (_, __, ___) => Icon(
                             Icons.tv_rounded,
                             size: 20,
                             color: scheme.onSurfaceVariant,
@@ -461,12 +471,11 @@ class _ChannelStrip extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style:
-                            Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w400,
-                                ),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
                       ),
                     ],
                   ),
@@ -602,9 +611,7 @@ class _EpgRow extends StatelessWidget {
                   ),
                 ),
                 // La description n'a de la place que sur les écrans larges.
-                if (!dense &&
-                    program.description.isNotEmpty &&
-                    isCurrent) ...[
+                if (!dense && program.description.isNotEmpty && isCurrent) ...[
                   const SizedBox(height: 2),
                   Text(
                     program.description,

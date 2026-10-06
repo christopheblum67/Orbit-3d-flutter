@@ -100,7 +100,18 @@ class MediaCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final fontScale = ref.watch(preferencesProvider).fontScale;
+    // `select` sur le seul champ consommé, et non sur l'objet entier.
+    //
+    // `MediaCard` est instancié des milliers de fois dans les grilles. Sans
+    // `select`, *toute* écriture dans `preferencesProvider` — thème, langue,
+    // notifications, contrôle parental… — invalidait le provider et
+    // reconstruisait toutes les tuiles visibles de toutes les grilles, pour
+    // un unique `double`.
+    final fontScale = ref.watch(preferencesProvider.select((p) => p.fontScale));
+    // Largeur de decode en pixels physiques, arrondie à un multiple de 64 pour
+    // éviter un redimensionnement par contrainte non entière.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final posterDecodeWidth = (200 * dpr / 64).ceil() * 64;
     final metaStyle = TextStyle(
       color: scheme.onSurfaceVariant,
       fontSize: 12 * fontScale,
@@ -126,14 +137,27 @@ class MediaCard extends ConsumerWidget {
                         ? OrbitCachedImage(
                             imageUrl: posterUrl,
                             fit: posterFit,
+                            // Décodage mémoire borné à la taille réelle.
+                            //
+                            // `maxWidthDiskCache: 800` ne limitait que le
+                            // FICHIER disque ; sans `memCacheWidth`, Flutter
+                            // décodait l'affiche en pleine résolution. Une
+                            // image TMDB `original` (2000×3000) = ~24 Mo en
+                            // cache mémoire, et quelques dizaines de tuiles
+                            // visibles suffisaient à dépasser les centaines
+                            // de Mo sur TV.
+                            memCacheWidth: posterDecodeWidth,
                             placeholder: (context, url) => _PosterFallback(
-                                scheme: scheme, icon: fallbackIcon,),
+                              scheme: scheme,
+                              icon: fallbackIcon,
+                            ),
                             errorWidget: (context, url, error) =>
                                 _PosterFallback(
-                                    scheme: scheme, icon: fallbackIcon,),
+                              scheme: scheme,
+                              icon: fallbackIcon,
+                            ),
                           )
-                        : _PosterFallback(
-                            scheme: scheme, icon: fallbackIcon),
+                        : _PosterFallback(scheme: scheme, icon: fallbackIcon),
                   ),
                   if (ageLabel != null && ageLabel!.isNotEmpty)
                     Positioned(
@@ -252,10 +276,8 @@ class MediaCard extends ConsumerWidget {
                         .titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
-const SizedBox(height: 4),
-                  if (year > 0 ||
-                          genre.isNotEmpty ||
-                          _voteCountLabel != null)
+                  const SizedBox(height: 4),
+                  if (year > 0 || genre.isNotEmpty || _voteCountLabel != null)
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
@@ -263,7 +285,8 @@ const SizedBox(height: 4),
                       children: [
                         if (year > 0) Text('$year', style: metaStyle),
                         if (genre.isNotEmpty) Text(genre, style: metaStyle),
-                        if (_voteCountLabel != null) Text(_voteCountLabel!, style: metaStyle),
+                        if (_voteCountLabel != null)
+                          Text(_voteCountLabel!, style: metaStyle),
                       ],
                     ),
                   if (overview != null && overview!.isNotEmpty) ...[
@@ -329,7 +352,6 @@ class _AffinityBadge extends StatelessWidget {
 
 class _PosterFallback extends StatelessWidget {
   const _PosterFallback({required this.scheme, required this.icon});
-
 
   final ColorScheme scheme;
   final IconData icon;

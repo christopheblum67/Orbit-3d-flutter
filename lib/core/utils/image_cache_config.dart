@@ -14,4 +14,17 @@ class OrbitCacheManager extends CacheManager {
             maxNrOfCacheObjects: 5000,
           ),
         );
+
+  /// Instance unique partagée par tous les widgets d'image.
+  ///
+  /// La classe était instanciée dans le `build()` de chaque
+  /// `OrbitCachedImage`/`CachedImage` : sur une grille VOD, chaque frappe au
+  /// clavier reconstruisait le parent, donc ~40 `CacheManager` + ~40 `Config`
+  /// par frappe. Le cache disque était déjà partagé (même clé
+  /// `orbit_image_cache`) ; seule l'instance était dupliquée.
+  ///
+  /// `CacheManager` est sans état par requête et thread-safe côté API
+  /// publique : une instance unique change le comportement du cache, pas celui
+  /// des images.
+  static final OrbitCacheManager shared = OrbitCacheManager();
 }

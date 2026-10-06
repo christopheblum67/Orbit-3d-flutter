@@ -1,6 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:orbit_3d_flutter/core/utils/image_cache_config.dart';
 
 /// Wrapper `CachedNetworkImage` avec configuration de cache bornée par défaut.
 ///
@@ -33,9 +33,6 @@ class CachedImage extends StatelessWidget {
   final Duration fadeInDuration;
   final Duration fadeOutDuration;
   final FilterQuality filterQuality;
-
-  // Config de cache bornée (statique = appliquée à toutes les instances)
-  static const int _maxObjects = 5000;
 
   @override
   Widget build(BuildContext context) {
@@ -70,13 +67,9 @@ class CachedImage extends StatelessWidget {
       filterQuality: filterQuality,
       maxWidthDiskCache: 800,
       maxHeightDiskCache: 800,
-      cacheManager: CacheManager(
-        Config(
-          'orbit_image_cache',
-          stalePeriod: const Duration(days: 30),
-          maxNrOfCacheObjects: _maxObjects,
-        ),
-      ),
+      // Instance partagée : `Config` était reconstruite à chaque `build`.
+      // Même clé disque `orbit_image_cache`, donc aucun changement de cache.
+      cacheManager: OrbitCacheManager.shared,
     );
   }
 }

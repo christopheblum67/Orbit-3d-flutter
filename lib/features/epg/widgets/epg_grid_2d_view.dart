@@ -133,9 +133,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       _ownsTimelineController = true;
     }
     _timelineController.scheduledJump.addListener(_consumeJump);
-    _timelineController.targetedChannel.addListener(
-      () => _revealChannel(_timelineController.targetedChannel.value ?? ''),
-    );
+    // Listener nommé, retiré en symétrie dans `dispose()`.
+    //
+    // La closure anonyme était irrattrapable : impossible de la retirer, donc
+    // elle retenait ce State — donc `_renderCache`, le cache de rendu de
+    // TOUTES les chaînes × TOUS les programmes, l'objet le plus lourd de
+    // l'écran. Et comme `EpgScreen` recrée la grille à chaque changement de
+    // catégorie, la fuite se cumulait à chaque navigation.
+    _timelineController.targetedChannel.addListener(_onTargetedChannel);
 
     // La colonne des noms suit le défilement vertical de la grille. Recopie
     // d'offset, pas partage de controller : Flutter n'autorise qu'une position
@@ -170,6 +175,13 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   void dispose() {
     _timer.cancel();
     _timelineController.scheduledJump.removeListener(_consumeJump);
+    // Symétrique de l'abonnement. Sans cette ligne, chaque changement de
+    // catégorie de chaîne empilait un State et son cache de rendu.
+    //
+    // Le contrôleur, lui, n'est PAS disposé : `EpgScreen` le crée et le
+    // partage, donc il survit à cette grille — c'est bien ce qui rendait la
+    // fuite silencieuse.
+    _timelineController.targetedChannel.removeListener(_onTargetedChannel);
     if (_ownsTimelineController) {
       _timelineController.dispose();
     }
@@ -205,6 +217,15 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     if (target == null) return;
     _timelineController.clearJump();
     _scrollToTime(target);
+  }
+
+  /// Cible demandée par la headbar ou la frise (télécommande).
+  ///
+  /// Nommé pour pouvoir être retiré dans [dispose] : voir l'abonnement.
+  void _onTargetedChannel() {
+    final name = _timelineController.targetedChannel.value;
+    if (name == null || name.isEmpty) return;
+    _revealChannel(name);
   }
 
   /// Amène la ligne de [channelName] dans la vue si elle est hors écran.
@@ -315,7 +336,6 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     11.0,
     14.0,
   ];
-
 
   double get _zoomFactor => _pixelsPerMinute / _minPixelsPerMinute;
 
@@ -856,7 +876,10 @@ class _NowLineOverlay extends StatelessWidget {
         return ValueListenableBuilder<DateTime>(
           valueListenable: controller.now,
           builder: (context, now, _) {
-            final x = channelWidth + kGridLeftInset + controller.timeToPixels(now) - offset;
+            final x = channelWidth +
+                kGridLeftInset +
+                controller.timeToPixels(now) -
+                offset;
 
             // Mesure du décalage, et non plus supposition.
             //

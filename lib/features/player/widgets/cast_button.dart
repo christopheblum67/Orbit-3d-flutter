@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,14 +29,30 @@ class CastButton extends ConsumerStatefulWidget {
 class _CastButtonState extends ConsumerState<CastButton> {
   CastSessionState? _state;
 
+  /// Conservée pour être annulée dans [dispose].
+  ///
+  /// `castServiceProvider` vit au niveau applicatif (non-autoDispose) et son
+  /// `stateStream` est un `StreamController.broadcast` : une subscription
+  /// non annulée retient ce State et son Element pour toute la session. Le
+  /// `if (mounted)` évitait le crash, pas la fuite — une par ouverture du
+  /// lecteur.
+  StreamSubscription<CastSessionState>? _stateSub;
+
   @override
   void initState() {
     super.initState();
     final service = ref.read(castServiceProvider);
     _state = service.state;
-    service.stateStream.listen((s) {
-      if (mounted) setState(() => _state = s);
+    _stateSub = service.stateStream.listen((s) {
+      if (!mounted) return;
+      setState(() => _state = s);
     });
+  }
+
+  @override
+  void dispose() {
+    _stateSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -102,6 +120,10 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
   String? _feedback;
   CastSessionState? _sessionState;
 
+  /// Abonnements au niveau applicatif, annulés dans [dispose].
+  StreamSubscription<CastSessionState>? _sessionSub;
+  StreamSubscription<String>? _messageSub;
+
   // Focus nodes for TV/D-pad navigation
   final _closeFocus = FocusNode();
   final _retryFocus = FocusNode();
@@ -112,6 +134,11 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
 
   @override
   void dispose() {
+    // Les 3 subscriptions sont stockées puis annulées ici : le dispose
+    // dissipait les FocusNode mais laissait les flux applicatifs retenir ce
+    // State, donc une fuite par ouverture de la feuille Cast.
+    _sessionSub?.cancel();
+    _messageSub?.cancel();
     _closeFocus.dispose();
     _retryFocus.dispose();
     _disconnectFocus.dispose();
@@ -125,11 +152,13 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
   void initState() {
     super.initState();
     _sessionState = _service.state;
-    _service.stateStream.listen((s) {
-      if (mounted) setState(() => _sessionState = s);
+    _sessionSub = _service.stateStream.listen((s) {
+      if (!mounted) return;
+      setState(() => _sessionState = s);
     });
-    _service.messageStream.listen((msg) {
-      if (mounted) setState(() => _feedback = msg);
+    _messageSub = _service.messageStream.listen((msg) {
+      if (!mounted) return;
+      setState(() => _feedback = msg);
     });
     _scan();
   }
@@ -344,9 +373,11 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cast_connected,
-                size: 32,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,),
+            Icon(
+              Icons.cast_connected,
+              size: 32,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(l.noChromecastDeviceFound, textAlign: TextAlign.center),
             const SizedBox(height: 12),

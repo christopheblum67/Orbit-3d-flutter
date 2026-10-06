@@ -27,6 +27,14 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
   String _avatarId = '';
 
   @override
+  void dispose() {
+    // Le TextField enregistre un listener sur ce controller : sans cette
+    // ligne, il survit à l'écran et retient le State.
+    _firstNameController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     return Scaffold(

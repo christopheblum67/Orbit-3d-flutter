@@ -71,7 +71,7 @@ class OrbitCachedImage extends StatelessWidget {
       filterQuality: filterQuality,
       maxWidthDiskCache: maxWidthDiskCache ?? 800,
       maxHeightDiskCache: maxHeightDiskCache ?? 800,
-      cacheManager: OrbitCacheManager(),
+      cacheManager: OrbitCacheManager.shared,
     );
   }
 }

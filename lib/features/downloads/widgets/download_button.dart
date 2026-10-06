@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/drm/drm_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -62,6 +63,16 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     );
     if (result.isFailure) {
       final error = result.errorOrNull!.originalError ?? result.errorOrNull!;
+      // La trace est indispensable : « The box "downloads" is already open »
+      // ne dit pas QUI tente de l'ouvrir. Trois points d'ouverture existent
+      // dans l'application, et deviner lequel a déjà coûté deux correctifs à
+      // l'aveugle — le premier parce que la cause était une course, le second
+      // parce qu'on lisait le mauvais appel de la bibliothèque.
+      LoggerService.instance.error(
+        'Téléchargement refusé pour « ${widget.title} » : $error',
+        error: error,
+        stackTrace: result.errorOrNull!.stackTrace,
+      );
       messenger.showSnackBar(
         SnackBar(content: Text(l.downloadFailed(error.toString()))),
       );
