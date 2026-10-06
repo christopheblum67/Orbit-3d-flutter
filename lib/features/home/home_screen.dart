@@ -906,13 +906,18 @@ class _ClockBlock extends StatelessWidget {
   }
 }
 
-/// Formate un timestamp en "il y a XhYY" ou "il y a X min".
+/// Formate un timestamp en « il y a XhYY » ou « il y a X min ».
 String _formatRelative(DateTime ts) {
   final diff = DateTime.now().difference(ts);
+  // Un rafraîchissement vient d'avoir lieu : « il y a 0 min » se lit comme un
+  // compteur bloqué ou une donnée périmée. « à l'instant » est exact et lisible
+  // sur une TV où l'on regarde l'écran quelques secondes.
+  if (diff.inMinutes < 1) return 'À jour à l\'instant';
   if (diff.inHours > 0) {
-    return 'Mis à jour il y a ${diff.inHours}h${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}';
+    final minutes = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+    return 'À jour il y a ${diff.inHours}h$minutes';
   }
-  return 'Mis à jour il y a ${diff.inMinutes} min';
+  return 'À jour il y a ${diff.inMinutes} min';
 }
 
 /// Bouton de mise à jour avec la date de la dernière actualisation en dessous.
@@ -956,7 +961,7 @@ class _UpdateStackState extends State<_UpdateStack> {
   Widget build(BuildContext context) {
     final label = switch (widget.lastRefresh) {
       null => 'Jamais mis à jour',
-      final ts => _formatRelative(ts.toLocal()),
+      final ts => _formatRelative(ts),
     };
     return Column(
       mainAxisSize: MainAxisSize.min,

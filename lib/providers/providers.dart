@@ -1356,8 +1356,13 @@ class StreamAiException implements Exception {
   String toString() => message;
 }
 
-/// Horodatage de la dernière mise à jour des flux (UTC), durabilisé afin
-/// d'afficher « Dernière mise à jour : … » dans la barre supérieure.
+/// Horodatage de la dernière mise à jour des flux, persisté.
+///
+/// La persistance est faite DANS le setter, et non par les appelants : c'est
+/// la seule façon d'empêcher le désaccord observé. `persistLastRefresh`
+/// existait, `loadLastRefresh` aussi, mais rien n'appelait la première — donc
+/// le widget affichait « Jamais mis à jour » après chaque redémarrage, tant
+/// qu'un rafraîchissement manuel n'avait pas été déclenché.
 final lastRefreshTimestampProvider =
     NotifierProvider<LastRefreshTimestampNotifier, DateTime?>(
   LastRefreshTimestampNotifier.new,
@@ -1367,7 +1372,19 @@ class LastRefreshTimestampNotifier extends Notifier<DateTime?> {
   @override
   DateTime? build() => null;
 
-  void setTimestamp(DateTime? value) => state = value;
+  /// Met à jour l'horodatage affiché ET le persiste.
+  ///
+  /// Heure **locale** : `_formatRelative` raisonne en heures de la montre de
+  /// l'utilisateur, et un décalage de fuseau donnerait « mis à jour il y a
+  /// -2 h ». `toIso8601String()` sans suffixe `Z` se relit en local, donc
+  /// l'aller-retour est neutre.
+  void setTimestamp(DateTime? value) {
+    state = value;
+    if (value == null) return;
+    // `unawaited` : l'écriture disque ne doit pas bloquer l'affichage, et une
+    // échec est déjà encapsulé par `safeAsync` dans `persistLastRefresh`.
+    unawaited(persistLastRefresh(value));
+  }
 }
 
 Future<void> persistLastRefresh(DateTime timestamp) async {

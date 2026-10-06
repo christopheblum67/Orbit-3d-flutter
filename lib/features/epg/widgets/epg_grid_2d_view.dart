@@ -1081,7 +1081,13 @@ class _EpgGridPainter extends CustomPainter {
   /// bordures des barres à cheval sur le bord visible.
   (double, double) get _cullRange {
     final offset = horizontalOffset?.value ?? 0.0;
-    return (offset - rowHeight, offset + viewportWidth + rowHeight);
+    // Marge HORIZONTALE. La valeur utilisée auparavant était `rowHeight`, soit
+    // une grandeur verticale (60 px), utilisée comme marge horizontale : sans
+    // conséquence visible à l'arrêt, mais pendant un défilement les programmes
+    // qui entraient dans le viewport étaient écartés puis Drawing, donc rien
+    // n'apparaissait tant qu'on ne s'arrêtait pas pile.
+    const margin = 240.0;
+    return (offset - margin, offset + viewportWidth + margin);
   }
 
   /// Programme sous le pointeur (highlight seul, sans rebuild du widget).
