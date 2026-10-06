@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -547,7 +548,80 @@ class ApiService {
   }
 
   // ---------- Canaux live ----------
-  Future<List<Channel>> fetchLiveChannels() async {
+
+  /// Requêtes identiques en cours, par clé.
+  ///
+  /// `fetchLiveChannels` est appelée par quatre points indépendants
+  /// (`liveChannelsProvider`, le provider des replays, le contrôleur de
+  /// démarrage, et le chemin interne des replays Xtream). chacune déclenchait
+  /// son propre `get_live_categories` PUIS son propre `get_live_streams`.
+  /// Mesuré au logcat lors d'un changement d'abonnement :
+  ///
+  /// ```
+  /// 10:29:03.690 GET get_live_categories
+  /// 10:29:03.691 GET autre
+  /// 10:29:03.691 GET get_live_categories
+  /// 10:29:04.107 GET get_live_streams
+  /// 10:29:04.107 GET get_live_streams
+  /// ```
+  ///
+  /// Sur un panel qui limite les requêtes, un doublon est une unité de quota
+  /// brûlée pour rien : diviser le budget réel par deux, c'est ce qui
+  /// déclenche les rafales de 429.
+  ///
+  /// Le regroupement se fait ICI, dans la couche réseau, et pas aux points
+  /// d'appel : c'est le seul endroit où l'on est sûr de tout rabattre, y
+  /// compris les appelants futurs.
+  final Map<String, Future<Object?>> _inFlight = <String, Future<Object?>>{};
+
+  /// Exécute [body] une seule fois par [key] tant qu'elle est en cours.
+  ///
+  /// Les appels concurrents partagent le même Future. L'entrée est retirée dès
+  /// l'achèvement, y compris en cas d'erreur : un vol raté ne doit pas
+  /// contaminer les tentatives suivantes.
+  Future<T> _singleFlight<T>(String key, Future<T> Function() body) {
+    final existing = _inFlight[key];
+    if (existing != null) return existing.then((value) => value as T);
+
+    final completer = Completer<T>();
+    _inFlight[key] = completer.future;
+
+    // `Future.sync` est indispensable : `body()` peut lever de façon
+    // SYNCHRONE, avant de rendre son Future. Sans cet enveloppe, l'exception
+    // sortirait de `_singleFlight` au lieu d'arriver par le Future, et surtout
+    // l'entrée resterait en vol — cette clé échouerait alors définitivement.
+    // C'est un bug trouvé par un test, pas une précaution théorique.
+    Future<T>.sync(body).then((value) {
+      _inFlight.remove(key);
+      completer.complete(value);
+    }, onError: (Object error, StackTrace stack) {
+      _inFlight.remove(key);
+      completer.completeError(error, stack);
+    });
+    return completer.future;
+  }
+
+  /// Nombre de regroupements en cours, pour le diagnostic.
+  @visibleForTesting
+  int get inFlightCount => _inFlight.length;
+
+  /// Accès au regroupement pour les tests.
+  ///
+  /// Tester le regroupement via `fetchLiveChannels` ne prouve rien : sans
+  /// abonnement actif, le corps échoue avant toute requête et on ne peut pas
+  /// compter les exécutions. Exposer le mécanisme permet de compter, ce qui
+  /// est la seule chose qui compte vraiment ici.
+  @visibleForTesting
+  Future<T> singleFlightForTest<T>(String key, Future<T> Function() body) =>
+      _singleFlight(key, body);
+
+  Future<List<Channel>> fetchLiveChannels() {
+    // La clé inclut le type d'abonnement : changer d'abonnement doit produire
+    // une nouvelle requête, pas_share celle de l'ancien panel.
+    return _singleFlight('live_channels', () => _fetchLiveChannels());
+  }
+
+  Future<List<Channel>> _fetchLiveChannels() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
@@ -618,7 +692,11 @@ class ApiService {
   }
 
   // ---------- Films (VOD) ----------
-  Future<List<MediaCategory>> fetchVodCategories() async {
+  Future<List<MediaCategory>> fetchVodCategories() {
+    return _singleFlight('vod_categories', () => _fetchVodCategories());
+  }
+
+  Future<List<MediaCategory>> _fetchVodCategories() async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream') {
       return const [];
@@ -641,7 +719,11 @@ class ApiService {
         .toList();
   }
 
-  Future<List<MediaCategory>> fetchSeriesCategories() async {
+  Future<List<MediaCategory>> fetchSeriesCategories() {
+    return _singleFlight('series_categories', () => _fetchSeriesCategories());
+  }
+
+  Future<List<MediaCategory>> _fetchSeriesCategories() async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream') {
       return const [];
@@ -664,7 +746,11 @@ class ApiService {
         .toList();
   }
 
-  Future<List<Movie>> fetchMovies() async {
+  Future<List<Movie>> fetchMovies() {
+    return _singleFlight('vod_streams', () => _fetchMovies());
+  }
+
+  Future<List<Movie>> _fetchMovies() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
@@ -883,7 +969,11 @@ class ApiService {
     return result.valueOrNull;
   }
 
-  Future<List<Series>> fetchSeries() async {
+  Future<List<Series>> fetchSeries() {
+    return _singleFlight('series_streams', () => _fetchSeries());
+  }
+
+  Future<List<Series>> _fetchSeries() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
