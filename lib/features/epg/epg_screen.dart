@@ -465,17 +465,34 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
   Future<void> _loadAllEpg() async {
     // 1. Un seul téléchargement XMLTV (le gros morceau), primé une fois via le
     // cache partagé avant de filtrer en parallèle.
+    //
+    // `ref` est lu ICI, avant toute suspension, comme le veut Riverpod.
     final api = ref.read(apiServiceProvider);
     final cache = ref.read(epgDataCacheProvider);
-    await safeAsync(
+    final resolved = await safeAsync(
       () => cache.loadFull(api),
       context: '_loadAllEpg cache.loadFull',
+    );
+
+    // Le téléchargement XMLTV prend plusieurs secondes. La grille porte un
+    // `key: ValueKey(category)`, donc changer de catégorie recrée cet State :
+    // l'ancien `_loadAllEpg` se réveillait ici, DEMONTE, et son `ref.read`
+    // de la ligne suivante levait « Using ref when a widget is about to or has
+    // been unmounted is unsafe ». Chaque `_loadOne` de ce lot échouait, d'où
+    // des lignes vides alors que le dump contenait les programmes.
+    if (!mounted) return;
+
+    LoggerService.instance.info(
+      'EPG: XMLTV chargé (${resolved.isSuccess ? 'ok' : 'échec'}), '
+      '$_loadingChannels chaînes à résoudre',
     );
 
     // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
     // au lieu d'un rebuild complet de la grille à chaque chaîne (ANR sinon).
     final byName = {for (final c in widget.channelObjects) c.name: c};
     const chunkSize = 8;
+    final missingIds = <String>[];
+
     for (var i = 0; i < widget.channels.length; i += chunkSize) {
       final chunk = widget.channels.skip(i).take(chunkSize);
       final tasks = <Future<void>>[];
@@ -499,14 +516,33 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
         final epgId = channel.primaryEpgChannelId.isNotEmpty
             ? channel.primaryEpgChannelId
             : channelName;
-        tasks.add(_loadOne(channelName, channel, epgId, chunkResults));
+        tasks.add(_loadOne(
+          channelName,
+          channel,
+          epgId,
+          chunkResults,
+          missingIds,
+        ));
       }
       await Future.wait(tasks);
       if (mounted) {
         setState(() => _epgData.addAll(chunkResults));
       }
     }
+
+    // 2 bis. Bilan mesuré, pas deviné : `inWindow.isEmpty` est la seule source
+    // fiable pour distinguer un programme trouvé d'un bloc de trou, car un
+    // bloc comblé porte lui aussi un titre.
+    final total = widget.channels.length;
+    final missing = missingIds.length;
     if (mounted) setState(() {});
+
+    LoggerService.instance.info(
+      'EPG: $total chaînes, ${total - missing} avec programmes, '
+      '$missing sans (aucun programme dans la fenêtre) — ${_epgData.length} '
+      'lignes construites.${missingIds.isEmpty ? '' : ' Sans résultat pour : '
+          '${missingIds.take(8).join(', ')}'}',
+    );
   }
 
   Future<void> _loadOne(
@@ -514,6 +550,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     Channel channel,
     String epgId,
     Map<String, List<EPGProgram>> out,
+    List<String> missingIds,
   ) async {
     final result = await safeAsync(
       // Variante GRILLE : programmes passés compris. La barre du lecteur ne veut
@@ -523,6 +560,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       () => ref.read(channelEpgWindowProvider(epgId).future),
       context: '_loadOne channelEpgWindowProvider',
     );
+    if (!mounted) return;
     if (result.isSuccess) {
       // Fenêtre de la journée : minuit → minuit, et une seule définition pour
       // toute l'application.
@@ -550,7 +588,15 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
         windowEnd: windowEnd,
         channelId: channel.id,
       );
+      // Programme « vrai » = au moins un programme dans la fenêtre. Un bloc de
+      // trou a lui aussi un titre, donc compter les titres non vides
+      // compterait les comblements comme des programmes : c'est ce qui donne
+      // l'illusion d'une grille « peuplée » alors que rien n'a été trouvé.
+      if (inWindow.isEmpty) {
+        missingIds.add('${channel.name}→$epgId');
+      }
     } else {
+      missingIds.add('${channel.name}→$epgId(erreur)');
       LoggerService.instance
           .warning('_loadOne failed', error: result.errorOrNull);
     }
@@ -566,7 +612,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       child: EpgGrid2DView(
         channels: widget.channels,
         epgData: _epgData,
-      pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
+        pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
         replayChannels: {
           for (final c in widget.channelObjects)
             if (c.supportsReplay) c.name,

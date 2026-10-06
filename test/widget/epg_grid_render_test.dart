@@ -103,6 +103,37 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('les programmes aboutissent réellement au painter',
+        (tester) async {
+      // Vérifier que la révision change ne suffit PAS : le défaut historique
+      // était précisément un cache handed au painter vide alors que la
+      // révision avait bien bougé. Ce test ferme la boucle.
+      final channels = ['TF1 HD', 'FRANCE 2 HD', 'M6'];
+      await tester.pumpWidget(harness(channels, const {}));
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+
+      await tester.pumpWidget(harness(channels, {
+        'TF1 HD': [prog('LE JT', 10), prog('LE 19H', 19)],
+        'FRANCE 2 HD': [prog('LE 13H', 13)],
+        // M6 reste vide : elle doit remonter comme « sans programme ».
+      }));
+      await tester.pump();
+
+      expect(state.debugProgramCount('TF1 HD'), 2);
+      expect(state.debugProgramCount('FRANCE 2 HD'), 1);
+      expect(state.debugProgramCount('M6'), 0);
+      expect(
+        state.debugChannelsWithoutPrograms,
+        ['M6'],
+        reason: 'une chaîne sans donnée doit être identifiable, sinon une '
+            'grille entièrement vide passe pour une grille pleine de trous',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('des données identiques ne déclenchent pas de repeint inutile',
         (tester) async {
       await tester.pumpWidget(

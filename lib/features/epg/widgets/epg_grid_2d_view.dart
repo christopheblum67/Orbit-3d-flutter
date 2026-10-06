@@ -104,6 +104,24 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   @visibleForTesting
   int get debugDataRevision => _dataRevision.value;
 
+  /// Nombre de programmes effectivement remis au painter, par chaîne.
+  ///
+  /// Exposé pour les tests parce que c'est le point de rupture historique :
+  /// les données arrivaient bien (les logs le confirmaient) et la révision
+  /// changeait, mais le cache handed au painter restait vide — donc aucun bloc.
+  /// Vérifier seulement la révision ne prouve pas que les programmes
+  /// atteignent l'écran.
+  @visibleForTesting
+  int debugProgramCount(String channelName) =>
+      _renderCache[channelName]?.length ?? 0;
+
+  /// Chaînes pour lesquelles aucun programme n'a été rendu.
+  @visibleForTesting
+  List<String> get debugChannelsWithoutPrograms => [
+        for (final ch in widget.channels)
+          if ((_renderCache[ch]?.length ?? 0) == 0) ch,
+      ];
+
   @override
   void initState() {
     super.initState();
