@@ -470,6 +470,52 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       ];
     }
     _renderCache = cache;
+
+    // Mesure de rendu : distingue trois causes pourtant très différentes d'une
+    // grille vide.
+    //
+    // 1. `withPrograms == 0` → les programmes n'arrivent pas jusqu'ici, le
+    //    problème est en amont (chargement ou signature).
+    // 2. `withPrograms > 0` mais `maxLeft > largeur visible` → les programmes
+    //    sont calculés hors du viewport, donc Cullés : le problème est un
+    //    décalage horaire, pas une absence de données.
+    //
+    // Cette mesure n'existait pas, et sans elle les deux cas se ressemblent
+    // exactement à l'écran : des lignes vides.
+    if (cache.isNotEmpty) {
+      var withPrograms = 0;
+      var minLeft = double.infinity;
+      var maxLeft = double.negativeInfinity;
+      for (final rp in cache.values) {
+        if (rp.isEmpty) continue;
+        withPrograms++;
+        for (final p in rp) {
+          if (p.left < minLeft) minLeft = p.left;
+          if (p.left + p.width > maxLeft) maxLeft = p.left + p.width;
+        }
+      }
+      LoggerService.instance.info(
+        'EPG rendu: ${cache.length} lignes, $withPrograms avec programmes, '
+        'étendue $minLeft..${maxLeft == double.negativeInfinity ? 0 : maxLeft} '
+        'px, origine ${_gridStartTime.toIso8601String()}, '
+        'début 1re ligne = ${_firstProgramStart(cache)}',
+      );
+    }
+  }
+
+  /// Heure du premier programme de la première ligne ayant des données.
+  ///
+  /// Comparée à `_gridStartTime`, elle révèle un décalage de fuseau horaire :
+  /// un programme annoncé à 06:00 alors que la grille démarre à 00:00 se
+  /// retrouve à 6 h × zoom pixels, donc hors écran.
+  String _firstProgramStart(Map<String, List<_RenderProgram>> cache) {
+    for (final ch in widget.channels) {
+      final rp = cache[ch];
+      if (rp == null || rp.isEmpty) continue;
+      final earliest = rp.reduce((a, b) => a.left < b.left ? a : b);
+      return earliest.program.startTime.toIso8601String();
+    }
+    return 'aucune';
   }
 
   static double _clampWidth(double raw) => raw < 40.0 ? 40.0 : raw;

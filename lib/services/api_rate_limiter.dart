@@ -41,6 +41,7 @@ class ApiRateLimiter {
   ApiRateLimiter({
     this.minInterval = const Duration(milliseconds: 250),
     this.defaultCooldown = const Duration(seconds: 10),
+    this.maxCooldown = const Duration(minutes: 5),
     DateTime Function()? clock,
     Future<void> Function(Duration)? sleep,
   })  : _clock = clock ?? DateTime.now,
@@ -55,6 +56,16 @@ class ApiRateLimiter {
   /// ne suffisaient pas, et repartir trop tôt consommait le quota restant.
   final Duration defaultCooldown;
 
+  /// Plafond du后 exponentiel.
+  ///
+  /// Un quota de panel se réinitialise sur une fenêtre de temps, pas en
+  /// quelques secondes. Insister toutes les 10 s ne fait que du quota
+  /// restant : le carence doit donc croître tant que le panel refuse.
+  final Duration maxCooldown;
+
+  /// Facteur de croissance après chaque refus.
+  static const int growthFactor = 3;
+
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _sleep;
 
@@ -62,6 +73,7 @@ class ApiRateLimiter {
   DateTime? _cooldownUntil;
   int _throttled = 0;
   int _cooldowns = 0;
+  int _consecutiveRateLimits = 0;
 
   /// Nombre de requêtes retardées par l'espacement.
   int get throttledRequests => _throttled;
@@ -107,13 +119,42 @@ class ApiRateLimiter {
   /// c'est [defaultCooldown].
   void onRateLimited(Duration? retryAfter) {
     final now = _clock();
-    final until = now.add(retryAfter ?? defaultCooldown);
+    _consecutiveRateLimits++;
+    // Croissance exponentielle plafonnée : insister à intervalle CONSTANT ne
+    // fait que maintenir la limitation. 10 s, puis 30 s, puis 90 s…
+    //
+    // Un quota de panel se réinitialise sur une fenêtre de temps, pas en
+    // quelques secondes : attendre 10 s entre chaque refus revenait à
+    // demander sans jamais etre entendu.
+    final backoff =
+        defaultCooldown * _pow(growthFactor, _consecutiveRateLimits - 1);
+    final capped = backoff > maxCooldown ? maxCooldown : backoff;
+    final until = now.add(retryAfter ?? capped);
     // Un panel qui réclame PLUS de carence qu'on n'en a déjà ne doit pas être
     // contrarié : on retient toujours la plus longue des deux.
     if (_cooldownUntil == null || until.isAfter(_cooldownUntil!)) {
       _cooldownUntil = until;
     }
     _cooldowns++;
+  }
+
+  /// Une réponse réussie annule la croissance : le quota est revenu.
+  void onSuccess() {
+    _consecutiveRateLimits = 0;
+  }
+
+  /// Nombre de refus consécutifs, pour le diagnostic.
+  int get consecutiveRateLimits => _consecutiveRateLimits;
+
+  static int _pow(int base, int exponent) {
+    var result = 1;
+    for (var i = 0; i < exponent; i++) {
+      result *= base;
+      // Garde-fou : au-delà, la valeur n'a plus de sens et le plafond de
+      // [maxCooldown] prend le relais de toute façon.
+      if (result > 100000) return 100000;
+    }
+    return result;
   }
 
   /// Remet le limiteur à zéro.
@@ -126,6 +167,7 @@ class ApiRateLimiter {
     _cooldownUntil = null;
     _throttled = 0;
     _cooldowns = 0;
+    _consecutiveRateLimits = 0;
   }
 
   /// Intercepteur Dio : espace les départs et applique la carence.
@@ -139,6 +181,10 @@ class ApiRateLimiter {
           handler.next(options);
         },
         onResponse: (response, handler) {
+          // Une réponse non-erreur signifie que le quota est revenu : on
+          // ramène la croissance à zéro, sinon la carence resterait longue
+          // alors que le panel nous accepte de nouveau.
+          if ((response.statusCode ?? 0) < 400) onSuccess();
           handler.next(response);
         },
         onError: (error, handler) {

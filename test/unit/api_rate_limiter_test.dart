@@ -133,6 +133,62 @@ void main() {
       expect(limiter.isCoolingDown, isFalse);
       expect(limiter.cooldownCount, 0);
     });
+
+    test('la carence CROIT tant que le panel refuse', () {
+      // Un quota de panel se réinitialise sur une fenêtre de temps. Insister
+      // toutes les 10 s ne fait que maintenir la limitation — c'était
+      // exactement le cycle observé sur le S20.
+      //
+      // Chaque refus repart d'une horloge fraîche : on mesure ainsi la carence
+      // demandée par le N-ième refus, sans être pollué par la précédente.
+      Duration carenceDemandee(int refus) {
+        final b = build();
+        Duration? demandee;
+        for (var i = 0; i < refus; i++) {
+          now = DateTime(2026, 1, 1, 12);
+          b.onRateLimited(null);
+          demandee = b.cooldownUntil!.difference(now);
+        }
+        return demandee!;
+      }
+
+      expect(carenceDemandee(1), const Duration(seconds: 10));
+      expect(carenceDemandee(2), const Duration(seconds: 30));
+      expect(carenceDemandee(3), const Duration(seconds: 90));
+    });
+
+    test('la carence est plafonnée', () {
+      final b = build(defaultCooldown: const Duration(seconds: 10));
+      for (var i = 0; i < 12; i++) {
+        now = DateTime(2026, 1, 1, 12);
+        b.onRateLimited(null);
+      }
+      expect(
+        b.cooldownUntil!.difference(now),
+        const Duration(minutes: 5),
+        reason: 'au-delà du plafond, on n\'attend pas indéfiniment : il faut '
+            'tout de même réessayer',
+      );
+    });
+
+    test('un succès annule la croissance', () {
+      limiter.onRateLimited(null);
+      limiter.onRateLimited(null);
+      expect(limiter.consecutiveRateLimits, 2);
+
+      limiter.onSuccess();
+      expect(limiter.consecutiveRateLimits, 0);
+
+      // Le refus suivant repart de la carence de BASE. Il faut laisser
+      // expirer la carence précédente, sinon c'est elle, plus longue, qui est
+      // retenue — comportement voulu par ailleurs.
+      now = now.add(const Duration(minutes: 10));
+      limiter.onRateLimited(null);
+      expect(
+        limiter.cooldownUntil!.difference(now),
+        const Duration(seconds: 10),
+      );
+    });
   });
 
   group('lecture des en-têtes', () {
