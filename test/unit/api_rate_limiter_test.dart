@@ -154,10 +154,15 @@ void main() {
 
       expect(carenceDemandee(1), const Duration(seconds: 10));
       expect(carenceDemandee(2), const Duration(seconds: 30));
-      expect(carenceDemandee(3), const Duration(seconds: 90));
+      // Le 3e refus demanderait 90 s : le plafond de 60 s s'applique.
+      expect(carenceDemandee(3), const Duration(minutes: 1));
     });
 
-    test('la carence est plafonnée', () {
+    test('la carence est plafonnée à une minute', () {
+      // Constat mesuré : avec 5 min de plafond, la file de requêtes restait
+      // suspendue et le changement d'abonnement restait à 0 % sans qu'aucune
+      // requête ne parte. Un plafond plus haut rend l'application
+      // indiscernable d'un plantage.
       final b = build(defaultCooldown: const Duration(seconds: 10));
       for (var i = 0; i < 12; i++) {
         now = DateTime(2026, 1, 1, 12);
@@ -165,10 +170,27 @@ void main() {
       }
       expect(
         b.cooldownUntil!.difference(now),
-        const Duration(minutes: 5),
-        reason: 'au-delà du plafond, on n\'attend pas indéfiniment : il faut '
-            'tout de même réessayer',
+        const Duration(minutes: 1),
+        reason: 'au-delà, il faut tout de même réessayer',
       );
+    });
+
+    test('un nouveau panneau repart sans carence', () async {
+      // Le quota du nouveau compte n'a rien à voir avec celui qui vient de
+      // refuser : conserver la carence le bloquait aussi.
+      limiter.onRateLimited(null);
+      limiter.onRateLimited(null);
+      limiter.onRateLimited(null);
+      expect(limiter.isCoolingDown, isTrue);
+
+      limiter.onNewTarget();
+
+      expect(limiter.isCoolingDown, isFalse);
+      expect(limiter.consecutiveRateLimits, 0);
+      // L'espacement minimal reste : la cadence demeure polie.
+      await limiter.beforeRequest();
+      expect(limiter.throttledRequests, 0,
+          reason: 'après reset, la première requête ne doit pas attendre');
     });
 
     test('un succès annule la croissance', () {

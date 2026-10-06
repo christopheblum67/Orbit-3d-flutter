@@ -122,6 +122,11 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
     // re-autorisé immédiatement après un changement d'abonnement.
     ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
+    // Nouveau panel, nouveau quota. La carence du limiteur de débit porte sur
+    // l'ABONNEMENT précédent : la conserver ici laissait le nouveau compte
+    // bloqué, et l'écran de changement restait affiché à 0 % sans qu'aucune
+    // requête ne parte.
+    ref.read(apiServiceProvider).rateLimiter.onNewTarget();
     // Rafraîchit la validité du serveur activé (Xtream) à la volée.
     Subscription? activated;
     for (final s in subscriptions) {

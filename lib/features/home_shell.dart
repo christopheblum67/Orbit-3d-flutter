@@ -122,33 +122,34 @@ class HomeShell extends ConsumerWidget {
                 child: SizedBox(
                   height: 64,
                   child: NavigationBar(
-                  selectedIndex: selectedIndex,
-                  onDestinationSelected: (index) {
-                    context.go(entries[index].route);
-                  },
-                  labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-                    (states) => TextStyle(
-                      fontSize: 11,
-                      fontWeight: states.contains(WidgetState.selected)
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: states.contains(WidgetState.selected)
-                          ? scheme.primary
-                          : scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  destinations: [
-                    for (final e in entries)
-                      NavigationDestination(
-                        icon: Icon(e.icon),
-                        // Libelle court : `NavigationDestination` ne propose ni
-                        // maxLines ni overflow dans cette version, donc on
-                        // tronque a la source pour garder une seule ligne.
-                        label: e.label.length > 9
-                            ? '${e.label.substring(0, 8)}.'
-                            : e.label,
+                    selectedIndex: selectedIndex,
+                    onDestinationSelected: (index) {
+                      context.go(entries[index].route);
+                    },
+                    labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
+                      (states) => TextStyle(
+                        fontSize: 11,
+                        fontWeight: states.contains(WidgetState.selected)
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: states.contains(WidgetState.selected)
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
                       ),
-                  ],
+                    ),
+                    destinations: [
+                      for (final e in entries)
+                        NavigationDestination(
+                          icon: Icon(e.icon),
+                          // Libellé court : `NavigationDestination` ne propose ni
+                          // maxLines ni overflow dans cette version, et n'accepte
+                          // qu'UNE ligne — un '\n' dans le texte est donc ignoré et
+                          // le titre se retrouve tronqué par la règle ci-dessous.
+                          // D'où des libellés réellement courts, pas des titles
+                          // qu'on découpe au hasard.
+                          label: _shortLabel(e),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -163,22 +164,27 @@ class HomeShell extends ConsumerWidget {
         const _NavEntry(
           icon: Icons.home_rounded,
           label: 'Accueil',
+          shortLabel: 'Accueil',
           route: '/home',
         ),
         _NavEntry(
           icon: Icons.live_tv,
           label: l.tvChannels,
+          // « Chaînes TV » tronqué donnait « Chaînes . », ponctuation orpheline.
+          shortLabel: 'TV',
           route: '/live',
         ),
         if (!isM3u) ...[
           const _NavEntry(
             icon: Icons.movie,
             label: 'Films',
+            shortLabel: 'Films',
             route: '/vod',
           ),
           _NavEntry(
             icon: Icons.tv,
             label: l.series,
+            shortLabel: 'Séries',
             route: '/series',
           ),
         ],
@@ -186,20 +192,33 @@ class HomeShell extends ConsumerWidget {
           const _NavEntry(
             icon: Icons.explore_rounded,
             label: 'Contenus',
+            shortLabel: 'Contenus',
             route: '/browse',
           ),
         if (!isM3u)
           const _NavEntry(
             icon: Icons.recommend,
-            label: 'Match-\nmaking',
+            label: 'Matchmaking',
+            shortLabel: 'Match',
             route: '/matchmaking',
           ),
         _NavEntry(
           icon: Icons.settings,
           label: l.settings,
+          shortLabel: 'Réglages',
           route: '/settings',
         ),
       ];
+
+  /// Libellé d'une entrée, tronqué proprement en dernier recours.
+  ///
+  /// Seule une étiquette explicitement trop longue est coupée, sans laisser
+  /// d'espace ni de ponctuation orpheline devant le point.
+  static String _shortLabel(_NavEntry entry) {
+    final label = entry.shortLabel ?? entry.label.replaceAll('\n', ' ').trim();
+    if (label.length <= 9) return label;
+    return '${label.substring(0, 8).trimRight()}.';
+  }
 
   /// Entrées du rail (navigation large) : même base que la barre inférieure,
   /// avec l'accès EPG inséré après « Chaînes TV ».
@@ -249,10 +268,21 @@ class _NavEntry {
     required this.icon,
     required this.label,
     required this.route,
+    this.shortLabel,
   });
 
   final IconData icon;
+
+  /// Libellé complet, utilisé là où la place existe (rail latéral, tooltips).
   final String label;
+
+  /// Libellé de la barre inférieure, une seule ligne.
+  ///
+  /// `NavigationDestination` n'accepte ni `maxLines` ni un retour à la ligne :
+  /// un titre trop long se retrouve écourté par Flutter, sans contrôle. D'où un
+  /// libellé court explicite plutôt qu'une troncature automatique.
+  final String? shortLabel;
+
   final String route;
 }
 

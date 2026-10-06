@@ -41,7 +41,7 @@ class ApiRateLimiter {
   ApiRateLimiter({
     this.minInterval = const Duration(milliseconds: 250),
     this.defaultCooldown = const Duration(seconds: 10),
-    this.maxCooldown = const Duration(minutes: 5),
+    this.maxCooldown = const Duration(minutes: 1),
     DateTime Function()? clock,
     Future<void> Function(Duration)? sleep,
   })  : _clock = clock ?? DateTime.now,
@@ -56,11 +56,17 @@ class ApiRateLimiter {
   /// ne suffisaient pas, et repartir trop tôt consommait le quota restant.
   final Duration defaultCooldown;
 
-  /// Plafond du后 exponentiel.
+  /// Plafond de la croissance exponentielle.
   ///
   /// Un quota de panel se réinitialise sur une fenêtre de temps, pas en
-  /// quelques secondes. Insister toutes les 10 s ne fait que du quota
-  /// restant : le carence doit donc croître tant que le panel refuse.
+  /// quelques secondes. Insister toutes les 10 s ne fait que consommer du
+  /// quota restant : la carence croît donc tant que le panel refuse.
+  ///
+  /// **Plafond à 60 s, délibérément bas.** Mesuré sur le S20 : avec 5 min,
+  /// la file entière de requêtes restait suspendue et le changement
+  /// d'abonnement restait affiché à 0 %, sans qu'aucune requête ne parte
+  /// réellement. Un plafond plus élevé ne relance pas plus vite — il rend
+  /// surtout l'application indistinctement d'un plantage.
   final Duration maxCooldown;
 
   /// Facteur de croissance après chaque refus.
@@ -141,6 +147,20 @@ class ApiRateLimiter {
   /// Une réponse réussie annule la croissance : le quota est revenu.
   void onSuccess() {
     _consecutiveRateLimits = 0;
+  }
+
+  /// Ouvre une nouvelle fenêtre de tentative.
+  ///
+  /// Appelé au changement d'abonnement : on interroge un AUTRE panel, dont le
+  /// quota n'a rien à voir avec celui qui vient de refuser. Conserver la
+  /// carence rendrait le nouveau compte également bloqué, pour une raison
+  /// qui ne le concerne pas — c'est exactement ce qui a produit «
+  /// changement d'abonnement à 0 % ».
+  ///
+  /// Seul l'espacement minimal est conservé : la cadence reste polie.
+  void onNewTarget() {
+    _consecutiveRateLimits = 0;
+    _cooldownUntil = null;
   }
 
   /// Nombre de refus consécutifs, pour le diagnostic.
