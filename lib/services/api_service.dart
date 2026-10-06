@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/services/api_rate_limiter.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/catchup_url_builder.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
@@ -165,6 +166,12 @@ class ApiService {
       ),
     );
 
+    // Limiteur de débit : espace les départs de requêtes et se tait après un 429.
+    //
+    // Mesuré sur le panel `1.888000.eu` : sans cela, tout partait en rafale et
+    // TOUT était refusé, y compris la première requête (429 en 130–200 ms).
+    dio.interceptors.add(rateLimiter.interceptor);
+
     // Certificate pinning si des fingerprints sont configurés
     if (_certificateFingerprints != null &&
         _certificateFingerprints!.isNotEmpty) {
@@ -179,6 +186,12 @@ class ApiService {
   late final Dio _dio = _createDio();
   final SubscriptionManager _subscriptionManager = SubscriptionManager();
   final LoggerService _logger = LoggerService.instance;
+
+  /// Limiteur de débit partagé par tous les appels de cette instance.
+  ///
+  /// Volontairement une seule instance par `ApiService` : le budget doit être
+  /// commun à tous les appels, sinon chaque écran repartirait de zéro.
+  final ApiRateLimiter rateLimiter = ApiRateLimiter();
 
   ApiService() {
     _instance = this;

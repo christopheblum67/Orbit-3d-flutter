@@ -17,6 +17,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/models/duration_adapter.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -118,6 +119,10 @@ Future<void> _bootstrap() async {
   Hive.registerAdapter<DownloadStatus>(DownloadStatusAdapter());
   Hive.registerAdapter<DownloadProgress>(DownloadProgressAdapter());
   Hive.registerAdapter<DownloadTask>(DownloadTaskAdapter());
+  // `DownloadTask.estimatedTimeRemaining` est un `Duration` : sans cet
+  // adaptateur, Hive refuse la tâche à l'écriture (« Cannot write, unknown
+  // type: Duration »). Constaté en écrivant une vraie tâche dans un test.
+  Hive.registerAdapter<Duration>(DurationAdapter());
   // Le home utilise DateFormat(... 'fr_FR') : la locale doit être initialisée,
   // sinon format() lève DateFormat/LocaleDataException et l'accueil ne rend rien.
   await safeAsync(

@@ -98,6 +98,18 @@ class DownloadManager extends ChangeNotifier {
   DownloadManager._internal();
 
   static const String _boxName = 'downloads';
+
+  /// Boîte de la configuration, SÉPARÉE de celle des tâches.
+  ///
+  /// Le config était stocké dans `downloads`, une `Box<DownloadTask>`, via un
+  /// accès non typé qui « marchait » — jusqu'à ce qu'Hive compare
+  /// `box.valueType` et refuse. Pire : la valeur stockée n'est pas un
+  /// `DownloadTask`, donc `box.values` de la boîte des tâches trying de la
+  /// convertir lèverait à son tour une erreur de cast.
+  ///
+  /// Deux boîtes, deux responsabilités : des tâches typées d'un côté, une
+  /// configuration en Map de l'autre.
+  static const String _configBoxName = 'download_config';
   static const String _configKey = 'download_config';
 
   final LoggerService _logger = LoggerService.instance;
@@ -208,7 +220,21 @@ class DownloadManager extends ChangeNotifier {
       } on Object catch (error) {
         _logger.info('DownloadManager: boîte « $_boxName » ouverte avec un '
             'autre type ($error), réouverture au bon type');
-        final existing = Hive.box<dynamic>(_boxName);
+        // `Hive.box<dynamic>` fonctionne ici PARCE QUE la boîte a été ouverte
+        // en `Box<dynamic>` (le seul cas qui mène dans ce catch, c'est le
+        // chemin « reset usine »). Mais s'il était d'un autre type encore, cet
+        // appel échouerait à son tour et masquerait le message d'origine par
+        // une seconde erreur Hive : on la remonte donc explicitement.
+        Box<dynamic> existing;
+        try {
+          existing = Hive.box<dynamic>(_boxName);
+        } on Object catch (nested) {
+          throw StateError(
+            'DownloadManager: boîte « $_boxName » ouverte avec un type '
+            'incompatible ($error), et sa fermeture a échoué ($nested). '
+            'Fermer la boîte puis relancer.',
+          );
+        }
         if (existing.isOpen) await existing.close();
       }
     }
@@ -216,8 +242,25 @@ class DownloadManager extends ChangeNotifier {
     _logger.info('DownloadManager: boîte « $_boxName » ouverte');
   }
 
+  /// Boîte de configuration, ouverte sans type générique.
+  ///
+  /// Le séparateur `async` est nécessaire : `_loadConfig` et `_saveConfig`
+  /// doivent attendre l'ouverture.
+  Future<Box<dynamic>> _configBox() async {
+    if (Hive.isBoxOpen(_configBoxName)) {
+      return Hive.box<dynamic>(_configBoxName);
+    }
+    return Hive.openBox<dynamic>(_configBoxName);
+  }
+
   Future<void> _loadConfig() async {
-    final box = Hive.box(_boxName);
+    // Ne JAMAIS relire la boîte des tâches sans type : `Hive.box(name)`
+    // infère `E = dynamic`, et Hive compare `box.valueType == E`. Une boîte
+    // ouverte en `Box<DownloadTask>` ne correspond donc pas à `Box<dynamic>`,
+    // et Hive lève « already open and of type Box<DownloadTask> ». C'était la
+    // cause exacte de l'échec au téléchargement d'un film, 1 ms après
+    // l'ouverture — visible dans le logcat.
+    final box = await _configBox();
     final configMap = box.get(_configKey);
     if (configMap is Map) {
       _config = DownloadManagerConfig(
@@ -233,8 +276,8 @@ class DownloadManager extends ChangeNotifier {
   }
 
   Future<void> _saveConfig() async {
-    final box = Hive.box(_boxName);
-    await box.put(_configKey, {
+    final box = await _configBox();
+    await box.put(_configKey, <String, Object>{
       'wifiOnly': _config.wifiOnly,
       'maxConcurrentDownloads': _config.maxConcurrentDownloads,
       'retryAttempts': _config.retryAttempts,
