@@ -50,8 +50,10 @@ class _OnboardingConfigScreenState
     if (profile.allowsVoiceSearch) {
       unawaited(_prewarmMicrophone());
     }
-    ref.invalidate(deviceProfileProvider);
+// Deux écritures disque : l'utilisateur a pu revenir en arrière entre-temps.
+// `ref.invalidate` était appelé une ligne AVANT la garde.
     if (!mounted) return;
+    ref.invalidate(deviceProfileProvider);
     context.go('/profiles');
   }
 

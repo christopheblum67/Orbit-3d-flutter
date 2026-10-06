@@ -25,7 +25,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
   }
 
   Future<void> _loadPin() async {
-    final pin = await ref.read(parentalPinControllerProvider).getPin();
+    final pin = await ref.read(parentalPinControllerProvider.notifier).getPin();
     if (mounted) {
       setState(() => _hasPin = pin != null && pin.isNotEmpty);
     }
@@ -37,7 +37,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
     final profile = ref.watch(currentProfileProvider);
-    final pinController = ref.read(parentalPinControllerProvider);
+    final pinController = ref.read(parentalPinControllerProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
@@ -85,7 +85,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           SwitchListTile(
             secondary: const Icon(Icons.no_adult_content_outlined),
             title: const Text('Masquer le contenu adulte'),
-            subtitle: const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
+            subtitle:
+                const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
             value: profile?.hideAdultContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideAdultContent: v,
@@ -94,7 +95,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           SwitchListTile(
             secondary: const Icon(Icons.no_backpack_outlined),
             title: const Text('Masquer la violence'),
-            subtitle: const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
+            subtitle:
+                const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
             value: profile?.hideViolentContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideViolentContent: v,
@@ -152,25 +154,26 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
       );
       return;
     }
-    await ref.read(parentalPinControllerProvider).setPin(pin);
+    await ref.read(parentalPinControllerProvider.notifier).setPin(pin);
+    if (!mounted) return;
     _pinController.clear();
     setState(() => _hasPin = true);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.pinSaved)),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l.pinSaved)),
+    );
   }
 
-  Future<void> _clearPin(dynamic controller) async {
+  Future<void> _clearPin(ParentalPinNotifier controller) async {
     final l = AppLocalizations.of(context);
     await controller.clearPin();
+    // `clearPin()` écrit dans le stockage : l'utilisateur peut être revenu en
+    // arrière entre-temps. La garde était ligne 169, soit UNE LIGNE APRÈS le
+    // `setState`, donc elle ne protégeait rien.
+    if (!mounted) return;
     setState(() => _hasPin = false);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.pinDeleted)),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l.pinDeleted)),
+    );
   }
 
   Future<void> _updateContentFilter({
@@ -184,6 +187,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
       hideViolentContent: hideViolentContent ?? current.hideViolentContent,
     );
     await ref.read(storageServiceProvider).saveProfile(updated);
+    // Écriture disque : aucune garde, deux lectures de `ref` juste après.
+    if (!mounted) return;
     ref.read(currentProfileProvider.notifier).setUserProfile(updated);
     ref.invalidate(profilesProvider);
   }

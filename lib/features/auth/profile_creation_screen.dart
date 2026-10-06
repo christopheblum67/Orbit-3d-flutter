@@ -82,6 +82,9 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                   firstDate: DateTime(1900),
                   lastDate: DateTime.now(),
                 );
+                // Le sélecteur de date est modal : l'utilisateur peut revenir
+                // en arrière ou annuler pendant qu'il est ouvert.
+                if (!mounted) return;
                 if (picked != null) setState(() => _dateOfBirth = picked);
               },
             ),
@@ -184,6 +187,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
                             await ref
                                 .read(storageServiceProvider)
                                 .saveProfile(profile);
+                            if (!mounted) return;
                             ref.invalidate(profilesProvider);
                             if (context.mounted) context.pop();
                           },

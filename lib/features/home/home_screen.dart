@@ -248,6 +248,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
     );
 
+    // Garde AVANT toute lecture de `ref` et tout accès à `context`.
+    //
+    // L'attente peut durer 60 secondes : l'utilisateur a le temps de quitter
+    // l'écran avec la télécommande. La garde était placée ligne 267, après
+    // `ref.invalidate` et `ref.read(...).setTimestamp()`, donc elle ne
+    // protégeait rien — elle évitait seulement le `ScaffoldMessenger` final.
+    if (!mounted) return;
+
     final liveCount = results[0].length;
     final moviesCount = results[1].length;
     final seriesCount = results[2].length;
@@ -264,7 +272,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .read(lastRefreshTimestampProvider.notifier)
         .setTimestamp(DateTime.now());
 
-    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(

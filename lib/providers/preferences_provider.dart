@@ -67,41 +67,43 @@ class PreferencesNotifier extends Notifier<UserPreferences> {
   }
 }
 
-final parentalPinProvider = NotifierProvider<ParentalPinNotifier, String?>(
-  ParentalPinNotifier.new,
-);
+/// Code PIN parental : état en mémoire ET écritures disque.
+///
+/// Un seul provider fait les deux. La version précédente empilait deux
+/// couches — `parentalPinProvider` portait la valeur, `ParentalPinController`
+/// faisait les écritures — et ce dernier **capturait le `Ref` du provider à la
+/// construction** pour le garder indéfiniment. Conserver une référence de
+/// `Provider` dans un objet est le piège classique de Riverpod : elle survit
+/// au dispose du provider, et les lectures suivantes lèvent.
+///
+/// Chaque écriture disque est suivie d'une vérification `ref.mounted`, qui
+/// est la seule façon fiable de savoir si le notifier est encore vivant.
+final parentalPinControllerProvider =
+    NotifierProvider<ParentalPinNotifier, String?>(ParentalPinNotifier.new);
 
 class ParentalPinNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
+  /// Affectation directe en mémoire, sans écriture disque.
   void set(String? pin) => state = pin;
-}
-
-final parentalPinControllerProvider = Provider<ParentalPinController>((ref) {
-  return ParentalPinController(ref);
-});
-
-class ParentalPinController {
-  final Ref _ref;
-  ParentalPinController(this._ref);
 
   Future<void> setPin(String pin) async {
-    final storage = _ref.read(storageServiceProvider);
-    await storage.setParentalPin(pin);
-    _ref.read(parentalPinProvider.notifier).set(pin);
+    await ref.read(storageServiceProvider).setParentalPin(pin);
+    if (!ref.mounted) return;
+    state = pin;
   }
 
   Future<void> clearPin() async {
-    final storage = _ref.read(storageServiceProvider);
-    await storage.clearParentalPin();
-    _ref.read(parentalPinProvider.notifier).set(null);
+    await ref.read(storageServiceProvider).clearParentalPin();
+    if (!ref.mounted) return;
+    state = null;
   }
 
   Future<String?> getPin() async {
-    final storage = _ref.read(storageServiceProvider);
-    final pin = await storage.getParentalPin();
-    _ref.read(parentalPinProvider.notifier).set(pin);
+    final pin = await ref.read(storageServiceProvider).getParentalPin();
+    if (!ref.mounted) return pin;
+    state = pin;
     return pin;
   }
 }

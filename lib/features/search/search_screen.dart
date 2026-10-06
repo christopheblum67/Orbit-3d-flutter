@@ -42,19 +42,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _initSpeech() async {
-    final result = await safeAsync<bool>(() async {
-      return await _speech.initialize(
-        onError: (error) {
-          _logger.warning('Speech recognition error: $error');
-          if (mounted) setState(() => _isListening = false);
-        },
-        onStatus: (status) {
-          if (status == 'done' || status == 'notListening') {
+    final result = await safeAsync<bool>(
+      () async {
+        return await _speech.initialize(
+          onError: (error) {
+            _logger.warning('Speech recognition error: $error');
             if (mounted) setState(() => _isListening = false);
-          }
-        },
-      );
-    }, context: '_initSpeech', fallbackValue: false,);
+          },
+          onStatus: (status) {
+            if (status == 'done' || status == 'notListening') {
+              if (mounted) setState(() => _isListening = false);
+            }
+          },
+        );
+      },
+      context: '_initSpeech',
+      fallbackValue: false,
+    );
     _speechInitialized = result.valueOrNull ?? false;
   }
 
@@ -69,20 +73,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _toggleListening() async {
+    // `_initSpeech()` est un `await` non gardé : pendant l'initialisation du
+    // moteur, l'utilisateur peut quitter l'écran avec la télécommande.
     if (!_speechInitialized) {
       await _initSpeech();
+      if (!mounted) return;
       if (!_speechInitialized) return;
     }
 
     if (_isListening) {
       await _speech.stop();
+      if (!mounted) return;
       setState(() => _isListening = false);
     } else {
       final hasPermission = await _speech.hasPermission;
+      if (!mounted) return;
       if (!hasPermission) {
         final granted = await _requestMicPermission();
+        // La demande de permission ouvre une boîte système : l'utilisateur
+        // peut revenir en arrière ou annuler pendant ce temps.
+        if (!mounted) return;
         if (!granted) return;
       }
+      if (!mounted) return;
       setState(() => _isListening = true);
       _speech.listen(
         onResult: (result) {
@@ -252,7 +265,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     String query,
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
-    SearchType? filterType,  ) {
+    SearchType? filterType,
+  ) {
     final scheme = Theme.of(context).colorScheme;
     final searchController = SearchController();
 
@@ -394,8 +408,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(l.recentSearches,
-                    style: const TextStyle(fontWeight: FontWeight.w600),),
+                child: Text(
+                  l.recentSearches,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               ...history.map(
                 (h) => _buildSuggestionTile(
@@ -421,6 +437,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               icon: const Icon(Icons.close, size: 18),
               onPressed: () async {
                 await ref.read(searchServiceProvider).clearHistory();
+                // Effacement disque : aucune garde, le `setState` pouvait
+                // s'exécuter sur un State démonté.
+                if (!mounted) return;
                 setState(() {});
               },
               tooltip: 'Supprimer de l\'historique',
@@ -436,7 +455,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildEmptyState(
-      Future<List<String>> historyFuture, SearchType? filterType,) {
+    Future<List<String>> historyFuture,
+    SearchType? filterType,
+  ) {
     return FutureBuilder<List<String>>(
       future: historyFuture,
       builder: (context, snapshot) {
@@ -490,17 +511,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     final l = AppLocalizations.of(context);
                     return Row(
                       children: [
-                        Text(l.recentSearches,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),),
+                        Text(
+                          l.recentSearches,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                         const Spacer(),
                         TextButton(
                           onPressed: () async {
                             await ref
                                 .read(searchServiceProvider)
                                 .clearHistory();
+                            // Effacement disque : aucune garde, le `setState`
+                            // pouvait s'exécuter sur un State démonté.
+                            if (!mounted) return;
                             setState(() {});
                           },
                           child: const Text('Effacer'),
@@ -555,7 +581,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   (
                     query: query,
                     filterType: filterType,
-                    categoryId: GoRouterState.of(context).uri
+                    categoryId: GoRouterState.of(context)
+                        .uri
                         .queryParameters['category'],
                   ),
                 ),
@@ -607,8 +634,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildResultsHeader(BuildContext context, UnifiedSearchResult result,
-      SearchType? filterType,) {
+  Widget _buildResultsHeader(
+    BuildContext context,
+    UnifiedSearchResult result,
+    SearchType? filterType,
+  ) {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -902,8 +932,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline,
-              size: 64, color: Theme.of(context).colorScheme.error,),
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(height: 16),
           Text(l.searchError, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),

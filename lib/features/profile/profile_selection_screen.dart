@@ -56,8 +56,10 @@ class _ProfileSelectionScreenState
     final storage = ref.read(storageServiceProvider);
     await storage.saveProfile(refreshed);
     await storage.setSetting('last_profile_id', profile.id);
-    ref.invalidate(profilesProvider);
+    // Deux écritures disque : l'utilisateur a pu revenir en arrière entre-temps.
+    // `ref.invalidate` était appelé une ligne AVANT la garde.
     if (!mounted) return;
+    ref.invalidate(profilesProvider);
 
     // Small delay to ensure profile state is propagated before navigation
     await Future.delayed(const Duration(milliseconds: 50));
@@ -68,10 +70,15 @@ class _ProfileSelectionScreenState
     // Cela se fait APRÈS la sélection du profil (comme avant).
     final activeSub = ref.read(activeSubscriptionProvider);
     if (activeSub != null && activeSub.type == SubscriptionType.xtream) {
+      // `refreshValidity` est du réseau : une nouvelle suspension après le
+      // `ref.read`, il fallait donc une seconde garde.
+      final api = ref.read(apiServiceProvider);
+      if (!mounted) return;
       await ref.read(subscriptionsProvider.notifier).refreshValidity(
             activeSub.id,
-            api: ref.read(apiServiceProvider),
+            api: api,
           );
+      if (!mounted) return;
     }
 
     // `go` (et non pushReplacement) : réinitialise proprement la pile vers le

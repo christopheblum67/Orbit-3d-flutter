@@ -13,10 +13,8 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
-import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
-import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -249,21 +247,27 @@ class _AccountSection extends ConsumerWidget {
           icon: Icons.upload_outlined,
           title: l.backupExport,
           subtitle: l.backupExportSubtitle,
-          onTap: () => _exportSettings(context, ref),
+          // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
+          // ne doivent pas bloquer le tap. Les helpers retournent désormais
+          // `Future<void>` : en `static void ... async` l'appelant ne pouvait
+          // ni attendre, ni voir les exceptions, qui remontaient en zone non
+          // rattrapable.
+          onTap: () => unawaited(_exportSettings(context, ref)),
           trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
         ),
         _NavTile(
           icon: Icons.download_outlined,
           title: l.backupImport,
           subtitle: l.backupImportSubtitle,
-          onTap: () => _importSettings(context, ref),
+          onTap: () => unawaited(_importSettings(context, ref)),
           trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
         ),
       ],
     );
   }
 
-  static void _exportSettings(BuildContext context, WidgetRef ref) async {
+  static Future<void> _exportSettings(
+      BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
     final s = ref.read(advancedSettingsProvider);
     final prefs = ref.read(preferencesProvider);
@@ -271,6 +275,10 @@ class _AccountSection extends ConsumerWidget {
       advancedSettings: s,
       userPreferences: prefs,
     );
+    // L'export est du vrai I/O : l'utilisateur peut quitter les réglages entre
+    // l'appel et l'écriture. `context.mounted` ne protégeait que le SnackBar,
+    // la ligne suivante lisait `ref` sans garde.
+    if (!context.mounted) return;
     await ref.read(storageServiceProvider).setSetting('settings_backup', json);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -279,7 +287,8 @@ class _AccountSection extends ConsumerWidget {
     }
   }
 
-  static void _importSettings(BuildContext context, WidgetRef ref) async {
+  static Future<void> _importSettings(
+      BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
     final backup =
         ref.read(storageServiceProvider).getSetting('settings_backup');
@@ -296,18 +305,16 @@ class _AccountSection extends ConsumerWidget {
       ref.read(advancedSettingsProvider.notifier),
       ref.read(preferencesProvider.notifier),
     );
+    // L'import réécrit les réglages : l'écran peut avoir été quitté entre-temps.
+    if (!context.mounted) return;
     if (result.success) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.snackImportSuccess)),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackImportSuccess)),
+      );
     } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.snackImportError(result.message))),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackImportError(result.message))),
+      );
     }
   }
 

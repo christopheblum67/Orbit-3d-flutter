@@ -324,8 +324,11 @@ class _SeriesDetailContent extends ConsumerWidget {
 }
 
 class _SeriesHeader extends ConsumerWidget {
-  const _SeriesHeader(
-      {required this.series, required this.baseSeries, required this.l,});
+  const _SeriesHeader({
+    required this.series,
+    required this.baseSeries,
+    required this.l,
+  });
 
   final SeriesDetail series;
   final Series baseSeries;
@@ -355,167 +358,168 @@ class _SeriesHeader extends ConsumerWidget {
     final extraMeta = extraMetaParts.join('  •  ');
 
     return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: GestureDetector(
-                    // Pression longue sur la série = « retour en arrière » :
-                    // propose de tout retirer des déjà vus.
-                    onLongPress: () => _confirmResetSeries(context, ref),
-                    child: SizedBox(
-                      width: 112,
-                      height: 168,
-                      child: series.coverUrl.isNotEmpty
-                          ? OrbitCachedImage(
-                              imageUrl: series.coverUrl,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) =>
-                                  Icon(Icons.tv, color: scheme.primary),
-                              errorWidget: (_, __, ___) =>
-                                  Icon(Icons.tv, color: scheme.primary),
-                            )
-                          : Icon(Icons.tv, color: scheme.primary),
-                    ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: GestureDetector(
+                  // Pression longue sur la série = « retour en arrière » :
+                  // propose de tout retirer des déjà vus.
+                  onLongPress: () => _confirmResetSeries(context, ref),
+                  child: SizedBox(
+                    width: 112,
+                    height: 168,
+                    child: series.coverUrl.isNotEmpty
+                        ? OrbitCachedImage(
+                            imageUrl: series.coverUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) =>
+                                Icon(Icons.tv, color: scheme.primary),
+                            errorWidget: (_, __, ___) =>
+                                Icon(Icons.tv, color: scheme.primary),
+                          )
+                        : Icon(Icons.tv, color: scheme.primary),
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        series.title,
-                        style: textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      if (meta.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          meta,
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                      if (extraMeta.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          extraMeta,
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ],
-                      if (series.pegiLabel != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            series.pegiLabel!,
-                            style: textTheme.labelSmall?.copyWith(
-                              color: scheme.onPrimary,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                      // Badge source de données
-                      if (series.dataSource != 'xtream') ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getSourceColor(series.dataSource)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _getSourceColor(series.dataSource)
-                                  .withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                series.aiGenerated
-                                    ? Icons.psychology_outlined
-                                    : Icons.data_usage_outlined,
-                                size: 12,
-                                color: _getSourceColor(series.dataSource),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                series.aiGenerated
-                                    ? 'Données générées par IA'
-                                    : 'Données ${series.dataSource.toUpperCase()}',
-                                style: textTheme.labelSmall?.copyWith(
-                                  color: _getSourceColor(series.dataSource),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (series.description.isNotEmpty)
-              // Synopsis traduit si la source n'est pas en français.
-              TranslatedSynopsisView(
-                title: series.title,
-                rawSynopsis: series.description,
               ),
-            // Cast principal (compact)
-            const SizedBox(height: 12),
-            if (series.cast.isNotEmpty)
-              CompactCastCarousel(
-                actors: series.cast,
-                title: l.mainCast,
-                maxVisible: 8,
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l.mainCast,
-                      style: textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      series.title,
+                      style: textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    const Spacer(),
-                    Text(
-                      'Non disponible',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                    if (meta.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        meta,
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
                       ),
-                    ),
+                    ],
+                    if (extraMeta.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        extraMeta,
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                    if (series.pegiLabel != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          series.pegiLabel!,
+                          style: textTheme.labelSmall?.copyWith(
+                            color: scheme.onPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                    // Badge source de données
+                    if (series.dataSource != 'xtream') ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getSourceColor(series.dataSource)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _getSourceColor(series.dataSource)
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              series.aiGenerated
+                                  ? Icons.psychology_outlined
+                                  : Icons.data_usage_outlined,
+                              size: 12,
+                              color: _getSourceColor(series.dataSource),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              series.aiGenerated
+                                  ? 'Données générées par IA'
+                                  : 'Données ${series.dataSource.toUpperCase()}',
+                              style: textTheme.labelSmall?.copyWith(
+                                color: _getSourceColor(series.dataSource),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            const SizedBox(height: 12),
-            // Sélecteur de langue audio par défaut pour la série
-            _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
-          ],
-        ),);
+            ],
+          ),
+          if (series.description.isNotEmpty)
+            // Synopsis traduit si la source n'est pas en français.
+            TranslatedSynopsisView(
+              title: series.title,
+              rawSynopsis: series.description,
+            ),
+          // Cast principal (compact)
+          const SizedBox(height: 12),
+          if (series.cast.isNotEmpty)
+            CompactCastCarousel(
+              actors: series.cast,
+              title: l.mainCast,
+              maxVisible: 8,
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    l.mainCast,
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Non disponible',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          // Sélecteur de langue audio par défaut pour la série
+          _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmResetSeries(BuildContext context, WidgetRef ref) async {
@@ -810,6 +814,10 @@ class _EpisodeTile extends ConsumerWidget {
       confirmFocus.dispose();
 
       if (confirmed != true) return;
+      // Le dialogue est modal, mais l'utilisateur peut encore avoir quitté
+      // l'écran de la série avec la télécommande pendant qu'il était ouvert.
+      // Trois lectures de `ref` suivaient, sans aucune garde.
+      if (!context.mounted) return;
       if (isVu) {
         ref.read(watchedEpisodesProvider.notifier).toggle(series, episode);
       }
@@ -985,7 +993,8 @@ class _SeriesAudioLanguageSelectorState
 
     // Récupérer les tracks audio réels depuis le flux
     return StreamAudioTracksService.fetchAudioTracks(
-        firstPlayableEpisode.streamUrl,);
+      firstPlayableEpisode.streamUrl,
+    );
   }
 
   Future<void> _onLanguageChanged(String? lang) async {
@@ -1049,11 +1058,12 @@ class _SeriesAudioLanguageSelectorState
                         value: '',
                         child: Text('(Défaut du flux)'),
                       ),
-                      ..._availableLanguages
-                          .map((l) => DropdownMenuItem<String>(
-                                value: l.$1,
-                                child: Text(l.$2),
-                              ),),
+                      ..._availableLanguages.map(
+                        (l) => DropdownMenuItem<String>(
+                          value: l.$1,
+                          child: Text(l.$2),
+                        ),
+                      ),
                     ],
                     onChanged: _onLanguageChanged,
                   ),

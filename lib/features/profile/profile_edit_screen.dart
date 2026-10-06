@@ -183,7 +183,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   ];
 
   static List<({String label, int min, int max})> _ageRangesLocalized(
-          AppLocalizations l,) =>
+    AppLocalizations l,
+  ) =>
       [
         (label: l.ageRangeUnder12, min: 0, max: 12),
         (label: l.ageRange13to17, min: 13, max: 17),
@@ -338,69 +339,77 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       return;
     }
     setState(() => _saving = true);
-    final result = await safeAsync(() async {
-      final name = _nameController.text.trim();
-      final avatarUrl = _remoteAvatarUrl ??
-          '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
-      final now = DateTime.now();
-      if (_isEdit) {
-        final target = _loadedTarget;
-        if (target == null) {
+    final result = await safeAsync(
+      () async {
+        final name = _nameController.text.trim();
+        final avatarUrl = _remoteAvatarUrl ??
+            '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
+        final now = DateTime.now();
+        if (_isEdit) {
+          final target = _loadedTarget;
+          if (target == null) {
+            setState(() => _saving = false);
+            return;
+          }
+          final updated = target.copyWith(
+            firstName: name,
+            profileType: _type,
+            avatarUrl: avatarUrl,
+            dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
+            gender: _gender,
+            favoriteGenres: List.of(_favoriteGenres),
+            pinHash: _pinHash,
+            updatedAt: now,
+          );
+          await ref.read(storageServiceProvider).saveProfile(updated);
+          // Écriture disque : la garde arrive ligne 369, soit APRÈS les trois
+          // lectures de `ref` qui suivent. Sur TV, quitter avec la télécommande
+          // pendant l'écriture suffisait à le déclencher.
+          if (!mounted) return;
+          final current = ref.read(currentProfileProvider);
+          if (current?.id == updated.id) {
+            ref.read(currentProfileProvider.notifier).setUserProfile(updated);
+            ref.read(profileTypeProvider.notifier).loadFromProfile(updated);
+          }
+          ref.invalidate(profilesProvider);
+          context.pop();
+          return;
+        }
+
+        final profiles =
+            ref.read(profilesProvider).value ?? const <UserProfile>[];
+        final maxAllowed =
+            profiles.isEmpty ? 5 : profiles.first.maxProfilesAllowed;
+        if (profiles.length >= maxAllowed) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l.maxProfilesReached(maxAllowed)),
+              ),
+            );
+          }
           setState(() => _saving = false);
           return;
         }
-        final updated = target.copyWith(
+
+        final profile = UserProfile(
+          id: const Uuid().v4(),
           firstName: name,
-          profileType: _type,
-          avatarUrl: avatarUrl,
           dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
           gender: _gender,
           favoriteGenres: List.of(_favoriteGenres),
+          avatarUrl: avatarUrl,
+          profileType: _type,
           pinHash: _pinHash,
-          updatedAt: now,
+          maxProfilesAllowed: maxAllowed,
         );
-        await ref.read(storageServiceProvider).saveProfile(updated);
-        final current = ref.read(currentProfileProvider);
-        if (current?.id == updated.id) {
-          ref.read(currentProfileProvider.notifier).setUserProfile(updated);
-          ref.read(profileTypeProvider.notifier).loadFromProfile(updated);
-        }
+        await ref.read(storageServiceProvider).saveProfile(profile);
+        if (!mounted) return;
         ref.invalidate(profilesProvider);
-        if (mounted) context.pop();
-        return;
-      }
-
-      final profiles =
-          ref.read(profilesProvider).value ?? const <UserProfile>[];
-      final maxAllowed =
-          profiles.isEmpty ? 5 : profiles.first.maxProfilesAllowed;
-      if (profiles.length >= maxAllowed) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l.maxProfilesReached(maxAllowed)),
-            ),
-          );
-        }
-        setState(() => _saving = false);
-        return;
-      }
-
-      final profile = UserProfile(
-        id: const Uuid().v4(),
-        firstName: name,
-        dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
-        gender: _gender,
-        favoriteGenres: List.of(_favoriteGenres),
-        avatarUrl: avatarUrl,
-        profileType: _type,
-        pinHash: _pinHash,
-        maxProfilesAllowed: maxAllowed,
-      );
-      await ref.read(storageServiceProvider).saveProfile(profile);
-      ref.invalidate(profilesProvider);
-      if (mounted) context.pop();
-    }, context: '_save profile',);
+        context.pop();
+      },
+      context: '_save profile',
+    );
 
     if (result.isFailure && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

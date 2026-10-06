@@ -251,10 +251,15 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
         );
       }
     } finally {
-      final current = ref.read(subscriptionsTestingProvider);
-      ref
-          .read(subscriptionsTestingProvider.notifier)
-          .set({...current}..remove(sub.id));
+      // Un `finally` s'exécute aussi sur le chemin d'exception, donc après
+      // n'importe lequel des `await` ci-dessus : si le notifier a été
+      // disposé entre-temps, ces deux lectures de `ref` levaient.
+      if (ref.mounted) {
+        final current = ref.read(subscriptionsTestingProvider);
+        ref
+            .read(subscriptionsTestingProvider.notifier)
+            .set({...current}..remove(sub.id));
+      }
     }
   }
 

@@ -48,7 +48,8 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileEditScreen> createState() => _ProfileEditScreenState();
 }
 
-class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with FormBackHandler {
+class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
+    with FormBackHandler {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
@@ -71,10 +72,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
     // Logique simplifiée : si le formulaire a été touché
     // Dans une version plus complète, on comparerait aux valeurs initiales
     return _nameController.text.isNotEmpty ||
-           _ageController.text.isNotEmpty ||
-           _gender != null ||
-           _avatarId.isNotEmpty ||
-           _favoriteGenres.isNotEmpty;
+        _ageController.text.isNotEmpty ||
+        _gender != null ||
+        _avatarId.isNotEmpty ||
+        _favoriteGenres.isNotEmpty;
   }
 
   @override
@@ -144,293 +145,308 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> with Form
           title: Text(l.myProfile),
         ),
         body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text(l.errorGeneric(err))),
-        data: (profiles) {
-          final targetId =
-              widget.profileId ?? ref.watch(currentProfileProvider)?.id;
-          UserProfile? target;
-          for (final p in profiles) {
-            if (p.id == targetId) {
-              target = p;
-              break;
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text(l.errorGeneric(err))),
+          data: (profiles) {
+            final targetId =
+                widget.profileId ?? ref.watch(currentProfileProvider)?.id;
+            UserProfile? target;
+            for (final p in profiles) {
+              if (p.id == targetId) {
+                target = p;
+                break;
+              }
             }
-          }
-          if (target == null) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            if (target == null) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Aucun profil à modifier',
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () => context.go('/profiles'),
+                      child: Text(l.chooseProfile),
+                    ),
+                  ],
+                ),
+              );
+            }
+            _fillFromProfile(target);
+            final loaded = target;
+
+            final age = _computedAge();
+            final isAdult = age != null && age >= 18;
+
+            return Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
-                  Text(
-                    'Aucun profil à modifier',
-                    style: TextStyle(color: scheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => context.go('/profiles'),
-                    child: Text(l.chooseProfile),
-                  ),
-                ],
-              ),
-            );
-          }
-          _fillFromProfile(target);
-          final loaded = target;
-
-          final age = _computedAge();
-          final isAdult = age != null && age >= 18;
-
-          return Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                const SettingsSectionTitle('Avatar & Identité'),
-                AppCard(
-                  child: Column(
-                    children: [
-                      ProfileAvatarSelector(
-                        avatars: profileAvatarOptions
-                            .map(
-                              (a) => AvatarItem(
-                                id: a.id,
-                                name: a.id,
-                                category: 'Par défaut',
-                                assetPath: '',
-                                icon: a.icon,
-                                color: a.color,
-                              ),
-                            )
-                            .toList(),
-                        selectedAvatarId: _avatarId,
-                        onAvatarSelected: (avatar) => setState(
-                          () => _avatarId =
-                              _avatarId == avatar.id ? '' : avatar.id,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      TextFormField(
-                        controller: _nameController,
-                        maxLength: AppConstants.maxNameLength,
-                        decoration: InputDecoration(
-                          labelText: l.nameOrNickname,
-                          prefixIcon: Icon(Icons.badge_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Obligatoire'
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _ageController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(3),
-                        ],
-                        decoration: InputDecoration(
-                          labelText: l.age,
-                          prefixIcon: const Icon(Icons.cake_outlined),
-                          border: const OutlineInputBorder(),
-                          suffixIcon: Icon(
-                            isAdult
-                                ? Icons.verified_user
-                                : Icons.no_adult_content,
-                            color: isAdult ? scheme.tertiary : scheme.error,
+                  const SettingsSectionTitle('Avatar & Identité'),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        ProfileAvatarSelector(
+                          avatars: profileAvatarOptions
+                              .map(
+                                (a) => AvatarItem(
+                                  id: a.id,
+                                  name: a.id,
+                                  category: 'Par défaut',
+                                  assetPath: '',
+                                  icon: a.icon,
+                                  color: a.color,
+                                ),
+                              )
+                              .toList(),
+                          selectedAvatarId: _avatarId,
+                          onAvatarSelected: (avatar) => setState(
+                            () => _avatarId =
+                                _avatarId == avatar.id ? '' : avatar.id,
                           ),
                         ),
-                        validator: (v) {
-                          final parsed = int.tryParse(v?.trim() ?? '');
-                          if (parsed == null || parsed <= 0) {
-                            return 'Âge obligatoire';
-                          }
-                          if (parsed > 120) return 'Âge invalide';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _nameController,
+                          maxLength: AppConstants.maxNameLength,
+                          decoration: InputDecoration(
+                            labelText: l.nameOrNickname,
+                            prefixIcon: Icon(Icons.badge_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          textInputAction: TextInputAction.next,
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Obligatoire'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _ageController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: l.age,
+                            prefixIcon: const Icon(Icons.cake_outlined),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: Icon(
                               isAdult
                                   ? Icons.verified_user
                                   : Icons.no_adult_content,
-                              size: 16,
                               color: isAdult ? scheme.tertiary : scheme.error,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              isAdult
-                                  ? 'Profil adulte vérifié'
-                                  : 'Sous contrôle parental',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: isAdult
-                                        ? scheme.tertiary
-                                        : scheme.error,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SettingsSectionTitle('Genre'),
-                AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _gender,
-                    decoration: const InputDecoration(
-                      labelText: 'Genre',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.transgender),
-                    ),
-                    items: _genderOptions
-                        .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                        .toList(),
-                    onChanged: (v) => setState(() => _gender = v),
-                    validator: (v) => v == null ? 'Obligatoire' : null,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SettingsSectionTitle('Genres favoris'),
-                AppCard(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _allGenres.map((genre) {
-                      final selected = _favoriteGenres.contains(genre);
-                      return FilterChip(
-                        label: Text(genre),
-                        selected: selected,
-                        showCheckmark: true,
-                        onSelected: (sel) {
-                          setState(() {
-                            if (sel) {
-                              _favoriteGenres.add(genre);
-                            } else {
-                              _favoriteGenres.remove(genre);
+                          ),
+                          validator: (v) {
+                            final parsed = int.tryParse(v?.trim() ?? '');
+                            if (parsed == null || parsed <= 0) {
+                              return 'Âge obligatoire';
                             }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Visibilité / Enregistrement
-                const SettingsSectionTitle('Visibilité & Enregistrement'),
-                AppCard(
-                  child: Column(
-                    children: [
-                      SwitchListTile(
-                        secondary: const Icon(Icons.visibility_outlined),
-                        title: Text(l.profileVisible),
-                        subtitle:
-                            Text(l.appearInSearchAndRecommendations),
-                        value: _profileVisible,
-                        onChanged: (v) => setState(() => _profileVisible = v),
-                      ),
-                      const Divider(height: 1),
-                      SwitchListTile(
-                        secondary: const Icon(Icons.video_camera_back_outlined),
-                        title: const Text('Autoriser l\'enregistrement'),
-                        subtitle: const Text(
-                            'Permettre l\'enregistrement de mes contenus favoris',),
-                        value: _allowRecording,
-                        onChanged: (v) => setState(() => _allowRecording = v),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _saving
-                      ? null
-                      : () async {
-                          if (!_formKey.currentState!.validate() ||
-                              _gender == null ||
-                              _favoriteGenres.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Sélectionnez au moins un genre favori',),
+                            if (parsed > 120) return 'Âge invalide';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isAdult
+                                    ? Icons.verified_user
+                                    : Icons.no_adult_content,
+                                size: 16,
+                                color: isAdult ? scheme.tertiary : scheme.error,
                               ),
-                            );
-                            return;
-                          }
-                          setState(() => _saving = true);
-                          final result = await safeAsync<void>(
-                            () async {
-                              final age = _computedAge()!;
-                              final dob = loaded.dateOfBirth;
-                              final now = DateTime.now();
-                              final updatedDob = DateTime(
-                                now.year - age,
-                                dob.month.clamp(1, 12),
-                                dob.day.clamp(
-                                  1,
-                                  DateTime(now.year - age,
-                                          dob.month.clamp(1, 12) + 1, 0,)
-                                      .day,
+                              const SizedBox(width: 6),
+                              Text(
+                                isAdult
+                                    ? 'Profil adulte vérifié'
+                                    : 'Sous contrôle parental',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: isAdult
+                                          ? scheme.tertiary
+                                          : scheme.error,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SettingsSectionTitle('Genre'),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _gender,
+                      decoration: const InputDecoration(
+                        labelText: 'Genre',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.transgender),
+                      ),
+                      items: _genderOptions
+                          .map(
+                              (g) => DropdownMenuItem(value: g, child: Text(g)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _gender = v),
+                      validator: (v) => v == null ? 'Obligatoire' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SettingsSectionTitle('Genres favoris'),
+                  AppCard(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _allGenres.map((genre) {
+                        final selected = _favoriteGenres.contains(genre);
+                        return FilterChip(
+                          label: Text(genre),
+                          selected: selected,
+                          showCheckmark: true,
+                          onSelected: (sel) {
+                            setState(() {
+                              if (sel) {
+                                _favoriteGenres.add(genre);
+                              } else {
+                                _favoriteGenres.remove(genre);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Visibilité / Enregistrement
+                  const SettingsSectionTitle('Visibilité & Enregistrement'),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          secondary: const Icon(Icons.visibility_outlined),
+                          title: Text(l.profileVisible),
+                          subtitle: Text(l.appearInSearchAndRecommendations),
+                          value: _profileVisible,
+                          onChanged: (v) => setState(() => _profileVisible = v),
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile(
+                          secondary:
+                              const Icon(Icons.video_camera_back_outlined),
+                          title: const Text('Autoriser l\'enregistrement'),
+                          subtitle: const Text(
+                            'Permettre l\'enregistrement de mes contenus favoris',
+                          ),
+                          value: _allowRecording,
+                          onChanged: (v) => setState(() => _allowRecording = v),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: _saving
+                        ? null
+                        : () async {
+                            if (!_formKey.currentState!.validate() ||
+                                _gender == null ||
+                                _favoriteGenres.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Sélectionnez au moins un genre favori',
+                                  ),
                                 ),
                               );
-                              final updated = loaded.copyWith(
-                                firstName: _nameController.text.trim(),
-                                dateOfBirth: updatedDob,
-                                gender: _gender!,
-                                favoriteGenres: _favoriteGenres,
-                                avatarUrl: _avatarId.isEmpty
-                                    ? ''
-                                    : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
-                                updatedAt: DateTime.now(),
-                              );
-                              await ref
-                                  .read(storageServiceProvider)
-                                  .saveProfile(updated);
-                              final current = ref.read(currentProfileProvider);
-                              if (current?.id == updated.id) {
-                                ref.read(currentProfileProvider.notifier)
-                                    .setUserProfile(updated);
-                              }
-                              ref.invalidate(profilesProvider);
-                              if (context.mounted) context.pop();
-                            },
-                            context: 'ProfileEditScreen.saveProfile',
-                          );
-                          if (result.isFailure) {
-                            if (context.mounted) {
+                              return;
+                            }
+                            setState(() => _saving = true);
+                            final result = await safeAsync<void>(
+                              () async {
+                                final age = _computedAge()!;
+                                final dob = loaded.dateOfBirth;
+                                final now = DateTime.now();
+                                final updatedDob = DateTime(
+                                  now.year - age,
+                                  dob.month.clamp(1, 12),
+                                  dob.day.clamp(
+                                    1,
+                                    DateTime(
+                                      now.year - age,
+                                      dob.month.clamp(1, 12) + 1,
+                                      0,
+                                    ).day,
+                                  ),
+                                );
+                                final updated = loaded.copyWith(
+                                  firstName: _nameController.text.trim(),
+                                  dateOfBirth: updatedDob,
+                                  gender: _gender!,
+                                  favoriteGenres: _favoriteGenres,
+                                  avatarUrl: _avatarId.isEmpty
+                                      ? ''
+                                      : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
+                                  updatedAt: DateTime.now(),
+                                );
+                                await ref
+                                    .read(storageServiceProvider)
+                                    .saveProfile(updated);
+                                // Écriture disque, donc suspension possible.
+                                // Trois lectures de `ref` suivaient, la garde
+                                // `context.mounted` n'arrivait qu'après, à la
+                                // ligne du `context.pop()`.
+                                if (!context.mounted) return;
+                                final current =
+                                    ref.read(currentProfileProvider);
+                                if (current?.id == updated.id) {
+                                  ref
+                                      .read(currentProfileProvider.notifier)
+                                      .setUserProfile(updated);
+                                }
+                                ref.invalidate(profilesProvider);
+                                if (context.mounted) context.pop();
+                              },
+                              context: 'ProfileEditScreen.saveProfile',
+                            );
+                            if (result.isFailure) {
+                              // `context.mounted` protège le SnackBar, mais le
+                              // `setState` juste après ne l'était pas : sur
+                              // erreur d'écriture, l'utilisateur a souvent déjà
+                              // quitté l'écran.
+                              if (!mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l.errorSaving),
                                 ),
                               );
+                              setState(() => _saving = false);
                             }
-                            setState(() => _saving = false);
-                          }
-                        },
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Enregistrer'),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          );
-        },
+                          },
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Enregistrer'),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        ),
       ),
-    ),
     );
   }
 }

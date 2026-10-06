@@ -53,6 +53,8 @@ class ProfileTypeNotifier extends Notifier<ProfileTypeState> {
 
     final storage = ref.read(storageServiceProvider);
     await storage.saveProfile(updatedProfile);
+    // Écriture disque : le notifier peut avoir été disposé pendant l'attente.
+    if (!ref.mounted) return;
 
     ref.read(currentProfileProvider.notifier).setUserProfile(updatedProfile);
     state = state.copyWith(currentType: type, isLoading: false);
