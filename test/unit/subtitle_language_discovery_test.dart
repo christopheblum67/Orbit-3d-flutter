@@ -56,6 +56,88 @@ void main() {
       expect(codes, {'fr', 'en'});
     });
 
+    test('CHAQUE épisode est lu, pas seulement le premier', () {
+      // Régression : le compteur était un BUDGET d'appels et non une
+      // profondeur d'imbrication. Il était incrémenté mais jamais
+      // décrémenté, donc après six appels la lecture s'arrêtait — et sur une
+      // série, seul le premier épisode était examiné.
+      //
+      // Le test voisin « dans les objets épisode » ne le voyait pas : son
+      // premier épisode déclarait déjà les deux codes attendus, donc l'union
+      // tombait juste malgré la lecture tronquée.
+      final codes = SubtitleDiscovery.collectLanguageCodes({
+        'seasons': [
+          {
+            'episodes': [
+              {
+                'id': '1',
+                'title': 'Chapitre 1',
+                'subtitles': ['fr'],
+              },
+              {
+                'id': '2',
+                'title': 'Chapitre 2',
+                'subtitle_tracks': ['en'],
+              },
+              {
+                'id': '3',
+                'title': 'Chapitre 3',
+                'subs': ['de'],
+              },
+            ],
+          },
+        ],
+      });
+      expect(codes, {'fr', 'en', 'de'},
+          reason: 'les trois épisodes doivent être lus');
+    });
+
+    test('la lecture survit à un info racine réaliste', () {
+      // Forme réellement renvoyée par `get_series_info` : un bloc `info` avec
+      // de nombreuses clés scalaires AVANT les épisodes. Le bug rendait la
+      // profondeur épuisée par les seules clés de `info`, et aucun épisode
+      // n'était atteint.
+      final codes = SubtitleDiscovery.collectLanguageCodes({
+        'info': {
+          'name': 'Série',
+          'cover': 'http://x/cover.jpg',
+          'plot': 'Un résumé.',
+          'genre': 'Drame',
+          'releaseDate': '2024-01-01',
+          'backdrop_path': ['http://x/1.jpg', 'http://x/2.jpg'],
+          'cast': ['Acteur Un', 'Acteur Deux'],
+          'director': 'Un réalisateur',
+        },
+        'seasons': [
+          {
+            'season_number': 1,
+            'episodes': [
+              {
+                'id': '10',
+                'title': 'Épisode 1',
+                'subtitles': ['fr'],
+              },
+              {
+                'id': '11',
+                'title': 'Épisode 2',
+                'subtitles': ['en'],
+              },
+            ],
+          },
+        ],
+      });
+      expect(codes, {'fr', 'en'});
+    });
+
+    test('une profondeur excessive est bien bornée', () {
+      // Garde-fou contre une correction sans borne : une structure
+      // pathologique ne doit pas faire planter la découverte.
+      Object? node = 'fr';
+      for (var i = 0; i < 40; i++) {
+        node = {'subtitles': node};
+      }
+      expect(() => SubtitleDiscovery.collectLanguageCodes(node), returnsNormally);
+    });
     test('sous une clé alternative (subs, subtitle_tracks)', () {
       expect(
         SubtitleDiscovery.collectLanguageCodes({

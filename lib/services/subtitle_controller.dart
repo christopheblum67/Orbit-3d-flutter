@@ -109,6 +109,15 @@ class SubtitleController extends ChangeNotifier {
   /// disparaître une piste qui reviendra.
   static final Map<String, bool> _existsCache = {};
 
+  /// L'URL est-elle mémorisée comme testée ?
+  ///
+  /// Exposé parce que le poison du cache n'est PAS observable à travers
+  /// `verifyTracks` : les deux branches d'une panne réseau renvoient la même
+  /// liste de pistes — seule la ligne en cache diffère. Sans cet accesseur,
+  /// aucun test ne peut distinguer le comportement corrigé du bug.
+  @visibleForTesting
+  static bool isCached(String url) => _existsCache.containsKey(url);
+
   /// Ne conserve que les pistes dont le fichier existe réellement.
   ///
   /// Les pistes déduites sont des **hypothèses** : sur un panel qui ne déclare
@@ -195,14 +204,29 @@ class SubtitleController extends ChangeNotifier {
       ),
       context: 'SubtitleController._exists',
     );
-    // Une erreur réseau ne prouve rien : on ne met pas en cache, et on garde la
-    // piste plutôt que de la faire disparaître sur un coup de réseau.
-    if (result.isFailure && result.errorOrNull != null) {
-      final error = result.errorOrNull!.originalError;
-      final isPayload = error is SubtitlePayloadException;
-      _existsCache[ref.url] = isPayload ? false : true;
-      return isPayload ? false : true;
+    final error = result.errorOrNull?.originalError;
+
+    // Seule une réponse VIDE (ou un 4xx/5xx, que le parseur convertit en
+    // `SubtitlePayloadException`) prouve l'absence : c'est une conclusion
+    // DÉFINITIVE, donc mémorable.
+    if (error is SubtitlePayloadException) {
+      _existsCache[ref.url] = false;
+      return false;
     }
+
+    // Erreur RÉSEAU : on ne sait rien. Le code inversait les deux et
+    // inscrivait `true`, ce qui rendait une piste « vérifiée » pour toute la
+    // session — sur un cache statique sans TTL, dont la clé contient les
+    // identifiants du panel, donc jamais invalide au changement de compte.
+    // Le commentaire affirmait déjà le contraire de ce que le code faisait.
+    if (error != null) {
+      LoggerService.instance.warning(
+        'Sous-titre: vérification inconclusive pour ${ref.url}',
+        error: error,
+      );
+      return true;
+    }
+
     _existsCache[ref.url] = true;
     return true;
   }

@@ -247,29 +247,46 @@ class SubtitleDiscovery {
   /// dans [ApiService.discoverSubtitles], qui connaît l'épisode courant.
   static Set<String> collectLanguageCodes(Object? data) {
     final codes = <String>{};
-    var depth = 0;
-    void walk(Object? node) {
-      if (depth > 6) return;
-      depth++;
+
+    // `depth` est une PROFONDEUR d'imbrication : il doit être décrémenté en
+    // sortie de `walk`.
+    //
+    // La version précédente l'incrémentait sans jamais le décrémenter, ce qui
+    // en faisait un budget global d'appels : après six appels, toute lecture
+    // s'arrêtait. Sur une série, le bloc `info` racine consommait déjà le
+    // budget et les épisodes n'étaient jamais atteints ; sur une série à
+    // plusieurs épisodes, seul le premier était lu — d'où des déclarations
+    // manquantes, donc un repli sur les conventions devinées et des pistes
+    // fantômes.
+    void walk(Object? node, int depth) {
+      if (depth > _maxDepth) return;
+
       if (node is Map) {
         for (final entry in node.entries) {
           final key = entry.key.toString().toLowerCase();
           if (_containerKeys.contains(key)) {
             _addCodes(entry.value, codes);
           } else {
-            walk(entry.value);
+            walk(entry.value, depth + 1);
           }
         }
       } else if (node is List) {
         for (final item in node) {
-          walk(item);
+          walk(item, depth + 1);
         }
       }
     }
 
-    walk(data);
+    walk(data, 0);
     return codes;
   }
+
+  /// Profondeur d'imbrication maximale explorée.
+  ///
+  /// `get_series_info` produit des `info` → `cast` → [`nom`] : 4-5 niveaux. 12
+  /// laisse de la marge sans jamais toucher une structure circulaire, dont le
+  /// panel n'est censé produire aucune.
+  static const int _maxDepth = 12;
 
   /// Extrait des codes langue d'un champ heterogene : liste de chaînes, liste
   /// d'objets, chaîne seule.

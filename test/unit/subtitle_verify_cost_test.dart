@@ -65,6 +65,105 @@ void main() {
     return ref;
   }
 
+  test('une panne réseau ne fige PAS la piste comme valide', () async {
+    // Régression : le code faisait `_existsCache[url] = isPayload ? false : true`.
+    // Une panne réseau inscrivant `true` rendait la piste « vérifiée » pour
+    // toute la session, sur un cache statique sans TTL dont la clé contient
+    // les identifiants du panel — donc jamais invalidable au changement de
+    // compte. Le commentaire affirmait l'inverse de ce que le code faisait.
+    //
+    // La panne doit être une VRAIE coupure réseau, pas un code d'erreur :
+    // `parseFromUrl` transforme un 4xx/5xx en `SubtitlePayloadException`, donc
+    // un 500 prouve une absence et doit être mémorisé comme tel. Un port fermé
+    // provoque une `SocketException`, seulesource d'incertitude réelle.
+    final deadPort = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = deadPort.port;
+    await deadPort.close();
+
+    final ref = SubtitleTrackRef(
+      url: 'http://127.0.0.1:$port/panne.srt',
+      language: 'fr',
+      label: 'panne',
+    );
+
+    final kept = await SubtitleController().verifyTracks([ref]);
+    expect(
+      kept.map((e) => e.url),
+      contains(ref.url),
+      reason: 'une panne ne prouve pas que la piste est absente : elle doit '
+          'être CONSERVÉE',
+    );
+
+    // Le cœur de la régression : la piste est CONSERVÉE, mais surtout elle ne
+    // doit pas être mémorisée. Sans ce contrôle, les deux branches renvoient la
+    // même liste et le test passerait même avec le bug.
+    expect(SubtitleController.isCached(ref.url), isFalse,
+        reason: 'une panne réseau ne doit PAS entrer dans le cache : elle '
+            'rendrait la piste « vérifiée » à vie, pour toute la session');
+
+    final again = await SubtitleController().verifyTracks([ref]);
+    expect(again, hasLength(1),
+        reason: 'une piste jamais conclue doit rester à retester');
+    expect(SubtitleController.isCached(ref.url), isFalse,
+        reason: 'et toujours rien en cache après une seconde tentative');
+  });
+
+  test('une absence DÉFINITIVE est, elle, mémorisée', () async {
+    // Le contrepoids indispensable : si rien n'était jamais mémorisé, le cache
+    // ne servirait à rien et chaque ouverture re-testerait 32 URL.
+    final server5 = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() async => server5.close(force: true));
+    server5.listen((request) {
+      request.response.statusCode = 200;
+      request.response.close(); // corps vide = absence
+    });
+
+    final ref = SubtitleTrackRef(
+      url: 'http://127.0.0.1:${server5.port}/definitivement-absent.srt',
+      language: 'fr',
+      label: 'absent',
+    );
+
+    await SubtitleController().verifyTracks([ref]);
+    expect(SubtitleController.isCached(ref.url), isTrue,
+        reason: 'un corps vide est une conclusion définitive : la memoriser '
+            'évite de re-tester à chaque ouverture du panneau');
+  });
+
+  test('un code d\'erreur HTTP, lui, marque la piste comme absente', () async {
+    // Contrepoint du test précédent : un 500 est une RÉPONSE. Le parseur en
+    // fait un `SubtitlePayloadException`, donc une absence DÉFINITIVE, et la
+    // mise en cache est correcte.
+    final server4 = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() async => server4.close(force: true));
+    server4.listen((request) {
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.close();
+    });
+
+    final ref = SubtitleTrackRef(
+      url: 'http://127.0.0.1:${server4.port}/absent.srt',
+      language: 'fr',
+      label: 'absent',
+    );
+    final kept = await SubtitleController().verifyTracks([ref]);
+    expect(kept, isEmpty,
+        reason: 'un 404 est une preuve DÉFINITIVE d\'absence');
+  });
+
+  test('un corps VIDE, lui, marque la piste comme absente', () async {
+    // Le serveur principal répond 200 avec un corps vide pour les chemins non
+    // listés dans `serving` : c'est la preuve DÉFINITIVE d'absence.
+    final ref = SubtitleTrackRef(
+      url: '$base/vide.srt',
+      language: 'fr',
+      label: 'vide',
+    );
+    final kept = await SubtitleController().verifyTracks([ref]);
+    expect(kept, isEmpty,
+        reason: 'un corps vide est une preuve DÉFINITIVE d\'absence');
+  });
+
   test('première forme disponible : une seule requête', () async {
     serving.add('/1_fr.srt');
 
