@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/models/duration_adapter.dart';
 
@@ -95,6 +96,39 @@ void main() {
     await box.delete('t1');
     await box.put('t2', _task('t2'));
     expect(box.values.single.id, 't2');
+  });
+
+  test('HiveSync non typé est incompatible avec une boîte typée', () async {
+    // C'est le dernier obstacle qui a fait échouer le téléchargement : les méthodes
+    // non typées de `HiveSync` résolvent la boîte par `Hive.box<dynamic>`, et
+    // une `Box<DownloadTask>` ne correspond pas. Toute boîte ouverte en
+    // `Box<DownloadTask>` ne doit donc JAMAIS passer par `HiveSync.write` /
+    // `writeAsync` / `read` — uniquement par les variantes `...BoxAsync`.
+    final box = await Hive.openBox<DownloadTask>('downloads');
+
+    Object? caught;
+    try {
+      await HiveSync.writeAsync('downloads', (dynamic b) async {
+        await b!.put('t1', _task('t1'));
+      });
+    } on Object catch (error) {
+      caught = error;
+    }
+
+    expect(
+      caught,
+      isA<HiveError>(),
+      reason: 'ce test DOCUMENTE la contrainte : il doit échouer. Les accès '
+          'du gestionnaire de téléchargements passent par la variante typée.',
+    );
+    expect(caught.toString(), contains('Box<DownloadTask>'));
+
+    // La variante typée, elle, fonctionne.
+    await HiveSync.writeBoxAsync<DownloadTask, void>(
+      'downloads',
+      (Box<DownloadTask> b) async => b.put('t1', _task('t1')),
+    );
+    expect(box.get('t1'), isNotNull);
   });
 
   test('avec l\'adaptateur Duration, une tâche avec progression s\'écrit',

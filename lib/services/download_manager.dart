@@ -343,7 +343,15 @@ class DownloadManager extends ChangeNotifier {
       createdAt: DateTime.now(),
     );
 
-    await HiveSync.writeAsync(_boxName, (box) => box.put(task.id, task));
+    // Variante TYPÉE obligatoire : `HiveSync.writeAsync` résout la boîte par
+    // `Hive.box<dynamic>`, et Hive compare `box.valueType == dynamic`. Sur une
+    // `Box<DownloadTask>` la comparaison échoue et Hive lève « already open and
+    // of type Box<DownloadTask> » — c'est ce qui faisait échouer le
+    // téléchargement d'un film, bien après que `_loadConfig` ait été corrigé.
+    await HiveSync.writeBoxAsync<DownloadTask, void>(
+      _boxName,
+      (box) async => box.put(task.id, task),
+    );
     _logger.info('Download task created: ${task.id}');
 
     // Auto-start si place disponible
@@ -561,7 +569,11 @@ class DownloadManager extends ChangeNotifier {
       );
     }
 
-    await HiveSync.writeAsync(_boxName, (box) => box.delete(taskId));
+    // Typée, pour la même raison que `createTask`.
+    await HiveSync.writeBoxAsync<DownloadTask, void>(
+      _boxName,
+      (box) async => box.delete(taskId),
+    );
     notifyListeners();
   }
 
