@@ -1110,6 +1110,46 @@ List<EPGProgram> _upcomingSorted(List<EPGProgram> programs, DateTime now) {
     ..sort((a, b) => a.start.compareTo(b.start));
 }
 
+/// Budget de requêtes par chaîne pour le repli réseau de l'EPG.
+///
+/// Le dump XMLTV global couvre l'essentiel des chaînes en UNE requête. Le
+/// repli `get_short_epg` est un appel HTTP par chaîne : sur ~589 chaînes il
+/// déclenchait la limitation du panel (429) en quelques secondes, et chaque
+/// chaîne échouait. Ce budget borne le repli aux chaînes réellement absentes
+/// du dump.
+///
+/// Volontairement partagé entre les appels concurrents : la grille charge 8
+/// chaînes en parallèle, un budget par appel n'aurait rien borné.
+class EpgFallbackBudget {
+  /// Nombre de requêtes de repli autorisées par session de chargement.
+  static const int maxRequests = 40;
+
+  int _remaining = maxRequests;
+  int _consumed = 0;
+
+  int get remaining => _remaining;
+  int get consumed => _consumed;
+
+  bool tryConsume() {
+    if (_remaining <= 0) return false;
+    _remaining--;
+    _consumed++;
+    return true;
+  }
+
+  void reset() {
+    _remaining = maxRequests;
+    _consumed = 0;
+  }
+}
+
+final epgFallbackBudgetProvider = Provider<EpgFallbackBudget>((ref) {
+  // Non `autoDispose` : le budget doit survivre au démontage d'un écran pour
+  // rester un budget DE SESSION. Recréé à chaque écran, le compteur repartirait
+  // de 40 à chaque navigation et la borne serait illusoire.
+  return EpgFallbackBudget();
+});
+
 /// EPG d'une chaîne (par son `epg_channel_id` ou son `stream_id`).
 ///
 /// Hydratation à la demande : on interroge `get_short_epg` pour **cette**
@@ -1161,6 +1201,7 @@ Future<List<EPGProgram>> _resolveChannelEpg(
   // déjà avoir été détruit si l'appeleur a quitté l'écran entre-temps.
   final api = ref.read(apiServiceProvider);
   final globalCache = ref.watch(epgDataCacheProvider);
+  final budget = ref.watch(epgFallbackBudgetProvider);
   final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
   Channel? channel;
   for (final c in channels) {
@@ -1173,7 +1214,38 @@ Future<List<EPGProgram>> _resolveChannelEpg(
       break;
     }
   }
-  if (channel != null) {
+  // 2. Dump XMLTV global : UNE requête pour TOUTES les chaînes.
+  //
+  // Cet ordre est délibéré, et il a été inversé après mesure. Le dump contient
+  // ~208 000 programmes déjà indexés en mémoire ; interroger `get_short_epg`
+  // par chaîne revient à faire ~589 requêtes HTTP, que le panel limite
+  // immédiatement (429 « Limite de requêtes dépassée »), avec 6 à 8 s de
+  // latence unitaire. Résultat mesuré sur le S20 : toutes les chaînes
+  // échouaient et la grille se remplissait de blocs de trou — des « cases »
+  // sans aucun programme.
+  await globalCache.loadFull(api);
+
+  // On essaie chaque identifiant candidat de la chaîne (forme simple et forme
+  // préfixée) : le premier qui trouve des programmes gagne.
+  final candidates = <String>[epgChannelId];
+  final matched = channel;
+  if (matched != null) {
+    candidates
+      ..clear()
+      ..addAll(matched.epgChannelIds);
+    if (matched.id.isNotEmpty) candidates.add(matched.id);
+  }
+  for (final candidate in candidates) {
+    final found = keep(globalCache.programsForChannel(candidate).toList());
+    if (found.isNotEmpty) return found;
+  }
+
+  // 3. Repli réseau pour les chaînes absentes du dump — BORNÉ.
+  //
+  // Le budget est ce qui empêche de retomber dans la limitation : sans lui, le
+  // repli se déclenchait pour des centaines de chaînes non résolues et
+  // reproduisait exactement le problème qu'il était censé couvrir.
+  if (channel != null && budget.tryConsume()) {
     final target = channel;
     final result = await safeAsync<List<EPGProgram>>(
       () => api.fetchChannelEpgPrograms(target),
@@ -1187,23 +1259,6 @@ Future<List<EPGProgram>> _resolveChannelEpg(
     }
   }
 
-  // 3. Repli : le dump XMLTV global, chargé une seule fois et indexé.
-  await globalCache.loadFull(api);
-
-  // On essaie chaque identifiant candidat de la chaîne (forme simple et
-  // forme préfixée) : le premier qui trouve des programmes gagne.
-  final candidates = <String>[epgChannelId];
-  final matched = channel;
-  if (matched != null) {
-    candidates
-      ..clear()
-      ..addAll(matched.epgChannelIds);
-    if (matched.id.isNotEmpty) candidates.add(matched.id);
-  }
-  for (final candidate in candidates) {
-    final found = keep(globalCache.programsForChannel(candidate).toList());
-    if (found.isNotEmpty) return found;
-  }
   return const <EPGProgram>[];
 }
 
