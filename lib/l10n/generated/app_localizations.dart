@@ -2332,6 +2332,12 @@ abstract class AppLocalizations {
   /// **'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.'**
   String get subtitleOnlineQuota;
 
+  /// No description provided for @subtitleOnlineNeedsLogin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.'**
+  String get subtitleOnlineNeedsLogin;
+
   /// No description provided for @favorites.
   ///
   /// In fr, this message translates to:

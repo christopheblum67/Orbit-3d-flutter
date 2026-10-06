@@ -131,6 +131,22 @@ class OpenSubtitlesService {
 
   static const String baseUrl = 'https://api.opensubtitles.com/api/v1';
 
+  /// Remplace [baseUrl] pour les tests.
+  ///
+  /// `baseUrl` était un `const` statique, donc aucun test ne pouvait viser un
+  /// serveur local : la propagation d'erreur et le 503 de `/download` étaient
+  /// hors de portée des 84 tests. Cette couture rend le service testable sans
+  /// toucher au code de production.
+  @visibleForTesting
+  static String baseUrlOverride = baseUrl;
+
+  /// Base effective des requêtes.
+  static String get _base => baseUrlOverride;
+
+  /// Rétablit la base réelle. À appeler entre deux tests.
+  @visibleForTesting
+  static void resetBaseUrl() => baseUrlOverride = baseUrl;
+
   /// OpenSubtitles refuse les agents génériques : le format `Nom vVersion` est
   /// obligatoire. On réutilise l'agent déjà employé pour les sous-titres du
   /// panel.
@@ -342,7 +358,7 @@ class OpenSubtitlesService {
 
   Future<List<OpenSubtitlesFeature>> _getFeatures(
       Map<String, String> params) async {
-    final uri = Uri.parse('$baseUrl/features').replace(queryParameters: params);
+    final uri = Uri.parse('$_base/features').replace(queryParameters: params);
     final body = await _read(uri);
     if (body.isEmpty) return const [];
     final decoded = jsonDecode(body);
@@ -456,7 +472,9 @@ class OpenSubtitlesService {
         () => _get('/subtitles', params),
         context: 'OpenSubtitlesService._searchEpisodeViaFeature',
       );
-      final hits = result.valueOrNull ?? const <OpenSubtitlesHit>[];
+      // Même règle que dans `search` : une panne ne doit pas ressembler à
+      // « cette série n'a pas de piste pour cet épisode ».
+      final hits = _hitsOrThrow(result, '_searchEpisodeViaFeature');
       LoggerService.instance.info(
         'opensubtitles S${season}E$episode via « ${feature.title} » '
         '(tmdb=${feature.tmdbId}) → ${hits.length} résultat(s)',
@@ -496,7 +514,14 @@ class OpenSubtitlesService {
       () => _get('/subtitles', params),
       context: 'OpenSubtitlesService.search',
     );
-    final hits = result.valueOrNull ?? const <OpenSubtitlesHit>[];
+    // Une recherche ÉCHOUÉE n'est pas une recherche SANS RÉSULTAT.
+    //
+    // Le code faisait `result.valueOrNull ?? const []` : un 401 (clé
+    // refusée), un 429 (quota) ou une panne devenaient une liste vide, donc
+    // l'utilisateur lisait « aucun sous-titre trouvé » et n'apprenait jamais
+    // que la clé était refusée. Le `catch` de l'appelant existe, il ne se
+    // déclenchait simplement jamais.
+    final hits = _hitsOrThrow(result, 'search');
     LoggerService.instance.info(
       'opensubtitles tmdb=${tmdbId ?? '-'} '
       'saison=${seasonNumber ?? '-'} episode=${episodeNumber ?? '-'} '
@@ -504,6 +529,28 @@ class OpenSubtitlesService {
       '→ ${hits.length} résultat(s)',
     );
     return hits;
+  }
+
+  /// Lève l'erreur d'une recherche ratée, ou rend ses résultats.
+  ///
+  /// Une liste vide reste un résultat valide — « ce média n'a pas de
+  /// sous-titre » — mais une panne doit être remontée : les deux n'ont ni la
+  /// même cause ni le même remède, et les confondre rend l'interface muette
+  /// au moment où l'utilisateur a besoin d'agir.
+  static List<OpenSubtitlesHit> _hitsOrThrow(
+    AsyncResult<List<OpenSubtitlesHit>> result,
+    String context,
+  ) {
+    if (result.isFailure) {
+      final error = result.errorOrNull;
+      final cause = error?.originalError ?? error;
+      if (cause != null) {
+        Error.throwWithStackTrace(
+            cause, error?.stackTrace ?? StackTrace.current);
+      }
+      throw StateError('OpenSubtitles $context: échec sans cause');
+    }
+    return result.valueOrNull ?? const <OpenSubtitlesHit>[];
   }
 
   /// Paramètres de `/subtitles`, isolés pour être testables.
@@ -731,7 +778,7 @@ class OpenSubtitlesService {
   Future<String> _post(String path, Map<String, Object?> payload) async {
     final client = HttpClient();
     try {
-      final request = await client.postUrl(Uri.parse('$baseUrl$path'));
+      final request = await client.postUrl(Uri.parse('$_base$path'));
       request.headers.set(HttpHeaders.userAgentHeader, userAgent);
       request.headers.contentType = ContentType.json;
       if (apiKey.isNotEmpty) {
@@ -741,7 +788,7 @@ class OpenSubtitlesService {
 
       final response =
           await request.close().timeout(const Duration(seconds: 15));
-      final body = await _collect(response, Uri.parse('$baseUrl$path'));
+      final body = await _collect(response, Uri.parse('$_base$path'));
       if (response.statusCode != HttpStatus.ok) {
         // 429 = quota épuisé, 401 = clé refusée : deux causes qu'il ne faut pas
         // confondre avec une panne réseau dans le message affiché.
@@ -778,7 +825,7 @@ class OpenSubtitlesService {
     String path,
     Map<String, String> query,
   ) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    final uri = Uri.parse('$_base$path').replace(queryParameters: query);
     final body = await _read(uri);
     if (body.isEmpty) return const [];
 

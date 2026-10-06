@@ -1200,6 +1200,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.';
 
   @override
+  String get subtitleOnlineNeedsLogin =>
+      'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.';
+
+  @override
   String get favorites => 'المفضلة';
 
   @override

@@ -310,6 +310,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         _onlineSearched = true;
         _onlineHits = hits;
       });
+      if (hits.isEmpty) {
+        // Ce chemin ne posait AUCUN message : la recherche par identifiant
+        // pouvait échouer ou ne rien trouver, et l'utilisateur ne lisait rien
+        // du tout — ni résultat, ni explication.
+        setState(() => _onlineError = l.subtitleOnlineEmpty);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -334,6 +340,16 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     }
     if (text.contains('http=429')) {
       return l.subtitleOnlineQuota;
+    }
+    // Le 503 de `/download` a une cause documentée et unique : OpenSubtitles
+    // exige DEUX en-têtes sur cet endpoint, `Api-Key` ET `Authorization: Bearer`
+    // (obtenu via `/login`). La clé seule suffit à la recherche, d'où la
+    // confusion : la recherche fonctionne, le téléchargement échoue.
+    //
+    // Et contre-intuitif : l'en-tête manquant ne renvoie pas 401 mais 503
+    // « Service unavailable » — d'où l'absence de piste côté clé.
+    if (text.contains('http=503')) {
+      return l.subtitleOnlineNeedsLogin;
     }
     return text;
   }

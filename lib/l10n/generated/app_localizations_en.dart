@@ -1210,6 +1210,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'OpenSubtitles download quota reached for today. Try again tomorrow.';
 
   @override
+  String get subtitleOnlineNeedsLogin =>
+      'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.';
+
+  @override
   String get favorites => 'Favorites';
 
   @override
