@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/vpn_service.dart';
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
@@ -977,8 +978,24 @@ class EPGDataCache {
   }
 
   Future<List<EPGProgram>> _fetchAndFilter(ApiService api) async {
+    // Tampon disque d'abord : le dump fait plusieurs dizaines de Mo et sans
+    // cela il était retéléchargé à chaque session pour être jeté à la fermeture.
+    final cacheKey = api.subscriptionCacheKey;
+    if (cacheKey != null) {
+      final buffered = await EpgBufferStore.instance.read(cacheKey);
+      if (buffered != null && buffered.isNotEmpty) {
+        _index(buffered);
+        _fetchedAt = DateTime.now();
+        LoggerService.instance.info(
+          'EPG: ${buffered.length} programmes lus depuis le tampon local '
+          '(${cacheKey.hashCode})',
+        );
+        return buffered;
+      }
+    }
+
     final programs = await api.fetchEpg();
-    // On borne la conservation entre le DÉBUT de la journée en cours et +48 h.
+    // On borne la conservation entre le DÉBUT de la journée en cours et +30 h.
     //
     // La borne basse était « maintenant ». La grille représente une journée
     // entière (minuit → minuit) : tout ce qui s'est terminé ce matin était donc
@@ -988,14 +1005,38 @@ class EPGDataCache {
     // semaines précédentes contenues dans le dump.
     final now = DateTime.now();
     final dayStart = EpgDayWindow.ofNow().start;
-    final horizon = now.add(const Duration(hours: 48));
-    _all = programs
-        .where((p) => p.end.isAfter(dayStart) && p.end.isBefore(horizon))
-        .toList();
+    final horizon = now.add(const Duration(hours: EpgBufferStore.horizonHours));
+    final projected = EpgBufferStore.project(
+      programs,
+      windowStart: dayStart,
+      horizon: horizon,
+    );
+    _index(projected);
+    _fetchedAt = now;
+
+    // Écriture BEST EFFORT : un tampon non écrit coûte un téléchargement au
+    // prochain lancement, rien de plus. On ne fait jamais échouer le
+    // chargement pour une écriture.
+    if (cacheKey != null) {
+      await EpgBufferStore.instance.write(cacheKey, projected);
+      LoggerService.instance.info(
+        'EPG: ${programs.length} programmes téléchargés, '
+        '${projected.length} conservés (fenêtre ${EpgBufferStore.horizonHours} h)',
+      );
+    }
+    return projected;
+  }
+
+  /// Indexe une liste de programmes déjà filtrée.
+  ///
+  /// Partagé par le réseau et le tampon : une seule implémentation, donc aucun
+  /// risque que les deux chemins produisent des index différents.
+  void _index(List<EPGProgram> programs) {
+    _all = programs;
     // Index par chaîne, trié par horaire : recherches dichotomiques O(log N).
     _byChannel.clear();
     _normalizedToChannelId.clear();
-    for (final p in _all!) {
+    for (final p in programs) {
       (_byChannel[p.channelId] ??= <EPGProgram>[]).add(p);
       // La clé normalisée ne remplace la clé exacte que si elle est libre :
       // deux identifiants distincts ne doivent pas fusionner par accident.
@@ -1007,8 +1048,6 @@ class EPGDataCache {
     for (final list in _byChannel.values) {
       list.sort((a, b) => a.start.compareTo(b.start));
     }
-    _fetchedAt = now;
-    return _all!;
   }
 
   void invalidate() {

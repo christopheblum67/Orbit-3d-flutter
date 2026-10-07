@@ -57,6 +57,23 @@ class ApiService {
     _subPassword = sub['password'];
   }
 
+  /// Identité NON SECRÈTE de l'abonnement courant, pour nommer un cache.
+  ///
+  /// Sert au tampon EPG sur disque : deux abonnements ont des listes de chaînes
+  /// DIFFÉRENTES, et un tampon partagé afficherait les programmes d'un panel sur
+  /// les chaînes de l'autre.
+  ///
+  /// Le mot de passe est délibérément exclu — cette valeur entre dans un nom de
+  /// fichier et un journal, elle n'a donc aucune raison d'y figurer.
+  String? get subscriptionCacheKey {
+    final base = _subBaseUrl;
+    final user = _subUsername;
+    if (base == null || base.isEmpty || user == null || user.isEmpty) {
+      return null;
+    }
+    return '$base|$user';
+  }
+
   static Set<String>? _certificateFingerprints;
 
   /// Configure les fingerprints SHA-256 autorisés pour le certificate pinning.
