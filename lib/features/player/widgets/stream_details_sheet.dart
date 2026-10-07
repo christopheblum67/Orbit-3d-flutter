@@ -133,15 +133,19 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       return;
     }
 
-    if (found.guessed && found.tracks.isNotEmpty) {
-      // Pistes DÉDUITES : on ne les affiche qu'après avoir vérifié que le
-      // fichier existe. Sans cela, la section annonçait quatre pistes dont
-      // l'utilisateur découvrait l'inexistance en les sélectionnant une à
-      // une — et sur un panel qui n'en sert aucune, la liste mentait quatre
-      // fois.
+    if (found.guessed || SubtitleDiscovery.needsVerification(found.tracks)) {
+      // Pistes dont l'URL est DÉDUITE : on ne les affiche qu'après avoir vérifié
+      // que le fichier existe. Sans cela, la section annonçait des pistes dont
+      // l'utilisateur découvrait l'inexistance en les sélectionnant une à une.
+      //
+      // La condition NE REPOSE PLUS sur `guessed` seul. Un panel qui déclare
+      // `subtitles: ['fr']` fournit un CODE, pas une URL : l'URL reste
+      // déduite par convention, donc tout autant suspecte. `guessed` répond à
+      // une autre question — « le panel a-t-il déclaré quelque chose ? » — et ne
+      // suffit donc pas à décider qu'une piste est fiable.
       setState(() {
         _subtitleLoading = false;
-        _subtitleGuessed = true;
+        _subtitleGuessed = found.guessed;
         _subtitleTracks = const <SubtitleTrackRef>[];
         _subtitleVerifying = found.tracks.length;
       });

@@ -15,21 +15,36 @@ import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 /// Un petit serveur HTTP local répond ici comme un panel : il compte les
 /// requêtes, ce qui est le seul moyen de mesurer le coût réel.
 void main() {
-  late HttpServer server;
+late HttpServer server;
   late String base;
   final requested = <String>[];
 
   /// Chemins qui répondent avec un vrai sous-titre ; les autres, corps vide.
   final serving = <String>{};
 
+  /// Latence ajoutée à chaque réponse, pour rendre la concurrence observable.
+  /// Zéro par défaut : les autres tests ne doivent pas payer ce délai.
+  Duration probeDelay = Duration.zero;
+
+  /// Requêtes simultanément en vol, et maximum observé.
+  int inFlight = 0;
+  int maxInFlight = 0;
+
   setUp(() async {
     requested.clear();
     serving.clear();
+    probeDelay = Duration.zero;
+    inFlight = 0;
+    maxInFlight = 0;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     base = 'http://127.0.0.1:${server.port}';
     server.listen((request) async {
       final path = request.uri.path;
       requested.add(path);
+      inFlight++;
+      if (inFlight > maxInFlight) maxInFlight = inFlight;
+      if (probeDelay > Duration.zero) await Future<void>.delayed(probeDelay);
+      inFlight--;
       request.response.headers.contentType = ContentType.text;
       if (serving.contains(path)) {
         request.response.write(
@@ -228,10 +243,85 @@ void main() {
         ),
     ];
 
-    final kept = await SubtitleController().verifyTracks(tracks);
+final kept = await SubtitleController().verifyTracks(tracks);
 
     expect(kept, isEmpty);
     expect(requested, hasLength(12));
+  });
+
+  test('les pistes sont vérifiées EN MÊME TEMPS, sans changer le coût',
+      () async {
+    // Sur le panel mesuré, une réponse prend 6 à 8 s : en série, les 16 sondes
+    // d'un film muet tenaient l'utilisateur devant un panneau modal pendant plus
+    // de deux minutes. Le nombre de REQUÊTES ne doit pas bouger pour autant :
+    // c'est la latence qui est divisée, pas le coût.
+    probeDelay = const Duration(milliseconds: 80);
+    final tracks = [
+      for (var i = 0; i < 8; i++)
+        trackWithAlternates(
+          primary: '$base/par-$i-fr.srt',
+          second: '$base/par-$i.srt',
+          third: '$base/par-$i-fre.srt',
+        ),
+    ];
+
+    final started = DateTime.now();
+    final kept = await SubtitleController().verifyTracks(tracks);
+    final elapsed = DateTime.now().difference(started);
+
+    expect(kept, isEmpty);
+    expect(
+      requested,
+      hasLength(24),
+      reason: 'la parallélisation ne doit pas ajouter ni supprimer une seule '
+          'requête : 8 pistes x 3 candidats',
+    );
+    expect(
+      maxInFlight,
+      greaterThan(1),
+      reason: 'c\'est précisément ce que la parallélisation achète : sans '
+          'elle, maxInFlight resterait à 1',
+    );
+    expect(
+      maxInFlight,
+      lessThanOrEqualTo(4),
+      reason: 'et elle est bornée : inonder un panel qui refuse déjà les '
+          'rafales reproduirait le défaut qu\'on corrige',
+    );
+    // 24 sondes à 80 ms en sérieIRAient ~1,9 s. À quatre en vol, trois
+    // vagu es suffisent (~0,24 s). On prend une marge large : la mesure ne doit
+    // pas rendre le test instable sur une machine chargée.
+    expect(
+      elapsed,
+      lessThan(const Duration(milliseconds: 1200)),
+      reason: 'la latence doit être divisée, pas seulement déplacée',
+    );
+  });
+
+  test('l\'ordre des pistes annoncées est préservé', () async {
+    // La liste doit rester dans l\'ordre du panel : avec des workers en
+    // parallèle, c\'est l\'ordre de FINITION des requêtes qui decide de l\'ordre
+    // du resultat si l\'implementation ne reserve pas la place de chaque piste.
+    for (final lang in ['fr', 'en', 'es', 'de']) {
+      serving.add('/ord-$lang.srt');
+    }
+    final tracks = [
+      for (final lang in ['fr', 'en', 'es', 'de'])
+        SubtitleTrackRef(
+          url: '$base/ord-$lang.srt',
+          language: lang,
+          label: lang,
+        ),
+    ];
+
+    final kept = await SubtitleController().verifyTracks(tracks);
+
+    expect(
+      kept.map((t) => t.language),
+      ['fr', 'en', 'es', 'de'],
+      reason: 'la 4e piste repond plus vite que la 1re quand la 1re est plus '
+          'lente : le resultat ne doit pas dependre de l\'ordre d\'arrivee',
+    );
   });
 
   test('le cache de session évite de re-tester', () async {

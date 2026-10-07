@@ -144,51 +144,98 @@ class SubtitleController extends ChangeNotifier {
   ///
   /// [onProgress] reçoit le nombre de pistes restantes, pour afficher un
   /// avancement plutôt qu'un écran figé.
+  ///
+  /// ## Parallélisme
+  ///
+  /// Les pistes étaient vérifiées strictement l'une après l'autre. Sur le
+  /// panel mesuré, chaque réponse prenait 6 à 8 s : les 16 sondes d'un film
+  /// muetTenant donc plus de deux minutes d'attente sur un panneau modal.
+  ///
+  /// Elles sont désormais vérifiées [maxParallelTracks] à la fois. Le nombre de
+  /// REQUÊTES ne change pas — le test de coût le vérifie au nombre près — seule
+  /// la latence est divisée. Le court-circuit par piste est préservé : dès
+  /// qu'un candidat répond, les suivants de CETTE piste ne sont pas sondés.
   Future<List<SubtitleTrackRef>> verifyTracks(
     List<SubtitleTrackRef> tracks, {
     void Function(int remaining)? onProgress,
   }) async {
-    final kept = <SubtitleTrackRef>[];
-    var probes = 0;
-    for (var i = 0; i < tracks.length; i++) {
-      final track = tracks[i];
-      final candidates = track.candidates;
-      SubtitleTrackRef? hit;
-      var hitIndex = -1;
-      for (var c = 0; c < candidates.length; c++) {
-        probes++;
-        if (await _exists(candidates[c])) {
-          hit = candidates[c];
-          hitIndex = c;
-          break;
-        }
-      }
+    if (tracks.length <= 1) {
+      return _verifyTracksSequential(tracks, onProgress: onProgress);
+    }
 
-      if (hit != null) {
-        // On ne garde que les candidats *jusqu'au* premier qui répond : les
-        // suivants n'ont pas servi et seraient retestés à la sélection.
-        //
-        // Le candidat gagnant devient l'URL principale de la piste : c'est lui
-        // que l'utilisateur choisira, et pour éviter de retester une forme morte.
-        final verified = candidates.sublist(0, hitIndex + 1);
-        kept.add(
-          verified.length == 1
-              ? hit
-              : track.copyWith(
-                  url: hit.url,
-                  language: hit.language,
-                  alternates: verified.skip(1).toList(),
-                ),
-        );
+    final results = List<SubtitleTrackRef?>.filled(tracks.length, null);
+    var next = 0;
+
+    Future<void> worker() async {
+      while (true) {
+        final index = next++;
+        if (index >= tracks.length) return;
+        results[index] = await _verifyOne(tracks[index]);
+        onProgress?.call(tracks.length - next);
       }
+    }
+
+    // Au plus [_parallelism] sondes simultanées : assez pour diviser la
+    // latence par un facteur visible, assez peu pour ne pas déclencher la
+    // limitation d'un panel qui refuse déjà easily les rafales.
+    await Future.wait([
+      for (var w = 0; w < _parallelism && w < tracks.length; w++) worker(),
+    ]);
+
+    return [
+      for (final kept in results)
+        if (kept != null) kept,
+    ];
+  }
+
+  /// Nombre de pistes vérifiées simultanément.
+  ///
+  /// Volontairement modeste : le panel testé répond déjà 200 avec 6 à 8 s de
+  /// latence et limite les requêtes. 4 sondes en vol suffisent à faire passer
+  /// le cas courant de deux minutes à trente secondes.
+  static const int _parallelism = 4;
+
+  Future<List<SubtitleTrackRef>> _verifyTracksSequential(
+    List<SubtitleTrackRef> tracks, {
+    void Function(int remaining)? onProgress,
+  }) async {
+    final kept = <SubtitleTrackRef>[];
+    for (var i = 0; i < tracks.length; i++) {
+      final hit = await _verifyOne(tracks[i]);
+      if (hit != null) kept.add(hit);
       onProgress?.call(tracks.length - i - 1);
     }
-    LoggerService.instance.info(
-      'Sous-titres : ${tracks.length} piste(s) déduites, $probes requête(s) '
-      'de vérification, ${kept.length} retenue(s)',
-      tag: 'subtitle',
-    );
     return kept;
+  }
+
+  /// Vérifie une piste : sonde ses candidats dans l'ordre, s'arrête au premier
+  /// qui répond.
+  Future<SubtitleTrackRef?> _verifyOne(SubtitleTrackRef track) async {
+    final candidates = track.candidates;
+    SubtitleTrackRef? hit;
+    var hitIndex = -1;
+    for (var c = 0; c < candidates.length; c++) {
+      if (await _exists(candidates[c])) {
+        hit = candidates[c];
+        hitIndex = c;
+        break;
+      }
+    }
+    if (hit == null) return null;
+
+    // On ne garde que les candidats *jusqu'au* premier qui répond : les
+    // suivants n'ont pas servi et seraient retestés à la sélection.
+    //
+    // Le candidat gagnant devient l'URL principale de la piste : c'est lui
+    // que l'utilisateur choisira, et cela évite de retester une forme morte.
+    final verified = candidates.sublist(0, hitIndex + 1);
+    return verified.length == 1
+        ? hit
+        : track.copyWith(
+            url: hit.url,
+            language: hit.language,
+            alternates: verified.skip(1).toList(),
+          );
   }
 
   /// Le fichier de cette piste répond-il avec un vrai sous-titre ?

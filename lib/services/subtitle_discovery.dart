@@ -187,6 +187,42 @@ class SubtitleTrackRef {
 /// lève jamais : une découverte ratée doit laisser l'interface simplement vide,
 /// pas faire échouer l'ouverture de la fiche.
 class SubtitleDiscovery {
+  /// Construit les replis d'une piste dont l'URL est une convention.
+  ///
+  /// [urlsForLanguage] liste quatre formes (`_fr.srt`, `.fr.srt`,
+  /// timingsubtitles, `.vtt`). Sans elles, une piste servie sous une autre forme
+  /// était déclarée morte alors qu'elle existe — et jamais testée.
+  static List<SubtitleTrackRef> alternateRefsFor(
+    SubtitleDiscoveryContext context,
+    String rawLanguage,
+    String normalisedLanguage, {
+    String? label,
+  }) {
+    final urls = context.urlsForLanguage(rawLanguage);
+    if (urls.length <= 1) return const <SubtitleTrackRef>[];
+    return [
+      for (final url in urls.skip(1))
+        SubtitleTrackRef(
+          url: url,
+          language: normalisedLanguage,
+          label: label ?? normalisedLanguage,
+        ),
+    ];
+  }
+
+  /// Une piste est-elle adressable telle que le panel l'a donnée ?
+  ///
+  /// Vrai quand le panel a FOURNI l'URL. Faux quand elle est déduite d'un
+  /// simple code langue : dans ce cas la piste est une hypothèse et doit être
+  /// vérifiée avant d'être présentée.
+  ///
+  /// C'est ce qui manquait : `guessed` confondait « le panel n'a rien déclaré »
+  /// avec « l'URL est devinée ». Un panel qui déclare `subtitles: ['fr']` ne
+  /// fournit AUCUNE URL — la piste est donc devinée, mais elle était affichée
+  /// comme déclarée, sans jamais être testée.
+  static bool needsVerification(Iterable<SubtitleTrackRef> tracks) =>
+      tracks.any((t) => t.alternates.isNotEmpty);
+
   SubtitleDiscovery._();
 
   /// Clés sous lesquelles un panel peut placer la liste des sous-titres.
@@ -463,21 +499,49 @@ class SubtitleDiscovery {
           if (entry is String) {
             final raw = entry.trim();
             if (raw.isEmpty) continue;
-            final lang = _looksLikeSubtitleUrl(raw) ? _langFromUrl(raw) : raw;
-            var url =
-                _looksLikeSubtitleUrl(raw) ? raw : context?.urlForLanguage(raw);
-            // Un chemin relatif (`1234_fr.srt`) se résout sur le panel.
-            if (url == null && context != null) {
-              final resolved = context.resolvePath(raw);
-              if (resolved != null && _looksLikeSubtitleUrl(resolved)) {
-                url = resolved;
-              }
+
+            // Une entrée en chaîne peut être trois choses très différentes, et
+            // les confondre produisait des URL mortes :
+            // 1. une URL complète — le panel a tout donné ;
+            // 2. un CHEMIN (`54321_fr.srt`, `/media/sub/x.vtt`) — le panel a
+            //    donné le fichier, il reste à le résoudre sur sa racine ;
+            // 3. un CODE LANGUE (`fr`, `fre`, `French`) — rien n'est fourni,
+            //    l'adresse est une convention, et c'est le seul cas où les
+            //    replis ont un sens.
+            //
+            // Le code passait (2) dans le traitement de (3) : il lisait
+            // `54321_fr.srt` comme une langue et construisait
+            // `.../subtitles/user/pass/54321.54321_fr.srt.srt`. Comme ce
+            // `urlForLanguage` renvoyait du `String?` non nul, le
+            // `resolvePath` mis en place pour les chemins relatifs n'était
+            // JAMAIS atteint, et la bonne adresse n'était jamais tentée.
+            final isFullUrl = _looksLikeSubtitleUrl(raw);
+            final isPath = !isFullUrl && !_looksLikeLanguageCode(raw);
+
+            final lang = isFullUrl || isPath ? _langFromUrl(raw) : raw;
+            String? url;
+            if (isFullUrl) {
+              url = raw;
+            } else if (isPath) {
+              url = context?.resolvePath(raw);
+            } else {
+              url = context?.urlForLanguage(raw);
             }
             if (url == null) continue;
+
+            // Replis conventionnels : uniquement pour une adresse DÉDUITE d'un
+            // code langue. Un chemin ou une URL fournis par le panel n'ont pas
+            // de repli possible — les autres formes de `urlsForLanguage`
+            // désigneraient des fichiers qu'il n'a jamais mentionnés.
+            final alternates = (context == null || isFullUrl || isPath)
+                ? const <SubtitleTrackRef>[]
+                : alternateRefsFor(context, raw, _normaliseLang(lang),
+                    label: _labelFromLanguage(lang));
             add(SubtitleTrackRef(
               url: url,
               language: _normaliseLang(lang),
               label: _labelFromLanguage(lang),
+              alternates: alternates,
             ));
             continue;
           }
@@ -575,6 +639,20 @@ class SubtitleDiscovery {
     }
     return false;
   }
+
+  /// L'entrée est-elle un CODE LANGUE, plutôt qu'un chemin de fichier ?
+///
+/// Sépare `fr` / `fre` / `French` — que l'on transforme en URL par
+/// convention — de `54321_fr.srt` ou `/media/sub/x.vtt`, que le panel a
+/// désignés et qu'il faut résoudre sur sa racine.
+///
+/// Le critère est lâche sur le fond (un nom de langue complet reste accepté)
+/// et strict sur la forme : un point ou une barre oblique suffit à qualifier
+/// l'entrée de chemin, car aucun code de langue n'en contient.
+static bool _looksLikeLanguageCode(String raw) {
+  if (raw.isEmpty) return false;
+  return !raw.contains('/') && !raw.contains('.');
+}
 
   /// Devine la langue depuis l'URL (`.../fre.srt` -> `fre`).
   ///
