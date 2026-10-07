@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
@@ -314,13 +315,31 @@ class OpenSubtitlesApiKeyTile extends ConsumerWidget {
         Text(l.opensubtitlesKeyLabel,
             style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 8),
-        _ApiKeyField(
+_ApiKeyField(
           value: key,
           hint: l.opensubtitlesKeyHint,
           onSubmitted: (value) async {
             await ref
                 .read(openSubtitlesApiKeyProvider.notifier)
                 .setApiKey(value);
+            if (!context.mounted) return;
+            // La longueur suffit à confirmer l'écriture depuis `adb logcat`
+            // sans jamais mettre le secret à disposition : la clé est déjà
+            // extractible de l'APK, l'écrire dans les logs l'ajouterait à un
+            // canal lisible par n'importe quelle app debuggable.
+            LoggerService.instance.info(
+              'OpenSubtitles: clé enregistrée (longueur ${value.trim().length})',
+            );
+            // `key` date du build PRÉCÉDENT : l'annoncer ici afficherait le
+            // message contraire à ce qui vient d'être enregistré.
+            final saved = value.trim();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  saved.isEmpty ? l.opensubtitlesKeyAnonymous : l.opensubtitlesKeyActive,
+                ),
+              ),
+            );
           },
         ),
         const SizedBox(height: 8),
@@ -371,6 +390,23 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
   late final TextEditingController _controller =
       TextEditingController(text: widget.value);
   bool _obscure = true;
+
+  @override
+  void didUpdateWidget(covariant _ApiKeyField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Le contrôleur est `late final` : il n'avait été écrit qu'à la première
+    // construction. Or la clé arrive de façon ASYNCHRONE (`load()` en
+    // `unawaited` au démarrage) et peut changer sans action de l'utilisateur
+    // (effacement ailleurs, réinitialisation d'usine). Sans cette
+    // synchronisation, le champ continuait d'afficher l'ancienne valeur — le
+    // vide le plus souvent — alors que l'état-provider était correct.
+    if (widget.value != oldWidget.value) {
+      _controller.text = widget.value;
+      // Une clé qu'on venait de révéler ne doit pas rester en clair parce que
+      // l'état a changé par ailleurs.
+      _obscure = true;
+    }
+  }
 
   @override
   void dispose() {

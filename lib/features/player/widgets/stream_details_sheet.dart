@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
@@ -256,8 +256,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       _onlineError = null;
     });
 
-    final apiKey = ref.read(openSubtitlesApiKeyProvider);
-    final service = OpenSubtitlesService(apiKey: apiKey);
+    // Service fourni par le graphe Riverpod : il porte la clé courante, et la
+    // remplace quand l'utilisateur en enregistre une nouvelle. Le construire
+    // ici à partir d'un `ref.read` figerait la clé au moment de la recherche.
+    final service = ref.read(openSubtitlesServiceProvider);
 
     try {
       // Deux voies, dans cet ordre :
@@ -362,9 +364,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   Future<void> _selectOnline(OpenSubtitlesHit hit) async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _onlineBusyId = hit.fileId);
-    final service = OpenSubtitlesService(
-      apiKey: ref.read(openSubtitlesApiKeyProvider),
-    );
+    final service = ref.read(openSubtitlesServiceProvider);
     try {
       final track = await service.download(hit, language: hit.language);
       if (!mounted) return;
