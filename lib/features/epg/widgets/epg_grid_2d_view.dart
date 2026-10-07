@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_row_diagnostics.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
 /// Grille EPG haute performance avec CustomPainter (canvas unique).
@@ -483,20 +484,23 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     // Cette mesure n'existait pas, et sans elle les deux cas se ressemblent
     // exactement à l'écran : des lignes vides.
     if (cache.isNotEmpty) {
-      var withPrograms = 0;
       var minLeft = double.infinity;
       var maxLeft = double.negativeInfinity;
       for (final rp in cache.values) {
         if (rp.isEmpty) continue;
-        withPrograms++;
         for (final p in rp) {
           if (p.left < minLeft) minLeft = p.left;
           if (p.left + p.width > maxLeft) maxLeft = p.left + p.width;
         }
       }
+      // Les trois états sont comptés séparément : « comblées seules » et
+      // « vides » se ressemblent à l'écran mais n'ont rien à voir comme causes,
+      // et l'ancien compteur les confondait avec les lignes ayant de vrais
+      // programmes — rendant le bilan incomparable à celui du chargeur.
+      final diag = diagnoseEpgRows(widget.epgData);
       LoggerService.instance.info(
-        'EPG rendu: ${cache.length} lignes, $withPrograms avec programmes, '
-        'étendue $minLeft..${maxLeft == double.negativeInfinity ? 0 : maxLeft} '
+        'EPG rendu: $diag, étendue $minLeft..'
+        '${maxLeft == double.negativeInfinity ? 0 : maxLeft} '
         'px, origine ${_gridStartTime.toIso8601String()}, '
         'début 1re ligne = ${_firstProgramStart(cache)}',
       );
