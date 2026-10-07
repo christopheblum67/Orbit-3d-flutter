@@ -980,7 +980,7 @@ class EPGDataCache {
   Future<List<EPGProgram>> _fetchAndFilter(ApiService api) async {
     // Tampon disque d'abord : le dump fait plusieurs dizaines de Mo et sans
     // cela il était retéléchargé à chaque session pour être jeté à la fermeture.
-    final cacheKey = api.subscriptionCacheKey;
+    final cacheKey = await api.resolveSubscriptionCacheKey();
     if (cacheKey != null) {
       final buffered = await EpgBufferStore.instance.read(cacheKey);
       if (buffered != null && buffered.isNotEmpty) {

@@ -65,9 +65,18 @@ class ApiService {
   ///
   /// Le mot de passe est délibérément exclu — cette valeur entre dans un nom de
   /// fichier et un journal, elle n'a donc aucune raison d'y figurer.
-  String? get subscriptionCacheKey {
-    final base = _subBaseUrl;
-    final user = _subUsername;
+  ///
+  /// ## Asynchrone, et c'est nécessaire
+  ///
+  /// Une version synchrone lisant les champs mémorisés ne renvoyait `null` qu'au
+  /// DÉMARRAGE À FROID : ils ne sont renseignés que par [_activeSub], or le
+  /// tampon est consulté AVANT le premier appel réseau. Résultat mesuré sur le
+  /// S20 : aucune trace de lecture ni d'écriture, le tampon jamais produit.
+  Future<String?> resolveSubscriptionCacheKey() async {
+    final sub = await _activeSub();
+    if (sub['type'] != 'xtream') return null;
+    final base = sub['baseUrl'];
+    final user = sub['username'];
     if (base == null || base.isEmpty || user == null || user.isEmpty) {
       return null;
     }
