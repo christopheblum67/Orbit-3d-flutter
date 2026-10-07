@@ -1341,10 +1341,28 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
 /// `box.watch()` Hive. Sans `autoDispose`, elle restait active pour toute la
 /// session même quand aucun écran n'affichait de téléchargements, et le
 /// `.toList()..sort()` complet se rejouait à chaque écriture de tâche.
+///
+/// ## Pourquoi l'initialisation est ici
+///
+/// C'est le SEUL endroit, dans toute l'application, qui garantit l'ouverture de
+/// la boîte avant consommation. L'écran `DownloadsScreen` appelait `init()` —
+/// mais `9340399` l'a orphelin au profit de `DownloadsSection`, qui ne le fait
+/// pas. Résultat mesuré : personne n'ouvrait la boîte, `_snapshotTasks()`
+/// renvoyait une liste vide, et l'onglet « Téléchargements » affichait « aucun
+/// téléchargement » alors que la tâche existait sur le disque. Le vide n'était
+/// donc ni une perte de données ni un échec réseau.
+///
+/// L'ordre `init()` → `currentTasks` → `tasksStream` est indispensable :
+/// l'émission initiale du contrôleur *broadcast* a lieu pendant `init()`, donc
+/// avant cet abonnement. Sans `currentTasks`, l'abonné raterait le seul
+/// instantané qui décrit l'état courant et n'afficherait rien jusqu'à la
+/// prochaine écriture.
 final downloadTasksStreamProvider =
-    StreamProvider.autoDispose<List<DownloadTask>>((ref) {
+    StreamProvider.autoDispose<List<DownloadTask>>((ref) async* {
   final manager = ref.watch(downloadManagerProvider);
-  return manager.tasksStream;
+  await manager.init();
+  yield manager.currentTasks;
+  yield* manager.tasksStream;
 });
 
 class StreamAiException implements Exception {

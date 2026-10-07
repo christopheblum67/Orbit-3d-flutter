@@ -130,11 +130,56 @@ class DownloadManager extends ChangeNotifier {
       _responseControllers = {};
   int _activeDownloads = 0;
 
+  /// Flux des tâches, alimenté une fois pour toutes à l'ouverture de la boîte.
+  ///
+  /// ## Pourquoi un contrôleur plutôt que `_box.watch()`
+  ///
+  /// `DownloadsScreen.initState()` lit `tasksStream` **avant** d'appeler `init()`,
+  /// qui est asynchrone. Le getter construisait alors son stream sur une boîte
+  /// encore fermée et renvoyait `Stream.value([])` : un flux *mort*, qui émetait
+  /// une liste vide puis se terminait, sans jamais_plus être relié à Hive.
+  ///
+  /// Conséquence mesurée : la tâche était bien créée et persistée (log
+  /// « Download task created »), et l'onglet Téléchargements restait vide — au
+  /// premier lancement comme après redémarrage, puisque `initState()` précède
+  /// toujours l'ouverture asynchrone. Le rattrapage au démarrage ne pouvait
+  /// pas aider : le stream n'était plus réabonnable.
+  ///
+  /// Un contrôleur *broadcast* alimenté à l'ouverture puis à chaque écriture
+  /// Hive supprime la fenêtre : un abonné qui s'abonne avant l'ouverture reçoit
+  /// bien le premier instantané, parce que l'émission a lieu après son
+  /// abonnement.
+  final StreamController<List<DownloadTask>> _tasksController =
+      StreamController<List<DownloadTask>>.broadcast();
+
+  /// Boîte actuellement câblée au contrôleur.
+  ///
+  /// On suit l'**instance**, pas un booléen : une boîte fermée puis rouverte
+  /// donne un nouvel objet `Box`, dont l'écouteur précédent est mort. Un
+  /// garde booléen aurait alors laissé le contrôleur muet pour toujours — le
+  /// même symptôme que le bug d'origine, réapparu à la réinitialisation
+  /// d'usine ou à une déconnexion.
+  Box<DownloadTask>? _wiredBox;
+
+  StreamSubscription<BoxEvent>? _tasksSubscription;
+
   /// Configuration actuelle.
   DownloadManagerConfig get config => _config;
 
   /// Liste de toutes les tâches (réactive via Hive).
-  Stream<List<DownloadTask>> get tasksStream => _watchTasks();
+  ///
+  /// Ne renvoie plus `_watchTasks()` : ce getter construisait un stream
+  /// *à l'instant de l'appel*, donc figé sur l'état de la boîte à cet instant.
+  Stream<List<DownloadTask>> get tasksStream => _tasksController.stream;
+
+  /// Tâches actuellement stockées, la plus récente d'abord.
+  ///
+  /// Public parce qu'un abonné du flux peut arriver APRÈS l'émission
+  /// initiale : un contrôleur *broadcast* ne rattrape pas un événement passé,
+  /// donc le flux seul ne peut pas garantir un premier instantané. LaFenêtre
+  /// est réelle — un `StreamProvider` fait `await init()` avant de
+  /// s'abonner, donc après le câblage.
+  List<DownloadTask> get currentTasks => _snapshotTasks();
 
   /// Tâches en cours de téléchargement.
   List<DownloadTask> get activeTasks {
@@ -161,7 +206,13 @@ class DownloadManager extends ChangeNotifier {
     // ré-ouvrir une boîte déjà ouverte, d'où « already open and of type
     // Box<DownloadTask> » au premier téléchargement.
     final box = _box;
-    if (box != null && box.isOpen) return Future<void>.value();
+    if (box != null && box.isOpen) {
+      // Chemin de sortie rapide : on câble quand même, car c'est le cas
+      // courant lors d'une reconstruction d'écran, et qu'un contrôleur jamais
+      // câblé se traduit par une liste vide.
+      _wireTasksStream();
+      return Future<void>.value();
+    }
 
     final existing = _initFuture;
     if (existing != null) return existing;
@@ -173,6 +224,13 @@ class DownloadManager extends ChangeNotifier {
       // l'ouverture de la boîte.
       if (identical(_initFuture, future)) _initFuture = null;
       Error.throwWithStackTrace(error, stack);
+    }).whenComplete(() {
+      // Libération aussi en cas de SUCCÈS. Sans elle, `_initFuture` restait
+      // renseigné pour toute la vie du singleton : après une fermeture de
+      // boîte, `init()`court-circuitait sur ce future déjà accompli et
+      // n'ouvrait plus rien — la liste des tâches restait muette pour le
+      // reste de la session.
+      if (identical(_initFuture, future)) _initFuture = null;
     });
     _initFuture = future;
     return future;
@@ -180,6 +238,7 @@ class DownloadManager extends ChangeNotifier {
 
   Future<void> _doInit() async {
     await _openBoxOnce();
+    _wireTasksStream();
     await _loadConfig();
     _recoverInterruptedDownloads();
     _logger.info('DownloadManager initialized');
@@ -295,12 +354,33 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Stream<List<DownloadTask>> _watchTasks() {
-    if (_box == null) return Stream.value([]);
-    return _box!.watch().map(
-          (_) => _box!.values.toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-        );
+/// Instantané trié des tâches, la plus récente d'abord.
+  List<DownloadTask> _snapshotTasks() {
+    final box = _box;
+    if (box == null) return const [];
+    return box.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  /// Relie le contrôleur à Hive : première émission puis suivi des écritures.
+  ///
+  /// Idempotent. Appelé après l'ouverture de la boîte, jamais avant : émettre
+  /// sur un contrôleur *broadcast* ne rattrape pas un abonné ultérieur, alors
+  /// que le Watch de Hive, lui, est attaché à la boîte déjà ouverte.
+  void _wireTasksStream() {
+    final box = _box;
+    if (box == null || identical(_wiredBox, box)) return;
+    // Boîte précédente encore vivante : on lâche son écouteur avant d'en
+    // créer un autre, sinon chaque réouverture empile une notification.
+    _tasksSubscription?.cancel();
+    _wiredBox = box;
+    _tasksController.add(_snapshotTasks());
+    _logger.info('DownloadManager: flux tâches câblé, '
+        '${_snapshotTasks().length} tâche(s) présente(s)');
+    _tasksSubscription = box.watch().listen((_) {
+      if (_tasksController.isClosed) return;
+      _tasksController.add(_snapshotTasks());
+    });
   }
 
   /// Récupère une tâche par son ID.
