@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:typed_data' show BytesBuilder;
 
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/services/subtitle_encoding.dart';
 
 /// Erreur levée quand une URL de sous-titre répond sans contenu exploitable.
 ///
@@ -181,36 +182,13 @@ class SubtitleParser {
         builder.add(chunk);
       }
       return (
-        body: _decodeSubtitleBytes(builder.takeBytes()),
+        body: SubtitleEncoding.decode(builder.takeBytes()),
         statusCode: response.statusCode,
         contentType: response.headers.contentType?.mimeType,
       );
     } finally {
       client.close();
     }
-  }
-
-  /// Décode un fichier de sous-titres en tolérant les deux encodages
-  /// réellement rencontrés sur les panels Xtream.
-  ///
-  /// `utf8.decoder` **strict** levait une `FormatException` sur un fichier
-  /// Latin-1 (très fréquent en français) : le chargement échouait et plus
-  /// aucun sous-titre n'était proposé. On décode donc en UTF-8 permissif et,
-  /// si le contenu contenait des octets invalides, on repasse en Latin-1.
-  static String _decodeSubtitleBytes(List<int> bytes) {
-    if (bytes.isEmpty) return '';
-    var isValidUtf8 = true;
-    final relaxed = utf8.decode(bytes, allowMalformed: true);
-    // `allowMalformed` remplace les séquences invalides par U+FFFD : on peut
-    // donc détecter un fichier Latin-1 et le rejouer en CP1252.
-    for (final rune in relaxed.runes) {
-      if (rune == 0xFFFD) {
-        isValidUtf8 = false;
-        break;
-      }
-    }
-    if (isValidUtf8) return relaxed;
-    return latin1.decode(bytes, allowInvalid: true);
   }
 
   static SubtitleTrack parse(
