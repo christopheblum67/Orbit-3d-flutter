@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
+import 'package:orbit_3d_flutter/services/opensubtitles_key_store.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 
 /// Code d'accès à l'écran des réglages sensibles.
@@ -328,7 +329,9 @@ _ApiKeyField(
             // extractible de l'APK, l'écrire dans les logs l'ajouterait à un
             // canal lisible par n'importe quelle app debuggable.
             LoggerService.instance.info(
-              'OpenSubtitles: clé enregistrée (longueur ${value.trim().length})',
+              'OpenSubtitles: clé enregistrée '
+              '(saisie ${value.trim().length} → stockée '
+              '${OpenSubtitlesKeyStore.sanitise(value).length} caractères)',
             );
             // `key` date du build PRÉCÉDENT : l'annoncer ici afficherait le
             // message contraire à ce qui vient d'être enregistré.
