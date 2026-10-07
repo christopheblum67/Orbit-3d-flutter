@@ -982,13 +982,18 @@ class EPGDataCache {
     // cela il était retéléchargé à chaque session pour être jeté à la fermeture.
     final cacheKey = await api.resolveSubscriptionCacheKey();
     if (cacheKey != null) {
+      // Chronométré : c'est le coût RÉEL de la lecture du tampon, et lui seul
+      // dira si le format mérite d'être compressé ou allégé. Décider avant de
+      // mesurer produirait une optimisation sur une intuition.
+      final stopwatch = Stopwatch()..start();
       final buffered = await EpgBufferStore.instance.read(cacheKey);
+      stopwatch.stop();
       if (buffered != null && buffered.isNotEmpty) {
         _index(buffered);
         _fetchedAt = DateTime.now();
         LoggerService.instance.info(
-          'EPG: ${buffered.length} programmes lus depuis le tampon local '
-          '(${cacheKey.hashCode})',
+          'EPG: ${buffered.length} programmes lus depuis le tampon local en '
+          '${stopwatch.elapsedMilliseconds} ms',
         );
         return buffered;
       }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:path_provider/path_provider.dart';
@@ -99,10 +100,12 @@ class EpgBufferStore {
     String cacheKey, {
     Duration maxAgeLimit = maxAge,
   }) async {
+    int? fileBytes;
     final result = await safeAsync<Map<String, dynamic>?>(
       () async {
         final file = File('${(await _dir()).path}/${fileNameFor(cacheKey)}');
         if (!file.existsSync()) return null;
+        fileBytes = file.lengthSync();
         final writtenAt = DateTime.fromMillisecondsSinceEpoch(
           file.lastModifiedSync().millisecondsSinceEpoch,
         );
@@ -124,7 +127,7 @@ class EpgBufferStore {
       return null;
     }
     try {
-      return [
+      final parsed = <EPGProgram>[
         for (final item in list)
           if (item is Map<String, dynamic>)
             EPGProgram(
@@ -135,6 +138,11 @@ class EpgBufferStore {
               end: DateTime.fromMillisecondsSinceEpoch(item['e'] as int),
             ),
       ];
+      LoggerService.instance.info(
+        'EPG tampon: ${parsed.length} programmes, '
+        '${_humanSize(fileBytes ?? 0)} sur disque',
+      );
+      return parsed;
     } on Object {
       // Champ manquant ou mal typé : tampon inexploitable, on le disregard.
       return null;
@@ -168,6 +176,12 @@ class EpgBufferStore {
         });
         await temp.writeAsString(payload, flush: true);
         await temp.rename(target.path);
+        // Taille réellement écrite : c'est le seul chiffre qui décide si le
+        // format mérite d'être compressé. On le mesure, on ne le devine pas.
+        LoggerService.instance.info(
+          'EPG tampon: ${programs.length} programmes, '
+          '${_humanSize(target.lengthSync())} écrits',
+        );
       },
       context: 'EpgBufferStore.write',
     );
@@ -186,6 +200,15 @@ class EpgBufferStore {
 
   @visibleForTesting
   void resetDirectoryCacheForTests() => _cachedDir = null;
+
+  /// Taille lisible, sans l'unité « octets » qui masque l'ordre de grandeur.
+  static String _humanSize(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+    }
+    if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
+    return '$bytes o';
+  }
 
   /// Impose le répertoire du tampon.
   ///
