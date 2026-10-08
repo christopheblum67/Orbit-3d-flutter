@@ -185,7 +185,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Images, index recherche, métadonnées TMDB/TVmaze';
 
   @override
-  String get cloudSyncEnabled => 'Synchronisation activée';
+  String get cloudSyncEnabled => 'Synchronisation cloud';
 
   @override
   String cloudSyncLastSync(String time) {
@@ -201,7 +201,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get cloudSyncSubtitleOff =>
-      'Synchronise favoris, vus et récents vers le cloud';
+      'Désactivée temporairement : ces données ne sont pas synchronisées vers le cloud.';
 
   @override
   String get cloudflareReset => 'Réinitialiser config Cloudflare';

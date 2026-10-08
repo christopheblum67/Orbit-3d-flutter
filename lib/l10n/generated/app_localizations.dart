@@ -103,7 +103,7 @@ abstract class AppLocalizations {
     Locale('en'),
     Locale('es'),
     Locale('fr'),
-    Locale('it')
+    Locale('it'),
   ];
 
   /// No description provided for @accountDeviceProfile.
@@ -427,7 +427,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudSyncEnabled.
   ///
   /// In fr, this message translates to:
-  /// **'Synchronisation activée'**
+  /// **'Synchronisation cloud'**
   String get cloudSyncEnabled;
 
   /// No description provided for @cloudSyncLastSync.
@@ -451,7 +451,7 @@ abstract class AppLocalizations {
   /// No description provided for @cloudSyncSubtitleOff.
   ///
   /// In fr, this message translates to:
-  /// **'Synchronise favoris, vus et récents vers le cloud'**
+  /// **'Désactivée temporairement : ces données ne sont pas synchronisées vers le cloud.'**
   String get cloudSyncSubtitleOff;
 
   /// No description provided for @cloudflareReset.
@@ -2001,7 +2001,7 @@ class _AppLocalizationsDelegate
         'en',
         'es',
         'fr',
-        'it'
+        'it',
       ].contains(locale.languageCode);
 
   @override
@@ -2026,8 +2026,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

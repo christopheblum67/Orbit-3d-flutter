@@ -35,8 +35,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
     final storage = ref.read(storageServiceProvider);
     await storage.setSetting(kLegalNoticeDoneKey, true);
     if (!mounted) return;
-    final onboardingDone =
-        storage.getSetting('onboarding_done') == true;
+    final onboardingDone = storage.getSetting('onboarding_done') == true;
     context.go(onboardingDone ? '/startup' : '/onboarding');
   }
 
@@ -111,11 +110,22 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       title: l.dataAndPrivacy,
                       icon: Icons.privacy_tip_outlined,
                       paragraphs: [
-                        'Profil, favoris, historique et réglages sont stockés '
-                            'localement sur l\'appareil (Hive), jamais transmis.',
-                        'Aucune collecte par défaut : notifications et accès '
-                            'optionnels font l\'objet d\'un consentement '
-                            'explicite.',
+                        'Les profils, favoris, historiques et réglages sont '
+                            'stockés localement. La synchronisation cloud est '
+                            'désactivée temporairement ; les favoris, contenus '
+                            'vus et récents ne sont pas envoyés à Firestore par '
+                            'cette fonction. Les données éventuellement '
+                            'synchronisées avant sa désactivation ne sont pas '
+                            'supprimées automatiquement.',
+                        'Firebase Analytics peut recevoir les vues d\'écran et '
+                            'Crashlytics les rapports d\'erreur des versions '
+                            'de production. Firebase Messaging récupère un '
+                            'jeton d\'appareil pour les notifications.',
+                        'Les identifiants de fournisseurs IPTV sont conservés '
+                            'dans le stockage local non chiffré de '
+                            'l\'application. Si un fournisseur utilise HTTP '
+                            'plutôt que HTTPS, les identifiants et les flux ne '
+                            'sont pas chiffrés sur le réseau.',
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -140,9 +150,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                   ? FilledButton.icon(
                       onPressed: _accepted ? null : _accept,
                       icon: const Icon(Icons.verified_outlined),
-                      label: const Text(
-                          'J\'ai lu et j\'accepte · Continuer',
-                        ),
+                      label: const Text('J\'ai lu et j\'accepte · Continuer'),
                     )
                   : FilledButton.icon(
                       onPressed: () => context.pop(),
@@ -181,9 +189,9 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
             'Bonjour ! Avant de commencer, quelques informations courtes sur '
             'l\'usage de cette application et les droits associés aux '
             'contenus affichés.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -221,9 +229,9 @@ class _LegalSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
             ],

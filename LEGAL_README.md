@@ -38,8 +38,8 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 
 | Obligation | Statut | Implémentation |
 |------------|--------|----------------|
-| **Base légale** | ✅ | Intérêt légitime (fonctionnement) + Consentement (notifications, analytics) |
-| **Privacy by Design** | ✅ | Aucune collecte par défaut, opt-in explicite |
+| **Base légale** | ⚠️ | À déterminer et documenter selon les traitements réellement activés et les juridictions ciblées |
+| **Privacy by Design** | ⚠️ | Analytics d'écran et rapports d'erreur Firebase activés en production ; la synchronisation Firestore est désactivée dans l'application |
 | **Droit d'accès** | ⚠️ | À implémenter : export JSON profil/historique |
 | **Droit à l'effacement** | ⚠️ | À implémenter : suppression compte + données |
 | **Portabilité** | ⚠️ | Export JSON/CSV geplant |
@@ -50,17 +50,16 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 
 | Finalité | Base légale | Données | Durée | Destinataires |
 |----------|-------------|---------|-------|---------------|
-| Authentification profil | Exécution contrat | Prénom, DoB, genre, avatar | Durée vie compte + 3 ans | Stockage local (Hive) |
-| Favoris / Historique | Intérêt légitime | IDs contenus, timestamps | 2 ans glissants | Local uniquement |
-| Préférences UI | Consentement | Thème, langue, densité | Durée vie compte | Local uniquement |
-| Notifications push | Consentement explicite | Token FCM, préférences | Jusqu'à rétractation | Firebase (Google) |
-| Crash reports | Intérêt légitime | Stack trace, device info | 90 jours | Sentry / Firebase Crashlytics |
-| Analytics anonymes | Consentement | Événements UI anonymes | 13 mois | Firebase Analytics |
+| Profils / abonnements | À déterminer | Identifiants de profil, préférences et identifiants d'abonnement | Stockage local ; rétention à préciser | Hive local non chiffré |
+| Favoris / vus / récents | À déterminer | IDs de contenus et horodatages | Local ; d'anciens snapshots cloud ne sont pas supprimés automatiquement | Hive ; synchronisation Firestore désactivée |
+| Notifications push | À déterminer | Jeton d'installation FCM si disponible | À vérifier dans la configuration Firebase | Firebase (Google) ; aucun envoi au backend applicatif |
+| Rapports d'erreur | À déterminer | Erreurs et traces en versions de production | À vérifier dans la configuration Firebase | Firebase Crashlytics |
+| Analytics | À déterminer | Vues d'écran envoyées par l'observateur de navigation | À vérifier dans la configuration Firebase | Firebase Analytics |
 
 ### 2.2 Directive ePrivacy (2002/58/CE)
 
 - **Cookies / Stockage local** : Hive (SQLite local) → pas de cookies tiers
-- **Notifications push** : Consentement explicite requis (opt-in) avant demande token FCM
+- **Notifications push** : l'application demande l'autorisation et récupère un jeton FCM ; vérifier le parcours de consentement et la configuration effective par plateforme.
 - **Communications électroniques** : Aucuns emails/SMS marketing sans consentement
 
 ### 2.3 Digital Services Act (DSA - Règlement 2022/2065)
@@ -119,6 +118,8 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 | **Certificate Pinning** | ⚠️ À implémenter (API backend) |
 | **Code Obfuscation** | ✅ Flutter release + ProGuard/R8 |
 | **Approvisionnement secrets** | ⚠️ Clés dans `.env` embarqué dans l'APK (TMDB/OMDB/Firebase) — risque connu lié au modèle client ; recyclement des clés en cas de fuite, protect sur le backend pour du production |
+| **Synchronisation Firestore** | 🛑 Désactivée côté app ; règles `firestore.rules` en refus par défaut. Le déploiement des règles Firebase reste à effectuer et vérifier séparément. La désactivation ne supprime pas d'anciens snapshots déjà stockés. |
+| **Secrets locaux** | ⚠️ Mots de passe IPTV et PIN parental conservés dans Hive non chiffré ; migration vers un stockage sécurisé à planifier. |
 
 ### 4.1bis Constats de l'audit sécurité (docs/global-analysis.md)
 
@@ -128,8 +129,8 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 | Fuites dans l'historique git (`.github/workflows/publish-beta.yml` commits `f0f80a1`/`eeb5d69`) | P0 | ⏳ Purge `git filter-repo` + révocation comptes à faire |
 | Clé Admin Firebase gitignorée sur disque | P0 | ⏳ À déplacer hors du dépôt (secret CI) |
 | `google-services.json` suivi (API key Firebase) | P1 | ⚠️ Clé publique Google de config — à bord de la politique de rotation |
-| `android:usesCleartextTraffic="true"` | P1 | ⚠️ Souvent requis pour fournisseurs TPV/Xtream — documenter le périmètre ou restreindre via `networkSecurityConfig` |
-| `debugPrint` des tokens FCM | P1 | ⚠️ En release seulement si kDebugMode ; retirer les logs de tokens sensibles |
+| `android:usesCleartextTraffic="true"` | P1 | ⚠️ Conservé pour compatibilité avec les fournisseurs IPTV HTTP ; identifiants et flux ne sont pas chiffrés sur HTTP. Prévoir HTTPS ou un avertissement explicite avant connexion. |
+| `debugPrint` des tokens FCM | P1 | ✅ Les impressions explicites des jetons FCM ont été retirées. |
 | Data at rest non chiffrée (ci-dessus) | P1 | ⏳ `flutter_secure_storage` |
 | Images sans cache (`Image.network` × 4 vs `cached_network_image`) | P2 | ⏳ Activer le cache (perf + vie privée) |
 | EPG jamais invalidé au changement de serveur | P1 | ⏳ `ref.invalidate(epgDataCacheProvider)` + `epgProgramsProvider` |
@@ -139,7 +140,9 @@ L'application **n'est pas un éditeur de contenu** au sens de la loi :
 Un écran **« Lisez-moi · Mentions légales »** (```lib/features/legal/legal_notice_screen.dart```) résume l'usage de l'application et les ayants droit :
 - affiché **au premier lancement** (obligation « J'ai lu et j'accepte ») avant le diagnostic ;
 - accessible ensuite dans **Réglages → Sécurité → Lisez-moi · Mentions légales** ;
-- consulvable pendant toute la vie de l'app (pas de délégation à un flux interne, aucune donnée transmise).
+- consultable pendant toute la vie de l'app ; il décrit maintenant la synchronisation désactivée, les transferts Analytics/Crashlytics/FCM et les risques des fournisseurs HTTP.
+
+> Cette documentation décrit les comportements techniques observés ; elle ne constitue pas une validation juridique. Vérifier les paramètres et durées de conservation du projet Firebase avant publication.
 
 ### 4.2 Accessibilité (WCAG 2.1 AA / EN 301 549)
 

@@ -179,7 +179,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get clearCachesSubtitle => 'الصور، فهرس البحث، بيانات TMDB/TVmaze';
 
   @override
-  String get cloudSyncEnabled => 'المزامنة مفعّلة';
+  String get cloudSyncEnabled => 'المزامنة السحابية';
 
   @override
   String cloudSyncLastSync(String time) {
@@ -194,7 +194,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get cloudSyncSubtitleOff =>
-      'مزامنة المفضلات والمُشاهَد والحديث نحو السحابة';
+      'معطّلة مؤقتًا: لا تتم مزامنة هذه البيانات مع السحابة.';
 
   @override
   String get cloudflareReset => 'إعادة ضبط إعدادات Cloudflare';

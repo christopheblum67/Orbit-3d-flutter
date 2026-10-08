@@ -20,7 +20,6 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
-import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
@@ -31,7 +30,8 @@ class UnifiedSettingsScreen extends ConsumerStatefulWidget {
   const UnifiedSettingsScreen({super.key});
 
   @override
-  ConsumerState<UnifiedSettingsScreen> createState() => _UnifiedSettingsScreenState();
+  ConsumerState<UnifiedSettingsScreen> createState() =>
+      _UnifiedSettingsScreenState();
 }
 
 class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
@@ -89,10 +89,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
           tabAlignment: TabAlignment.start,
           tabs: [
             for (var i = 0; i < _tabIcons.length; i++)
-              Tab(
-                icon: Icon(_tabIcons[i]),
-                text: _tabLabel(i),
-              ),
+              Tab(icon: Icon(_tabIcons[i]), text: _tabLabel(i)),
           ],
         ),
       ),
@@ -160,8 +157,6 @@ class _AccountSection extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final sub = ref.watch(activeSubscriptionProvider);
-    final syncState = ref.watch(cloudSyncProvider);
-    final syncNotifier = ref.read(cloudSyncProvider.notifier);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -199,31 +194,11 @@ class _AccountSection extends ConsumerWidget {
         SettingsSectionTitle(l.sectionCloudSync),
         SettingsSwitchTile(
           title: l.cloudSyncEnabled,
-          subtitle: syncState.signedIn
-              ? l.cloudSyncLastSync(_formatTime(syncState.lastSyncAt, l.never))
-              : l.cloudSyncSubtitleOff,
-          value: syncState.enabled,
-          onChanged: syncNotifier.setEnabled,
+          subtitle: l.cloudSyncSubtitleOff,
+          value: false,
+          onChanged: null,
           icon: Icons.cloud_sync_rounded,
         ),
-        if (syncState.lastError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              syncState.lastError!,
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ),
-        if (syncState.enabled && !syncState.busy)
-          SettingsActionTile(
-            title: l.cloudSyncNow,
-            subtitle: l.cloudSyncNowSubtitle,
-            icon: Icons.sync_rounded,
-            onTap: syncNotifier.syncNow,
-          ),
         const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionNotifications),
         _NavTile(
@@ -269,20 +244,21 @@ class _AccountSection extends ConsumerWidget {
     );
     await ref.read(storageServiceProvider).setSetting('settings_backup', json);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackBackupExported)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.snackBackupExported)));
     }
   }
 
   static void _importSettings(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
-    final backup = ref.read(storageServiceProvider).getSetting('settings_backup');
+    final backup =
+        ref.read(storageServiceProvider).getSetting('settings_backup');
     if (backup == null || backup.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.snackNoBackup)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.snackNoBackup)));
       }
       return;
     }
@@ -293,9 +269,9 @@ class _AccountSection extends ConsumerWidget {
     );
     if (result.success) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.snackImportSuccess)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l.snackImportSuccess)));
       }
     } else {
       if (context.mounted) {
@@ -304,15 +280,6 @@ class _AccountSection extends ConsumerWidget {
         );
       }
     }
-  }
-
-  static String _formatTime(DateTime? dt, String neverLabel) {
-    if (dt == null) return neverLabel;
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    return '$d/$mo/${dt.year} $h:$m';
   }
 }
 
@@ -382,8 +349,10 @@ class _DnsProviderTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.dns_outlined,
-              color: Theme.of(context).colorScheme.primary,),
+          leading: Icon(
+            Icons.dns_outlined,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           title: Text(l.dnsProvider, style: const TextStyle(fontSize: 14)),
           subtitle: Text(
             l.dnsProviderSubtitle,
@@ -500,10 +469,7 @@ class _SecuritySection extends ConsumerWidget {
         ),
         if (s.certificatePinningEnabled) ...[
           const SizedBox(height: 8),
-          Text(
-            l.certPinningHint,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(l.certPinningHint, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
           TextField(
             controller: fingerprintController,
@@ -530,17 +496,20 @@ class _SecuritySection extends ConsumerWidget {
               spacing: 8,
               runSpacing: 8,
               children: s.certificatePinningFingerprints
-                  .map((fp) => Chip(
-                        label: Text(
-                          fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          final updated = [...s.certificatePinningFingerprints]..remove(fp);
-                          n.setCertificatePinningFingerprints(updated);
-                        },
-                      ))
+                  .map(
+                    (fp) => Chip(
+                      label: Text(
+                        fp.length > 20 ? '${fp.substring(0, 20)}...' : fp,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      onDeleted: () {
+                        final updated = [...s.certificatePinningFingerprints]
+                          ..remove(fp);
+                        n.setCertificatePinningFingerprints(updated);
+                      },
+                    ),
+                  )
                   .toList(),
             ),
           const SizedBox(height: 12),
@@ -786,14 +755,16 @@ class _AdvancedSection extends ConsumerWidget {
           title: l.highContrast,
           subtitle: l.highContrastSubtitle,
           value: ref.watch(advancedSettingsProvider).highContrast,
-          onChanged: ref.read(advancedSettingsProvider.notifier).setHighContrast,
+          onChanged:
+              ref.read(advancedSettingsProvider.notifier).setHighContrast,
           icon: Icons.contrast_outlined,
         ),
         SettingsSwitchTile(
           title: l.dpadNavigation,
           subtitle: l.dpadNavigationSubtitle,
           value: ref.watch(advancedSettingsProvider).dpadNavigation,
-          onChanged: ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
+          onChanged:
+              ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
           icon: Icons.tv_rounded,
         ),
         SettingsSwitchTile(
@@ -801,9 +772,9 @@ class _AdvancedSection extends ConsumerWidget {
           subtitle: l.fontSizeSubtitle,
           value: ref.watch(advancedSettingsProvider).fontSizeScale > 1.0,
           onChanged: (value) {
-            ref.read(advancedSettingsProvider.notifier).setFontSizeScale(
-              value ? 1.3 : 1.0,
-            );
+            ref
+                .read(advancedSettingsProvider.notifier)
+                .setFontSizeScale(value ? 1.3 : 1.0);
           },
           icon: Icons.format_size_outlined,
         ),
@@ -831,20 +802,29 @@ class _AdvancedSection extends ConsumerWidget {
           title: l.clearCaches,
           subtitle: l.clearCachesSubtitle,
           onTap: () => _clearAllCaches(context, ref),
-          trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         _NavTile(
           icon: Icons.restart_alt_outlined,
           title: l.resetApp,
           subtitle: l.resetAppSubtitle,
           onTap: () => _factoryReset(context, ref),
-          trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.error),
+          trailing: Icon(
+            Icons.chevron_right,
+            color: Theme.of(context).colorScheme.error,
+          ),
         ),
       ],
     );
   }
 
-  static Future<void> _clearAllCaches(BuildContext context, WidgetRef ref) async {
+  static Future<void> _clearAllCaches(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     // Purge réelle : cache mémoire des images Flutter + cache disque
     // flutter_cache_manager (pochettes/stickers) + images vivantes.
@@ -853,9 +833,9 @@ class _AdvancedSection extends ConsumerWidget {
     // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
     await DefaultCacheManager().emptyCache();
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackCacheCleared)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.snackCacheCleared)));
     }
   }
 
@@ -902,14 +882,14 @@ class _AdvancedSection extends ConsumerWidget {
           ),
           Focus(
             focusNode: confirmFocus,
-onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  Navigator.pop(ctx);
-                  unawaited(_performFactoryReset(context, ref));
-                  return KeyEventResult.handled;
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                Navigator.pop(ctx);
+                unawaited(_performFactoryReset(context, ref));
+                return KeyEventResult.handled;
               }
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.arrowRight ||
@@ -939,15 +919,18 @@ onKeyEvent: (node, event) {
     confirmFocus.dispose();
   }
 
-  static Future<void> _performFactoryReset(BuildContext context, WidgetRef ref) async {
+  static Future<void> _performFactoryReset(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
-    
+
     // 1) Purge caches (mémoire + disque)
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
     await DefaultCacheManager().emptyCache();
-    
-// 2) Clear all Hive boxes
+
+    // 2) Clear all Hive boxes
     final boxNames = [
       'history',
       'recently_watched',
@@ -965,25 +948,25 @@ onKeyEvent: (node, event) {
         await box.close();
       }, context: '_performFactoryReset Hive box $name');
     }
-    
+
     // 3) Clear SharedPreferences keys
     await safeAsync(() async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
     }, context: '_performFactoryReset SharedPreferences');
-      
-      // 4) Clear flutter_cache_manager disk cache
+
+    // 4) Clear flutter_cache_manager disk cache
     await DefaultCacheManager().emptyCache();
-    
+
     // 5) Clear Flutter image cache
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
-    
+
     // 6) Navigate to onboarding (reset complete)
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.resetCompleted)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.resetCompleted)));
       context.go('/onboarding');
     }
   }
@@ -1033,11 +1016,18 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
                   hintText: l.tmdbKeyHint,
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(
+                      _obscure ? Icons.visibility_off : Icons.visibility,
+                    ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
               ),
             ),
@@ -1077,7 +1067,9 @@ class _TmdbApiKeyTileState extends ConsumerState<_TmdbApiKeyTile> {
 
   void _save() async {
     final key = _controller.text.trim();
-    await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride(key.isEmpty ? '' : key);
+    await ref
+        .read(tmdbApiKeyOverrideProvider.notifier)
+        .setOverride(key.isEmpty ? '' : key);
     if (mounted) setState(() {});
   }
 

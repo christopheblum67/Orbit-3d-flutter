@@ -101,7 +101,7 @@ class SettingsSwitchTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
   final IconData? icon;
 
   @override
@@ -122,10 +122,7 @@ class SettingsSwitchTile extends StatelessWidget {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: scheme.onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
           ),
           value: value,

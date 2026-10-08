@@ -283,7 +283,7 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 | Route | 🟢 | `GoRoute /legal` dans `main.dart` ; `firstLaunch` déduit de `?flow=first` |
 | Tests | 🟢 | analyze 0 erreur ; **199/199** tests |
 | Fuite d'identifiants (P0) | 🟢 | `test/unit/series_info_parse_test.dart:34` : placeholder (test OK) + historique purgé : tag `v1.0.0+1` réaligné `f0f80a1`→`3f5d8e5`, aucune ref publique aux credentials |
-| Audit sécurité documenté | 🟢 | `LEGAL_README.md` §4.1bis : fuites git historique purgées (`v1.0.0+1` réaligné), clé Admin Firebase à déplacer hors dépôt, data at rest chiffrement → `flutter_secure_storage`, `usesCleartextTraffic` documenté, tokens FCM à ne pas logger, cache images |
+| Audit sécurité documenté | 🟡 | Synchronisation Firestore désactivée côté app et règles à déployer ; jetons FCM non journalisés ; mentions confidentialité mises à jour. Restent : validation déploiement règles, chiffrement des secrets Hive, compatibilité HTTP IPTV, clés et historique Git. |
 
 **Progression : 100% — LISEZ-MOI AU DÉMARRAGE LIVRÉ (working tree, non commité) + AUDIT SÉCURITÉ COMMENCÉ.** Reste : purge historique git P0 et validation visuelle S20.
 

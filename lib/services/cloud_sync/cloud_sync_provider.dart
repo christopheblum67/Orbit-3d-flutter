@@ -54,14 +54,16 @@ class CloudSyncState {
 final cloudSyncGatewayProvider = Provider<CloudSyncGateway>(
   (ref) => FirestoreCloudSyncGateway(),
 );
-final cloudSyncMirrorStoreProvider =
-    Provider<CloudSyncMirrorStore>((ref) => CloudSyncMirrorStore());
+final cloudSyncMirrorStoreProvider = Provider<CloudSyncMirrorStore>(
+  (ref) => CloudSyncMirrorStore(),
+);
 final cloudSyncServiceProvider = Provider<CloudSyncService>(
   (ref) => CloudSyncService(),
 );
 
-final cloudSyncProvider =
-    NotifierProvider<CloudSyncNotifier, CloudSyncState>(CloudSyncNotifier.new);
+final cloudSyncProvider = NotifierProvider<CloudSyncNotifier, CloudSyncState>(
+  CloudSyncNotifier.new,
+);
 
 class CloudSyncNotifier extends Notifier<CloudSyncState> {
   static const String _prefKey = 'cloud_sync_enabled';
@@ -78,29 +80,24 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
     ref.listen(favoritesProvider, (_, __) => _schedulePush());
     ref.listen(recentlyWatchedProvider, (_, __) => _schedulePush());
     ref.listen(watchedEpisodesProvider, (_, __) => _schedulePush());
-
     ref.onDispose(() => _debounce?.cancel());
 
-    state = CloudSyncState(enabled: enabled);
-    if (enabled) Future.microtask(syncNow);
+    if (enabled) {
+      unawaited(storage.setSetting(_prefKey, 'false'));
+    }
+    state = const CloudSyncState();
     return state;
   }
 
-  Future<void> setEnabled(bool value) async {
+  Future<void> setEnabled(bool _) async {
     final storage = ref.read(storageServiceProvider);
-    await storage.setSetting(_prefKey, '$value');
-    state = CloudSyncState(
-      enabled: value,
-      signedIn: state.signedIn,
-      lastSyncAt: state.lastSyncAt,
-    );
-    if (value) {
-      await syncNow();
-    }
+    await storage.setSetting(_prefKey, 'false');
+    state = const CloudSyncState();
   }
 
-  /// Synchronise tous les scopes du profil actif.
+  /// Synchronisation désactivée jusqu'à la mise en place d'une identité fiable.
   Future<void> syncNow() async {
+    if (!state.enabled) return;
     if (state.busy) return;
     final profile = ref.read(currentProfileProvider);
     if (profile == null) {
@@ -109,15 +106,12 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
     }
 
     state = state.copyWith(busy: true, clearError: true);
-    final result = await safeAsync<void>(
-      () async {
-        await _ensureSignedIn();
-        for (final scope in CloudSyncScope.values) {
-          await _syncScope(scope, profile.id);
-        }
-      },
-      context: 'CloudSyncNotifier.syncNow',
-    );
+    final result = await safeAsync<void>(() async {
+      await _ensureSignedIn();
+      for (final scope in CloudSyncScope.values) {
+        await _syncScope(scope, profile.id);
+      }
+    }, context: 'CloudSyncNotifier.syncNow');
     if (result.isFailure) {
       state = state.copyWith(
         busy: false,
@@ -133,15 +127,12 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
   }
 
   Future<void> _ensureSignedIn() async {
-    final result = await safeAsync<void>(
-      () async {
-        final current = FirebaseAuth.instance.currentUser;
-        if (current == null) {
-          await FirebaseAuth.instance.signInAnonymously();
-        }
-      },
-      context: 'CloudSyncNotifier._ensureSignedIn',
-    );
+    final result = await safeAsync<void>(() async {
+      final current = FirebaseAuth.instance.currentUser;
+      if (current == null) {
+        await FirebaseAuth.instance.signInAnonymously();
+      }
+    }, context: 'CloudSyncNotifier._ensureSignedIn');
     if (result.isFailure) {
       throw StateError(
         'Connexion cloud impossible : ${result.errorOrNull?.originalError ?? result.errorOrNull}',
@@ -196,23 +187,17 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
       case CloudSyncScope.favorites:
         final entries =
             await ref.read(favoritesServiceProvider).loadForProfile(profileId);
-        return {
-          for (final e in entries) e.key: jsonEncode(e.toJson()),
-        };
+        return {for (final e in entries) e.key: jsonEncode(e.toJson())};
       case CloudSyncScope.watched:
         final entries = await ref
             .read(watchedEpisodesServiceProvider)
             .loadForProfile(profileId);
-        return {
-          for (final e in entries) e.key: jsonEncode(e.toJson()),
-        };
+        return {for (final e in entries) e.key: jsonEncode(e.toJson())};
       case CloudSyncScope.recents:
         final entries = await ref
             .read(recentlyWatchedServiceProvider)
             .loadForProfile(profileId);
-        return {
-          for (final e in entries) e.key: jsonEncode(e.toJson()),
-        };
+        return {for (final e in entries) e.key: jsonEncode(e.toJson())};
     }
   }
 
