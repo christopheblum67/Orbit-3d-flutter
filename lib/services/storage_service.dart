@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 
 class StorageService {
   static const String _profilesBox = 'profiles';
@@ -134,6 +135,9 @@ class StorageService {
         box.put(sub.id, updated);
       }
     });
+    // Invalider le tampon EPG : l'ancien abonnement n'est plus valide,
+    // le nouveau doit recharger son propre tampon.
+    await EpgBufferStore.instance.clearAll();
   }
 
   Future<void> migrateFromSharedPreferences() async {

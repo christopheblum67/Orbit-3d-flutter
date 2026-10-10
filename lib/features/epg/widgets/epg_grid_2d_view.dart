@@ -7,11 +7,8 @@ import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_row_diagnostics.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
 
@@ -136,14 +133,16 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
     if (widget.timelineController != null) {
       _timelineController = widget.timelineController!;
-      // La grille fait autorité sur la géométrie, et l'écrit dans le
-      // contrôleur. Sans cela, les programmes étaient posés avec
-      // `_gridStartTime` / `_pixelsPerMinute` tandis que la ligne « maintenant »
-      // et la frise lisaient les valeurs du contrôleur : deux référentiels
-      // cohabitant, la ligne rouge ne tombait plus sur l'heure annoncée par
-      // l'axe, et l'écart grandissait avec la distance au début de la journée.
+      // La grille fait autorite sur l'ORIGINE temporelle et l'ecrit dans le
+      // controleur : les programmes sont poses avec `_gridStartTime`, donc la
+      // ligne « maintenant » doit lire la meme origine.
+      //
+      // Le ZOOM n'est en revanche PAS ecrit ici. Le controleur peut porter un
+      // zoom deja choisi par l'utilisateur, et le remettre a
+      // `widget.pixelsPerMinute` (une constante 4,0 cote ecran EPG) annulerait
+      // ce choix des le premier build.
       _timelineController.gridStartTime = _gridStartTime;
-      _timelineController.pixelsPerMinute = _pixelsPerMinute;
+      _pixelsPerMinute = _timelineController.pixelsPerMinuteValue;
     } else {
       _timelineController = EpgTimelineController(
         gridStartTime: _gridStartTime,
@@ -180,13 +179,21 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   @override
   void didUpdateWidget(covariant EpgGrid2DView old) {
     super.didUpdateWidget(old);
-    _pixelsPerMinute = widget.pixelsPerMinute;
     if (widget.gridStartTime != null &&
         widget.gridStartTime != old.gridStartTime) {
       _gridStartTime = widget.gridStartTime!;
       _timelineController.gridStartTime = _gridStartTime;
     }
-    _timelineController.pixelsPerMinute = _pixelsPerMinute;
+    // `widget.pixelsPerMinute` n'est PAS relu ici : c'est une valeur
+    // INITIALE, pas une source de verite. L'ecran EPG le passe en dur a
+    // `defaultPixelsPerMinute`, donc le relire a chaque reconstruction
+    // ecrasait le zoom de l'utilisateur : le cache repartait a 4,0 px/min
+    // pendant que l'axe et la ligne rouge gardaient l'autre echelle, et le
+    // contenu glissait sous le repere horaire.
+    //
+    // Le controleur est l'unique proprietaire du zoom : `_zoomBy` y ecrit, la
+    // grille s'y lit.
+    _pixelsPerMinute = _timelineController.pixelsPerMinuteValue;
     _rebuildRenderCache();
   }
 
@@ -260,11 +267,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     final index = widget.channels.indexOf(channelName);
     if (index < 0) return;
 
-    const rowHeight = 60.0;
-    const rowStride = rowHeight + 2;
     final viewport = _verticalController.position.viewportDimension;
-    final top = index * rowStride;
-    final bottom = top + rowHeight;
+    final top = index * kRowStride;
+    final bottom = top + kRowHeight;
     final current = _verticalController.offset;
 
     if (top >= current && bottom <= current + viewport) return;
@@ -275,7 +280,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       // quand elle est seulement tronquée : dans ce cas, la centrer ferait
       // passer le contexte uselessement.
       final target = top < current || bottom > current + viewport
-          ? (top - (viewport - rowHeight) / 2).clamp(0.0, _maxVerticalOffset)
+          ? (top - (viewport - kRowHeight) / 2).clamp(0.0, _maxVerticalOffset)
           : top;
       _verticalController.jumpTo(target);
       _namesVerticalController.jumpTo(target);
@@ -284,8 +289,26 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     }
   }
 
+  /// Hauteur d'une ligne de grille, en px logiques.
+  ///
+  /// SOURCE UNIQUE de la géométrie verticale. Les deux `ListView` (noms de
+  /// chaînes et programmes), le centrage d'une ligne au défilement et l'étendue
+  /// de défilement doivent tous en dépendre.
+  ///
+  /// Le `(60.0 + 2)` en dur de `_maxVerticalOffset` était resté après le
+  /// passage des trois autres sites à 48 : l'étendue de défilement était donc
+  /// 31 % trop grande, la colonne des noms glissait par rapport aux
+  /// programmes, et chaque programme sortait de la case de sa chaîne.
+  static const double kRowHeight = 48.0;
+
+  /// Gouttière entre deux lignes.
+  static const double kRowGap = 2.0;
+
+  /// Pas vertical réel entre deux lignes (`itemExtent` du `ListView`).
+  static const double kRowStride = kRowHeight + kRowGap;
+
   double get _maxVerticalOffset {
-    final content = widget.channels.length * (60.0 + 2);
+    final content = widget.channels.length * kRowStride;
     final viewport = _verticalController.hasClients
         ? _verticalController.position.viewportDimension
         : 0.0;
@@ -330,22 +353,30 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   /// Bornes du zoom, en px/min.
   ///
-  /// En bas, 2,2 px/min : la grille montre alors environ 7 heures dans la
-  /// largeur de l'écran. Un programme de 30 min occupe 66 px — son titre tient
-  /// sur un mot ou deux, ce qui suffit à l'identifier. En haut, 14 px/min :
-  /// au-delà, une heure dépasse largement l'écran et le défilement devient le
-  /// seul moyen de lire l'axe, ce qui n'apporte rien sur un téléphone.
-  static const double _minPixelsPerMinute = 2.2;
-  static const double _maxPixelsPerMinute = 14.0;
-
-  /// Paliers du zoom, pour que les boutons `−` et `+` restent réversibles.
+  /// Mesuré sur le S20 (1080x2400 en 420 dpi, donc 411 dp) : la grille utile
+  /// fait `411 - 140` = 271 dp, et les heures visibles valent `271 / pxParMin`.
   ///
-  /// Les deux premiers paliers sont plus serrés qu'avant : à 2,2 px/min une
-  /// heure occupe 132 px, ce qui fait tenir environ 7 heures dans la largeur
-  /// utile d'un téléphone au lieu de 3 h 45. Presque le double : c'est ce qui
-  /// permet de lire une soirée entière d'un coup d'œil, et d'afficher plus de
-  /// chaînes en même temps qu'on zoome pour voir le détail.
-  static const List<double> _zoomSteps = [
+  /// | px/min  | 1,0 | 1,15 | 1,5 | 2,2 | 4,0 (defaut) | 14,0 |
+  /// |----------|-----|------|-----|-----|---------------|------|
+  /// | visibles | 4 h | 3 h  | 3 h | 2 h | 1 h 07        | 19 m |
+  ///
+  /// Le defaut de 4,0 px/min ne montrait donc que 1 h 07 au premier
+  /// affichage, ce qui correspond a la plainte « il n'y a qu'une heure ». Les
+  /// paliers descendent jusqu'a 1,0 px/min, soit 4 h 30 atteignables en trois
+  /// clics sur `-` et toujours reversibles.
+  static const double minPixelsPerMinute = 1.0;
+  static const double maxPixelsPerMinute = 14.0;
+
+  /// Paliers du zoom, pour que `−` et `+` restent réversibles.
+  ///
+  /// Invariant verrouille par `test/unit/epg_zoom_range_test.dart` : chaque
+  /// palier reste dans `[minPixelsPerMinute, maxPixelsPerMinute]`. Un palier
+  /// hors bornes serait propose par `_nextZoomStep` puis ecrete par `_zoomBy`,
+  /// et le bouton deviendrait un no-op sans aucun signe visible.
+  static const List<double> zoomSteps = [
+    1.0,
+    1.15,
+    1.5,
     2.2,
     3.0,
     4.0,
@@ -356,7 +387,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     14.0,
   ];
 
-  double get _zoomFactor => _pixelsPerMinute / _minPixelsPerMinute;
+  double get _zoomFactor => _pixelsPerMinute / minPixelsPerMinute;
 
   /// Applique un facteur de zoom en gardant l'heure CIBLE immobile.
   ///
@@ -366,8 +397,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// que l'heure sous [anchorX] y reste.
   void _zoomBy(double factor, double anchorX) {
     final target = (_pixelsPerMinute * factor).clamp(
-      _minPixelsPerMinute,
-      _maxPixelsPerMinute,
+      minPixelsPerMinute,
+      maxPixelsPerMinute,
     );
     if (target == _pixelsPerMinute) return;
 
@@ -388,7 +419,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   /// Facteur pour passer au palier suivant (ou précédent).
   static double _nextZoomStep(double current, {required bool up}) {
-    for (final step in _zoomSteps) {
+    for (final step in zoomSteps) {
       if (up && step > current + 0.01) return step / current;
       if (!up && step < current - 0.01) return step / current;
     }
@@ -522,7 +553,23 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     return 'aucune';
   }
 
-  static double _clampWidth(double raw) => raw < 40.0 ? 40.0 : raw;
+  /// Largeur d'un bloc de programme, en px.
+  ///
+  /// `raw` vaut `durée × pxParMin - 2`. On ne le BORNE PLUS PAR EN BAS.
+  ///
+  /// Le minimum de 40 px était là pour qu'un programme court reste cliquable,
+  /// mais il falsifiait la géométrie : `EpgGapFiller` garantit des blocs
+  /// contigus, et gonfler les uns cassait cette garantie. Mesuré à 1,0 px/min,
+  /// un programme de 20 min occupe 18 px et était dessiné sur 40 — plus du
+  /// double. Le test `epg_program_width_test.dart` compte 61 blocs qui se
+  /// recouvrent sur une journée et une seule chaîne, et le culling écartait
+  /// alors les blocs voisins légitimes : la grille finissait vide au
+  /// défilement.
+  ///
+  /// Il ne reste qu'un plancher de 1 px : une durée nulle donnerait
+  /// `raw = -2`, et une largeur négative fait disparaître le bloc sans que le
+  /// culling l'explique. Le combleur écarte déjà ces programmes.
+  static double _clampWidth(double raw) => raw < 1.0 ? 1.0 : raw;
 
   /// Appui court (peu de déplacement, < 400 ms) sur la grille : ouvre le
   /// programme sous le doigt. Un appui hors programme sélectionne la chaîne
@@ -534,8 +581,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     if ((pos - down).distance > 12) return; // c'est un scroll, pas un tap
     if (DateTime.now().difference(downTime).inMilliseconds >= 400) return;
 
-    const rowHeight = 60.0;
-    final channelIndex = (pos.dy / rowHeight).floor();
+    final channelIndex = (pos.dy / kRowStride).floor();
     if (channelIndex < 0 || channelIndex >= widget.channels.length) return;
     final ch = widget.channels[channelIndex];
     _timelineController.setTargetedChannel(ch);
@@ -548,9 +594,36 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     }
   }
 
+  /// Contrôleur partagé — pour les tests.
+  @visibleForTesting
+  EpgTimelineController get debugTimelineControllerForTest => _timelineController;
+
+  /// Positionne la grille à [value] px — pour les tests.
+  @visibleForTesting
+  void debugSetHorizontalOffsetForTest(double value) =>
+      _setHorizontalOffset(value);
+
+  /// Titre du programme sous l'abscisse ÉCRAN [screenDx] — pour les tests.
+  ///
+  /// Expose la conversion screen → position absolue, qui est le cœur du
+  /// défaut : sans elle, un tap à mi-journée ouvre un programme décalé de
+  /// plusieurs heures.
+  @visibleForTesting
+  String? debugProgramTitleAt(double screenDx, String channelName) =>
+      _programAt(screenDx, channelName)?.program.title;
+
+  /// Programme sous l'abscisse écran [dx] de la grille, pour [channelName].
+  ///
+  /// [dx] vient de `PointerEvent.localPosition`, donc il est relatif au canvas
+  /// de la grille, qui affiche la tranche `[offset, offset + largeur]` de la
+  /// journée. Or `rp.left` est une position ABSOLUE depuis minuit : il faut
+  /// rendre à [dx] son rang absolu avant de comparer, sans quoi le programme
+  /// retourné est décalé de tout le défilement — à mi-journée, l'erreur vaut
+  /// la moitié de la largeur visible.
   _RenderProgram? _programAt(double dx, String channelName) {
+    final absolute = dx + _horizontalOffset.value;
     for (final rp in _renderCache[channelName] ?? const <_RenderProgram>[]) {
-      if (dx >= rp.left && dx <= rp.left + rp.width) return rp;
+      if (absolute >= rp.left && absolute <= rp.left + rp.width) return rp;
     }
     return null;
   }
@@ -568,19 +641,21 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     // les programmes allaient jusqu'à 5760 px, et tout ce qui dépassait la
     // demi-journée n'était jamais dessiné. Le défilement horizontal existe
     // précisément pour cela.
-    const rowHeight = 60.0;
-    const channelWidth = 140.0;
+    const rowHeight = kRowHeight;
 
-    /// Abscisse à laquelle commence l'axe du temps, en pixels depuis la
-    /// gauche de la grille.
+    /// Largeur de la colonne des noms de chaînes.
     ///
-    /// Colonnes des noms (140) plus gouttière (4). Cette valeur doit servir
-    /// aux TROIS emplacements qui partagent le même repère : la bande de
-    /// l'axe, la position de la ligne « maintenant », et la lecture d'une
-    /// abscisse en heure. C'était la duplication de `channelWidth` partout,
-    /// sans la gouttière, qui produisait un décalage de quelques pixels —
-    /// et l'axe, plus loin encore, un décalage de dizaines de minutes.
-    const gridLeftInset = channelWidth + 4.0;
+    /// C'est aussi l'abscisse de départ de l'axe du temps : la bande de l'axe
+    /// et la grille partagent le même `Row` (colonne puis `Expanded`), donc les
+    /// deux commencent au MÊME pixel, sans gouttière entre elles.
+    ///
+    /// La gouttière de 4 px qui figurait ici (`channelWidth + 4`) n'a jamais
+    /// existé dans le layout, et était pourtant appliquée à l'axe ET à la
+    /// ligne « maintenant ». Résultat : ces deux repères étaient décalés de
+    /// 4 px vers la droite par rapport aux programmes qu'ils désignent, soit
+    /// 1 min à 4 px/min et 4 min à 1 px/min. L'erreur étant en pixels, elle
+    /// grandissait à chaque dézoom.
+    const channelWidth = kChannelWidth;
 
     return Container(
       color: const Color(0xFF0D0E12),
@@ -596,7 +671,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
           // annonçait l'heure réelle.
           //
           // Les boutons occupent désormais la bande gauche — celle des noms
-          // de chaînes, large de `gridLeftInset` — et l'axe s'ouvre juste
+          // de chaînes, large de `channelWidth` — et l'axe s'ouvre juste
           // après, aligné sur la grille.
           Container(
             height: 44,
@@ -604,7 +679,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
             child: Row(
               children: [
                 SizedBox(
-                  width: gridLeftInset,
+                  width: channelWidth,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -678,7 +753,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                       // ne construit que les lignes visibles.
                       child: ListView.builder(
                         controller: _namesVerticalController,
-                        itemExtent: rowHeight,
+                        // Même pas que la grille : c'est la condition pour
+                        // que chaque programme reste dans la case de SA chaîne.
+                        itemExtent: kRowStride,
                         itemCount: widget.channels.length,
                         padding: EdgeInsets.zero,
                         itemBuilder: (context, index) {
@@ -686,7 +763,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                           return Container(
                             height: rowHeight,
                             color: const Color(0xFF12141C),
-                            margin: const EdgeInsets.only(bottom: 2),
+                            margin: const EdgeInsets.only(bottom: kRowGap),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             alignment: Alignment.centerLeft,
                             child: GestureDetector(
@@ -786,12 +863,12 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                             child: ClipRect(
                               child: ListView.builder(
                                 controller: _verticalController,
-                                itemExtent: rowHeight,
+                                itemExtent: kRowStride,
                                 itemCount: widget.channels.length,
                                 itemBuilder: (context, index) =>
                                     RepaintBoundary(
                                   child: CustomPaint(
-                                    size: Size(viewportWidth, rowHeight),
+                                    size: Size(viewportWidth, kRowStride),
                                     painter: _EpgGridPainter(
                                       channels: widget.channels,
                                       renderCacheOf: () => _renderCache,
@@ -838,12 +915,34 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   }
 }
 
-/// Gouttière entre la colonne des noms et la grille, en pixels.
+/// Largeur de la colonne des noms de chaînes, en px logiques.
 ///
-/// C'est cette valeur qui manquait dans le calcul de la position de la ligne
-/// « maintenant » et dans la lecture inverse de l'abscisse. Elle est déclarée
-/// une fois et réutilisée : jamais recalculée à la main.
-const double kGridLeftInset = 4.0;
+/// Source unique. C'est aussi l'abscisse de départ de l'axe du temps.
+@visibleForTesting
+const double kChannelWidth = 140.0;
+
+/// Marge intérieure du titre d'un programme, à gauche comme à droite.
+@visibleForTesting
+const double kTitlePaddingH = 6.0;
+
+/// Largeur minimale pour écrire un titre, une fois la marge retirée.
+///
+/// En dessous, `TextPainter` ne produit qu'une colonne de lettres broyées :
+/// plus illisible que rien du tout. Le seuil historique (`width > 26`)
+/// laissait passer des blocs de 26 à 38 px pour lesquels `maxWidth` tombait
+/// sous 14 px. Mesuré au zoom le plus dézoomé (1,0 px/min), un programme de
+/// 30 min fait 28 px de bloc, donc 16 px de texte : juste au-dessus, et
+/// lisible pour un mot.
+@visibleForTesting
+const double kTitleMinReadableWidth = 12.0;
+
+/// Marge de culling horizontale, en pixels, pour une densité donnée.
+@visibleForTesting
+double cullMarginFor(double pixelsPerMinute) => pixelsPerMinute * 60.0;
+
+/// Abscisse de départ de l'axe des heures.
+@visibleForTesting
+double axisLeftInset() => kChannelWidth;
 
 /// Bouton du bandeau d'axe.
 ///
@@ -917,6 +1016,26 @@ class _RenderProgram {
 /// (`#8E0000`) pour son halo : le halo donne l'épaisseur sans épaissir le trait,
 /// et le contraste reste lisible sur un programme en cours (fond violet) comme
 /// sur un bloc de trou (fond quasi transparent).
+/// Abscisse écran de la ligne « maintenant », en px logiques.
+///
+/// Fonction pure, extraite du `build` pour être testable : là, aucune
+/// assertion ne pouvait l'atteindre.
+///
+/// La formule est `channelWidth + timePixels - offset`, SANS gouttière.
+/// L'overlay est dans un `Positioned.fill` qui commence au bord gauche de
+/// l'écran, donc il doit sauter les 140 px de la colonne des noms — et rien
+/// d'autre. Les programmes sont dessinés dans un canvas qui démarre lui aussi
+/// après les 140 px exacts. Ajouter 4 px ici décalait la ligne vers la droite
+/// de 4 px par rapport aux programmes qu'elle marque : 1 min à 4 px/min, et
+/// 4 min à 1 px/min.
+@visibleForTesting
+double nowLineX({
+  required double channelWidth,
+  required double timePixels,
+  required double offset,
+}) =>
+    channelWidth + timePixels - offset;
+
 class _NowLineOverlay extends StatelessWidget {
   const _NowLineOverlay({
     required this.controller,
@@ -944,10 +1063,11 @@ class _NowLineOverlay extends StatelessWidget {
         return ValueListenableBuilder<DateTime>(
           valueListenable: controller.now,
           builder: (context, now, _) {
-            final x = channelWidth +
-                kGridLeftInset +
-                controller.timeToPixels(now) -
-                offset;
+            final x = nowLineX(
+              channelWidth: channelWidth,
+              timePixels: controller.timeToPixels(now),
+              offset: offset,
+            );
 
             // Mesure du décalage, et non plus supposition.
             //
@@ -958,10 +1078,12 @@ class _NowLineOverlay extends StatelessWidget {
             // hypothèse de plus.
             //
             // On relit l'heure que la frise affichera à cette position x, via
-            // la même conversion aller-retour, en retirant la colonne des noms
-            // que la ligne franchit en plus.
+            // la conversion aller-retour, en retirant la colonne des noms que
+            // la ligne franchit. La gouttière n'est ni ajoutée ni retranchée :
+            // elle n'existe pas dans le layout, et la prendre ici rendait la
+            // mesure incohérente avec le tracé.
             final axisTime = controller.pixelsToTime(
-              x - channelWidth - kGridLeftInset + offset,
+              x - channelWidth + offset,
             );
             final drift = now.difference(axisTime).inSeconds;
             if (drift.abs() >= 30) {
@@ -1085,12 +1207,13 @@ class _EpgGridPainter extends CustomPainter {
   /// bordures des barres à cheval sur le bord visible.
   (double, double) get _cullRange {
     final offset = horizontalOffset?.value ?? 0.0;
-    // Marge HORIZONTALE. La valeur utilisée auparavant était `rowHeight`, soit
-    // une grandeur verticale (60 px), utilisée comme marge horizontale : sans
-    // conséquence visible à l'arrêt, mais pendant un défilement les programmes
-    // qui entraient dans le viewport étaient écartés puis Drawing, donc rien
-    // n'apparaissait tant qu'on ne s'arrêtait pas pile.
-    const margin = 240.0;
+    // Marge exprimée en TEMPS, pas en pixels.
+    //
+    // Fixée à 240 px, elle valait 1 h au zoom par défaut (4 px/min) mais 4 h au
+    // zoom le plus dézoomé (1 px/min) : le comportement visible changeait avec
+    // le zoom. Une heure de marge donne la même garantie partout — 240 px à
+    // 4 px/min, 60 px à 1 px/min.
+    final margin = cullMarginFor(pixelsPerMinute);
     return (offset - margin, offset + viewportWidth + margin);
   }
 
@@ -1189,17 +1312,20 @@ class _EpgGridPainter extends CustomPainter {
           canvas.drawRRect(rect, borderPaint);
         }
 
-        // Texte titre (clippé dans la barre, seulement si assez de largeur)
-        if (rp.width > 26) {
+        // Titre du programme, adapté au bloc.
+        //
+        // Le seuil est dérivé de la marge intérieure : il faut de la place pour
+        // au moins quelques caractères, sinon n'écrire rien. L'ancien
+        // `width > 26` produisait deux défauts opposés — du texte broyé entre
+        // 26 et 38 px, et un bloc totalement vide en dessous, ce qui se lisait
+        // comme une description disparue au défilement.
+        final textMaxWidth = rp.width - kTitlePaddingH * 2;
+        if (textMaxWidth >= kTitleMinReadableWidth) {
           final textPainter = TextPainter(
             text: TextSpan(
               text: rp.program.title,
               style: TextStyle(
-                color: isDummy
-                    ? Colors.white24
-                    : rp.isLive
-                        ? Colors.white
-                        : Colors.white70,
+                color: isDummy ? Colors.white24 : Colors.white70,
                 fontWeight: isDummy ? FontWeight.w400 : FontWeight.bold,
                 fontSize: 10,
               ),
@@ -1208,29 +1334,22 @@ class _EpgGridPainter extends CustomPainter {
             maxLines: 1,
             ellipsis: '…',
           );
-          textPainter.layout(maxWidth: rp.width - 12);
+          textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(rp.left + 6, y + (h - textPainter.height) / 2),
+            Offset(rp.left + kTitlePaddingH, y + (h - textPainter.height) / 2),
           );
         }
 
-        // Indicateur "EN DIRECT"
-        if (rp.isLive) {
-          final livePainter = TextPainter(
-            text: const TextSpan(
-              text: '● DIRECT',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-          );
-          livePainter.layout();
-          livePainter.paint(canvas, Offset(rp.left + 6, y + h - 14));
-        }
+        // Indicateur « en direct », volontairement absent.
+//
+// Il partageait la position du titre (`rp.left + 6`) : sur un bloc étroit,
+// deux `TextPainter` se disputaient le même pixel, et le titre passait en
+// premier — donc « DIRECT » disparaissait. Ce qui se lisait comme une
+// information manquante au défilement.
+//
+// L'information reste disponible ailleurs : la ligne rouge donne l'heure
+// courante, et le mini-lecteur donne le titre du programme en cours.
 
         // Badge "replay" pour les programmes terminés des chaînes DVR
         if (rp.replayable && rp.width > 34) {

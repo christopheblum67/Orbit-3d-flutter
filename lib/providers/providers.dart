@@ -1207,15 +1207,16 @@ final epgFallbackBudgetProvider = Provider<EpgFallbackBudget>((ref) {
 ///   cours ou à venir ;
 /// - `true` (grille EPG) : tout, passé compris.
 ///
-/// Ce filtre était appliqué dans les TROIS branches, y compris le repli sur le
-/// dump XMLTV global — qui est pourtant la seule source qui contient du passé. Une
-/// grille démarrant à minuit ne pouvait donc jamais afficher les premières
-/// heures de la journée : elles étaient supprimées en amont, et le comblement
-/// de trous les remplaçait par un bloc « aucune donnée ».
+/// [allowNetworkFallback] autorise le repli réseau (`get_short_epg`) **uniquement
+/// pour l'usage « fiche chaîne unique »** (barre du lecteur, zapping).
+/// La grille (`channelEpgWindowProvider`) passe `false` : elle ne doit JAMAIS
+/// déclencher de requête réseau, l'index XMLTV suffit. Cela évite les 429 qui
+/// saturaient le panel et cassaient l'expiration / les catégories.
 Future<List<EPGProgram>> _resolveChannelEpg(
   Ref ref,
   String epgChannelId, {
   required bool includePast,
+  bool allowNetworkFallback = true,
 }) async {
   if (epgChannelId.isEmpty) return const <EPGProgram>[];
 
@@ -1282,13 +1283,15 @@ Future<List<EPGProgram>> _resolveChannelEpg(
   for (final candidate in candidates) {
     final found = keep(globalCache.programsForChannel(candidate).toList());
     if (found.isNotEmpty) return found;
-  }
+}
 
-  // 3. Repli réseau pour les chaînes absentes du dump — BORNÉ.
-  //
-  // Le budget est ce qui empêche de retomber dans la limitation : sans lui, le
-  // repli se déclenchait pour des centaines de chaînes non résolues et
-  // reproduisait exactement le problème qu'il était censé couvrir.
+  // 3. Repli réseau : UNIQUEMENT pour l'usage « fiche chaîne unique »
+  // (barre du lecteur, zapping). La grille NE DOIT PAS déclencher de
+  // requête réseau : la doc Xtream dit que `get_short_epg` sert UNE chaîne,
+  // pas à balayer la grille. Le dump XMLTV suffit à la grille.
+  if (!allowNetworkFallback) return const <EPGProgram>[];
+
+  // 3 bis. Repli réseau pour la fiche chaîne — borné par le budget.
   if (channel != null && budget.tryConsume()) {
     final target = channel;
     final result = await safeAsync<List<EPGProgram>>(
@@ -1308,10 +1311,13 @@ Future<List<EPGProgram>> _resolveChannelEpg(
 
 /// EPG d'une chaîne pour la barre du lecteur : uniquement « en cours » et
 /// « à venir ». Voir [channelEpgWindowProvider] pour la grille.
+///
+/// Cette entrée **autorise le repli réseau** : c'est l'usage « fiche chaîne
+/// unique » pour lequel `get_short_epg` a été conçu (une chaîne, 4 entrées).
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
   (ref, epgChannelId) =>
-      _resolveChannelEpg(ref, epgChannelId, includePast: false),
+      _resolveChannelEpg(ref, epgChannelId, includePast: false, allowNetworkFallback: true),
 );
 
 /// EPG d'une chaîne pour la GRILLE : programmes passés compris.
@@ -1319,10 +1325,15 @@ final channelEpgProvider =
 /// La grille représente une journée entière ; lui fournir seulement « à venir »
 /// laissait la matinée entière vide, comblée par des blocs de trou alors que le
 /// dump XMLTV contenait bel et bien ces programmes.
+///
+/// **Aucun repli réseau** : la grille doit se contenter du dump XMLTV.
+/// `get_short_epg` est documenté comme « pour UNE chaîne » — balayer une
+/// catégorie entière le ferait bloquer par le rate limiter du panel (429),
+/// ce qui cassait l'expiration, les catégories, etc.
 final channelEpgWindowProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
   (ref, epgChannelId) =>
-      _resolveChannelEpg(ref, epgChannelId, includePast: true),
+      _resolveChannelEpg(ref, epgChannelId, includePast: true, allowNetworkFallback: false),
 );
 
 class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {

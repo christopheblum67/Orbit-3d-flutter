@@ -66,24 +66,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('l’axe et la grille partagent le même abscisse d’origine', () {
-    // La gouttière vaut 4 px : elle doit être comptée dans le calcul de la
-    // position de la ligne, et retranchée en symétrique quand on relit une
-    // abscisse en heure. Oublier l'un des deux sens fausse la mesure.
-    expect(kGridLeftInset, 4.0);
+test('l’axe et la grille partagent le même abscisse d’origine', () {
+    // Ce test affirmait autrefois qu'une gouttière de 4 px devait être comptée
+    // dans les deux sens. Il passait, mais il ne vérifiait que la formule
+    // isolée : le layout n'a JAMAIS réservé cette gouttière (le `Row` est
+    // `SizedBox(width: 140)` puis `Expanded`). C'est pourquoi le décalage de
+    // 4 px a survécu — 1 min à 4 px/min, 4 min à 1 px/min.
+    //
+    // L'invariant réel est l'absence de gouttière, pas sa valeur.
+    expect(
+      axisLeftInset(),
+      kChannelWidth,
+      reason: 'l’axe doit démarrer exactement là où démarre la grille',
+    );
 
     final controller = EpgTimelineController(
       gridStartTime: gridStart,
       pixelsPerMinute: ppm,
     );
     // Abscisse de la ligne rouge, dans le repère de la pile.
-    const namesWidth = 140.0;
-    final x = namesWidth + kGridLeftInset + controller.timeToPixels(now);
-    // Relecture : la gouttière se retranche des deux côtés.
-    final back = controller.pixelsToTime(x - namesWidth - kGridLeftInset);
+    final x = nowLineX(
+      channelWidth: kChannelWidth,
+      timePixels: controller.timeToPixels(now),
+      offset: 0.0,
+    );
+    // Relecture : seule la colonne des noms se retranche.
+    final back = controller.pixelsToTime(
+      x - kChannelWidth,
+    );
 
     expect(back.difference(now).inSeconds.abs(), lessThanOrEqualTo(1),
         reason: 'aller-retour : la ligne et l’axe doivent coïncider');
+  });
+
+  testWidgets('la bande d’axe et la grille ont la même largeur de gauche',
+      (tester) async {
+    // Contrainte de layout, pas de formule : la bande d’axe doit mesurer
+    // exactement `kChannelWidth`, sinon la frise est décalée horizontalement
+    // par rapport aux programmes qu’elle gradue.
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(grid(const Size(360, 733)));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+
+    final band = tester.widget<SizedBox>(
+      find
+          .descendant(
+            of: find.byType(EpgGrid2DView),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is SizedBox &&
+                  w.width != null &&
+                  (w.width! - kChannelWidth).abs() < 0.001,
+            ),
+          )
+          .first,
+    );
+    expect(band.width, kChannelWidth);
   });
 
   test('une heure pleine tombe sur sa graduation', () {

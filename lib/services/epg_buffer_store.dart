@@ -41,7 +41,14 @@ class EpgBufferStore {
   static final EpgBufferStore instance = EpgBufferStore._();
 
   /// Version du format : permet d'invalider un fichier ancien sans le lire.
-  static const int _formatVersion = 1;
+  ///
+  /// Passé à 2 après la correction du parseur XMLTV. Les tampons v1 contiennent
+  /// des programmes dont le TITRE est vide — le parseur cherchait le littéral
+  /// `<title>` et le XMLTV réel écrit `<title lang="fr">`. Ces fichiers sont
+  /// parfaitement lisibles, donc aucune erreur ne les ferait rejeter : il
+  /// fallait invalider explicitement des données par ailleurs valides mais
+  /// vides de contenu.
+  static const int _formatVersion = 2;
 
   /// Rafraîchissement par défaut.
   ///
@@ -195,6 +202,21 @@ class EpgBufferStore {
         if (file.existsSync()) file.deleteSync();
       },
       context: 'EpgBufferStore.clear',
+    );
+  }
+
+  /// Supprime TOUS les tampons EPG (changement d'abonnement, réinitialisation complète).
+  Future<void> clearAll() async {
+    await safeAsync<void>(
+      () async {
+        final dir = await _dir();
+        for (final file in dir.listSync()) {
+          if (file is File && file.path.contains('epg_') && file.path.endsWith('.json')) {
+            file.deleteSync();
+          }
+        }
+      },
+      context: 'EpgBufferStore.clearAll',
     );
   }
 

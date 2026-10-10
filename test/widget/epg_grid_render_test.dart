@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/utils/epg_gap_filler.dart' as gap;
@@ -205,7 +206,230 @@ void main() {
     });
   });
 
-  group('EpgGapFiller — la grille est continue', () {
+  group('EpgGrid2DView — le zoom va jusqu\'à 4-6 heures', () {
+    /// Libellé du bouton `−`, qui porte le facteur de zoom courant.
+    ///
+    /// On lit l'`IconButton` plutôt que le `Tooltip` interne : les deux boutons
+    /// `−` et `+` affichent le même facteur, donc chercher par texte ne
+    /// distinguerait pas lequel a été pressé.
+    String zoomOutLabel(WidgetTester tester) {
+      final button = tester.widget<IconButton>(find.ancestor(
+        of: find.byIcon(Icons.zoom_out),
+        matching: find.byType(IconButton),
+      ));
+      return button.tooltip ?? '';
+    }
+
+    testWidgets('trois clics sur dézoomer atteignent le palier 1,0', (tester) async {
+      await tester.pumpWidget(harness(['TF1'], const {}));
+      await tester.pump();
+
+      final zoomOut = find.byIcon(Icons.zoom_out);
+      expect(zoomOut, findsOneWidget);
+      // Départ : 4,0 px/min, soit ~1 h 07 sur un S20.
+      expect(zoomOutLabel(tester), contains('4.0'));
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(zoomOut);
+        await tester.pump();
+      }
+
+      // 4,0 -> 1,5 -> 1,15 -> 1,0 : 4 h 27 de programmes sur 267 px.
+      expect(zoomOutLabel(tester), contains('1.0'));
+    });
+  });
+
+  group('EpgGrid2DView — géométrie verticale cohérente', () {
+    test('le pas vertical vaut hauteur + gouttière', () {
+      // Régression : les deux ListView (noms et programmes) doivent avancer du
+      // même pas, sinon la colonne des noms glisse par rapport aux programmes
+      // et chaque programme sort de la case de sa chaîne.
+      expect(
+        EpgGrid2DViewState.kRowStride,
+        EpgGrid2DViewState.kRowHeight + EpgGrid2DViewState.kRowGap,
+      );
+    });
+
+    test('le pas vertical n\'est pas un 60 px figé', () {
+      // Le symptôme observé venait de `(60.0 + 2)` resté en dur dans
+      // `_maxVerticalOffset` pendant que les autres sites passaient à 48 :
+      // l'étendue de défilement était 31 % trop grande.
+      expect(EpgGrid2DViewState.kRowHeight, 48.0);
+    });
+
+    testWidgets('chaque programme est dessiné dans la ligne de sa chaîne',
+        (tester) async {
+      // Deux chaînes, un programme chacune, hauteurs distinctes : si le pas
+      // vertical du `ListView` ne vaut pas `kRowStride`, la seconde ligne est
+      // peinte plus haut ou plus bas que sa place et le décalage devient
+      // visible dans le canvas.
+      await tester.pumpWidget(harness(
+        ['AAAA', 'BBBB', 'CCCC'],
+        {
+          'AAAA': [prog('P1', 0)],
+          'BBBB': [prog('P2', 0)],
+          'CCCC': [prog('P3', 0)],
+        },
+      ));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+
+      // Chaque ligne mesure `kRowStride` de haut dans le viewport.
+      final namesList = tester.widget<ListView>(find.byType(ListView).first);
+      final gridList = tester.widget<ListView>(find.byType(ListView).last);
+      expect(gridList.itemExtent, EpgGrid2DViewState.kRowStride);
+      expect(namesList.itemExtent, EpgGrid2DViewState.kRowStride);
+      expect(gridList.itemExtent, namesList.itemExtent);
+    });
+  });
+
+  group('EpgGrid2DView — le zoom survit à une reconstruction', () {
+    testWidgets('un rebuild ne remet pas le zoom à la valeur par défaut',
+        (tester) async {
+      // Régression : `didUpdateWidget` relisait `widget.pixelsPerMinute`, que
+      // l'écran EPG passe en dur à 4,0. Chaque reconstruction (RefreshIndicator,
+      // retour de dialogue, changement de catégorie) annulait donc le zoom de
+      // l'utilisateur : le cache repartait à 4,0 px/min pendant que l'axe et la
+      // ligne rouge gardaient l'autre échelle, et le contenu glissait sous le
+      // repère horaire.
+      final controller = EpgTimelineController(
+        gridStartTime: DateTime.now(),
+        pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
+      );
+      addTearDown(controller.dispose);
+
+      Widget build(String title) => MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 500,
+                  height: 700,
+                  child: EpgGrid2DView(
+                    channels: ['AAAA', 'BBBB'],
+                    epgData: {
+                      'AAAA': [prog(title, 0)],
+                      'BBBB': [prog(title, 0)],
+                    },
+                    // L'écran EPG passe toujours 4,0 : c'est justement le
+                    // piège, la valeur ne doit pas être réimposée.
+                    pixelsPerMinute:
+                        EpgTimelineController.defaultPixelsPerMinute,
+                    timelineController: controller,
+                  ),
+                ),
+              ),
+            ),
+          );
+
+      await tester.pumpWidget(build('P1'));
+      await tester.pump();
+
+      // L'utilisateur dézoome trois fois : 4,0 -> 1,5 -> 1,15 -> 1,0.
+      final zoomOut = find.byIcon(Icons.zoom_out);
+      expect(zoomOut, findsOneWidget);
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(zoomOut);
+        await tester.pump();
+      }
+      expect(controller.pixelsPerMinuteValue, 1.0);
+
+      // Rebuild avec les mêmes props : le zoom doit être conservé.
+      await tester.pumpWidget(build('P2'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(
+        controller.pixelsPerMinuteValue,
+        1.0,
+        reason: 'un rebuild a réimposé le zoom par défaut 4,0',
+      );
+    });
+  });
+
+  group('EpgGrid2DView — le tap vise le programme affiché', () {
+    testWidgets('défiler puis toucher ouvre le bon programme',
+        (tester) async {
+      // Régression : `localPosition.dx` est relatif au canvas (qui montre la
+      // tranche visible de la journée), alors que `rp.left` est absolu depuis
+      // minuit. Sans conversion, le programme retourné était décalé de tout le
+      // défilement — plusieurs heures d'erreur à mi-journée — et le tap
+      // ouvrait autre chose que ce qu'on voyait.
+      final day = DateTime.now();
+      final start = DateTime(day.year, day.month, day.day);
+      EPGProgram at(int hour, String title) => EPGProgram(
+            channelId: 'c1',
+            title: title,
+            description: '',
+            start: start.add(Duration(hours: hour)),
+            end: start.add(Duration(hours: hour + 1)),
+          );
+
+      EPGProgram? tapped;
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 500,
+              height: 700,
+              child: EpgGrid2DView(
+                channels: const ['AAAA'],
+                epgData: {
+                  'AAAA': [
+                    for (var h = 0; h < 24; h++) at(h, 'P$h'),
+                  ],
+                },
+                onProgramTap: (p, _) => tapped = p,
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+
+      final state = tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      final controller = state.debugTimelineControllerForTest;
+
+      // À 4 px/min, 1 h = 240 px. On choisit une heure bien dans la journée,
+      // éloignée de l'heure courante que le harnais recentre à l'ouverture.
+      const ppm = 4.0;
+      const targetHour = 14;
+      final absoluteStart = targetHour * 60 * ppm;
+
+      // On place la fenêtre du tout premier coup sur l'heure visée, pour ne
+      // dépendre ni de l'heure système ni du recentrage automatique.
+      state.debugSetHorizontalOffsetForTest(absoluteStart - 300);
+      await tester.pump();
+
+      // L'écran 300 doit donc tomber dans P14 (absolu 3360 → 3600 px).
+      expect(controller.pixelsPerMinuteValue, ppm);
+      expect(state.debugProgramTitleAt(300, 'AAAA'), 'P14',
+          reason: 'l\'abscisse écran doit être rendue absolue avant la '
+              'comparaison');
+
+      // Un décalage écran nul ne doit PAS tomato à P14 : sans conversion,
+      // 0 px écran serait comparé aux positions absolues et tomberait sur P0.
+      expect(state.debugProgramTitleAt(0, 'AAAA'), isNot('P14'),
+          reason: 'le bord gauche de l\'écran est ailleurs dans la journée');
+    });
+  });
+
+group('EpgGapFiller — la grille est continue', () {
     test('une journée entière est couverte sans trou', () {
       final now = DateTime.now();
       final day = DateTime(now.year, now.month, now.day);

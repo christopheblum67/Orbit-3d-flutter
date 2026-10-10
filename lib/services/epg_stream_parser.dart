@@ -126,16 +126,39 @@ class EpgStreamParser {
   ///
   /// `&amp;` est traité en DERNIER : un seul passage de dé-échappement, sinon
   /// `&amp;apos;` se transformerait à tort en apostrophe.
+  /// Extrait le texte d'un élément, **attributs compris**.
+  ///
+  /// ## Pourquoi ce n'est pas un `indexOf`
+  ///
+  /// La version précédente cherchait le littéral `<title>`. Or le XMLTV
+  /// standard qualifie presque toujours l'élément d'une langue :
+  /// `<title lang="fr">Le Journal</title>`. Cette chaîne n'y apparaît jamais,
+  /// la recherche renvoyait -1, et le titre revenait VIDE.
+  ///
+  /// Conséquence à l'écran : les programmes étaient chargés, placés et
+  /// coloriés, mais leur texte manquait — donc des cases mauves entièrement
+  /// vides. Ce qui expliquait aussi que le journal annonçât « 210 lignes avec
+  /// vrais programmes » pour un écran perçu comme vide : la PRÉSENCE était
+  /// mesurée, pas le CONTENU.
+  ///
+  /// `(\s[^>]*)?` tolère les attributs sans les laisser glisser dans le texte.
+  /// Il exige soit la fin immédiate de la balise, soit une espace : `<titlefoo>`
+  /// ne peut donc pas être confondu avec `<title>`.
   static String _extractElement(String body, String name) {
-    final open = body.indexOf('<$name>');
-    if (open == -1) return '';
-    final contentStart = open + '<$name>'.length;
-    final close = body.indexOf('</$name>', contentStart);
-    final raw = close == -1
-        // Pas de balise fermante : prendre jusqu'à la fin du bloc.
-        ? body.substring(contentStart)
-        : body.substring(contentStart, close);
-    return _unescapeXml(raw.trim());
+    final match = RegExp(
+      '<$name(\\s[^>]*)?>([\\s\\S]*?)</$name>',
+      caseSensitive: false,
+    ).firstMatch(body);
+    if (match != null) {
+      return _unescapeXml(match.group(2)!.trim());
+    }
+    // Pas de balise fermante : prendre jusqu'à la fin du bloc, comme avant.
+    final open = RegExp(
+      '<$name(\\s[^>]*)?>',
+      caseSensitive: false,
+    ).firstMatch(body);
+    if (open == null) return '';
+    return _unescapeXml(body.substring(open.end).trim());
   }
 
   /// Résout les cinq entités XML standard, plus les références numériques
