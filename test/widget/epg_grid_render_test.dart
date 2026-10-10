@@ -458,4 +458,93 @@ group('EpgGapFiller — la grille est continue', () {
       }
     });
   });
+
+  group('EpgGrid2DView — le défilement horizontal', () {
+    testWidgets('un glissement horizontal déplace la grille', (tester) async {
+      final day = DateTime.now();
+      final start = DateTime(day.year, day.month, day.day);
+      await tester.pumpWidget(harness(['TF1 HD'], {
+        'c1': fillForTest(
+          programs: [
+            EPGProgram(
+              channelId: 'c1',
+              title: 'Programme 1',
+              description: '',
+              start: start,
+              end: start.add(const Duration(hours: 2)),
+            ),
+          ],
+          start: start,
+          end: start.add(const Duration(days: 1)),
+        ),
+      }));
+      await tester.pump();
+
+      final state = tester.state<EpgGrid2DViewState>(
+          find.byType(EpgGrid2DView));
+      final before = state.debugHorizontalOffsetForTest;
+
+      // Un glissement horizontal franchement vers la gauche doit entraîner la
+      // journée (le contenu visible avance dans le temps).
+      await tester.drag(
+        find.byType(EpgGrid2DView),
+        const Offset(-120, 4),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+
+      final after = state.debugHorizontalOffsetForTest;
+      expect(after, greaterThan(before));
+      // Le doigt suit la grille : la journée avance exactement de la distance
+      // parcourue, une fois l'adaptation tactile prise en compte.
+      expect(after - before, closeTo(120, 40));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('un glissement vertical ne déplace pas la grille',
+        (tester) async {
+      final day = DateTime.now();
+      final start = DateTime(day.year, day.month, day.day);
+      final program = EPGProgram(
+        channelId: 'c1',
+        title: 'Programme 1',
+        description: '',
+        start: start,
+        end: start.add(const Duration(hours: 2)),
+      );
+      // Beaucoup de chaînes : la liste est alors franchement défilable, donc
+      // son recognizer vertical participe réellement à l'arène. Avec une seule
+      // chaîne, la liste ne défile pas et le geste horizontal gagnerait sans
+      // adversaire — le test ne prouverait rien.
+      final channels = List.generate(40, (i) => 'CH$i');
+      final data = {
+        for (final c in channels) c: fillForTest(
+          programs: [program],
+          start: start,
+          end: start.add(const Duration(days: 1)),
+        ),
+      };
+      await tester.pumpWidget(harness(channels, data));
+      await tester.pump();
+
+      final state = tester.state<EpgGrid2DViewState>(
+          find.byType(EpgGrid2DView));
+      final before = state.debugHorizontalOffsetForTest;
+
+      // Geste franchement vertical (avec la petite dérive horizontale d'un
+      // doigt réel) : c'est le défilement des chaînes, pas la frise.
+      await tester.drag(
+        find.byType(EpgGrid2DView),
+        const Offset(4, -260),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final after = state.debugHorizontalOffsetForTest;
+      expect(after, closeTo(before, 1.0),
+          reason: 'un geste vertical ne doit pas entraîner la journée');
+      expect(tester.takeException(), isNull);
+    });
+  });
 }

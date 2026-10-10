@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_row_diagnostics.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_scroll_gesture.dart';
 
 /// Grille EPG haute performance avec CustomPainter (canvas unique).
 ///
@@ -603,6 +604,10 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   void debugSetHorizontalOffsetForTest(double value) =>
       _setHorizontalOffset(value);
 
+  /// Décalage horizontal courant, en px — pour les tests.
+  @visibleForTesting
+  double get debugHorizontalOffsetForTest => _horizontalOffset.value;
+
   /// Titre du programme sous l'abscisse ÉCRAN [screenDx] — pour les tests.
   ///
   /// Expose la conversion screen → position absolue, qui est le cœur du
@@ -813,7 +818,11 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                             // reprojette pour rester dans la journée.
                             _setHorizontalOffset(_horizontalOffset.value);
                           }
-                          return Listener(
+                            return HorizontalDragLayer(
+                              offset: _horizontalOffset,
+                              maxOffset: _maxHorizontalOffset,
+                              onOffsetChanged: _setHorizontalOffset,
+                              child: Listener(
                             // Pinch : le geste naturel du zoom sur un
                             // téléphone. On ancre sur la position donnée par
                             // l'événement, sinon la minute visée dérive pendant
@@ -829,15 +838,19 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                               _hoverPosition.value = null;
                             },
                             onPointerMove: (event) {
-                              // Glissement horizontal : déplace la journée au lieu
-                              // de la faire défiler. Le contrôleur n'est plus
-                              // nécessaire, et il ne pouvait pas être partagé.
-                              final dx = event.localPosition.dx - _pointerX;
-                              if (dx.abs() >= 1) {
-                                _setHorizontalOffset(
-                                    _horizontalOffset.value - dx);
-                                _pointerX = event.localPosition.dx;
-                              }
+                              // Le déplacement horizontal est conduit par
+                              // `HorizontalDragLayer`, qui participe à l'arène
+                              // de gestes et gagne franchement sur un
+                              // mouvement horizontal. Ici on ne fait plus que
+                              // suivre le doigt, pour le survol et pour
+                              // distinguer un glissement d'un appui.
+                              //
+                              // Déplacer la grille ici était le bug d'origine :
+                              // un `Listener` ne réclame rien dans l'arène, donc
+                              // il bougeait dès le premier pixel alors que le
+                              // `ListView` vertical croyait encore tenir le
+                              // geste — les deux se disputaient le pointeur.
+                              _pointerX = event.localPosition.dx;
                               _hoverPosition.value = event.localPosition;
                             },
                             onPointerUp: (event) {
@@ -892,8 +905,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                 ),
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        );
+                      },
                       ),
                     ),
                   ],
