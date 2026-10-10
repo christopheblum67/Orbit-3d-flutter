@@ -371,6 +371,7 @@
   "opensubtitlesKeyDelete": "Clear the key",
   "subtitleOnlineNoApiKey": "OpenSubtitles API key missing: enter it in Settings to enable online search.",
   "subtitleOnlineQuota": "OpenSubtitles download quota reached for today. Try again tomorrow.",
+  "subtitleOnlineNeedsLogin": "OpenSubtitles download requires a signed-in account, not just the API key: search works, but the download is refused.",
   "favorites": "Favorites",
   "films": "Movies",
   "replay": "Replay",

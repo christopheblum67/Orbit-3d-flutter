@@ -371,6 +371,7 @@
   "opensubtitlesKeyDelete": "Borrar la clave",
   "subtitleOnlineNoApiKey": "Falta la clave API de OpenSubtitles: introdúcela en Ajustes para activar la búsqueda en línea.",
   "subtitleOnlineQuota": "Cuota de descarga de OpenSubtitles alcanzada hoy. Inténtalo mañana.",
+  "subtitleOnlineNeedsLogin": "La descarga de OpenSubtitles requiere una cuenta conectada, no solo la clave API: la búsqueda funciona, pero la descarga se rechaza.",
   "favorites": "Favoritos",
   "films": "Películas",
   "replay": "Replay",

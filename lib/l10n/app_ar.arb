@@ -371,6 +371,7 @@
   "opensubtitlesKeyDelete": "امسح المفتاح",
   "subtitleOnlineNoApiKey": "مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.",
   "subtitleOnlineQuota": "تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.",
+  "subtitleOnlineNeedsLogin": "يتطلب تنزيل OpenSubtitles حسابًا مسجَّل الدخول، وليس مفتاح API فقط: البحث يعمل، لكن يتم رفض التنزيل.",
   "favorites": "المفضلة",
   "films": "أفلام",
   "replay": "إعادة",

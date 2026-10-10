@@ -1224,7 +1224,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get subtitleOnlineNeedsLogin =>
-      'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.';
+      'La descarga de OpenSubtitles requiere una cuenta conectada, no solo la clave API: la búsqueda funciona, pero la descarga se rechaza.';
 
   @override
   String get favorites => 'Favoritos';

@@ -371,6 +371,7 @@
   "opensubtitlesKeyDelete": "Schlüssel löschen",
   "subtitleOnlineNoApiKey": "OpenSubtitles-API-Schlüssel fehlt: In den Einstellungen eintragen, um die Online-Suche zu aktivieren.",
   "subtitleOnlineQuota": "OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen.",
+  "subtitleOnlineNeedsLogin": "Der OpenSubtitles-Download erfordert ein angemeldetes Konto, nicht nur den API-Schlüssel: Die Suche funktioniert, aber der Download wird abgelehnt.",
   "favorites": "Favoriten",
   "films": "Filme",
   "replay": "Replay",
