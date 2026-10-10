@@ -56,23 +56,23 @@ class Media3PlaybackProfile {
   static Media3PlaybackProfile forProfile(DeviceProfile profile) {
     return switch (profile) {
       DeviceProfile.eco => const Media3PlaybackProfile(
-          minBufferMs: 8000,
-          maxBufferMs: 40000,
-          bufferForPlaybackMs: 2500,
-          bufferForPlaybackAfterRebufferMs: 4000,
+          minBufferMs: 10000,
+          maxBufferMs: 60000,
+          bufferForPlaybackMs: 5000,
+          bufferForPlaybackAfterRebufferMs: 8000,
           maxVideoHeight: 1080,
         ),
       DeviceProfile.standard => const Media3PlaybackProfile(
-          minBufferMs: 4000,
-          maxBufferMs: 25000,
-          bufferForPlaybackMs: 1500,
-          bufferForPlaybackAfterRebufferMs: 2500,
+          minBufferMs: 8000,
+          maxBufferMs: 40000,
+          bufferForPlaybackMs: 3000,
+          bufferForPlaybackAfterRebufferMs: 6000,
         ),
       DeviceProfile.ultra => const Media3PlaybackProfile(
-          minBufferMs: 1500,
-          maxBufferMs: 10000,
-          bufferForPlaybackMs: 800,
-          bufferForPlaybackAfterRebufferMs: 1200,
+          minBufferMs: 5000,
+          maxBufferMs: 20000,
+          bufferForPlaybackMs: 2000,
+          bufferForPlaybackAfterRebufferMs: 3000,
           // Plafond à 1440p, malgré le nom du profil. Sans plafond, ExoPlayer
           // négocie une piste 4K (3840×2160) sur des sources IPTV HEVC dont le
           // décodage dépasse ce que le matériel sustained : le tampon se

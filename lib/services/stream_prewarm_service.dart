@@ -1,5 +1,16 @@
 import 'package:video_player/video_player.dart';
 
+/// Options des lecteurs préchauffés.
+///
+/// `mixWithOthers: false` : le plugin natif passe `handleAudioFocus: true` à
+/// ExoPlayer, donc un lecteur préchauffé qui démarrerait ne peut pas doubler
+/// l'audio du lecteur principal. Voir le commentaire détaillé dans
+/// `player_screen.dart` devant `_exclusivePlayback`.
+final VideoPlayerOptions _exclusivePlayback = VideoPlayerOptions(
+  mixWithOthers: false,
+  allowBackgroundPlayback: false,
+);
+
 /// Petit réservoir de [VideoPlayerController] pré-initialisés, sans lecture,
 /// pour accélérer le premier démarrage d'une chaîne et le zapping.
 ///
@@ -27,10 +38,7 @@ class StreamPrewarmService {
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(url),
       httpHeaders: httpHeaders,
-      videoPlayerOptions: VideoPlayerOptions(
-        mixWithOthers: true,
-        allowBackgroundPlayback: false,
-      ),
+      videoPlayerOptions: _exclusivePlayback,
     );
     _inflight = controller;
     _inflightUrl = url;

@@ -190,6 +190,30 @@ const List<Duration> _rateLimitBackoffs = [
 /// d'abandonner la tentative courante.
 const int _maxRateLimitedVariants = 2;
 
+/// Options communes à tous les lecteurs de l'écran.
+///
+/// `mixWithOthers: false` est la correction du doublage audio au zapping.
+///
+/// Le plugin natif traduit ce booléen en
+/// `exoPlayer.setAudioAttributes(attrs, handleAudioFocus: !isMixMode)`
+/// (`third_party/video_player_android/.../VideoPlayer.java:260`). Avec
+/// `true`, `handleAudioFocus` vaut `false` : ExoPlayer ne demande **ni**
+/// n'abandonne le focus audio. Conséquence mesurée sur le S20 : le
+/// `dumpsys audio` ne montrait qu'une entrée `orbit.app`, et surtout aucun
+/// `abandonAudioFocus` entre deux zappings — rien n'extinguait donc le lecteur
+/// précédent. Comme `_switchTo` met l'ancien contrôleur en cache au lieu de
+/// le libérer, et que le réservoir de préchauffage peut conserver un lecteur
+/// en cours d'initialisation, deux ExoPlayer de la même chaîne coexistent et
+/// leur audio se superpose.
+///
+/// En passant à `false`, chaque nouveau lecteur prend le focus et fait taire
+/// le précédent au niveau du système, même si un contrôleur survit en cache.
+/// Les caches `_cachedPrev`/`_cachedNext` redeviennent sûrs.
+final VideoPlayerOptions _exclusivePlayback = VideoPlayerOptions(
+  mixWithOthers: false,
+  allowBackgroundPlayback: false,
+);
+
 class PlayerScreenState extends ConsumerState<PlayerScreen>
     with WidgetsBindingObserver {
   List<Channel> _channels = const [];
@@ -582,9 +606,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // Flux préchauffé par la grille Live TV : zapping sans démarrage à froid.
     final prewarmed = StreamPrewarmService.instance.take(_activeStreamUrl);
     if (prewarmed != null) {
+      // Force l'arrêt de l'ancien contrôleur AVANT d'assigner le nouveau
+      // pour éviter le chevauchement audio (doublage).
+      if (_controller != null && _controller!.value.isPlaying) {
+        await _controller!.pause();
+      }
+      _disposeActive();
       _controller = prewarmed;
       prewarmed.addListener(_onControllerUpdate);
       _appliedAudioPref = false;
+      // Configurer l'audio AVANT de jouer
+      await _applySavedAudioTrack(prewarmed);
       prewarmed.play();
       if (!mounted || gen != _generation || _controller != prewarmed) {
         _disposeController(prewarmed);
@@ -863,10 +895,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(url),
         httpHeaders: _resolvedHeaders(url, agentIndex),
-        videoPlayerOptions: VideoPlayerOptions(
-          mixWithOthers: true,
-          allowBackgroundPlayback: false,
-        ),
+        videoPlayerOptions: _exclusivePlayback,
       );
       _controller = controller;
       controller.addListener(_onControllerUpdate);
@@ -1080,13 +1109,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _goNext() {
     if (!_hasNext) return;
     _showFooterBar();
-    _switchTo(_index + 1);
+    // `_switchTo` incremente `_generation` de facon synchrone avant son
+    // premier `await`, donc un zapping rapide reste correctement ordonne :
+    // chaque appel voit l'_index deja change et les appels obsoletes sont
+    // abandonnes par la garde de generation.
+    unawaited(_switchTo(_index + 1));
   }
 
   void _goPrevious() {
     if (!_hasPrevious) return;
     _showFooterBar();
-    _switchTo(_index - 1);
+    unawaited(_switchTo(_index - 1));
   }
 
   /// Déplace la lecture de [delta] (boutons retour 10s / avance 30s).
@@ -1103,13 +1136,23 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _showFooterBar();
   }
 
-  void _switchTo(int target) {
+  /// Bascule sur [target].
+  ///
+  /// Asynchrone a dessein : `pause()` est une commande plateforme. Sans
+  /// `await`, l'ancien lecteur restait branche quelques centaines de ms apres
+  /// que le nouveau eut commence, ce qui suffisait a faire cohabiter deux
+  /// decodeurs audio sur la meme chaine. Le zapping etant pilote par une
+  /// succession d'appuis sur `_goNext`/`_goPrevious`, chaque appel incremente
+  /// `_generation` : une bascule annulee entre-temps est abandonnee sans
+  /// toucher au controleur, qui reste la propriete du lecteur en cours.
+  Future<void> _switchTo(int target) async {
     if (!mounted ||
         target == _index ||
         target < 0 ||
         target >= _channels.length) {
       return;
     }
+    final gen = _generation;
     _generation++;
     _autorecovered = false;
     _handlingError = false;
@@ -1130,7 +1173,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (oldActive != null) {
       oldActive.removeListener(_onControllerUpdate);
       if (oldActive.value.isInitialized && !oldActive.value.hasError) {
-        oldActive.pause();
+        // `await` avant toute decision : tant que la commande plateforme n'est
+        // pas passee, l'ancien decodeur audio tourne encore.
+        await oldActive.pause();
+        if (!mounted || gen != _generation) {
+          // Un autre zapping a pris la main pendant l'attente : cet ancien
+          // controleur n'appartient plus a personne. On ne le remet surtout
+          // pas en cache, on le libere.
+          _disposeController(oldActive);
+          return;
+        }
         if (forward) {
           _cachedPrev = oldActive;
           _cachedPrevIndex = target - 1;
@@ -1142,8 +1194,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         oldActive.dispose();
       }
     }
+    if (!mounted || gen != _generation) return;
     if (newActive != null) {
       newActive.addListener(_onControllerUpdate);
+      // Le focus audio est pris ICI, apres la pause confirmee de l'ancien
+      // lecteur : c'est cet ordre qui supprime le recouvrement, pas le flag.
       newActive.play();
       _setStatus(_PlayerStatus.ready);
       // Réattache la détection de stall au NOUVEAU contrôleur : avant ce
@@ -1212,10 +1267,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       final controller = VideoPlayerController.networkUrl(
         Uri.parse(targetUrl),
         httpHeaders: _resolvedHeaders(targetUrl, attempt),
-        videoPlayerOptions: VideoPlayerOptions(
-          mixWithOthers: true,
-          allowBackgroundPlayback: false,
-        ),
+        videoPlayerOptions: _exclusivePlayback,
       );
       final initResult = await safeAsync(
         () => controller.initialize().timeout(_probTimeout),
