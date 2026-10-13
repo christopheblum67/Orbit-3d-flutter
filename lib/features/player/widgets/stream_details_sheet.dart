@@ -11,6 +11,37 @@ import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
+/// Nature d'une erreur de recherche en ligne, telle qu'elle se présente à
+/// l'utilisateur.
+///
+/// La distinction qui compte — **clé absente ≠ clé refusée** — est extraite du
+/// widget pour être verrouillée par un test : c'est elle qui décidait si
+/// l'utilisateur devait saisir une clé (absente) ou vérifier celle qu'il a
+/// déjà saisie (refusée). Les confondre envoyait « ressaisir la clé » à
+/// quelqu'un qui venait de la saisir.
+enum SubtitleOnlineErrorKind {
+  noApiKey,
+  keyRejected,
+  quota,
+  needsLogin,
+  unknown
+}
+
+/// Classe une erreur OpenSubtitles par la conduite à tenir.
+SubtitleOnlineErrorKind classifySubtitleOnlineError(String text) {
+  // L'absence de clé est levée par `_requireApiKey` AVANT toute requête : son
+  // message ne porte aucun code HTTP, il faut donc le tester avant les codes.
+  if (text.contains('Clé API OpenSubtitles absente')) {
+    return SubtitleOnlineErrorKind.noApiKey;
+  }
+  if (text.contains('http=401') || text.contains('http=403')) {
+    return SubtitleOnlineErrorKind.keyRejected;
+  }
+  if (text.contains('http=429')) return SubtitleOnlineErrorKind.quota;
+  if (text.contains('http=503')) return SubtitleOnlineErrorKind.needsLogin;
+  return SubtitleOnlineErrorKind.unknown;
+}
+
 /// Sous-fenêtre « Détails du flux » ouverte depuis la footerbar (icône ⚙️).
 ///
 /// Liste les pistes audio, les qualités vidéo et les sous-titres détectés, et
@@ -271,7 +302,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       // La 2e voie échouait sur un message « impossible d'identifier le
       // contenu » alors que la 1e avait la réponse sous les yeux depuis le
       // chargement du panneau.
-      var resolved = _panelTmdbId;
+      final resolved = _panelTmdbId;
       if (resolved <= 0) {
         final cleaned = OpenSubtitlesService.cleanSearchTitle(ctx.title);
         if (cleaned.isEmpty) {
@@ -338,15 +369,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// (« SubtitlePayloadException : … http=401 ») qui ne disait pas ce qu'il
   /// fallait faire. La conduite à tenir est une seule : saisir la clé dans les
   /// réglages.
+  ///
+  /// Un 401 AVEC clé se traduisait par le même message « clé absente » alors
+  /// que la clé est là mais refusée : l'utilisateur se retrouvait face à un
+  /// messsage qui le priait de saisir une clé déjà saisie. Depuis, les deux
+  /// cas sont distincts : absente ≠ refusée.
   String _onlineErrorText(Object error, AppLocalizations l) {
     final text = '$error';
-    if (text.contains('Clé API OpenSubtitles absente') ||
-        text.contains('http=401')) {
-      return l.subtitleOnlineNoApiKey;
-    }
-    if (text.contains('http=429')) {
-      return l.subtitleOnlineQuota;
-    }
     // Le 503 de `/download` a une cause documentée et unique : OpenSubtitles
     // exige DEUX en-têtes sur cet endpoint, `Api-Key` ET `Authorization: Bearer`
     // (obtenu via `/login`). La clé seule suffit à la recherche, d'où la
@@ -354,10 +383,18 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     //
     // Et contre-intuitif : l'en-tête manquant ne renvoie pas 401 mais 503
     // « Service unavailable » — d'où l'absence de piste côté clé.
-    if (text.contains('http=503')) {
-      return l.subtitleOnlineNeedsLogin;
+    switch (classifySubtitleOnlineError(text)) {
+      case SubtitleOnlineErrorKind.noApiKey:
+        return l.subtitleOnlineNoApiKey;
+      case SubtitleOnlineErrorKind.keyRejected:
+        return l.subtitleOnlineKeyRejected;
+      case SubtitleOnlineErrorKind.quota:
+        return l.subtitleOnlineQuota;
+      case SubtitleOnlineErrorKind.needsLogin:
+        return l.subtitleOnlineNeedsLogin;
+      case SubtitleOnlineErrorKind.unknown:
+        return text;
     }
-    return text;
   }
 
   /// Télécharge un sous-titre en ligne et l'active.
@@ -493,6 +530,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 ),
                             const SizedBox(height: 12),
                             _sectionTitle(l.subtitleSection),
+                            ..._buildEmbeddedSection(l),
                             ..._buildSubtitleSection(),
                             const SizedBox(height: 16),
                           ],
@@ -502,6 +540,60 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         ),
       ),
     );
+  }
+
+  /// Section « Sous-titres intégrés au flux » (pistes media3 du contenu).
+  ///
+  /// Détectées et maintenues par `player_screen` (scan périodique) puis
+  /// exposées par le contrôleur. L'overlay dédié les attache à la vidéo dès
+  /// qu'une piste est active — c'est aussi pour ça que la liste est montrée
+  /// ici, et nulle part ailleurs : la feuille conçue pour les lister
+  /// (`SubtitleControlsSheet`) n'est branchée à AUCUN bouton, tout passait
+  /// par « Détails du flux », qui ne les affichait pas. L'utilisateur lisait
+  /// « indisponible » alors que les pistes étaient là, portées par le flux.
+  List<Widget> _buildEmbeddedSection(AppLocalizations l) {
+    final subtitleCtrl = ref.watch(subtitleControllerProvider);
+    final tracks = subtitleCtrl.embeddedTracks;
+    if (tracks.isEmpty) return const [];
+    final activeId = subtitleCtrl.activeEmbeddedTrackId;
+    final scheme = Theme.of(context).colorScheme;
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(
+          'Sous-titres intégrés',
+          style: TextStyle(
+            color: scheme.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+      for (final track in tracks)
+        _TrackTile(
+          title: track.label,
+          subtitle: [
+            track.language?.toUpperCase() ?? '—',
+            if (track.isForced) 'Forcé',
+            'Intégré',
+          ].join(' · '),
+          selected: activeId == track.id,
+          onTap: () => _selectEmbeddedTrack(track.id),
+        ),
+      const Divider(height: 12, indent: 16, endIndent: 16),
+    ];
+  }
+
+  /// Sélectionne une piste intégrée au flux.
+  ///
+  /// Best-effort : le rendu suit les cues que le pipeline publie pour la piste
+  /// choisie. Le `ref.watch` de [_buildEmbeddedSection] rafraîchit déjà la
+  /// coche ; le `setState` est là pour que la feuille reflète aussi l'état
+  /// d'autres sections (pistes externes coupées par l'exclusivité).
+  Future<void> _selectEmbeddedTrack(String trackId) async {
+    await ref.read(subtitleControllerProvider).selectEmbeddedTrack(trackId);
+    if (mounted) setState(() {});
   }
 
   /// Section « Sous-titres » : la liste réelle, ou la raison exacte du vide.
@@ -532,8 +624,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
     if (_subtitleLoading) {
       return [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
           child: Center(
             child: SizedBox(
               width: 18,

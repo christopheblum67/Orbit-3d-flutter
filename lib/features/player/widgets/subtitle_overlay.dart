@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 
 /// Overlay de sous-titre relié directement à la position du lecteur.
@@ -240,6 +241,77 @@ class _AnimatedSubtitleOverlayState extends State<AnimatedSubtitleOverlay>
                   textAlign: TextAlign.center,
                   style: widget.style ?? defaultStyle,
                 ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Overlay des sous-titres intégrés (pont natif media3).
+///
+/// Le rendu est asservi au contenu reçu par polling de
+/// `Player.getCurrentCues()` : pas de recalage sur la position vidéo. Le
+/// contrôleur de sous-titres ne notifie que lorsque le groupe de cues change,
+/// donc ce widget ne se reconstruit que pendant l'affichage effectif.
+class EmbeddedSubtitleOverlay extends StatelessWidget {
+  const EmbeddedSubtitleOverlay({
+    super.key,
+    required this.cues,
+    this.style,
+    this.bottomPadding = 80,
+    this.maxWidthFraction = 0.9,
+    this.fadeDuration = const Duration(milliseconds: 200),
+  });
+
+  final EmbeddedSubtitleCues? cues;
+  final TextStyle? style;
+  final double bottomPadding;
+  final double maxWidthFraction;
+  final Duration fadeDuration;
+
+  static const _defaultStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: FontWeight.w500,
+    shadows: [
+      Shadow(
+        blurRadius: 6,
+        color: Colors.black,
+        offset: Offset(0, 2),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final current = cues;
+    if (current == null || current.isEmpty) return const SizedBox.shrink();
+
+    final text = current.texts.join('\n');
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: AnimatedSwitcher(
+          duration: fadeDuration,
+          child: ConstrainedBox(
+            key: ValueKey<String>(text),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * maxWidthFraction,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: style ?? _defaultStyle,
               ),
             ),
           ),

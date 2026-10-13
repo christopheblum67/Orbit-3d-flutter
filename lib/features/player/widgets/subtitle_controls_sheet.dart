@@ -186,6 +186,15 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
     }
   }
 
+  /// Active une piste de sous-titres INTÉGRÉS.
+  ///
+  /// Best-effort : une erreur du pont natif ne casse pas la lecture. La feuille
+  /// reste ouverte pour permettre de basculer rapidement entre les variantes
+  /// (VFF : Forced / VFF : Full…).
+  Future<void> _selectEmbeddedTrack(String trackId) async {
+    await ref.read(subtitleControllerProvider).selectEmbeddedTrack(trackId);
+  }
+
   Widget _buildTvListTile({
     required FocusNode focusNode,
     required FocusNode nextFocusNode,
@@ -280,18 +289,25 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final subtitleCtrl = ref.watch(subtitleControllerProvider);
-  final activeTrack = subtitleCtrl.activeTrack;
-  final activeTrackUrl = subtitleCtrl.activeTrackUrl;
-  final availableTracks = subtitleCtrl.availableTracks;
+    final activeTrack = subtitleCtrl.activeTrack;
+    final activeTrackUrl = subtitleCtrl.activeTrackUrl;
+    final availableTracks = subtitleCtrl.availableTracks;
+    final embeddedTracks = subtitleCtrl.embeddedTracks;
+    final activeEmbeddedId = subtitleCtrl.activeEmbeddedTrackId;
     final scheme = Theme.of(context).colorScheme;
     final hasActiveTrack = activeTrack != null;
-    final trackCount = availableTracks.length;
+    final hasActiveEmbedded = activeEmbeddedId != null;
+    final hasAnySubtitle = hasActiveTrack || hasActiveEmbedded;
+    // Lignes focusables : sous-titres intégrés d'abord, puis pistes du panel.
+    // Le cas « 0 ligne » ne survient que pour un flux live sans piste.
+    final embeddedCount = embeddedTracks.length;
+    final trackCount = embeddedCount + availableTracks.length;
 
     // Ensure focus nodes match track count
     _ensureFocusNodes(trackCount);
 
     // Determine focus order for text fields
-    final firstTextFieldFocus = hasActiveTrack
+    final firstTextFieldFocus = hasAnySubtitle
         ? _disableFocus
         : (trackCount > 0 ? _trackFocusNodes.first : _urlFocus);
 
@@ -339,7 +355,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
               ),
               const Divider(height: 1),
               // Current track / disable
-              if (hasActiveTrack) ...[
+              if (hasAnySubtitle) ...[
                 _buildTvListTile(
                   focusNode: _disableFocus,
                   nextFocusNode:
@@ -360,8 +376,74 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
               ],
+              // Sous-titres intégrés au contenu (pont natif media3).
+              //
+              // Les pistes ne sont listées que si le pipeline les supporte réellement
+              // (getSubtitleTracks côté natif). La sélection est best-effort : le
+              // rendu suit le flux du lecteur, pas la position.
+              if (embeddedCount > 0) ...[
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    'Sous-titres intégrés',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+                ...embeddedTracks.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final track = entry.value;
+                  final isActive = activeEmbeddedId == track.id;
+                  final tileColor = isActive
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.3)
+                      : null;
+                  final focusNode = _trackFocusNodes[index];
+                  final nextFocus = index < trackCount - 1
+                      ? _trackFocusNodes[index + 1]
+                      : _urlFocus;
+                  final prevFocus = index > 0
+                      ? _trackFocusNodes[index - 1]
+                      : (hasAnySubtitle ? _disableFocus : _loadFocus);
+                  return _buildTvListTile(
+                    focusNode: focusNode,
+                    nextFocusNode: nextFocus,
+                    prevFocusNode: prevFocus,
+                    onSelect: () => _selectEmbeddedTrack(track.id),
+                    child: ListTile(
+                      leading: Icon(
+                        isActive ? Icons.check_circle : Icons.circle_outlined,
+                        color: isActive
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      title: Text(track.label),
+                      subtitle: Text(
+                        [
+                          track.language?.toUpperCase() ?? '—',
+                          if (track.isForced) 'Forcé',
+                          'Intégré',
+                        ].join(' · '),
+                      ),
+                      trailing: isActive
+                          ? Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
+                          : null,
+                      onTap: () => _selectEmbeddedTrack(track.id),
+                      tileColor: tileColor,
+                    ),
+                  );
+                }),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+              ],
               // Available tracks
-              if (trackCount > 0) ...[
+              if (availableTracks.isNotEmpty) ...[
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -373,7 +455,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   ),
                 ),
                 ...availableTracks.asMap().entries.map((entry) {
-                  final index = entry.key;
+                  final index = embeddedCount + entry.key;
                   final track = entry.value;
                   // Comparaison par URL : le libellé n'est pas unique (plusieurs
                   // pistes peuvent s'appeler « Français »), et une piste
@@ -392,9 +474,9 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   final nextFocus = index < trackCount - 1
                       ? _trackFocusNodes[index + 1]
                       : _urlFocus;
-                  final prevFocus = index > 0
+                  final prevFocus = index > embeddedCount
                       ? _trackFocusNodes[index - 1]
-                      : (hasActiveTrack ? _disableFocus : _loadFocus);
+                      : (hasAnySubtitle ? _disableFocus : _loadFocus);
                   return _buildTvListTile(
                     focusNode: focusNode,
                     nextFocusNode: nextFocus,
