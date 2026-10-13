@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
@@ -176,8 +177,7 @@ class DownloadList extends StatelessWidget {
       });
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: sorted.length,
       itemBuilder: (context, index) {
@@ -212,13 +212,16 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
       context.go('/vod/detail', extra: {'id': id});
     case 'series':
       if (seriesId != null && season != null && episode != null) {
-        context.go('/series/detail', extra: {
+        // L'écran de détail d'épisode gère l'extra, on garde l'existant.
+        context.go('/episode/detail', extra: {
           'seriesId': seriesId,
           'season': season,
           'episode': episode,
-        });
+        },);
       } else if (seriesId != null) {
-        context.go('/series/detail', extra: {'id': seriesId});
+        context.go(
+          '/series/detail?id=${Uri.encodeComponent(seriesId)}',
+        );
       }
     // Aucun téléchargement Live ni Replay n'est possible : le gestionnaire
     // refuse les playlists HLS. Le cas reste traité pour ne pas rester muet si

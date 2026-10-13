@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -99,7 +100,7 @@ Future<void> confirmClearAllFavorites(
 }
 
 class FavoritesLiveSection extends ConsumerWidget {
-  const FavoritesLiveSection();
+  const FavoritesLiveSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -127,8 +128,7 @@ class FavoritesLiveSection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
@@ -201,7 +201,7 @@ class _DismissBackground extends StatelessWidget {
 }
 
 class FavoritesVodSection extends ConsumerWidget {
-  const FavoritesVodSection();
+  const FavoritesVodSection({super.key});
 
   /// Films téléchargés et lisibles hors-ligne, les plus récents d'abord.
   ///
@@ -260,8 +260,7 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
@@ -387,7 +386,7 @@ class _VodFavoriteItem {
 }
 
 class FavoritesSeriesSection extends ConsumerWidget {
-  const FavoritesSeriesSection();
+  const FavoritesSeriesSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -414,8 +413,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 200,
@@ -467,7 +465,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
 }
 
 class FavoritesReplaySection extends ConsumerWidget {
-  const FavoritesReplaySection();
+  const FavoritesReplaySection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -494,8 +492,7 @@ class FavoritesReplaySection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      cacheExtent: 500,
-      addAutomaticKeepAlives: false,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
         final entry = entries[index];
