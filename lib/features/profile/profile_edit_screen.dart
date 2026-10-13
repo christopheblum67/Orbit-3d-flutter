@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
@@ -584,7 +585,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Choisissez un avatar 3D parmi 30 modèles',
+            'Choisissez un avatar parmi ${orbit3DAvatars.length} modèles',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

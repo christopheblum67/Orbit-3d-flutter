@@ -7,7 +7,11 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_credentials_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
+import 'package:orbit_3d_flutter/services/opensubtitles_credentials_store.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_key_store.dart';
+import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 
 /// Code d'accès à l'écran des réglages sensibles.
@@ -94,7 +98,8 @@ class AdvancedSettingsScreen extends ConsumerStatefulWidget {
       _AdvancedSettingsScreenState();
 }
 
-class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen> {
+class _AdvancedSettingsScreenState
+    extends ConsumerState<AdvancedSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -107,7 +112,8 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () => context.canPop() ? context.pop() : context.go('/settings'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/settings'),
         ),
         title: Text(l.advancedSettingsTitle),
       ),
@@ -129,6 +135,8 @@ class _AdvancedSettingsScreenState extends ConsumerState<AdvancedSettingsScreen>
           const SizedBox(height: 24),
           SettingsSectionTitle(l.advancedSubtitlesProvider),
           const OpenSubtitlesApiKeyTile(),
+          const SizedBox(height: 16),
+          const OpenSubtitlesLoginTile(),
           const SizedBox(height: 24),
           SettingsSectionTitle(l.advancedStatus),
           _KeyStatus(
@@ -286,12 +294,13 @@ class _KeyStatus extends StatelessWidget {
     );
   }
 }
+
 /// Tuile de saisie de la clé TMDB.
 ///
 /// Vibrer avant d'afficher le champ : la clé n'a rien de confidentiel dans un
 /// registre de sécurité, mais elle n'a rien à faire dans les réglages publics.
 class TmdbApiKeyTile extends ConsumerStatefulWidget {
-  const TmdbApiKeyTile();
+  const TmdbApiKeyTile({super.key});
 
   @override
   ConsumerState<TmdbApiKeyTile> createState() => _TmdbApiKeyTileState();
@@ -302,21 +311,65 @@ class TmdbApiKeyTile extends ConsumerStatefulWidget {
 /// L'API refusant toute requête sans clé, une valeur vide ne rend pas
 /// l'application moins fonctionnelle : elle rend la recherche en ligne
 /// impossible.
-class OpenSubtitlesApiKeyTile extends ConsumerWidget {
-  const OpenSubtitlesApiKeyTile();
+///
+/// ## Pourquoi un bouton « Vérifier »
+///
+/// Une clé peut être *présente* et *refusée* : extraite à moitié, expirée,
+/// révoquée. Sans moyen de contrôle, l'utilisateur ne pouvait pas distinguer
+/// « j'ai oublié la clé » de « ma clé ne marche plus » — les deux produisaient
+/// un échec de recherche. Le bouton interroge le service (`/infos/user`) et
+/// rend la cause : absente, valide, refusée (401) ou service injoignable.
+class OpenSubtitlesApiKeyTile extends ConsumerStatefulWidget {
+  const OpenSubtitlesApiKeyTile({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OpenSubtitlesApiKeyTile> createState() =>
+      _OpenSubtitlesApiKeyTileState();
+}
+
+class _OpenSubtitlesApiKeyTileState
+    extends ConsumerState<OpenSubtitlesApiKeyTile> {
+  bool _checking = false;
+  OpenSubtitlesKeyCheck? _result;
+
+  /// Choisit le message de résultat, sans jamais afficher de détail technique.
+  String _message(OpenSubtitlesKeyCheck check, AppLocalizations l) {
+    if (check.isValid) return l.opensubtitlesKeyValid;
+    if (check.isRejected) return l.opensubtitlesKeyRejected;
+    if (check.isMissing) return l.opensubtitlesKeyAnonymous;
+    return l.opensubtitlesKeyUnreachable;
+  }
+
+  Future<void> _verify() async {
+    if (_checking) return;
+    setState(() {
+      _checking = true;
+      _result = null;
+    });
+    final service = ref.read(openSubtitlesServiceProvider);
+    final check = await service.checkApiKey();
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _result = check;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final key = ref.watch(openSubtitlesApiKeyProvider);
+    final result = _result;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l.opensubtitlesKeyLabel,
-            style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          l.opensubtitlesKeyLabel,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         const SizedBox(height: 8),
-_ApiKeyField(
+        _ApiKeyField(
           value: key,
           hint: l.opensubtitlesKeyHint,
           onSubmitted: (value) async {
@@ -324,6 +377,10 @@ _ApiKeyField(
                 .read(openSubtitlesApiKeyProvider.notifier)
                 .setApiKey(value);
             if (!context.mounted) return;
+            // Toute modification invalide la vérification précédente : garder
+            // « clé valide » à l'écran alors que la clé vient de changer
+            // mentirait sur l'état réel.
+            setState(() => _result = null);
             // La longueur suffit à confirmer l'écriture depuis `adb logcat`
             // sans jamais mettre le secret à disposition : la clé est déjà
             // extractible de l'APK, l'écrire dans les logs l'ajouterait à un
@@ -339,7 +396,9 @@ _ApiKeyField(
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  saved.isEmpty ? l.opensubtitlesKeyAnonymous : l.opensubtitlesKeyActive,
+                  saved.isEmpty
+                      ? l.opensubtitlesKeyAnonymous
+                      : l.opensubtitlesKeyActive,
                 ),
               ),
             );
@@ -354,18 +413,280 @@ _ApiKeyField(
         ),
         if (key.isNotEmpty) ...[
           const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () async {
-              await ref
-                  .read(openSubtitlesApiKeyProvider.notifier)
-                  .setApiKey('');
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: Text(l.opensubtitlesKeyDelete),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: scheme.error,
-              side: BorderSide(color: scheme.error),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _checking ? null : _verify,
+                icon: _checking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.verified_outlined),
+                label: Text(
+                  _checking
+                      ? l.opensubtitlesKeyChecking
+                      : l.opensubtitlesKeyCheck,
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await ref
+                      .read(openSubtitlesApiKeyProvider.notifier)
+                      .setApiKey('');
+                  if (!mounted) return;
+                  setState(() => _result = null);
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text(l.opensubtitlesKeyDelete),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: scheme.error,
+                  side: BorderSide(color: scheme.error),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (result != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                result.isValid
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                size: 18,
+                color: result.isValid ? scheme.primary : scheme.error,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _message(result, l),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: result.isValid ? scheme.primary : scheme.error,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Connexion au compte OpenSubtitles.
+///
+/// ## Pourquoi un compte en plus de la clé
+///
+/// `/download` exige DEUX en-têtes : `Api-Key` ET `Authorization: Bearer`
+/// (jeton obtenu via `/login`). La clé seule suffit à la recherche — d'où
+/// l'impression que tout marche — mais le téléchargement répond 503
+/// « Service unavailable ». Saisir le compte ici lève cette seconde barrière.
+///
+/// ## Ce qui est stocké
+///
+/// L'identifiant et le mot de passe vivent dans les préférences, au même
+/// niveau que la clé API (voir [OpenSubtitlesCredentialsStore]) : lisible sur
+/// un appareil rooté, JAMAIS journalisé.
+class OpenSubtitlesLoginTile extends ConsumerStatefulWidget {
+  const OpenSubtitlesLoginTile({super.key});
+
+  @override
+  ConsumerState<OpenSubtitlesLoginTile> createState() =>
+      _OpenSubtitlesLoginTileState();
+}
+
+class _OpenSubtitlesLoginTileState extends ConsumerState<OpenSubtitlesLoginTile> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _obscurePassword = true;
+  bool _checking = false;
+  OpenSubtitlesLoginCheck? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    // Même patron que la tuile TMDB : les champs démarrent sur la valeur
+    // persistée. Le `load()` de démarrage est terminé depuis longtemps quand
+    // cet écran s'ouvre (il exige le code d'accès), l'ordre est donc sûr.
+    final credentials = ref.read(openSubtitlesCredentialsProvider);
+    _username.text = credentials.username;
+    _password.text = credentials.password;
+  }
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  /// Choisit le message de résultat, sans jamais afficher de détail technique.
+  String _message(OpenSubtitlesLoginCheck check, AppLocalizations l) {
+    if (check.isValid) return l.opensubtitlesLoginValid;
+    if (check.isRejected) return l.opensubtitlesLoginRejected;
+    if (check.isMissing) return l.opensubtitlesLoginNone;
+    return l.opensubtitlesLoginUnreachable;
+  }
+
+  Future<void> _connect() async {
+    if (_checking) return;
+    setState(() {
+      _checking = true;
+      _result = null;
+    });
+    await ref
+        .read(openSubtitlesCredentialsProvider.notifier)
+        .setCredentials(
+          OpenSubtitlesCredentials(
+            username: _username.text,
+            password: _password.text,
+          ),
+        );
+    // La session statique du service garde le jeton de l'ANCIEN compte si la
+    // connexion précédente avait réussi : l'invalider force une nouvelle
+    // `/login` avec les identifiants qui viennent d'être enregistrés.
+    OpenSubtitlesService.resetAuth();
+    // Le service est reconstruit au changement d'identifiants : le relire
+    // garantit de vérifier avec le compte qui vient d'être enregistré.
+    final service = ref.read(openSubtitlesServiceProvider);
+    final check = await service.checkLogin();
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _result = check;
+    });
+  }
+
+  Future<void> _delete() async {
+    await ref.read(openSubtitlesCredentialsProvider.notifier).clear();
+    // Le compte est effacé : la session statique doit oublier son jeton.
+    OpenSubtitlesService.resetAuth();
+    _username.clear();
+    _password.clear();
+    if (!mounted) return;
+    setState(() {
+      _result = null;
+      _obscurePassword = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final credentials = ref.watch(openSubtitlesCredentialsProvider);
+    final result = _result;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.opensubtitlesLoginLabel,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _username,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            hintText: l.opensubtitlesLoginHintUsername,
+            prefixIcon: const Icon(Icons.person_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _password,
+          obscureText: _obscurePassword,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(
+            hintText: l.opensubtitlesLoginHintPassword,
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              onPressed: _checking ? null : _connect,
+              icon: _checking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.login),
+              label: Text(
+                _checking
+                    ? l.opensubtitlesLoginConnecting
+                    : l.opensubtitlesLoginConnect,
+              ),
+            ),
+            if (credentials.isNotEmpty) ...[
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: _delete,
+                icon: const Icon(Icons.delete_outline),
+                label: Text(l.opensubtitlesLoginDelete),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: scheme.error,
+                  side: BorderSide(color: scheme.error),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          credentials.isEmpty
+              ? l.opensubtitlesLoginNone
+              : l.opensubtitlesLoginActive,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: credentials.isEmpty
+                    ? scheme.onSurfaceVariant
+                    : scheme.primary,
+              ),
+        ),
+        if (result != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                result.isValid
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                size: 18,
+                color: result.isValid ? scheme.primary : scheme.error,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _message(result, l),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: result.isValid ? scheme.primary : scheme.error,
+                      ),
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -490,11 +811,13 @@ class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   suffixIcon: IconButton(
                     icon: Icon(
-                        _obscure ? Icons.visibility_off : Icons.visibility),
+                      _obscure ? Icons.visibility_off : Icons.visibility,
+                    ),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),

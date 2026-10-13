@@ -21,8 +21,6 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
-import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
-import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 
@@ -227,21 +225,6 @@ class _AccountSection extends ConsumerWidget {
             onTap: syncNotifier.syncNow,
           ),
         const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionNotifications),
-        _NavTile(
-          icon: Icons.notifications_active_rounded,
-          title: l.testNotifications,
-          subtitle: l.testNotificationsSubtitle,
-          onTap: () async {
-            final notificationService = ref.read(notificationServiceProvider);
-            await notificationService.showNotification(
-              'Orbit IPTV',
-              'Ceci est une notification test',
-            );
-          },
-          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionBackup),
         _NavTile(
           icon: Icons.upload_outlined,
@@ -267,7 +250,7 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _exportSettings(
-      BuildContext context, WidgetRef ref) async {
+      BuildContext context, WidgetRef ref,) async {
     final l = AppLocalizations.of(context);
     final s = ref.read(advancedSettingsProvider);
     final prefs = ref.read(preferencesProvider);
@@ -288,7 +271,7 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _importSettings(
-      BuildContext context, WidgetRef ref) async {
+      BuildContext context, WidgetRef ref,) async {
     final l = AppLocalizations.of(context);
     final backup =
         ref.read(storageServiceProvider).getSetting('settings_backup');

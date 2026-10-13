@@ -23,10 +23,17 @@ class SortOptionsDialogTV extends StatefulWidget {
   final SortMode currentMode;
   final Function(SortMode) onSortSelected;
 
+  /// Inclut le mode « Affinité » (triché par le score matchmaking du profil
+  /// courant). Seuls les écrans Films et Séries le proposent : ailleurs, ce
+  /// mode dépasse l'objet du tri (note/année/nom) et l'écran n'a pas le
+  /// contexte de profil.
+  final bool withAffinity;
+
   const SortOptionsDialogTV({
     super.key,
     required this.currentMode,
     required this.onSortSelected,
+    this.withAffinity = false,
   });
 
   /// Méthode d'ouverture statique
@@ -34,6 +41,7 @@ class SortOptionsDialogTV extends StatefulWidget {
     BuildContext context, {
     required SortMode currentMode,
     required Function(SortMode) onSortSelected,
+    bool withAffinity = false,
   }) {
     return showDialog(
       context: context,
@@ -41,6 +49,7 @@ class SortOptionsDialogTV extends StatefulWidget {
       builder: (context) => SortOptionsDialogTV(
         currentMode: currentMode,
         onSortSelected: onSortSelected,
+        withAffinity: withAffinity,
       ),
     );
   }
@@ -50,7 +59,12 @@ class SortOptionsDialogTV extends StatefulWidget {
 }
 
 class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
-  // Liste des options de tri avec métadonnées visuelles
+  // Liste des options de tri avec métadonnées visuelles.
+  //
+  // Un seul représentant par critère : le sens ne se choisit plus ici mais
+  // avec le bouton ↑/↓ de la barre d'outils (`SortModeDirection.reversed`).
+  // L'ordre alphabétique n'y figure pas non plus : il a son propre bouton
+  // (A→Z / Z→A) dans la même barre d'outils.
   List<SortOptionData> _getOptions(AppLocalizations l) {
     return [
       SortOptionData(
@@ -67,34 +81,32 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
       ),
       SortOptionData(
         mode: SortMode.ratingDesc,
-        label: l.sortBestRated,
+        label: l.sortByRating,
         description: 'Classement selon les notes attribuées',
         icon: Icons.star,
       ),
       SortOptionData(
         mode: SortMode.yearDesc,
-        label: l.sortYearRecentToOld,
+        label: l.sortByYear,
         description: 'Tri chronologique par année de production',
         icon: Icons.calendar_today,
       ),
       SortOptionData(
-        mode: SortMode.nameAsc,
-        label: l.sortNameAToZ,
-        description: 'Ordre alphabétique croissant',
-        icon: Icons.sort,
-      ),
-      SortOptionData(
-        mode: SortMode.nameDesc,
-        label: l.sortNameZToA,
-        description: 'Ordre alphabétique décroissant',
-        icon: Icons.sort_by_alpha,
-      ),
-      const SortOptionData(
         mode: SortMode.durationShort,
-        label: 'Durée : Plus courts d\'abord',
-        description: 'Idéal pour visionner un contenu rapide',
+        label: l.sortByDuration,
+        description: 'Tri par durée du contenu',
         icon: Icons.timer,
       ),
+      // Ajouté en fin de liste pour ne pas voler l'autofocus D-Pad (index 0 =
+      // « Récents »). N'apparaît que sur les écrans Films/Séries : le score
+      // vient du profil matchmaking courant (voir `withAffinity`).
+      if (widget.withAffinity)
+        SortOptionData(
+          mode: SortMode.affinity,
+          label: l.sortAffinity,
+          description: l.sortAffinityDescription,
+          icon: Icons.auto_awesome,
+        ),
     ];
   }
 
@@ -157,7 +169,11 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
                 itemCount: options.length,
                 itemBuilder: (context, index) {
                   final option = options[index];
-                  final isActive = option.mode == widget.currentMode;
+                  // Comparaison sur le critère seul : le mode courant peut être
+                  // le sens inverse (`yearAsc`) choisi via le bouton ↑/↓, et
+                  // l'entrée « Par année » doit rester marquée active.
+                  final isActive =
+                      option.mode.criterion == widget.currentMode.criterion;
 
                   return SortOptionTileTV(
                     option: option,
