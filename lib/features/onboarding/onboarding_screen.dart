@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -45,26 +42,11 @@ class _OnboardingConfigScreenState
     final storage = ref.read(storageServiceProvider);
     await storage.setSetting(kDeviceProfileKey, profile.name);
     await storage.setSetting(kOnboardingDoneKey, true);
-    // Prépare la recherche vocale : demande la permission micro pendant la
-    // configuration automatique, plutôt qu'au moment de la première dictée.
-    if (profile.allowsVoiceSearch) {
-      unawaited(_prewarmMicrophone());
-    }
 // Deux écritures disque : l'utilisateur a pu revenir en arrière entre-temps.
 // `ref.invalidate` était appelé une ligne AVANT la garde.
     if (!mounted) return;
     ref.invalidate(deviceProfileProvider);
     context.go('/profiles');
-  }
-
-  /// Préchauffe SpeechToText (déclenche la demande d'autorisation micro)
-  /// sans bloquer la navigation.
-  Future<void> _prewarmMicrophone() async {
-    final speech = SpeechToText();
-    await safeAsync(
-      () => speech.initialize(),
-      context: '_prewarmMicrophone',
-    );
   }
 
   String _profileDescription(DeviceProfile profile) {
