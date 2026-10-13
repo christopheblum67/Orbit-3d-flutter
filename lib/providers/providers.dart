@@ -20,11 +20,11 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
-import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/short_epg_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
+import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
 import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/services/omdb_service.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
@@ -97,8 +97,6 @@ final recentlyWatchedServiceProvider =
 final watchedEpisodesServiceProvider =
     Provider<WatchedEpisodesService>((ref) => WatchedEpisodesService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) => NotificationService());
 final playbackProgressServiceProvider =
     Provider<PlaybackProgressService>((ref) => PlaybackProgressService());
 final mediaLibraryManagerProvider =
@@ -114,6 +112,22 @@ final subtitleControllerProvider = Provider<SubtitleController>((ref) {
 
 final tmdbServiceProvider = Provider<TmdbService>((ref) {
   final service = TmdbService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Instance TMDB **dédiée** au calcul du % d'affinité (grille VOD).
+///
+/// File de rate-limit (`_requestTimestamps`) séparée de [tmdbServiceProvider] :
+/// la résolution du genre réel d'une tuile ne peut donc plus faire attendre les
+/// appels TMDB de la fiche détail (recherche du film, similaires,
+/// recommandations), qui partageaient auparavant la même file.
+/// Si `TMDB_API_KEY_AFFINITY` est fourni dans le `.env`, le quota TMDB est en
+/// plus totalement distinct.
+final tmdbAffinityServiceProvider = Provider<TmdbService>((ref) {
+  final service = TmdbService(
+    keyResolver: () => TmdbApiKeyStore.instance.affinityKey,
+  );
   ref.onDispose(service.dispose);
   return service;
 });
@@ -420,7 +434,7 @@ final searchFilteredProvider = FutureProvider.autoDispose.family<
       filterType: params.filterType,
       categoryId: params.categoryId,
       hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
-      hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList());
+      hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList(),);
 });
 
 final searchSuggestionsProvider = StreamProvider.autoDispose
@@ -955,10 +969,21 @@ class EPGDataCache {
 
   bool get isFresh {
     final fetched = _fetchedAt;
-    return _all != null &&
-        fetched != null &&
-        DateTime.now().difference(fetched) < _ttl;
+    if (_all == null || fetched == null) return false;
+    if (DateTime.now().difference(fetched) >= _ttl) return false;
+    // Les données sont ancrées sur la JOURNÉE du chargement (`_fetchAndFilter`
+    // borne à `[minuit du jour, écriture + 30 h]`). Passé minuit, l'application
+    // restée ouverte servirait encore la fenêtre de la veille : la grille
+    // n'aurait de programmes que jusqu'au début de matinée, tout le reste
+    // comblé en blocs « aucune donnée ». On rejoue donc un chargement au
+    // premier appel du nouveau jour — la péremption seule (30 min) ne le
+    // détecte pas, la nuit dure moins de 30 min après le dernier chargement.
+    return _sameLocalDay(fetched, DateTime.now());
   }
+
+  /// Vrai si [a] et [b] tombent le même jour civil, en heure locale.
+  static bool _sameLocalDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   /// Charge l'intégralité du guide (filtre 48 h) UNE seule fois à la fois via
   /// un futur partagé : la grille (`_loadAllEpg`) et l'onglet Recherche
@@ -1071,7 +1096,7 @@ final epgPreloadServiceProvider = Provider<EpgPreloadService>(
 );
 
 /// Fenêtre catch-up : on ne montre que les programmes terminés depuis 14 jours.
-const Duration kCatchUpWindow = Duration(days: 14);
+//plus de kCatchUpWindow global ; on utilise channel.archiveDays
 
 /// Programmes **terminés** d'une chaîne pour le rattrapage (catch-up).
 ///
@@ -1116,7 +1141,7 @@ List<EPGProgram> _pastPrograms(List<EPGProgram> programs) {
   final now = DateTime.now();
   final past = programs
       .where((p) => p.end.isBefore(now))
-      .where((p) => now.difference(p.end) <= kCatchUpWindow)
+      .where((p) => now.difference(p.end).inDays <= (channel.archiveDays ?? 7))
       .toList()
     ..sort((a, b) => b.end.compareTo(a.end));
   return past;
@@ -1128,7 +1153,7 @@ List<EPGProgram> _pastPrograms(List<EPGProgram> programs) {
 /// interroger la forme préfixée (`num:stream_id`) ou inversement. On tente donc
 /// les deux écritures possibles à partir de l'identifiant demandé.
 List<EPGProgram>? _findShortEpgForAnyCandidate(
-    ShortEpgCache cache, String epgChannelId) {
+    ShortEpgCache cache, String epgChannelId,) {
   // Forme préfixée « num:stream_id » -> on tente le stream_id seul.
   final colon = epgChannelId.indexOf(':');
   if (colon > 0) {
@@ -1283,7 +1308,7 @@ Future<List<EPGProgram>> _resolveChannelEpg(
   for (final candidate in candidates) {
     final found = keep(globalCache.programsForChannel(candidate).toList());
     if (found.isNotEmpty) return found;
-}
+  }
 
   // 3. Repli réseau : UNIQUEMENT pour l'usage « fiche chaîne unique »
   // (barre du lecteur, zapping). La grille NE DOIT PAS déclencher de
@@ -1316,8 +1341,8 @@ Future<List<EPGProgram>> _resolveChannelEpg(
 /// unique » pour lequel `get_short_epg` a été conçu (une chaîne, 4 entrées).
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
-  (ref, epgChannelId) =>
-      _resolveChannelEpg(ref, epgChannelId, includePast: false, allowNetworkFallback: true),
+  (ref, epgChannelId) => _resolveChannelEpg(ref, epgChannelId,
+      includePast: false, allowNetworkFallback: true,),
 );
 
 /// EPG d'une chaîne pour la GRILLE : programmes passés compris.
@@ -1332,8 +1357,8 @@ final channelEpgProvider =
 /// ce qui cassait l'expiration, les catégories, etc.
 final channelEpgWindowProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
-  (ref, epgChannelId) =>
-      _resolveChannelEpg(ref, epgChannelId, includePast: true, allowNetworkFallback: false),
+  (ref, epgChannelId) => _resolveChannelEpg(ref, epgChannelId,
+      includePast: true, allowNetworkFallback: false,),
 );
 
 class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
@@ -1385,7 +1410,7 @@ final stallDetectorProvider = Provider<StallDetector>((ref) {
 /// session : il ne doit PAS être disposé quand le provider est démonté. Il
 /// l'était, ce qui fermait la boîte Hive au sortir de l'écran Téléchargements
 /// alors que le bouton de téléchargement d'un film la réutilisait ensuite —
-/// d'où « box downloads is already open and of type Box<DownloadTask> ».
+/// d'où « box downloads is already open and of type `Box<DownloadTask>` ».
 final downloadManagerProvider = Provider<DownloadManager>((ref) {
   return DownloadManager();
 });
