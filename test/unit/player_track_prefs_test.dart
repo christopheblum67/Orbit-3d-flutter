@@ -28,4 +28,49 @@ void main() {
       expect(await PlayerTrackPrefs.audioTrackFor('movie-2'), '0_2');
     });
   });
+
+  group('PlayerTrackPrefs — sous-titres de série', () {
+    test('aucune préférence par défaut', () async {
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-7'), isNull);
+      expect(await PlayerTrackPrefs.isSeriesSubtitleForced('serie-7'), isFalse);
+    });
+
+    test('mémorise et relit la langue de sous-titres', () async {
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage('serie-7', 'fr');
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-7'), 'fr');
+    });
+
+    test('mémorise le caractère forcé', () async {
+      await PlayerTrackPrefs.setSeriesSubtitleForced('serie-7', true);
+      expect(await PlayerTrackPrefs.isSeriesSubtitleForced('serie-7'), isTrue);
+    });
+
+    test('les préférences de sous-titres sont indépendantes de l\'audio',
+        () async {
+      // Une même série peut avoir une langue audio ET une langue de
+      // sous-titres distinctes : les clés ne doivent pas se marcher dessus.
+      await PlayerTrackPrefs.setSeriesAudioLanguage('serie-7', 'en');
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage('serie-7', 'fr');
+      expect(await PlayerTrackPrefs.seriesAudioLanguageFor('serie-7'), 'en');
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-7'), 'fr');
+    });
+
+    test('isole les préférences par série', () async {
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage('serie-1', 'fr');
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage('serie-2', 'de');
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-1'), 'fr');
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-2'), 'de');
+    });
+
+    test('clearSeriesSubtitlePreference efface langue ET caractère forcé',
+        () async {
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage('serie-7', 'fr');
+      await PlayerTrackPrefs.setSeriesSubtitleForced('serie-7', true);
+
+      await PlayerTrackPrefs.clearSeriesSubtitlePreference('serie-7');
+
+      expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('serie-7'), isNull);
+      expect(await PlayerTrackPrefs.isSeriesSubtitleForced('serie-7'), isFalse);
+    });
+  });
 }

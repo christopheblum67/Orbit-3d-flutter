@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,7 +36,10 @@ import 'package:orbit_3d_flutter/services/background_playback_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
+import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
+import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -233,6 +237,25 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Piste audio préférée ré-appliquée après l'initialisation du contrôleur.
   bool _appliedAudioPref = false;
+
+  /// Génération pour laquelle la préférence de sous-titres d'une série a déjà
+  /// été appliquée (`-1` = jamais). Évite de rejouer la sélection à chaque
+  /// vague de découverte — et donc de reprendre la main sur un choix manuel.
+  int _appliedSeriesSubtitleGeneration = -1;
+
+  /// Balayage des sous-titres intégrés.
+  ///
+  /// Un flux adaptatif (HLS/DASH) n'annonce pas ses pistes texte d'un coup :
+  /// media3 publie d'abord quelques pistes, puis les autres au fil du
+  /// chargement — sur le panel mesuré, la liste complète n'arrive qu'après
+  /// ~30 s. Un unique appel juste après `isInitialized` ne captait donc que la
+  /// première vague (une piste sur cinq). On rejoue la sonde tant que la liste
+  /// évolue, jusqu'à un délai borné.
+  Timer? _embeddedScanTimer;
+  VideoPlayerController? _embeddedScanController;
+
+  String _embeddedSig = kEmbeddedSigUnset;
+  bool _embeddedScanRunning = false;
   int? _cachedPrevIndex;
   int? _preloadTarget;
   _PlayerStatus _status = _PlayerStatus.loading;
@@ -331,6 +354,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_index < 0) _index = 0;
       if (_index >= _channels.length) _index = _channels.length - 1;
     }
+    // Nouvelle lecture (nouvelle PlayerScreen) : le contrôleur de sous-titres
+    // est partagé par toute l'app — sans ce reset, la piste externe choisie
+    // sur le contenu précédent restait active et son texte s'affichait sur
+    // le nouveau contenu.
+    ref.read(subtitleControllerProvider).resetForNewContent();
     _initializePlayer();
     _startSaveProgressTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -965,6 +993,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (active != null && active.value.isInitialized && !_appliedAudioPref) {
       _appliedAudioPref = true;
       _applySavedAudioTrack(active);
+      // Découverte des sous-titres intégrés : la liste des pistes texte arrive
+      // par vagues, donc on la rejoue (voir [_startEmbeddedScan]).
+      _startEmbeddedScan(active);
     }
     // Nouvelle tentative tant que la position initiale n'a pas été appliquée
     // (la durée peut n'attendre qu'après le chargement des métadonnées).
@@ -1039,6 +1070,144 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  /// Applique, UNE fois par contenu, la langue de sous-titres choisie pour la
+  /// série à laquelle appartient l'épisode en cours.
+  ///
+  /// Les pistes intégrées arrivant par vagues, cette méthode est appelée à
+  /// chaque découverte : tant qu'aucune piste ne correspond à la langue choisie,
+  /// elle ne marque rien — une vague ultérieure peut l'apporter. Dès qu'elle
+  /// applique, elle mémorise la génération pour ne plus reprendre la main sur la
+  /// sélection (éventuellement manuelle) de l'utilisateur.
+  Future<void> _applySeriesSubtitlePreference(
+    SubtitleController ctrl,
+    int generation,
+  ) async {
+    if (widget.series == null || widget.episode == null) return;
+    if (_appliedSeriesSubtitleGeneration == generation) return;
+
+    final seriesId = widget.series!.id;
+    final lang = await PlayerTrackPrefs.seriesSubtitleLanguageFor(seriesId);
+    if (lang == null || lang.isEmpty) return;
+    if (!mounted || generation != _generation) return;
+
+    final track = pickEmbeddedSubtitleTrackForLanguage(
+      ctrl.embeddedTracks,
+      lang,
+    );
+    if (track == null) return;
+
+    await ctrl.selectEmbeddedTrack(track.id);
+    if (!mounted || generation != _generation) return;
+    _appliedSeriesSubtitleGeneration = generation;
+  }
+
+  /// Démarre le balayage des sous-titres intégrés du flux.
+  ///
+  /// Un contenu adaptatif publie ses pistes texte progressivement : la première
+  /// sonde, juste après `isInitialized`, ne voit souvent qu'une partie de la
+  /// liste (le manifeste) alors que les autres arrivent bien plus tard. On
+  /// rejoue donc la sonde chaque seconde, en ne propageant
+  /// que lorsque la liste change, jusqu'à un délai borné qui couvre le
+  /// chargement observé.
+  void _startEmbeddedScan(VideoPlayerController controller) {
+    _embeddedScanTimer?.cancel();
+    _embeddedScanController = controller;
+    // Chaque lecteur repart d'un état neuf : c'est ce qui autorise la première
+    // sonde à conclure « ce contenu n'a pas de piste intégrée » — décision
+    // légitime ici, illegitimate plus tard (cf. [_discoverEmbeddedSubtitles]).
+    _embeddedSig = kEmbeddedSigUnset;
+    const period = Duration(seconds: 1);
+    const deadline = Duration(seconds: 60);
+    var elapsed = Duration.zero;
+    _embeddedScanTimer = Timer.periodic(period, (timer) {
+      if (!mounted || _controller != controller) {
+        timer.cancel();
+        _embeddedScanTimer = null;
+        return;
+      }
+      elapsed += period;
+      unawaited(_discoverEmbeddedSubtitles(controller));
+      if (elapsed >= deadline) {
+        timer.cancel();
+        _embeddedScanTimer = null;
+      }
+    });
+    unawaited(_discoverEmbeddedSubtitles(controller));
+  }
+
+  /// Sonde les sous-titres intégrés du flux et les expose au contrôleur.
+  ///
+  /// Best-effort : un échec du canal natif (ou une absence de pistes) ne doit
+  /// jamais perturber la lecture.
+  ///
+  /// ## Trois garde-fous, chacun mesurable
+  ///
+  /// 1. **Réponse périmée ignorée.** La sonde capture `_generation` et
+  ///    l'identifiant du lecteur. Un changement de source entre l'appel et la
+  ///    réponse (zapping, préchauffage, bascule de chaîne) invalide le résultat :
+  ///    sans ce contrôle, une liste non vide venue de l'ANCIEN lecteur
+  ///    remplacerait les pistes du nouveau — l'erreur inverse de celle
+  ///    corrigée, et tout aussi silencieuse.
+  /// 2. **Liste vide non destructive.** Media3 reconstruit ses groupes à chaque
+  ///    adaptation du flux : entre deux `onTracksChanged`, `getCurrentTracks()`
+  ///    peut rendre une liste vide alors que le contenu en contient six.
+  ///    Propager cet état effaçait la section « Sous-titres intégrés » déjà
+  ///    affichée — l'utilisateur voyait les pistes disparaître sans rien faire.
+  /// 3. **Pas de mise à jour redondante.** Une signature identique n'est pas
+  ///    repropagée : évite de notifier des reconstructions inutiles et de
+  ///    voler la piste choisie par l'utilisateur.
+  Future<void> _discoverEmbeddedSubtitles(
+    VideoPlayerController controller,
+  ) async {
+    if (!kIsWeb && defaultTargetPlatform != TargetPlatform.android) return;
+    if (_embeddedScanRunning) return;
+    _embeddedScanRunning = true;
+    final ctrl = ref.read(subtitleControllerProvider);
+    // Identité capturée AVANT l'appel asynchrone.
+    final probeGeneration = _generation;
+    final probeController = controller;
+    try {
+      final bridge = EmbeddedSubtitleBridge(embeddedPlayerId(controller));
+      final tracks = await bridge.getTracks();
+      if (!mounted) return;
+      // (1) Réponse périmée : le lecteur ou la génération a changé pendant
+      // l'appel. Elle ne décrit plus l'écran affiché.
+      if (_controller != probeController) return;
+      if (probeGeneration != _generation) return;
+      if (!identical(_embeddedScanController, probeController)) return;
+      // (2) Liste vide : seulement acceptable si rien n'a encore été vu pour
+      // CE lecteur (cf. [shouldPropagateEmbeddedTracks]).
+      if (!shouldPropagateEmbeddedTracks(
+        tracks: tracks,
+        previousSignature: _embeddedSig,
+      )) {
+        return;
+      }
+      // (3) Signature identique : rien à annoncer.
+      final sig = embeddedTracksSignature(tracks);
+      if (sig == _embeddedSig) return;
+      _embeddedSig = sig;
+      ctrl.setEmbeddedContext(
+        playerId: embeddedPlayerId(controller),
+        tracks: tracks,
+      );
+      if (tracks.isNotEmpty) {
+        LoggerService.instance.info(
+          'sous-titres intégrés détectés: '
+          '${tracks.map((t) => '${t.id}:${t.label}').join(', ')}',
+        );
+      }
+      // Applique la langue de sous-titres choisie pour la série (une fois par
+      // contenu). Les vagues suivantes peuvent l'apporter après coup : tant
+      // qu'aucune piste ne correspond, la préférence reste « non appliquée ».
+      await _applySeriesSubtitlePreference(ctrl, probeGeneration);
+    } catch (_) {
+      // Canal natif indisponible (lecture RTSP, plugin tiers…) : on ignore.
+    } finally {
+      _embeddedScanRunning = false;
+    }
+  }
+
   /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
   /// Source error), distincte d'une simple chaîne indisponible.
   static bool isProviderBlock(String? description) {
@@ -1068,6 +1237,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _handlingError = false;
       return;
     }
+    // `_controller` est maintenant null mais `_status` vaut encore `ready` :
+    // le build construit `_ReadyPlayer(controller: player!)` et n'importe quel
+    // rebuild (auto-masquage du footer ~5 s après un tap, listener du lecteur)
+    // crashe sur le null-check tant que la reprise n'a pas abouti. On force
+    // l'affichage « chargement » dès ici ; `_startAttempt` (ou `_setStatus`
+    // error) prendra le relais ensuite.
+    if (mounted) _setStatus(_PlayerStatus.loading);
 
     final errorDesc = _lastErrorDescription;
     final host = Uri.tryParse(_activeStreamUrl)?.host ?? '';
@@ -1156,6 +1332,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _generation++;
     _autorecovered = false;
     _handlingError = false;
+    // Nouveau contenu (zapping) : la piste externe du flux précédent ne doit
+    // pas continuer de s'afficher. Le contrôleur est partagé et le player
+    // (re)joue le même média sur `_retry` : le reset n'a lieu qu'ici, au vrai
+    // changement de contenu.
+    ref.read(subtitleControllerProvider).resetForNewContent();
     // Invalidate EPG cache on zap to free memory
     ref.read(epgDataCacheProvider).invalidate();
     final forward = target > _index;
@@ -1303,6 +1484,22 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _disposeController(VideoPlayerController controller) {
+    // Coupe le pont sous-titres intégrés de CE lecteur avant de libérer la
+    // texture : le polling s'arrête et l'état est vidé sans toucher à un
+    // éventuel autre lecteur (préchauffage).
+    ref
+        .read(subtitleControllerProvider)
+        .detachEmbedded(embeddedPlayerId(controller));
+    // Arrête le balayage s'il visait CE lecteur (le timer se neutralise sinon
+    // au tick suivant, mais autant le libérer tout de suite).
+    if (identical(_embeddedScanController, controller)) {
+      _embeddedScanTimer?.cancel();
+      _embeddedScanTimer = null;
+      _embeddedScanController = null;
+      // L'état appartient à CE lecteur : le libérer évite qu'une texture
+      // suivante hérite des pistes de l'ancienne.
+      _embeddedSig = kEmbeddedSigUnset;
+    }
     controller.removeListener(_onControllerUpdate);
     controller.dispose();
   }
@@ -1597,6 +1794,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Peut être null pendant une reprise d'erreur (`_handleActiveError` dispose
+    // le contrôleur avant de rebasculer le statut) : un `!` ici transformait le
+    // zapping en « Null check operator used on a null value » dès qu'un rebuild
+    // (auto-masquage du footer, listener) survenait dans cette fenêtre. Le
+    // status `ready` sans contrôleur devient un état de chargement silencieux.
     final player = _controller;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -1628,55 +1830,69 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                           'Débloque-le puis réessaie.'
                       : null,
                 ),
-              _PlayerStatus.ready => Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Focus(
-                      autofocus: true,
-                      onKeyEvent: (_, event) {
-                        if (event is KeyDownEvent &&
-                            (event.logicalKey == LogicalKeyboardKey.select ||
-                                event.logicalKey == LogicalKeyboardKey.enter ||
-                                event.logicalKey ==
-                                    LogicalKeyboardKey.numpadEnter)) {
-                          _showFooterBar();
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      child: _ReadyPlayer(
-                        controller: player!,
-                        onTap: _showFooterBar,
-                        streamUrl: _activeStreamUrl,
-                        onRetry: _retry,
-                      ),
-                    ),
-                    // Overlay sous-titres (au-dessus vidéo, sous footerbar)
-                    //
-                    // C'est l'overlay qui s'abonne à la position du lecteur :
-                    // le passer en paramètre figeait le cue à l'instant du
-                    // choix de la piste, et rien ne se rejouait ensuite.
-                    Consumer(
-                      builder: (_, ref, __) {
-                        final track =
-                            ref.watch(subtitleControllerProvider).activeTrack;
-                        return VideoSubtitleOverlay(
-                          controller: player,
-                          track: track,
-                          bottomPadding: 100, // au-dessus footerbar
-                        );
-                      },
-                    ),
-                    if (_footerVisible)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: _ContentFooterBar(
-                          child: _buildFooterContent(player),
+              _PlayerStatus.ready => player != null
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Focus(
+                          autofocus: true,
+                          onKeyEvent: (_, event) {
+                            if (event is KeyDownEvent &&
+                                (event.logicalKey ==
+                                        LogicalKeyboardKey.select ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.enter ||
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.numpadEnter)) {
+                              _showFooterBar();
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: _ReadyPlayer(
+                            controller: player,
+                            onTap: _showFooterBar,
+                            streamUrl: _activeStreamUrl,
+                            onRetry: _retry,
+                          ),
                         ),
-                      ),
-                  ],
-                ),
+                        // Overlay sous-titres (au-dessus vidéo, sous footerbar)
+                        //
+                        // C'est l'overlay qui s'abonne à la position du lecteur :
+                        // le passer en paramètre figeait le cue à l'instant du
+                        // choix de la piste, et rien ne se rejouait ensuite.
+                        Consumer(
+                          builder: (_, ref, __) {
+                            final subtitleCtrl =
+                                ref.watch(subtitleControllerProvider);
+                            // Les sous-titres intégrés passent d'abord : le
+                            // rendu suit le flux du pipeline (polling 300 ms),
+                            // alors que la piste externe est recalee sur la
+                            // position.
+                            if (subtitleCtrl.hasActiveEmbedded) {
+                              return EmbeddedSubtitleOverlay(
+                                cues: subtitleCtrl.liveEmbeddedCues,
+                                bottomPadding: 100, // au-dessus footerbar
+                              );
+                            }
+                            return VideoSubtitleOverlay(
+                              controller: player,
+                              track: subtitleCtrl.activeTrack,
+                              bottomPadding: 100, // au-dessus footerbar
+                            );
+                          },
+                        ),
+                        if (_footerVisible)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: _ContentFooterBar(
+                              child: _buildFooterContent(player),
+                            ),
+                          ),
+                      ],
+                    )
+                  : const VideoLoadingState(),
             },
           ),
         ),

@@ -32,7 +32,9 @@ class PlayerTrackPrefs {
 
   /// Définit la langue audio préférée pour une série (appliquée à tous les épisodes).
   static Future<void> setSeriesAudioLanguage(
-      String seriesId, String language,) async {
+    String seriesId,
+    String language,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('$_seriesAudioPrefix$seriesId', language);
   }
@@ -54,5 +56,47 @@ class PlayerTrackPrefs {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('$_seriesAudioPrefix$seriesId');
     await prefs.remove('$_seriesForcedPrefix$seriesId');
+  }
+
+  static const String _seriesSubtitlePrefix = 'player_track.series_subtitle.';
+  static const String _seriesSubtitleForcedPrefix =
+      'player_track.series_subtitle_forced.';
+
+  /// Langue de sous-titres préférée pour une série (ex: 'fr', 'en').
+  static Future<String?> seriesSubtitleLanguageFor(String seriesId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('$_seriesSubtitlePrefix$seriesId');
+  }
+
+  /// Définit la langue de sous-titres préférée pour une série (appliquée à tous
+  /// les épisodes).
+  static Future<void> setSeriesSubtitleLanguage(
+    String seriesId,
+    String language,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_seriesSubtitlePrefix$seriesId', language);
+  }
+
+  /// Vérifie si la langue de sous-titres est forcée pour toute la série.
+  static Future<bool> isSeriesSubtitleForced(String seriesId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('$_seriesSubtitleForcedPrefix$seriesId') ?? false;
+  }
+
+  /// Force la langue de sous-titres pour tous les épisodes de la série.
+  static Future<void> setSeriesSubtitleForced(
+    String seriesId,
+    bool forced,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('$_seriesSubtitleForcedPrefix$seriesId', forced);
+  }
+
+  /// Supprime la préférence de sous-titres pour une série.
+  static Future<void> clearSeriesSubtitlePreference(String seriesId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_seriesSubtitlePrefix$seriesId');
+    await prefs.remove('$_seriesSubtitleForcedPrefix$seriesId');
   }
 }

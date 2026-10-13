@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/services/stream_audio_tracks.dart';
+import 'package:orbit_3d_flutter/services/stream_subtitle_tracks.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/widgets/translated_synopsis_view.dart';
 
@@ -33,6 +34,32 @@ class SeriesDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    // Garde-fou : si l'identifiant est vide (navigation via `extra` au lieu
+    // de query parameters), on affiche un message clair au lieu de laisser
+    // l'API planter sur un ID vide.
+    if (seriesId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: context.canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => context.pop(),
+                )
+              : null,
+          title: Text(l.detailUnavailable),
+        ),
+        body: ErrorState(
+          icon: Icons.tv,
+          title: l.detailUnavailable,
+          message:
+              'Identifiant de série manquant (navigation incorrecte). '
+              'Retournez à la liste et réessayez.',
+          onRetry: () => context.pop(),
+        ),
+      );
+    }
+
     // D'abord charger la série de base depuis Xtream
     final baseSeriesAsync = ref.watch(seriesInfoProvider(seriesId));
 
@@ -480,10 +507,13 @@ class _SeriesHeader extends ConsumerWidget {
             ],
           ),
           if (series.description.isNotEmpty)
-            // Synopsis traduit si la source n'est pas en français.
+            // Synopsis traduit si la source n'est pas en français. `isSeries`
+            // aiguille la résolution TMDB vers `/search/tv` + `/tv/{id}` : le
+            // chemin film ne trouvait rien et les synopsis restaient en anglais.
             TranslatedSynopsisView(
               title: series.title,
               rawSynopsis: series.description,
+              isSeries: true,
             ),
           // Cast principal (compact)
           const SizedBox(height: 12),
@@ -517,6 +547,9 @@ class _SeriesHeader extends ConsumerWidget {
           const SizedBox(height: 12),
           // Sélecteur de langue audio par défaut pour la série
           _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
+          const SizedBox(height: 16),
+          // Sélecteur de langue de sous-titres par défaut pour la série
+          _SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
         ],
       ),
     );
@@ -1057,6 +1090,181 @@ class _SeriesAudioLanguageSelectorState
                       const DropdownMenuItem<String>(
                         value: '',
                         child: Text('(Défaut du flux)'),
+                      ),
+                      ..._availableLanguages.map(
+                        (l) => DropdownMenuItem<String>(
+                          value: l.$1,
+                          child: Text(l.$2),
+                        ),
+                      ),
+                    ],
+                    onChanged: _onLanguageChanged,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _forced,
+                        onChanged: _selectedLanguage == null ||
+                                _selectedLanguage!.isEmpty
+                            ? null
+                            : (v) => _onForcedChanged(v ?? false),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _forced
+                              ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                              : 'Appliquer seulement si disponible (sinon langue du flux)',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: _forced
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                            fontWeight:
+                                _forced ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+      ],
+    );
+  }
+}
+
+/// Sélecteur de langue de sous-titres par défaut pour une série.
+/// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
+///
+/// Même principe que [_SeriesAudioLanguageSelector] : la préférence est
+/// mémorisée par série ([PlayerTrackPrefs]) et le lecteur la ré-applique à
+/// chaque épisode. Les langues proposées viennent des pistes **intégrées**
+/// réellement présentes dans le premier épisode jouable.
+class _SeriesSubtitleLanguageSelector extends ConsumerStatefulWidget {
+  const _SeriesSubtitleLanguageSelector({required this.seriesId});
+  final String seriesId;
+
+  @override
+  ConsumerState<_SeriesSubtitleLanguageSelector> createState() =>
+      _SeriesSubtitleLanguageSelectorState();
+}
+
+class _SeriesSubtitleLanguageSelectorState
+    extends ConsumerState<_SeriesSubtitleLanguageSelector> {
+  String? _selectedLanguage;
+  bool _forced = false;
+  bool _loading = true;
+  List<(String, String)> _availableLanguages = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    // 1. Charger préférences sauvegardées
+    final lang = await PlayerTrackPrefs.seriesSubtitleLanguageFor(
+      widget.seriesId,
+    );
+    final forced = await PlayerTrackPrefs.isSeriesSubtitleForced(
+      widget.seriesId,
+    );
+
+    // 2. Récupérer les langues réelles depuis le premier épisode jouable
+    final languages = await _fetchRealSubtitleLanguages();
+
+    if (mounted) {
+      setState(() {
+        _selectedLanguage = lang;
+        _forced = forced;
+        _availableLanguages = languages;
+        _loading = false;
+      });
+    }
+  }
+
+  /// Récupère les langues de sous-titres intégrées du premier épisode jouable.
+  Future<List<(String, String)>> _fetchRealSubtitleLanguages() async {
+    final seriesAsync = ref.read(seriesInfoProvider(widget.seriesId));
+    final series = seriesAsync.value;
+    if (series == null) return const [];
+
+    Episode? firstPlayableEpisode;
+    for (final ep in series.episodes) {
+      if (ep.streamUrl.isNotEmpty) {
+        firstPlayableEpisode = ep;
+        break;
+      }
+    }
+    if (firstPlayableEpisode == null) return const [];
+
+    return StreamSubtitleTracksService.fetchSubtitleTracks(
+      firstPlayableEpisode.streamUrl,
+    );
+  }
+
+  Future<void> _onLanguageChanged(String? lang) async {
+    if (lang == null || lang.isEmpty) {
+      await PlayerTrackPrefs.clearSeriesSubtitlePreference(widget.seriesId);
+      if (mounted) setState(() => _selectedLanguage = null);
+    } else {
+      await PlayerTrackPrefs.setSeriesSubtitleLanguage(widget.seriesId, lang);
+      if (mounted) setState(() => _selectedLanguage = lang);
+    }
+  }
+
+  Future<void> _onForcedChanged(bool value) async {
+    await PlayerTrackPrefs.setSeriesSubtitleForced(widget.seriesId, value);
+    if (mounted) setState(() => _forced = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.subtitles_outlined, size: 18, color: scheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              'Langue des sous-titres par défaut',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.primary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _loading
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedLanguage,
+                    decoration: const InputDecoration(
+                      labelText: 'Langue des sous-titres',
+                      hintText: 'Sélectionner une langue',
+                      prefixIcon: Icon(Icons.subtitles_outlined),
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('(Désactivés)'),
                       ),
                       ..._availableLanguages.map(
                         (l) => DropdownMenuItem<String>(
