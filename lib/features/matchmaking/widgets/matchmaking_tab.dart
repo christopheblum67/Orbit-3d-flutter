@@ -307,11 +307,11 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.titleAsc:
         return [...list]
           ..sort((a, b) =>
-              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()));
+              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()),);
       case _MatchSort.titleDesc:
         return [...list]
           ..sort((a, b) =>
-              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()));
+              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()),);
     }
   }
 
@@ -325,11 +325,11 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.titleAsc:
         return [...list]
           ..sort((a, b) =>
-              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()));
+              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()),);
       case _MatchSort.titleDesc:
         return [...list]
           ..sort((a, b) =>
-              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()));
+              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()),);
     }
   }
 

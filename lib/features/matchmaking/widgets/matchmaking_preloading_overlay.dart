@@ -53,7 +53,7 @@ class MatchmakingPreloadingOverlay extends ConsumerWidget {
         step != MatchmakingPreloadStep.cancelled;
 
     return Container(
-      color: Colors.black.withOpacity(0.4),
+      color: Colors.black.withValues(alpha: 0.4),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 360),
@@ -62,10 +62,10 @@ class MatchmakingPreloadingOverlay extends ConsumerWidget {
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
-              BoxShadow(
+              const BoxShadow(
                 color: Colors.black26,
                 blurRadius: 12,
-                offset: const Offset(0, 6),
+                offset: Offset(0, 6),
               ),
             ],
           ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -113,13 +114,7 @@ class _DuoProfileSelectionScreenState
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () {
-              Scaffold.of(context).openEndDrawer();
-            },
-            tooltip: 'Menu',
-          ),
+          const DrawerMenuButton(end: true),
           const SizedBox(width: 4),
           if (context.canPop()) ...[
             IconButton(

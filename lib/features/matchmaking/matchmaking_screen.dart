@@ -11,7 +11,10 @@ import 'package:orbit_3d_flutter/models/recommendation.dart';
 /// Ouvre un contenu recommandé (série → détail, film → lecteur).
 void openRecommendation(BuildContext context, Recommendation reco) {
   if (reco.kind == RecommendationKind.series) {
-    context.push('/series/detail?id=${Uri.encodeComponent(reco.id)}');
+    context.push(
+      '/series/detail?id=${Uri.encodeComponent(reco.id)}'
+      '&title=${Uri.encodeComponent(reco.title)}',
+    );
   } else {
     final movie = reco.movie!;
     context.push(

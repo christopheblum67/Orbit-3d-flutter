@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -21,6 +22,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final PageController _pageController;
   double _currentPage = 0.0;
+  bool _autoRefreshing = false;
 
   @override
   void initState() {
@@ -35,6 +37,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _currentPage = _pageController.page ?? 0.0;
         });
       }
+    });
+    // GARDE-FOU « à jour depuis » : le démarrage rapide (profil restauré →
+    // /home) court-circuite l'écran de démarrage, donc ni le catalogue ni
+    // l'horodatage n'étaient rechargés (affichage resté à « 98 h »). On
+    // relance une mise à jour silencieuse au premier frame si les données
+    // datent de plus de 30 min (TTL EPG).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _autoRefreshIfStale();
     });
   }
 
@@ -198,92 +208,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    // Affiche une progression simple pendant le rafraîchissement.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(l.updating),
-          duration: const Duration(seconds: 30),
-        ),
-      );
-
-    // Lance les rechargements. `eagerError: false` + repli par source : un
-    // échec isolé (ex. rate-limit 429 du panel) ne doit PAS faire échouer
-    // tout le lot ni empêcher d'horodater la mise à jour réelle.
-    final liveFut = ref
-        .read(liveChannelsProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-    final moviesFut = ref
-        .read(moviesProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-    final seriesFut = ref
-        .read(seriesProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-    final radioFut = ref
-        .read(radioChannelsProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-    final replayFut = ref
-        .read(replaysProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-    final epgFut = ref
-        .read(epgProgramsProvider.future)
-        .then<List<dynamic>>((v) => v, onError: (_, __) => <Never>[]);
-
-    // Attend la fin de tous les fournisseurs (timeout sécurité 60 s).
-    final results = await Future.wait(
-      [
-        liveFut,
-        moviesFut,
-        seriesFut,
-        radioFut,
-        replayFut,
-        epgFut,
-      ],
-      eagerError: false,
-    ).timeout(
-      const Duration(seconds: 60),
-      onTimeout: () {
-        throw TimeoutException('Certains flux n\'ont pas répondu à temps');
-      },
-    );
-
-    // Garde AVANT toute lecture de `ref` et tout accès à `context`.
-    //
-    // L'attente peut durer 60 secondes : l'utilisateur a le temps de quitter
-    // l'écran avec la télécommande. La garde était placée ligne 267, après
-    // `ref.invalidate` et `ref.read(...).setTimestamp()`, donc elle ne
-    // protégeait rien — elle évitait seulement le `ScaffoldMessenger` final.
+    // Écran de mise à jour (4 icônes + avancement), identique à celui du
+    // démarrage et du changement d'abonnement : il invalide et recharge les six
+    // sources, puis horodate la mise à jour. Plus de rechargement « caché ».
+    final ok = await showRefreshProgress(context);
     if (!mounted) return;
-
-    final liveCount = results[0].length;
-    final moviesCount = results[1].length;
-    final seriesCount = results[2].length;
-    final radioCount = results[3].length;
-    final replayCount = results[4].length;
-    final epgCount = results[5].length;
-
-    // Invalide le cache EPG pour forcer le re-trim à la prochaine ouverture grille.
-    ref.invalidate(epgDataCacheProvider);
-
-    // Horodate la mise à jour (même en succès partiel : la donnée affichée
-    // « Mis à jour il y a X min » reflète le dernier rechargement réel).
-    ref
-        .read(lastRefreshTimestampProvider.notifier)
-        .setTimestamp(DateTime.now());
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            'Mise à jour terminée : '
-            '$liveCount chaînes, $moviesCount films, $seriesCount séries, '
-            '$radioCount radios, $replayCount replays, $epgCount programmes EPG',
+    if (!ok) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Échec de la mise à jour : aucune source n\'a répondu.',
+            ),
+            duration: Duration(seconds: 4),
           ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+        );
+    }
+  }
+
+  /// Garde-fou de démarrage : si la dernière mise à jour date de plus de
+  /// 30 min (TTL EPG), on ouvre l'écran de mise à jour (4 icônes + avancement)
+  /// — le rechargement n'est plus silencieux.
+  ///
+  /// Le démarrage rapide (profil restauré → `/home`) court-circuite l'écran de
+  /// démarrage : sans ce garde-fou, le bandeau « à jour depuis » restait figé
+  /// sur une valeur ancienne (observé : 98 h) et les sections ne se rechargeaient
+  /// jamais au lancement.
+  Future<void> _autoRefreshIfStale() async {
+    if (_autoRefreshing) return;
+    final last = ref.read(lastRefreshTimestampProvider);
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 30)) {
+      return;
+    }
+    _autoRefreshing = true;
+    try {
+      if (!mounted) return;
+      await showRefreshProgress(context);
+    } finally {
+      _autoRefreshing = false;
+    }
   }
 
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
