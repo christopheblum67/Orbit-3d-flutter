@@ -1,16 +1,18 @@
-import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/core/services/affinity_sorter.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/sort_toolbar_buttons.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_catalog_pipeline.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
@@ -18,6 +20,7 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
 class VodScreen extends ConsumerStatefulWidget {
   const VodScreen({super.key});
@@ -49,6 +52,11 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 
   /// Tri des films puis retour aux Movie d'origine.
   List<Movie> _sortAndMapBack(List<Movie> source, String mode) {
+    // Mode Affinité : on court-circuite le passage par MediaItem/applySort et on
+    // trie directement les Movie par score matchmaking du profil courant.
+    if (mode.startsWith('affinity')) {
+      return _sortByAffinity(source);
+    }
     final libraryManager = ref.read(mediaLibraryManagerProvider);
     final mediaItems = source
         .map(
@@ -90,15 +98,91 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     return result;
   }
 
-  /// Nom du mode de tri, pour cle d'egalite stable dans le pipeline.
-  static String _sortModeName(SortMode mode) => mode.name;
+  /// Trie les films par affinité matchmaking (décroissante par défaut, ou
+  /// croissante pour [SortMode.affinityAsc]).
+  ///
+  /// Réutilise la MÊME logique corrective que la tuile (badge) et l'onglet
+  /// Matchmaking : `ProfileAffinityScorer` (formule `profileAffinityWithSignals`)
+  /// sur le **vrai genre TMDB** quand il est connu, sinon le genre catalogue —
+  /// que la formule corrige déjà via ses alias canoniques (« Horreur, Mystère,
+  /// … »).
+  ///
+  /// Sans profil (ou sans genres favoris) l'affinité n'a aucun sens : on rend la
+  /// liste telle quelle plutôt que de dégrader en tri par note.
+  List<Movie> _sortByAffinity(List<Movie> source) {
+    final scorer = ref.read(profileAffinityScorerProvider);
+    if (scorer == null || scorer.favoriteGenres.isEmpty) return source;
+    final enrichments = ref.read(vodGridEnrichmentsProvider).value ??
+        const <String, TmdbRankEntry>{};
+    // Lecture ONCE du service (et non par film) : le peek sur 100 000 films ne
+    // doit pas refaire 100 000 lectures de provider.
+    final tmdb = ref.read(tmdbAffinityServiceProvider);
+    // Sens : « Affinité » = décroissant (les plus affins d'abord),
+    // « Affinité (croissant) » = les moins affins d'abord.
+    final descending = _selectedSortMode != SortMode.affinityAsc;
+    return sortByAffinityDesc(
+      source,
+      descending: descending,
+      score: (m) {
+        final realGenre = _realGenreOf(tmdb, m, enrichments);
+        final scoring = realGenre.isNotEmpty ? m.copyWith(genre: realGenre) : m;
+        return scorer.percentForMovie(scoring).toDouble();
+      },
+      title: (m) => m.title,
+    );
+  }
 
-  static SortMode _sortModeFrom(String name) =>
-      SortMode.values.firstWhere((m) => m.name == name);
+  /// Vrai genre TMDB déjà résolu pour un film, lu **sans réseau** dans le cache
+  /// Hive partagé. C'est EXACTEMENT la source du badge de tuile :
+  /// `movieRealGenreProvider` passe par `searchMovieLight`, qui écrit la même
+  /// clé (`tmdb:grid:<titre>:<année>`) dans la même boîte. Le tri et le badge
+  /// affiché ne divergent donc plus. La carte d'enrichissement (`enrichments`,
+  /// indexée par id) sert de repli.
+  String _realGenreOf(
+    TmdbService tmdb,
+    Movie m,
+    Map<String, TmdbRankEntry> enrichments,
+  ) {
+    final peek = tmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+            ?.genreNames ??
+        '';
+    if (peek.isNotEmpty) return peek;
+    return enrichments[m.id]?.genreNames ?? '';
+  }
+
+  /// Clé de tri transmise au pipeline (détermine l'égalité de son cache).
+  ///
+  /// Pour l'affinité, l'ordre dépend du profil courant (genres favoris, favoris,
+  /// contenus vus, titres TMDB) : la clé embarque donc une signature de ce
+  /// contexte. Les `hashCode` de `Set`/`List` en Dart sont calculés sur le
+  /// contenu, ils changent dès que favoris ou historique évoluent — le cache du
+  /// pipeline est alors invalidé et l'ordre recalculé.
+  String _pipelineSortKey(SortMode mode) {
+    if (mode != SortMode.affinity && mode != SortMode.affinityAsc) {
+      return mode.name;
+    }
+    final scorer = ref.read(profileAffinityScorerProvider);
+    if (scorer == null) return '${mode.name}|none';
+    return '${mode.name}|${scorer.favoriteGenres.join('\u0001')}'
+        '|${scorer.favoriteIds.hashCode}'
+        '|${scorer.seenIds.hashCode}'
+        '|${scorer.tmdbTitles.hashCode}';
+  }
+
+  static SortMode _sortModeFrom(String name) {
+    if (name.startsWith('affinity')) {
+      return name.startsWith('affinityAsc')
+          ? SortMode.affinityAsc
+          : SortMode.affinity;
+    }
+    return SortMode.values.firstWhere((m) => m.name == name);
+  }
+
   void _openSortDialog() {
     SortOptionsDialogTV.show(
       context,
       currentMode: _selectedSortMode,
+      withAffinity: true,
       onSortSelected: (newMode) => setState(() => _selectedSortMode = newMode),
     );
   }
@@ -131,6 +215,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             tooltip: l.searchMovie,
             icon: const Icon(Icons.movie_outlined),
             onPressed: () => context.push('/search?type=vod'),
+          ),
+          SortToolbarButtons(
+            mode: _selectedSortMode,
+            onChanged: (mode) => setState(() => _selectedSortMode = mode),
           ),
           IconButton(
             tooltip: 'Trier',
@@ -165,7 +253,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             favoriteIds: vodFavIds,
             recentIds: vodRecentIds,
             query: _query,
-            sortMode: _sortModeName(_selectedSortMode),
+            sortMode: _pipelineSortKey(_selectedSortMode),
           );
           final visibleMovies = catalog.visibleMovies;
           final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
@@ -181,9 +269,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           final railCategories = <MediaCategory>[
             MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
             MediaCategory(
-                id: 'fav', name: 'Favoris', count: catalog.favoriteCount),
+                id: 'fav', name: 'Favoris', count: catalog.favoriteCount,),
             MediaCategory(
-                id: 'recent', name: 'Récemment', count: catalog.recentCount),
+                id: 'recent', name: 'Récemment', count: catalog.recentCount,),
             ...categories,
           ];
 
@@ -239,87 +327,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                               itemCount: visibleMovies.length,
                               itemBuilder: (context, index) {
                                 final movie = visibleMovies[index];
-                                void onOpen() {
-                                  context.push('/vod/detail', extra: movie);
-                                }
-
-                                void onLongPress() {
-                                  final notifier =
-                                      ref.read(favoritesProvider.notifier);
-                                  final wasFavorite = notifier.isFavorite(
-                                    ContentType.vod,
-                                    movie.id,
-                                  );
-                                  notifier.toggle(
-                                    FavoriteEntry(
-                                      type: ContentType.vod,
-                                      id: movie.id,
-                                      title: movie.title,
-                                      posterUrl: movie.posterUrl,
-                                      subtitle: movie.year > 0
-                                          ? '${movie.year}'
-                                          : movie.genre,
-                                      streamUrl: movie.streamUrl,
-                                    ),
-                                  );
-                                  if (wasFavorite) return;
-                                  ScaffoldMessenger.of(context)
-                                    ..hideCurrentSnackBar()
-                                    ..showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '« ${movie.title} » ajouté aux favoris',
-                                        ),
-                                        duration:
-                                            const Duration(milliseconds: 1500),
-                                      ),
-                                    );
-                                }
-
-                                return TvFocus(
-                                  onActivate: onOpen,
-                                  child: MediaCard(
-                                    title: movie.title,
-                                    posterUrl: movie.posterUrl.isNotEmpty
-                                        ? movie.posterUrl
-                                        : (enrichments[movie.id]?.posterUrl ??
-                                            ''),
-                                    year: movie.year > 0
-                                        ? movie.year
-                                        : (enrichments[movie.id]?.year ?? 0),
-                                    // Catégorie retirée de la tuile (comme sur
-                                    // les chaînes) : l'année et la note suffisent.
-                                    genre: '',
-                                    rating: movie.rating > 0
-                                        ? movie.rating
-                                        : (enrichments[movie.id]?.rating ?? 0),
-                                    ageLabel: movie.pegiLabel,
-                                    fallbackIcon: Icons.movie_outlined,
-                                    // `contain` : l'affiche ne déborde plus.
-                                    posterFit: BoxFit.contain,
-                                    posterPadding: const EdgeInsets.all(6),
-                                    // Affinité personnelle du profil courant
-                                    // (calculée par le module matchmaking).
-                                    matchPercent:
-                                        affinity?.percentForMovie(movie),
-                                    voteCount: enrichments[movie.id]?.voteCount,
-                                    overview: enrichments[movie.id]?.overview,
-                                    favoriteOverlay: FavoriteToggle.overlay(
-                                      entry: FavoriteEntry(
-                                        type: ContentType.vod,
-                                        id: movie.id,
-                                        title: movie.title,
-                                        posterUrl: movie.posterUrl,
-                                        subtitle: movie.year > 0
-                                            ? '${movie.year}'
-                                            : movie.genre,
-                                        streamUrl: movie.streamUrl,
-                                      ),
-                                    ),
-                                    onTap: onOpen,
-                                    onLongPress: onLongPress,
-                                    isNew: movie.isNew,
-                                  ),
+                                return _VodTile(
+                                  movie: movie,
+                                  enrichment: enrichments[movie.id],
+                                  affinity: affinity,
                                 );
                               },
                             ),
@@ -349,6 +360,108 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         .where((c) => c.id.isNotEmpty && (countsByCategory[c.id] ?? 0) > 0)
         .map((c) => c.copyWith(count: countsByCategory[c.id] ?? 0))
         .toList();
+  }
+}
+
+/// Tuile VOD : résout le **vrai genre** du film (TMDB) pour le badge d'affinité.
+///
+/// Le catalogue VOD ne porte pas le genre réel (Xtream ne l'expose pas dans
+/// `get_vod_streams` : l'app y met le nom de catégorie). Un film rangé dans
+/// « Récents » ne matcherait donc aucun genre favori et tomberait à 3 %. On
+/// extrait la tuile dans un [ConsumerWidget] pour observer proprement
+/// [movieRealGenreProvider] (un `ref.watch` dans un `itemBuilder` s'exécuterait
+/// hors du build du widget parent).
+class _VodTile extends ConsumerWidget {
+  const _VodTile({
+    required this.movie,
+    required this.enrichment,
+    required this.affinity,
+  });
+
+  final Movie movie;
+  final TmdbRankEntry? enrichment;
+  final ProfileAffinityScorer? affinity;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final realGenre = ref
+        .watch(
+          movieRealGenreProvider(
+            MovieGenreQuery(
+              id: movie.id,
+              title: movie.title,
+              year: movie.year,
+              catalogGenre: movie.genre,
+            ),
+          ),
+        )
+        .value;
+    final scoringMovie = (realGenre != null && realGenre != movie.genre)
+        ? movie.copyWith(genre: realGenre)
+        : movie;
+
+    void onOpen() => context.push('/vod/detail', extra: movie);
+
+    void onLongPress() {
+      final notifier = ref.read(favoritesProvider.notifier);
+      final wasFavorite = notifier.isFavorite(ContentType.vod, movie.id);
+      notifier.toggle(
+        FavoriteEntry(
+          type: ContentType.vod,
+          id: movie.id,
+          title: movie.title,
+          posterUrl: movie.posterUrl,
+          subtitle: movie.year > 0 ? '${movie.year}' : movie.genre,
+          streamUrl: movie.streamUrl,
+        ),
+      );
+      if (wasFavorite) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('« ${movie.title} » ajouté aux favoris'),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+    }
+
+    return TvFocus(
+      onActivate: onOpen,
+      child: MediaCard(
+        title: movie.title,
+        posterUrl: movie.posterUrl.isNotEmpty
+            ? movie.posterUrl
+            : (enrichment?.posterUrl ?? ''),
+        year: movie.year > 0 ? movie.year : (enrichment?.year ?? 0),
+        // Catégorie retirée de la tuile (comme sur les chaînes) : l'année et la
+        // note suffisent, la ligne reste lisible.
+        genre: '',
+        rating: movie.rating > 0 ? movie.rating : (enrichment?.rating ?? 0),
+        ageLabel: movie.pegiLabel,
+        fallbackIcon: Icons.movie_outlined,
+        // `contain` : l'affiche ne déborde plus de la tuile.
+        posterFit: BoxFit.contain,
+        posterPadding: const EdgeInsets.all(6),
+        // Affinité personnelle du profil courant, calculée sur le genre réel.
+        matchPercent: affinity?.percentForMovie(scoringMovie),
+        voteCount: enrichment?.voteCount,
+        overview: enrichment?.overview,
+        favoriteOverlay: FavoriteToggle.overlay(
+          entry: FavoriteEntry(
+            type: ContentType.vod,
+            id: movie.id,
+            title: movie.title,
+            posterUrl: movie.posterUrl,
+            subtitle: movie.year > 0 ? '${movie.year}' : movie.genre,
+            streamUrl: movie.streamUrl,
+          ),
+        ),
+        onTap: onOpen,
+        onLongPress: onLongPress,
+        isNew: movie.isNew,
+      ),
+    );
   }
 }
 

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
@@ -12,8 +11,6 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -27,10 +24,6 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  final _speech = SpeechToText();
-  final _logger = LoggerService.instance;
-  bool _isListening = false;
-  bool _speechInitialized = false;
   Timer? _debounceTimer;
   String _lastQuery = '';
 
@@ -38,28 +31,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void initState() {
     super.initState();
     _focusNode.requestFocus();
-    _initSpeech();
-  }
-
-  Future<void> _initSpeech() async {
-    final result = await safeAsync<bool>(
-      () async {
-        return await _speech.initialize(
-          onError: (error) {
-            _logger.warning('Speech recognition error: $error');
-            if (mounted) setState(() => _isListening = false);
-          },
-          onStatus: (status) {
-            if (status == 'done' || status == 'notListening') {
-              if (mounted) setState(() => _isListening = false);
-            }
-          },
-        );
-      },
-      context: '_initSpeech',
-      fallbackValue: false,
-    );
-    _speechInitialized = result.valueOrNull ?? false;
   }
 
   void _onQueryChanged(String query) {
@@ -70,58 +41,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         setState(() {});
       }
     });
-  }
-
-  Future<void> _toggleListening() async {
-    // `_initSpeech()` est un `await` non gardé : pendant l'initialisation du
-    // moteur, l'utilisateur peut quitter l'écran avec la télécommande.
-    if (!_speechInitialized) {
-      await _initSpeech();
-      if (!mounted) return;
-      if (!_speechInitialized) return;
-    }
-
-    if (_isListening) {
-      await _speech.stop();
-      if (!mounted) return;
-      setState(() => _isListening = false);
-    } else {
-      final hasPermission = await _speech.hasPermission;
-      if (!mounted) return;
-      if (!hasPermission) {
-        final granted = await _requestMicPermission();
-        // La demande de permission ouvre une boîte système : l'utilisateur
-        // peut revenir en arrière ou annuler pendant ce temps.
-        if (!mounted) return;
-        if (!granted) return;
-      }
-      if (!mounted) return;
-      setState(() => _isListening = true);
-      _speech.listen(
-        onResult: (result) {
-          _searchController.text = result.recognizedWords;
-          _searchController.selection = TextSelection.collapsed(
-            offset: result.recognizedWords.length,
-          );
-          _onQueryChanged(result.recognizedWords);
-        },
-        listenOptions: SpeechListenOptions(
-          localeId: 'fr_FR',
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<bool> _requestMicPermission() async {
-    if (!mounted) return false;
-    final result = await safeAsync<bool>(
-      () => _speech.initialize(),
-      context: '_requestMicPermission',
-      fallbackValue: false,
-    );
-    return result.valueOrNull ?? false;
   }
 
   void _clearQuery() {
@@ -135,7 +54,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _debounceTimer?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
-    _speech.stop();
     super.dispose();
   }
 
@@ -308,7 +226,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ],
             ),
             trailing: <Widget>[
-              if (_speechInitialized) _buildVoiceButton(),
               if (query.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.clear),
@@ -334,35 +251,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           );
         },
       ),
-    );
-  }
-
-  Widget _buildVoiceButton() {
-    final scheme = Theme.of(context).colorScheme;
-    return AnimatedBuilder(
-      animation: _PulseAnimation(),
-      builder: (context, child) {
-        return Semantics(
-          label: _isListening
-              ? 'Arrêter la dictée vocale'
-              : 'Démarrer la dictée vocale',
-          button: true,
-          child: IconButton(
-            icon: Icon(
-              _isListening ? Icons.mic : Icons.mic_none,
-              color: _isListening ? scheme.primary : scheme.onSurfaceVariant,
-            ),
-            onPressed: _toggleListening,
-            tooltip: _isListening ? 'Arrêter l\'écoute' : 'Recherche vocale',
-            style: _isListening
-                ? IconButton.styleFrom(
-                    backgroundColor:
-                        scheme.primaryContainer.withValues(alpha: 0.3),
-                  )
-                : null,
-          ),
-        );
-      },
     );
   }
 
@@ -499,8 +387,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const SizedBox(height: 8),
                 Text(
                   filterType != null
-                      ? 'Tapez ou dictez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.'
-                      : 'Tapez ou dictez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
+                      ? 'Tapez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.'
+                      : 'Tapez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -978,11 +866,4 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       SearchType.epg => 'Guide TV',
     };
   }
-}
-
-class _PulseAnimation extends Listenable {
-  @override
-  void addListener(VoidCallback listener) {}
-  @override
-  void removeListener(VoidCallback listener) {}
 }

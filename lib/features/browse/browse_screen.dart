@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/core/services/affinity_sorter.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/sort_toolbar_buttons.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -52,6 +55,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     SortOptionsDialogTV.show(
       context,
       currentMode: _selectedSortMode,
+      withAffinity: true,
       onSortSelected: (newMode) => setState(() => _selectedSortMode = newMode),
     );
   }
@@ -79,6 +83,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             : null,
         title: const Text('Contenus'),
         actions: [
+          SortToolbarButtons(
+            mode: _selectedSortMode,
+            onChanged: (mode) => setState(() => _selectedSortMode = mode),
+          ),
           IconButton(
             tooltip: 'Trier',
             icon: const Icon(Icons.sort),
@@ -256,18 +264,42 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     required bool isSeries,
     required List<dynamic> allItems,
   }) {
-    final libraryManager = ref.read(mediaLibraryManagerProvider);
-    final mediaItems =
-        items.map((e) => _toMediaItem(e, isSeries: isSeries)).toList();
-    final sortedItems = libraryManager.applySort(mediaItems, _selectedSortMode);
-    final capped = sortedItems.take(kBrowseGridCap).toList();
+    final List<dynamic> visible;
+    if (_selectedSortMode == SortMode.affinity ||
+        _selectedSortMode == SortMode.affinityAsc) {
+      // Tri par affinité : on réutilise le score de la tuile (même tuile, même
+      // logique corrective que Films/Séries), donc l'ordre et le badge sont
+      // forcément cohérents. Sans profil ni genres favoris, on garde l'ordre
+      // filtré plutôt que de dégrader.
+      final scorer = ref.read(profileAffinityScorerProvider);
+      if (scorer == null || scorer.favoriteGenres.isEmpty) {
+        visible = items.take(kBrowseGridCap).toList();
+      } else {
+        final descending = _selectedSortMode != SortMode.affinityAsc;
+        final ordered = sortByAffinityDesc<dynamic>(
+          items,
+          descending: descending,
+          score: (e) =>
+              (_affinityPercentForWith(scorer, e, isSeries) ?? 0).toDouble(),
+          title: _titleOf,
+        );
+        visible = ordered.take(kBrowseGridCap).toList();
+      }
+    } else {
+      final libraryManager = ref.read(mediaLibraryManagerProvider);
+      final mediaItems =
+          items.map((e) => _toMediaItem(e, isSeries: isSeries)).toList();
+      final sortedItems =
+          libraryManager.applySort(mediaItems, _selectedSortMode);
+      final capped = sortedItems.take(kBrowseGridCap).toList();
 
-    final byId = <String, dynamic>{
-      for (final e in items)
-        if (e.id.isNotEmpty) e.id: e,
-    };
-    final visible =
-        capped.map<dynamic>((item) => byId[item.id] ?? items.first).toList();
+      final byId = <String, dynamic>{
+        for (final e in items)
+          if (e.id.isNotEmpty) e.id: e,
+      };
+      visible =
+          capped.map<dynamic>((item) => byId[item.id] ?? items.first).toList();
+    }
 
     final contentType = isSeries ? ContentType.series : ContentType.vod;
     // Les catégories masquées (par abonnement) disparaissent du rail, et les
@@ -490,6 +522,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   int? _affinityPercentFor(dynamic item, bool isSeries) {
     final scorer = ref.watch(profileAffinityScorerProvider);
     if (scorer == null) return null;
+    return _affinityPercentForWith(scorer, item, isSeries);
+  }
+
+  /// Même calcul que [_affinityPercentFor] mais avec un scorer déjà résolu :
+  /// utilisé par le tri par affinité, qui ne peut pas rappeler `ref.watch` dans
+  /// son comparateur.
+  int? _affinityPercentForWith(
+    ProfileAffinityScorer scorer,
+    dynamic item,
+    bool isSeries,
+  ) {
     if (item is Movie) return scorer.percentForMovie(item);
     if (item is Series) return scorer.percentForSeries(item);
     // Modèles compacts : on reconstruit un Recommendation à partir des seules
@@ -658,12 +701,12 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   static List<MediaCategory> _categoriesFromMoviesCompact(
-      List<MovieCompact> movies) {
+      List<MovieCompact> movies,) {
     return _categoriesFrom(movies.map((m) => (m.categoryId, m.genre)));
   }
 
   static List<MediaCategory> _categoriesFromSeriesCompact(
-      List<SeriesCompact> seriesList) {
+      List<SeriesCompact> seriesList,) {
     return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
   }
 
@@ -1024,8 +1067,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         '(ou TMDB_API_KEY dans .env).',
                   )
                 : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    cacheExtent: 500,
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     addAutomaticKeepAlives: false,
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
