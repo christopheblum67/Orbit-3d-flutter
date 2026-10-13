@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/core/services/affinity_sorter.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/sort_toolbar_buttons.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -40,6 +42,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     SortOptionsDialogTV.show(
       context,
       currentMode: _selectedSortMode,
+      withAffinity: true,
       onSortSelected: (newMode) => setState(() => _selectedSortMode = newMode),
     );
   }
@@ -72,6 +75,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             icon: const Icon(Icons.tv),
             onPressed: () => context.push('/search?type=series'),
           ),
+          SortToolbarButtons(
+            mode: _selectedSortMode,
+            onChanged: (mode) => setState(() => _selectedSortMode = mode),
+          ),
           IconButton(
             tooltip: 'Trier',
             icon: const Icon(Icons.sort),
@@ -99,7 +106,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   .where((s) => !hiddenCategories.contains(s.categoryId))
                   .toList(growable: false);
           final categories = _withRealCounts(
-              serverCategories, categoryVisibleSeries.map((s) => s.categoryId),);
+            serverCategories,
+            categoryVisibleSeries.map((s) => s.categoryId),
+          );
           final seriesFavIds = favoriteEntries.values
               .where((e) => e.type == ContentType.series)
               .map((e) => e.id)
@@ -109,7 +118,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               .map((e) => e.id)
               .toSet();
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: categoryVisibleSeries.length),
+            MediaCategory(
+              id: '',
+              name: 'Tous',
+              count: categoryVisibleSeries.length,
+            ),
             MediaCategory(
               id: 'fav',
               name: 'Favoris',
@@ -134,14 +147,16 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 .map((e) => e.id)
                 .toSet();
             filteredSeries = categoryVisibleSeries
-                .where((s) => favIds.contains(s.id)).toList();
+                .where((s) => favIds.contains(s.id))
+                .toList();
           } else if (_selectedCategoryId == 'recent') {
             final recentIds = recentEntries.values
                 .where((e) => e.type == ContentType.series)
                 .map((e) => e.id)
                 .toSet();
             filteredSeries = categoryVisibleSeries
-                .where((s) => recentIds.contains(s.id)).toList();
+                .where((s) => recentIds.contains(s.id))
+                .toList();
           } else if (_selectedCategoryId.isEmpty) {
             filteredSeries = categoryVisibleSeries;
           } else {
@@ -158,37 +173,71 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         s.genre.toLowerCase().contains(q),
                   )
                   .toList();
-          final libraryManager = ref.read(mediaLibraryManagerProvider);
-          final mediaItems = queryFiltered
-              .map(
-                (s) => MediaItem(
-                  id: s.id,
-                  title: s.title,
-                  streamUrl: '', // Series n'ont pas de streamUrl direct
-                  posterUrl: s.coverUrl,
-                  categoryId: s.categoryId,
-                  rating: s.rating,
-                  releaseYear: s.year,
-                  durationMinutes: 0,
-                  // Date d'ajout réelle du panel (champ Xtream `added`) : voir
-                  // le même correctif côté Films.
-                  addedDate: s.addedDate,
-                ),
-              )
-              .toList();
-          final sortedItems =
-              libraryManager.applySort(mediaItems, _selectedSortMode);
-          final seriesById = <String, Series>{
-            for (final s in queryFiltered)
-              if (s.id.isNotEmpty) s.id: s,
-          };
-          final visibleSeries = sortedItems.map<Series>((item) {
-            return seriesById[item.id] ??
-                queryFiltered.firstWhere(
-                  (s) => s.id == item.id,
-                  orElse: () => queryFiltered.first,
-                );
-          }).toList();
+          final List<Series> visibleSeries;
+          if (_selectedSortMode == SortMode.affinity ||
+              _selectedSortMode == SortMode.affinityAsc) {
+            // Tri par affinité : réutilise la logique corrective du matchmaking
+            // (ProfileAffinityScorer → profileAffinityWithSignals). Le genre réel
+            // TMDB est lu **sans réseau** dans le cache Hive partagé (même source
+            // que le badge de tuile, écrit par `searchTvLight`) ; faute de cache,
+            // on part du genre catalogue, que la formule corrige déjà via ses
+            // alias canoniques (« Horreur, Mystère, … »). Sans profil ni genres
+            // favoris, l'affinité n'a pas de sens : on rend la liste filtrée
+            // telle quelle plutôt que de dégrader en tri par note.
+            final scorer = ref.read(profileAffinityScorerProvider);
+            if (scorer == null || scorer.favoriteGenres.isEmpty) {
+              visibleSeries = queryFiltered;
+            } else {
+              final tmdb = ref.read(tmdbAffinityServiceProvider);
+              final descending = _selectedSortMode != SortMode.affinityAsc;
+              visibleSeries = sortByAffinityDesc(
+                queryFiltered,
+                descending: descending,
+                score: (s) {
+                  final realGenre = tmdb
+                          .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+                          ?.genreNames ??
+                      '';
+                  final scoring =
+                      realGenre.isNotEmpty ? s.withGenre(realGenre) : s;
+                  return scorer.percentForSeries(scoring).toDouble();
+                },
+                title: (s) => s.title,
+              );
+            }
+          } else {
+            final libraryManager = ref.read(mediaLibraryManagerProvider);
+            final mediaItems = queryFiltered
+                .map(
+                  (s) => MediaItem(
+                    id: s.id,
+                    title: s.title,
+                    streamUrl: '', // Series n'ont pas de streamUrl direct
+                    posterUrl: s.coverUrl,
+                    categoryId: s.categoryId,
+                    rating: s.rating,
+                    releaseYear: s.year,
+                    durationMinutes: 0,
+                    // Date d'ajout réelle du panel (champ Xtream `added`) : voir
+                    // le même correctif côté Films.
+                    addedDate: s.addedDate,
+                  ),
+                )
+                .toList();
+            final sortedItems =
+                libraryManager.applySort(mediaItems, _selectedSortMode);
+            final seriesById = <String, Series>{
+              for (final s in queryFiltered)
+                if (s.id.isNotEmpty) s.id: s,
+            };
+            visibleSeries = sortedItems.map<Series>((item) {
+              return seriesById[item.id] ??
+                  queryFiltered.firstWhere(
+                    (s) => s.id == item.id,
+                    orElse: () => queryFiltered.first,
+                  );
+            }).toList();
+          }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -290,39 +339,11 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             );
                                         }
 
-                                        return TvFocus(
-                                          onActivate: onOpen,
-                                          child: MediaCard(
-                                            title: series.title,
-                                            posterUrl: series.coverUrl,
-                  year: series.year,
-                  // Catégorie retirée de la tuile (comme sur les chaînes) :
-                  // l'année et la note suffisent, la ligne reste lisible.
-                  genre: '',
-                  rating: series.rating,
-                  ageLabel: series.pegiLabel,
-                  fallbackIcon: Icons.tv,
-                  // `contain` : l'affiche ne déborde plus de la tuile.
-                  posterFit: BoxFit.contain,
-                  posterPadding: const EdgeInsets.all(6),
-                  // Affinité personnelle du profil courant (module matchmaking).
-                  matchPercent: affinity?.percentForSeries(series),
-                                            favoriteOverlay:
-                                                FavoriteToggle.overlay(
-                                              entry: FavoriteEntry(
-                                                type: ContentType.series,
-                                                id: series.id,
-                                                title: series.title,
-                                                posterUrl: series.coverUrl,
-                                                subtitle: series.year > 0
-                                                    ? '${series.year}'
-                                                    : series.genre,
-                                              ),
-                                            ),
-                                            onTap: onOpen,
-                                            onLongPress: onLongPress,
-                                            isNew: series.isNew,
-                                          ),
+                                        return _SeriesTile(
+                                          series: series,
+                                          affinity: affinity,
+                                          onOpen: onOpen,
+                                          onLongPress: onLongPress,
                                         );
                                       },
                                       childCount: visibleSeries.length,
@@ -361,6 +382,92 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         .where((c) => c.id.isNotEmpty && (counts[c.id] ?? 0) > 0)
         .map((c) => c.copyWith(count: counts[c.id] ?? 0))
         .toList();
+  }
+}
+
+/// Tuile de la grille Séries, extraite pour observer proprement
+/// [seriesRealGenreProvider].
+///
+/// Même logique que `_VodTile` : `get_series` ne porte pas le genre réel
+/// (Xtream y met le nom de catégorie), donc une série sans genre catalogué ne
+/// matcherait aucun genre favori et retomberait au seul bonus de note. On
+/// résout le genre TMDB (TV) à la demande — une requête `searchTvLight`,
+/// mise en cache Hive 24 h.
+class _SeriesTile extends ConsumerWidget {
+  const _SeriesTile({
+    required this.series,
+    required this.affinity,
+    required this.onOpen,
+    required this.onLongPress,
+  });
+
+  final Series series;
+  final ProfileAffinityScorer? affinity;
+  final VoidCallback onOpen;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final realGenre = ref
+        .watch(
+          seriesRealGenreProvider(
+            SeriesGenreQuery(
+              id: series.id,
+              title: series.title,
+              year: series.year,
+              catalogGenre: series.genre,
+            ),
+          ),
+        )
+        .value;
+    final scoringSeries = (realGenre != null && realGenre != series.genre)
+        ? Series(
+            id: series.id,
+            title: series.title,
+            description: series.description,
+            coverUrl: series.coverUrl,
+            year: series.year,
+            genre: realGenre,
+            director: series.director,
+            rating: series.rating,
+            pegi: series.pegi,
+            episodes: series.episodes,
+            categoryId: series.categoryId,
+            addedDate: series.addedDate,
+          )
+        : series;
+
+    return TvFocus(
+      onActivate: onOpen,
+      child: MediaCard(
+        title: series.title,
+        posterUrl: series.coverUrl,
+        year: series.year,
+        // Catégorie retirée de la tuile (comme sur les chaînes) :
+        // l'année et la note suffisent, la ligne reste lisible.
+        genre: '',
+        rating: series.rating,
+        ageLabel: series.pegiLabel,
+        fallbackIcon: Icons.tv,
+        // `contain` : l'affiche ne déborde plus de la tuile.
+        posterFit: BoxFit.contain,
+        posterPadding: const EdgeInsets.all(6),
+        // Affinité personnelle du profil courant (module matchmaking).
+        matchPercent: affinity?.percentForSeries(scoringSeries),
+        favoriteOverlay: FavoriteToggle.overlay(
+          entry: FavoriteEntry(
+            type: ContentType.series,
+            id: series.id,
+            title: series.title,
+            posterUrl: series.coverUrl,
+            subtitle: series.year > 0 ? '${series.year}' : series.genre,
+          ),
+        ),
+        onTap: onOpen,
+        onLongPress: onLongPress,
+        isNew: series.isNew,
+      ),
+    );
   }
 }
 

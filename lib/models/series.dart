@@ -42,8 +42,28 @@ class Series {
     return diff.inDays <= 30;
   }
 
+  /// Copie avec le genre remplacé, sans reconstruire toute la fiche.
+  ///
+  /// Utilisé par l'alignement matchmaking : on réinjecte le vrai genre TMDB
+  /// (« Horreur, Mystère, … ») résolu à la place du nom de catégorie Xtream,
+  /// exactement comme le fait déjà `Movie.copyWith` côté films.
+  Series withGenre(String newGenre) => Series(
+        id: id,
+        title: title,
+        description: description,
+        coverUrl: coverUrl,
+        year: year,
+        genre: newGenre,
+        director: director,
+        rating: rating,
+        pegi: pegi,
+        episodes: episodes,
+        categoryId: categoryId,
+        addedDate: addedDate,
+      );
+
   factory Series.fromMap(Map<String, dynamic> map) {
-    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    // Textes du panel décodés une fois pour toutes (cf. PanelText) :
     map = PanelText.decodeMap(map);
     final rawRating = map['rating'];
     final parsedRating = rawRating is num
