@@ -58,7 +58,7 @@ class EpgMiniProgramBar extends StatelessWidget {
                         ? Text(
                             l.epgSelectChannelHint,
                             style: const TextStyle(
-                                color: Colors.white38, fontSize: 12),
+                                color: Colors.white38, fontSize: 12,),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,

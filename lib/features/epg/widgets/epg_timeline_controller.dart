@@ -11,14 +11,13 @@ class EpgTimelineController {
   EpgTimelineController({
     required DateTime gridStartTime,
     required double pixelsPerMinute,
-    double viewportWidth = 1080.0,
+    this.viewportWidth = 1080.0,
   })  : _gridStartTime = gridStartTime,
-        _pixelsPerMinute = pixelsPerMinute,
-        _viewportWidth = viewportWidth;
+        _pixelsPerMinute = pixelsPerMinute;
 
   DateTime _gridStartTime;
   double _pixelsPerMinute;
-  double _viewportWidth;
+  double viewportWidth;
 
   final ValueNotifier<DateTime> now = ValueNotifier(DateTime.now());
   final ValueNotifier<double> gridOffset = ValueNotifier(0);
@@ -30,9 +29,6 @@ class EpgTimelineController {
 
   double get pixelsPerMinuteValue => _pixelsPerMinute;
   set pixelsPerMinute(double v) => _pixelsPerMinute = v;
-
-  double get viewportWidth => _viewportWidth;
-  set viewportWidth(double v) => _viewportWidth = v;
 
   double timeToPixels(DateTime t) {
     return t.difference(_gridStartTime).inSeconds / 60.0 * _pixelsPerMinute;

@@ -178,10 +178,10 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   }
 
   @override
-  void didUpdateWidget(covariant EpgGrid2DView old) {
-    super.didUpdateWidget(old);
+  void didUpdateWidget(covariant EpgGrid2DView oldWidget) {
+    super.didUpdateWidget(oldWidget);
     if (widget.gridStartTime != null &&
-        widget.gridStartTime != old.gridStartTime) {
+        widget.gridStartTime != oldWidget.gridStartTime) {
       _gridStartTime = widget.gridStartTime!;
       _timelineController.gridStartTime = _gridStartTime;
     }
@@ -1260,7 +1260,7 @@ class _EpgGridPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = Colors.white12
       ..strokeWidth = 1;
-    canvas.drawLine(Offset(0, 0), Offset(size.width, 0), linePaint);
+    canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), linePaint);
 
     final (cullMin, cullMax) = _cullRange;
     // Translation : les positions sont absolues dans la journée (0 → 5760 px),
@@ -1411,7 +1411,7 @@ class _EpgGridPainter extends CustomPainter {
         )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
         if (cullMin <= 8 && emptyPainter.width > 0) {
           emptyPainter.paint(
-              canvas, Offset(8, y + (h - emptyPainter.height) / 2));
+              canvas, Offset(8, y + (h - emptyPainter.height) / 2),);
         }
       }
     }
