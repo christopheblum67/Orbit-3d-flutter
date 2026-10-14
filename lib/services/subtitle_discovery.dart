@@ -49,7 +49,7 @@ class SubtitleDiscoveryContext {
     _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'srt'),
     _SubtitleShape(separator: '.', directory: 'subtitles', extension: 'srt'),
     _SubtitleShape(
-        separator: '_', directory: 'timingsubtitles', extension: 'srt'),
+        separator: '_', directory: 'timingsubtitles', extension: 'srt',),
     _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'vtt'),
   ];
 
@@ -61,7 +61,7 @@ class SubtitleDiscoveryContext {
     final out = <String>[];
     for (final shape in _shapes) {
       final url =
-          '$_base/${shape.directory}/$username/$password/${id}${shape.separator}$code.${shape.extension}';
+          '$_base/${shape.directory}/$username/$password/$id${shape.separator}$code.${shape.extension}';
       if (!out.contains(url)) out.add(url);
     }
     return out;
@@ -242,7 +242,7 @@ class SubtitleDiscovery {
     'file_name',
     'path',
     'src',
-    'link'
+    'link',
   ];
 
   /// Clés de langue / libellé.
@@ -251,14 +251,14 @@ class SubtitleDiscovery {
     'lang',
     'name',
     'label',
-    'title'
+    'title',
   ];
   static const List<String> _labelKeys = [
     'name',
     'label',
     'title',
     'language',
-    'lang'
+    'lang',
   ];
 
   /// Extractions des pistes depuis la réponse `player_api.php`.
@@ -483,7 +483,7 @@ class SubtitleDiscovery {
               url: node,
               language: _langFromUrl(node),
               label: _labelFromLanguage(_langFromUrl(node)),
-            ));
+            ),);
           }
           continue;
         }
@@ -536,13 +536,13 @@ class SubtitleDiscovery {
             final alternates = (context == null || isFullUrl || isPath)
                 ? const <SubtitleTrackRef>[]
                 : alternateRefsFor(context, raw, _normaliseLang(lang),
-                    label: _labelFromLanguage(lang));
+                    label: _labelFromLanguage(lang),);
             add(SubtitleTrackRef(
               url: url,
               language: _normaliseLang(lang),
               label: _labelFromLanguage(lang),
               alternates: alternates,
-            ));
+            ),);
             continue;
           }
 
@@ -557,7 +557,7 @@ class SubtitleDiscovery {
                   url: url,
                   language: lang.isEmpty ? _langFromUrl(url) : lang,
                   label: label.isEmpty ? _labelFromLanguage(lang) : label,
-                ));
+                ),);
               }
             }
             continue;

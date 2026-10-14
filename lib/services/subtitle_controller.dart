@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 
@@ -9,6 +12,19 @@ class SubtitleController extends ChangeNotifier {
   SubtitleTrack? _activeTrack;
   String? _activeTrackUrl;
   final Map<String, SubtitleTrack> _loadedTracks = {};
+
+  /// Lecteur pour lequel l'utilisateur a explicitement choisi une piste
+  /// EXTERNE (OpenSubtitles, piste du panel, URL manuelle).
+  ///
+  /// Garde d'exclusivité lue par [setEmbeddedContext] : tant que la découverte
+  /// intégrée parle de CE lecteur, elle ne doit pas ré-adopter la sélection
+  /// automatique de media3 et masquer la piste externe.
+  ///
+  /// Le lecteur change-t-il (nouveau contenu) ? La garde tombe d'elle-même
+  /// (l'id ne correspond plus) et les pistes intégrées du nouveau flux
+  /// redeviennent prioritaires — aucune remise à zéro globale n'est requise,
+  /// ce qui éviterait de faire fuir le choix d'un contenu à l'autre.
+  int? _externalPlayerId;
 
   /// Pistes adoptées depuis une source externe (recherche en ligne),
   /// indexées sur leur libellé faute d'URL connue.
@@ -44,7 +60,7 @@ class SubtitleController extends ChangeNotifier {
         language: t.language,
         label: t.label,
         cues: _loadedTracks[t.url]?.cues,
-      ));
+      ),);
     }
     for (final entry in _loadedTracks.entries) {
       if (!seen.add(entry.key)) continue;
@@ -53,7 +69,7 @@ class SubtitleController extends ChangeNotifier {
         language: entry.value.language,
         label: entry.value.label,
         cues: entry.value.cues,
-      ));
+      ),);
     }
     return out;
   }
@@ -83,17 +99,12 @@ class SubtitleController extends ChangeNotifier {
           label: label,
         );
         _loadedTracks[url] = track;
+        // Une piste externe active prend le relais des sous-titres intégrés.
+        _cancelEmbeddedForExternal();
+        _externalPlayerId = _embeddedBridge?.playerId;
         _activeTrack = track;
         _activeTrackUrl = url;
         notifyListeners();
-        // DIAGNOSTIC : la position d'un cue sert à distinguer « fichier vide »
-        // d'un simple décalage avec la vidéo (voir ci-dessous).
-        LoggerService.instance.info(
-          'subs ok lang=$language cues=${track.cues.length} '
-          'first=${_describeCue(track, 0)} '
-          'last=${_describeCue(track, track.cues.length - 1)} '
-          'file=${url.split('/').last}',
-        );
       },
       context: 'SubtitleController.loadAndSetTrack',
     );
@@ -286,14 +297,7 @@ class SubtitleController extends ChangeNotifier {
     await loadAndSetTrack(ref.url, language: ref.language, label: ref.label);
   }
 
-  /// Décrit un cue pour le journal de diagnostic.
-  static String _describeCue(SubtitleTrack track, int index) {
-    if (index < 0 || index >= track.cues.length) return '-';
-    final c = track.cues[index];
-    return '${c.startMs}-${c.endMs} "${c.text.length > 40 ? c.text.substring(0, 40) : c.text}"';
-  }
-
-/// Adopte une piste déjà téléchargée (recherche en ligne).
+  /// Adopte une piste déjà téléchargée (recherche en ligne).
   ///
   /// Le contrôleur ne connaissait que les pistes qu'il avait lui-même
   /// chargées depuis une URL : sans cette porte d'entrée, un sous-titre
@@ -301,6 +305,8 @@ class SubtitleController extends ChangeNotifier {
   void adoptTrack(SubtitleTrack track, String label) {
     // L'URL n'est pas connue ici ; la piste est indexée sur son libellé, ce qui
     // suffit à l'identifier pour l'affiche et à la désactivation.
+    _cancelEmbeddedForExternal();
+    _externalPlayerId = _embeddedBridge?.playerId;
     _adoptedTracks[label] = track;
     _activeTrack = track;
     _activeTrackUrl = label;
@@ -310,21 +316,238 @@ class SubtitleController extends ChangeNotifier {
   void setActiveTrack(String url) {
     final track = _loadedTracks[url] ?? _adoptedTracks[url];
     if (track == null) return;
+    _cancelEmbeddedForExternal();
+    _externalPlayerId = _embeddedBridge?.playerId;
     _activeTrack = track;
     _activeTrackUrl = url;
     notifyListeners();
   }
 
   void disable() {
+    _cancelEmbeddedForExternal();
+    _externalPlayerId = null;
     _activeTrack = null;
     _activeTrackUrl = null;
     notifyListeners();
   }
 
   void clearCache() {
+    _cancelEmbeddedForExternal();
+    _externalPlayerId = null;
     _loadedTracks.clear();
+    _adoptedTracks.clear();
     _activeTrack = null;
     _activeTrackUrl = null;
     notifyListeners();
+  }
+
+  /// Réinitialise l'état sous-titres pour un NOUVEAU contenu (zapping, autre
+  /// film, autre épisode…).
+  ///
+  /// ## Pourquoi
+  ///
+  /// Le contrôleur est partagé par toute l'app (provider non autoDispose) et
+  /// `_activeTrack` n'était jamais réinitialisé entre deux contenus : après un
+  /// film sous-titré puis un zapping, les cues de l'ANCIENNE piste continuaient
+  /// de s'afficher sur le NOUVEAU contenu. Le player appelle cette méthode à
+  /// chaque changement de contenu (`initState` d'une nouvelle lecture,
+  /// `_switchTo` pour le zapping).
+  ///
+  /// Éteint la piste externe (titre, URL, garde d'exclusivité) et l'état
+  /// intégré courant (pistes, piste active, cues, polling), mais :
+  ///  - ne vide PAS la bibliothèque `_loadedTracks`/`_adoptedTracks` : les
+  ///    pistes déjà téléchargées restent re-sélectionnables pour le nouveau
+  ///    contenu ;
+  ///  - ne parle PAS au canal natif : la découverte du nouveau contenu repart
+  ///    de sa signature vierge et se chargera de la sélection.
+  void resetForNewContent() {
+    _externalPlayerId = null;
+    _activeTrack = null;
+    _activeTrackUrl = null;
+    _activeEmbeddedTrackId = null;
+    _liveEmbeddedCues = null;
+    _embeddedTracks = const [];
+    _embeddedPollTimer?.cancel();
+    _embeddedPollTimer = null;
+    notifyListeners();
+  }
+
+  // ==================== SOUS-TITRES INTÉGRÉS (pont natif media3) ====================
+
+  EmbeddedSubtitleBridge? _embeddedBridge;
+  List<EmbeddedSubtitleTrack> _embeddedTracks = const [];
+  String? _activeEmbeddedTrackId;
+  EmbeddedSubtitleCues? _liveEmbeddedCues;
+  Timer? _embeddedPollTimer;
+  bool _embeddedPollBusy = false;
+
+  /// Fréquence de lecture de `Player.getCurrentCues`. media3 met à jour le
+  /// groupe courant à chaque cue : 300 ms suffisent pour l'œil (et par défaut
+  /// un texte affiché plusieurs ticks identiques ne déclenche aucun rebuild).
+  static const Duration _embeddedPollInterval = Duration(milliseconds: 300);
+
+  /// Pistes intégrées du contenu courant, telles qu'exposées par media3.
+  List<EmbeddedSubtitleTrack> get embeddedTracks => _embeddedTracks;
+
+  /// Id de la piste intégrée active, si une piste intégrée est affichée.
+  String? get activeEmbeddedTrackId => _activeEmbeddedTrackId;
+
+  /// Dernier groupe de cues rendu par le pipeline (asservi au contenu, pas à
+  /// la position du lecteur).
+  EmbeddedSubtitleCues? get liveEmbeddedCues => _liveEmbeddedCues;
+
+  bool get hasActiveEmbedded => _activeEmbeddedTrackId != null;
+
+  /// Renseigne le pont et mémorise les pistes intégrées d'un contenu.
+  ///
+  /// Appelé à l'initialisation du lecteur. [tracks] vient de
+  /// `getSubtitleTracks()` : seules des pistes supportées par le pipeline y
+  /// figurent. La sélection automatique de media3 (souvent la piste « forced »)
+  /// devient la piste intégrée active, sans marquer l'exclusivité avec une
+  /// piste externe (décision purement locale, l'utilisateur tranchera).
+  void setEmbeddedContext({
+    required int playerId,
+    required List<EmbeddedSubtitleTrack> tracks,
+  }) {
+    if (_embeddedBridge == null || _embeddedBridge!.playerId != playerId) {
+      _embeddedBridge = EmbeddedSubtitleBridge(playerId);
+    }
+    _embeddedTracks = List.unmodifiable(tracks);
+    // Idempotent et re-appelable : la découverte est rejouée pendant que les
+    // pistes arrivent par vagues. Elle ne doit PAS reprendre la main sur la
+    // piste que l'utilisateur a choisie entre-temps : elle n'adopte la sélection
+    // automatique de media3 que si aucune piste — intégrée OU externe — n'est
+    // active pour ce lecteur.
+    final keep = _activeEmbeddedTrackId;
+    if (keep != null && tracks.any((t) => t.id == keep)) {
+      _activeEmbeddedTrackId = keep;
+    } else if (_externalPlayerId == playerId) {
+      // Une piste EXTERNE a la main sur ce lecteur : ne pas adopter la
+      // sélection automatique de media3.
+      //
+      // Sans cette garde, media3 — qui auto-sélectionne sa piste texte
+      // quelques secondes APRÈS le début de la lecture — reprenait
+      // l'affichage et masquait le sous-titre OpenSubtitles choisi
+      // entre-temps : l'utilisateur lisait « les sous-titres en ligne ne se
+      // lisent plus » alors que le contrôleur n'avait fait que changer de
+      // piste active.
+      _activeEmbeddedTrackId = null;
+      _liveEmbeddedCues = null;
+    } else {
+      final selected = tracks.where((t) => t.isSelected).toList();
+      _activeEmbeddedTrackId = selected.isEmpty ? null : selected.first.id;
+      _liveEmbeddedCues = null;
+    }
+    _refreshEmbeddedPolling();
+    notifyListeners();
+  }
+
+  /// Active une piste intégrée. Exclusivité : toute piste externe est coupée.
+  Future<void> selectEmbeddedTrack(String trackId) async {
+    final bridge = _embeddedBridge;
+    if (bridge == null || !_embeddedTracks.any((t) => t.id == trackId)) return;
+    try {
+      await bridge.selectTrack(trackId);
+    } catch (_) {
+      // Best-effort : une erreur de canal ne doit pas empêcher la lecture.
+      return;
+    }
+    _activeEmbeddedTrackId = trackId;
+    _liveEmbeddedCues = null;
+    _externalPlayerId = null;
+    _activeTrack = null;
+    _activeTrackUrl = null;
+    _refreshEmbeddedPolling();
+    notifyListeners();
+  }
+
+  /// Éteint les sous-titres intégrés (y compris côté natif).
+  void disableEmbedded() {
+    _cancelEmbeddedForExternal();
+    notifyListeners();
+  }
+
+  /// Coupe le pont pour cette texture (lecteur libéré).
+  ///
+  /// Ne touche pas un autre lecteur : le contrôleur est partagé et plusieurs
+  /// textures coexistent (p. ex. pendant le préchauffage).
+  void detachEmbedded(int playerId) {
+    final bridge = _embeddedBridge;
+    if (bridge == null || bridge.playerId != playerId) return;
+    _embeddedPollTimer?.cancel();
+    _embeddedPollTimer = null;
+    _embeddedBridge = null;
+    _embeddedTracks = const [];
+    _activeEmbeddedTrackId = null;
+    _liveEmbeddedCues = null;
+    if (_externalPlayerId == playerId) _externalPlayerId = null;
+    notifyListeners();
+  }
+
+  void _refreshEmbeddedPolling() {
+    if (_activeEmbeddedTrackId != null && _embeddedBridge != null) {
+      _embeddedPollTimer ??= Timer.periodic(
+        _embeddedPollInterval,
+        (_) => unawaited(_pollLiveEmbedded()),
+      );
+      unawaited(_pollLiveEmbedded());
+    } else {
+      _embeddedPollTimer?.cancel();
+      _embeddedPollTimer = null;
+    }
+  }
+
+  Future<void> _pollLiveEmbedded() async {
+    final bridge = _embeddedBridge;
+    if (bridge == null || _activeEmbeddedTrackId == null || _embeddedPollBusy) {
+      return;
+    }
+    _embeddedPollBusy = true;
+    try {
+      final cues = await bridge.currentCues();
+      if (!identical(bridge, _embeddedBridge) ||
+          _activeEmbeddedTrackId == null) {
+        return;
+      }
+      final current = _liveEmbeddedCues;
+      if (current != null && current.sameContent(cues)) return;
+      _liveEmbeddedCues = cues;
+      notifyListeners();
+    } catch (_) {
+      // Best-effort : le polling ne doit jamais casser la lecture.
+    } finally {
+      _embeddedPollBusy = false;
+    }
+  }
+
+  /// Coupe l'état intégré courant (piste, cues, polling) et dé-sélectionne la
+  /// piste côté natif. Appelé quand une source externe prend le relais ou que
+  /// l'utilisateur désactive les sous-titres.
+  ///
+  /// ## Pourquoi l'appel natif n'est PAS conditionné à l'état local
+  ///
+  /// L'ancienne version sortait immédiatement quand aucune piste intégrée
+  /// n'était active *localement* (`_activeEmbeddedTrackId == null`). Or media3
+  /// auto-sélectionne sa piste texte quelques secondes après le début de la
+  /// lecture, pas au premier sondage : un sous-titre externe choisi pendant
+  /// cette fenêtre laissait donc le type « texte » actif côté natif, et media3
+  /// volait l'affichage dès qu'il sélectionnait sa piste (souvent la
+  /// « forced »). On coupe donc le type « texte » dans TOUS les cas où une
+  /// source externe prend la main.
+  void _cancelEmbeddedForExternal() {
+    _activeEmbeddedTrackId = null;
+    _liveEmbeddedCues = null;
+    _embeddedPollTimer?.cancel();
+    _embeddedPollTimer = null;
+    final bridge = _embeddedBridge;
+    if (bridge != null) {
+      unawaited(bridge.clearTracks().catchError((_) {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _embeddedPollTimer?.cancel();
+    super.dispose();
   }
 }

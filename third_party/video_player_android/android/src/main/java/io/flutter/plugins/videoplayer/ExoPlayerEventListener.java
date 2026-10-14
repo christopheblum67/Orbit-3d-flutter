@@ -5,11 +5,13 @@
 package io.flutter.plugins.videoplayer;
 
 import android.os.Build;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
 import java.util.Objects;
@@ -17,6 +19,7 @@ import java.util.Objects;
 final class ExoPlayerEventListener implements Player.Listener {
   private final ExoPlayer exoPlayer;
   private final VideoPlayerCallbacks events;
+  private final SubtitleDetector subtitleDetector;
   private boolean isBuffering = false;
   private boolean isInitialized;
 
@@ -47,13 +50,19 @@ final class ExoPlayerEventListener implements Player.Listener {
   }
 
   ExoPlayerEventListener(ExoPlayer exoPlayer, VideoPlayerCallbacks events) {
-    this(exoPlayer, events, false);
+    this(exoPlayer, events, false, new SubtitleDetector());
   }
 
   ExoPlayerEventListener(ExoPlayer exoPlayer, VideoPlayerCallbacks events, boolean initialized) {
+    this(exoPlayer, events, initialized, new SubtitleDetector());
+  }
+
+  ExoPlayerEventListener(
+      ExoPlayer exoPlayer, VideoPlayerCallbacks events, boolean initialized, SubtitleDetector subtitleDetector) {
     this.exoPlayer = exoPlayer;
     this.events = events;
     this.isInitialized = initialized;
+    this.subtitleDetector = subtitleDetector;
   }
 
   private void setBuffering(boolean buffering) {
@@ -189,5 +198,17 @@ final class ExoPlayerEventListener implements Player.Listener {
   @Override
   public void onIsPlayingChanged(boolean isPlaying) {
     events.onIsPlayingStateUpdate(isPlaying);
+  }
+
+  /**
+   * Détection des sous-titres embarques (cahier des charges — SubtitleDetector).
+   *
+   * <p>Un listener léger dedie : aucune I/O reseau, aucune action de selection — on journalise
+   * juste le resultat structure pour valider les trois cas (francais embarque / anglais seul /
+   * flux tardif) avant d'aller plus loin.
+   */
+  @Override
+  public void onTracksChanged(@NonNull Tracks tracks) {
+    Log.i("OrbitSubtitle", "tracksChanged " + subtitleDetector.detect(exoPlayer));
   }
 }

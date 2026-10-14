@@ -233,6 +233,25 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
           getPlayer(playerId).selectVideoTrack(videoTrack);
           result.success(null);
           break;
+        case "getSubtitleTracks":
+          result.success(getPlayer(playerId).getSubtitleTracks());
+          break;
+        case "selectSubtitleTrack":
+          String subtitleTrackId = call.argument("trackId");
+          if (subtitleTrackId == null) {
+            result.error("MissingArgument", "trackId is required.", null);
+            return;
+          }
+          getPlayer(playerId).selectSubtitleTrack(subtitleTrackId);
+          result.success(null);
+          break;
+        case "clearSubtitleTracks":
+          getPlayer(playerId).clearSubtitleTracks();
+          result.success(null);
+          break;
+        case "getCurrentCues":
+          result.success(getPlayer(playerId).getCurrentCues());
+          break;
         default:
           result.notImplemented();
       }

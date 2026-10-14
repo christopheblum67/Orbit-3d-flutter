@@ -114,13 +114,13 @@ late HttpServer server;
     // même liste et le test passerait même avec le bug.
     expect(SubtitleController.isCached(ref.url), isFalse,
         reason: 'une panne réseau ne doit PAS entrer dans le cache : elle '
-            'rendrait la piste « vérifiée » à vie, pour toute la session');
+            'rendrait la piste « vérifiée » à vie, pour toute la session',);
 
     final again = await SubtitleController().verifyTracks([ref]);
     expect(again, hasLength(1),
-        reason: 'une piste jamais conclue doit rester à retester');
+        reason: 'une piste jamais conclue doit rester à retester',);
     expect(SubtitleController.isCached(ref.url), isFalse,
-        reason: 'et toujours rien en cache après une seconde tentative');
+        reason: 'et toujours rien en cache après une seconde tentative',);
   });
 
   test('une absence DÉFINITIVE est, elle, mémorisée', () async {
@@ -142,7 +142,7 @@ late HttpServer server;
     await SubtitleController().verifyTracks([ref]);
     expect(SubtitleController.isCached(ref.url), isTrue,
         reason: 'un corps vide est une conclusion définitive : la memoriser '
-            'évite de re-tester à chaque ouverture du panneau');
+            'évite de re-tester à chaque ouverture du panneau',);
   });
 
   test('un code d\'erreur HTTP, lui, marque la piste comme absente', () async {
@@ -163,7 +163,7 @@ late HttpServer server;
     );
     final kept = await SubtitleController().verifyTracks([ref]);
     expect(kept, isEmpty,
-        reason: 'un 404 est une preuve DÉFINITIVE d\'absence');
+        reason: 'un 404 est une preuve DÉFINITIVE d\'absence',);
   });
 
   test('un corps VIDE, lui, marque la piste comme absente', () async {
@@ -176,7 +176,7 @@ late HttpServer server;
     );
     final kept = await SubtitleController().verifyTracks([ref]);
     expect(kept, isEmpty,
-        reason: 'un corps vide est une preuve DÉFINITIVE d\'absence');
+        reason: 'un corps vide est une preuve DÉFINITIVE d\'absence',);
   });
 
   test('première forme disponible : une seule requête', () async {
@@ -211,10 +211,10 @@ late HttpServer server;
     ]);
 
     expect(kept, hasLength(1),
-        reason: 'la piste existe, sous la forme secondaire');
+        reason: 'la piste existe, sous la forme secondaire',);
     expect(requested, hasLength(2), reason: 'on s’arrête au premier succès');
     expect(kept.first.url, '$base/1.srt',
-        reason: 'la forme gagnante devient l’URL principale');
+        reason: 'la forme gagnante devient l’URL principale',);
   });
 
   test('aucune forme disponible : la piste disparaît', () async {
@@ -338,6 +338,6 @@ final kept = await SubtitleController().verifyTracks(tracks);
     ]);
 
     expect(requested.length, afterFirst,
-        reason: 'aucune requête supplémentaire pour la même URL');
+        reason: 'aucune requête supplémentaire pour la même URL',);
   });
 }

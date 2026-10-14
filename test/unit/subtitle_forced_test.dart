@@ -81,7 +81,7 @@ void main() {
   });
 
   group('Voie A — candidats déduits, variantes forcées', () {
-    final ctx = SubtitleDiscoveryContext(
+    final ctx = const SubtitleDiscoveryContext(
       baseUrl: 'http://panel.example.com:8080',
       username: 'u',
       password: 'p',
@@ -137,7 +137,7 @@ void main() {
       // doit être testée en premier.
       expect(urls.first, endsWith('/subtitles/u/p/7819_fr.srt'));
       expect(urls.any((u) => u.endsWith('/7819.fr.srt')), isTrue,
-          reason: 'séparateur pointu');
+          reason: 'séparateur pointu',);
       expect(urls.any((u) => u.contains('/timingsubtitles/')), isTrue);
       expect(urls.any((u) => u.endsWith('.vtt')), isTrue);
     });

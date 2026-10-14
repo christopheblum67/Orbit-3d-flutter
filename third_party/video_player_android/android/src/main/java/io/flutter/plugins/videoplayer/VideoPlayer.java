@@ -11,6 +11,7 @@ import android.content.Context;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -22,6 +23,9 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.text.Cue;
+import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -247,6 +251,10 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     exoPlayer.setVideoSurface(surfaceProducer.getSurface());
 
     boolean wasInitialized = savedStateDuring != null;
+    // Listener unique : ExoPlayerEventListener porte aussi la detection des
+    // sous-titres (onTracksChanged -> SubtitleDetector, journalisee
+    // « OrbitSubtitle » pour valider les trois cas du cahier des charges).
+    // Ré-ajouté à chaque (ré)création du player ci-dessus.
     exoPlayer.addListener(new ExoPlayerEventListener(exoPlayer, videoPlayerEvents, wasInitialized));
     setAudioAttributes(exoPlayer, options.mixWithOthers);
 
@@ -371,6 +379,98 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   /**
+   * Lists the embedded subtitle tracks currently exposed by the player.
+   *
+   * <p>Seules les pistes supportées par le pipeline (media3 acharne un decoder
+   * texte pour elles) sont retournées : les ISO 1.9.3 les marquent via {@code
+   * group.isTrackSupported(...)}. Chaque entrée porte l'id
+   * {@code "<groupIndex>_<trackIndex>"} compris du Dart.
+   */
+  List<Map<String, Object>> getSubtitleTracks() {
+    List<Map<String, Object>> tracks = new ArrayList<>();
+    Tracks currentTracks = exoPlayer.getCurrentTracks();
+    if (currentTracks == null) {
+      return tracks;
+    }
+    int groupIndex = 0;
+    for (Tracks.Group group : currentTracks.getGroups()) {
+      if (group.getType() == C.TRACK_TYPE_TEXT) {
+        for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+          if (!group.isTrackSupported(trackIndex)) {
+            continue;
+          }
+          Format format = group.getTrackFormat(trackIndex);
+          Map<String, Object> track = new HashMap<>();
+          track.put("id", groupIndex + "_" + trackIndex);
+          track.put("label", subtitleTrackLabel(format));
+          track.put("language", format.language);
+          track.put("isSelected", group.isTrackSelected(trackIndex));
+          track.put("isForced", (format.selectionFlags & C.SELECTION_FLAG_FORCED) != 0);
+          track.put("mimeType", format.sampleMimeType);
+          tracks.add(track);
+        }
+      }
+      groupIndex++;
+    }
+    return tracks;
+  }
+
+  /** Forces the embedded subtitle track identified by {@code "<groupIndex>_<trackIndex>"}. */
+  void selectSubtitleTrack(String trackId) {
+    applyTrackSelection(trackId, C.TRACK_TYPE_TEXT);
+  }
+
+  /**
+   * Désactive tous les sous-titres intégrés.
+   *
+   * <p>Media3 n'expose pas de « clear override » public par type quand le lecteur
+   * est démarré : on nettoie les overrides TEXT et on marque le type désactivé.
+   */
+  void clearSubtitleTracks() {
+    DefaultTrackSelector trackSelector = trackSelectorOrNull();
+    if (trackSelector == null) {
+      return;
+    }
+    DefaultTrackSelector.Parameters parameters =
+        trackSelector
+            .getParameters()
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build();
+    trackSelector.setParameters(parameters);
+  }
+
+  /**
+   * Instantané des sous-titres actuellement affichés par le pipeline (Media3
+   * maintient un seul {@link CueGroup}, ré-émis à chaque changement de piste ou
+   * de rendu, vidé dès que la piste est désactivée). Le Dart vide les cues à
+   * chaque lecture et poll cette méthode pendant que des sous-titres intégrés
+   * sont actifs.
+   */
+  @OptIn(markerClass = UnstableApi.class)
+  Map<String, Object> getCurrentCues() {
+    CueGroup cueGroup = exoPlayer.getCurrentCues();
+    Map<String, Object> result = new HashMap<>();
+    result.put("presentationTimeUs", cueGroup.presentationTimeUs);
+    List<Map<String, Object>> cues = new ArrayList<>();
+    for (Cue cue : cueGroup.cues) {
+      if (cue.text == null) {
+        continue;
+      }
+      String text = cue.text.toString();
+      if (text.trim().isEmpty()) {
+        continue;
+      }
+      Map<String, Object> cueMap = new HashMap<>();
+      cueMap.put("text", text);
+      cues.add(cueMap);
+    }
+    result.put("cues", cues);
+    return result;
+  }
+
+  /**
    * Forces the video quality variant identified by {@code "<groupIndex>_<trackIndex>"}, or
    * restores automatic selection when {@code track} is {@code null}.
    */
@@ -434,7 +534,12 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     TrackSelectionOverride override =
         new TrackSelectionOverride(selectedGroup.getMediaTrackGroup(), trackIndex);
     DefaultTrackSelector.Parameters parameters =
-        trackSelector.getParameters().buildUpon().setOverrideForType(override).build();
+        trackSelector
+            .getParameters()
+            .buildUpon()
+            .setTrackTypeDisabled(trackType, false)
+            .setOverrideForType(override)
+            .build();
     trackSelector.setParameters(parameters);
   }
 
@@ -469,6 +574,16 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
       return (format.bitrate / 1000) + " kbps";
     }
     return "Vidéo";
+  }
+
+  private static String subtitleTrackLabel(Format format) {
+    if (format.label != null && !format.label.trim().isEmpty()) {
+      return format.label.trim();
+    }
+    if (format.language != null && !format.language.isEmpty() && !"und".equals(format.language)) {
+      return format.language;
+    }
+    return "Sous-titres";
   }
 
   void dispose() {

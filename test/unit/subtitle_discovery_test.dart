@@ -21,7 +21,7 @@ void main() {
       // jamais tentee puisque le premier essai renvoyait deja un `String?`.
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['54321_fr.srt'],
-      }, context: ctx);
+      }, context: ctx,);
 
       expect(tracks, hasLength(1));
       expect(
@@ -45,7 +45,7 @@ void main() {
       // n'a jamais mentionnes — ici trois URL mortes de plus a sonder.
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['54321_fr.srt'],
-      }, context: ctx);
+      }, context: ctx,);
 
       expect(
         tracks.first.alternates,
@@ -64,7 +64,7 @@ void main() {
     test('un chemin absolu est resoli sur la racine du site', () {
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['/media/sub/54321_en.srt'],
-      }, context: ctx);
+      }, context: ctx,);
 
       expect(tracks, hasLength(1));
       expect(tracks.first.url, 'http://panel.example:8080/media/sub/54321_en.srt');
@@ -76,7 +76,7 @@ void main() {
       // alors qu'elle n'avait jamais ete testee.
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['fr'],
-      }, context: ctx);
+      }, context: ctx,);
 
       expect(tracks, hasLength(1));
       final track = tracks.first;
@@ -87,19 +87,19 @@ void main() {
       // `urlsForLanguage` en definit quatre.
       expect(track.alternates, isNotEmpty,
           reason: 'sans replis, une piste servie sous une autre forme est '
-              'declaree morte alors qu elle existe');
+              'declaree morte alors qu elle existe',);
       expect(track.alternates.any((a) => a.url.contains('54321.fr.srt')),
           isTrue,
-          reason: 'la forme .fr.srt doit etre un repli');
+          reason: 'la forme .fr.srt doit etre un repli',);
     });
 
     test('needsVerification : vrai des que l URL est deduite', () {
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['fr'],
-      }, context: ctx);
+      }, context: ctx,);
       expect(SubtitleDiscovery.needsVerification(tracks), isTrue,
           reason: 'c est le trou du correctif : `guessed` etait false ici, donc '
-              'la piste passait sans verification');
+              'la piste passait sans verification',);
     });
 
     test('une URL FOURNIE par le panel ne demande pas de verification', () {
@@ -107,17 +107,17 @@ void main() {
       // requetes pour des pistes que le panel a explicitement annoncees.
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['http://panel.example:8080/x/54321_fr.srt'],
-      }, context: ctx);
+      }, context: ctx,);
 
       expect(tracks, hasLength(1));
       expect(SubtitleDiscovery.needsVerification(tracks), isFalse,
-          reason: 'le panel a fourni l URL : elle est adressable telle quelle');
+          reason: 'le panel a fourni l URL : elle est adressable telle quelle',);
     });
 
     test('plusieurs codes donnent plusieurs pistes verifiables', () {
       final tracks = SubtitleDiscovery.parse({
         'subtitles': ['fr', 'en'],
-      }, context: ctx);
+      }, context: ctx,);
       expect(tracks, hasLength(2));
       expect(SubtitleDiscovery.needsVerification(tracks), isTrue);
       for (final t in tracks) {

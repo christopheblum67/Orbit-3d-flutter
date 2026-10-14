@@ -1,10 +1,5 @@
 import 'dart:async';
 
-/// Erreur levée quand une URL de sous-titre répond sans contenu exploitable.
-///
-/// Distincte d'une erreur réseau : le réseau a marché, c'est le panel
-/// qui n'a pas servi de sous-titre.
-import 'dart:convert';
 import 'dart:io';
 // BytesBuilder est exporte par dart:io, mais son usage indirect est
 // depreciee : l'import explicite evite l'avertissement.

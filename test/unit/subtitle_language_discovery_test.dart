@@ -89,7 +89,7 @@ void main() {
         ],
       });
       expect(codes, {'fr', 'en', 'de'},
-          reason: 'les trois épisodes doivent être lus');
+          reason: 'les trois épisodes doivent être lus',);
     });
 
     test('la lecture survit à un info racine réaliste', () {

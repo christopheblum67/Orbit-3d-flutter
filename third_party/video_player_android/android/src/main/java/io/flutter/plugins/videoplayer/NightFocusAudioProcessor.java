@@ -251,13 +251,24 @@ public final class NightFocusAudioProcessor extends BaseAudioProcessor {
     // longueur 0. Le DefaultAudioSink n'obtenait alors jamais de données, le
     // renderer audio ne devenait jamais prêt et ExoPlayer ne faisait pas avancer
     // la position (écran figé + son muet).
+    //
+    // MÊME PIÈGE EN LECTURE, corrigé ici : `ShortBuffer in = inputBuffer
+    // .asShortBuffer()` crée une vue à position INDÉPENDANTE ; `in.get()`
+    // n'avançait donc jamais `inputBuffer.position()`. Or le contrat media3
+    // (`AudioProcessor.queueInput`) impose que « its position will be advanced
+    // by the number of bytes consumed ». Le DefaultAudioSink, voyant un buffer
+    // d'entrée non consommé, le reproposait en boucle : dès l'activation du
+    // traitement, le son se figeait sur une tonalité répétée. Le by-pass, lui,
+    // consommait via `out.put(inputBuffer)`, d'où un son normal tant que Night
+    // Focus restait inactif. On lit désormais `getShort()` sur le buffer
+    // lui-même : la position avance d'elle-même, octet par octet.
     final int outBytes = frames * 2 * channels;
-    ShortBuffer in = inputBuffer.order(ByteOrder.nativeOrder()).asShortBuffer();
+    inputBuffer.order(ByteOrder.nativeOrder());
     ByteBuffer out = replaceOutputBuffer(outBytes).order(ByteOrder.nativeOrder());
 
     for (int f = 0; f < frames; f++) {
       for (int ch = 0; ch < channels; ch++) {
-        double x = in.get();
+        double x = inputBuffer.getShort();
         double v = biquad(x, ch, hpB, hpA, hpX, hpY);
         v = biquad(v, ch, peB, peA, peX, peY);
         v *= gain;
