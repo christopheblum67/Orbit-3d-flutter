@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -24,7 +24,7 @@ import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 
-/// Configuration unifiée (style XCIPTV) — fusionne SettingsScreen + AdvancedSettingsScreen.
+/// Configuration unifiée (style XCIPTV) â€” fusionne SettingsScreen + AdvancedSettingsScreen.
 /// Organisé en sections logiques avec icônes explicites, navigation au D-pad/TV.
 class UnifiedSettingsScreen extends ConsumerStatefulWidget {
   const UnifiedSettingsScreen({super.key});
@@ -111,7 +111,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
   }
 }
 
-/// ─── Tuile de navigation réutilisable ────────────────────────────
+/// â”€â”€â”€ Tuile de navigation réutilisable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.icon,
@@ -151,7 +151,7 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-/// ─── COMPTE ──────────────────────────────────────────────────────
+/// â”€â”€â”€ COMPTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
@@ -178,7 +178,7 @@ class _AccountSection extends ConsumerWidget {
           title: l.accountSubscriptions,
           subtitle: sub == null
               ? l.accountNoSubscription
-              : '${sub.name} · ${sub.validityLabel}',
+              : '${sub.name} Â· ${sub.validityLabel}',
           onTap: () => context.go('/subscriptions'),
         ),
         _NavTile(
@@ -311,7 +311,7 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
-/// ─── RÉSEAU ──────────────────────────────────────────────────────
+/// â”€â”€â”€ RÃ‰SEAU â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _NetworkSection extends ConsumerWidget {
   const _NetworkSection();
 
@@ -407,7 +407,7 @@ class _DnsProviderTile extends ConsumerWidget {
   }
 }
 
-/// ─── LECTEUR ─────────────────────────────────────────────────────
+/// â”€â”€â”€ LECTEUR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _PlayerSection extends ConsumerWidget {
   const _PlayerSection();
 
@@ -465,7 +465,7 @@ class _PlayerEngineTile extends ConsumerWidget {
   }
 }
 
-/// ─── SÉCURITÉ ────────────────────────────────────────────────────
+/// â”€â”€â”€ SÃ‰CURITÃ‰ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _SecuritySection extends ConsumerWidget {
   const _SecuritySection();
 
@@ -507,7 +507,7 @@ class _SecuritySection extends ConsumerWidget {
   }
 }
 
-/// ─── AUDIO ───────────────────────────────────────────────────────
+/// â”€â”€â”€ AUDIO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _AudioSection extends ConsumerWidget {
   const _AudioSection();
 
@@ -698,7 +698,7 @@ class _AudioSection extends ConsumerWidget {
   }
 }
 
-/// ─── AVANCÉ ──────────────────────────────────────────────────────
+/// â”€â”€â”€ AVANCÃ‰ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _AdvancedSection extends ConsumerWidget {
   const _AdvancedSection();
 
@@ -793,7 +793,7 @@ class _AdvancedSection extends ConsumerWidget {
     // flutter_cache_manager (pochettes/stickers) + images vivantes.
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
-    // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
+    // Vide aussi le cache disque en arrière-plan â†’ le snack reflète la réalité.
     await DefaultCacheManager().emptyCache();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -907,9 +907,9 @@ class _AdvancedSection extends ConsumerWidget {
     for (final name in boxNames) {
       await safeAsync(
         () async {
-          // Si la box est déjà ouverte (typage posé à l'initialisation par un
+          // Si la box est déjÃ  ouverte (typage posé Ã  l'initialisation par un
           // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
-          // type levait « already open and of type Box<...> ». On réutilise donc
+          // type levait Â« already open and of type Box<...> Â». On réutilise donc
           // l'instance existante, puis on la ferme pour purger le cache Hive.
           final box = Hive.isBoxOpen(name)
               ? Hive.box<dynamic>(name)
@@ -971,7 +971,7 @@ class _AdvancedEntry extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 18),
           child: Center(
             child: Text(
-              '· · ·',
+              'Â· Â· Â·',
               style: TextStyle(
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
                 letterSpacing: 4,
@@ -989,3 +989,5 @@ class _AdvancedEntry extends StatelessWidget {
     }
   }
 }
+
+
