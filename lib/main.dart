@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:orbit_3d_flutter/services/analytics_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -31,6 +30,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_credentials_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
@@ -38,7 +38,6 @@ import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
-import 'package:orbit_3d_flutter/services/notification_service.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_mirror_store.dart';
 import 'package:orbit_3d_flutter/services/home_widget_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -70,7 +69,6 @@ import 'package:orbit_3d_flutter/features/search/search_screen.dart';
 
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/unified_settings_screen.dart';
-import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/category_filter_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/subscriptions_screen.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -144,7 +142,6 @@ Future<void> _bootstrap() async {
   await playbackProgressService.init();
   final cloudSyncMirrorStore = CloudSyncMirrorStore();
   await cloudSyncMirrorStore.init();
-  final notificationService = NotificationService();
   final mediaLibraryManager = MediaLibraryManager();
   await mediaLibraryManager.init([]);
 
@@ -179,7 +176,6 @@ Future<void> _bootstrap() async {
             .overrideWithValue(watchedEpisodesService),
         playbackProgressServiceProvider
             .overrideWithValue(playbackProgressService),
-        notificationServiceProvider.overrideWithValue(notificationService),
         mediaLibraryManagerProvider.overrideWithValue(mediaLibraryManager),
         currentProfileProvider
             .overrideWithBuild((ref, notifier) => restoredProfile),
@@ -197,11 +193,6 @@ Future<void> _bootstrap() async {
       child: const OrbitApp(),
     ),
   );
-
-  // FCM initialisé après le premier frame pour ne pas bloquer l'affichage.
-  SchedulerBinding.instance.addPostFrameCallback((_) {
-    notificationService.init();
-  });
 }
 
 Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
@@ -560,7 +551,7 @@ final GoRouter router = GoRouter(
         restorationId: 'favorites',
         child: const WithBackHandling(
           meta: RouteMeta.pop(restorationId: 'favorites'),
-          child: const LibraryScreen(),
+          child: LibraryScreen(),
         ),
       ),
     ),
@@ -700,7 +691,7 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta:
                   RouteMeta.popOrFallback('/home', restorationId: 'downloads'),
-              child: const LibraryScreen(initialTab: 1),
+              child: LibraryScreen(initialTab: 1),
             ),
           ),
         ),
@@ -735,8 +726,10 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'settings-advanced',
             child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/settings',
-                  restorationId: 'settings-advanced'),
+              meta: RouteMeta.popOrFallback(
+                '/settings',
+                restorationId: 'settings-advanced',
+              ),
               child: AdvancedSettingsScreen(),
             ),
           ),
@@ -747,8 +740,10 @@ final GoRouter router = GoRouter(
             key: state.pageKey,
             restorationId: 'category-filters',
             child: const WithBackHandling(
-              meta: RouteMeta.popOrFallback('/settings',
-                  restorationId: 'category-filters'),
+              meta: RouteMeta.popOrFallback(
+                '/settings',
+                restorationId: 'category-filters',
+              ),
               child: CategoryFilterScreen(),
             ),
           ),
@@ -773,12 +768,16 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     ref.read(advancedSettingsProvider);
     ref.read(tmdbApiKeyOverrideProvider);
     ref.read(openSubtitlesApiKeyProvider);
+    ref.read(openSubtitlesCredentialsProvider);
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
     unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
     // Clé OpenSubtitles pour la recherche de sous-titres en ligne. Facultative :
     // sans elle, la recherche fonctionne mais avec un quota de téléchargement
     // anonyme bien plus bas.
     unawaited(ref.read(openSubtitlesApiKeyProvider.notifier).load());
+    // Compte OpenSubtitles pour les téléchargements authentifiés. Facultatif :
+    // sans lui, /download reste refusé (503) même avec une clé valide.
+    unawaited(ref.read(openSubtitlesCredentialsProvider.notifier).load());
     // Analytics : init non bloquante (fire-and-forget après le premier frame).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(analyticsServiceProvider).init());

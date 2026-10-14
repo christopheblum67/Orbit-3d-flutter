@@ -34,14 +34,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
-          SwitchListTile(
-            secondary: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Notifications'),
-            subtitle: Text(l.receiveAlertsAndTips),
-            value: prefs.notificationsEnabled,
-            onChanged: (v) => notifier.setNotifications(v),
-          ),
-          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.settings_brightness_outlined),
             title: Text(l.theme),

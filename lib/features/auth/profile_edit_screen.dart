@@ -215,8 +215,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                           maxLength: AppConstants.maxNameLength,
                           decoration: InputDecoration(
                             labelText: l.nameOrNickname,
-                            prefixIcon: Icon(Icons.badge_outlined),
-                            border: OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.badge_outlined),
+                            border: const OutlineInputBorder(),
                           ),
                           textInputAction: TextInputAction.next,
                           validator: (v) => (v == null || v.trim().isEmpty)
@@ -300,7 +300,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       ),
                       items: _genderOptions
                           .map(
-                              (g) => DropdownMenuItem(value: g, child: Text(g)))
+                              (g) => DropdownMenuItem(value: g, child: Text(g)),)
                           .toList(),
                       onChanged: (v) => setState(() => _gender = v),
                       validator: (v) => v == null ? 'Obligatoire' : null,
@@ -428,7 +428,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                               // `setState` juste après ne l'était pas : sur
                               // erreur d'écriture, l'utilisateur a souvent déjà
                               // quitté l'écran.
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(l.errorSaving),

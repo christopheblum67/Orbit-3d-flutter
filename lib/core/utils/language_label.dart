@@ -158,7 +158,7 @@ class LanguageLabel {
       _matches(code, _sdhTokens, const {'sdh'});
 
   static bool _matches(
-      String? code, Set<String> tokens, Set<String> fragments) {
+      String? code, Set<String> tokens, Set<String> fragments,) {
     if (code == null || code.isEmpty) return false;
     final lower =
         code.toLowerCase().replaceAll(RegExp(r'\.(srt|vtt|sub|ass|ssa)$'), '');
@@ -205,7 +205,7 @@ class LanguageLabel {
             part.isNotEmpty &&
             !_qualifiers.containsKey(part) &&
             !_forcedTokens.contains(part) &&
-            !_sdhTokens.contains(part))
+            !_sdhTokens.contains(part),)
         .toList();
 
     // Un libellé déjà rédigé (« Français ») n'est pas un code : on le garde tel

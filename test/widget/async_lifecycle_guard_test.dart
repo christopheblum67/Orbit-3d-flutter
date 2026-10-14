@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// passe au moment où la suspension se résout. C'est la propriété qui rend les
 /// 21 gardes ajoutées nécessaires — et non théoriques.
 class _AsyncResume extends StatefulWidget {
-  const _AsyncResume({required this.gate, super.key});
+  const _AsyncResume({required this.gate});
 
   final Completer<void> gate;
 

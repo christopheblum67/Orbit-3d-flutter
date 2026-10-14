@@ -338,7 +338,7 @@ class _AffinityBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             '$percent%',
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w800,

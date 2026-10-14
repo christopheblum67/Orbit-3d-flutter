@@ -61,7 +61,7 @@ void main() {
         locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-      ));
+      ),);
       await tester.pumpAndSettle();
 
       expect(find.text('LIVE'), findsOneWidget);
@@ -116,7 +116,7 @@ void main() {
         locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-      )),
+      ),),
       );
       await tester.pumpAndSettle();
 
@@ -169,7 +169,7 @@ void main() {
         locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-      )),
+      ),),
       );
       await tester.pumpAndSettle();
 

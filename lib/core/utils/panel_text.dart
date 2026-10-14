@@ -62,7 +62,7 @@ class PanelText {
       final decoded = utf8.decode(base64.decode(padded), allowMalformed: false);
       if (decoded.isEmpty) return value;
       // Un caractère de remplacement trahit une séquence non-UTF8.
-      if (decoded.contains('�')) return value;
+      if (decoded.contains('\uFFFD')) return value;
       // Un contrôleur (retour chariot, tabulation) trahit un faux décodage.
       if (_controlChars.hasMatch(decoded)) return value;
       // Décoder ne doit jamais raccourcir démesurément : du base64 vers du

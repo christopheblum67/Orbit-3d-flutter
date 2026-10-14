@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -58,8 +59,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            cacheExtent: 500,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
             addAutomaticKeepAlives: false,
             itemCount: hist.length,
             itemBuilder: (context, index) {

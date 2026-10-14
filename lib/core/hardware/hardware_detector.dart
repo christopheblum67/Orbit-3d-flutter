@@ -25,9 +25,6 @@ enum DeviceProfile {
   /// Les grilles 3D (EPG, effervescences) sont désactivées en Eco.
   bool get disable3D => this == DeviceProfile.eco;
 
-  /// La recherche vocale est disponible sur tous les profils.
-  bool get allowsVoiceSearch => true;
-
   DeviceProfile? fromStoredName(String? name) {
     for (final p in DeviceProfile.values) {
       if (p.name == name) return p;
