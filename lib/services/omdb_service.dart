@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
@@ -88,7 +89,11 @@ class OmdbService {
       _cacheBox!.delete(key);
       return null;
     }
-    return fromJson(Map<String, dynamic>.from(data['data']));
+    // Retypage PROFOND des données relues : même défaut que les caches
+    // TMDB/TVmaze — `Map<String, dynamic>.from` ne corrige que la racine et
+    // les maps imbriquées (ex. `Ratings`) restent des `_Map<dynamic, dynamic>`
+    // qui feraient échouer le premier cast profond d'un parseur.
+    return fromJson(deepRetypeMap(data['data'] as Map));
   }
 
   Future<void> _setCache(String key, Map<String, dynamic> data) async {

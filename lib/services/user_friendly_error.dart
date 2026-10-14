@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     show StreamNetworkException;
 

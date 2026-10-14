@@ -73,7 +73,7 @@ List<Movie> _naivePipeline({
       : filtered
           .where((m) =>
               m.title.toLowerCase().contains(q) ||
-              m.genre.toLowerCase().contains(q))
+              m.genre.toLowerCase().contains(q),)
           .toList();
   return _sortByTitle(queryFiltered, sortMode);
 }
@@ -83,7 +83,7 @@ void main() {
         for (var i = 0; i < n; i++)
           _movie('m$i', 'Film $i',
               genre: i.isEven ? 'Action' : 'Comédie',
-              category: i.isEven ? 'c1' : 'c2'),
+              category: i.isEven ? 'c1' : 'c2',),
       ];
 
   group('exactitude', () {
@@ -118,8 +118,8 @@ void main() {
       expect(r.visibleMovies.length, 30);
       expect(
           r.visibleMovies.every(
-              (m) => m.id.endsWith('1') || int.parse(m.id.substring(1)).isOdd),
-          isTrue);
+              (m) => m.id.endsWith('1') || int.parse(m.id.substring(1)).isOdd,),
+          isTrue,);
     });
 
     test('une query qui chevaucherait titre et genre ne matche pas', () {
@@ -185,7 +185,7 @@ void main() {
               )
               .visibleMovies;
           expect(actual.map((m) => m.id), expected.map((m) => m.id),
-              reason: 'catégorie="$categoryId" query="$query"');
+              reason: 'catégorie="$categoryId" query="$query"',);
         }
       }
     });
@@ -241,7 +241,7 @@ void main() {
       );
       expect(r.categoryCounts, {'x': 1, 'y': 1});
       expect(r.visibleCount, 3,
-          reason: 'le filtre texte est vide, rien n\'est exclu');
+          reason: 'le filtre texte est vide, rien n\'est exclu',);
     });
 
     test('un changement de favoris invalide les compteurs', () {
@@ -348,7 +348,7 @@ void main() {
       final sortsAfterTous = p.sortPasses;
       run('');
       expect(p.sortPasses, sortsAfterTous,
-          reason: 'même catégorie = aucun travail');
+          reason: 'même catégorie = aucun travail',);
       run('c1');
       expect(p.sortPasses, greaterThan(sortsAfterTous));
     });
@@ -358,7 +358,7 @@ void main() {
     test('minusculise titre et genre', () {
       expect(
           VodCatalogPipeline.searchKey(_movie('1', 'MiXeD', genre: 'ACtion')),
-          'mixed\u0000action');
+          'mixed\u0000action',);
     });
   });
 }

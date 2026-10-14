@@ -73,6 +73,17 @@ class TmdbRankEntry {
     return names.take(2).join(' / ');
   }
 
+  /// **Tous** les genres résolus en français, joints par « , » (ex :
+  /// « Horreur, Mystère, Science-fiction »).
+  ///
+  /// Contrairement à [genreLabel] (2 genres max, pour l'affichage compact), la
+  /// liste complète est destinée au scoring d'affinité : plus de genres
+  /// augmentent la probabilité de rejoindre les genres favoris du profil.
+  String get genreNames {
+    final names = genreIds.map((id) => _genres[id]).whereType<String>();
+    return names.join(', ');
+  }
+
   /// Nombre de votes formaté (ex: 2.5K).
   String get voteCountLabel {
     if (voteCount <= 0) return '';

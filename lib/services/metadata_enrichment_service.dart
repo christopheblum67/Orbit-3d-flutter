@@ -49,7 +49,7 @@ class MetadataEnrichmentService {
             movie;
     var detail = MovieDetail.fromMovie(xtreamMovie);
     final credits = (await safeAsync<MovieCredits?>(
-            () => _api.fetchMovieCredits(xtreamMovie.id)))
+            () => _api.fetchMovieCredits(xtreamMovie.id),))
         .valueOrNull;
     if (credits != null &&
         (credits.cast.isNotEmpty || credits.crew.isNotEmpty)) {

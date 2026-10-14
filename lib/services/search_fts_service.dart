@@ -125,7 +125,7 @@ class SearchFtsService {
   Future<void> upsert(Object entry) async {
     if (!isReady) await init();
     await _db!.insert('search_index', _toFtsRow(entry),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+        conflictAlgorithm: ConflictAlgorithm.replace,);
   }
 
   /// Supprime une entrée par ID.
@@ -197,7 +197,7 @@ class SearchFtsService {
       streamUrl: (r['stream_url'] as String?) ?? '',
       categoryId: (r['category_id'] as String?) ?? '',
       rank: (r['rank'] as num).toDouble(),
-    )).toList();
+    ),).toList();
   }
 
   /// Suggestions d'autocomplétion (prefix match sur titres).
@@ -212,7 +212,7 @@ class SearchFtsService {
       WHERE title MATCH ?
       ORDER BY title
       LIMIT ?
-    ''', [term, limit]);
+    ''', [term, limit],);
 
     return rows.map((r) => r['title'] as String).toList();
   }

@@ -111,7 +111,7 @@ void main() {
       now = now.add(const Duration(seconds: 1));
       limiter.onRateLimited(const Duration(seconds: 2));
       expect(limiter.cooldownUntil!.difference(now).inSeconds, 19,
-          reason: 'la carence la plus longue doit rester la référence');
+          reason: 'la carence la plus longue doit rester la référence',);
     });
 
     test('une fois la carence écoulée, on repart normalement', () async {
@@ -190,7 +190,7 @@ void main() {
       // L'espacement minimal reste : la cadence demeure polie.
       await limiter.beforeRequest();
       expect(limiter.throttledRequests, 0,
-          reason: 'après reset, la première requête ne doit pas attendre');
+          reason: 'après reset, la première requête ne doit pas attendre',);
     });
 
     test('un succès annule la croissance', () {
@@ -216,7 +216,7 @@ void main() {
   group('lecture des en-têtes', () {
     test('Retry-After en secondes', () {
       final h = Headers.fromMap({
-        'retry-after': ['30']
+        'retry-after': ['30'],
       });
       expect(ApiRateLimiter.retryAfterFrom(h), const Duration(seconds: 30));
     });
@@ -258,7 +258,7 @@ void main() {
               .millisecondsSinceEpoch ~/
           1000;
       final h = Headers.fromMap({
-        'x-ratelimit-reset': ['$epoch']
+        'x-ratelimit-reset': ['$epoch'],
       });
       final d = ApiRateLimiter.retryAfterFrom(h);
       expect(d, isNotNull);
@@ -270,8 +270,8 @@ void main() {
       expect(ApiRateLimiter.retryAfterFrom(Headers.fromMap({})), isNull);
       expect(
         ApiRateLimiter.retryAfterFrom(Headers.fromMap({
-          'retry-after': ['brol']
-        })),
+          'retry-after': ['brol'],
+        }),),
         isNull,
       );
     });
@@ -288,9 +288,9 @@ void main() {
       dio.httpClientAdapter = _RecordingAdapter(seen);
 
       await dio.get<void>('http://panel.test/a',
-          options: Options(responseType: ResponseType.bytes));
+          options: Options(responseType: ResponseType.bytes),);
       await dio.get<void>('http://panel.test/b',
-          options: Options(responseType: ResponseType.bytes));
+          options: Options(responseType: ResponseType.bytes),);
 
       expect(seen, hasLength(2));
       // On n'assert PAS l'écart mural : le `sleep` est simulé par `setUp`
@@ -313,7 +313,7 @@ void main() {
       // intéresse le test.
       try {
         await dio.get<void>('http://panel.test/a',
-            options: Options(responseType: ResponseType.bytes));
+            options: Options(responseType: ResponseType.bytes),);
         fail('un 429 doit remonter en erreur');
       } on DioException {
         // attendu
@@ -321,7 +321,7 @@ void main() {
 
       expect(limiter.cooldownCount, 1);
       expect(limiter.isCoolingDown, isTrue,
-          reason: 'après un refus explicite, la suite doit se taire');
+          reason: 'après un refus explicite, la suite doit se taire',);
     });
 
     test('un 200 n\'arme aucune carence', () async {
@@ -330,7 +330,7 @@ void main() {
       dio.httpClientAdapter = _RecordingAdapter(<DateTime>[], status: 200);
 
       await dio.get<void>('http://panel.test/a',
-          options: Options(responseType: ResponseType.bytes));
+          options: Options(responseType: ResponseType.bytes),);
       expect(limiter.cooldownCount, 0);
     });
   });

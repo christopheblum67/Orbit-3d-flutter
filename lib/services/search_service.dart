@@ -193,7 +193,7 @@ class SearchService {
   /// ne pas casser les appelants existants).
   bool _shouldHideCategory(SearchItem item,
       List<String>? hiddenVodCategoryIds,
-      List<String>? hiddenSeriesCategoryIds) {
+      List<String>? hiddenSeriesCategoryIds,) {
     if (hiddenVodCategoryIds == null && hiddenSeriesCategoryIds == null) {
       return false;
     }
@@ -283,7 +283,7 @@ class SearchService {
     // tri pour que les compteurs et le classement restent cohérents.
     final withoutHidden = unique
         .where((item) => !_shouldHideCategory(
-            item, hiddenVodCategoryIds, hiddenSeriesCategoryIds))
+            item, hiddenVodCategoryIds, hiddenSeriesCategoryIds,),)
         .toList();
 
     // Restriction à la catégorie sélectionnée, appliquée après le masquage :
@@ -444,7 +444,7 @@ class SearchService {
       // Purge des entrées les plus anciennes.
       final stale = _remoteCache.entries
           .where((e) =>
-              DateTime.now().difference(e.value.at) > _remoteCacheTtl)
+              DateTime.now().difference(e.value.at) > _remoteCacheTtl,)
           .map((e) => e.key)
           .toList();
       for (final key in stale) {

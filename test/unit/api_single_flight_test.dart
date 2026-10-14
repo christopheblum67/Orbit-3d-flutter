@@ -49,12 +49,12 @@ void main() {
 
       expect(executions, 1,
           reason: 'le corps ne doit tourner qu\'une fois, quel que soit le '
-              'nombre d\'appelants concurrents');
+              'nombre d\'appelants concurrents',);
       expect(api.inFlightCount, 1);
 
       gate.complete(42);
       expect(await Future.wait(results), [42, 42, 42, 42],
-          reason: 'tous les appelants doivent recevoir le même résultat');
+          reason: 'tous les appelants doivent recevoir le même résultat',);
       expect(executions, 1);
       expect(api.inFlightCount, 0);
     });
@@ -86,7 +86,7 @@ void main() {
       );
       expect(api.inFlightCount, 0,
           reason: 'un vol raté laissé en cache ferait échouer tous les '
-              'appels suivants, définitivement');
+              'appels suivants, définitivement',);
 
       // L'appel suivant repart à zéro.
       await expectLater(
@@ -104,7 +104,7 @@ void main() {
 
       expect(api.inFlightCount, 3,
           reason: 'Films, Séries et Live sont trois endpoints différents : '
-              'les regrouper ensemble renverrait le mauvais contenu');
+              'les regrouper ensemble renverrait le mauvais contenu',);
       gate.complete();
     });
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -23,8 +24,17 @@ class TmdbService {
   Box? _cacheBox;
   final _requestTimestamps = <int>[];
 
-  TmdbService()
-      : _dio = Dio(
+  /// Résout la clé API à injecter dans chaque requête.
+  ///
+  /// Permet d'instancier un [TmdbService] **dédié** avec une autre clé (ex. la
+  /// clé d'affinité) tout en gardant le reste de l'app sur la clé effective.
+  final String Function() _keyResolver;
+
+  static String _defaultKeyResolver() => TmdbApiKeyStore.instance.effectiveKey;
+
+  TmdbService({String Function()? keyResolver})
+      : _keyResolver = keyResolver ?? _defaultKeyResolver,
+        _dio = Dio(
           BaseOptions(
             baseUrl: _baseUrl,
             connectTimeout: const Duration(seconds: 10),
@@ -50,7 +60,7 @@ class TmdbService {
           if (options.extra['tmdb_validate'] == true) {
             return handler.next(options);
           }
-          final key = TmdbApiKeyStore.instance.effectiveKey;
+          final key = _keyResolver();
           if (key.isNotEmpty) {
             options.queryParameters['api_key'] = key;
           } else {
@@ -88,7 +98,7 @@ class TmdbService {
     }
   }
 
-  bool get hasApiKey => TmdbApiKeyStore.instance.hasEffectiveKey;
+  bool get hasApiKey => _keyResolver().isNotEmpty;
 
   /// Vérifie qu'une clé est valide via l'endpoint `/configuration`.
   Future<bool> validateApiKey(String key) async {
@@ -143,7 +153,10 @@ class TmdbService {
     // Un cache "vide" est codé par un container vide : on le traite comme
     // un non-résultat pour ne pas stocker d'objets nuls.
     if (raw == null) return null;
-    final values = Map<String, dynamic>.from(raw as Map);
+    // `Map<String, dynamic>.from` ne retype que la RACINE : les maps
+    // imbriquées relues de Hive restent des `_Map<dynamic, dynamic>` et font
+    // échouer les cast des parseurs. Même défaut que le cache TVmaze.
+    final values = deepRetypeMap(raw as Map);
     if (values.isEmpty) return null;
     return fromJson(values);
   }
@@ -343,7 +356,9 @@ class TmdbService {
           Map<String, dynamic>.from(results.first as Map),
         );
         await _setCache(
-            cacheKey, Map<String, dynamic>.from(results.first as Map),);
+          cacheKey,
+          Map<String, dynamic>.from(results.first as Map),
+        );
         return entry;
       },
       context: 'TmdbService.searchMovieLight',
@@ -354,6 +369,31 @@ class TmdbService {
 
   String _cacheKey(String prefix, String id, [int? suffix]) =>
       suffix != null ? 'tmdb:$prefix:$id:$suffix' : 'tmdb:$prefix:$id';
+
+  /// Lecture **cache seul** (aucun réseau, aucune attente) de l'entrée
+  /// `searchMovieLight` d'un film.
+  ///
+  /// L'onglet Matchmaking (« Pour vous ») parcourt tout le catalogue : il ne peut
+  /// pas résoudre le genre TMDB de 100 000 films (rate-limit TMDB). Il réutilise
+  /// donc, sans latence, les genres réels **déjà résolus** par les tuiles et
+  /// l'enrichissement de grille — mêmes clés de cache Hive partagées. Renvoie
+  /// `null` si l'entrée est absente ou expirée (aucune requête déclenchée).
+  TmdbRankEntry? peekMovieLight(String title, {int? year}) {
+    if (!hasApiKey) return null;
+    return _getCached(
+      _cacheKey('grid', title, year ?? 0),
+      (d) => TmdbRankEntry.fromMovieJson(d),
+    );
+  }
+
+  /// Idem [peekMovieLight], côté séries (`searchTvLight`).
+  TmdbRankEntry? peekTvLight(String title, {int? year}) {
+    if (!hasApiKey) return null;
+    return _getCached(
+      _cacheKey('gridTv', title, year ?? 0),
+      (d) => TmdbRankEntry.fromTvJson(d),
+    );
+  }
 
   /// Détails complets d'un film
   Future<MovieDetail?> getMovieDetail(int tmdbId) async {
@@ -578,7 +618,7 @@ class TmdbService {
     final result = await safeAsync<int?>(
       () async {
         final queryParams = <String, String>{
-          'query': title,
+          'query': normalizeSearchTitle(title),
           'include_adult': 'false',
         };
         if (year != null && year > 0) {
@@ -594,6 +634,51 @@ class TmdbService {
         return null;
       },
       context: 'TmdbService.searchTvId',
+      fallbackValue: null,
+    );
+    return result.valueOrNull;
+  }
+
+  /// Recherche légère d'une série : renvoie directement une entrée de
+  /// classement (genres résolus, note, année) à partir du 1er résultat TMDB.
+  /// Une seule requête par série, mise en cache Hive (même TTL 24 h).
+  /// Utilisée pour enrichir les cartes de la grille Séries en arrière-plan.
+  Future<TmdbRankEntry?> searchTvLight(String title, {int? year}) async {
+    if (!hasApiKey) return null;
+
+    final cacheKey = _cacheKey('gridTv', title, year ?? 0);
+    final cached = _getCached(cacheKey, (d) => TmdbRankEntry.fromTvJson(d));
+    if (cached != null) return cached;
+
+    await _waitForRateLimit();
+
+    final result = await safeAsync<TmdbRankEntry?>(
+      () async {
+        final queryParams = <String, String>{
+          'query': normalizeSearchTitle(title),
+          'include_adult': 'false',
+        };
+        if (year != null && year > 0) {
+          queryParams['first_air_date_year'] = year.toString();
+        }
+        final response =
+            await _dio.get('/search/tv', queryParameters: queryParams);
+        final results = response.data['results'] as List?;
+        if (results == null || results.isEmpty) {
+          // Cache un résultat "vide" pour éviter de re-chercher sans cesse.
+          await _setCache(cacheKey, const <String, dynamic>{});
+          return null;
+        }
+        final entry = TmdbRankEntry.fromTvJson(
+          Map<String, dynamic>.from(results.first as Map),
+        );
+        await _setCache(
+          cacheKey,
+          Map<String, dynamic>.from(results.first as Map),
+        );
+        return entry;
+      },
+      context: 'TmdbService.searchTvLight',
       fallbackValue: null,
     );
     return result.valueOrNull;
@@ -808,7 +893,9 @@ class TmdbService {
         try {
           final map = Map<String, dynamic>.from(r);
           out.add(
-            isTv ? TmdbRankEntry.fromTvJson(map) : TmdbRankEntry.fromMovieJson(map),
+            isTv
+                ? TmdbRankEntry.fromTvJson(map)
+                : TmdbRankEntry.fromMovieJson(map),
           );
         } catch (_) {
           // entree de cache illisible ignoree
@@ -885,8 +972,9 @@ class TmdbService {
         await _setCache(cacheKey, response.data);
         final results = response.data['results'] as List<dynamic>? ?? [];
         return results
-            .map((r) =>
-                TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),)
+            .map(
+              (r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),
+            )
             .toList();
       },
       context: 'TmdbService.getSimilarMovies',
@@ -961,8 +1049,9 @@ class TmdbService {
         await _setCache(cacheKey, response.data);
         final results = response.data['results'] as List<dynamic>? ?? [];
         return results
-            .map((r) =>
-                TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),)
+            .map(
+              (r) => TmdbRankEntry.fromMovieJson(Map<String, dynamic>.from(r)),
+            )
             .toList();
       },
       context: 'TmdbService.getMovieRecommendations',

@@ -83,6 +83,13 @@ void main() {
       state.single.lastTestError,
       contains('Configuration Xtream incomplète'),
     );
+
+    // `addSubscription` déclenche `refreshValidity` SANS `await` (tâche en
+    // feu-et-oubli qui appelle le vrai ApiService) : sans ce délai, la tâche
+    // survit au tearDown, ferme Hive en dessous d'elle et corrompt le test
+    // suivant (« Box has already been closed »). On lui laisse le temps de
+    // se terminer dans le test courant.
+    await Future<void>.delayed(const Duration(milliseconds: 100));
   });
 
   test('testConnection signale une erreur réseau via une API injectée',
@@ -109,5 +116,9 @@ void main() {
     final state = container.read(subscriptionsProvider);
     expect(state.single.lastTestResult, TestResultStatus.error);
     expect(state.single.lastTestError, contains('réseau simulé en échec'));
+
+    // Même tâche `refreshValidity` lancée sans `await` par `addSubscription` :
+    // on la laisse se terminer dans le test courant (voir test précédent).
+    await Future<void>.delayed(const Duration(milliseconds: 100));
   });
 }

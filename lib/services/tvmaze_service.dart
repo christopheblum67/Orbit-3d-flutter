@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -79,7 +80,13 @@ class TvmazeService {
       _cacheBox!.delete(key);
       return null;
     }
-    return fromJson(Map<String, dynamic>.from(data['data']));
+    // `Map<String, dynamic>.from` ne retype que la RACINE : les maps
+    // imbriquées relues de Hive restent des `_Map<dynamic, dynamic>` et font
+    // échouer le cast du parseur (« type '_Map<dynamic, dynamic>' is not a
+    // subtype of type 'Map<String, dynamic>?' »). On retype PROFONDÉMENT.
+    final payload = data['data'];
+    if (payload is! Map) return null;
+    return fromJson(deepRetypeMap(payload));
   }
 
   Future<void> _setCache(String key, Map<String, dynamic> data) async {

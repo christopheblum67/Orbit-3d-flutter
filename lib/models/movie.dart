@@ -116,7 +116,7 @@ class Movie {
   }
 
   factory Movie.fromMap(Map<String, dynamic> map) {
-    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    // Textes du panel décodés une fois pour toutes (cf. PanelText) :
     map = PanelText.decodeMap(map);
     // `cast` et `crew` ne sont pas presents sur `get_vod_streams` et certains
     // panels les renvoient en chaine ou avec des cles non-String : on ignore
