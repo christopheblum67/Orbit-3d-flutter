@@ -38,7 +38,7 @@ void main() {
       final raw = prefs.getString('orbit_last_refresh');
       expect(raw, isNotNull,
           reason: 'sans écriture, le widget affiche « Jamais mis à jour » '
-              'après chaque redémarrage');
+              'après chaque redémarrage',);
       expect(DateTime.parse(raw!), when);
     });
 
@@ -79,7 +79,7 @@ void main() {
         <String, Object>{'orbit_last_refresh': 'pas-une-date'},
       );
       expect(await loadLastRefresh(), isNull,
-          reason: 'une préférence corrompue ne doit pas casser le lancement');
+          reason: 'une préférence corrompue ne doit pas casser le lancement',);
     });
   });
 }
