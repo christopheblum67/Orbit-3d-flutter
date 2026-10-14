@@ -522,7 +522,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           epgId,
           chunkResults,
           missingIds,
-        ));
+        ),);
       }
       await Future.wait(tasks);
       if (mounted) {

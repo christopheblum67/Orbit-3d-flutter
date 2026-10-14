@@ -66,6 +66,14 @@ class EpgBufferStore {
 
   String? _cachedDir;
 
+  /// Horloge du tampon, injectable pour les tests.
+  ///
+  /// Le défaut verrouillé par `epg_buffer_store_test` tient à un changement de
+  /// JOUR : la seule façon de le reproduire sans attendre minuit est de
+  /// déplacer l'horloge.
+  @visibleForTesting
+  DateTime Function() clock = DateTime.now;
+
   Future<Directory> _dir() async {
     final known = _cachedDir;
     if (known != null) return Directory(known);
@@ -113,10 +121,10 @@ class EpgBufferStore {
         final file = File('${(await _dir()).path}/${fileNameFor(cacheKey)}');
         if (!file.existsSync()) return null;
         fileBytes = file.lengthSync();
-        final writtenAt = DateTime.fromMillisecondsSinceEpoch(
+        final modifiedAt = DateTime.fromMillisecondsSinceEpoch(
           file.lastModifiedSync().millisecondsSinceEpoch,
         );
-        if (DateTime.now().difference(writtenAt) > maxAgeLimit) return null;
+        if (clock().difference(modifiedAt) > maxAgeLimit) return null;
         return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
       },
       context: 'EpgBufferStore.read',
@@ -128,11 +136,16 @@ class EpgBufferStore {
     final writtenAt = data['writtenAt'];
     final list = data['programs'];
     if (writtenAt is! int || list is! List) return null;
-    if (DateTime.now()
-        .difference(DateTime.fromMillisecondsSinceEpoch(writtenAt)) >
-        maxAgeLimit) {
-      return null;
-    }
+    final written = DateTime.fromMillisecondsSinceEpoch(writtenAt);
+    if (clock().difference(written) > maxAgeLimit) return null;
+    // Le tampon est ancré sur la FENÊTRE DE LA JOURNÉE où il a été écrit :
+    // `project` prend `windowStart = minuit du jour d'écriture` et
+    // `horizon = écriture + 30 h`. Relu le lendemain — la péremption seule ne
+    // l'attrape pas, la nuit fait moins de 12 h — il couvre encore la veille
+    // mais plus la fin de la journée en cours. La grille n'avait alors de
+    // programmes que jusqu'à `écriture + 30 h`, soit quelques heures après
+    // minuit, tout le reste étant comblé par des blocs « aucune donnée ».
+    if (!_sameLocalDay(written, clock())) return null;
     try {
       final parsed = <EPGProgram>[
         for (final item in list)
@@ -169,7 +182,7 @@ class EpgBufferStore {
         final temp = File('${target.path}.tmp');
         final payload = jsonEncode({
           'v': _formatVersion,
-          'writtenAt': DateTime.now().millisecondsSinceEpoch,
+          'writtenAt': clock().millisecondsSinceEpoch,
           'programs': [
             for (final p in programs)
               {
@@ -222,6 +235,14 @@ class EpgBufferStore {
 
   @visibleForTesting
   void resetDirectoryCacheForTests() => _cachedDir = null;
+
+  /// Vrai si [a] et [b] tombent le même jour civil, en heure locale.
+  ///
+  /// Volontairement en heure locale : la fenêtre du tampon est calée sur
+  /// `EpgDayWindow`, qui est locale (le guide doit afficher l'heure du
+  /// téléspectateur).
+  static bool _sameLocalDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   /// Taille lisible, sans l'unité « octets » qui masque l'ordre de grandeur.
   static String _humanSize(int bytes) {

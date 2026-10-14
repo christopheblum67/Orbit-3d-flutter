@@ -25,7 +25,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
 
       expect(offset.value, 0.0);
 
@@ -38,7 +38,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(offset.value, closeTo(120.0, 1.0),
-          reason: 'le glissement doit déplacer la grille');
+          reason: 'le glissement doit déplacer la grille',);
 
       // Glissement inverse : retour à zéro, la journée revient en arrière.
       await tester.timedDrag(
@@ -72,7 +72,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
 
       // Décalage modifié hors rebuild, comme le fait le zoom/le recentrage.
       offset.value = 1200.0;
@@ -86,7 +86,7 @@ void main() {
 
       // Sans la lecture vivante, la base restait 500 et le résultat 600.
       expect(offset.value, closeTo(1300.0, 1.0),
-          reason: 'la base doit être l\'offset courant (1200), pas le build (500)');
+          reason: 'la base doit être l\'offset courant (1200), pas le build (500)',);
     });
 
     testWidgets('le décalage est borné à la journée', (tester) async {
@@ -102,7 +102,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
 
       // Tirage vers la droite depuis 500 : ne doit pas dépasser 1000.
       await tester.timedDrag(
@@ -139,7 +139,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
 
       await tester.timedDrag(
         find.text('v'),
@@ -149,7 +149,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(offset.value, 0.0,
-          reason: 'un geste vertical ne doit pas toucher au décalage');
+          reason: 'un geste vertical ne doit pas toucher au décalage',);
     });
 
     testWidgets('le geste cumulé ne dérive pas', (tester) async {
@@ -168,7 +168,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
 
       // Trois gestes identiques de 33 px : le total doit être exact.
       for (var i = 0; i < 3; i++) {
@@ -180,7 +180,7 @@ void main() {
         await tester.pumpAndSettle();
       }
       expect(offset.value, closeTo(99.0, 0.5),
-          reason: 'trois glissements de 33 px doivent faire exactement 99 px');
+          reason: 'trois glissements de 33 px doivent faire exactement 99 px',);
     });
   });
 }

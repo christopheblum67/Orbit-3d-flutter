@@ -96,7 +96,7 @@ test('l’axe et la grille partagent le même abscisse d’origine', () {
     );
 
     expect(back.difference(now).inSeconds.abs(), lessThanOrEqualTo(1),
-        reason: 'aller-retour : la ligne et l’axe doivent coïncider');
+        reason: 'aller-retour : la ligne et l’axe doivent coïncider',);
   });
 
   testWidgets('la bande d’axe et la grille ont la même largeur de gauche',
@@ -135,7 +135,7 @@ test('l’axe et la grille partagent le même abscisse d’origine', () {
     );
     // 9 h = 540 min × 4 px = 2160 px depuis l'origine de la grille.
     expect(controller.timeToPixels(gridStart.add(const Duration(hours: 9))),
-        2160.0);
+        2160.0,);
     expect(
       controller
           .pixelsToTime(2160.0)

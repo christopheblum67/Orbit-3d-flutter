@@ -14,7 +14,7 @@ List<EPGProgram> fillForTest({
   required DateTime end,
 }) =>
     gap.EpgGapFiller.fill(
-        programs: programs, windowStart: start, windowEnd: end);
+        programs: programs, windowStart: start, windowEnd: end,);
 
 /// Programme d'une heure, dans la fenêtre de la journée.
 EPGProgram prog(String title, int startHour) {
@@ -120,7 +120,7 @@ void main() {
         'TF1 HD': [prog('LE JT', 10), prog('LE 19H', 19)],
         'FRANCE 2 HD': [prog('LE 13H', 13)],
         // M6 reste vide : elle doit remonter comme « sans programme ».
-      }));
+      }),);
       await tester.pump();
 
       expect(state.debugProgramCount('TF1 HD'), 2);
@@ -139,7 +139,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         harness([
-          'TF1 HD'
+          'TF1 HD',
         ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
@@ -151,7 +151,7 @@ void main() {
 
       await tester.pumpWidget(
         harness([
-          'TF1 HD'
+          'TF1 HD',
         ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
@@ -171,7 +171,7 @@ void main() {
       await tester.pumpWidget(
         harness([
           'A',
-          'B'
+          'B',
         ], {
           'A': [prog('X', 8)],
           // 'B' volontairement absent : c'est le cas réel de la plupart des
@@ -186,7 +186,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         harness([
-          'TF1 HD'
+          'TF1 HD',
         ], {
           'TF1 HD': [prog('LE JT', 10)],
         }),
@@ -195,7 +195,7 @@ void main() {
 
       await tester.pumpWidget(
         harness([
-          'SPORT 1'
+          'SPORT 1',
         ], {
           'SPORT 1': [prog('FOOT', 20)],
         }),
@@ -216,7 +216,7 @@ void main() {
       final button = tester.widget<IconButton>(find.ancestor(
         of: find.byIcon(Icons.zoom_out),
         matching: find.byType(IconButton),
-      ));
+      ),);
       return button.tooltip ?? '';
     }
 
@@ -270,7 +270,7 @@ void main() {
           'BBBB': [prog('P2', 0)],
           'CCCC': [prog('P3', 0)],
         },
-      ));
+      ),);
       await tester.pump();
       expect(tester.takeException(), isNull);
 
@@ -398,7 +398,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      ),);
       await tester.pump();
       expect(tester.takeException(), isNull);
 
@@ -420,12 +420,12 @@ void main() {
       expect(controller.pixelsPerMinuteValue, ppm);
       expect(state.debugProgramTitleAt(300, 'AAAA'), 'P14',
           reason: 'l\'abscisse écran doit être rendue absolue avant la '
-              'comparaison');
+              'comparaison',);
 
       // Un décalage écran nul ne doit PAS tomato à P14 : sans conversion,
       // 0 px écran serait comparé aux positions absolues et tomberait sur P0.
       expect(state.debugProgramTitleAt(0, 'AAAA'), isNot('P14'),
-          reason: 'le bord gauche de l\'écran est ailleurs dans la journée');
+          reason: 'le bord gauche de l\'écran est ailleurs dans la journée',);
     });
   });
 
@@ -477,11 +477,11 @@ group('EpgGapFiller — la grille est continue', () {
           start: start,
           end: start.add(const Duration(days: 1)),
         ),
-      }));
+      }),);
       await tester.pump();
 
       final state = tester.state<EpgGrid2DViewState>(
-          find.byType(EpgGrid2DView));
+          find.byType(EpgGrid2DView),);
       final before = state.debugHorizontalOffsetForTest;
 
       // Un glissement horizontal franchement vers la gauche doit entraîner la
@@ -528,7 +528,7 @@ group('EpgGapFiller — la grille est continue', () {
       await tester.pump();
 
       final state = tester.state<EpgGrid2DViewState>(
-          find.byType(EpgGrid2DView));
+          find.byType(EpgGrid2DView),);
       final before = state.debugHorizontalOffsetForTest;
 
       // Geste franchement vertical (avec la petite dérive horizontale d'un
@@ -543,7 +543,7 @@ group('EpgGapFiller — la grille est continue', () {
 
       final after = state.debugHorizontalOffsetForTest;
       expect(after, closeTo(before, 1.0),
-          reason: 'un geste vertical ne doit pas entraîner la journée');
+          reason: 'un geste vertical ne doit pas entraîner la journée',);
       expect(tester.takeException(), isNull);
     });
   });

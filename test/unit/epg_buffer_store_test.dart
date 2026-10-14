@@ -21,6 +21,7 @@ void main() {
 
   tearDown(() async {
     EpgBufferStore.instance.resetDirectoryCacheForTests();
+    EpgBufferStore.instance.clock = DateTime.now;
     if (dir.existsSync()) {
       try {
         dir.deleteSync(recursive: true);
@@ -83,7 +84,7 @@ void main() {
       expect(a!.first.channelId, 'TF1');
       expect(b!.first.channelId, 'M6',
           reason: 'le tampon est indexé par abonnement : les listes de chaînes '
-              'diffèrent, un partage afficherait les programmes de l\'autre');
+              'diffèrent, un partage afficherait les programmes de l\'autre',);
     });
   });
 
@@ -109,6 +110,43 @@ void main() {
       expect(await EpgBufferStore.instance.read('k'), isNotNull);
     });
 
+    test('un tampon de la VEILLE est refusé même encore « frais »', () async {
+      // Le tampon est ancré sur la JOURNÉE de l'écriture : `project` prend
+      // `windowStart = minuit du jour d'écriture`. Écrit hier à 22 h, il couvre
+      // « hier 00:00 → aujourd'hui 04:00 ». Relu aujourd'hui à 03:00 — moins de
+      // 12 h plus tard, donc « pas périmé » — il laissait la grille sans
+      // programmes au-delà de 04:00 : seules les premières heures après minuit
+      // s'affichaient, tout le reste comblé en blocs « aucune donnée ».
+      final store = EpgBufferStore.instance;
+      store.clock = () => DateTime(2026, 1, 1, 22);
+      await store.write('k', [program()]);
+
+      store.clock = () => DateTime(2026, 1, 2, 3);
+
+      expect(
+        await store.read('k'),
+        isNull,
+        reason: 'un tampon dont la fenêtre s\'arrête au petit matin ne peut pas '
+            'servir la journée en cours : mieux vaut re-télécharger que '
+            'n\'afficher que les premières heures après minuit',
+      );
+    });
+
+    test('un tampon écrit le même jour reste accepté', () async {
+      final store = EpgBufferStore.instance;
+      store.clock = () => DateTime(2026, 1, 2, 1);
+      await store.write('k', [program()]);
+
+      store.clock = () => DateTime(2026, 1, 2, 6);
+
+      expect(
+        await store.read('k'),
+        isNotNull,
+        reason: 'écrit et relu le même jour, la fenêtre couvre encore la '
+            'journée : le refuser coûterait un téléchargement inutile',
+      );
+    });
+
     test('un format inconnu est refusé sans être lu', () async {
       final file = File(
         '${dir.path}/${EpgBufferStore.instance.fileNameFor('k')}',
@@ -117,7 +155,7 @@ void main() {
         'v': 999,
         'writtenAt': DateTime.now().millisecondsSinceEpoch,
         'programs': <Object>[],
-      }));
+      }),);
 
       expect(await EpgBufferStore.instance.read('k'), isNull);
     });
@@ -149,13 +187,13 @@ void main() {
           {'c': 'TF1', 't': 'ok', 'd': '', 's': 1767355200000, 'e': 1767357000000},
           {'c': 'M6', 't': 'champ manquant'},
         ],
-      }));
+      }),);
 
       final read = await EpgBufferStore.instance.read('k');
 
       expect(read, isNull,
           reason: 'une entrée tronquée rend le fichier entier douteux : mieux '
-              'vaut re-télécharger que mixture des programmes sans horaire');
+              'vaut re-télécharger que mixture des programmes sans horaire',);
     });
 
     test('aucun fichier temporaire ne subsiste après écriture', () async {
@@ -169,7 +207,7 @@ void main() {
 
       expect(leftovers, isEmpty,
           reason: 'l\'écriture passe par un .tmp puis un renommage ; un .tmp '
-              'laissé signale une coupure au milieu de l\'écriture');
+              'laissé signale une coupure au milieu de l\'écriture',);
     });
   });
 
@@ -226,6 +264,6 @@ void main() {
     expect(a, isNot(c));
     expect(a, matches(RegExp(r'^epg_\d+\.json$')),
         reason: 'la clé contient un caractère interdit dans un nom de fichier '
-            '(`|`), d\'où le hachage');
+            '(`|`), d\'où le hachage',);
   });
 }

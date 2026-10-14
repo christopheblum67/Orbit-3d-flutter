@@ -26,7 +26,7 @@ void main() {
     test('laisse intact un titre en clair', () {
       expect(
           ApiService.decodeEpgTextForTest('Le Petit Nicolas'),
-          'Le Petit Nicolas');
+          'Le Petit Nicolas',);
       expect(ApiService.decodeEpgTextForTest('TF1'), 'TF1');
     });
 

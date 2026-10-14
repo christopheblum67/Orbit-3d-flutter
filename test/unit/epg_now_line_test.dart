@@ -71,7 +71,7 @@ group('titre d\'un programme — lisibilité', () {
       // comportement changeait avec le zoom.
       for (final ppm in [1.0, 1.15, 1.5, 2.2, 3.0, 4.0, 14.0]) {
         expect(cullMarginFor(ppm), closeTo(ppm * 60.0, 0.001),
-            reason: 'ppm=$ppm');
+            reason: 'ppm=$ppm',);
       }
     });
 
