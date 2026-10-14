@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -240,14 +241,32 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
 /// Lance la lecture **directe** d'un fichier tÃ©lÃ©chargÃ© (hors-ligne).
 /// N'utilise pas le flux rÃ©seau â€” passe par le lecteur interne avec le chemin local.
 void playDownloadedContent(BuildContext context, DownloadTask task) {
-  if (!task.isFileExists) {
+  final path = task.localPath;
+  final file = File(path);
+  final dir = file.parent;
+
+  if (!dir.existsSync()) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Fichier introuvable : ${task.localPath}')),
+      SnackBar(content: Text('RÃ©pertoire introuvable : ${dir.path}')),
     );
     return;
   }
+
+  if (!file.existsSync()) {
+    // Lister les fichiers dans le rÃ©pertoire pour diagnostic
+    final files = dir.listSync();
+    final names = files.map((f) => f.path.split('/').last).join(', ');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Fichier introuvable : $path. Fichiers prÃ©sents : $names'),
+        duration: const Duration(seconds: 5),
+      ),
+    );
+    return;
+  }
+
   context.go('/player', extra: {
-    'url': task.localPath,
+    'url': path,
     'title': task.title,
     'isLocalFile': true,
     'headers': task.headers,

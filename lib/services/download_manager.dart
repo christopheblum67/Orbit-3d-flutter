@@ -36,6 +36,7 @@ class DownloadWorkerResponse {
   final DownloadProgress? progress;
   final String? errorMessage;
   final bool isComplete;
+  final String? localPath;
 
   DownloadWorkerResponse({
     required this.taskId,
@@ -43,6 +44,7 @@ class DownloadWorkerResponse {
     this.progress,
     this.errorMessage,
     this.isComplete = false,
+    this.localPath,
   });
 }
 
@@ -513,6 +515,11 @@ class DownloadManager extends ChangeNotifier {
     }
 
     if (response.isComplete) {
+      // If download completed successfully, set the local path on the task
+      if (response.localPath != null && response.localPath!.isNotEmpty) {
+        task.localPath = response.localPath!;
+        task.save();
+      }
       _cleanupWorker(response.taskId);
       _activeDownloads--;
       notifyListeners();
@@ -968,6 +975,7 @@ Future<void> _runDownload(
               totalBytes: totalBytes,
             ),
             isComplete: true,
+            localPath: params.localPath,
           ),
         );
       },
