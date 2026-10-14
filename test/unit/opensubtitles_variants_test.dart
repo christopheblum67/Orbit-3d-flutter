@@ -25,7 +25,7 @@ void main() {
     final variants = queries(panelTitle);
 
     expect(variants.first,
-        'Monstre : L''histoire de Lizzie Borden - Une chatte tenace');
+        'Monstre : L''histoire de Lizzie Borden - Une chatte tenace',);
     expect(variants, contains('Monstre : L''histoire de Lizzie Borden'));
     expect(variants, contains('L''histoire de Lizzie Borden'));
     expect(variants.last, 'Lizzie Borden');
@@ -39,7 +39,7 @@ void main() {
     final variants = queries(panelTitle);
     for (final derived in variants.skip(1)) {
       expect(derived.endsWith('chatte tenace'), isFalse,
-          reason: '« $derived » ne mène à aucun contenu');
+          reason: '« $derived » ne mène à aucun contenu',);
     }
   });
 
@@ -74,7 +74,7 @@ void main() {
     expect(variants.toSet().length, variants.length);
     for (final v in variants) {
       expect(v.split(RegExp(r'\s+')).length, greaterThanOrEqualTo(2),
-          reason: '« $v » est trop ambigu');
+          reason: '« $v » est trop ambigu',);
     }
   });
 

@@ -51,7 +51,7 @@ void main() {
   test('le file_id est imbriqué dans attributes.files[], pas à la racine', () {
     final attrs = entries().first['attributes'] as Map;
     expect(attrs.containsKey('file_id'), isFalse,
-        reason: 'ce champ n\'existe pas : le lire renvoyait 0');
+        reason: 'ce champ n\'existe pas : le lire renvoyait 0',);
     final files = attrs['files'] as List;
     expect(files, isNotEmpty);
     final file = files.first as Map;

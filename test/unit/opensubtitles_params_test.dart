@@ -16,7 +16,7 @@ void main() {
         episodeNumber: 2,
       );
       expect(params.containsKey('season_number'), isFalse,
-          reason: 'ignoré par l\'API sans parent_imdb_id ni parent_tmdb_id');
+          reason: 'ignoré par l\'API sans parent_imdb_id ni parent_tmdb_id',);
       expect(params.containsKey('episode_number'), isFalse);
       expect(params['query'], 'monstre : lizzie borden');
     });

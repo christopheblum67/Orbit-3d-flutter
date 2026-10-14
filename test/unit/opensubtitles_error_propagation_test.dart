@@ -107,7 +107,7 @@ void main() {
       await expectLater(service.searchMovie(27205), throwsA(anything));
       expect(calls, 0,
           reason: 'sans clé, inutile de consommer une requête : le message '
-              'doit être « saisissez la clé »');
+              'doit être « saisissez la clé »',);
     });
   });
 

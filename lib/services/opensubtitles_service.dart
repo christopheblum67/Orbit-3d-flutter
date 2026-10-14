@@ -107,6 +107,126 @@ class OpenSubtitlesFeature {
   String toString() => 'OpenSubtitlesFeature($featureId, $title)';
 }
 
+/// Issue d'une validation de clé API OpenSubtitles.
+///
+/// Quatre cas possibles, volontairement distincts : ce que l'écran doit
+/// afficher diffère pour chacun.
+@immutable
+class OpenSubtitlesKeyCheck {
+  const OpenSubtitlesKeyCheck._(this._kind, [this.detail = '']);
+
+  /// Aucune clé n'est saisie : seule conduite possible, la saisir.
+  const OpenSubtitlesKeyCheck.missing()
+      : this._(_OpenSubtitlesKeyCheckKind.missing);
+
+  /// La clé est acceptée par le service.
+  const OpenSubtitlesKeyCheck.valid()
+      : this._(_OpenSubtitlesKeyCheckKind.valid);
+
+  /// La clé est présente mais REFUSÉE (HTTP 401) : la saisir ne suffit pas.
+  const OpenSubtitlesKeyCheck.rejected()
+      : this._(_OpenSubtitlesKeyCheckKind.rejected);
+
+  /// Le service est injoignable, ou répond autre chose que 200/401.
+  const OpenSubtitlesKeyCheck.unreachable(String detail)
+      : this._(_OpenSubtitlesKeyCheckKind.unreachable, detail);
+
+  final _OpenSubtitlesKeyCheckKind _kind;
+
+  /// Défaut réseau ou serveur, vide pour les trois autres cas.
+  final String detail;
+
+  bool get isMissing => _kind == _OpenSubtitlesKeyCheckKind.missing;
+  bool get isValid => _kind == _OpenSubtitlesKeyCheckKind.valid;
+  bool get isRejected => _kind == _OpenSubtitlesKeyCheckKind.rejected;
+  bool get isUnreachable => _kind == _OpenSubtitlesKeyCheckKind.unreachable;
+
+  @override
+  String toString() {
+    switch (_kind) {
+      case _OpenSubtitlesKeyCheckKind.missing:
+        return 'OpenSubtitlesKeyCheck.missing';
+      case _OpenSubtitlesKeyCheckKind.valid:
+        return 'OpenSubtitlesKeyCheck.valid';
+      case _OpenSubtitlesKeyCheckKind.rejected:
+        return 'OpenSubtitlesKeyCheck.rejected';
+      case _OpenSubtitlesKeyCheckKind.unreachable:
+        return 'OpenSubtitlesKeyCheck.unreachable($detail)';
+    }
+  }
+}
+
+/// Les quatre issues possibles d'un [OpenSubtitlesKeyCheck].
+enum _OpenSubtitlesKeyCheckKind { missing, valid, rejected, unreachable }
+
+/// Issue d'une vérification de connexion au compte OpenSubtitles.
+///
+/// Calqué sur [OpenSubtitlesKeyCheck] : quatre cas volontairement distincts,
+/// car l'écran des réglages doit afficher une conduite différente pour chacun.
+@immutable
+class OpenSubtitlesLoginCheck {
+  const OpenSubtitlesLoginCheck._(this._kind, [this.detail = '']);
+
+  /// Aucun compte n'est saisi : seule conduite possible, le saisir.
+  const OpenSubtitlesLoginCheck.missing()
+      : this._(_OpenSubtitlesLoginCheckKind.missing);
+
+  /// Le compte est accepté par le service : un jeton a été émis.
+  const OpenSubtitlesLoginCheck.valid()
+      : this._(_OpenSubtitlesLoginCheckKind.valid);
+
+  /// Les identifiants sont présents mais REFUSÉS (HTTP 401/403) : vérifier la
+  /// saisie, pas le réseau.
+  const OpenSubtitlesLoginCheck.rejected()
+      : this._(_OpenSubtitlesLoginCheckKind.rejected);
+
+  /// Le service est injoignable, ou répond autre chose que 200/401/403.
+  const OpenSubtitlesLoginCheck.unreachable(String detail)
+      : this._(_OpenSubtitlesLoginCheckKind.unreachable, detail);
+
+  final _OpenSubtitlesLoginCheckKind _kind;
+
+  /// Défaut réseau ou serveur, vide pour les trois autres cas.
+  final String detail;
+
+  bool get isMissing => _kind == _OpenSubtitlesLoginCheckKind.missing;
+  bool get isValid => _kind == _OpenSubtitlesLoginCheckKind.valid;
+  bool get isRejected => _kind == _OpenSubtitlesLoginCheckKind.rejected;
+  bool get isUnreachable => _kind == _OpenSubtitlesLoginCheckKind.unreachable;
+
+  @override
+  String toString() {
+    switch (_kind) {
+      case _OpenSubtitlesLoginCheckKind.missing:
+        return 'OpenSubtitlesLoginCheck.missing';
+      case _OpenSubtitlesLoginCheckKind.valid:
+        return 'OpenSubtitlesLoginCheck.valid';
+      case _OpenSubtitlesLoginCheckKind.rejected:
+        return 'OpenSubtitlesLoginCheck.rejected';
+      case _OpenSubtitlesLoginCheckKind.unreachable:
+        return 'OpenSubtitlesLoginCheck.unreachable($detail)';
+    }
+  }
+}
+
+/// Les quatre issues possibles d'un [OpenSubtitlesLoginCheck].
+enum _OpenSubtitlesLoginCheckKind { missing, valid, rejected, unreachable }
+
+/// Identifiants refusés par `/login` (HTTP 401 ou 403).
+///
+/// Distincte de [SubtitlePayloadException] pour le classement interne :
+/// `checkLogin` la traduit en `OpenSubtitlesLoginCheck.rejected`, et
+/// `_postDownload` la relance comme [SubtitlePayloadException] pour rester
+/// homogène aux yeux de l'appelant.
+class _OsLoginRejectedException implements Exception {
+  const _OsLoginRejectedException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => '_OsLoginRejectedException: $message';
+}
+
 /// Client OpenSubtitles, pour les sous-titres absents de l'abonnement.
 ///
 /// ## Pourquoi
@@ -124,10 +244,21 @@ class OpenSubtitlesFeature {
 /// `/login` pour aller jusqu'à 20 par jour. La clé n'est JAMAIS codée en dur :
 /// elle vit dans les préférences de l'application.
 class OpenSubtitlesService {
-  const OpenSubtitlesService({required this.apiKey});
+  const OpenSubtitlesService({
+    required this.apiKey,
+    this.username = '',
+    this.password = '',
+  });
 
   /// Clé API facultative. Vide = recherche anonyme.
   final String apiKey;
+
+  /// Identifiant du compte OpenSubtitles. Vide = aucun compte configuré : les
+  /// recherches restent anonymes et `/download` répond 503 (« compte requis »).
+  final String username;
+
+  /// Mot de passe du compte. JAMAIS journalisé, ni sa valeur ni une partie.
+  final String password;
 
   static const String baseUrl = 'https://api.opensubtitles.com/api/v1';
 
@@ -151,6 +282,35 @@ class OpenSubtitlesService {
   /// obligatoire. On réutilise l'agent déjà employé pour les sous-titres du
   /// panel.
   static const String userAgent = 'OrbitIPTV v1.0';
+
+  /// Session d'authentification STATIQUE.
+  ///
+  /// Le service est `const`-construit — y compris dans les tests — et ne peut
+  /// donc pas porter d'état mutable en champ. Une installation n'a qu'un
+  /// compte, partagé par toutes les instances : la session vit donc ici, au
+  /// niveau de classe.
+  ///
+  /// Le jeton obtenu via `/login` vaut ~24 h ; on le considère périmé après
+  /// [_authTokenLifetime] pour reloguer pendant les heures creuses plutôt
+  /// qu'en plein téléchargement.
+  static String _authToken = '';
+  static String _authUser = '';
+  static DateTime _authTokenExpiry = DateTime.fromMillisecondsSinceEpoch(0);
+  static Future<String>? _loginInFlight;
+
+  static const Duration _authTokenLifetime = Duration(hours: 23);
+
+  /// Oublie le jeton et la relogin en cours.
+  ///
+  /// Appelé entre deux tests et — surtout — quand les identifiants changent
+  /// dans les réglages : sans cette invalidation, la session statique
+  /// rejouerait le jeton de l'ANCIEN compte sur le nouveau.
+  static void resetAuth() {
+    _authToken = '';
+    _authUser = '';
+    _authTokenExpiry = DateTime.fromMillisecondsSinceEpoch(0);
+    _loginInFlight = null;
+  }
 
   /// Langues demandées par défaut : le français et l'anglais, dans les deux
   /// sens du nom.
@@ -207,6 +367,106 @@ class OpenSubtitlesService {
       throw const SubtitlePayloadException(
         'Clé API OpenSubtitles absente — à saisir dans les réglages',
       );
+    }
+  }
+
+  /// Vérifie si la clé API configurée est ACCEPTÉE par le service.
+  ///
+  /// ## Vraie question : présente ≠ valide
+  ///
+  /// L'utilisateur saisit une clé puis la recherche échoue. L'écran annonçait
+  /// alors « clé API absente » pour tout échec HTTP 401 — or 401 signifie « la
+  /// clé a été REJETÉE », ce qui n'est pas la même chose qu'absente : la clé
+  /// est là, dans les réglages, mais le service la refuse (copie d'un extrait,
+  /// expiration, rôle insuffisant). Confondre les deux envoyait l'utilisateur
+  /// « ressaisir la clé » dans les réglages où elle s'affichait déjà : un
+  /// cercle vicieux.
+  ///
+  /// ## Pourquoi `/subtitles` et pas `/infos/user`
+  ///
+  /// La doc OpenSubtitles le précise : seuls `/infos/user` et `/download`
+  /// exigent l'authentification utilisateur (JWT via `/login`). Une clé
+  /// consumer valide reçoit donc un 401 de `/infos/user` même en parfaite
+  /// santé, ce qui classait la clé « refusée » à tort. `/subtitles` n'exige
+  /// QUE l'en-tête `Api-Key` : c'est le seul validateur fiable d'une clé
+  /// consumer, et sa recherche est gratuite et illimitée.
+  ///
+  /// Clé invalide → 401 (docs officielles) ou 403 « You cannot consume this
+  /// service » (mesuré en réel) ; clé valide → 200, même sans résultat.
+  /// Les deux codes sont donc des rejets.
+  ///
+  /// Cette méthode distingue la cause exacte : `valid`, `rejected` (401/403)
+  /// ou `unreachable` (réseau/serveur, à distinguer des deux autres car la
+  /// conduite diffère).
+  Future<OpenSubtitlesKeyCheck> checkApiKey() async {
+    final key = apiKey.trim();
+    if (key.isEmpty) {
+      return const OpenSubtitlesKeyCheck.missing();
+    }
+    // `query` garantit un JSON « data » même vide ; une recherche sans
+    // paramètre peut être rejetée en amont pour une autre raison.
+    final uri = Uri.parse('$_base/subtitles').replace(
+      queryParameters: const {'languages': 'fr', 'query': 'zzzzzzzz'},
+    );
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(uri);
+      request.headers.set(HttpHeaders.userAgentHeader, userAgent);
+      request.headers.set('Api-Key', key);
+      request.followRedirects = true;
+      final response = await request.close().timeout(
+            const Duration(seconds: 15),
+          );
+      final bytes = await _collect(response, uri);
+      // 200 = clé reconnue. La réponse peut être vide de résultats, c'est
+      // voulu : la validation n'a pas besoin des données.
+      if (response.statusCode == HttpStatus.ok) {
+        return const OpenSubtitlesKeyCheck.valid();
+      }
+      if (response.statusCode == HttpStatus.unauthorized ||
+          response.statusCode == HttpStatus.forbidden) {
+        return const OpenSubtitlesKeyCheck.rejected();
+      }
+      final body = _messageOf(bytes);
+      return OpenSubtitlesKeyCheck.unreachable(
+        'http=${response.statusCode}${body.isEmpty ? '' : ' ($body)'}',
+      );
+    } catch (error) {
+      return OpenSubtitlesKeyCheck.unreachable('$error');
+    } finally {
+      client.close();
+    }
+  }
+
+  /// Vérifie que les identifiants du compte configuré sont ACCEPTÉS.
+  ///
+  /// ## Pourquoi un compte en plus de la clé
+  ///
+  /// `/download` exige DEUX en-têtes : `Api-Key` ET `Authorization: Bearer`
+  /// (jeton obtenu via `/login`). La clé seule suffit à la recherche — d'où
+  /// l'impression que tout marche — mais le téléchargement répond 503
+  /// « Service unavailable ». Le compte est la seconde moitié du dispositif.
+  ///
+  /// ## Ce que vérifie réellement la méthode
+  ///
+  /// `_ensureToken()` passe par `/login` : un 200 avec jeton signifie que le
+  /// service a reconnu les identifiants. Un 401/403 est un REJET — à
+  /// distinguer d'une panne réseau, la conduite n'étant pas la même.
+  Future<OpenSubtitlesLoginCheck> checkLogin() async {
+    if (username.trim().isEmpty || password.isEmpty) {
+      return const OpenSubtitlesLoginCheck.missing();
+    }
+    try {
+      final token = await _ensureToken();
+      return token.isNotEmpty
+          ? const OpenSubtitlesLoginCheck.valid()
+          : const OpenSubtitlesLoginCheck.missing();
+    } on _OsLoginRejectedException {
+      return const OpenSubtitlesLoginCheck.rejected();
+    } on SubtitlePayloadException catch (e) {
+      return OpenSubtitlesLoginCheck.unreachable(e.message);
+    } catch (_) {
+      return const OpenSubtitlesLoginCheck.unreachable('réseau');
     }
   }
 
@@ -357,7 +617,8 @@ class OpenSubtitlesService {
   }
 
   Future<List<OpenSubtitlesFeature>> _getFeatures(
-      Map<String, String> params) async {
+    Map<String, String> params,
+  ) async {
     final uri = Uri.parse('$_base/features').replace(queryParameters: params);
     final body = await _read(uri);
     if (body.isEmpty) return const [];
@@ -546,7 +807,9 @@ class OpenSubtitlesService {
       final cause = error?.originalError ?? error;
       if (cause != null) {
         Error.throwWithStackTrace(
-            cause, error?.stackTrace ?? StackTrace.current);
+          cause,
+          error?.stackTrace ?? StackTrace.current,
+        );
       }
       throw StateError('OpenSubtitles $context: échec sans cause');
     }
@@ -735,7 +998,7 @@ class OpenSubtitlesService {
     final track = result.valueOrNull;
     if (track == null) {
       throw result.errorOrNull?.originalError ??
-          SubtitlePayloadException('Téléchargement impossible');
+          const SubtitlePayloadException('Téléchargement impossible');
     }
     return track;
   }
@@ -748,12 +1011,15 @@ class OpenSubtitlesService {
   /// d'une panne réseau.
   Future<Uri> _requestDownloadLink(OpenSubtitlesHit hit) async {
     _requireApiKey();
-    final body = await _post('/download', {
+    // `/download` exige `Authorization: Bearer` en plus de `Api-Key` : sans
+    // compte configuré, aucun jeton n'est demandé et le service répond 503,
+    // que l'interface traduit en « compte requis ».
+    final body = await _postDownload('/download', {
       'file_id': hit.fileId,
       'sub_format': 'srt',
     });
     if (body.isEmpty) {
-      throw SubtitlePayloadException('Réponse de /download vide');
+      throw const SubtitlePayloadException('Réponse de /download vide');
     }
 
     final decoded = jsonDecode(body);
@@ -774,8 +1040,17 @@ class OpenSubtitlesService {
     return Uri.parse(url);
   }
 
-  /// POST JSON authentifié, avec contrôle du statut HTTP.
-  Future<String> _post(String path, Map<String, Object?> payload) async {
+  /// POST JSON brut, sans contrôle du statut HTTP.
+  ///
+  /// Rendu du couple `(statut, octets)` SANS lancer : c'est l'appelant qui
+  /// décide de la conduite (un 401 sur `/download` doit déclencher une relogin,
+  /// pas un message d'erreur définitif). L'en-tête `Authorization: Bearer` n'est
+  /// posé que si un jeton est fourni : sans compte, la requête reste anonyme.
+  Future<(int, List<int>)> _postRaw(
+    String path,
+    Map<String, Object?> payload, {
+    String? bearer,
+  }) async {
     final client = HttpClient();
     try {
       final request = await client.postUrl(Uri.parse('$_base$path'));
@@ -784,21 +1059,161 @@ class OpenSubtitlesService {
       if (apiKey.isNotEmpty) {
         request.headers.set('Api-Key', apiKey);
       }
+      if (bearer != null && bearer.isNotEmpty) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearer');
+      }
       request.add(utf8.encode(jsonEncode(payload)));
 
       final response =
           await request.close().timeout(const Duration(seconds: 15));
       final body = await _collect(response, Uri.parse('$_base$path'));
-      if (response.statusCode != HttpStatus.ok) {
-        // 429 = quota épuisé, 401 = clé refusée : deux causes qu'il ne faut pas
-        // confondre avec une panne réseau dans le message affiché.
+      return (response.statusCode, body);
+    } finally {
+      client.close();
+    }
+  }
+
+  /// POST JSON authentifié, avec contrôle du statut HTTP.
+  ///
+  /// Trajet anonyme (aucun compte configuré) : aucun en-tête `Authorization`
+  /// n'est posé, et `/download` répondra 503, que l'interface traduit en
+  /// « compte requis ».
+  Future<String> _post(String path, Map<String, Object?> payload) async {
+    final (status, body) = await _postRaw(path, payload);
+    if (status != HttpStatus.ok) {
+      // 429 = quota épuisé, 401 = clé refusée : deux causes qu'il ne faut pas
+      // confondre avec une panne réseau dans le message affiché.
+      throw SubtitlePayloadException(
+        'OpenSubtitles $path http=$status${_messageOf(body)}',
+      );
+    }
+    return _decodeMaybeGzip(body);
+  }
+
+  /// POST authentifié, avec jeton Bearer et une relance sur jeton périmé.
+  ///
+  /// ## Pourquoi une relance
+  ///
+  /// Le jeton s'obtient via `/login` et vaut ~24 h. Entre la mémorisation et
+  /// l'appel, il peut expirer : le service répond alors 401 sur `/download`
+  /// alors que les identifiants sont bons. On relogue UNE seule fois — pas en
+  /// boucle, pour ne pas marteler un compte refusé — et on rejoue la requête.
+  ///
+  /// Un 401 de `/login` lui-même (identifiants refusés) remonte comme
+  /// [SubtitlePayloadException] pour rester homogène avec le reste du service.
+  Future<String> _postDownload(
+    String path,
+    Map<String, Object?> payload,
+  ) async {
+    try {
+      final token = await _ensureToken();
+      if (token.isEmpty) {
+        // Trajet anonyme historique : le 503 (compte requis) remonte tel quel.
+        return await _post(path, payload);
+      }
+      var (status, body) = await _postRaw(path, payload, bearer: token);
+      if (status == HttpStatus.unauthorized) {
+        // Jeton périmé : le révoquer, reloguer une fois, rejouer.
+        _authToken = '';
+        _authUser = '';
+        _authTokenExpiry = DateTime.fromMillisecondsSinceEpoch(0);
+        final fresh = await _login();
+        _rememberToken(fresh);
+        (status, body) = await _postRaw(path, payload, bearer: fresh);
+      }
+      if (status != HttpStatus.ok) {
         throw SubtitlePayloadException(
-          'OpenSubtitles $path http=${response.statusCode}${_messageOf(body)}',
+          'OpenSubtitles $path http=$status${_messageOf(body)}',
         );
       }
       return _decodeMaybeGzip(body);
+    } on _OsLoginRejectedException catch (e) {
+      throw SubtitlePayloadException(e.message);
+    }
+  }
+
+  /// Jeton JWT valide pour les requêtes authentifiées, ou '' sans compte.
+  ///
+  /// ## Pourquoi une session statique
+  ///
+  /// Le service est `const`-construit, y compris dans les tests : pas d'état
+  /// mutable en champ. Et une installation n'a qu'un compte, partagé par toutes
+  /// les instances — la session vit donc au niveau de classe.
+  ///
+  /// Les appels concurrents (plusieurs pistes téléchargées en parallèle) sont
+  /// dédupliqués via [_loginInFlight] : un seul `/login` pour tous, les autres
+  /// attendent le même futur.
+  Future<String> _ensureToken() async {
+    if (username.trim().isEmpty || password.isEmpty) return '';
+    final now = DateTime.now();
+    if (_authToken.isNotEmpty &&
+        _authUser == username &&
+        now.isBefore(_authTokenExpiry)) {
+      return _authToken;
+    }
+    final inFlight = _loginInFlight;
+    if (inFlight != null) return inFlight;
+    final login = _login();
+    _loginInFlight = login;
+    try {
+      final token = await login;
+      _rememberToken(token);
+      return token;
     } finally {
-      client.close();
+      _loginInFlight = null;
+    }
+  }
+
+  /// Mémorise un jeton fraîchement émis, pour le compte courant.
+  void _rememberToken(String token) {
+    _authToken = token;
+    _authUser = username;
+    _authTokenExpiry = DateTime.now().add(_authTokenLifetime);
+  }
+
+  /// POST /login avec les identifiants du compte configuré.
+  ///
+  /// ## Ce qui est journalisé — et ce qui ne l'est JAMAIS
+  ///
+  /// Ni le nom du compte ni le mot de passe ne sortent d'aucune façon : pas de
+  /// valeur, pas de partie de valeur, pas même de longueur. Seuls comptent
+  /// l'existence du compte et le fait qu'un jeton ait (ou non) été émis.
+  Future<String> _login() async {
+    final (status, body) = await _postRaw('/login', {
+      'username': username,
+      'password': password,
+    });
+    if (status == HttpStatus.unauthorized || status == HttpStatus.forbidden) {
+      throw _OsLoginRejectedException(
+        'Compte OpenSubtitles refusé : identifiants invalides (http=$status)',
+      );
+    }
+    if (status != HttpStatus.ok) {
+      throw SubtitlePayloadException(
+        'OpenSubtitles /login http=$status${_messageOf(body)}',
+      );
+    }
+    final token = _tokenOf(_decodeMaybeGzip(body));
+    LoggerService.instance.info(
+      'opensubtitles /login compte_presente=true jeton_obtenu=${token.isNotEmpty}',
+    );
+    if (token.isEmpty) {
+      throw const SubtitlePayloadException('OpenSubtitles /login sans jeton');
+    }
+    return token;
+  }
+
+  /// Extrait le jeton d'une réponse `/login` 200.
+  ///
+  /// Un corps illisible (JSON absent ou mal formé) ne donne pas de jeton : la
+  /// conduite est celle d'un champ `token` manquant.
+  static String _tokenOf(String body) {
+    if (body.trim().isEmpty) return '';
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map ? (decoded['token']?.toString() ?? '') : '';
+    } catch (_) {
+      return '';
     }
   }
 

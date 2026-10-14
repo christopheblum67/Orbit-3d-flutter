@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/opensubtitles_credentials_provider.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
+import 'package:orbit_3d_flutter/services/opensubtitles_credentials_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// La clé API saisie doit prendre effet SANS redémarrage.
@@ -14,6 +16,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    // Le store des identifiants est un singleton d'état mémoire : on le vide
+    // entre deux tests, sinon les préférences d'un test nourrissent le suivant.
+    OpenSubtitlesCredentialsStore.instance.reset();
   });
 
   ProviderContainer newContainer() {
@@ -124,5 +129,67 @@ void main() {
       'deja-enregistree',
       reason: 'le garde-fou ne doit pas casser le chargement normal',
     );
+  });
+
+  test('le service porte le compte enregistré', () async {
+    final container = newContainer();
+
+    expect(
+      container.read(openSubtitlesServiceProvider).username,
+      isEmpty,
+      reason: 'aucun compte au démarrage',
+    );
+
+    await container
+        .read(openSubtitlesCredentialsProvider.notifier)
+        .setCredentials(
+          const OpenSubtitlesCredentials(username: 'alice', password: 'p'),
+        );
+
+    final service = container.read(openSubtitlesServiceProvider);
+    expect(
+      service.username,
+      'alice',
+      reason: 'sans cela, un compte saisi ne servirait qu\'au redémarrage '
+          'suivant, exactement le symptôme « j\'ai enregistré et ça n\'a rien '
+          'changé »',
+    );
+    expect(service.password, 'p');
+  });
+
+  test('effacer le compte vide le service', () async {
+    final container = newContainer();
+    final notifier = container.read(openSubtitlesCredentialsProvider.notifier);
+
+    await notifier.setCredentials(
+      const OpenSubtitlesCredentials(username: 'alice', password: 'p'),
+    );
+    expect(container.read(openSubtitlesServiceProvider).username, 'alice');
+
+    await notifier.clear();
+    expect(
+      container.read(openSubtitlesServiceProvider).username,
+      isEmpty,
+      reason: 'le bouton « Effacer le compte » doit reconstruire un service '
+          'anonyme, pas garder l\'ancien',
+    );
+  });
+
+  test('les identifiants survivent à un redémarrage de l\'application',
+      () async {
+    final first = newContainer();
+    await first
+        .read(openSubtitlesCredentialsProvider.notifier)
+        .setCredentials(
+          const OpenSubtitlesCredentials(username: 'alice', password: 'p'),
+        );
+
+    // Nouveau conteneur = nouvelle session : c'est le cas d'un relancement.
+    final second = newContainer();
+    await second.read(openSubtitlesCredentialsProvider.notifier).load();
+
+    final service = second.read(openSubtitlesServiceProvider);
+    expect(service.username, 'alice');
+    expect(service.password, 'p');
   });
 }

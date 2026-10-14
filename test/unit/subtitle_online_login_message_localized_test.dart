@@ -25,7 +25,8 @@ void main() {
         reason: '$code doit avoir une traduction de subtitleOnlineNeedsLogin',
       );
       if (code == 'fr') {
-        expect(l.subtitleOnlineNeedsLogin, equals(french.subtitleOnlineNeedsLogin));
+        expect(l.subtitleOnlineNeedsLogin,
+            equals(french.subtitleOnlineNeedsLogin),);
       } else {
         expect(
           l.subtitleOnlineNeedsLogin,
@@ -43,5 +44,49 @@ void main() {
 
     expect(en.subtitleOnlineNeedsLogin, contains('account'));
     expect(de.subtitleOnlineNeedsLogin, contains('Konto'));
+  });
+
+  test('chaque locale distingue « clé refusée » de « clé absente »', () {
+    // Sans cette clé, un 401 (clé présente mais refusée) retombait sur le
+    // message « clé absente » : l'utilisateur était prié de saisir une clé
+    // qu'il avait déjà saisie.
+    const locales = ['fr', 'en', 'de', 'es', 'it', 'ar'];
+    final rejects = <String>{};
+    for (final code in locales) {
+      final l = lookupAppLocalizations(Locale(code, ''));
+      expect(
+        l.subtitleOnlineKeyRejected,
+        isNotEmpty,
+        reason: '$code doit avoir une traduction de subtitleOnlineKeyRejected',
+      );
+      expect(
+        l.subtitleOnlineKeyRejected,
+        isNot(equals(l.subtitleOnlineNoApiKey)),
+        reason: '$code ne doit pas réutiliser le message « clé absente » pour '
+            'une clé refusée',
+      );
+      rejects.add(l.subtitleOnlineKeyRejected);
+    }
+    expect(rejects.length, locales.length,
+        reason: 'chaque locale doit avoir sa propre tournure, sans repli FR',);
+  });
+
+  test('les boutons de vérification de clé sont traduits partout', () {
+    const locales = ['fr', 'en', 'de', 'es', 'it', 'ar'];
+    for (final code in locales) {
+      final l = lookupAppLocalizations(Locale(code, ''));
+      expect(l.opensubtitlesKeyCheck, isNotEmpty, reason: '$code : bouton');
+      expect(l.opensubtitlesKeyValid, isNotEmpty, reason: '$code : valide');
+      expect(
+        l.opensubtitlesKeyRejected,
+        isNotEmpty,
+        reason: '$code : refusée',
+      );
+      expect(
+        l.opensubtitlesKeyUnreachable,
+        isNotEmpty,
+        reason: '$code : injoignable',
+      );
+    }
   });
 }
