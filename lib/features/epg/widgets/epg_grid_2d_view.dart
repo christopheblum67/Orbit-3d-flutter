@@ -42,6 +42,10 @@ class EpgGrid2DView extends StatefulWidget {
   /// affichent un badge « REPLAY » dans la grille.
   final Set<String> replayChannels;
 
+  /// Noms des chaînes en cours de chargement EPG : affichent un indicateur
+  /// de chargement dans la colonne des noms.
+  final Set<String> loadingChannels;
+
   const EpgGrid2DView({
     super.key,
     required this.channels,
@@ -53,6 +57,7 @@ class EpgGrid2DView extends StatefulWidget {
     this.onChannelLongPress,
     this.timelineController,
     this.replayChannels = const {},
+    this.loadingChannels = const {},
   });
 
   @override
@@ -492,7 +497,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
           _RenderProgram(
             program: p,
             left: _getOffsetForTime(p.startTime),
-            width: _clampWidth(p.durationMinutes * ppm - 2.0),
+            width: _clampWidth(p.durationMinutes * ppm),
             isLive: p.isLive,
             replayable: isReplayableProgram(
               p,
@@ -765,9 +770,16 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                         padding: EdgeInsets.zero,
                         itemBuilder: (context, index) {
                           final ch = widget.channels[index];
+                          final isLoading = widget.loadingChannels.contains(ch);
+                          final hasPrograms = (widget.epgData[ch]?.isNotEmpty ?? false);
+                          final isEmpty = !hasPrograms && !isLoading;
                           return Container(
                             height: rowHeight,
-                            color: const Color(0xFF12141C),
+                            color: isLoading
+                                ? const Color(0xFF1A1D26)
+                                : isEmpty
+                                    ? const Color(0xFF1A1518)
+                                    : const Color(0xFF12141C),
                             margin: const EdgeInsets.only(bottom: kRowGap),
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             alignment: Alignment.centerLeft,
@@ -778,15 +790,44 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                               },
                               onLongPress: () =>
                                   widget.onChannelLongPress?.call(ch),
-                              child: Text(
-                                ch,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  if (isLoading) ...[
+                                    SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          const Color(0xFF8B5CF6),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      ch,
+                                      style: TextStyle(
+                                        color: isLoading
+                                            ? Colors.white70
+                                            : isEmpty
+                                                ? Colors.white30
+                                                : Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (!hasPrograms && !isLoading)
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 12,
+                                      color: Colors.white30,
+                                    ),
+                                ],
                               ),
                             ),
                           );

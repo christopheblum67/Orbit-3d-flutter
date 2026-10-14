@@ -108,10 +108,10 @@ class _EpgTimelinePainter extends CustomPainter {
       ..color = Colors.white10
       ..strokeWidth = 0.5;
 
-    // Graduations + libellés des heures pleines.
+    // Graduations + libellés toutes les 2 heures (blocs de 2h).
     for (var win = firstHour;
         !win.isAfter(lastHour);
-        win = win.add(const Duration(hours: 1))) {
+        win = win.add(const Duration(hours: 2))) {
       final px = controller.timeToPixels(win);
       if (px < startHourPixels || px > endHourPixels) continue;
       final x = px - offset;
@@ -121,8 +121,8 @@ class _EpgTimelinePainter extends CustomPainter {
         majorLine,
       );
 
-      // Graduations fines toutes les 15 minutes (dans le viewport).
-      for (int m = 15; m < 60; m += 15) {
+      // Graduations fines toutes les 30 minutes (dans le viewport).
+      for (int m = 30; m < 120; m += 30) {
         final sAbs = px + m * ppm;
         if (sAbs < offset || sAbs > offset + size.width) continue;
         canvas.drawLine(
@@ -132,15 +132,14 @@ class _EpgTimelinePainter extends CustomPainter {
         );
       }
 
-      final isNowHour =
-          win.hour == now.hour && win.day == now.day && win.month == now.month;
+      final isNowHour = false; // Affiché toutes les 2h, pas l'heure courante
       final tp = TextPainter(
         text: TextSpan(
           text: '${win.hour.toString().padLeft(2, '0')}:00',
           style: TextStyle(
-            color: isNowHour ? const Color(0xFF8B5CF6) : Colors.white54,
+            color: Colors.white54,
             fontSize: 10,
-            fontWeight: isNowHour ? FontWeight.bold : FontWeight.w500,
+            fontWeight: FontWeight.w500,
           ),
         ),
         textDirection: TextDirection.ltr,

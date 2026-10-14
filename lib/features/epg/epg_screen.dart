@@ -46,6 +46,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
   EPGProgram? _selectedProgram;
   Channel? _selectedChannel;
   late final EpgTimelineController _timelineController;
+  final Set<String> _loadingChannels = {};
 
   @override
   void initState() {
@@ -170,6 +171,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                       channels: visible.map((c) => c.name).toList(),
                       channelObjects: visible,
                       timelineController: _timelineController,
+                      loadingChannels: _loadingChannels,
                       onProgramSelected: (program, channel) {
                         setState(() {
                           _selectedProgram = program;
@@ -439,12 +441,14 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
   final List<Channel> channelObjects;
   final EpgTimelineController timelineController;
   final void Function(EPGProgram program, Channel channel)? onProgramSelected;
+  final Set<String> loadingChannels;
 
   const _EpgGrid2DWrapper({
     super.key,
     required this.channels,
     required this.channelObjects,
     required this.timelineController,
+    required this.loadingChannels,
     this.onProgramSelected,
   });
 
@@ -454,7 +458,6 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
 
 class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
   final Map<String, List<EPGProgram>> _epgData = {};
-  final Set<String> _loadingChannels = {};
 
   @override
   void initState() {
@@ -484,7 +487,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
 
     LoggerService.instance.info(
       'EPG: XMLTV chargé (${resolved.isSuccess ? 'ok' : 'échec'}), '
-      '$_loadingChannels chaînes à résoudre',
+      '$widget.loadingChannels chaînes à résoudre',
     );
 
     // 2. Filtre en mémoire par lots : un seul setState par lot de chaînes,
@@ -498,11 +501,11 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       final tasks = <Future<void>>[];
       final chunkResults = <String, List<EPGProgram>>{};
       for (final channelName in chunk) {
-        if (_loadingChannels.contains(channelName)) continue;
-        _loadingChannels.add(channelName);
+        if (widget.loadingChannels.contains(channelName)) continue;
+        widget.loadingChannels.add(channelName);
         final channel = byName[channelName];
         if (channel == null) {
-          _loadingChannels.remove(channelName);
+          widget.loadingChannels.remove(channelName);
           continue;
         }
         // Si le panel n'expose pas d'identifiant EPG, on tente le nom de la
@@ -601,7 +604,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           .warning('_loadOne failed', error: result.errorOrNull);
     }
     if (mounted) {
-      _loadingChannels.remove(channelName);
+      widget.loadingChannels.remove(channelName);
     }
   }
 
@@ -617,6 +620,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           for (final c in widget.channelObjects)
             if (c.supportsReplay) c.name,
         },
+        loadingChannels: widget.loadingChannels,
         onProgramTap: (program, channelName) {
           final channel =
               widget.channelObjects.firstWhere((c) => c.name == channelName);
