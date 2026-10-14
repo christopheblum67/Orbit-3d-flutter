@@ -502,7 +502,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get never => 'never';
 
   @override
-  String get newAnd4K => 'New & 4K';
+  String get newAnd4K => 'Movies on Demand';
 
   @override
   String get newProfile => 'New profile';
@@ -751,7 +751,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get seasonsAndEpisodes => 'Seasons & Episodes';
+  String get seasonsAndEpisodes => 'Series on Demand';
 
   @override
   String get sectionAccessibility => 'Accessibility';
@@ -1043,6 +1043,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoQuality => 'Automatic';
+
+  @override
+  String get noneOption => 'None';
 
   @override
   String get subtitleNotApplicable => 'Not applicable';

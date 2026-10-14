@@ -1015,7 +1015,7 @@ abstract class AppLocalizations {
   /// No description provided for @newAnd4K.
   ///
   /// In fr, this message translates to:
-  /// **'Nouveautés & 4K'**
+  /// **'Films à la demande'**
   String get newAnd4K;
 
   /// No description provided for @newProfile.
@@ -1489,7 +1489,7 @@ abstract class AppLocalizations {
   /// No description provided for @seasonsAndEpisodes.
   ///
   /// In fr, this message translates to:
-  /// **'Saisons & Épisodes'**
+  /// **'Séries à la demande'**
   String get seasonsAndEpisodes;
 
   /// No description provided for @sectionAccessibility.
@@ -2049,6 +2049,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Automatique'**
   String get autoQuality;
+
+  /// No description provided for @noneOption.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun'**
+  String get noneOption;
 
   /// No description provided for @subtitleNotApplicable.
   ///

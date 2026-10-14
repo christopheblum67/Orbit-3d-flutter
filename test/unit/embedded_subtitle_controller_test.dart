@@ -536,4 +536,46 @@ void main() {
 
     ctrl.dispose();
   });
+
+  testWidgets(
+      '« Aucun » sous-titres éteint l\'intégré ET l\'externe, côté natif aussi',
+      (tester) async {
+    // Entrée « Aucun » de la section sous-titres de « Détails du flux » :
+    // seule façon d'éteindre un sous-titre, quelle qu'en soit la source. Il
+    // faut couper les DEUX (une piste externe active et une piste intégrée
+    // peuvent coexister côté état), et le dire au natif.
+    final ctrl = SubtitleController();
+    ctrl.setEmbeddedContext(playerId: 7, tracks: [forcedTrack()]);
+    await tester.pump();
+    expect(ctrl.hasActiveEmbedded, isTrue);
+    calls.clear();
+
+    ctrl.disable();
+    await tester.pump();
+
+    expect(ctrl.hasActiveEmbedded, isFalse);
+    expect(ctrl.liveEmbeddedCues, isNull);
+    expect(ctrl.activeTrack, isNull);
+    expect(
+      countOf('clearSubtitleTracks'),
+      1,
+      reason:
+          'sans l\'appel natif, media3 resterait libre d\'auto-sélectionner '
+          'une piste texte et le sous-titre reviendrait tout seul',
+    );
+
+    ctrl.dispose();
+  });
+
+  test('« Aucun » audio coupe le type audio côté natif', () async {
+    await EmbeddedSubtitleBridge.clearAudioFor(7);
+
+    final call = calls.singleWhere((c) => c.method == 'clearAudioTracks');
+    expect(
+      call.arguments,
+      <String, dynamic>{'playerId': 7},
+      reason: 'la désactivation audio passe par le canal partagé des pistes, '
+          'indexé sur le texture handle du lecteur',
+    );
+  });
 }

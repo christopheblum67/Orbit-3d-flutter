@@ -227,6 +227,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
           getPlayer(playerId).selectAudioTrack(audioTrackId);
           result.success(null);
           break;
+        case "clearAudioTracks":
+          getPlayer(playerId).clearAudioTracks();
+          result.success(null);
+          break;
         case "selectVideoTrack":
           @SuppressWarnings("unchecked")
           Map<String, Object> videoTrack = (Map<String, Object>) call.argument("track");

@@ -379,6 +379,29 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   /**
+   * Désactive la sortie audio (« Aucun » dans la section audio du panneau).
+   *
+   * <p>Symétrique de {@link #clearSubtitleTracks()} : on nettoie l'override
+   * AUDIO et on marque le type désactivé, ce qui coupe réellement le son (et
+   * non un simple volume à zéro). Sélectionner ensuite une piste réactive le
+   * type (cf. {@link #applyTrackSelection}).
+   */
+  void clearAudioTracks() {
+    DefaultTrackSelector trackSelector = trackSelectorOrNull();
+    if (trackSelector == null) {
+      return;
+    }
+    DefaultTrackSelector.Parameters parameters =
+        trackSelector
+            .getParameters()
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build();
+    trackSelector.setParameters(parameters);
+  }
+
+  /**
    * Lists the embedded subtitle tracks currently exposed by the player.
    *
    * <p>Seules les pistes supportées par le pipeline (media3 acharne un decoder

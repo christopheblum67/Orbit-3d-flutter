@@ -493,7 +493,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get never => 'أبدًا';
 
   @override
-  String get newAnd4K => 'جديد و4K';
+  String get newAnd4K => 'أفلام عند الطلب';
 
   @override
   String get newProfile => 'ملف شخصي جديد';
@@ -741,7 +741,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get seasonsAndEpisodes => 'المواسم والحلقات';
+  String get seasonsAndEpisodes => 'مسلسلات عند الطلب';
 
   @override
   String get sectionAccessibility => 'إمكانية الوصول';
@@ -1034,6 +1034,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get autoQuality => 'تلقائي';
+
+  @override
+  String get noneOption => 'لا شيء';
 
   @override
   String get subtitleNotApplicable => 'لا ينطبق';

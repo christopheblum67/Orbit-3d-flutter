@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/utils/language_label.dart';
 import 'package:video_player/video_player.dart';
 
 /// Identifiant natif du lecteur (texture handle côté fork media3).
@@ -158,6 +159,35 @@ EmbeddedSubtitleTrack? pickEmbeddedSubtitleTrackForLanguage(
   return forcedFallback;
 }
 
+/// Choisit la piste intégrée désignée par [preference] (menu « Langue des
+/// sous-titres par défaut » d'une série).
+///
+/// [preference] peut être :
+///  - le **libellé** d'une piste (« Français (SDH) ») : c'est ce que mémorise le
+///    menu, désormais construit « une entrée par piste » (comme le lecteur) ;
+///  - un **code langue** (« fr ») : préférences enregistrées avant ce changement,
+///    et repli quand la sonde n'a pas encore publié les variantes.
+///
+/// L'ordre des essais va du plus précis au plus large : libellé exact, puis nom
+/// de langue traduit (« Français »), puis code langue. Un libellé non reconnu ne
+/// doit pas empêcher la langue de s'appliquer.
+EmbeddedSubtitleTrack? pickEmbeddedSubtitleTrackForPreference(
+  List<EmbeddedSubtitleTrack> tracks,
+  String preference,
+) {
+  final wanted = preference.trim().toLowerCase();
+  if (wanted.isEmpty) return null;
+
+  for (final track in tracks) {
+    if (track.label.trim().toLowerCase() == wanted) return track;
+  }
+  for (final track in tracks) {
+    final name = LanguageLabel.of(track.language).trim().toLowerCase();
+    if (name.isNotEmpty && name == wanted) return track;
+  }
+  return pickEmbeddedSubtitleTrackForLanguage(tracks, preference);
+}
+
 ///
 /// Le `VideoPlayerController` standard n'expose pas d'API sous-titres : on
 /// dialogue ici directement avec les canaux natifs du fork
@@ -193,6 +223,20 @@ class EmbeddedSubtitleBridge {
   Future<void> clearTracks() {
     return _tracksChannel.invokeMethod<void>(
       'clearSubtitleTracks',
+      <String, dynamic>{'playerId': playerId},
+    );
+  }
+
+  /// Coupe la sortie audio du lecteur (type « audio » désactivé côté media3).
+  ///
+  /// Vit sur ce pont parce qu'il est le SEUL à porter le canal partagé
+  /// `flutter.io/videoPlayer/tracks` côté Flutter : aucune autre passerelle ne
+  /// parle au sélecteur de pistes du fork. Sert l'entrée « Aucun » de la
+  /// section audio ; sélectionner ensuite une piste réactive le type côté
+  /// natif (cf. `applyTrackSelection`).
+  static Future<void> clearAudioFor(int playerId) {
+    return _tracksChannel.invokeMethod<void>(
+      'clearAudioTracks',
       <String, dynamic>{'playerId': playerId},
     );
   }

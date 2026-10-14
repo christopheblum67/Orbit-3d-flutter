@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
+import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -81,6 +82,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   List<VideoTrack> _videoTracks = const [];
   String? _audioSelection;
   String? _videoSelection;
+
+  /// L'audio a-t-il été coupé par l'entrée « Aucun » ?
+  ///
+  /// Recalculé à chaque [_load] : le sélecteur media3 ne désigne alors
+  /// aucune piste (`isSelected` faux partout), ce qui rend l'état lisible après
+  /// une réouverture du panneau.
+  bool _audioDisabled = false;
   bool _loading = true;
   String? _error;
 
@@ -230,6 +238,10 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         _audioSelection = data.audio.indexWhere((t) => t.isSelected) >= 0
             ? data.audio.firstWhere((t) => t.isSelected).id
             : null;
+        // Aucune piste désignée alors que le flux en publie : l'audio a été
+        // coupé par « Aucun ».
+        _audioDisabled =
+            data.audio.isNotEmpty && data.audio.every((t) => !t.isSelected);
         _videoSelection = data.video.indexWhere((t) => t.isSelected) >= 0
             ? data.video.firstWhere((t) => t.isSelected).id
             : 'auto';
@@ -244,12 +256,34 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   }
 
   Future<void> _selectAudio(String id) async {
-    setState(() => _audioSelection = id);
+    setState(() {
+      _audioSelection = id;
+      _audioDisabled = false;
+    });
     // Mémorise la piste pour la prochaine lecture de ce contenu.
     await PlayerTrackPrefs.setAudioTrack(widget.mediaKey, id);
     await safeAsync(
       () => widget.controller.selectAudioTrack(id),
       context: 'StreamDetailsSheet _selectAudio',
+    );
+  }
+
+  /// Coupe la sortie audio (« Aucun »).
+  ///
+  /// Désactivation *séparée* de celle des sous-titres : le type « audio » du
+  /// sélecteur media3 est éteint côté natif, et la piste mémorisée est oubliée
+  /// pour que la lecture suivante ne réactive pas le son.
+  Future<void> _selectAudioNone() async {
+    setState(() {
+      _audioDisabled = true;
+      _audioSelection = null;
+    });
+    await PlayerTrackPrefs.clearAudioTrack(widget.mediaKey);
+    await safeAsync(
+      () => EmbeddedSubtitleBridge.clearAudioFor(
+        embeddedPlayerId(widget.controller),
+      ),
+      context: 'StreamDetailsSheet _selectAudioNone',
     );
   }
 
@@ -499,7 +533,14 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                             _sectionTitle(l.audioSection),
                             if (_audioTracks.isEmpty)
                               _EmptyRow(label: l.noAudioTrackDetected)
-                            else
+                            else ...[
+                              // « Aucun » en tête : coupe la sortie audio.
+                              _TrackTile(
+                                title: l.noneOption,
+                                subtitle: null,
+                                selected: _audioDisabled,
+                                onTap: _selectAudioNone,
+                              ),
                               for (final track in _audioTracks)
                                 _TrackTile(
                                   title: _audioLabel(context, track, l),
@@ -510,6 +551,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                   selected: _selectedAudioId == track.id,
                                   onTap: () => _selectAudio(track.id),
                                 ),
+                            ],
                             const SizedBox(height: 12),
                             _sectionTitle(l.videoSection),
                             _TrackTile(
@@ -530,6 +572,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 ),
                             const SizedBox(height: 12),
                             _sectionTitle(l.subtitleSection),
+                            ..._buildSubtitleNoneTiles(),
                             ..._buildEmbeddedSection(l),
                             ..._buildSubtitleSection(),
                             const SizedBox(height: 16),
@@ -540,6 +583,48 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         ),
       ),
     );
+  }
+
+  /// Entrée « Aucun » de la section sous-titres — cas « sous-titres du panel ».
+  ///
+  /// Quand le flux publie des pistes **intégrées**, l'entrée « Aucun » vit DANS
+  /// la sous-section « Sous-titres intégrés » (première ligne, cf.
+  /// [_buildEmbeddedSection]) : c'est là que l'utilisateur la cherche, au même
+  /// niveau que les pistes qu'elle éteint. Ici, on ne la rend donc QUE dans le
+  /// cas où le flux n'apporte aucune piste intégrée et où il reste des
+  /// sous-titres externes (panel) à couper — sinon elle apparaîtrait deux fois.
+  ///
+  /// C'est le seul moyen d'éteindre un sous-titre, quelle qu'en soit la source
+  /// (intégrée au flux ou externe). Désactivation **séparée** de celle de
+  /// l'audio : chaque section a son propre « Aucun ».
+  ///
+  /// La ligne n'apparaît que s'il y a quelque chose à éteindre : un « Aucun »
+  /// sans piste à couper serait un bouton mort.
+  List<Widget> _buildSubtitleNoneTiles() {
+    final l = AppLocalizations.of(context);
+    final ctrl = ref.watch(subtitleControllerProvider);
+    // Pistes intégrées présentes : « Aucun » est déjà offert par la
+    // sous-section dédiée, ne pas le dupliquer ici.
+    if (ctrl.embeddedTracks.isNotEmpty) return const [];
+    final somethingToDisable = ctrl.hasActiveEmbedded ||
+        ctrl.activeTrack != null ||
+        _subtitleTracks.isNotEmpty;
+    if (!somethingToDisable) return const [];
+    final none = !ctrl.hasActiveEmbedded && ctrl.activeTrack == null;
+    return [
+      _TrackTile(
+        title: l.noneOption,
+        subtitle: null,
+        selected: none,
+        onTap: _selectNoSubtitle,
+      ),
+    ];
+  }
+
+  /// Éteint tous les sous-titres (intégrés ET externes).
+  Future<void> _selectNoSubtitle() async {
+    ref.read(subtitleControllerProvider).disable();
+    if (mounted) setState(() {});
   }
 
   /// Section « Sous-titres intégrés au flux » (pistes media3 du contenu).
@@ -569,6 +654,16 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
             letterSpacing: 0.3,
           ),
         ),
+      ),
+      // « Aucun » en tête de la sous-section : coupe TOUS les sous-titres
+      // (intégrés comme externes). L'utilisateur le cherche au même niveau que
+      // les pistes qu'il voit — 6 options = 5 pistes intégrées + « Aucun ».
+      _TrackTile(
+        title: l.noneOption,
+        subtitle: null,
+        selected:
+            !subtitleCtrl.hasActiveEmbedded && subtitleCtrl.activeTrack == null,
+        onTap: _selectNoSubtitle,
       ),
       for (final track in tracks)
         _TrackTile(

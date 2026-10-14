@@ -24,6 +24,16 @@ class PlayerTrackPrefs {
     await prefs.setString('$_audioPrefix$mediaKey', trackId);
   }
 
+  /// Oublie la piste audio de [mediaKey] (« Aucun »).
+  ///
+  /// Sans cette remise à zéro, la piste mémorisée serait ré-appliquée à la
+  /// lecture suivante et réactiverait l'audio que l'utilisateur venait de
+  /// couper.
+  static Future<void> clearAudioTrack(String mediaKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_audioPrefix$mediaKey');
+  }
+
   /// Langue audio préférée pour une série (ex: 'fr', 'en').
   static Future<String?> seriesAudioLanguageFor(String seriesId) async {
     final prefs = await SharedPreferences.getInstance();
