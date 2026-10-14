@@ -94,14 +94,6 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           ),
           const Divider(height: 1),
           SwitchListTile(
-            secondary: const Icon(Icons.visibility_outlined),
-            title: Text(l.profileVisible),
-            subtitle: Text(l.appearInSearchAndRecommendations),
-            value: prefs.profileVisible,
-            onChanged: (v) => notifier.setProfileVisible(v),
-          ),
-          const Divider(height: 1),
-          SwitchListTile(
             secondary: const Icon(Icons.video_camera_back_outlined),
             title: const Text('Autoriser l\'enregistrement'),
             subtitle: const Text(

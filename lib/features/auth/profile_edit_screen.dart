@@ -58,9 +58,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
   final List<String> _favoriteGenres = [];
   bool _saving = false;
   String? _loadedProfileId;
-  // Visibilité / Enregistrement
-  bool _profileVisible = true;
-  bool _allowRecording = true;
 
   @override
   bool get isFormDirty {
@@ -104,9 +101,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     _favoriteGenres
       ..clear()
       ..addAll(profile.favoriteGenres);
-    // Visibilité / Enregistrement - valeurs par défaut (à étendre si stockées)
-    _profileVisible = true;
-    _allowRecording = true;
   }
 
   int? _computedAge() {
@@ -329,33 +323,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                           },
                         );
                       }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Visibilité / Enregistrement
-                  const SettingsSectionTitle('Visibilité & Enregistrement'),
-                  AppCard(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          secondary: const Icon(Icons.visibility_outlined),
-                          title: Text(l.profileVisible),
-                          subtitle: Text(l.appearInSearchAndRecommendations),
-                          value: _profileVisible,
-                          onChanged: (v) => setState(() => _profileVisible = v),
-                        ),
-                        const Divider(height: 1),
-                        SwitchListTile(
-                          secondary:
-                              const Icon(Icons.video_camera_back_outlined),
-                          title: const Text('Autoriser l\'enregistrement'),
-                          subtitle: const Text(
-                            'Permettre l\'enregistrement de mes contenus favoris',
-                          ),
-                          value: _allowRecording,
-                          onChanged: (v) => setState(() => _allowRecording = v),
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 24),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,19 +52,19 @@ class SeriesDetailScreen extends ConsumerWidget {
         body: ErrorState(
           icon: Icons.tv,
           title: l.detailUnavailable,
-          message: 'Identifiant de série manquant (navigation incorrecte). '
-              'Retournez à la liste et réessayez.',
+          message: 'Identifiant de sÃ©rie manquant (navigation incorrecte). '
+              'Retournez Ã  la liste et rÃ©essayez.',
           onRetry: () => context.pop(),
         ),
       );
     }
 
-    // D'abord charger la série de base depuis Xtream
+    // D'abord charger la sÃ©rie de base depuis Xtream
     final baseSeriesAsync = ref.watch(seriesInfoProvider(seriesId));
 
     return baseSeriesAsync.when(
       data: (baseSeries) {
-        // Puis enrichir avec les métadonnées externes
+        // Puis enrichir avec les mÃ©tadonnÃ©es externes
         final detailAsync = ref.watch(seriesDetailProvider(baseSeries));
 
         return Scaffold(
@@ -98,7 +98,7 @@ class SeriesDetailScreen extends ConsumerWidget {
               baseSeries: baseSeries,
             ),
             loading: () =>
-                const LoadingState(message: 'Enrichissement des métadonnées…'),
+                const LoadingState(message: 'Enrichissement des mÃ©tadonnÃ©esâ€¦'),
             error: (err, _) => ErrorState(
               icon: Icons.tv,
               title: l.detailUnavailable,
@@ -108,7 +108,7 @@ class SeriesDetailScreen extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const LoadingState(message: 'Chargement de la série…'),
+      loading: () => const LoadingState(message: 'Chargement de la sÃ©rieâ€¦'),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
         title: l.seriesNotFound,
@@ -142,8 +142,8 @@ class _SeriesDetailContent extends ConsumerWidget {
       child: _SeriesHeader(series: detail, baseSeries: baseSeries, l: l),
     );
 
-    // Section « Reprendre » : épisodes avec une progression en cours
-    // (0 < % regardé < 80 %), affichée au-dessus des saisons.
+    // Section Â« Reprendre Â» : Ã©pisodes avec une progression en cours
+    // (0 < % regardÃ© < 80 %), affichÃ©e au-dessus des saisons.
     final resumeEpisodes = _resumeEpisodesFor(ref);
     final resumeSliver = resumeEpisodes.isEmpty
         ? const SliverToBoxAdapter(child: SizedBox.shrink())
@@ -163,7 +163,7 @@ class _SeriesDetailContent extends ConsumerWidget {
             child: EmptyState(
               icon: Icons.video_library_outlined,
               title: l.noEpisodes,
-              message: 'Cette série ne propose pas encore d\'épisodes.',
+              message: 'Cette sÃ©rie ne propose pas encore d\'Ã©pisodes.',
             ),
           ),
         ],
@@ -189,8 +189,8 @@ class _SeriesDetailContent extends ConsumerWidget {
       );
     }
 
-    // Plusieurs saisons : TabBar horizontale pour alléger la liste, une seule
-    // saison visible à la fois (au lieu de les empiler verticalement).
+    // Plusieurs saisons : TabBar horizontale pour allÃ©ger la liste, une seule
+    // saison visible Ã  la fois (au lieu de les empiler verticalement).
     return DefaultTabController(
       length: seasons.length,
       child: Column(
@@ -233,8 +233,8 @@ class _SeriesDetailContent extends ConsumerWidget {
     );
   }
 
-  /// Épisodes « à reprendre » : une progression de lecture existe et est
-  /// inférieure au seuil de 80 % (au-delà, l'épisode est considéré « vu »).
+  /// Ã‰pisodes Â« Ã  reprendre Â» : une progression de lecture existe et est
+  /// infÃ©rieure au seuil de 80 % (au-delÃ , l'Ã©pisode est considÃ©rÃ© Â« vu Â»).
   List<Episode> _resumeEpisodesFor(WidgetRef ref) {
     final result = <Episode>[];
     for (final episode in baseSeries.episodes) {
@@ -280,9 +280,9 @@ class _SeriesDetailContent extends ConsumerWidget {
   }
 
   /// Slivers d'une saison :
-  ///  - `compact` (mode onglets) : simple rappel « X/Y vus », pas de gros
+  ///  - `compact` (mode onglets) : simple rappel Â« X/Y vus Â», pas de gros
   ///    titre de section redondant avec l'onglet ;
-  ///  - sinon : en-tête de section classique « Saison N ».
+  ///  - sinon : en-tÃªte de section classique Â« Saison N Â».
   List<Widget> _seasonSlivers(
     BuildContext context, {
     required WidgetRef ref,
@@ -328,7 +328,7 @@ class _SeriesDetailContent extends ConsumerWidget {
           ),
         ),
       ),
-      //Invités spéciaux pour cette saison
+      //InvitÃ©s spÃ©ciaux pour cette saison
       if (guests.isNotEmpty)
         SliverToBoxAdapter(
           child: CastCarousel(
@@ -344,7 +344,7 @@ class _SeriesDetailContent extends ConsumerWidget {
   }
 
   String _seasonSubtitle({required int total, required int seen}) {
-    if (seen == 0) return '$total épisodes';
+    if (seen == 0) return '$total Ã©pisodes';
     return '$seen/$total vus';
   }
 }
@@ -367,21 +367,21 @@ class _SeriesHeader extends ConsumerWidget {
 
     final metaParts = <String>[
       if (series.year > 0) '${series.year}',
-      if (series.runtime > 0) '${series.runtime} min/ép',
+      if (series.runtime > 0) '${series.runtime} min/Ã©p',
       if (series.genre.isNotEmpty) series.genre,
-      if (series.rating > 0) '★ ${series.rating.toStringAsFixed(1)}',
+      if (series.rating > 0) 'â˜… ${series.rating.toStringAsFixed(1)}',
     ];
-    final meta = metaParts.join('  •  ');
+    final meta = metaParts.join('  â€¢  ');
 
     final extraMetaParts = <String>[
       if (series.status.isNotEmpty) series.status,
-      if (series.networks.isNotEmpty) 'Réseau: ${series.networks.join(', ')}',
+      if (series.networks.isNotEmpty) 'RÃ©seau: ${series.networks.join(', ')}',
       if (series.firstAirDate.isNotEmpty)
-        '1ʳᵉ diffusion: ${_formatDate(series.firstAirDate)}',
+        '1Ê³áµ‰ diffusion: ${_formatDate(series.firstAirDate)}',
       if (series.numberOfSeasons > 0) '${series.numberOfSeasons} saisons',
-      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} épisodes',
+      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} Ã©pisodes',
     ];
-    final extraMeta = extraMetaParts.join('  •  ');
+    final extraMeta = extraMetaParts.join('  â€¢  ');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -394,8 +394,8 @@ class _SeriesHeader extends ConsumerWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: GestureDetector(
-                  // Pression longue sur la série = « retour en arrière » :
-                  // propose de tout retirer des déjà vus.
+                  // Pression longue sur la sÃ©rie = Â« retour en arriÃ¨re Â» :
+                  // propose de tout retirer des dÃ©jÃ  vus.
                   onLongPress: () => _confirmResetSeries(context, ref),
                   child: SizedBox(
                     width: 112,
@@ -459,7 +459,7 @@ class _SeriesHeader extends ConsumerWidget {
                         ),
                       ),
                     ],
-                    // Badge source de données
+                    // Badge source de donnÃ©es
                     if (series.dataSource != 'xtream') ...[
                       const SizedBox(height: 8),
                       Container(
@@ -489,8 +489,8 @@ class _SeriesHeader extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               series.aiGenerated
-                                  ? 'Données générées par IA'
-                                  : 'Données ${series.dataSource.toUpperCase()}',
+                                  ? 'DonnÃ©es gÃ©nÃ©rÃ©es par IA'
+                                  : 'DonnÃ©es ${series.dataSource.toUpperCase()}',
                               style: textTheme.labelSmall?.copyWith(
                                 color: _getSourceColor(series.dataSource),
                                 fontWeight: FontWeight.w600,
@@ -506,8 +506,8 @@ class _SeriesHeader extends ConsumerWidget {
             ],
           ),
           if (series.description.isNotEmpty)
-            // Synopsis traduit si la source n'est pas en français. `isSeries`
-            // aiguille la résolution TMDB vers `/search/tv` + `/tv/{id}` : le
+            // Synopsis traduit si la source n'est pas en franÃ§ais. `isSeries`
+            // aiguille la rÃ©solution TMDB vers `/search/tv` + `/tv/{id}` : le
             // chemin film ne trouvait rien et les synopsis restaient en anglais.
             TranslatedSynopsisView(
               title: series.title,
@@ -544,10 +544,10 @@ class _SeriesHeader extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: 12),
-          // Sélecteur de langue audio par défaut pour la série
+          // SÃ©lecteur de langue audio par dÃ©faut pour la sÃ©rie
           _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
           const SizedBox(height: 16),
-          // Sélecteur de langue de sous-titres par défaut pour la série
+          // SÃ©lecteur de langue de sous-titres par dÃ©faut pour la sÃ©rie
           _SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
         ],
       ),
@@ -575,7 +575,7 @@ class _SeriesHeader extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text(l.removeFromWatchedConfirm),
         content: Text(
-          'Les $seen épisodes vus de « ${baseSeries.title} » seront marqués '
+          'Les $seen Ã©pisodes vus de Â« ${baseSeries.title} Â» seront marquÃ©s '
           'comme non vus pour ce profil.',
         ),
         actions: [
@@ -641,7 +641,7 @@ class _SeriesHeader extends ConsumerWidget {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '« ${baseSeries.title} » retiré des déjà vus.',
+            'Â« ${baseSeries.title} Â» retirÃ© des dÃ©jÃ  vus.',
           ),
           duration: const Duration(milliseconds: 1200),
         ),
@@ -679,12 +679,12 @@ class _SeriesHeader extends ConsumerWidget {
 
 const Color _watchedGreen = Color(0xFF66BB6A);
 
-/// Seuil au-delà duquel un épisode est considéré « vu » (80 % regardés),
+/// Seuil au-delÃ  duquel un Ã©pisode est considÃ©rÃ© Â« vu Â» (80 % regardÃ©s),
 /// tout en restant reprenable.
 const double _autoWatchedThreshold = 0.8;
 
-/// Section « Reprendre » : liste les épisodes de la série dont la lecture est
-/// en cours (0 % < regardés < 80 %), pour relancer facilement.
+/// Section Â« Reprendre Â» : liste les Ã©pisodes de la sÃ©rie dont la lecture est
+/// en cours (0 % < regardÃ©s < 80 %), pour relancer facilement.
 class _ResumeSection extends ConsumerWidget {
   const _ResumeSection({required this.series, required this.episodes});
 
@@ -700,7 +700,7 @@ class _ResumeSection extends ConsumerWidget {
           icon: Icons.replay_rounded,
           title: 'Reprendre',
           subtitle: '${episodes.length} '
-              '${episodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
+              '${episodes.length > 1 ? 'Ã©pisodes en cours' : 'Ã©pisode en cours'}',
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -732,12 +732,12 @@ class _EpisodeTile extends ConsumerWidget {
     if (episodeTitle.startsWith(series.title)) {
       episodeTitle = episodeTitle
           .substring(series.title.length)
-          .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
+          .replaceFirst(RegExp(r'^\s*[-â€“â€”]\s*'), '');
     }
-    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)').hasMatch(episodeTitle);
+    final hasNumber = RegExp(r'^S\d+E\d+([\s\-â€“â€”]|$)').hasMatch(episodeTitle);
     final label = episodeTitle.isNotEmpty
-        ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
-        : 'Épisode $number';
+        ? (hasNumber ? episodeTitle : '$number â€” $episodeTitle')
+        : 'Ã‰pisode $number';
     final canPlay = episode.streamUrl.isNotEmpty;
     final profileId = ref.read(currentProfileProvider)?.id ?? '';
     final watched = ref.watch(watchedEpisodesProvider).containsKey(
@@ -752,7 +752,7 @@ class _EpisodeTile extends ConsumerWidget {
     final progress =
         ref.watch(playbackProgressProvider('episode-${episode.id}'));
     final progressFraction = progress?.fraction ?? 0;
-    // Épisode auto-vu (>= 80 % regardés) : « Vu », mais toujours reprenable.
+    // Ã‰pisode auto-vu (>= 80 % regardÃ©s) : Â« Vu Â», mais toujours reprenable.
     final autoWatched = progress?.hasProgress == true &&
         progressFraction >= _autoWatchedThreshold;
     final isVu = watched || autoWatched;
@@ -765,8 +765,8 @@ class _EpisodeTile extends ConsumerWidget {
       context.push('/episode/detail', extra: (series, episode));
     }
 
-    // Pression longue = « réinitialiser » : efface la progression de lecture
-    // en cours et/ou retire le statut « vu » (après confirmation).
+    // Pression longue = Â« rÃ©initialiser Â» : efface la progression de lecture
+    // en cours et/ou retire le statut Â« vu Â» (aprÃ¨s confirmation).
     Future<void> onLongPress() async {
       final hasProgress = progress?.hasProgress == true;
       if (!isVu && !hasProgress) return;
@@ -783,14 +783,14 @@ class _EpisodeTile extends ConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Réinitialiser l\'épisode ?'),
+          title: const Text('RÃ©initialiser l\'Ã©pisode ?'),
           content: Text(
             isVu && hasProgress
-                ? '« $label » sera marqué comme non vu et sa progression '
-                    'de lecture sera effacée.'
+                ? 'Â« $label Â» sera marquÃ© comme non vu et sa progression '
+                    'de lecture sera effacÃ©e.'
                 : isVu
-                    ? '« $label » sera marqué comme non vu pour ce profil.'
-                    : 'La progression de lecture de « $label » sera effacée.',
+                    ? 'Â« $label Â» sera marquÃ© comme non vu pour ce profil.'
+                    : 'La progression de lecture de Â« $label Â» sera effacÃ©e.',
           ),
           actions: [
             Focus(
@@ -846,8 +846,8 @@ class _EpisodeTile extends ConsumerWidget {
       confirmFocus.dispose();
 
       if (confirmed != true) return;
-      // Le dialogue est modal, mais l'utilisateur peut encore avoir quitté
-      // l'écran de la série avec la télécommande pendant qu'il était ouvert.
+      // Le dialogue est modal, mais l'utilisateur peut encore avoir quittÃ©
+      // l'Ã©cran de la sÃ©rie avec la tÃ©lÃ©commande pendant qu'il Ã©tait ouvert.
       // Trois lectures de `ref` suivaient, sans aucune garde.
       if (!context.mounted) return;
       if (isVu) {
@@ -962,8 +962,8 @@ class _EpisodeTile extends ConsumerWidget {
   }
 }
 
-/// Sélecteur de langue audio par défaut pour une série.
-/// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
+/// SÃ©lecteur de langue audio par dÃ©faut pour une sÃ©rie.
+/// Permet de choisir une langue (ex: FR) et de l'appliquer Ã  tous les Ã©pisodes.
 class _SeriesAudioLanguageSelector extends ConsumerStatefulWidget {
   const _SeriesAudioLanguageSelector({required this.seriesId});
   final String seriesId;
@@ -987,11 +987,11 @@ class _SeriesAudioLanguageSelectorState
   }
 
   Future<void> _load() async {
-    // 1. Charger préférences sauvegardées
+    // 1. Charger prÃ©fÃ©rences sauvegardÃ©es
     final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(widget.seriesId);
     final forced = await PlayerTrackPrefs.isSeriesAudioForced(widget.seriesId);
 
-    // 2. Récupérer les langues réelles depuis le premier épisode jouable
+    // 2. RÃ©cupÃ©rer les langues rÃ©elles depuis le premier Ã©pisode jouable
     final languages = await _fetchRealAudioLanguages();
 
     if (mounted) {
@@ -1004,16 +1004,16 @@ class _SeriesAudioLanguageSelectorState
     }
   }
 
-  /// Récupère les langues audio réelles depuis le premier épisode jouable de la série.
+  /// RÃ©cupÃ¨re les langues audio rÃ©elles depuis le premier Ã©pisode jouable de la sÃ©rie.
   Future<List<(String, String)>> _fetchRealAudioLanguages() async {
-    // On a besoin de la série de base pour accéder aux épisodes
-    // Le widget parent a déjà chargé la série via baseSeriesAsync
+    // On a besoin de la sÃ©rie de base pour accÃ©der aux Ã©pisodes
+    // Le widget parent a dÃ©jÃ  chargÃ© la sÃ©rie via baseSeriesAsync
     // On utilise le provider seriesInfoProvider
     final seriesAsync = ref.read(seriesInfoProvider(widget.seriesId));
     final series = seriesAsync.value;
     if (series == null) return const [];
 
-    // Trouver le premier épisode avec une URL de stream valide
+    // Trouver le premier Ã©pisode avec une URL de stream valide
     Episode? firstPlayableEpisode;
     for (final ep in series.episodes) {
       if (ep.streamUrl.isNotEmpty) {
@@ -1023,7 +1023,7 @@ class _SeriesAudioLanguageSelectorState
     }
     if (firstPlayableEpisode == null) return const [];
 
-    // Récupérer les tracks audio réels depuis le flux
+    // RÃ©cupÃ©rer les tracks audio rÃ©els depuis le flux
     return StreamAudioTracksService.fetchAudioTracks(
       firstPlayableEpisode.streamUrl,
     );
@@ -1064,7 +1064,7 @@ class _SeriesAudioLanguageSelectorState
             Icon(Icons.audiotrack_outlined, size: 18, color: scheme.primary),
             const SizedBox(width: 8),
             Text(
-              'Langue audio par défaut',
+              'Langue audio par dÃ©faut',
               style: textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: scheme.primary,
@@ -1087,7 +1087,7 @@ class _SeriesAudioLanguageSelectorState
                     initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Langue',
-                      hintText: 'Sélectionner une langue',
+                      hintText: 'SÃ©lectionner une langue',
                       prefixIcon: Icon(Icons.language_outlined),
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -1095,7 +1095,7 @@ class _SeriesAudioLanguageSelectorState
                     items: [
                       const DropdownMenuItem<String>(
                         value: '',
-                        child: Text('(Défaut du flux)'),
+                        child: Text('(DÃ©faut du flux)'),
                       ),
                       ..._availableLanguages.map(
                         (l) => DropdownMenuItem<String>(
@@ -1111,8 +1111,7 @@ class _SeriesAudioLanguageSelectorState
                     children: [
                       Checkbox(
                         value: _forced,
-                        onChanged: _selectedLanguage == null ||
-                                _selectedLanguage!.isEmpty
+                        onChanged: _selectedLanguage == null
                             ? null
                             : (v) => _onForcedChanged(v ?? false),
                       ),
@@ -1123,7 +1122,7 @@ class _SeriesAudioLanguageSelectorState
                                   _selectedLanguage!.isEmpty)
                               ? 'Choisissez d\'abord une langue'
                               : _forced
-                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                  ? 'Forcer cette langue pour TOUS les Ã©pisodes de la sÃ©rie'
                                   : 'Appliquer seulement si disponible (sinon langue du flux)',
                           style: textTheme.bodySmall?.copyWith(
                             color: (_selectedLanguage == null ||
@@ -1148,16 +1147,16 @@ class _SeriesAudioLanguageSelectorState
   }
 }
 
-/// Sélecteur de langue de sous-titres par défaut pour une série.
-/// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
+/// SÃ©lecteur de langue de sous-titres par dÃ©faut pour une sÃ©rie.
+/// Permet de choisir une langue (ex: FR) et de l'appliquer Ã  tous les Ã©pisodes.
 ///
-/// Même principe que [_SeriesAudioLanguageSelector] : la préférence est
-/// mémorisée par série ([PlayerTrackPrefs]) et le lecteur la ré-applique à
-/// chaque épisode. Les entrées reproduisent les pistes **intégrées** réellement
-/// présentes dans le premier épisode jouable — **une par piste**, comme la
-/// feuille du lecteur, variantes `(CC)`/`(SDH)` comprises. Dédupliquer par
-/// langue faisait disparaître ces variantes et n'affichait que deux entrées là
-/// où le lecteur en offrait cinq.
+/// MÃªme principe que [_SeriesAudioLanguageSelector] : la prÃ©fÃ©rence est
+/// mÃ©morisÃ©e par sÃ©rie ([PlayerTrackPrefs]) et le lecteur la rÃ©-applique Ã 
+/// chaque Ã©pisode. Les entrÃ©es reproduisent les pistes **intÃ©grÃ©es** rÃ©ellement
+/// prÃ©sentes dans le premier Ã©pisode jouable â€” **une par piste**, comme la
+/// feuille du lecteur, variantes `(CC)`/`(SDH)` comprises. DÃ©dupliquer par
+/// langue faisait disparaÃ®tre ces variantes et n'affichait que deux entrÃ©es lÃ 
+/// oÃ¹ le lecteur en offrait cinq.
 class _SeriesSubtitleLanguageSelector extends ConsumerStatefulWidget {
   const _SeriesSubtitleLanguageSelector({required this.seriesId});
   final String seriesId;
@@ -1181,7 +1180,7 @@ class _SeriesSubtitleLanguageSelectorState
   }
 
   Future<void> _load() async {
-    // 1. Charger préférences sauvegardées
+    // 1. Charger prÃ©fÃ©rences sauvegardÃ©es
     final lang = await PlayerTrackPrefs.seriesSubtitleLanguageFor(
       widget.seriesId,
     );
@@ -1189,7 +1188,7 @@ class _SeriesSubtitleLanguageSelectorState
       widget.seriesId,
     );
 
-    // 2. Récupérer les langues réelles depuis le premier épisode jouable
+    // 2. RÃ©cupÃ©rer les langues rÃ©elles depuis le premier Ã©pisode jouable
     final languages = await _fetchRealSubtitleLanguages();
 
     if (mounted) {
@@ -1202,7 +1201,7 @@ class _SeriesSubtitleLanguageSelectorState
     }
   }
 
-  /// Récupère les langues de sous-titres intégrées du premier épisode jouable.
+  /// RÃ©cupÃ¨re les langues de sous-titres intÃ©grÃ©es du premier Ã©pisode jouable.
   Future<List<(String, String)>> _fetchRealSubtitleLanguages() async {
     final seriesAsync = ref.read(seriesInfoProvider(widget.seriesId));
     final series = seriesAsync.value;
@@ -1244,18 +1243,18 @@ class _SeriesSubtitleLanguageSelectorState
     if (mounted) setState(() => _forced = value);
   }
 
-  /// Items du menu (hors « (Désactivés) », ajouté en tête).
+  /// Items du menu (hors Â« (DÃ©sactivÃ©s) Â», ajoutÃ© en tÃªte).
   ///
-  /// La préférence mémorisée peut ne pas figurer dans la sonde courante
-  /// (l'épisode sondé n'a pas exactement les mêmes pistes, ou media3 n'a pas
-  /// encore publié toutes les variantes) : on l'ajoute alors telle quelle.
-  /// Sans ça, `DropdownButtonFormField` lèverait une assertion — « value » doit
-  /// exister parmi les items — et l'écran série planterait à l'ouverture.
+  /// La prÃ©fÃ©rence mÃ©morisÃ©e peut ne pas figurer dans la sonde courante
+  /// (l'Ã©pisode sondÃ© n'a pas exactement les mÃªmes pistes, ou media3 n'a pas
+  /// encore publiÃ© toutes les variantes) : on l'ajoute alors telle quelle.
+  /// Sans Ã§a, `DropdownButtonFormField` lÃ¨verait une assertion â€” Â« value Â» doit
+  /// exister parmi les items â€” et l'Ã©cran sÃ©rie planterait Ã  l'ouverture.
   List<DropdownMenuItem<String>> _dropdownItems() {
     final items = <DropdownMenuItem<String>>[
       const DropdownMenuItem<String>(
         value: '',
-        child: Text('(Désactivés)'),
+        child: Text('(DÃ©sactivÃ©s)'),
       ),
       ..._availableLanguages.map(
         (l) => DropdownMenuItem<String>(
@@ -1286,7 +1285,7 @@ class _SeriesSubtitleLanguageSelectorState
             Icon(Icons.subtitles_outlined, size: 18, color: scheme.primary),
             const SizedBox(width: 8),
             Text(
-              'Langue des sous-titres par défaut',
+              'Langue des sous-titres par dÃ©faut',
               style: textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: scheme.primary,
@@ -1309,7 +1308,7 @@ class _SeriesSubtitleLanguageSelectorState
                     initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Langue des sous-titres',
-                      hintText: 'Sélectionner une langue',
+                      hintText: 'SÃ©lectionner une langue',
                       prefixIcon: Icon(Icons.subtitles_outlined),
                       border: OutlineInputBorder(),
                       isDense: true,
@@ -1322,8 +1321,7 @@ class _SeriesSubtitleLanguageSelectorState
                     children: [
                       Checkbox(
                         value: _forced,
-                        onChanged: _selectedLanguage == null ||
-                                _selectedLanguage!.isEmpty
+                        onChanged: _selectedLanguage == null
                             ? null
                             : (v) => _onForcedChanged(v ?? false),
                       ),
@@ -1334,7 +1332,7 @@ class _SeriesSubtitleLanguageSelectorState
                                   _selectedLanguage!.isEmpty)
                               ? 'Choisissez d\'abord une langue'
                               : _forced
-                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                  ? 'Forcer cette langue pour TOUS les Ã©pisodes de la sÃ©rie'
                                   : 'Appliquer seulement si disponible (sinon langue du flux)',
                           style: textTheme.bodySmall?.copyWith(
                             color: (_selectedLanguage == null ||
@@ -1358,3 +1356,5 @@ class _SeriesSubtitleLanguageSelectorState
     );
   }
 }
+
+
