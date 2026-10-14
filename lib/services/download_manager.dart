@@ -121,7 +121,7 @@ class DownloadManager extends ChangeNotifier {
   /// démarrage. Sans cette garde, deux appels simultanés passaient tous deux
   /// le test `isBoxOpen` (toujours faux avant l'ouverture) et le second
   /// `openBox` échouait avec
-  /// « The box "downloads" is already open and of type Box<DownloadTask> ».
+  /// « The box "downloads" is already open and of type `Box<DownloadTask>` ».
   Future<void>? _initFuture;
   DownloadManagerConfig _config = const DownloadManagerConfig();
   final Map<String, Isolate> _workers = {};
