@@ -40,6 +40,20 @@
 
 État : `flutter analyze lib test` → 0 problème (hors 4 avertissements préexistants dans `test/`), `dart run tool/check_i18n_sync.dart` → 421 messages / 6 locales, **suite complète 895 verts**.
 
+## 2 ter. Chantiers du 14/10 — sous-titres intégrés & entrée « Aucun »
+
+- [x] **① Sous-titres intégrés INVISIBLES malgré une détection correcte** — *Défaut rapporté (14/10)* : les pistes intégrées sont listées et sélectionnables, mais **aucun sous-titre ne s'affiche jamais**.
+      → *Cause racine trouvée* : `subtitleControllerProvider` était déclaré en **`Provider<SubtitleController>` nu** (`lib/providers/providers.dart:105`). Or `SubtitleController` est un `ChangeNotifier` dont l'état change **en cours de lecture** (`_pollLiveEmbedded` → `notifyListeners`, toutes les 300 ms). `ref.watch` ne s'abonne à `notifyListeners` que si le provider enveloppe un `Listenable` : **les `ref.watch` étaient donc morts**. L'overlay du lecteur — seul consommateur **sans `setState`**, il se contente de rendre `liveEmbeddedCues` — ne se reconstruisait jamais pendant la lecture.
+      *Preuve par étage* : natif `onCues n=1` (le `TextRenderer` émet bien), pont `getCurrentCues raw=1 text=1` (cue **textuelle**, pas bitmap PGS), Dart `1re cue reçue (1) — [grincement léger]` (le contrôleur reçoit bien). La chaîne s'arrêtait au `notifyListeners`, **sans abonné**.
+      *Correctif* : `ChangeNotifierProvider<SubtitleController>` (Riverpod 3 l'exporte via `package:flutter_riverpod/legacy.dart`), sans `ref.onDispose(controller.dispose)` — le provider dispose lui-même le notifier. Un seul changement répare aussi les autres `ref.watch` du même provider (feuille « Détails du flux », panneau sous-titres). Sondes temporaires natif + Dart retirées après validation. Leçon : playbook **L15**.
+      **Validé sur le S20 (14/10)** : les sous-titres s'affichent à l'écran.
+- [x] **② Entrée « Aucun » audio ET sous-titres, désactivations SÉPARÉES** — *Demande (14/10)* : « un entête aucun dans les 2 détails de flux, un pour l'audio, et un pour les sous-titres, désactivation séparée ».
+      → « Aucun » **audio** = vraie désactivation du **type** au niveau du sélecteur (`clearAudioTracks` → `setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)`) et oubli de la préférence persistée (`PlayerTrackPrefs.clearAudioTrack`) ; « Aucun » **sous-titres** = `SubtitleController.disable()` (coupe intégrés ET externes, `clearSubtitleTracks` natif). Chaque section a **son** « Aucun » ; celui des sous-titres est rendu en **1re ligne de la sous-section « Sous-titres intégrés »** (repli en tête de la liste générale quand le flux n'a aucune piste intégrée). Clé l10n `noneOption` (6 locales). Tests : `player_track_prefs_test` (+3), `embedded_subtitle_controller_test` (+3).
+- [x] **③ Menu série « Langue des sous-titres par défaut » : une entrée PAR PISTE** — *Demande (14/10)* : le menu n'offrait que 2 langues là où le lecteur en proposait 5.
+      → `StreamSubtitleTracksService._toLanguages` **dédupliquait par code langue** et collait au survivant le libellé de la **dernière** piste (`Français (SDH)`, `English [Original] (SDH)`) : l'utilisateur lisait « 3 options » face aux 6 du lecteur. Remplacé par `_toTrackChoices` (**une entrée par piste**, valeur = libellé, `Map` pour dédupliquer sans violer l'assertion `DropdownButton` sur valeurs dupliquées) ; nouveau `pickEmbeddedSubtitleTrackForPreference` (libellé exact → nom de langue traduit → code langue, pour les préférences enregistrées avant ce changement) ; items du menu complétés par la préférence mémorisée quand la sonde courante ne la contient pas (sinon assertion → crash de l'écran série). Tests : `embedded_subtitle_pick_test` (+5).
+
+État : `flutter analyze <fichiers touchés>` → « No issues found! », **suite complète 915 verts**, build release installé et validé sur le S20.
+
 ## 3. Chantiers en cours (issus du plan précédent)
 
 - [x] **P1 — Rafraîchissement à la demande** (`RefreshStepsController` / `RefreshProgressView` / `showRefreshProgress`) : implémenté — **reste à valider sur device** (démarrage périmé + changement d'abonnement).
