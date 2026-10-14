@@ -55,4 +55,4 @@
 
 ## 5. Hygiène dépôt
 
-- [ ] **Commits** : rien n'est commité depuis `49bf129` — gros volume de travail non suivi (fork media3 modifié + fichiers natifs non suivis : `SubtitleDetector.java`, `SubtitleDetectorTest.java`, `VideoPlayerSubtitleTest.java`, `test/resources/`). Prévoir des commits atomiques.
+- [x] **Commits** : 19 commits atomiques réalisés le 14/10, couvrant tout le reliquat (config, docs, l10n, sécurité/SecretStore, stockage Hive, OpenSubtitles, sous-titres + fork media3, tri/affinité, EPG, replay `archiveDays`, démarrage/rafraîchissement, connectivité, synopsis, métadonnées, matchmaking, bouton hamburger, avatars, UI, style). Arbre de travail propre ; suite complète verte (906 tests) et build release installé sur le S20.
