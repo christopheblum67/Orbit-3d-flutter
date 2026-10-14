@@ -9,271 +9,271 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get accountDeviceProfile => 'Ù…Ù„Ù Ø§Ù„Ø¬Ù‡Ø§Ø² ÙˆØ§Ù„ØªØ´Ø®ÙŠØµ';
+  String get accountDeviceProfile => '┘à┘ä┘ü Ïº┘äÏ¼┘çÏºÏ▓ ┘êÏº┘äÏ¬Ï┤Ï«┘èÏÁ';
 
   @override
   String accountDeviceProfileSubtitle(String label) {
-    return 'Ø§Ù„Ù…Ù„Ù $label Â· ØªØ´Ø®ÙŠØµ Ø§Ù„Ù…Ø´ØºÙ‘Ù„';
+    return 'Ïº┘ä┘à┘ä┘ü $label ┬À Ï¬Ï┤Ï«┘èÏÁ Ïº┘ä┘àÏ┤Ï║┘æ┘ä';
   }
 
   @override
-  String get accountNoSubscription => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§Ø´ØªØ±Ø§Ùƒ Ù†Ø´Ø·';
+  String get accountNoSubscription => '┘äÏº ┘è┘êÏ¼Ï» ÏºÏ┤Ï¬Ï▒Ïº┘â ┘åÏ┤ÏÀ';
 
   @override
-  String get accountPreferences => 'ØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ';
+  String get accountPreferences => 'Ï¬┘üÏÂ┘è┘äÏºÏ¬ Ïº┘ä┘à┘ä┘ü Ïº┘äÏ┤Ï«ÏÁ┘è';
 
   @override
   String get accountPreferencesSubtitle =>
-      'Ø§Ù„Ù„ØºØ©ØŒ Ø§Ù„Ù…Ø¸Ù‡Ø±ØŒ Ù‚ÙŠÙˆØ¯ Ø§Ù„Ø¹Ù…Ø±ØŒ Ø±Ù…Ø² PIN';
+      'Ïº┘ä┘äÏ║Ï®Ïî Ïº┘ä┘àÏ©┘çÏ▒Ïî ┘é┘è┘êÏ» Ïº┘äÏ╣┘àÏ▒Ïî Ï▒┘àÏ▓ PIN';
 
   @override
-  String get accountProfiles => 'Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†';
+  String get accountProfiles => '┘à┘ä┘üÏºÏ¬ Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à┘è┘å';
 
   @override
   String get accountProfilesSubtitle =>
-      'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ù„ÙØ§Øª ÙˆØ§Ù„Ù…Ù„Ù Ø§Ù„Ù†Ø´Ø·';
+      'ÏÑÏ»ÏºÏ▒Ï® Ïº┘ä┘à┘ä┘üÏºÏ¬ ┘êÏº┘ä┘à┘ä┘ü Ïº┘ä┘åÏ┤ÏÀ';
 
   @override
-  String get accountSubscriptions => 'Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Xtream/M3U';
+  String get accountSubscriptions => 'ÏºÏ┤Ï¬Ï▒Ïº┘âÏºÏ¬ Xtream/M3U';
 
   @override
   String activeCountOngoing(Object count) {
-    return '$count Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°';
+    return '$count ┘é┘èÏ» Ïº┘äÏ¬┘å┘ü┘èÏ░';
   }
 
   @override
-  String get addSubscription => 'Ø¥Ø¶Ø§ÙØ© Ø§Ø´ØªØ±Ø§Ùƒ';
+  String get addSubscription => 'ÏÑÏÂÏº┘üÏ® ÏºÏ┤Ï¬Ï▒Ïº┘â';
 
   @override
   String addedToFavorites(Object title) {
-    return 'ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Â«$titleÂ» Ø¥Ù„Ù‰ Ø§Ù„Ù…ÙØ¶Ù„Ø©';
+    return 'Ï¬┘àÏ¬ ÏÑÏÂÏº┘üÏ® ┬½$title┬╗ ÏÑ┘ä┘ë Ïº┘ä┘à┘üÏÂ┘äÏ®';
   }
 
   @override
-  String get age => 'Ø§Ù„Ø¹Ù…Ø±';
+  String get age => 'Ïº┘äÏ╣┘àÏ▒';
 
   @override
-  String get ageRange13to17 => '13 - 17 Ø³Ù†Ø©';
+  String get ageRange13to17 => '13 - 17 Ï│┘åÏ®';
 
   @override
-  String get ageRange18to24 => '18 - 24 Ø³Ù†Ø©';
+  String get ageRange18to24 => '18 - 24 Ï│┘åÏ®';
 
   @override
-  String get ageRange25to34 => '25 - 34 Ø³Ù†Ø©';
+  String get ageRange25to34 => '25 - 34 Ï│┘åÏ®';
 
   @override
-  String get ageRange35to44 => '35 - 44 Ø³Ù†Ø©';
+  String get ageRange35to44 => '35 - 44 Ï│┘åÏ®';
 
   @override
-  String get ageRange45to54 => '45 - 54 Ø³Ù†Ø©';
+  String get ageRange45to54 => '45 - 54 Ï│┘åÏ®';
 
   @override
-  String get ageRange55plus => '55 Ø³Ù†Ø© ÙØ£ÙƒØ«Ø±';
+  String get ageRange55plus => '55 Ï│┘åÏ® ┘üÏú┘âÏ½Ï▒';
 
   @override
-  String get ageRangeUnder12 => 'Ø£Ù‚Ù„ Ù…Ù† 12 Ø³Ù†Ø©';
+  String get ageRangeUnder12 => 'Ïú┘é┘ä ┘à┘å 12 Ï│┘åÏ®';
 
   @override
-  String get appTitle => 'Ø£ÙˆØ±Ø¨Øª IPTV';
+  String get appTitle => 'Ïú┘êÏ▒Ï¿Ï¬ IPTV';
 
   @override
   String get appearInSearchAndRecommendations =>
-      'Ø§Ù„Ø¸Ù‡ÙˆØ± ÙÙŠ Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ø¨Ø­Ø« ÙˆØ§Ù„ØªÙˆØµÙŠØ§Øª';
+      'Ïº┘äÏ©┘ç┘êÏ▒ ┘ü┘è Ï╣┘à┘ä┘èÏºÏ¬ Ïº┘äÏ¿Ï¡Ï½ ┘êÏº┘äÏ¬┘êÏÁ┘èÏºÏ¬';
 
   @override
-  String get apply => 'ØªØ·Ø¨ÙŠÙ‚';
+  String get apply => 'Ï¬ÏÀÏ¿┘è┘é';
 
   @override
-  String get audioAndNightFocus => 'Ø§Ù„ØµÙˆØª ÙˆÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
+  String get audioAndNightFocus => 'Ïº┘äÏÁ┘êÏ¬ ┘ê┘êÏÂÏ╣ Ïº┘ä┘ä┘è┘ä';
 
   @override
   String get audioAndNightFocusSubtitle =>
-      'ØªØ­Ø³ÙŠÙ† Ù„ÙŠÙ„ÙŠØŒ ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø±ØŒ Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
+      'Ï¬Ï¡Ï│┘è┘å ┘ä┘è┘ä┘èÏî Ï¬Ï╣Ï▓┘èÏ▓ Ïº┘äÏ¡┘êÏºÏ▒Ïî ┘àÏ▓Ïº┘à┘åÏ® Ïº┘äÏÁ┘êÏ¬/Ïº┘ä┘ü┘èÏ»┘è┘ê';
 
   @override
-  String get audioShift => 'Ø¥Ø²Ø§Ø­Ø© ØµÙˆØªÙŠØ© Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø¶Ø¨Ø·';
+  String get audioShift => 'ÏÑÏ▓ÏºÏ¡Ï® ÏÁ┘êÏ¬┘èÏ® ┘éÏºÏ¿┘äÏ® ┘ä┘äÏÂÏ¿ÏÀ';
 
   @override
-  String get audioShiftMinus50 => '-50 Ù…Ù„Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
+  String get audioShiftMinus50 => '-50 ┘à┘ä┘ä┘è Ï½Ïº┘å┘èÏ®';
 
   @override
-  String get audioShiftPlus50 => '+50 Ù…Ù„Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
+  String get audioShiftPlus50 => '+50 ┘à┘ä┘ä┘è Ï½Ïº┘å┘èÏ®';
 
   @override
   String get audioShiftSubtitle =>
-      'Ø¥Ø²Ø§Ø­Ø© ØµÙˆØª/ÙÙŠØ¯ÙŠÙˆ ÙŠØ¯ÙˆÙŠØ© (Ø¨Ø§Ù„Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©)';
+      'ÏÑÏ▓ÏºÏ¡Ï® ÏÁ┘êÏ¬/┘ü┘èÏ»┘è┘ê ┘èÏ»┘ê┘èÏ® (Ï¿Ïº┘ä┘à┘ä┘è Ï½Ïº┘å┘èÏ®)';
 
   @override
   String get autoQualityDescription =>
-      'ÙŠØªÙŠØ­ Ù„Ù…Ø´ØºÙ„ Ø§Ø®ØªÙŠØ§Ø± Ø£ÙØ¶Ù„ Ø¬ÙˆØ¯Ø©';
+      '┘èÏ¬┘èÏ¡ ┘ä┘àÏ┤Ï║┘ä ÏºÏ«Ï¬┘èÏºÏ▒ Ïú┘üÏÂ┘ä Ï¼┘êÏ»Ï®';
 
   @override
   String get autoReconnectLive =>
-      'Ø¥Ø¹Ø§Ø¯Ø© Ø§ØªØµØ§Ù„ Ù…Ø¨Ø§Ø´Ø±Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠØ©';
+      'ÏÑÏ╣ÏºÏ»Ï® ÏºÏ¬ÏÁÏº┘ä ┘àÏ¿ÏºÏ┤Ï▒Ï® Ï¬┘ä┘éÏºÏª┘èÏ®';
 
   @override
   String get autoReconnectLiveSubtitle =>
-      'Ù…Ø­Ø§ÙˆÙ„Ø© Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§ØªØµØ§Ù„ ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§ Ø¥Ø°Ø§ Ø§Ù†Ù‚Ø·Ø¹ Ø§Ù„Ø¨Ø«';
+      '┘àÏ¡Ïº┘ê┘äÏ® ÏÑÏ╣ÏºÏ»Ï® Ïº┘äÏºÏ¬ÏÁÏº┘ä Ï¬┘ä┘éÏºÏª┘è┘ïÏº ÏÑÏ░Ïº Ïº┘å┘éÏÀÏ╣ Ïº┘äÏ¿Ï½';
 
   @override
   String get avSyncDialogHint =>
-      'Ø¥ÙŠØ¬Ø§Ø¨ÙŠ = Ø§Ù„ØµÙˆØª Ù…ØªÙ‚Ø¯Ù…ØŒ Ø³Ù„Ø¨ÙŠ = Ø§Ù„ØµÙˆØª Ù…ØªØ£Ø®Ø±';
+      'ÏÑ┘èÏ¼ÏºÏ¿┘è = Ïº┘äÏÁ┘êÏ¬ ┘àÏ¬┘éÏ»┘àÏî Ï│┘äÏ¿┘è = Ïº┘äÏÁ┘êÏ¬ ┘àÏ¬ÏúÏ«Ï▒';
 
   @override
-  String get avSyncDialogLabel => 'Ø§Ù„Ø¥Ø²Ø§Ø­Ø© (Ø¨Ø§Ù„Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©)';
+  String get avSyncDialogLabel => 'Ïº┘äÏÑÏ▓ÏºÏ¡Ï® (Ï¿Ïº┘ä┘à┘ä┘è Ï½Ïº┘å┘èÏ®)';
 
   @override
-  String get avSyncDialogTitle => 'Ù…Ø¹Ø§ÙŠØ±Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
+  String get avSyncDialogTitle => '┘àÏ╣Ïº┘èÏ▒Ï® Ïº┘äÏÁ┘êÏ¬/Ïº┘ä┘ü┘èÏ»┘è┘ê';
 
   @override
-  String get backupExport => 'ØªØµØ¯ÙŠØ± Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
+  String get backupExport => 'Ï¬ÏÁÏ»┘èÏ▒ Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬';
 
   @override
   String get backupExportSubtitle =>
-      'Ù†Ø³Ø® Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª ÙƒØ§Ù…Ù„Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø§ÙØ¸Ø©';
+      '┘åÏ│Ï« Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ ┘âÏº┘à┘äÏ® ÏÑ┘ä┘ë Ïº┘äÏ¡Ïº┘üÏ©Ï®';
 
   @override
-  String get backupImport => 'Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
+  String get backupImport => 'ÏºÏ│Ï¬┘èÏ▒ÏºÏ» Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬';
 
   @override
   String get backupImportSubtitle =>
-      'Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù…Ù† Ø§Ù„Ø­Ø§ÙØ¸Ø© (JSON)';
+      'Ïº┘äÏºÏ│Ï¬Ï╣ÏºÏ»Ï® ┘à┘å Ïº┘äÏ¡Ïº┘üÏ©Ï® (JSON)';
 
   @override
   String get bassKiller =>
-      'Ù‚Ø§Ø·Ø¹ Ø§Ù„Ø¨Ø§Øµ (Ù‚Ø·Ø¹ Ø£Ù‚Ù„ Ù…Ù† 120 Ù‡Ø±ØªØ²)';
+      '┘éÏºÏÀÏ╣ Ïº┘äÏ¿ÏºÏÁ (┘éÏÀÏ╣ Ïú┘é┘ä ┘à┘å 120 ┘çÏ▒Ï¬Ï▓)';
 
   @override
   String get bassKillerSubtitle =>
-      'ÙŠÙ‚Ù„Ù„ Ø§Ù„ØªØ±Ø¯Ø¯Ø§Øª Ø§Ù„Ù…Ù†Ø®ÙØ¶Ø© Ù„ØªØ¬Ù†Ø¨ Ø§Ù„Ø§Ù‡ØªØ²Ø§Ø²Ø§Øª';
+      '┘è┘é┘ä┘ä Ïº┘äÏ¬Ï▒Ï»Ï»ÏºÏ¬ Ïº┘ä┘à┘åÏ«┘üÏÂÏ® ┘äÏ¬Ï¼┘åÏ¿ Ïº┘äÏº┘çÏ¬Ï▓ÏºÏ▓ÏºÏ¬';
 
   @override
-  String get cancel => 'Ø¥Ù„ØºØ§Ø¡';
+  String get cancel => 'ÏÑ┘äÏ║ÏºÏí';
 
   @override
-  String get castToChromecast => 'Ø¥Ø±Ø³Ø§Ù„ Ø¥Ù„Ù‰ Chromecast';
+  String get castToChromecast => 'ÏÑÏ▒Ï│Ïº┘ä ÏÑ┘ä┘ë Chromecast';
 
   @override
-  String get catchUpTv => 'Ù…ØªØ§Ø¨Ø¹Ø© Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬';
+  String get catchUpTv => '┘àÏ¬ÏºÏ¿Ï╣Ï® Ïº┘äÏ¿Ï▒Ïº┘àÏ¼';
 
   @override
-  String get categories => 'Ø§Ù„ÙØ¦Ø§Øª';
+  String get categories => 'Ïº┘ä┘üÏªÏºÏ¬';
 
   @override
-  String get certPinning => 'ØªÙØ¹ÙŠÙ„ ØªØ«Ø¨ÙŠØª Ø§Ù„Ø´Ù‡Ø§Ø¯Ø©';
+  String get certPinning => 'Ï¬┘üÏ╣┘è┘ä Ï¬Ï½Ï¿┘èÏ¬ Ïº┘äÏ┤┘çÏºÏ»Ï®';
 
   @override
-  String get certPinningAdd => 'Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¨ØµÙ…Ø§Øª Ø£Ø¹Ù„Ø§Ù‡';
+  String get certPinningAdd => 'ÏÑÏÂÏº┘üÏ® Ïº┘äÏ¿ÏÁ┘àÏºÏ¬ ÏúÏ╣┘äÏº┘ç';
 
   @override
   String get certPinningHint =>
-      'Ø§Ù„Ø¨ØµÙ…Ø§Øª Ø§Ù„Ù…Ø³Ù…ÙˆØ­ Ø¨Ù‡Ø§ (ÙˆØ§Ø­Ø¯Ø© Ù„ÙƒÙ„ Ø³Ø·Ø±ØŒ Ø³Ø¯Ø§Ø³ÙŠØ© Ø¹Ø´Ø±ÙŠØ© Ø¨Ø£Ø­Ø±Ù ÙƒØ¨ÙŠØ±Ø©):';
+      'Ïº┘äÏ¿ÏÁ┘àÏºÏ¬ Ïº┘ä┘àÏ│┘à┘êÏ¡ Ï¿┘çÏº (┘êÏºÏ¡Ï»Ï® ┘ä┘â┘ä Ï│ÏÀÏ▒Ïî Ï│Ï»ÏºÏ│┘èÏ® Ï╣Ï┤Ï▒┘èÏ® Ï¿ÏúÏ¡Ï▒┘ü ┘âÏ¿┘èÏ▒Ï®):';
 
   @override
   String get certPinningSubtitle =>
-      'ÙŠØªØ­Ù‚Ù‚ Ù…Ù† Ø¨ØµÙ…Ø© SHA-256 Ù„Ø´Ù‡Ø§Ø¯Ø© SSL Ø§Ù„Ø®Ø§ØµØ© Ø¨Ø§Ù„Ø®Ø§Ø¯Ù… (Ù…Ø¶Ø§Ø¯ Ù„Ù„Ù€ MITM)';
+      '┘èÏ¬Ï¡┘é┘é ┘à┘å Ï¿ÏÁ┘àÏ® SHA-256 ┘äÏ┤┘çÏºÏ»Ï® SSL Ïº┘äÏ«ÏºÏÁÏ® Ï¿Ïº┘äÏ«ÏºÏ»┘à (┘àÏÂÏºÏ» ┘ä┘ä┘Ç MITM)';
 
   @override
-  String get changePinCode => 'ØªØºÙŠÙŠØ± Ø±Ù…Ø² PIN';
+  String get changePinCode => 'Ï¬Ï║┘è┘èÏ▒ Ï▒┘àÏ▓ PIN';
 
   @override
-  String get channelsUnavailable => 'Ø§Ù„Ù‚Ù†ÙˆØ§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get channelsUnavailable => 'Ïº┘ä┘é┘å┘êÏºÏ¬ Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get chooseProfile => 'Ø§Ø®ØªØ± Ù…Ù„ÙØ§Ù‹ Ø´Ø®ØµÙŠØ§Ù‹';
+  String get chooseProfile => 'ÏºÏ«Ï¬Ï▒ ┘à┘ä┘üÏº┘ï Ï┤Ï«ÏÁ┘èÏº┘ï';
 
   @override
-  String get clearCaches => 'Ù…Ø³Ø­ ÙƒÙ„ Ø§Ù„ÙƒØ§Ø´';
+  String get clearCaches => '┘àÏ│Ï¡ ┘â┘ä Ïº┘ä┘âÏºÏ┤';
 
   @override
   String get clearCachesSubtitle =>
-      'Ø§Ù„ØµÙˆØ±ØŒ ÙÙ‡Ø±Ø³ Ø§Ù„Ø¨Ø­Ø«ØŒ Ø¨ÙŠØ§Ù†Ø§Øª TMDB/TVmaze';
+      'Ïº┘äÏÁ┘êÏ▒Ïî ┘ü┘çÏ▒Ï│ Ïº┘äÏ¿Ï¡Ï½Ïî Ï¿┘èÏº┘åÏºÏ¬ TMDB/TVmaze';
 
   @override
-  String get cloudSyncEnabled => 'Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ù…ÙØ¹Ù‘Ù„Ø©';
+  String get cloudSyncEnabled => 'Ïº┘ä┘àÏ▓Ïº┘à┘åÏ® ┘à┘üÏ╣┘æ┘äÏ®';
 
   @override
   String cloudSyncLastSync(String time) {
-    return 'Ø¢Ø®Ø± Ù…Ø²Ø§Ù…Ù†Ø©: $time';
+    return 'ÏóÏ«Ï▒ ┘àÏ▓Ïº┘à┘åÏ®: $time';
   }
 
   @override
-  String get cloudSyncNow => 'Ø²Ø§Ù…Ù† Ø§Ù„Ø¢Ù†';
+  String get cloudSyncNow => 'Ï▓Ïº┘à┘å Ïº┘äÏó┘å';
 
   @override
   String get cloudSyncNowSubtitle =>
-      'Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ù…Ø­Ù„ÙŠØ© Ø¥Ù„Ù‰ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©';
+      'ÏÑÏ▒Ï│Ïº┘ä Ïº┘äÏ¬Ï║┘è┘èÏ▒ÏºÏ¬ Ïº┘ä┘àÏ¡┘ä┘èÏ® ÏÑ┘ä┘ë Ïº┘äÏ│Ï¡ÏºÏ¿Ï®';
 
   @override
   String get cloudSyncSubtitleOff =>
-      'Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ù…ÙØ¶Ù„Ø§Øª ÙˆØ§Ù„Ù…ÙØ´Ø§Ù‡ÙŽØ¯ ÙˆØ§Ù„Ø­Ø¯ÙŠØ« Ù†Ø­Ùˆ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©';
+      '┘àÏ▓Ïº┘à┘åÏ® Ïº┘ä┘à┘üÏÂ┘äÏºÏ¬ ┘êÏº┘ä┘à┘ÅÏ┤Ïº┘ç┘ÄÏ» ┘êÏº┘äÏ¡Ï»┘èÏ½ ┘åÏ¡┘ê Ïº┘äÏ│Ï¡ÏºÏ¿Ï®';
 
   @override
-  String get cloudflareReset => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Cloudflare';
+  String get cloudflareReset => 'ÏÑÏ╣ÏºÏ»Ï® ÏÂÏ¿ÏÀ ÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Cloudflare';
 
   @override
   String get cloudflareResetSubtitle =>
-      'Ù…Ø³Ø­ Ø§Ù„ÙƒÙˆÙƒÙŠØ²ØŒ TLS Impersonation=OFFØŒ ÙˆÙƒÙŠÙ„ ExoPlayer Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ';
+      '┘àÏ│Ï¡ Ïº┘ä┘â┘ê┘â┘èÏ▓Ïî TLS Impersonation=OFFÏî ┘ê┘â┘è┘ä ExoPlayer Ïº┘äÏº┘üÏ¬Ï▒ÏºÏÂ┘è';
 
   @override
-  String get comingSoon => 'Ù‚Ø±ÙŠØ¨Ø§Ù‹';
+  String get comingSoon => '┘éÏ▒┘èÏ¿Ïº┘ï';
 
   @override
-  String get confirmAndContinue => 'ØªØ£ÙƒÙŠØ¯ ÙˆØ§Ù„Ù…ØªØ§Ø¨Ø¹Ø©';
+  String get confirmAndContinue => 'Ï¬Ïú┘â┘èÏ» ┘êÏº┘ä┘àÏ¬ÏºÏ¿Ï╣Ï®';
 
   @override
   String get coverCacheCleared =>
-      'ØªÙ… ØªÙØ±ÙŠØº Ø°Ø§ÙƒØ±Ø© Ø§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…Ø¤Ù‚Øª Ù„Ù„Ø£ØºÙ„ÙØ©.';
+      'Ï¬┘à Ï¬┘üÏ▒┘èÏ║ Ï░Ïº┘âÏ▒Ï® Ïº┘äÏ¬Ï«Ï▓┘è┘å Ïº┘ä┘àÏñ┘éÏ¬ ┘ä┘äÏúÏ║┘ä┘üÏ®.';
 
   @override
-  String get createKidProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù„Ù„Ø£Ø·ÙØ§Ù„';
+  String get createKidProfile => 'ÏÑ┘åÏ┤ÏºÏí ┘à┘ä┘ü Ï┤Ï«ÏÁ┘è ┘ä┘äÏúÏÀ┘üÏº┘ä';
 
   @override
-  String get createNewProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ø¬Ø¯ÙŠØ¯';
+  String get createNewProfile => 'ÏÑ┘åÏ┤ÏºÏí ┘à┘ä┘ü Ï┤Ï«ÏÁ┘è Ï¼Ï»┘èÏ»';
 
   @override
-  String get createProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ';
+  String get createProfile => 'ÏÑ┘åÏ┤ÏºÏí ┘à┘ä┘ü Ï┤Ï«ÏÁ┘è';
 
   @override
   String currentProfileLabel(String name) {
-    return 'Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ Ø§Ù„Ø­Ø§Ù„ÙŠ: $name';
+    return 'Ïº┘ä┘à┘ä┘ü Ïº┘äÏ┤Ï«ÏÁ┘è Ïº┘äÏ¡Ïº┘ä┘è: $name';
   }
 
   @override
   String get dataAlreadyFresh =>
-      'Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ø­Ø¯Ø«Ø© (Ø£Ù‚Ù„ Ù…Ù† 30 Ø¯Ù‚ÙŠÙ‚Ø©)';
+      'Ïº┘äÏ¿┘èÏº┘åÏºÏ¬ ┘àÏ¡Ï»Ï½Ï® (Ïú┘é┘ä ┘à┘å 30 Ï»┘é┘è┘éÏ®)';
 
   @override
-  String get dataAndPrivacy => 'Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ§Ù„Ø®ØµÙˆØµÙŠØ©';
+  String get dataAndPrivacy => 'Ïº┘äÏ¿┘èÏº┘åÏºÏ¬ ┘êÏº┘äÏ«ÏÁ┘êÏÁ┘èÏ®';
 
   @override
-  String get deleteAll => 'Ø­Ø°Ù Ø§Ù„ÙƒÙ„';
+  String get deleteAll => 'Ï¡Ï░┘ü Ïº┘ä┘â┘ä';
 
   @override
-  String get deleteAllConfirm => 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ø§Ù„ÙƒÙ„ØŸ';
+  String get deleteAllConfirm => '┘ç┘ä Ï¬Ï▒┘èÏ» Ï¡Ï░┘ü Ïº┘ä┘â┘äÏƒ';
 
   @override
-  String get deletePin => 'Ø­Ø°Ù Ø±Ù…Ø² PIN';
+  String get deletePin => 'Ï¡Ï░┘ü Ï▒┘àÏ▓ PIN';
 
   @override
   String get deleteProfileConfirm =>
-      'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠØŸ';
+      '┘ç┘ä Ï¬Ï▒┘èÏ» Ï¡Ï░┘ü Ïº┘ä┘à┘ä┘ü Ïº┘äÏ┤Ï«ÏÁ┘èÏƒ';
 
   @override
-  String get detailUnavailable => 'Ø§Ù„ØªÙØ§ØµÙŠÙ„ ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get detailUnavailable => 'Ïº┘äÏ¬┘üÏºÏÁ┘è┘ä Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get diagnosticUnavailable => 'Ø§Ù„ØªØ´Ø®ÙŠØµ ØºÙŠØ± Ù…ØªØ§Ø­';
+  String get diagnosticUnavailable => 'Ïº┘äÏ¬Ï┤Ï«┘èÏÁ Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡';
 
   @override
-  String get dialogueBoost => 'ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø± (+4 Ø¯ÙŠØ³ÙŠØ¨Ù„)';
+  String get dialogueBoost => 'Ï¬Ï╣Ï▓┘èÏ▓ Ïº┘äÏ¡┘êÏºÏ▒ (+4 Ï»┘èÏ│┘èÏ¿┘ä)';
 
   @override
   String get dialogueBoostSubtitle =>
-      'ÙŠØ¶Ø®Ù‘Ù… Ø§Ù„Ø£ØµÙˆØ§Øª Ù…Ù‚Ø§Ø±Ù†Ø© Ø¨Ø§Ù„Ù…Ø¤Ø«Ø±Ø§Øª/Ø§Ù„Ù…ÙˆØ³ÙŠÙ‚Ù‰';
+      '┘èÏÂÏ«┘æ┘à Ïº┘äÏúÏÁ┘êÏºÏ¬ ┘à┘éÏºÏ▒┘åÏ® Ï¿Ïº┘ä┘àÏñÏ½Ï▒ÏºÏ¬/Ïº┘ä┘à┘êÏ│┘è┘é┘ë';
 
   @override
-  String get disableSubtitles => 'ØªØ¹Ø·ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©';
+  String get disableSubtitles => 'Ï¬Ï╣ÏÀ┘è┘ä Ïº┘äÏ¬Ï▒Ï¼┘àÏ®';
 
   @override
   String get dnsCloudflare => '1.1.1.1 (Cloudflare DoH)';
@@ -282,1172 +282,1172 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dnsGoogle => '8.8.8.8 (Google DoH)';
 
   @override
-  String get dnsProvider => 'Ù…Ø²ÙˆØ¯ DNS (DoH)';
+  String get dnsProvider => '┘àÏ▓┘êÏ» DNS (DoH)';
 
   @override
   String get dnsProviderSubtitle =>
-      'Ø§Ù„Ø®Ø§Ø¯Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„Ø§Ø³ØªØ¹Ù„Ø§Ù…Ø§Øª DNS Ø¹Ø¨Ø± HTTPS';
+      'Ïº┘äÏ«ÏºÏ»┘à Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à ┘äÏºÏ│Ï¬Ï╣┘äÏº┘àÏºÏ¬ DNS Ï╣Ï¿Ï▒ HTTPS';
 
   @override
   String get dnsQuad9 => '9.9.9.9 (Quad9 DoH)';
 
   @override
-  String get dnsSystem => 'ØªÙ„Ù‚Ø§Ø¦ÙŠ (Ø§Ù„Ù†Ø¸Ø§Ù…)';
+  String get dnsSystem => 'Ï¬┘ä┘éÏºÏª┘è (Ïº┘ä┘åÏ©Ïº┘à)';
 
   @override
   String downloadFailed(Object error) {
-    return 'ÙØ´Ù„ Ø§Ù„ØªÙ†Ø²ÙŠÙ„: $error';
+    return '┘üÏ┤┘ä Ïº┘äÏ¬┘åÏ▓┘è┘ä: $error';
   }
 
   @override
-  String get downloads => 'Ø§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª';
+  String get downloads => 'Ïº┘äÏ¬┘åÏ▓┘è┘äÏºÏ¬';
 
   @override
   String get dpadNavigation =>
-      'ØªÙ†Ù‚Ù„ Ù…Ø­Ø³Ù‘Ù† Ø¨Ù„ÙˆØ­Ø© Ø§Ù„Ø§ØªØ¬Ø§Ù‡Ø§Øª';
+      'Ï¬┘å┘é┘ä ┘àÏ¡Ï│┘æ┘å Ï¿┘ä┘êÏ¡Ï® Ïº┘äÏºÏ¬Ï¼Ïº┘çÏºÏ¬';
 
   @override
   String get dpadNavigationSubtitle =>
-      'ØªØ±ÙƒÙŠØ² Ù…Ø±Ø¦ÙŠØŒ Ù‡Ø§Ù„Ø© Ù…Ø¶ÙŠØ¦Ø©ØŒ Ø§Ù„ØªÙØ§Ù Ø§Ù„Ù†Øµ (ÙˆØ¶Ø¹ Ø§Ù„ØªÙ„ÙØ§Ø²)';
+      'Ï¬Ï▒┘â┘èÏ▓ ┘àÏ▒Ïª┘èÏî ┘çÏº┘äÏ® ┘àÏÂ┘èÏªÏ®Ïî Ïº┘äÏ¬┘üÏº┘ü Ïº┘ä┘åÏÁ (┘êÏÂÏ╣ Ïº┘äÏ¬┘ä┘üÏºÏ▓)';
 
   @override
   String get enableParentalControl =>
-      'ØªÙØ¹ÙŠÙ„ Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
+      'Ï¬┘üÏ╣┘è┘ä Ïº┘äÏ▒┘éÏºÏ¿Ï® Ïº┘äÏúÏ¿┘ê┘èÏ®';
 
   @override
   String enginesSubtitle(String live, String vod) {
-    return 'Ù…Ø¨Ø§Ø´Ø±: $live Â· ÙÙŠØ¯ÙŠÙˆ Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨: $vod';
+    return '┘àÏ¿ÏºÏ┤Ï▒: $live ┬À ┘ü┘èÏ»┘è┘ê Ï╣┘åÏ» Ïº┘äÏÀ┘äÏ¿: $vod';
   }
 
   @override
-  String get enginesTile => 'Ù…Ø­Ø±ÙƒØ§Øª Ø§Ù„ØªØ´ØºÙŠÙ„';
+  String get enginesTile => '┘àÏ¡Ï▒┘âÏºÏ¬ Ïº┘äÏ¬Ï┤Ï║┘è┘ä';
 
   @override
   String get enterNew4DigitPin =>
-      'Ø£Ø¯Ø®Ù„ Ø±Ù…Ø²Ø§Ù‹ Ø¬Ø¯ÙŠØ¯Ø§Ù‹ Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù…';
+      'ÏúÏ»Ï«┘ä Ï▒┘àÏ▓Ïº┘ï Ï¼Ï»┘èÏ»Ïº┘ï ┘à┘å 4 ÏúÏ▒┘éÏº┘à';
 
   @override
-  String get epgGrille => 'EPG (Ø§Ù„Ø¬Ø¯ÙˆÙ„)';
+  String get epgGrille => 'EPG (Ïº┘äÏ¼Ï»┘ê┘ä)';
 
   @override
-  String get epgGuideTv => 'Ø¯Ù„ÙŠÙ„ TV (EPG)';
+  String get epgGuideTv => 'Ï»┘ä┘è┘ä TV (EPG)';
 
   @override
-  String get episode => 'Ø§Ù„Ø­Ù„Ù‚Ø©';
+  String get episode => 'Ïº┘äÏ¡┘ä┘éÏ®';
 
   @override
   String errorGeneric(Object error) {
-    return 'Ø®Ø·Ø£: $error';
+    return 'Ï«ÏÀÏú: $error';
   }
 
   @override
   String errorLoading(Object error) {
-    return 'Ø®Ø·Ø£ ÙÙŠ Ø§Ù„ØªØ­Ù…ÙŠÙ„: $error';
+    return 'Ï«ÏÀÏú ┘ü┘è Ïº┘äÏ¬Ï¡┘à┘è┘ä: $error';
   }
 
   @override
-  String get errorSaving => 'Ø®Ø·Ø£ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø­ÙØ¸';
+  String get errorSaving => 'Ï«ÏÀÏú ÏúÏ½┘åÏºÏí Ïº┘äÏ¡┘üÏ©';
 
   @override
-  String get exitWithoutSaving => 'Ø§Ù„Ø®Ø±ÙˆØ¬ Ø¨Ø¯ÙˆÙ† Ø­ÙØ¸ØŸ';
+  String get exitWithoutSaving => 'Ïº┘äÏ«Ï▒┘êÏ¼ Ï¿Ï»┘ê┘å Ï¡┘üÏ©Ïƒ';
 
   @override
   String get failedToLoadProfiles =>
-      'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©';
+      'Ï¬Ï╣Ï░Ï▒ Ï¬Ï¡┘à┘è┘ä Ïº┘ä┘à┘ä┘üÏºÏ¬ Ïº┘äÏ┤Ï«ÏÁ┘èÏ®';
 
   @override
-  String get fallbackEngine => 'Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ';
+  String get fallbackEngine => 'Ïº┘ä┘àÏ¡Ï▒┘â Ïº┘äÏºÏ¡Ï¬┘èÏºÏÀ┘è';
 
   @override
-  String get favoriteGenres => 'Ø§Ù„Ø£Ù†ÙˆØ§Ø¹ Ø§Ù„Ù…ÙØ¶Ù„Ø©';
+  String get favoriteGenres => 'Ïº┘äÏú┘å┘êÏºÏ╣ Ïº┘ä┘à┘üÏÂ┘äÏ®';
 
   @override
-  String get filmsVod => 'Ø£ÙÙ„Ø§Ù… (VOD)';
+  String get filmsVod => 'Ïú┘ü┘äÏº┘à (VOD)';
 
   @override
-  String get firstName => 'Ø§Ù„Ø§Ø³Ù… Ø§Ù„Ø£ÙˆÙ„';
+  String get firstName => 'Ïº┘äÏºÏ│┘à Ïº┘äÏú┘ê┘ä';
 
   @override
-  String get fontSize => 'Ø­Ø¬Ù… Ù†Øµ Ø£ÙƒØ¨Ø±';
+  String get fontSize => 'Ï¡Ï¼┘à ┘åÏÁ Ïú┘âÏ¿Ï▒';
 
   @override
   String get fontSizeSubtitle =>
-      'ÙŠÙƒØ¨Ù‘Ø± Ø§Ù„Ù†ØµÙˆØµ ÙÙŠ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ÙƒÙ„Ù‡';
+      '┘è┘âÏ¿┘æÏ▒ Ïº┘ä┘åÏÁ┘êÏÁ ┘ü┘è Ïº┘äÏ¬ÏÀÏ¿┘è┘é ┘â┘ä┘ç';
 
   @override
-  String get forYou => 'Ù„Ùƒ';
+  String get forYou => '┘ä┘â';
 
   @override
-  String get forYouAndDuo => 'Ù„Ùƒ ÙˆÙ…Ø¨Ù†ÙŠ Ø¹Ù„Ù‰ Ø«Ù†Ø§Ø¦ÙŠ';
+  String get forYouAndDuo => '┘ä┘â ┘ê┘àÏ¿┘å┘è Ï╣┘ä┘ë Ï½┘åÏºÏª┘è';
 
   @override
-  String get forYouMatchmaking => 'Ù„Ùƒ (Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©)';
+  String get forYouMatchmaking => '┘ä┘â (Ïº┘ä┘àÏÀÏºÏ¿┘éÏ®)';
 
   @override
-  String get forward10s => 'ØªÙ‚Ø¯ÙŠÙ… 10 Ø«ÙˆØ§Ù†Ù';
+  String get forward10s => 'Ï¬┘éÏ»┘è┘à 10 Ï½┘êÏº┘å┘ì';
 
   @override
-  String get forward30s => 'ØªÙ‚Ø¯ÙŠÙ… 30 Ø«Ø§Ù†ÙŠØ©';
+  String get forward30s => 'Ï¬┘éÏ»┘è┘à 30 Ï½Ïº┘å┘èÏ®';
 
   @override
-  String get groupMode => 'Ù…Ø¬ØªÙ…Ø¹ÙŠ';
+  String get groupMode => '┘àÏ¼Ï¬┘àÏ╣┘è';
 
   @override
-  String get highContrast => 'ÙˆØ¶Ø¹ Ø§Ù„ØªØ¨Ø§ÙŠÙ† Ø§Ù„Ø¹Ø§Ù„ÙŠ';
+  String get highContrast => '┘êÏÂÏ╣ Ïº┘äÏ¬Ï¿Ïº┘è┘å Ïº┘äÏ╣Ïº┘ä┘è';
 
   @override
   String get highContrastSubtitle =>
-      'ÙŠØ­Ø³Ù† Ø§Ù„ÙˆØ¶ÙˆØ­ Ù„Ø¶Ø¹Ø§Ù Ø§Ù„Ø¨ØµØ±';
+      '┘èÏ¡Ï│┘å Ïº┘ä┘êÏÂ┘êÏ¡ ┘äÏÂÏ╣Ïº┘ü Ïº┘äÏ¿ÏÁÏ▒';
 
   @override
-  String get historyUnavailable => 'Ø§Ù„Ø³Ø¬Ù„ ØºÙŠØ± Ù…ØªØ§Ø­';
+  String get historyUnavailable => 'Ïº┘äÏ│Ï¼┘ä Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡';
 
   @override
-  String get instantZapping => 'ØªÙ†Ù‚Ù„ ÙÙˆØ±ÙŠ (ØªØ­Ù…ÙŠÙ„ Ù…Ø³Ø¨Ù‚)';
+  String get instantZapping => 'Ï¬┘å┘é┘ä ┘ü┘êÏ▒┘è (Ï¬Ï¡┘à┘è┘ä ┘àÏ│Ï¿┘é)';
 
   @override
   String get instantZappingSubtitle =>
-      'ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚Ù†ÙˆØ§Øª Ø§Ù„Ù…Ø¬Ø§ÙˆØ±Ø© Ù…Ø³Ø¨Ù‚Ù‹Ø§ ÙÙŠ Ø§Ù„Ø°Ø§ÙƒØ±Ø©';
+      'Ï¬Ï¡┘à┘è┘ä Ïº┘ä┘é┘å┘êÏºÏ¬ Ïº┘ä┘àÏ¼Ïº┘êÏ▒Ï® ┘àÏ│Ï¿┘é┘ïÏº ┘ü┘è Ïº┘äÏ░Ïº┘âÏ▒Ï®';
 
   @override
-  String get langArabic => 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©';
+  String get langArabic => 'Ïº┘äÏ╣Ï▒Ï¿┘èÏ®';
 
   @override
-  String get langFrench => 'FranÃ§ais';
+  String get langFrench => 'Fran├ºais';
 
   @override
-  String get langPortuguese => 'PortuguÃªs';
+  String get langPortuguese => 'Portugu├¬s';
 
   @override
-  String get langSpanish => 'EspaÃ±ol';
+  String get langSpanish => 'Espa├▒ol';
 
   @override
-  String get language => 'Ø§Ù„Ù„ØºØ©';
+  String get language => 'Ïº┘ä┘äÏ║Ï®';
 
   @override
-  String get languageExample => 'FranÃ§ais, English, Ø¥Ù„Ø®';
+  String get languageExample => 'العربية, English, etc.';
 
   @override
-  String get languagePreference => 'Ù„ØºØ© Ø§Ù„ØªØ·Ø¨ÙŠÙ‚';
-
-  @override
-  String get languageUndetermined => 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯';
-
-  @override
-  String get later => 'Ù„Ø§Ø­Ù‚Ø§Ù‹';
-
-  @override
-  String get legalNotice => 'Ø§Ù‚Ø±Ø£Ù†ÙŠ Â· Ø¥Ø´Ø¹Ø§Ø± Ù‚Ø§Ù†ÙˆÙ†ÙŠ';
-
-  @override
-  String get legalNoticeSubtitle =>
-      'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ØŒ Ø£ØµØ­Ø§Ø¨ Ø§Ù„Ø­Ù‚ÙˆÙ‚ ÙˆØ§Ù„Ø®ØµÙˆØµÙŠØ©';
-
-  @override
-  String get liveChannelsAndZapping =>
-      'Ø§Ù„Ù‚Ù†ÙˆØ§Øª Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø© ÙˆØ§Ù„ØªØ¨Ø¯ÙŠÙ„';
-
-  @override
-  String get liveTv => 'Live TV';
-
-  @override
-  String get logsDiagnostic => 'Ø§Ù„Ø³Ø¬Ù„Ø§Øª ÙˆØ§Ù„ØªØ´Ø®ÙŠØµ';
-
-  @override
-  String get logsDiagnosticSubtitle =>
-      'Ø¹Ø±Ø¶ Ø§Ù„Ø³Ø¬Ù„Ø§ØªØŒ Ø§Ù„ØªØµØ¯ÙŠØ±ØŒ Ù…Ø³Ø­ Ø§Ù„ÙƒØ§Ø´';
-
-  @override
-  String get m3uPlaylist => 'M3U Playlist';
-
-  @override
-  String get m3uPlaylistUrl => 'Ø±Ø§Ø¨Ø· Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØªØ´ØºÙŠÙ„ M3U';
-
-  @override
-  String get mainCast => 'Ø·Ø§Ù‚Ù… Ø§Ù„ØªÙ…Ø«ÙŠÙ„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ';
-
-  @override
-  String get manualAvCalibration =>
-      'Ù…Ø¹Ø§ÙŠØ±Ø© ÙŠØ¯ÙˆÙŠØ© Ù„Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
-
-  @override
-  String manualAvCalibrationSubtitle(int ms) {
-    return 'Ø§Ù„Ø¥Ø²Ø§Ø­Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©: $ms Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
-  }
-
-  @override
-  String get matchmaking => 'Ù…Ù† Ø£Ø¬Ù„Ùƒ (Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©)';
-
-  @override
-  String get matchmakingSubtitle =>
-      'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø© ÙˆØ§Ù„Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª Ø§Ù„Ù…Ø®ØµØµØ©';
-
-  @override
-  String maxProfilesReached(Object max) {
-    return 'ØªÙ… Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„Ø¹Ø¯Ø¯ Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø´Ø®ØµÙŠØ© ($max)';
-  }
-
-  @override
-  String get memory => 'Ø§Ù„Ø°Ø§ÙƒØ±Ø©';
-
-  @override
-  String get moreResults => 'Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„Ù†ØªØ§Ø¦Ø¬';
-
-  @override
-  String get moviesUnavailable => 'Ø§Ù„Ø£ÙÙ„Ø§Ù… ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get multiScreen => 'Ø´Ø§Ø´Ø§Øª Ù…ØªØ¹Ø¯Ø¯Ø©';
-
-  @override
-  String get multiVideo => 'ÙÙŠØ¯ÙŠÙˆ Ù…ØªØ¹Ø¯Ø¯';
-
-  @override
-  String get myProfile => 'Ù…Ù„ÙÙŠ Ø§Ù„Ø´Ø®ØµÙŠ';
-
-  @override
-  String get nameOptional => 'Ø§Ù„Ø§Ø³Ù… (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)';
-
-  @override
-  String get nameOrNickname => 'Ø§Ù„Ø§Ø³Ù… / Ø§Ù„ÙƒÙ†ÙŠØ©';
-
-  @override
-  String get navigateToOkToSelect => 'Ø§Ù†ØªÙ‚Ù„ Ø¥Ù„Ù‰ OK Ù„Ù„ØªØ­Ø¯ÙŠØ¯';
-
-  @override
-  String get networkDisconnected => 'Ø§Ù†Ù‚Ø·Ø¹ Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø´Ø¨ÙƒØ©';
-
-  @override
-  String get never => 'Ø£Ø¨Ø¯Ù‹Ø§';
-
-  @override
-  String get newAnd4K => 'Ø£ÙÙ„Ø§Ù… Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨';
-
-  @override
-  String get newProfile => 'Ù…Ù„Ù Ø´Ø®ØµÙŠ Ø¬Ø¯ÙŠØ¯';
-
-  @override
-  String get nextChannel => 'Ø§Ù„Ù‚Ù†Ø§Ø© Ø§Ù„ØªØ§Ù„ÙŠØ©';
-
-  @override
-  String get nightFocusEnable => 'ØªÙØ¹ÙŠÙ„ ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
-
-  @override
-  String get nightFocusEnableSubtitle =>
-      'Ù…Ø¹Ø§Ù„Ø¬Ø© ØµÙˆØªÙŠØ© ÙÙˆØ±ÙŠØ©: ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø±ØŒ Ø®ÙØ¶ Ø§Ù„Ø¨Ø§ØµØŒ Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø©';
-
-  @override
-  String get nightFocusTitle => 'ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„ (ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„)';
-
-  @override
-  String get noAudioTrackDetected =>
-      'Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ù…Ø³Ø§Ø± ØµÙˆØªÙŠ';
-
-  @override
-  String get noChannelsAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get noChromecastDeviceFound =>
-      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø¬Ù‡Ø§Ø² Chromecast.';
-
-  @override
-  String get noDownloads => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªÙ†Ø²ÙŠÙ„Ø§Øª';
-
-  @override
-  String get noEpisodes => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø­Ù„Ù‚Ø§Øª';
-
-  @override
-  String get noFavoriteChannels => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ù…ÙØ¶Ù„Ø©';
-
-  @override
-  String get noFavoriteMovies => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„Ø§Ù… Ù…ÙØ¶Ù„Ø©';
-
-  @override
-  String get noFavoriteReplays =>
-      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© Ù…ÙØ¶Ù„Ø©';
-
-  @override
-  String get noFavoriteSeries => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ù…ÙØ¶Ù„Ø©';
-
-  @override
-  String get noGroupAffinity =>
-      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ ØªÙ‚Ø§Ø±Ø¨ Ù…Ø´ØªØ±Ùƒ';
-
-  @override
-  String get noHistory => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø³Ø¬Ù„';
-
-  @override
-  String get noKidsChannels => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ø£Ø·ÙØ§Ù„';
-
-  @override
-  String get noKidsMovies => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„am Ø£Ø·ÙØ§Ù„';
-
-  @override
-  String get noKidsReplays =>
-      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© Ø£Ø·ÙØ§Ù„';
-
-  @override
-  String get noKidsSeries => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ø£Ø·ÙØ§Ù„';
-
-  @override
-  String get noMoviesAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„Ø§Ù… Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get noProfileAvailable => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù…ØªØ§Ø­';
-
-  @override
-  String get noProfilesYet => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù„ÙØ§Øª Ø´Ø®ØµÙŠØ© Ø¨Ø¹Ø¯';
-
-  @override
-  String get noProgramInfoAvailable =>
-      'Ù„Ø§ ØªØªÙˆÙØ± Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø¹Ù† Ø§Ù„Ø¨Ø±Ù†Ø§Ù…Ø¬';
-
-  @override
-  String get noRankings => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ØªÙŠØ¨Ø§Øª';
-
-  @override
-  String get noRecommendations => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªÙˆØµÙŠØ§Øª Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get noReplaysInCategory =>
-      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©';
-
-  @override
-  String noResultsFor(Object query) {
-    return 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù„Ù€ $query';
-  }
-
-  @override
-  String get noSeriesAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get noStationsAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø­Ø·Ø§Øª Ù…ØªØ§Ø­Ø©';
-
-  @override
-  String get noVideoQualityDetected =>
-      'Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ø¬ÙˆØ¯Ø© ÙÙŠØ¯ÙŠÙˆ';
-
-  @override
-  String get notAvailableInCatalog => 'ØºÙŠØ± Ù…ØªÙˆÙØ± ÙÙŠ Ø§Ù„ÙƒØªØ§Ù„ÙˆØ¬';
-
-  @override
-  String get offline => 'ØºÙŠØ± Ù…ØªØµÙ„';
-
-  @override
-  String get parentalControl => 'Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
-
-  @override
-  String get parentalControlSubtitle =>
-      'Ø¥Ø¶Ø§ÙØ© Ø±Ù…Ø² PIN ÙˆØªÙ‚ÙŠÙŠØ¯ Ø§Ù„Ù…Ø­ØªÙˆÙ‰';
-
-  @override
-  String get pauseDownload => 'Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª';
+  String get noneOption => 'لا شيء';
 
   @override
   String get play => 'تشغيل';
 
   @override
-  String get pinCode => 'Ø±Ù…Ø² PIN';
+  String get newAnd4K => 'أفلام عند الطلب';
 
   @override
-  String get pinDeleted => 'ØªÙ… Ø­Ø°Ù Ø±Ù…Ø² PIN';
+  String get seasonsAndEpisodes => 'مسلسلات عند الطلب';
+
+  @override
+  String get languagePreference => '┘äÏ║Ï® Ïº┘äÏ¬ÏÀÏ¿┘è┘é';
+
+  @override
+  String get languageUndetermined => 'Ï║┘èÏ▒ ┘àÏ¡Ï»Ï»';
+
+  @override
+  String get later => '┘äÏºÏ¡┘éÏº┘ï';
+
+  @override
+  String get legalNotice => 'Ïº┘éÏ▒Ïú┘å┘è ┬À ÏÑÏ┤Ï╣ÏºÏ▒ ┘éÏº┘å┘ê┘å┘è';
+
+  @override
+  String get legalNoticeSubtitle =>
+      'ÏºÏ│Ï¬Ï«Ï»Ïº┘à Ïº┘äÏ¬ÏÀÏ¿┘è┘éÏî ÏúÏÁÏ¡ÏºÏ¿ Ïº┘äÏ¡┘é┘ê┘é ┘êÏº┘äÏ«ÏÁ┘êÏÁ┘èÏ®';
+
+  @override
+  String get liveChannelsAndZapping =>
+      'Ïº┘ä┘é┘å┘êÏºÏ¬ Ïº┘ä┘àÏ¿ÏºÏ┤Ï▒Ï® ┘êÏº┘äÏ¬Ï¿Ï»┘è┘ä';
+
+  @override
+  String get liveTv => 'Live TV';
+
+  @override
+  String get logsDiagnostic => 'Ïº┘äÏ│Ï¼┘äÏºÏ¬ ┘êÏº┘äÏ¬Ï┤Ï«┘èÏÁ';
+
+  @override
+  String get logsDiagnosticSubtitle =>
+      'Ï╣Ï▒ÏÂ Ïº┘äÏ│Ï¼┘äÏºÏ¬Ïî Ïº┘äÏ¬ÏÁÏ»┘èÏ▒Ïî ┘àÏ│Ï¡ Ïº┘ä┘âÏºÏ┤';
+
+  @override
+  String get m3uPlaylist => 'M3U Playlist';
+
+  @override
+  String get m3uPlaylistUrl => 'Ï▒ÏºÏ¿ÏÀ ┘éÏºÏª┘àÏ® Ïº┘äÏ¬Ï┤Ï║┘è┘ä M3U';
+
+  @override
+  String get mainCast => 'ÏÀÏº┘é┘à Ïº┘äÏ¬┘àÏ½┘è┘ä Ïº┘äÏ▒Ïª┘èÏ│┘è';
+
+  @override
+  String get manualAvCalibration =>
+      '┘àÏ╣Ïº┘èÏ▒Ï® ┘èÏ»┘ê┘èÏ® ┘ä┘äÏÁ┘êÏ¬/Ïº┘ä┘ü┘èÏ»┘è┘ê';
+
+  @override
+  String manualAvCalibrationSubtitle(int ms) {
+    return 'Ïº┘äÏÑÏ▓ÏºÏ¡Ï® Ïº┘äÏ¡Ïº┘ä┘èÏ®: $ms ┘à┘ä┘è Ï½Ïº┘å┘èÏ®';
+  }
+
+  @override
+  String get matchmaking => '┘à┘å ÏúÏ¼┘ä┘â (Ïº┘ä┘àÏÀÏºÏ¿┘éÏ®)';
+
+  @override
+  String get matchmakingSubtitle =>
+      'ÏÑÏ»ÏºÏ▒Ï® Ïº┘ä┘àÏÀÏºÏ¿┘éÏ® ┘êÏº┘äÏº┘éÏ¬Ï▒ÏºÏ¡ÏºÏ¬ Ïº┘ä┘àÏ«ÏÁÏÁÏ®';
+
+  @override
+  String maxProfilesReached(Object max) {
+    return 'Ï¬┘à Ïº┘ä┘êÏÁ┘ê┘ä ÏÑ┘ä┘ë Ïº┘äÏ¡Ï» Ïº┘äÏú┘éÏÁ┘ë ┘äÏ╣Ï»Ï» Ïº┘ä┘à┘ä┘üÏºÏ¬ Ïº┘äÏ┤Ï«ÏÁ┘èÏ® ($max)';
+  }
+
+  @override
+  String get memory => 'Ïº┘äÏ░Ïº┘âÏ▒Ï®';
+
+  @override
+  String get moreResults => 'Ï╣Ï▒ÏÂ Ïº┘ä┘àÏ▓┘èÏ» ┘à┘å Ïº┘ä┘åÏ¬ÏºÏªÏ¼';
+
+  @override
+  String get moviesUnavailable => 'Ïº┘äÏú┘ü┘äÏº┘à Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get multiScreen => 'Ï┤ÏºÏ┤ÏºÏ¬ ┘àÏ¬Ï╣Ï»Ï»Ï®';
+
+  @override
+  String get multiVideo => '┘ü┘èÏ»┘è┘ê ┘àÏ¬Ï╣Ï»Ï»';
+
+  @override
+  String get myProfile => '┘à┘ä┘ü┘è Ïº┘äÏ┤Ï«ÏÁ┘è';
+
+  @override
+  String get nameOptional => 'Ïº┘äÏºÏ│┘à (ÏºÏ«Ï¬┘èÏºÏ▒┘è)';
+
+  @override
+  String get nameOrNickname => 'Ïº┘äÏºÏ│┘à / Ïº┘ä┘â┘å┘èÏ®';
+
+  @override
+  String get navigateToOkToSelect => 'Ïº┘åÏ¬┘é┘ä ÏÑ┘ä┘ë OK ┘ä┘äÏ¬Ï¡Ï»┘èÏ»';
+
+  @override
+  String get networkDisconnected => 'Ïº┘å┘éÏÀÏ╣ Ïº┘äÏºÏ¬ÏÁÏº┘ä Ï¿Ïº┘äÏ┤Ï¿┘âÏ®';
+
+  @override
+  String get never => 'ÏúÏ¿Ï»┘ïÏº';
+
+  @override
+  String get newProfile => '┘à┘ä┘ü Ï┤Ï«ÏÁ┘è Ï¼Ï»┘èÏ»';
+
+  @override
+  String get nextChannel => 'Ïº┘ä┘é┘åÏºÏ® Ïº┘äÏ¬Ïº┘ä┘èÏ®';
+
+  @override
+  String get nightFocusEnable => 'Ï¬┘üÏ╣┘è┘ä ┘êÏÂÏ╣ Ïº┘ä┘ä┘è┘ä';
+
+  @override
+  String get nightFocusEnableSubtitle =>
+      '┘àÏ╣Ïº┘äÏ¼Ï® ÏÁ┘êÏ¬┘èÏ® ┘ü┘êÏ▒┘èÏ®: Ï¬Ï╣Ï▓┘èÏ▓ Ïº┘äÏ¡┘êÏºÏ▒Ïî Ï«┘üÏÂ Ïº┘äÏ¿ÏºÏÁÏî Ïº┘ä┘àÏ▓Ïº┘à┘åÏ®';
+
+  @override
+  String get nightFocusTitle => '┘êÏÂÏ╣ Ïº┘ä┘ä┘è┘ä (┘êÏÂÏ╣ Ïº┘ä┘ä┘è┘ä)';
+
+  @override
+  String get noAudioTrackDetected =>
+      '┘ä┘à ┘èÏ¬┘à Ïº┘âÏ¬Ï┤Ïº┘ü ┘àÏ│ÏºÏ▒ ÏÁ┘êÏ¬┘è';
+
+  @override
+  String get noChannelsAvailable => '┘äÏº Ï¬┘êÏ¼Ï» ┘é┘å┘êÏºÏ¬ ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get noChromecastDeviceFound =>
+      '┘ä┘à ┘èÏ¬┘à Ïº┘äÏ╣Ï½┘êÏ▒ Ï╣┘ä┘ë Ï¼┘çÏºÏ▓ Chromecast.';
+
+  @override
+  String get noDownloads => '┘äÏº Ï¬┘êÏ¼Ï» Ï¬┘åÏ▓┘è┘äÏºÏ¬';
+
+  @override
+  String get noEpisodes => '┘äÏº Ï¬┘êÏ¼Ï» Ï¡┘ä┘éÏºÏ¬';
+
+  @override
+  String get noFavoriteChannels => '┘äÏº Ï¬┘êÏ¼Ï» ┘é┘å┘êÏºÏ¬ ┘à┘üÏÂ┘äÏ®';
+
+  @override
+  String get noFavoriteMovies => '┘äÏº Ï¬┘êÏ¼Ï» Ïú┘ü┘äÏº┘à ┘à┘üÏÂ┘äÏ®';
+
+  @override
+  String get noFavoriteReplays =>
+      '┘äÏº Ï¬┘êÏ¼Ï» ÏÑÏ╣ÏºÏ»Ï® ┘àÏ┤Ïº┘çÏ»Ï® ┘à┘üÏÂ┘äÏ®';
+
+  @override
+  String get noFavoriteSeries => '┘äÏº Ï¬┘êÏ¼Ï» Ï│┘äÏ│┘ä ┘à┘üÏÂ┘äÏ®';
+
+  @override
+  String get noGroupAffinity =>
+      '┘ä┘à ┘èÏ¬┘à Ïº┘äÏ╣Ï½┘êÏ▒ Ï╣┘ä┘ë Ï¬┘éÏºÏ▒Ï¿ ┘àÏ┤Ï¬Ï▒┘â';
+
+  @override
+  String get noHistory => '┘äÏº ┘è┘êÏ¼Ï» Ï│Ï¼┘ä';
+
+  @override
+  String get noKidsChannels => '┘äÏº Ï¬┘êÏ¼Ï» ┘é┘å┘êÏºÏ¬ ÏúÏÀ┘üÏº┘ä';
+
+  @override
+  String get noKidsMovies => '┘äÏº Ï¬┘êÏ¼Ï» Ïú┘ü┘äam ÏúÏÀ┘üÏº┘ä';
+
+  @override
+  String get noKidsReplays =>
+      '┘äÏº Ï¬┘êÏ¼Ï» ÏÑÏ╣ÏºÏ»Ï® ┘àÏ┤Ïº┘çÏ»Ï® ÏúÏÀ┘üÏº┘ä';
+
+  @override
+  String get noKidsSeries => '┘äÏº Ï¬┘êÏ¼Ï» Ï│┘äÏ│┘ä ÏúÏÀ┘üÏº┘ä';
+
+  @override
+  String get noMoviesAvailable => '┘äÏº Ï¬┘êÏ¼Ï» Ïú┘ü┘äÏº┘à ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get noProfileAvailable => '┘äÏº ┘è┘êÏ¼Ï» ┘à┘ä┘ü Ï┤Ï«ÏÁ┘è ┘àÏ¬ÏºÏ¡';
+
+  @override
+  String get noProfilesYet => '┘äÏº Ï¬┘êÏ¼Ï» ┘à┘ä┘üÏºÏ¬ Ï┤Ï«ÏÁ┘èÏ® Ï¿Ï╣Ï»';
+
+  @override
+  String get noProgramInfoAvailable =>
+      '┘äÏº Ï¬Ï¬┘ê┘üÏ▒ ┘àÏ╣┘ä┘ê┘àÏºÏ¬ Ï╣┘å Ïº┘äÏ¿Ï▒┘åÏº┘àÏ¼';
+
+  @override
+  String get noRankings => '┘äÏº Ï¬┘êÏ¼Ï» Ï¬Ï▒Ï¬┘èÏ¿ÏºÏ¬';
+
+  @override
+  String get noRecommendations => '┘äÏº Ï¬┘êÏ¼Ï» Ï¬┘êÏÁ┘èÏºÏ¬ ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get noReplaysInCategory =>
+      '┘äÏº Ï¬┘êÏ¼Ï» ÏÑÏ╣ÏºÏ»Ï® ┘àÏ┤Ïº┘çÏ»Ï® ┘ü┘è ┘çÏ░┘ç Ïº┘ä┘üÏªÏ®';
+
+  @override
+  String noResultsFor(Object query) {
+    return '┘äÏº Ï¬┘êÏ¼Ï» ┘åÏ¬ÏºÏªÏ¼ ┘ä┘Ç $query';
+  }
+
+  @override
+  String get noSeriesAvailable => '┘äÏº Ï¬┘êÏ¼Ï» Ï│┘äÏ│┘ä ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get noStationsAvailable => '┘äÏº Ï¬┘êÏ¼Ï» ┘àÏ¡ÏÀÏºÏ¬ ┘àÏ¬ÏºÏ¡Ï®';
+
+  @override
+  String get noVideoQualityDetected =>
+      '┘ä┘à ┘èÏ¬┘à Ïº┘âÏ¬Ï┤Ïº┘ü Ï¼┘êÏ»Ï® ┘ü┘èÏ»┘è┘ê';
+
+  @override
+  String get notAvailableInCatalog => 'Ï║┘èÏ▒ ┘àÏ¬┘ê┘üÏ▒ ┘ü┘è Ïº┘ä┘âÏ¬Ïº┘ä┘êÏ¼';
+
+  @override
+  String get offline => 'Ï║┘èÏ▒ ┘àÏ¬ÏÁ┘ä';
+
+  @override
+  String get parentalControl => 'Ïº┘äÏ▒┘éÏºÏ¿Ï® Ïº┘äÏúÏ¿┘ê┘èÏ®';
+
+  @override
+  String get parentalControlSubtitle =>
+      'ÏÑÏÂÏº┘üÏ® Ï▒┘àÏ▓ PIN ┘êÏ¬┘é┘è┘èÏ» Ïº┘ä┘àÏ¡Ï¬┘ê┘ë';
+
+  @override
+  String get pauseDownload => 'ÏÑ┘è┘éÏº┘ü ┘àÏñ┘éÏ¬';
+
+  @override
+  String get pinCode => 'Ï▒┘àÏ▓ PIN';
+
+  @override
+  String get pinDeleted => 'Ï¬┘à Ï¡Ï░┘ü Ï▒┘àÏ▓ PIN';
 
   @override
   String get pinMustBe4Digits =>
-      'ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ­ØªÙˆÙŠ Ø±Ù…Ø² PIN Ø¹Ù„Ù‰ 4 Ø£Ø±Ù‚Ø§Ù… Ø¨Ø§Ù„Ø¶Ø¨Ø·';
+      '┘èÏ¼Ï¿ Ïú┘å ┘èÏ¡Ï¬┘ê┘è Ï▒┘àÏ▓ PIN Ï╣┘ä┘ë 4 ÏúÏ▒┘éÏº┘à Ï¿Ïº┘äÏÂÏ¿ÏÀ';
 
   @override
-  String get pinSaved => 'ØªÙ… Ø­ÙØ¸ Ø±Ù…Ø² PIN';
+  String get pinSaved => 'Ï¬┘à Ï¡┘üÏ© Ï▒┘àÏ▓ PIN';
 
   @override
-  String get pip => 'Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ø§Ø¦Ù… (PiP)';
+  String get pip => 'Ïº┘äÏ╣Ï▒ÏÂ Ïº┘äÏ╣ÏºÏª┘à (PiP)';
 
   @override
   String get pipUnavailable =>
-      'Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ø§Ø¦Ù… (PiP) ØºÙŠØ± Ù…ØªØ§Ø­ Ø¹Ù„Ù‰ Ù‡Ø°Ø§ Ø§Ù„Ø¬Ù‡Ø§Ø²';
+      'Ïº┘äÏ╣Ï▒ÏÂ Ïº┘äÏ╣ÏºÏª┘à (PiP) Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡ Ï╣┘ä┘ë ┘çÏ░Ïº Ïº┘äÏ¼┘çÏºÏ▓';
 
   @override
-  String get playHistoryCleared => 'ØªÙ… Ù…Ø³Ø­ Ø³Ø¬Ù„ Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©.';
+  String get playHistoryCleared => 'Ï¬┘à ┘àÏ│Ï¡ Ï│Ï¼┘ä Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï®.';
 
   @override
   String plusAgeYears(Object age) {
-    return '+$age Ø³Ù†ÙˆØ§Øª';
+    return '+$age Ï│┘å┘êÏºÏ¬';
   }
 
   @override
-  String get preferences => 'Ø§Ù„ØªÙØ¶ÙŠÙ„Ø§Øª';
+  String get preferences => 'Ïº┘äÏ¬┘üÏÂ┘è┘äÏºÏ¬';
 
   @override
-  String get previousChannel => 'Ø§Ù„Ù‚Ù†Ø§Ø© Ø§Ù„Ø³Ø§Ø¨Ù‚Ø©';
+  String get previousChannel => 'Ïº┘ä┘é┘åÏºÏ® Ïº┘äÏ│ÏºÏ¿┘éÏ®';
 
   @override
-  String get primaryEngine => 'Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ';
+  String get primaryEngine => 'Ïº┘ä┘àÏ¡Ï▒┘â Ïº┘äÏ▒Ïª┘èÏ│┘è';
 
   @override
   String profilesSelected(int count) {
-    return 'ØªÙ… ØªØ­Ø¯ÙŠØ¯ $count Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ';
+    return 'Ï¬┘à Ï¬Ï¡Ï»┘èÏ» $count ┘à┘ä┘üÏºÏ¬ Ï¬Ï╣Ï▒┘è┘ü';
   }
 
   @override
-  String get profileVisible => 'Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù…Ø±Ø¦ÙŠ';
+  String get profileVisible => '┘à┘ä┘ü Ï┤Ï«ÏÁ┘è ┘àÏ▒Ïª┘è';
 
   @override
-  String get programGrid => 'Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬';
+  String get programGrid => 'Ï¼Ï»┘ê┘ä Ïº┘äÏ¿Ï▒Ïº┘àÏ¼';
 
   @override
-  String get protectWithPin => 'Ø§Ù„Ø­Ù…Ø§ÙŠØ© Ø¨Ø±Ù…Ø² PIN';
+  String get protectWithPin => 'Ïº┘äÏ¡┘àÏº┘èÏ® Ï¿Ï▒┘àÏ▓ PIN';
 
   @override
-  String get rankingsUnavailable => 'Ø§Ù„ØªØ±ØªÙŠØ¨ ØºÙŠØ± Ù…ØªØ§Ø­';
+  String get rankingsUnavailable => 'Ïº┘äÏ¬Ï▒Ï¬┘èÏ¿ Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡';
 
   @override
-  String get recentSearch => 'Ø¨Ø­Ø« Ø­Ø¯ÙŠØ«';
+  String get recentSearch => 'Ï¿Ï¡Ï½ Ï¡Ï»┘èÏ½';
 
   @override
-  String get recentSearches => 'Ø§Ù„Ø£Ø®ÙŠØ±Ø©';
+  String get recentSearches => 'Ïº┘äÏúÏ«┘èÏ▒Ï®';
 
   @override
-  String get recentlyWatched => 'Ø´ÙˆÙ‡Ø¯ Ù…Ø¤Ø®Ø±Ø§Ù‹';
+  String get recentlyWatched => 'Ï┤┘ê┘çÏ» ┘àÏñÏ«Ï▒Ïº┘ï';
 
   @override
-  String get removeAll => 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ÙƒÙ„';
+  String get removeAll => 'ÏÑÏ▓Ïº┘äÏ® Ïº┘ä┘â┘ä';
 
   @override
   String get removeFromWatchedConfirm =>
-      'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ÙƒÙ„ Ù…Ù† Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©ØŸ';
+      'ÏÑÏ▓Ïº┘äÏ® Ïº┘ä┘â┘ä ┘à┘å Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï®Ïƒ';
 
   @override
   String get replaysUnavailable =>
-      'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+      'ÏÑÏ╣ÏºÏ»Ï® Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï® Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get reset => 'Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ†';
+  String get reset => 'ÏÑÏ╣ÏºÏ»Ï® Ï¬Ï╣┘è┘è┘å';
 
   @override
-  String get resetApp => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø§Ù„ØªØ·Ø¨ÙŠÙ‚';
+  String get resetApp => 'ÏÑÏ╣ÏºÏ»Ï® ÏÂÏ¿ÏÀ Ïº┘äÏ¬ÏÀÏ¿┘è┘é';
 
   @override
   String get resetAppDialogBody =>
-      'Ø³ÙŠØªÙ… Ù…Ø³Ø­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª: Ø§Ù„Ù…Ù„ÙØ§ØªØŒ Ø§Ù„Ù…ÙØ¶Ù„Ø§ØªØŒ Ø§Ù„Ø³Ø¬Ù„ØŒ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª. Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡ Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù†Ù‡.';
+      'Ï│┘èÏ¬┘à ┘àÏ│Ï¡ Ï¼┘à┘èÏ╣ Ïº┘äÏ¿┘èÏº┘åÏºÏ¬: Ïº┘ä┘à┘ä┘üÏºÏ¬Ïî Ïº┘ä┘à┘üÏÂ┘äÏºÏ¬Ïî Ïº┘äÏ│Ï¼┘äÏî Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬. ┘çÏ░Ïº Ïº┘äÏÑÏ¼Ï▒ÏºÏí ┘äÏº ┘è┘à┘â┘å Ïº┘äÏ¬Ï▒ÏºÏ¼Ï╣ Ï╣┘å┘ç.';
 
   @override
-  String get resetAppDialogConfirm => 'Ù…Ø³Ø­ ÙƒÙ„ Ø´ÙŠØ¡';
+  String get resetAppDialogConfirm => '┘àÏ│Ï¡ ┘â┘ä Ï┤┘èÏí';
 
   @override
-  String get resetAppDialogTitle => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ØŸ';
+  String get resetAppDialogTitle => 'ÏÑÏ╣ÏºÏ»Ï® ÏÂÏ¿ÏÀ Ïº┘äÏ¬ÏÀÏ¿┘è┘éÏƒ';
 
   @override
   String get resetAppSubtitle =>
-      'ÙŠÙ…Ø³Ø­ Ø¬Ù…ÙŠØ¹ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… (Ø§Ù„Ù…Ù„ÙØ§ØªØŒ Ø§Ù„Ù…ÙØ¶Ù„Ø§ØªØŒ Ø§Ù„Ø³Ø¬Ù„)';
+      '┘è┘àÏ│Ï¡ Ï¼┘à┘èÏ╣ Ï¿┘èÏº┘åÏºÏ¬ Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à (Ïº┘ä┘à┘ä┘üÏºÏ¬Ïî Ïº┘ä┘à┘üÏÂ┘äÏºÏ¬Ïî Ïº┘äÏ│Ï¼┘ä)';
 
   @override
-  String get resetCompleted => 'ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ¹ÙŠÙŠÙ†';
+  String get resetCompleted => 'Ï¬┘àÏ¬ ÏÑÏ╣ÏºÏ»Ï® Ïº┘äÏ¬Ï╣┘è┘è┘å';
 
   @override
-  String get resumePlayback => 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ø³ØªØ¦Ù†Ø§Ù Ø§Ù„ØªØ´ØºÙŠÙ„ØŸ';
+  String get resumePlayback => '┘ç┘ä Ï¬Ï▒┘èÏ» ÏºÏ│Ï¬Ïª┘åÏº┘ü Ïº┘äÏ¬Ï┤Ï║┘è┘äÏƒ';
 
   @override
-  String get retry => 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©';
+  String get retry => 'ÏÑÏ╣ÏºÏ»Ï® Ïº┘ä┘àÏ¡Ïº┘ê┘äÏ®';
 
   @override
-  String get retrySearch => 'Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„Ø¨Ø­Ø«';
+  String get retrySearch => 'ÏÑÏ╣ÏºÏ»Ï® ┘àÏ¡Ïº┘ê┘äÏ® Ïº┘äÏ¿Ï¡Ï½';
 
   @override
-  String get rewind10s => 'ØªØ±Ø¬ÙŠØ¹ 10 Ø«ÙˆØ§Ù†Ù';
+  String get rewind10s => 'Ï¬Ï▒Ï¼┘èÏ╣ 10 Ï½┘êÏº┘å┘ì';
 
   @override
-  String get rewind30s => 'ØªØ±Ø¬ÙŠØ¹ 30 Ø«Ø§Ù†ÙŠØ©';
+  String get rewind30s => 'Ï¬Ï▒Ï¼┘èÏ╣ 30 Ï½Ïº┘å┘èÏ®';
 
   @override
-  String get rightsHolders => 'Ø£ØµØ­Ø§Ø¨ Ø§Ù„Ø­Ù‚ÙˆÙ‚';
+  String get rightsHolders => 'ÏúÏÁÏ¡ÏºÏ¿ Ïº┘äÏ¡┘é┘ê┘é';
 
   @override
-  String get save => 'Ø­ÙØ¸';
+  String get save => 'Ï¡┘üÏ©';
 
   @override
   String get sdkAndroid => 'SDK Android';
 
   @override
-  String get searchChannel => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ù‚Ù†Ø§Ø©';
+  String get searchChannel => 'Ïº┘äÏ¿Ï¡Ï½ Ï╣┘å ┘é┘åÏºÏ®';
 
   @override
-  String get searchError => 'Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø¨Ø­Ø«';
+  String get searchError => 'Ï«ÏÀÏú ┘ü┘è Ïº┘äÏ¿Ï¡Ï½';
 
   @override
-  String get searchMovie => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† ÙÙŠÙ„Ù…';
+  String get searchMovie => 'Ïº┘äÏ¿Ï¡Ï½ Ï╣┘å ┘ü┘è┘ä┘à';
 
   @override
-  String get searchSeries => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ø³Ù„Ø³Ù„';
+  String get searchSeries => 'Ïº┘äÏ¿Ï¡Ï½ Ï╣┘å Ï│┘äÏ│┘ä';
 
   @override
   String seasonNumber(Object season) {
-    return 'Ø§Ù„Ù…ÙˆØ³Ù… $season';
+    return 'Ïº┘ä┘à┘êÏ│┘à $season';
   }
 
   @override
-  String get seasonsAndEpisodes => 'Ù…Ø³Ù„Ø³Ù„Ø§Øª Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨';
+  String get sectionAccessibility => 'ÏÑ┘à┘âÏº┘å┘èÏ® Ïº┘ä┘êÏÁ┘ê┘ä';
 
   @override
-  String get sectionAccessibility => 'Ø¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„';
-
-  @override
-  String get sectionAccountProfile => 'Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ';
+  String get sectionAccountProfile => 'Ïº┘äÏ¡Ï│ÏºÏ¿ ┘êÏº┘ä┘à┘ä┘ü Ïº┘äÏ┤Ï«ÏÁ┘è';
 
   @override
   String get sectionAntiThrottle =>
-      'Ø­Ù…Ø§ÙŠØ© Ù…Ù† ØªØ®ÙÙŠÙ Ø³Ø±Ø¹Ø© Ù…Ø²ÙˆØ¯ Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
+      'Ï¡┘àÏº┘èÏ® ┘à┘å Ï¬Ï«┘ü┘è┘ü Ï│Ï▒Ï╣Ï® ┘àÏ▓┘êÏ» Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬';
 
   @override
-  String get sectionAudioNight => 'Ø§Ù„ØµÙˆØª ÙˆÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
+  String get sectionAudioNight => 'Ïº┘äÏÁ┘êÏ¬ ┘ê┘êÏÂÏ╣ Ïº┘ä┘ä┘è┘ä';
 
   @override
-  String get sectionAvSync => 'Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
+  String get sectionAvSync => '┘àÏ▓Ïº┘à┘åÏ® Ïº┘äÏÁ┘êÏ¬/Ïº┘ä┘ü┘èÏ»┘è┘ê';
 
   @override
   String get sectionBackup =>
-      'Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ / Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©';
+      'Ïº┘ä┘åÏ│Ï« Ïº┘äÏºÏ¡Ï¬┘èÏºÏÀ┘è / Ïº┘äÏºÏ│Ï¬Ï╣ÏºÏ»Ï®';
 
   @override
-  String get sectionCertPinning => 'ØªØ«Ø¨ÙŠØª Ø§Ù„Ø´Ù‡Ø§Ø¯Ø© (SHA-256)';
+  String get sectionCertPinning => 'Ï¬Ï½Ï¿┘èÏ¬ Ïº┘äÏ┤┘çÏºÏ»Ï® (SHA-256)';
 
   @override
   String get sectionCloudSync =>
-      'Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ© (Ø¹Ø¯Ø© Ø£Ø¬Ù‡Ø²Ø©)';
+      'Ïº┘ä┘àÏ▓Ïº┘à┘åÏ® Ïº┘äÏ│Ï¡ÏºÏ¿┘èÏ® (Ï╣Ï»Ï® ÏúÏ¼┘çÏ▓Ï®)';
 
   @override
-  String get sectionCloudflare => 'ØªØ­Ø³ÙŠÙ† Cloudflare';
+  String get sectionCloudflare => 'Ï¬Ï¡Ï│┘è┘å Cloudflare';
 
   @override
-  String get sectionDiagnostics => 'Ø§Ù„ØªØ´Ø®ÙŠØµ ÙˆØ§Ù„ØµÙŠØ§Ù†Ø©';
+  String get sectionDiagnostics => 'Ïº┘äÏ¬Ï┤Ï«┘èÏÁ ┘êÏº┘äÏÁ┘èÏº┘åÏ®';
 
   @override
-  String get sectionEngines => 'Ù…Ø­Ø±ÙƒØ§Øª Ø§Ù„ØªØ´ØºÙŠÙ„';
+  String get sectionEngines => '┘àÏ¡Ï▒┘âÏºÏ¬ Ïº┘äÏ¬Ï┤Ï║┘è┘ä';
 
   @override
-  String get sectionLegal => 'Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©';
+  String get sectionLegal => '┘àÏ╣┘ä┘ê┘àÏºÏ¬ ┘éÏº┘å┘ê┘å┘èÏ®';
 
   @override
-  String get sectionMemory => 'Ø§Ù„Ø°Ø§ÙƒØ±Ø© ÙˆØ§Ù„ÙƒØ§Ø´';
+  String get sectionMemory => 'Ïº┘äÏ░Ïº┘âÏ▒Ï® ┘êÏº┘ä┘âÏºÏ┤';
 
   @override
-  String get sectionOutput => 'Ù…Ø®Ø±Ø¬ Ø§Ù„ØµÙˆØª';
+  String get sectionOutput => '┘àÏ«Ï▒Ï¼ Ïº┘äÏÁ┘êÏ¬';
 
   @override
-  String get sectionParental => 'Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
+  String get sectionParental => 'Ïº┘äÏ▒┘éÏºÏ¿Ï® Ïº┘äÏúÏ¿┘ê┘èÏ®';
 
   @override
-  String get sectionRecommendations => 'Ø§Ù„ØªÙˆØµÙŠØ§Øª';
+  String get sectionRecommendations => 'Ïº┘äÏ¬┘êÏÁ┘èÏºÏ¬';
 
   @override
-  String get sectionResilience => 'Ù…Ø±ÙˆÙ†Ø© Ø§Ù„Ø®Ø¯Ù…Ø©';
+  String get sectionResilience => '┘àÏ▒┘ê┘åÏ® Ïº┘äÏ«Ï»┘àÏ®';
 
   @override
-  String get sectionTmdb => 'ØªØµÙ†ÙŠÙØ§Øª TMDB';
+  String get sectionTmdb => 'Ï¬ÏÁ┘å┘è┘üÏºÏ¬ TMDB';
 
   @override
-  String get sectionZapping => 'Ø§Ù„ØªÙ†Ù‚Ù„ ÙˆØ§Ù„Ø£Ø¯Ø§Ø¡';
+  String get sectionZapping => 'Ïº┘äÏ¬┘å┘é┘ä ┘êÏº┘äÏúÏ»ÏºÏí';
 
   @override
-  String get select => 'Ø§Ø®ØªÙŠØ§Ø±';
+  String get select => 'ÏºÏ«Ï¬┘èÏºÏ▒';
 
   @override
   String selectAtLeastOneProfile(int count) {
-    return 'Ø§Ø®ØªØ± Ù…Ù„ÙÙ‹Ø§ ÙˆØ§Ø­Ø¯Ù‹Ø§ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ ($count/4)';
+    return 'ÏºÏ«Ï¬Ï▒ ┘à┘ä┘ü┘ïÏº ┘êÏºÏ¡Ï»┘ïÏº Ï╣┘ä┘ë Ïº┘äÏú┘é┘ä ($count/4)';
   }
 
   @override
   String get selectProfileForRecommendations =>
-      'Ø§Ø®ØªØ± Ù…Ù„ÙØ§Ù‹ Ø´Ø®ØµÙŠØ§Ù‹ Ù„Ø¹Ø±Ø¶ ØªÙˆØµÙŠØ§ØªÙ‡';
+      'ÏºÏ«Ï¬Ï▒ ┘à┘ä┘üÏº┘ï Ï┤Ï«ÏÁ┘èÏº┘ï ┘äÏ╣Ï▒ÏÂ Ï¬┘êÏÁ┘èÏºÏ¬┘ç';
 
   @override
-  String get series => 'Ø§Ù„Ø³Ù„Ø³Ù„';
+  String get series => 'Ïº┘äÏ│┘äÏ│┘ä';
 
   @override
-  String get seriesNotFound => 'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©';
+  String get seriesNotFound => 'Ïº┘äÏ│┘äÏ│┘ä Ï║┘èÏ▒ ┘à┘êÏ¼┘êÏ»Ï®';
 
   @override
-  String get seriesUnavailable => 'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get seriesUnavailable => 'Ïº┘äÏ│┘äÏ│┘ä Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
   String get seriesUnavailableTemporarily =>
-      'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ØªØ§Ø­Ø© Ø­Ø§Ù„ÙŠØ§Ù‹.';
+      'Ïº┘äÏ│┘äÏ│┘ä Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï® Ï¡Ïº┘ä┘èÏº┘ï.';
 
   @override
   String get serverProtectedAntiLeech =>
-      'Ø§Ù„Ø®Ø§Ø¯Ù… Ù…Ø­Ù…ÙŠ (Ù…Ø¶Ø§Ø¯ Ù„Ù„ØªÙ†Ø²ÙŠÙ„)';
+      'Ïº┘äÏ«ÏºÏ»┘à ┘àÏ¡┘à┘è (┘àÏÂÏºÏ» ┘ä┘äÏ¬┘åÏ▓┘è┘ä)';
 
   @override
   String get serverUrlPlaceholder =>
-      'Ø±Ø§Ø¨Ø· Ø§Ù„Ø®Ø§Ø¯Ù… (Ù…Ø«Ø§Ù„: https://provider.com)';
+      'Ï▒ÏºÏ¿ÏÀ Ïº┘äÏ«ÏºÏ»┘à (┘àÏ½Ïº┘ä: https://provider.com)';
 
   @override
-  String get serviceNature => 'Ø·Ø¨ÙŠØ¹Ø© Ø§Ù„Ø®Ø¯Ù…Ø©';
+  String get serviceNature => 'ÏÀÏ¿┘èÏ╣Ï® Ïº┘äÏ«Ï»┘àÏ®';
 
   @override
-  String get setAsDefaultServer => 'ØªØ¹ÙŠÙŠÙ† ÙƒØ®Ø§Ø¯Ù… Ø§ÙØªØ±Ø§Ø¶ÙŠ';
+  String get setAsDefaultServer => 'Ï¬Ï╣┘è┘è┘å ┘âÏ«ÏºÏ»┘à Ïº┘üÏ¬Ï▒ÏºÏÂ┘è';
 
   @override
-  String get settings => 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
+  String get settings => 'Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬';
 
   @override
-  String get settingsTitle => 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
+  String get settingsTitle => 'Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬';
 
   @override
-  String get similarMovies => 'Ø£ÙÙ„Ø§Ù… Ù…Ø´Ø§Ø¨Ù‡Ø©';
+  String get similarMovies => 'Ïú┘ü┘äÏº┘à ┘àÏ┤ÏºÏ¿┘çÏ®';
 
   @override
   String get snackBackupExported =>
-      'ØªÙ… ØªØµØ¯ÙŠØ± Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø§ÙØ¸Ø©';
+      'Ï¬┘à Ï¬ÏÁÏ»┘èÏ▒ Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ ÏÑ┘ä┘ë Ïº┘äÏ¡Ïº┘üÏ©Ï®';
 
   @override
-  String get snackCacheCleared => 'ØªÙ… Ù…Ø³Ø­ Ø§Ù„ÙƒØ§Ø´';
+  String get snackCacheCleared => 'Ï¬┘à ┘àÏ│Ï¡ Ïº┘ä┘âÏºÏ┤';
 
   @override
   String get snackCloudflareReset =>
-      'ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Cloudflare';
+      'Ï¬┘àÏ¬ ÏÑÏ╣ÏºÏ»Ï® ÏÂÏ¿ÏÀ ÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Cloudflare';
 
   @override
   String snackImportError(String message) {
-    return 'Ø®Ø·Ø£: $message';
+    return 'Ï«ÏÀÏú: $message';
   }
 
   @override
   String get snackImportSuccess =>
-      'ØªÙ… Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø¨Ù†Ø¬Ø§Ø­';
+      'Ï¬┘à ÏºÏ│Ï¬┘èÏ▒ÏºÏ» Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Ï¿┘åÏ¼ÏºÏ¡';
 
   @override
   String get snackNoBackup =>
-      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ©';
+      '┘ä┘à ┘èÏ¬┘à Ïº┘äÏ╣Ï½┘êÏ▒ Ï╣┘ä┘ë ┘åÏ│Ï«Ï® ÏºÏ¡Ï¬┘èÏºÏÀ┘èÏ®';
 
   @override
-  String get sortAffinity => 'Ø­Ø³Ø¨ Ø§Ù„ØªÙ‚Ø§Ø±Ø¨';
+  String get sortAffinity => 'Ï¡Ï│Ï¿ Ïº┘äÏ¬┘éÏºÏ▒Ï¿';
 
   @override
   String get sortAffinityDescription =>
-      'ÙŠØ±ØªØ¨ ÙˆÙÙ‚ Ø£Ø°ÙˆØ§Ù‚Ùƒ Ø§Ù„Ù…Ø¹Ù„Ù†Ø© ÙÙŠ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ (Ù…Ø·Ø§Ø¨Ù‚Ø©)';
+      '┘èÏ▒Ï¬Ï¿ ┘ê┘ü┘é ÏúÏ░┘êÏº┘é┘â Ïº┘ä┘àÏ╣┘ä┘åÏ® ┘ü┘è Ïº┘ä┘à┘ä┘ü Ïº┘äÏ┤Ï«ÏÁ┘è (┘àÏÀÏºÏ¿┘éÏ®)';
 
   @override
-  String get sortAscending => 'ØªØ±ØªÙŠØ¨ ØªØµØ§Ø¹Ø¯ÙŠ';
+  String get sortAscending => 'Ï¬Ï▒Ï¬┘èÏ¿ Ï¬ÏÁÏºÏ╣Ï»┘è';
 
   @override
-  String get sortByDuration => 'Ø­Ø³Ø¨ Ø§Ù„Ù…Ø¯Ø©';
+  String get sortByDuration => 'Ï¡Ï│Ï¿ Ïº┘ä┘àÏ»Ï®';
 
   @override
-  String get sortByRating => 'Ø­Ø³Ø¨ Ø§Ù„ØªÙ‚ÙŠÙŠÙ…';
+  String get sortByRating => 'Ï¡Ï│Ï¿ Ïº┘äÏ¬┘é┘è┘è┘à';
 
   @override
-  String get sortByYear => 'Ø­Ø³Ø¨ Ø§Ù„Ø³Ù†Ø©';
+  String get sortByYear => 'Ï¡Ï│Ï¿ Ïº┘äÏ│┘åÏ®';
 
   @override
-  String get sortDescending => 'ØªØ±ØªÙŠØ¨ ØªÙ†Ø§Ø²Ù„ÙŠ';
+  String get sortDescending => 'Ï¬Ï▒Ï¬┘èÏ¿ Ï¬┘åÏºÏ▓┘ä┘è';
 
   @override
-  String get sortLatestM3UXtream => 'Ø¢Ø®Ø± Ø§Ù„Ø¥Ø¶Ø§ÙØ§Øª M3U/Xtream';
+  String get sortLatestM3UXtream => 'ÏóÏ«Ï▒ Ïº┘äÏÑÏÂÏº┘üÏºÏ¬ M3U/Xtream';
 
   @override
-  String get sortNameAToZ => 'Ø§Ù„Ø§Ø³Ù… (Ø£ â†’ ÙŠ)';
+  String get sortNameAToZ => 'Ïº┘äÏºÏ│┘à (Ïú ÔåÆ ┘è)';
 
   @override
-  String get sortNameZToA => 'Ø§Ù„Ø§Ø³Ù… (ÙŠ â†’ Ø£)';
+  String get sortNameZToA => 'Ïº┘äÏºÏ│┘à (┘è ÔåÆ Ïú)';
 
   @override
-  String get sortResumePriority => 'Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø£ÙˆÙ„Ø§Ù‹';
+  String get sortResumePriority => 'Ïº┘ä┘àÏ¬ÏºÏ¿Ï╣Ï® Ïú┘ê┘äÏº┘ï';
 
   @override
   String specialGuestsSeason(Object season) {
-    return 'Ø¶ÙŠÙˆÙ Ø®Ø§ØµÙŠÙ† - Ø§Ù„Ù…ÙˆØ³Ù… $season';
+    return 'ÏÂ┘è┘ê┘ü Ï«ÏºÏÁ┘è┘å - Ïº┘ä┘à┘êÏ│┘à $season';
   }
 
   @override
-  String get srtVttUrl => 'Ø±Ø§Ø¨Ø· .srt / .vtt';
+  String get srtVttUrl => 'Ï▒ÏºÏ¿ÏÀ .srt / .vtt';
 
   @override
-  String get start => 'ØªØ´ØºÙŠÙ„';
+  String get start => 'Ï¬Ï┤Ï║┘è┘ä';
 
   @override
-  String get stationsUnavailable => 'Ø§Ù„Ù…Ø­Ø·Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get stationsUnavailable => 'Ïº┘ä┘àÏ¡ÏÀÏºÏ¬ Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get stopCasting => 'Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø¥Ø±Ø³Ø§Ù„';
+  String get stopCasting => 'ÏÑ┘è┘éÏº┘ü Ïº┘äÏÑÏ▒Ï│Ïº┘ä';
 
   @override
-  String get streamDetails => 'ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø¨Ø«';
+  String get streamDetails => 'Ï¬┘üÏºÏÁ┘è┘ä Ïº┘äÏ¿Ï½';
 
   @override
   String subtitleLoadError(Object error) {
-    return 'Ø®Ø·Ø£ ÙÙŠ ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©: $error';
+    return 'Ï«ÏÀÏú ┘ü┘è Ï¬Ï¡┘à┘è┘ä Ïº┘äÏ¬Ï▒Ï¼┘àÏ®: $error';
   }
 
   @override
-  String get subtitlesUnavailable => 'Ø§Ù„ØªØ±Ø¬Ù…Ø©: ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get subtitlesUnavailable => 'Ïº┘äÏ¬Ï▒Ï¼┘àÏ®: Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get system => 'Ø§Ù„Ù†Ø¸Ø§Ù…';
+  String get system => 'Ïº┘ä┘åÏ©Ïº┘à';
 
   @override
-  String get tabAccount => 'Ø§Ù„Ø­Ø³Ø§Ø¨';
+  String get tabAccount => 'Ïº┘äÏ¡Ï│ÏºÏ¿';
 
   @override
-  String get tabAdvanced => 'Ù…ØªÙ‚Ø¯Ù…';
+  String get tabAdvanced => '┘àÏ¬┘éÏ»┘à';
 
   @override
-  String get tabAudio => 'Ø§Ù„ØµÙˆØª';
+  String get tabAudio => 'Ïº┘äÏÁ┘êÏ¬';
 
   @override
-  String get tabNetwork => 'Ø§Ù„Ø´Ø¨ÙƒØ©';
+  String get tabNetwork => 'Ïº┘äÏ┤Ï¿┘âÏ®';
 
   @override
-  String get tabPlayer => 'Ø§Ù„Ù…Ø´ØºÙ‘Ù„';
+  String get tabPlayer => 'Ïº┘ä┘àÏ┤Ï║┘æ┘ä';
 
   @override
-  String get tabSecurity => 'Ø§Ù„Ø£Ù…Ø§Ù†';
+  String get tabSecurity => 'Ïº┘äÏú┘àÏº┘å';
 
   @override
-  String get theme => 'Ø§Ù„Ù…Ø¸Ù‡Ø±';
+  String get theme => 'Ïº┘ä┘àÏ©┘çÏ▒';
 
   @override
   String get tlsImpersonation =>
-      'Ø§Ù†ØªØ­Ø§Ù„ TLS (Ø®Ø§Ø¯Ù… ÙˆØ³ÙŠØ· Ù…Ø­Ù„ÙŠ)';
+      'Ïº┘åÏ¬Ï¡Ïº┘ä TLS (Ï«ÏºÏ»┘à ┘êÏ│┘èÏÀ ┘àÏ¡┘ä┘è)';
 
   @override
   String get tlsImpersonationSubtitle =>
-      'ÙŠØ­Ø§ÙƒÙŠ Ø¨ØµÙ…Ø© Ù…ØªØµÙØ­ Ø­Ø¯ÙŠØ« Ù„ØªØ¬Ø§ÙˆØ² Cloudflare';
+      '┘èÏ¡Ïº┘â┘è Ï¿ÏÁ┘àÏ® ┘àÏ¬ÏÁ┘üÏ¡ Ï¡Ï»┘èÏ½ ┘äÏ¬Ï¼Ïº┘êÏ▓ Cloudflare';
 
   @override
   String get tmdbKeyActive =>
-      'Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ø´Ø®ØµÙŠ Ù†Ø´Ø· â€” ÙŠØªÙ… ØªØ¬Ø§Ù‡Ù„ Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ';
+      'Ïº┘ä┘à┘üÏ¬ÏºÏ¡ Ïº┘äÏ┤Ï«ÏÁ┘è ┘åÏ┤ÏÀ ÔÇö ┘èÏ¬┘à Ï¬Ï¼Ïº┘ç┘ä Ïº┘ä┘à┘üÏ¬ÏºÏ¡ Ïº┘ä┘àÏ┤Ï¬Ï▒┘â';
 
   @override
-  String get tmdbKeyColumn => 'Ù…ÙØ§ØªÙŠØ­ TMDB';
+  String get tmdbKeyColumn => '┘à┘üÏºÏ¬┘èÏ¡ TMDB';
 
   @override
-  String get tmdbKeyDelete => 'Ø­Ø°Ù Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ø´Ø®ØµÙŠ';
+  String get tmdbKeyDelete => 'Ï¡Ï░┘ü Ïº┘ä┘à┘üÏ¬ÏºÏ¡ Ïº┘äÏ┤Ï«ÏÁ┘è';
 
   @override
   String get tmdbKeyHint =>
-      'ÙŠÙØ³ØªØ®Ø¯Ù… Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ Ø§Ù„Ù…Ø¶Ù…Ù‘Ù† Ø§ÙØªØ±Ø§Ø¶ÙŠÙ‹Ø§';
+      '┘è┘ÅÏ│Ï¬Ï«Ï»┘à Ïº┘ä┘à┘üÏ¬ÏºÏ¡ Ïº┘ä┘àÏ┤Ï¬Ï▒┘â Ïº┘ä┘àÏÂ┘à┘æ┘å Ïº┘üÏ¬Ï▒ÏºÏÂ┘è┘ïÏº';
 
   @override
   String get tmdbKeyLabel =>
-      'Ù…ÙØªØ§Ø­ TMDB API Ø§Ù„Ø´Ø®ØµÙŠ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)';
+      '┘à┘üÏ¬ÏºÏ¡ TMDB API Ïº┘äÏ┤Ï«ÏÁ┘è (ÏºÏ«Ï¬┘èÏºÏ▒┘è)';
 
   @override
   String get tmdbKeyShared =>
-      'Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ Ø§Ù„Ù…Ø¶Ù…Ù‘Ù† Ù‚ÙŠØ¯ Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… (Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…ÙØªØ§Ø­ Ø´Ø®ØµÙŠ)';
+      'Ïº┘ä┘à┘üÏ¬ÏºÏ¡ Ïº┘ä┘àÏ┤Ï¬Ï▒┘â Ïº┘ä┘àÏÂ┘à┘æ┘å ┘é┘èÏ» Ïº┘äÏºÏ│Ï¬Ï«Ï»Ïº┘à (┘äÏº ┘è┘êÏ¼Ï» ┘à┘üÏ¬ÏºÏ¡ Ï┤Ï«ÏÁ┘è)';
 
   @override
-  String get tvChannels => 'Ù‚Ù†ÙˆØ§Øª TV';
+  String get tvChannels => '┘é┘å┘êÏºÏ¬ TV';
 
   @override
   String get unableToBuildReplayUrl =>
-      'ØªØ¹Ø°Ø± Ø¨Ù†Ø§Ø¡ Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©.';
+      'Ï¬Ï╣Ï░Ï▒ Ï¿┘åÏºÏí Ï▒ÏºÏ¿ÏÀ ÏÑÏ╣ÏºÏ»Ï® Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï®.';
 
   @override
-  String get unlockCloudflare => 'ÙØªØ­ Ø§Ù„Ù‚ÙÙ„ (Cloudflare)';
+  String get unlockCloudflare => '┘üÏ¬Ï¡ Ïº┘ä┘é┘ü┘ä (Cloudflare)';
 
   @override
-  String get unstableConnection => 'Ø§ØªØµØ§Ù„ ØºÙŠØ± Ù…Ø³ØªÙ‚Ø±';
+  String get unstableConnection => 'ÏºÏ¬ÏÁÏº┘ä Ï║┘èÏ▒ ┘àÏ│Ï¬┘éÏ▒';
 
   @override
-  String get updateAllData => 'ØªØ­Ø¯ÙŠØ« Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª';
+  String get updateAllData => 'Ï¬Ï¡Ï»┘èÏ½ Ï¼┘à┘èÏ╣ Ïº┘äÏ¿┘èÏº┘åÏºÏ¬';
 
   @override
   String get aiTopicsTitle =>
-      'Ù…ÙˆØ¶ÙˆØ¹Ø§Øª Ù…Ù‚ØªØ±Ø­Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ';
+      '┘à┘êÏÂ┘êÏ╣ÏºÏ¬ ┘à┘éÏ¬Ï▒Ï¡Ï® Ï¿Ïº┘äÏ░┘âÏºÏí Ïº┘äÏºÏÁÏÀ┘åÏºÏ╣┘è';
 
   @override
-  String get updateThisCategory => 'ØªØ­Ø¯ÙŠØ« Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©';
+  String get updateThisCategory => 'Ï¬Ï¡Ï»┘èÏ½ ┘çÏ░┘ç Ïº┘ä┘üÏªÏ®';
 
   @override
-  String get updating => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¯ÙŠØ«â€¦';
+  String get updating => 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¬Ï¡Ï»┘èÏ½ÔÇª';
 
   @override
   String get updatingMediaContent =>
-      'Ø¬Ø§Ø±Ù ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ù…ØªØ¹Ø¯Ø¯ Ø§Ù„ÙˆØ³Ø§Ø¦Ø·â€¦';
+      'Ï¼ÏºÏ▒┘ì Ï¬Ï¡Ï»┘èÏ½ Ïº┘ä┘àÏ¡Ï¬┘ê┘ë ┘àÏ¬Ï╣Ï»Ï» Ïº┘ä┘êÏ│ÏºÏªÏÀÔÇª';
 
   @override
-  String get volumeNormalization => 'Ù…Ø¹Ø§Ø¯Ù„Ø© Ø§Ù„ØµÙˆØª';
+  String get volumeNormalization => '┘àÏ╣ÏºÏ»┘äÏ® Ïº┘äÏÁ┘êÏ¬';
 
   @override
   String get volumeNormalizationSubtitle =>
-      'ØªØ­Ø¯ Ù…Ù† Ù‚Ù…Ù… Ø§Ù„ØµÙˆØª Ø¨ÙŠÙ† Ø§Ù„Ù‚Ù†ÙˆØ§Øª/Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬ (AGC)';
+      'Ï¬Ï¡Ï» ┘à┘å ┘é┘à┘à Ïº┘äÏÁ┘êÏ¬ Ï¿┘è┘å Ïº┘ä┘é┘å┘êÏºÏ¬/Ïº┘äÏ¿Ï▒Ïº┘àÏ¼ (AGC)';
 
   @override
-  String get watchLive => 'Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø© Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©';
+  String get watchLive => 'Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï® Ïº┘ä┘àÏ¿ÏºÏ┤Ï▒Ï®';
 
   @override
-  String get whoIsWatching => 'Ù…Ù† ÙŠØ´Ø§Ù‡Ø¯ØŸ';
+  String get whoIsWatching => '┘à┘å ┘èÏ┤Ïº┘çÏ»Ïƒ';
 
   @override
   String get xtreamCodes => 'Xtream Codes';
 
   @override
-  String get yourChannelsAndContent => 'Ù‚Ù†ÙˆØ§ØªÙƒ ÙˆÙ…Ø­ØªÙˆØ§Ùƒ';
+  String get yourChannelsAndContent => '┘é┘å┘êÏºÏ¬┘â ┘ê┘àÏ¡Ï¬┘êÏº┘â';
 
   @override
-  String get subtitleSection => 'Ø§Ù„ØªØ±Ø¬Ù…Ø©';
+  String get subtitleSection => 'Ïº┘äÏ¬Ï▒Ï¼┘àÏ®';
 
   @override
-  String get audioSection => 'Ø§Ù„ØµÙˆØª';
+  String get audioSection => 'Ïº┘äÏÁ┘êÏ¬';
 
   @override
-  String get videoSection => 'Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
+  String get videoSection => 'Ïº┘ä┘ü┘èÏ»┘è┘ê';
 
   @override
-  String get autoQuality => 'ØªÙ„Ù‚Ø§Ø¦ÙŠ';
+  String get autoQuality => 'Ï¬┘ä┘éÏºÏª┘è';
 
   @override
-  String get noneOption => 'Ù„Ø§ Ø´ÙŠØ¡';
-
-  @override
-  String get subtitleNotApplicable => 'Ù„Ø§ ÙŠÙ†Ø·Ø¨Ù‚';
+  String get subtitleNotApplicable => '┘äÏº ┘è┘åÏÀÏ¿┘é';
 
   @override
   String get subtitleNotApplicableInfo =>
-      'Ø§Ù„Ø¨Ø« Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ù„Ø§ ÙŠÙˆÙØ± Ù…Ø³Ø§Ø± ØªØ±Ø¬Ù…Ø©.';
+      'Ïº┘äÏ¿Ï½ Ïº┘ä┘àÏ¿ÏºÏ┤Ï▒ ┘äÏº ┘è┘ê┘üÏ▒ ┘àÏ│ÏºÏ▒ Ï¬Ï▒Ï¼┘àÏ®.';
 
   @override
-  String get subtitleUnavailable => 'ØºÙŠØ± Ù…ØªØ§Ø­';
+  String get subtitleUnavailable => 'Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡';
 
   @override
-  String get subtitleNoTrack => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…Ø³Ø§Ø±';
+  String get subtitleNoTrack => '┘äÏº ┘è┘êÏ¼Ï» ┘àÏ│ÏºÏ▒';
 
   @override
   String get subtitleNoTrackInfo =>
-      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
+      '┘äÏº ┘è┘ê┘ü┘æÏ▒ Ïº┘ä┘àÏ▓┘ê┘æÏ» Ï¬Ï▒Ï¼┘àÏºÏ¬ ┘ä┘çÏ░Ïº Ïº┘ä┘àÏ¡Ï¬┘ê┘ë.';
 
   @override
-  String get subtitleGuessed => 'Ù…Ø³Ø§Ø±Ø§Øª Ù…ÙØ³ØªÙ†ØªØ¬Ø©';
+  String get subtitleGuessed => '┘àÏ│ÏºÏ▒ÏºÏ¬ ┘à┘ÅÏ│Ï¬┘åÏ¬Ï¼Ï®';
 
   @override
   String get subtitleGuessedInfo =>
-      'Ù„Ø§ ÙŠØ¹Ù„Ù† Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§ØªÙ‡: ØªÙØ´ØªÙ‚ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø³Ø§Ø±Ø§Øª Ù…Ù† Ø§ØµØ·Ù„Ø§Ø­ Ø¹Ù†ÙˆØ§Ù† URL. ÙˆØ£ÙŠ Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø³ÙŠÙØ¨Ù„Ù‘Øº Ø¹Ù† Ø®Ø·Ø£ Ø¹Ù†Ø¯ Ø§Ù„ØªÙØ¹ÙŠÙ„.';
+      '┘äÏº ┘èÏ╣┘ä┘å Ïº┘ä┘àÏ▓┘ê┘æÏ» Ï¬Ï▒Ï¼┘àÏºÏ¬┘ç: Ï¬┘ÅÏ┤Ï¬┘é ┘çÏ░┘ç Ïº┘ä┘àÏ│ÏºÏ▒ÏºÏ¬ ┘à┘å ÏºÏÁÏÀ┘äÏºÏ¡ Ï╣┘å┘êÏº┘å URL. ┘êÏú┘è ┘àÏ│ÏºÏ▒ Ï║┘èÏ▒ ┘à┘êÏ¼┘êÏ» Ï│┘è┘ÅÏ¿┘ä┘æÏ║ Ï╣┘å Ï«ÏÀÏú Ï╣┘åÏ» Ïº┘äÏ¬┘üÏ╣┘è┘ä.';
 
   @override
-  String get subtitleUnavailableToast => 'Ø§Ù„ØªØ±Ø¬Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
+  String get subtitleUnavailableToast => 'Ïº┘äÏ¬Ï▒Ï¼┘àÏ® Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
-  String get audioTrackFallback => 'Ù…Ø³Ø§Ø± ØµÙˆØªÙŠ';
+  String get audioTrackFallback => '┘àÏ│ÏºÏ▒ ÏÁ┘êÏ¬┘è';
 
   @override
-  String get subtitleLoading => 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©â€¦';
+  String get subtitleLoading => 'Ï¼ÏºÏ▒┘ì Ï¬Ï¡┘à┘è┘ä Ïº┘äÏ¬Ï▒Ï¼┘àÏ®ÔÇª';
 
   @override
-  String get videoQualityFallback => 'Ø¬ÙˆØ¯Ø© Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
+  String get videoQualityFallback => 'Ï¼┘êÏ»Ï® Ïº┘ä┘ü┘èÏ»┘è┘ê';
 
   @override
-  String get close => 'Ø¥ØºÙ„Ø§Ù‚';
+  String get close => 'ÏÑÏ║┘äÏº┘é';
 
   @override
   String get streamTracksError =>
-      'ØªØ¹Ø°Ù‘Ø±Øª Ù‚Ø±Ø§Ø¡Ø© Ù…Ø³Ø§Ø±Ø§Øª Ù‡Ø°Ø§ Ø§Ù„Ø¨Ø«.';
+      'Ï¬Ï╣Ï░┘æÏ▒Ï¬ ┘éÏ▒ÏºÏíÏ® ┘àÏ│ÏºÏ▒ÏºÏ¬ ┘çÏ░Ïº Ïº┘äÏ¿Ï½.';
 
   @override
-  String get subtitleProviderNoAnswer => 'Ù„Ù… ÙŠØ³ØªØ¬Ø¨ Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯.';
+  String get subtitleProviderNoAnswer => '┘ä┘à ┘èÏ│Ï¬Ï¼Ï¿ Ïº┘ä┘àÏ▓┘ê┘æÏ».';
 
   @override
   String subtitleUnavailableDetail(Object reason) {
-    return 'Ø§Ù„ØªØ±Ø¬Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: $reason';
+    return 'Ïº┘äÏ¬Ï▒Ï¼┘àÏ® Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®: $reason';
   }
 
   @override
-  String get epgNoDataTitle => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ø±Ø§Ù…Ø¬';
+  String get epgNoDataTitle => '┘äÏº Ï¬┘êÏ¼Ï» Ï¿┘èÏº┘åÏºÏ¬ Ï¿Ï▒Ïº┘àÏ¼';
 
   @override
-  String get epgLiveNow => 'Ù…Ø¨Ø§Ø´Ø±';
+  String get epgLiveNow => '┘àÏ¿ÏºÏ┤Ï▒';
 
   @override
   String get epgSelectChannelHint =>
-      'Ø§Ø®ØªØ± Ù‚Ù†Ø§Ø© Ù„Ø¹Ø±Ø¶ Ø¨Ø±Ù†Ø§Ù…Ø¬Ù‡Ø§';
+      'ÏºÏ«Ï¬Ï▒ ┘é┘åÏºÏ® ┘äÏ╣Ï▒ÏÂ Ï¿Ï▒┘åÏº┘àÏ¼┘çÏº';
 
   @override
-  String get epgNow => 'Ø§Ù„Ø¢Ù†';
+  String get epgNow => 'Ïº┘äÏó┘å';
 
   @override
-  String get epgZoomIn => 'ØªÙƒØ¨ÙŠØ±';
+  String get epgZoomIn => 'Ï¬┘âÏ¿┘èÏ▒';
 
   @override
-  String get epgZoomOut => 'ØªØµØºÙŠØ±';
+  String get epgZoomOut => 'Ï¬ÏÁÏ║┘èÏ▒';
 
   @override
-  String get epgNoCurrentProgram => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¬Ø§Ø±Ù';
+  String get epgNoCurrentProgram => '┘äÏº ┘è┘êÏ¼Ï» Ï¿Ï▒┘åÏº┘àÏ¼ Ï¼ÏºÏ▒┘ì';
 
   @override
   String replayWindowBadge(Object days) {
-    return 'Ø¥Ø¹Ø§Ø¯Ø© $days ÙŠÙˆÙ…';
+    return 'ÏÑÏ╣ÏºÏ»Ï® $days ┘è┘ê┘à';
   }
 
   @override
   String replayWindowBadgeHours(Object hours) {
-    return 'Ø¥Ø¹Ø§Ø¯Ø© $hours Ø³Ø§Ø¹Ø©';
+    return 'ÏÑÏ╣ÏºÏ»Ï® $hours Ï│ÏºÏ╣Ï®';
   }
 
   @override
-  String get replayNoAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…ØªØ§Ø­Ø©';
+  String get replayNoAvailable => '┘äÏº Ï¬┘êÏ¼Ï» ÏÑÏ╣ÏºÏ»Ï® ┘àÏ¬ÏºÏ¡Ï®';
 
   @override
   String replayNoneInArchiveDays(Object days) {
-    return 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¹ÙØ±Ø¶ Ø³Ø§Ø¨Ù‚Ù‹Ø§ Ø¶Ù…Ù† Ø£Ø±Ø´ÙŠÙ $days ÙŠÙˆÙ…Ù‹Ø§ Ù„Ù‡Ø°Ø§ Ø§Ù„Ø­Ø³Ø§Ø¨ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù‚Ù†Ø§Ø©.';
+    return '┘äÏº ┘è┘êÏ¼Ï» Ï¿Ï▒┘åÏº┘àÏ¼ Ï╣┘ÅÏ▒ÏÂ Ï│ÏºÏ¿┘é┘ïÏº ÏÂ┘à┘å ÏúÏ▒Ï┤┘è┘ü $days ┘è┘ê┘à┘ïÏº ┘ä┘çÏ░Ïº Ïº┘äÏ¡Ï│ÏºÏ¿ ┘ü┘è ┘çÏ░┘ç Ïº┘ä┘é┘åÏºÏ®.';
   }
 
   @override
   String get replayNonePublished =>
-      'Ù„Ø§ ÙŠÙ†Ø´Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ Ø£ÙŠ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¹ÙØ±Ø¶ Ø³Ø§Ø¨Ù‚Ù‹Ø§ Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù‚Ù†Ø§Ø©.';
+      '┘äÏº ┘è┘åÏ┤Ï▒ Ïº┘ä┘àÏ▓┘ê┘æÏ» Ïú┘è Ï¿Ï▒┘åÏº┘àÏ¼ Ï╣┘ÅÏ▒ÏÂ Ï│ÏºÏ¿┘é┘ïÏº ┘ä┘çÏ░┘ç Ïº┘ä┘é┘åÏºÏ®.';
 
   @override
-  String get epgActionFavorite => 'Ù…ÙØ¶Ù‘Ù„';
+  String get epgActionFavorite => '┘à┘üÏÂ┘æ┘ä';
 
   @override
-  String get epgActionRecording => 'ØªØ³Ø¬ÙŠÙ„';
+  String get epgActionRecording => 'Ï¬Ï│Ï¼┘è┘ä';
 
   @override
-  String get epgActionReminder => 'ØªØ°ÙƒÙŠØ±';
+  String get epgActionReminder => 'Ï¬Ï░┘â┘èÏ▒';
 
   @override
-  String get epgStartReplay => 'Ø¨Ø¯Ø¡ Ø§Ù„Ø¥Ø¹Ø§Ø¯Ø©';
+  String get epgStartReplay => 'Ï¿Ï»Ïí Ïº┘äÏÑÏ╣ÏºÏ»Ï®';
 
   @override
-  String get epgBack => 'Ø±Ø¬ÙˆØ¹';
+  String get epgBack => 'Ï▒Ï¼┘êÏ╣';
 
   @override
   String epgWatchChannel(Object name) {
-    return 'Ø´Ø§Ù‡Ø¯ $name';
+    return 'Ï┤Ïº┘çÏ» $name';
   }
 
   @override
   String get subtitleNoneServedByPanel =>
-      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
+      '┘äÏº ┘è┘ê┘ü┘æÏ▒ Ïº┘ä┘àÏ▓┘ê┘æÏ» Ï¬Ï▒Ï¼┘àÏºÏ¬ ┘ä┘çÏ░Ïº Ïº┘ä┘àÏ¡Ï¬┘ê┘ë.';
 
   @override
   String subtitleVerifying(Object count) {
-    return 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„ØªØ±Ø¬Ù…Ø©â€¦ ($count)';
+    return 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¬Ï¡┘é┘é ┘à┘å Ïº┘äÏ¬Ï▒Ï¼┘àÏ®ÔÇª ($count)';
   }
 
   @override
-  String get subtitleSearchOnline => 'Ø§Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
+  String get subtitleSearchOnline => 'ÏºÏ¿Ï¡Ï½ Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬';
 
   @override
   String get subtitleSearchOnlineInfo =>
-      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ Ø´ÙŠØ¦Ù‹Ø§ Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰. Ù‚Ø¯ ÙŠØ¹Ø«Ø± Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ø¹Ù„Ù‰ ØªØ±Ø¬Ù…Ø©.';
+      '┘äÏº ┘è┘ê┘ü┘æÏ▒ Ïº┘ä┘àÏ▓┘ê┘æÏ» Ï┤┘èÏª┘ïÏº ┘ä┘çÏ░Ïº Ïº┘ä┘àÏ¡Ï¬┘ê┘ë. ┘éÏ» ┘èÏ╣Ï½Ï▒ Ïº┘äÏ¿Ï¡Ï½ Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬ Ï╣┘ä┘ë Ï¬Ï▒Ï¼┘àÏ®.';
 
   @override
-  String get subtitleSearchOnlineRunning => 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¨Ø­Ø«â€¦';
+  String get subtitleSearchOnlineRunning => 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¿Ï¡Ï½ÔÇª';
 
   @override
   String get subtitleOnlineResults =>
-      'ØªØ±Ø¬Ù…Ø§Øª Ø¹ÙØ«Ø± Ø¹Ù„ÙŠÙ‡Ø§ Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
+      'Ï¬Ï▒Ï¼┘àÏºÏ¬ Ï╣┘ÅÏ½Ï▒ Ï╣┘ä┘è┘çÏº Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬';
 
   @override
   String get subtitleOnlineEmpty =>
-      'Ù„Ù… ÙŠÙØ¹Ø«Ø± Ø¹Ù„Ù‰ ØªØ±Ø¬Ù…Ø© Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
+      '┘ä┘à ┘è┘ÅÏ╣Ï½Ï▒ Ï╣┘ä┘ë Ï¬Ï▒Ï¼┘àÏ® Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬ ┘ä┘çÏ░Ïº Ïº┘ä┘àÏ¡Ï¬┘ê┘ë.';
 
   @override
   String subtitleOnlineDownloads(Object count) {
-    return '$count ØªÙ†Ø²ÙŠÙ„';
+    return '$count Ï¬┘åÏ▓┘è┘ä';
   }
 
   @override
   String get subtitleOnlineNoTmdb =>
-      'ØªØ¹Ø°Ù‘Ø± ØªØ­Ø¯ÙŠØ¯ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø¹Ù„Ù‰ TMDB: ÙŠØ­ØªØ§Ø¬ Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ø¥Ù„Ù‰ Ù…Ø¹Ø±Ù‘ÙÙ‡.';
+      'Ï¬Ï╣Ï░┘æÏ▒ Ï¬Ï¡Ï»┘èÏ» ┘çÏ░Ïº Ïº┘ä┘àÏ¡Ï¬┘ê┘ë Ï╣┘ä┘ë TMDB: ┘èÏ¡Ï¬ÏºÏ¼ Ïº┘äÏ¿Ï¡Ï½ Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬ ÏÑ┘ä┘ë ┘àÏ╣Ï▒┘æ┘ü┘ç.';
 
   @override
   String get opensubtitlesKeyLabel =>
-      'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† ØªØ±Ø¬Ù…Ø© Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª (OpenSubtitles)';
+      'Ïº┘äÏ¿Ï¡Ï½ Ï╣┘å Ï¬Ï▒Ï¼┘àÏ® Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬ (OpenSubtitles)';
 
   @override
-  String get opensubtitlesKeyHint => 'Ù…ÙØªØ§Ø­ API â€” Ø§Ø®ØªÙŠØ§Ø±ÙŠ';
+  String get opensubtitlesKeyHint => '┘à┘üÏ¬ÏºÏ¡ API ÔÇö ÏºÏ«Ï¬┘èÏºÏ▒┘è';
 
   @override
   String get opensubtitlesKeyActive =>
-      'Ø§Ù„Ù…ÙØªØ§Ø­ Ù…Ø­ÙÙˆØ¸: Ø­ØµØ© ØªÙ†Ø²ÙŠÙ„ Ø£Ø¹Ù„Ù‰.';
+      'Ïº┘ä┘à┘üÏ¬ÏºÏ¡ ┘àÏ¡┘ü┘êÏ©: Ï¡ÏÁÏ® Ï¬┘åÏ▓┘è┘ä ÏúÏ╣┘ä┘ë.';
 
   @override
   String get opensubtitlesKeyAnonymous =>
-      'Ø¨Ø¯ÙˆÙ† Ù…ÙØªØ§Ø­: Ø§Ù„Ø¨Ø­Ø« Ù…ØªØ§Ø­ØŒ 5 ØªÙ†Ø²ÙŠÙ„Ø§Øª Ù„ÙƒÙ„ Ø¹Ù†ÙˆØ§Ù† IP ÙƒÙ„ 24 Ø³Ø§Ø¹Ø©.';
+      'Ï¿Ï»┘ê┘å ┘à┘üÏ¬ÏºÏ¡: Ïº┘äÏ¿Ï¡Ï½ ┘àÏ¬ÏºÏ¡Ïî 5 Ï¬┘åÏ▓┘è┘äÏºÏ¬ ┘ä┘â┘ä Ï╣┘å┘êÏº┘å IP ┘â┘ä 24 Ï│ÏºÏ╣Ï®.';
 
   @override
-  String get opensubtitlesKeyDelete => 'Ø§Ù…Ø³Ø­ Ø§Ù„Ù…ÙØªØ§Ø­';
+  String get opensubtitlesKeyDelete => 'Ïº┘àÏ│Ï¡ Ïº┘ä┘à┘üÏ¬ÏºÏ¡';
 
   @override
-  String get opensubtitlesKeyCheck => 'Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù…ÙØªØ§Ø­';
+  String get opensubtitlesKeyCheck => 'Ïº┘äÏ¬Ï¡┘é┘é ┘à┘å Ïº┘ä┘à┘üÏ¬ÏºÏ¡';
 
   @override
-  String get opensubtitlesKeyChecking => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚â€¦';
+  String get opensubtitlesKeyChecking => 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¬Ï¡┘é┘éÔÇª';
 
   @override
   String get opensubtitlesKeyValid =>
-      'Ù…ÙØªØ§Ø­ ØµØ§Ù„Ø­: Ø§Ù„Ø®Ø¯Ù…Ø© ØªÙ‚Ø¨Ù„Ù‡.';
+      '┘à┘üÏ¬ÏºÏ¡ ÏÁÏº┘äÏ¡: Ïº┘äÏ«Ï»┘àÏ® Ï¬┘éÏ¿┘ä┘ç.';
 
   @override
   String get opensubtitlesKeyRejected =>
-      'ØªÙ… Ø±ÙØ¶ Ø§Ù„Ù…ÙØªØ§Ø­ Ù…Ù† Ø§Ù„Ø®Ø¯Ù…Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø£Ù†Ùƒ Ù„ØµÙ‚ØªÙ‡ ÙƒØ§Ù…Ù„Ù‹Ø§.';
+      'Ï¬┘à Ï▒┘üÏÂ Ïº┘ä┘à┘üÏ¬ÏºÏ¡ ┘à┘å Ïº┘äÏ«Ï»┘àÏ®: Ï¬Ï¡┘é┘é ┘à┘å Ïú┘å┘â ┘äÏÁ┘éÏ¬┘ç ┘âÏº┘à┘ä┘ïÏº.';
 
   @override
   String get opensubtitlesKeyUnreachable =>
-      'Ø§Ù„Ø®Ø¯Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§ØªØµØ§Ù„Ùƒ ÙˆØ£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.';
+      'Ïº┘äÏ«Ï»┘àÏ® Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®: Ï¬Ï¡┘é┘é ┘à┘å ÏºÏ¬ÏÁÏº┘ä┘â ┘êÏúÏ╣Ï» Ïº┘ä┘àÏ¡Ïº┘ê┘äÏ®.';
 
   @override
   String get opensubtitlesLoginLabel =>
-      'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ø¥Ù„Ù‰ Ø­Ø³Ø§Ø¨ OpenSubtitles';
+      'Ï¬Ï│Ï¼┘è┘ä Ïº┘äÏ»Ï«┘ê┘ä ÏÑ┘ä┘ë Ï¡Ï│ÏºÏ¿ OpenSubtitles';
 
   @override
-  String get opensubtitlesLoginHintUsername => 'Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…';
+  String get opensubtitlesLoginHintUsername => 'ÏºÏ│┘à Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à';
 
   @override
-  String get opensubtitlesLoginHintPassword => 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±';
+  String get opensubtitlesLoginHintPassword => '┘â┘ä┘àÏ® Ïº┘ä┘àÏ▒┘êÏ▒';
 
   @override
   String get opensubtitlesLoginActive =>
-      'ØªÙ… Ø­ÙØ¸ Ø§Ù„Ø­Ø³Ø§Ø¨: Ø³ØªØªÙ…ÙƒÙ† Ø§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª Ù…Ù† ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„.';
+      'Ï¬┘à Ï¡┘üÏ© Ïº┘äÏ¡Ï│ÏºÏ¿: Ï│Ï¬Ï¬┘à┘â┘å Ïº┘äÏ¬┘åÏ▓┘è┘äÏºÏ¬ ┘à┘å Ï¬Ï│Ï¼┘è┘ä Ïº┘äÏ»Ï«┘ê┘ä.';
 
   @override
   String get opensubtitlesLoginNone =>
-      'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø­Ø³Ø§Ø¨: ÙŠØ¨Ù‚Ù‰ Ø§Ù„ØªÙ†Ø²ÙŠÙ„ Ù…Ø±ÙÙˆØ¶Ù‹Ø§ (503).';
+      '┘äÏº ┘è┘êÏ¼Ï» Ï¡Ï│ÏºÏ¿: ┘èÏ¿┘é┘ë Ïº┘äÏ¬┘åÏ▓┘è┘ä ┘àÏ▒┘ü┘êÏÂ┘ïÏº (503).';
 
   @override
-  String get opensubtitlesLoginDelete => 'Ø§Ù…Ø³Ø­ Ø§Ù„Ø­Ø³Ø§Ø¨';
+  String get opensubtitlesLoginDelete => 'Ïº┘àÏ│Ï¡ Ïº┘äÏ¡Ï│ÏºÏ¿';
 
   @override
   String get opensubtitlesLoginConnect =>
-      'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ / Ø§Ù„ØªØ­Ù‚Ù‚';
+      'Ï¬Ï│Ï¼┘è┘ä Ïº┘äÏ»Ï«┘ê┘ä / Ïº┘äÏ¬Ï¡┘é┘é';
 
   @override
   String get opensubtitlesLoginConnecting =>
-      'Ø¬Ø§Ø±Ù ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„â€¦';
+      'Ï¼ÏºÏ▒┘ì Ï¬Ï│Ï¼┘è┘ä Ïº┘äÏ»Ï«┘ê┘äÔÇª';
 
   @override
   String get opensubtitlesLoginValid =>
-      'ØªÙ… Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø­Ø³Ø§Ø¨: Ø£ØµØ¯Ø±Øª Ø§Ù„Ø®Ø¯Ù…Ø© Ø±Ù…Ø²Ù‹Ø§ Ù…Ù…ÙŠØ²Ù‹Ø§.';
+      'Ï¬┘à ┘éÏ¿┘ê┘ä Ïº┘äÏ¡Ï│ÏºÏ¿: ÏúÏÁÏ»Ï▒Ï¬ Ïº┘äÏ«Ï»┘àÏ® Ï▒┘àÏ▓┘ïÏº ┘à┘à┘èÏ▓┘ïÏº.';
 
   @override
   String get opensubtitlesLoginRejected =>
-      'ØªÙ… Ø±ÙØ¶ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¯Ø®ÙˆÙ„: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±.';
+      'Ï¬┘à Ï▒┘üÏÂ Ï¿┘èÏº┘åÏºÏ¬ Ïº┘äÏ»Ï«┘ê┘ä: Ï¬Ï¡┘é┘é ┘à┘å ÏºÏ│┘à Ïº┘ä┘àÏ│Ï¬Ï«Ï»┘à ┘ê┘â┘ä┘àÏ® Ïº┘ä┘àÏ▒┘êÏ▒.';
 
   @override
   String get opensubtitlesLoginUnreachable =>
-      'Ø§Ù„Ø®Ø¯Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§ØªØµØ§Ù„Ùƒ ÙˆØ£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.';
+      'Ïº┘äÏ«Ï»┘àÏ® Ï║┘èÏ▒ ┘àÏ¬ÏºÏ¡Ï®: Ï¬Ï¡┘é┘é ┘à┘å ÏºÏ¬ÏÁÏº┘ä┘â ┘êÏúÏ╣Ï» Ïº┘ä┘àÏ¡Ïº┘ê┘äÏ®.';
 
   @override
   String get subtitleOnlineNoApiKey =>
-      'Ù…ÙØªØ§Ø­ OpenSubtitles API Ù…ÙÙ‚ÙˆØ¯: Ø£Ø¯Ø®Ù„Ù‡ ÙÙŠ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù„ØªÙØ¹ÙŠÙ„ Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª.';
+      '┘à┘üÏ¬ÏºÏ¡ OpenSubtitles API ┘à┘ü┘é┘êÏ»: ÏúÏ»Ï«┘ä┘ç ┘ü┘è Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ ┘äÏ¬┘üÏ╣┘è┘ä Ïº┘äÏ¿Ï¡Ï½ Ï╣Ï¿Ï▒ Ïº┘äÏÑ┘åÏ¬Ï▒┘åÏ¬.';
 
   @override
   String get subtitleOnlineKeyRejected =>
-      'ØªÙ… Ø±ÙØ¶ Ù…ÙØªØ§Ø­ OpenSubtitles API: Ø¥Ù†Ù‡ Ù…ÙˆØ¬ÙˆØ¯ØŒ Ù„ÙƒÙ† Ø§Ù„Ø®Ø¯Ù…Ø© ØªØ±ÙØ¶Ù‡. ØªØ­Ù‚Ù‚ Ù…Ù†Ù‡ ÙÙŠ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª.';
+      'Ï¬┘à Ï▒┘üÏÂ ┘à┘üÏ¬ÏºÏ¡ OpenSubtitles API: ÏÑ┘å┘ç ┘à┘êÏ¼┘êÏ»Ïî ┘ä┘â┘å Ïº┘äÏ«Ï»┘àÏ® Ï¬Ï▒┘üÏÂ┘ç. Ï¬Ï¡┘é┘é ┘à┘å┘ç ┘ü┘è Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬.';
 
   @override
   String get subtitleOnlineQuota =>
-      'ØªÙ… Ø¨Ù„ÙˆØº Ø­ØµØ© ØªÙ†Ø²ÙŠÙ„ OpenSubtitles Ø§Ù„ÙŠÙˆÙ…. Ø£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© ØºØ¯Ù‹Ø§.';
+      'Ï¬┘à Ï¿┘ä┘êÏ║ Ï¡ÏÁÏ® Ï¬┘åÏ▓┘è┘ä OpenSubtitles Ïº┘ä┘è┘ê┘à. ÏúÏ╣Ï» Ïº┘ä┘àÏ¡Ïº┘ê┘äÏ® Ï║Ï»┘ïÏº.';
 
   @override
   String get subtitleOnlineNeedsLogin =>
-      'ÙŠØªØ·Ù„Ø¨ ØªÙ†Ø²ÙŠÙ„ OpenSubtitles Ø­Ø³Ø§Ø¨Ù‹Ø§ Ù…Ø³Ø¬ÙŽÙ‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ØŒ ÙˆÙ„ÙŠØ³ Ù…ÙØªØ§Ø­ API ÙÙ‚Ø·: Ø§Ù„Ø¨Ø­Ø« ÙŠØ¹Ù…Ù„ØŒ Ù„ÙƒÙ† ÙŠØªÙ… Ø±ÙØ¶ Ø§Ù„ØªÙ†Ø²ÙŠÙ„.';
+      '┘èÏ¬ÏÀ┘äÏ¿ Ï¬┘åÏ▓┘è┘ä OpenSubtitles Ï¡Ï│ÏºÏ¿┘ïÏº ┘àÏ│Ï¼┘Ä┘æ┘ä Ïº┘äÏ»Ï«┘ê┘äÏî ┘ê┘ä┘èÏ│ ┘à┘üÏ¬ÏºÏ¡ API ┘ü┘éÏÀ: Ïº┘äÏ¿Ï¡Ï½ ┘èÏ╣┘à┘äÏî ┘ä┘â┘å ┘èÏ¬┘à Ï▒┘üÏÂ Ïº┘äÏ¬┘åÏ▓┘è┘ä.';
 
   @override
-  String get favorites => 'Ø§Ù„Ù…ÙØ¶Ù„Ø©';
+  String get favorites => 'Ïº┘ä┘à┘üÏÂ┘äÏ®';
 
   @override
-  String get films => 'Ø£ÙÙ„Ø§Ù…';
+  String get films => 'Ïú┘ü┘äÏº┘à';
 
   @override
-  String get replay => 'Ø¥Ø¹Ø§Ø¯Ø©';
+  String get replay => 'ÏÑÏ╣ÏºÏ»Ï®';
 
   @override
-  String get myContent => 'Ù…Ø­ØªÙˆØ§ÙŠ';
+  String get myContent => '┘àÏ¡Ï¬┘êÏº┘è';
 
   @override
-  String get contentTypeSelector => 'Ù†ÙˆØ¹ Ø§Ù„Ù…Ø­ØªÙˆÙ‰';
+  String get contentTypeSelector => '┘å┘êÏ╣ Ïº┘ä┘àÏ¡Ï¬┘ê┘ë';
 
   @override
-  String get downloadStatusDownloading => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªÙ†Ø²ÙŠÙ„';
+  String get downloadStatusDownloading => 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¬┘åÏ▓┘è┘ä';
 
   @override
-  String get downloadStatusPreparing => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¶ÙŠØ±';
+  String get downloadStatusPreparing => 'Ï¼ÏºÏ▒┘ì Ïº┘äÏ¬Ï¡ÏÂ┘èÏ▒';
 
   @override
-  String get downloadStatusPaused => 'Ù…ØªÙˆÙ‚Ù Ù…Ø¤Ù‚ØªÙ‹Ø§';
+  String get downloadStatusPaused => '┘àÏ¬┘ê┘é┘ü ┘àÏñ┘éÏ¬┘ïÏº';
 
   @override
-  String get downloadStatusCompleted => 'Ù…ÙƒØªÙ…Ù„';
+  String get downloadStatusCompleted => '┘à┘âÏ¬┘à┘ä';
 
   @override
-  String get downloadStatusFailed => 'ÙØ´Ù„';
+  String get downloadStatusFailed => '┘üÏ┤┘ä';
 
   @override
-  String get downloadStatusCancelled => 'Ø£ÙÙ„ØºÙŠ';
+  String get downloadStatusCancelled => 'Ïú┘Å┘äÏ║┘è';
 
   @override
-  String get downloadStatusQueued => 'ÙÙŠ Ø§Ù„Ø§Ù†ØªØ¸Ø§Ø±';
+  String get downloadStatusQueued => '┘ü┘è Ïº┘äÏº┘åÏ¬Ï©ÏºÏ▒';
 
   @override
-  String get history => 'Ø§Ù„Ø³Ø¬Ù„';
+  String get history => 'Ïº┘äÏ│Ï¼┘ä';
 
   @override
-  String get explore => 'Ø§Ø³ØªÙƒØ´Ø§Ù';
+  String get explore => 'ÏºÏ│Ï¬┘âÏ┤Ïº┘ü';
 
   @override
   String get downloadsEmptyHint =>
-      'Ø£Ø¶Ù Ù…Ø­ØªÙˆÙ‰ Ù…Ù† ØµÙØ­Ø© ØªÙØ§ØµÙŠÙ„ ÙÙŠÙ„Ù… Ø£Ùˆ Ù…Ø³Ù„Ø³Ù„.';
+      'ÏúÏÂ┘ü ┘àÏ¡Ï¬┘ê┘ë ┘à┘å ÏÁ┘üÏ¡Ï® Ï¬┘üÏºÏÁ┘è┘ä ┘ü┘è┘ä┘à Ïú┘ê ┘àÏ│┘äÏ│┘ä.';
 
   @override
-  String get downloadsLocation => 'Ø§Ù„Ù…Ù„ÙØ§Øª';
+  String get downloadsLocation => 'Ïº┘ä┘à┘ä┘üÏºÏ¬';
 
   @override
-  String get advancedSettingsTitle => 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù…ØªÙ‚Ø¯Ù…Ø©';
+  String get advancedSettingsTitle => 'ÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ ┘àÏ¬┘éÏ»┘àÏ®';
 
   @override
   String get advancedSettingsIntro =>
-      'Ø¨ÙŠØ§Ù†Ø§Øª API ÙˆØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ø´Ø¨ÙƒØ©. Ù‡Ø°Ù‡ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª ØªØ±Ø¨Ø· Ø­Ø³Ø§Ø¨Ùƒ Ø¨Ø®Ø¯Ù…Ø§Øª Ø®Ø§Ø±Ø¬ÙŠØ©: Ù…ÙØªØ§Ø­ Ù…Ø´ØªØ±Ùƒ ÙŠØ³ØªÙ‡Ù„Ùƒ Ø­ØµØªÙ‡ØŒ ÙˆØ¥Ø¹Ø¯Ø§Ø¯ Ø´Ø¨ÙƒØ© Ø®Ø§Ø·Ø¦ Ù‚Ø¯ ÙŠÙ…Ù†Ø¹ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ù…Ù† Ø§Ù„Ø¨Ø¯Ø¡.';
+      'Ï¿┘èÏº┘åÏºÏ¬ API ┘êÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Ïº┘äÏ┤Ï¿┘âÏ®. ┘çÏ░┘ç Ïº┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Ï¬Ï▒Ï¿ÏÀ Ï¡Ï│ÏºÏ¿┘â Ï¿Ï«Ï»┘àÏºÏ¬ Ï«ÏºÏ▒Ï¼┘èÏ®: ┘à┘üÏ¬ÏºÏ¡ ┘àÏ┤Ï¬Ï▒┘â ┘èÏ│Ï¬┘ç┘ä┘â Ï¡ÏÁÏ¬┘çÏî ┘êÏÑÏ╣Ï»ÏºÏ» Ï┤Ï¿┘âÏ® Ï«ÏºÏÀÏª ┘éÏ» ┘è┘à┘åÏ╣ Ïº┘äÏ¬ÏÀÏ¿┘è┘é ┘à┘å Ïº┘äÏ¿Ï»Ïí.';
 
   @override
-  String get advancedSubtitlesProvider => 'Ù…Ø²ÙˆÙ‘Ø¯ Ø§Ù„ØªØ±Ø¬Ù…Ø©';
+  String get advancedSubtitlesProvider => '┘àÏ▓┘ê┘æÏ» Ïº┘äÏ¬Ï▒Ï¼┘àÏ®';
 
   @override
-  String get advancedStatus => 'Ø­Ø§Ù„Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯';
+  String get advancedStatus => 'Ï¡Ïº┘äÏ® Ï¿┘èÏº┘åÏºÏ¬ Ïº┘äÏºÏ╣Ï¬┘àÏºÏ»';
 
   @override
-  String get advancedAccessTitle => 'ÙˆØµÙˆÙ„ Ù…Ø­Ø¬ÙˆØ²';
+  String get advancedAccessTitle => '┘êÏÁ┘ê┘ä ┘àÏ¡Ï¼┘êÏ▓';
 
   @override
-  String get advancedAccessHint => 'Ø§Ù„Ø±Ù…Ø²';
+  String get advancedAccessHint => 'Ïº┘äÏ▒┘àÏ▓';
 
   @override
-  String get advancedAccessConfirm => 'ÙØªØ­';
+  String get advancedAccessConfirm => '┘üÏ¬Ï¡';
 
   @override
-  String get advancedAccessWrong => 'Ø±Ù…Ø² ØºÙŠØ± ØµØ­ÙŠØ­';
+  String get advancedAccessWrong => 'Ï▒┘àÏ▓ Ï║┘èÏ▒ ÏÁÏ¡┘èÏ¡';
 
   @override
   String get advancedHiddenHint =>
-      'Ø§Ø¶ØºØ· Ù…Ø·ÙˆÙ„Ø§Ù‹ Ù„Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø©';
+      'ÏºÏÂÏ║ÏÀ ┘àÏÀ┘ê┘äÏº┘ï ┘ä┘äÏÑÏ╣Ï»ÏºÏ»ÏºÏ¬ Ïº┘ä┘àÏ¬┘éÏ»┘àÏ®';
 
   @override
-  String get favoritesAndDownloads => 'Ø§Ù„Ù…ÙØ¶Ù„Ø© ÙˆØ§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª';
+  String get favoritesAndDownloads => 'Ïº┘ä┘à┘üÏÂ┘äÏ® ┘êÏº┘äÏ¬┘åÏ▓┘è┘äÏºÏ¬';
 
   @override
-  String get activeAudio => 'Ø§Ù„ØµÙˆØª ÙŠØ¹Ù…Ù„ Ø¹Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ø´Ø§Ø´Ø©';
+  String get activeAudio => 'Ïº┘äÏÁ┘êÏ¬ ┘èÏ╣┘à┘ä Ï╣┘ä┘ë ┘çÏ░┘ç Ïº┘äÏ┤ÏºÏ┤Ï®';
 
   @override
-  String get addChannel => 'Ø¥Ø¶Ø§ÙØ© Ù‚Ù†Ø§Ø©';
+  String get addChannel => 'ÏÑÏÂÏº┘üÏ® ┘é┘åÏºÏ®';
 
   @override
-  String get noChannelSelected => 'Ù„Ù… ÙŠØªÙ… ØªØ­Ø¯ÙŠØ¯ Ø£ÙŠ Ù‚Ù†Ø§Ø©';
+  String get noChannelSelected => '┘ä┘à ┘èÏ¬┘à Ï¬Ï¡Ï»┘èÏ» Ïú┘è ┘é┘åÏºÏ®';
 
   @override
-  String get removeChannel => 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù‚Ù†Ø§Ø©';
+  String get removeChannel => 'ÏÑÏ▓Ïº┘äÏ® Ïº┘ä┘é┘åÏºÏ®';
 
   @override
-  String get avatarCategoryAll => 'Ø¬Ù…ÙŠØ¹';
+  String get avatarCategoryAll => 'Ï¼┘à┘èÏ╣';
 
   @override
-  String get avatarCategoryCharacters => 'Ø´Ø®ØµÙŠØ§Øª';
+  String get avatarCategoryCharacters => 'Ï┤Ï«ÏÁ┘èÏºÏ¬';
 
   @override
-  String get avatarCategorySmileys => 'Ù…Ø²Ø§Ø­';
+  String get avatarCategorySmileys => '┘àÏ▓ÏºÏ¡';
 
   @override
-  String get avatarCategoryBlackWhite => 'Ø£Ø¨ÙŠØ¶ ÙˆØ£Ø³ÙˆØ¯';
+  String get avatarCategoryBlackWhite => 'ÏúÏ¿┘èÏÂ ┘êÏúÏ│┘êÏ»';
 
   @override
-  String get avatarCategoryPixels => 'Ø¨ÙƒØ³Ù„Ø§Øª';
+  String get avatarCategoryPixels => 'Ï¿┘âÏ│┘äÏºÏ¬';
 }
