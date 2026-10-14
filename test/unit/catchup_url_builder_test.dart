@@ -47,7 +47,7 @@ void main() {
         '${startEpoch + 600}',
       );
       expect(resolve('{utc}', offset: const Duration(minutes: 10)),
-          '$startEpoch');
+          '$startEpoch',);
     });
 
     test('{duration} est la durée en secondes', () {
@@ -218,7 +218,7 @@ void main() {
       // Sans modèle, aucune URL ne doit être inventée : c'est le cas Xtream,
       // traité par une convention dédiée.
       expect(CatchupUrl.build(channel: channelWith(), start: start, end: end),
-          isNull);
+          isNull,);
     });
 
     test('substitue le modèle de la chaîne', () {

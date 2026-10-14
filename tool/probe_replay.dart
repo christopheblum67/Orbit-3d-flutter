@@ -20,7 +20,7 @@ Future<void> main(List<String> args) async {
       args.length > 2 ? args[2] : Platform.environment['ORBIT_PASS'] ?? '';
   if (base.isEmpty || user.isEmpty || pass.isEmpty) {
     stderr.writeln(
-        'usage: dart run tool/probe_replay.dart <baseUrl> <user> <pass>');
+        'usage: dart run tool/probe_replay.dart <baseUrl> <user> <pass>',);
     exitCode = 2;
     return;
   }
@@ -34,7 +34,7 @@ Future<void> main(List<String> args) async {
       'username': user,
       'password': pass,
       ...params,
-    });
+    },);
     final req = await client.getUrl(uri);
     req.headers.set(HttpHeaders.userAgentHeader, 'OrbitIPTV/1.0');
     final res = await req.close();

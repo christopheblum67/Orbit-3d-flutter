@@ -99,7 +99,7 @@ class Channel {
   });
 
   factory Channel.fromMap(Map<String, dynamic> map) {
-    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    // Textes du panel décodés une fois pour toutes (cf. PanelText) :
     map = PanelText.decodeMap(map);
     final radioTv = map['radio_tv']?.toString().toLowerCase() ?? '';
     final tvArchive = map['tv_archive']?.toString().toLowerCase();

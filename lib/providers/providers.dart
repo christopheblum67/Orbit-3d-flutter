@@ -1108,16 +1108,20 @@ final channelCatchUpProvider =
   (ref, channelId) async {
     if (channelId.isEmpty) return const <EPGProgram>[];
 
-    final cache = ref.read(shortEpgCacheProvider);
-    final cached = cache.get(channelId);
-    if (cached != null) return _pastPrograms(cached);
-
     final channels = ref.read(liveChannelsProvider).value ?? const <Channel>[];
     final channel = channels.cast<Channel?>().firstWhere(
           (c) => c!.id == channelId,
           orElse: () => null,
         );
     if (channel == null) return const <EPGProgram>[];
+
+    // Fenêtre de rattrapage propre à la chaîne : on retombe sur 7 jours
+    // lorsque le panel n'annonce aucune durée d'archive (`archiveDays == 0`).
+    final archiveDays = channel.archiveDays > 0 ? channel.archiveDays : 7;
+
+    final cache = ref.read(shortEpgCacheProvider);
+    final cached = cache.get(channelId);
+    if (cached != null) return _pastPrograms(cached, archiveDays);
 
     // L'API est lue AVANT le `await` : ce provider est `autoDispose`, et si
     // l'écran se ferme pendant l'appel, le `ref` est déjà détruit. Un
@@ -1133,15 +1137,15 @@ final channelCatchUpProvider =
     if (programs == null || programs.isEmpty) return const <EPGProgram>[];
 
     cache.put(channelId, programs);
-    return _pastPrograms(programs);
+    return _pastPrograms(programs, archiveDays);
   },
 );
 
-List<EPGProgram> _pastPrograms(List<EPGProgram> programs) {
+List<EPGProgram> _pastPrograms(List<EPGProgram> programs, int archiveDays) {
   final now = DateTime.now();
   final past = programs
       .where((p) => p.end.isBefore(now))
-      .where((p) => now.difference(p.end).inDays <= (channel.archiveDays ?? 7))
+      .where((p) => now.difference(p.end).inDays <= archiveDays)
       .toList()
     ..sort((a, b) => b.end.compareTo(a.end));
   return past;

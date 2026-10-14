@@ -131,7 +131,7 @@ class _NoReplayAtAll extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.replay_rounded,
-                size: 56, color: theme.colorScheme.outline),
+                size: 56, color: theme.colorScheme.outline,),
             const SizedBox(height: 12),
             Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
             const SizedBox(height: 6),

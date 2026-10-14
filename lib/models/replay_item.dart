@@ -45,7 +45,7 @@ class ReplayItem {
   });
 
   factory ReplayItem.fromMap(Map<String, dynamic> map) {
-    // Textes du panel d��codes une fois pour toutes (cf. PanelText) :
+    // Textes du panel décodés une fois pour toutes (cf. PanelText) :
     map = PanelText.decodeMap(map);
     return ReplayItem(
       id: map['id']?.toString() ?? '',

@@ -502,7 +502,6 @@ class ApiService {
         return StreamNetworkException('Requête annulée.', original: e);
       case DioExceptionType.badResponse:
         final status = e.response?.statusCode;
-        final headers = e.response?.headers;
         final message = switch (status) {
           401 => 'Accès refusé par le serveur (code 401). '
               'Vérifiez vos identifiants Xtream.',
@@ -623,7 +622,7 @@ class ApiService {
     }, onError: (Object error, StackTrace stack) {
       _inFlight.remove(key);
       completer.completeError(error, stack);
-    });
+    },);
     return completer.future;
   }
 
@@ -2010,7 +2009,7 @@ class ApiService {
           // finissait sur « aucun replay disponible », alors que le panel en
           // publie. On demande explicitement une fenêtre couvrant les
           // `_replayWindow`.
-          'limit': '${_replayLimit}',
+          'limit': '$_replayLimit',
         });
         final response = await _get(url);
         final data = response.data;
@@ -2068,8 +2067,9 @@ class ApiService {
           // Fixer 48 h en dur éliminait à tort les replays d'un compte
           // annonçant 7 jours : le programme était bien servi, il était
           // filtré de notre côté.
-          if (now.difference(start) > archiveWindow(channel))
+          if (now.difference(start) > archiveWindow(channel)) {
             continue; // trop ancien
+          }
           // Même décodage que le chemin `get_simple_data_table` : ce panel
           // encode les titres en base64 sur les deux appels. Sans lui, les
           // chaînes servies par ce repli affichaient « QWxsZSwgbGUgbG9pciI »
@@ -2455,7 +2455,7 @@ class ApiService {
     final uri = Uri.parse(_trimBaseUrl(baseUrl));
     final durationMinutes = ((end - start) / 60).ceil().clamp(1, 1 << 20);
     final startLocal = DateTime.fromMillisecondsSinceEpoch(start * 1000);
-    final two = (int v) => v.toString().padLeft(2, '0');
+    String two(int v) => v.toString().padLeft(2, '0');
     final stamp =
         '${startLocal.year}-${two(startLocal.month)}-${two(startLocal.day)}'
         ':${two(startLocal.hour)}-${two(startLocal.minute)}';
