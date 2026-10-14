@@ -1086,13 +1086,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_appliedSeriesSubtitleGeneration == generation) return;
 
     final seriesId = widget.series!.id;
-    final lang = await PlayerTrackPrefs.seriesSubtitleLanguageFor(seriesId);
-    if (lang == null || lang.isEmpty) return;
+    // La préférence est soit un code langue (« fr », formats historiques), soit
+    // le libellé d'une piste (« Français (SDH) », choix « une entrée par
+    // piste ») : le sélecteur tranche (cf. pickEmbeddedSubtitleTrackForPreference).
+    final preference =
+        await PlayerTrackPrefs.seriesSubtitleLanguageFor(seriesId);
+    if (preference == null || preference.isEmpty) return;
     if (!mounted || generation != _generation) return;
 
-    final track = pickEmbeddedSubtitleTrackForLanguage(
+    final track = pickEmbeddedSubtitleTrackForPreference(
       ctrl.embeddedTracks,
-      lang,
+      preference,
     );
     if (track == null) return;
 

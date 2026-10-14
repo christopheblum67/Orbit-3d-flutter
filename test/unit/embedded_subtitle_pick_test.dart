@@ -72,4 +72,50 @@ void main() {
       expect(pickEmbeddedSubtitleTrackForLanguage(tracks, 'de'), isNull);
     });
   });
+
+  group('pickEmbeddedSubtitleTrackForPreference', () {
+    // Le menu série propose désormais une entrée PAR PISTE (comme le lecteur) :
+    // la préférence mémorisée est le LIBELLÉ de la piste, pas un code langue.
+    final tracks = [
+      track(id: '4_0', language: 'fr', label: 'Français'),
+      track(id: '5_0', language: 'fr', label: 'Français (CC)'),
+      track(id: '6_0', language: 'fr', label: 'Français (SDH)'),
+      track(id: '7_0', language: 'en', label: 'English [Original] (CC)'),
+      track(id: '8_0', language: 'en', label: 'English [Original] (SDH)'),
+    ];
+
+    test('choisit la piste par son libellé exact', () {
+      expect(
+        pickEmbeddedSubtitleTrackForPreference(tracks, 'Français (SDH)')!.id,
+        '6_0',
+      );
+    });
+
+    test('libellé reconnu malgré casse et espaces', () {
+      expect(
+        pickEmbeddedSubtitleTrackForPreference(tracks, '  français (sdh) ')!.id,
+        '6_0',
+      );
+    });
+
+    test('accepte un code langue (préférences historiques)', () {
+      expect(
+        pickEmbeddedSubtitleTrackForPreference(tracks, 'fr')!.id,
+        '4_0',
+        reason: 'repli langue : on préfère la piste complète à une variante',
+      );
+    });
+
+    test('accepte le nom de langue traduit', () {
+      expect(
+        pickEmbeddedSubtitleTrackForPreference(tracks, 'Anglais')!.id,
+        '7_0',
+      );
+    });
+
+    test('retourne null pour une préférence vide ou inconnue', () {
+      expect(pickEmbeddedSubtitleTrackForPreference(tracks, '   '), isNull);
+      expect(pickEmbeddedSubtitleTrackForPreference(tracks, 'Klingon'), isNull);
+    });
+  });
 }

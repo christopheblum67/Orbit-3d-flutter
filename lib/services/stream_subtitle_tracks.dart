@@ -48,7 +48,7 @@ class StreamSubtitleTracksService {
         () async {
           await controller.initialize();
           final tracks = await _probeTracks(controller);
-          return _toLanguages(tracks);
+          return _toTrackChoices(tracks);
         },
         context: 'StreamSubtitleTracksService.fetchSubtitleTracks',
       );
@@ -90,22 +90,40 @@ class StreamSubtitleTracksService {
     }
   }
 
-  /// Réduit les pistes à des langues uniques, avec un libellé lisible.
-  static List<(String, String)> _toLanguages(
+  /// Construit une entrée PAR PISTE, comme le lecteur.
+  ///
+  /// L'ancienne version dédupliquait par code langue : sur un flux à cinq pistes
+  /// (`fr`, `fr (CC)`, `fr (SDH)`, `en (CC)`, `en (SDH)`) le menu ne montrait
+  /// plus que DEUX langues, et le libellé affiché était celui de la DERNIÈRE
+  /// piste — l'utilisateur lisait « 3 options » là où le lecteur en offrait 6.
+  /// On garde donc chaque piste, avec son libellé (repli sur le nom de langue
+  /// traduit quand le panel n'en publie pas). La valeur mémorisée est le
+  /// libellé, que [pickEmbeddedSubtitleTrackForPreference] sait reconnaître ;
+  /// une Map déduplique les libellés identiques, car `DropdownButton` interdit
+  /// deux items de même valeur.
+  static List<(String, String)> _toTrackChoices(
     List<EmbeddedSubtitleTrack> tracks,
   ) {
-    final languages = <String, String>{};
+    final choices = <String, String>{};
     for (final track in tracks) {
-      final lang = track.language?.toLowerCase().trim();
-      if (lang == null || lang.isEmpty || lang == 'und') continue;
       final label = track.label.trim();
-      // Un label générique (« Sous-titres », « Subtitle ») n'apprend rien :
-      // on préfère le nom de la langue traduit.
+      final lang = track.language?.trim();
+      // Un label générique (« Sous-titres », « Subtitle ») n'apprend rien : on
+      // préfère le nom de la langue traduit.
       final generic = label.isEmpty ||
           label == 'Sous-titres' ||
           label.toLowerCase() == 'subtitle';
-      languages[lang] = generic ? LanguageLabel.of(lang) : label;
+      final String display;
+      if (!generic) {
+        display = label;
+      } else if (lang == null || lang.isEmpty || lang.toLowerCase() == 'und') {
+        continue; // ni libellé ni langue exploitables
+      } else {
+        display = LanguageLabel.of(lang).trim();
+      }
+      if (display.isEmpty) continue;
+      choices[display] = display;
     }
-    return languages.entries.map((e) => (e.key, e.value)).toList();
+    return choices.entries.map((e) => (e.key, e.value)).toList();
   }
 }

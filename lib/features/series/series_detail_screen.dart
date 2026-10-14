@@ -52,8 +52,7 @@ class SeriesDetailScreen extends ConsumerWidget {
         body: ErrorState(
           icon: Icons.tv,
           title: l.detailUnavailable,
-          message:
-              'Identifiant de série manquant (navigation incorrecte). '
+          message: 'Identifiant de série manquant (navigation incorrecte). '
               'Retournez à la liste et réessayez.',
           onRetry: () => context.pop(),
         ),
@@ -1033,10 +1032,17 @@ class _SeriesAudioLanguageSelectorState
   Future<void> _onLanguageChanged(String? lang) async {
     if (lang == null || lang.isEmpty) {
       await PlayerTrackPrefs.clearSeriesAudioPreference(widget.seriesId);
-      if (mounted) setState(() => _selectedLanguage = null);
+      if (mounted) {
+        setState(() {
+          _selectedLanguage = null;
+          _forced = false;
+        });
+      }
     } else {
       await PlayerTrackPrefs.setSeriesAudioLanguage(widget.seriesId, lang);
-      if (mounted) setState(() => _selectedLanguage = lang);
+      if (mounted) {
+        setState(() => _selectedLanguage = lang);
+      }
     }
   }
 
@@ -1113,15 +1119,23 @@ class _SeriesAudioLanguageSelectorState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _forced
-                              ? 'Forcer cette langue pour TOUS les épisodes de la série'
-                              : 'Appliquer seulement si disponible (sinon langue du flux)',
+                          (_selectedLanguage == null ||
+                                  _selectedLanguage!.isEmpty)
+                              ? 'Choisissez d\'abord une langue'
+                              : _forced
+                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                  : 'Appliquer seulement si disponible (sinon langue du flux)',
                           style: textTheme.bodySmall?.copyWith(
-                            color: _forced
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                            fontWeight:
-                                _forced ? FontWeight.w600 : FontWeight.w400,
+                            color: (_selectedLanguage == null ||
+                                    _selectedLanguage!.isEmpty ||
+                                    !_forced)
+                                ? scheme.onSurfaceVariant
+                                : scheme.primary,
+                            fontWeight: _forced &&
+                                    _selectedLanguage != null &&
+                                    _selectedLanguage!.isNotEmpty
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ),
@@ -1139,8 +1153,11 @@ class _SeriesAudioLanguageSelectorState
 ///
 /// Même principe que [_SeriesAudioLanguageSelector] : la préférence est
 /// mémorisée par série ([PlayerTrackPrefs]) et le lecteur la ré-applique à
-/// chaque épisode. Les langues proposées viennent des pistes **intégrées**
-/// réellement présentes dans le premier épisode jouable.
+/// chaque épisode. Les entrées reproduisent les pistes **intégrées** réellement
+/// présentes dans le premier épisode jouable — **une par piste**, comme la
+/// feuille du lecteur, variantes `(CC)`/`(SDH)` comprises. Dédupliquer par
+/// langue faisait disparaître ces variantes et n'affichait que deux entrées là
+/// où le lecteur en offrait cinq.
 class _SeriesSubtitleLanguageSelector extends ConsumerStatefulWidget {
   const _SeriesSubtitleLanguageSelector({required this.seriesId});
   final String seriesId;
@@ -1208,16 +1225,52 @@ class _SeriesSubtitleLanguageSelectorState
   Future<void> _onLanguageChanged(String? lang) async {
     if (lang == null || lang.isEmpty) {
       await PlayerTrackPrefs.clearSeriesSubtitlePreference(widget.seriesId);
-      if (mounted) setState(() => _selectedLanguage = null);
+      if (mounted) {
+        setState(() {
+          _selectedLanguage = null;
+          _forced = false;
+        });
+      }
     } else {
       await PlayerTrackPrefs.setSeriesSubtitleLanguage(widget.seriesId, lang);
-      if (mounted) setState(() => _selectedLanguage = lang);
+      if (mounted) {
+        setState(() => _selectedLanguage = lang);
+      }
     }
   }
 
   Future<void> _onForcedChanged(bool value) async {
     await PlayerTrackPrefs.setSeriesSubtitleForced(widget.seriesId, value);
     if (mounted) setState(() => _forced = value);
+  }
+
+  /// Items du menu (hors « (Désactivés) », ajouté en tête).
+  ///
+  /// La préférence mémorisée peut ne pas figurer dans la sonde courante
+  /// (l'épisode sondé n'a pas exactement les mêmes pistes, ou media3 n'a pas
+  /// encore publié toutes les variantes) : on l'ajoute alors telle quelle.
+  /// Sans ça, `DropdownButtonFormField` lèverait une assertion — « value » doit
+  /// exister parmi les items — et l'écran série planterait à l'ouverture.
+  List<DropdownMenuItem<String>> _dropdownItems() {
+    final items = <DropdownMenuItem<String>>[
+      const DropdownMenuItem<String>(
+        value: '',
+        child: Text('(Désactivés)'),
+      ),
+      ..._availableLanguages.map(
+        (l) => DropdownMenuItem<String>(
+          value: l.$1,
+          child: Text(l.$2),
+        ),
+      ),
+    ];
+    final saved = _selectedLanguage;
+    if (saved != null &&
+        saved.isNotEmpty &&
+        !items.any((item) => item.value == saved)) {
+      items.add(DropdownMenuItem<String>(value: saved, child: Text(saved)));
+    }
+    return items;
   }
 
   @override
@@ -1261,18 +1314,7 @@ class _SeriesSubtitleLanguageSelectorState
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: '',
-                        child: Text('(Désactivés)'),
-                      ),
-                      ..._availableLanguages.map(
-                        (l) => DropdownMenuItem<String>(
-                          value: l.$1,
-                          child: Text(l.$2),
-                        ),
-                      ),
-                    ],
+                    items: _dropdownItems(),
                     onChanged: _onLanguageChanged,
                   ),
                   const SizedBox(height: 8),
@@ -1288,15 +1330,23 @@ class _SeriesSubtitleLanguageSelectorState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _forced
-                              ? 'Forcer cette langue pour TOUS les épisodes de la série'
-                              : 'Appliquer seulement si disponible (sinon langue du flux)',
+                          (_selectedLanguage == null ||
+                                  _selectedLanguage!.isEmpty)
+                              ? 'Choisissez d\'abord une langue'
+                              : _forced
+                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                  : 'Appliquer seulement si disponible (sinon langue du flux)',
                           style: textTheme.bodySmall?.copyWith(
-                            color: _forced
-                                ? scheme.primary
-                                : scheme.onSurfaceVariant,
-                            fontWeight:
-                                _forced ? FontWeight.w600 : FontWeight.w400,
+                            color: (_selectedLanguage == null ||
+                                    _selectedLanguage!.isEmpty ||
+                                    !_forced)
+                                ? scheme.onSurfaceVariant
+                                : scheme.primary,
+                            fontWeight: _forced &&
+                                    _selectedLanguage != null &&
+                                    _selectedLanguage!.isNotEmpty
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ),
