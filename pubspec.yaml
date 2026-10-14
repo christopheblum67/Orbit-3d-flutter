@@ -28,15 +28,12 @@ dependencies:
   just_audio: ^0.10.6
   cached_network_image: ^4.0.0
   flutter_cache_manager: ^3.4.2
-  flutter_local_notifications: ^22.3.0
   firebase_core: ^4.14.0
-  firebase_messaging: ^16.6.0
   firebase_analytics: ^12.5.0
   webview_flutter: ^4.10.0
   webview_flutter_android: ^4.14.1
   device_info_plus: ^10.0.0
   connectivity_plus: ^7.3.1
-  speech_to_text: ^7.4.0
   vector_math: ^2.1.4
   home_widget: ^0.9.4
   cast: ^2.1.0
@@ -51,6 +48,7 @@ dependencies:
   cookie_jar: ^4.0.8
   flutter_secure_storage: ^10.3.4
   dio_cookie_manager: ^3.1.1
+  meta: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -65,8 +63,6 @@ dev_dependencies:
 dependency_overrides:
   video_player_android:
     path: third_party/video_player_android
-  speech_to_text:
-    path: third_party/speech_to_text
   cast:
     path: third_party/cast
 

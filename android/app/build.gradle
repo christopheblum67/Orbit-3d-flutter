@@ -5,6 +5,15 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Identifiants de signature release (android/key.properties, gitignoré).
+// Sans ce fichier, le build sort en clé DEBUG : installable mais refusé par le
+// Play Store, et non re-signable en production.
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.example.orbit_3d_flutter"
     // AndroidX (window/fragment/activity) poussés par les plugins natifs
@@ -31,13 +40,28 @@ android {
         }
     }
 
+    signingConfigs {
+        release {
+            keyAlias = keystoreProperties['keyAlias']
+            keyPassword = keystoreProperties['keyPassword']
+            storeFile = keystoreProperties['storeFile']
+                ? file(keystoreProperties['storeFile'])
+                : null
+            storePassword = keystoreProperties['storePassword']
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            // Signature release réelle (upload-keystore.jks). En l'absence de
+            // android/key.properties, le build échoue au lieu de sortir
+            // silencieusement une APK signée debug.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
             minifyEnabled = true
             shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

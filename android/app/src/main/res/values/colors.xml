@@ -1,12 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0F172A</color>
-    <!--
-      Teinte d'accentuation des notifications (pastille dans la barre d'état).
-      Doit être une couleur OPAQUE et saturée : Android la compose sur le fond de
-      la barre d'état, une valeur semi-transparente produirait un halo.
-      Doit aussi être déclarée ici ET référencée depuis le manifeste : sinon
-      shrinkResources la supprime de l'APK en release.
-    -->
-    <color name="notification_accent">#FF22D3EE</color>
 </resources>

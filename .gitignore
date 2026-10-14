@@ -35,6 +35,21 @@ windows/flutter/generated_plugins.cmake
 .env
 .env.local
 
+# Identifiants de signature release (keystore) et sauvegardes de mots de passe
+docs/secrets/
+
 # Clés de compte de service Firebase (secrets à ne jamais committer)
 *firebase-adminsdk*.json
 service_account.json
+
+# Artefacts de build des forks dans third_party/ (les sources restent suivies)
+third_party/*/android/build/
+third_party/*/.gradle/
+third_party/*/build/
+
+# Outils locaux OpenCode (config/état de session, non partagé)
+.opencode/
+
+# Journaux de build locaux
+build_apk.log
+

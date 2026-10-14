@@ -1,10 +1,8 @@
-<manifest xmlns:tools="http://schemas.android.com/tools" xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
@@ -18,33 +16,6 @@
         android:supportsRtl="true"
         android:supportsPictureInPicture="true"
         android:resizeableActivity="true">
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="orbit_channel" />
-        <!--
-          Icône par défaut des notifications.
-
-          Double rôle :
-            1. elle s'applique aux notifications reçues par FCM, qui n'utilisent
-               pas l'icône passée par flutter_local_notifications ;
-            2. surtout, elle ASSURE LA CONSERVATION de la ressource. Le build
-               release active shrinkResources, qui supprime toute ressource non
-               référencée statiquement. Comme `ic_stat_orbit` n'est référencé
-               que par une chaîne Dart (nom passé à
-               AndroidInitializationSettings), le shrinker ne la voyait pas et
-               la supprimait de l'APK — d'où un
-               PlatformException(invalid_icon, The resource ic_stat_orbit could
-               not be found) alors que le fichier source existait.
-
-          Doit rester une silhouette blanche : Android ne garde que le canal
-          alpha pour l'icône de la barre d'état.
-        -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_orbit" />
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/notification_accent" />
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
