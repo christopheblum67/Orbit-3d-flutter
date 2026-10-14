@@ -55,21 +55,25 @@ class SubtitleController extends ChangeNotifier {
     // passer en « chargée » sans perdre sa position dans la liste.
     for (final t in _discovered) {
       if (!seen.add(t.url)) continue;
-      out.add(SubtitleTrackRef(
-        url: t.url,
-        language: t.language,
-        label: t.label,
-        cues: _loadedTracks[t.url]?.cues,
-      ),);
+      out.add(
+        SubtitleTrackRef(
+          url: t.url,
+          language: t.language,
+          label: t.label,
+          cues: _loadedTracks[t.url]?.cues,
+        ),
+      );
     }
     for (final entry in _loadedTracks.entries) {
       if (!seen.add(entry.key)) continue;
-      out.add(SubtitleTrackRef(
-        url: entry.key,
-        language: entry.value.language,
-        label: entry.value.label,
-        cues: entry.value.cues,
-      ),);
+      out.add(
+        SubtitleTrackRef(
+          url: entry.key,
+          language: entry.value.language,
+          label: entry.value.label,
+          cues: entry.value.cues,
+        ),
+      );
     }
     return out;
   }
@@ -438,6 +442,10 @@ class SubtitleController extends ChangeNotifier {
       _activeEmbeddedTrackId = selected.isEmpty ? null : selected.first.id;
       _liveEmbeddedCues = null;
     }
+    LoggerService.instance.info(
+      'sous-titres intégrés: contexte ${tracks.length} piste(s), '
+      'active=$_activeEmbeddedTrackId',
+    );
     _refreshEmbeddedPolling();
     notifyListeners();
   }

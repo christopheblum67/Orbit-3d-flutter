@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// `ChangeNotifierProvider` : Riverpod 3 l'a déplacé hors de l'export principal.
+// Voir `subtitleControllerProvider` plus bas — un `Provider` nu ne réveille
+// jamais ses `ref.watch`.
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -102,11 +106,32 @@ final playbackProgressServiceProvider =
 final mediaLibraryManagerProvider =
     Provider<MediaLibraryManager>((ref) => MediaLibraryManager());
 
-final subtitleControllerProvider = Provider<SubtitleController>((ref) {
-  final controller = SubtitleController();
-  ref.onDispose(controller.dispose);
-  return controller;
-});
+/// Contrôleur des sous-titres, à l'échelle de l'application.
+///
+/// ## Pourquoi `ChangeNotifierProvider` et NON un `Provider` nu
+///
+/// `SubtitleController` est un `ChangeNotifier` : son état change **en cours de
+/// lecture**, à chaque nouveau groupe de cues publié par le pipeline natif
+/// (`_pollLiveEmbedded` → `notifyListeners`, toutes les 300 ms tant que le
+/// sous-titre change). Or `ref.watch` ne s'abonne à `notifyListeners` que si le
+/// provider enveloppe un `Listenable` — c'est ce que fait
+/// `ChangeNotifierProvider`. Déclaré en `Provider` nu, il renvoyait bien
+/// l'instance, mais **ne réveillait jamais** ses dépendants.
+///
+/// Conséquence observée sur le S20 : l'overlay du lecteur, seul consommateur
+/// sans `setState` (il se contente de rendre `liveEmbeddedCues`), ne se
+/// reconstruisait jamais pendant la lecture. Les sous-titres intégrés restaient
+/// donc invisibles **alors que tout le reste fonctionnait** :
+/// `TextRenderer` publiait des cues (`onCues n=1`), `getCurrentCues()` les
+/// renvoyait textuelles (`raw=1 text=1`), et le contrôleur Dart les recevait
+/// (`1re cue reçue (1) — [grincement léger]`). Seul l'affichage manquait, la
+/// chaîne s'arrêtant au `notifyListeners` sans abonné.
+///
+/// Ne pas ajouter de `ref.onDispose(controller.dispose)` : avec
+/// `disposeNotifier` (vrai par défaut), le provider dispose lui-même le
+/// notifier — un second `dispose()` lèverait une assertion.
+final subtitleControllerProvider =
+    ChangeNotifierProvider<SubtitleController>((ref) => SubtitleController());
 
 // ==================== MÉTADONNÉES EXTERNES (TMDB, TVmaze, OMDB) ====================
 
@@ -430,11 +455,13 @@ final searchFilteredProvider = FutureProvider.autoDispose.family<
   final normalized = searchQueryKey(params.query);
   if (normalized.length < 2) return UnifiedSearchResult.empty();
   final filter = ref.watch(vodCategoryFilterProvider);
-  return ref.watch(searchServiceProvider).search(normalized,
-      filterType: params.filterType,
-      categoryId: params.categoryId,
-      hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
-      hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList(),);
+  return ref.watch(searchServiceProvider).search(
+        normalized,
+        filterType: params.filterType,
+        categoryId: params.categoryId,
+        hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
+        hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList(),
+      );
 });
 
 final searchSuggestionsProvider = StreamProvider.autoDispose
@@ -1157,7 +1184,9 @@ List<EPGProgram> _pastPrograms(List<EPGProgram> programs, int archiveDays) {
 /// interroger la forme préfixée (`num:stream_id`) ou inversement. On tente donc
 /// les deux écritures possibles à partir de l'identifiant demandé.
 List<EPGProgram>? _findShortEpgForAnyCandidate(
-    ShortEpgCache cache, String epgChannelId,) {
+  ShortEpgCache cache,
+  String epgChannelId,
+) {
   // Forme préfixée « num:stream_id » -> on tente le stream_id seul.
   final colon = epgChannelId.indexOf(':');
   if (colon > 0) {
@@ -1345,8 +1374,12 @@ Future<List<EPGProgram>> _resolveChannelEpg(
 /// unique » pour lequel `get_short_epg` a été conçu (une chaîne, 4 entrées).
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
-  (ref, epgChannelId) => _resolveChannelEpg(ref, epgChannelId,
-      includePast: false, allowNetworkFallback: true,),
+  (ref, epgChannelId) => _resolveChannelEpg(
+    ref,
+    epgChannelId,
+    includePast: false,
+    allowNetworkFallback: true,
+  ),
 );
 
 /// EPG d'une chaîne pour la GRILLE : programmes passés compris.
@@ -1361,8 +1394,12 @@ final channelEpgProvider =
 /// ce qui cassait l'expiration, les catégories, etc.
 final channelEpgWindowProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
-  (ref, epgChannelId) => _resolveChannelEpg(ref, epgChannelId,
-      includePast: true, allowNetworkFallback: false,),
+  (ref, epgChannelId) => _resolveChannelEpg(
+    ref,
+    epgChannelId,
+    includePast: true,
+    allowNetworkFallback: false,
+  ),
 );
 
 class EPGProgramsNotifier extends AsyncNotifier<List<EPGProgram>> {
