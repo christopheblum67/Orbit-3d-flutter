@@ -9,255 +9,271 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
-  String get accountDeviceProfile => 'ملف الجهاز والتشخيص';
+  String get accountDeviceProfile => 'Ù…Ù„Ù Ø§Ù„Ø¬Ù‡Ø§Ø² ÙˆØ§Ù„ØªØ´Ø®ÙŠØµ';
 
   @override
   String accountDeviceProfileSubtitle(String label) {
-    return 'الملف $label · تشخيص المشغّل';
+    return 'Ø§Ù„Ù…Ù„Ù $label Â· ØªØ´Ø®ÙŠØµ Ø§Ù„Ù…Ø´ØºÙ‘Ù„';
   }
 
   @override
-  String get accountNoSubscription => 'لا يوجد اشتراك نشط';
+  String get accountNoSubscription => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø§Ø´ØªØ±Ø§Ùƒ Ù†Ø´Ø·';
 
   @override
-  String get accountPreferences => 'تفضيلات الملف الشخصي';
+  String get accountPreferences => 'ØªÙØ¶ÙŠÙ„Ø§Øª Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ';
 
   @override
-  String get accountPreferencesSubtitle => 'اللغة، المظهر، قيود العمر، رمز PIN';
+  String get accountPreferencesSubtitle =>
+      'Ø§Ù„Ù„ØºØ©ØŒ Ø§Ù„Ù…Ø¸Ù‡Ø±ØŒ Ù‚ÙŠÙˆØ¯ Ø§Ù„Ø¹Ù…Ø±ØŒ Ø±Ù…Ø² PIN';
 
   @override
-  String get accountProfiles => 'ملفات المستخدمين';
+  String get accountProfiles => 'Ù…Ù„ÙØ§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†';
 
   @override
-  String get accountProfilesSubtitle => 'إدارة الملفات والملف النشط';
+  String get accountProfilesSubtitle =>
+      'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ù„ÙØ§Øª ÙˆØ§Ù„Ù…Ù„Ù Ø§Ù„Ù†Ø´Ø·';
 
   @override
-  String get accountSubscriptions => 'اشتراكات Xtream/M3U';
+  String get accountSubscriptions => 'Ø§Ø´ØªØ±Ø§ÙƒØ§Øª Xtream/M3U';
 
   @override
   String activeCountOngoing(Object count) {
-    return '$count قيد التنفيذ';
+    return '$count Ù‚ÙŠØ¯ Ø§Ù„ØªÙ†ÙÙŠØ°';
   }
 
   @override
-  String get addSubscription => 'إضافة اشتراك';
+  String get addSubscription => 'Ø¥Ø¶Ø§ÙØ© Ø§Ø´ØªØ±Ø§Ùƒ';
 
   @override
   String addedToFavorites(Object title) {
-    return 'تمت إضافة «$title» إلى المفضلة';
+    return 'ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Â«$titleÂ» Ø¥Ù„Ù‰ Ø§Ù„Ù…ÙØ¶Ù„Ø©';
   }
 
   @override
-  String get age => 'العمر';
+  String get age => 'Ø§Ù„Ø¹Ù…Ø±';
 
   @override
-  String get ageRange13to17 => '13 - 17 سنة';
+  String get ageRange13to17 => '13 - 17 Ø³Ù†Ø©';
 
   @override
-  String get ageRange18to24 => '18 - 24 سنة';
+  String get ageRange18to24 => '18 - 24 Ø³Ù†Ø©';
 
   @override
-  String get ageRange25to34 => '25 - 34 سنة';
+  String get ageRange25to34 => '25 - 34 Ø³Ù†Ø©';
 
   @override
-  String get ageRange35to44 => '35 - 44 سنة';
+  String get ageRange35to44 => '35 - 44 Ø³Ù†Ø©';
 
   @override
-  String get ageRange45to54 => '45 - 54 سنة';
+  String get ageRange45to54 => '45 - 54 Ø³Ù†Ø©';
 
   @override
-  String get ageRange55plus => '55 سنة فأكثر';
+  String get ageRange55plus => '55 Ø³Ù†Ø© ÙØ£ÙƒØ«Ø±';
 
   @override
-  String get ageRangeUnder12 => 'أقل من 12 سنة';
+  String get ageRangeUnder12 => 'Ø£Ù‚Ù„ Ù…Ù† 12 Ø³Ù†Ø©';
 
   @override
-  String get appTitle => 'أوربت IPTV';
+  String get appTitle => 'Ø£ÙˆØ±Ø¨Øª IPTV';
 
   @override
   String get appearInSearchAndRecommendations =>
-      'الظهور في عمليات البحث والتوصيات';
+      'Ø§Ù„Ø¸Ù‡ÙˆØ± ÙÙŠ Ø¹Ù…Ù„ÙŠØ§Øª Ø§Ù„Ø¨Ø­Ø« ÙˆØ§Ù„ØªÙˆØµÙŠØ§Øª';
 
   @override
-  String get apply => 'تطبيق';
+  String get apply => 'ØªØ·Ø¨ÙŠÙ‚';
 
   @override
-  String get audioAndNightFocus => 'الصوت ووضع الليل';
+  String get audioAndNightFocus => 'Ø§Ù„ØµÙˆØª ÙˆÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
 
   @override
   String get audioAndNightFocusSubtitle =>
-      'تحسين ليلي، تعزيز الحوار، مزامنة الصوت/الفيديو';
+      'ØªØ­Ø³ÙŠÙ† Ù„ÙŠÙ„ÙŠØŒ ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø±ØŒ Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get audioShift => 'إزاحة صوتية قابلة للضبط';
+  String get audioShift => 'Ø¥Ø²Ø§Ø­Ø© ØµÙˆØªÙŠØ© Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø¶Ø¨Ø·';
 
   @override
-  String get audioShiftMinus50 => '-50 مللي ثانية';
+  String get audioShiftMinus50 => '-50 Ù…Ù„Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
 
   @override
-  String get audioShiftPlus50 => '+50 مللي ثانية';
+  String get audioShiftPlus50 => '+50 Ù…Ù„Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
 
   @override
-  String get audioShiftSubtitle => 'إزاحة صوت/فيديو يدوية (بالملي ثانية)';
+  String get audioShiftSubtitle =>
+      'Ø¥Ø²Ø§Ø­Ø© ØµÙˆØª/ÙÙŠØ¯ÙŠÙˆ ÙŠØ¯ÙˆÙŠØ© (Ø¨Ø§Ù„Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©)';
 
   @override
-  String get autoQualityDescription => 'يتيح لمشغل اختيار أفضل جودة';
+  String get autoQualityDescription =>
+      'ÙŠØªÙŠØ­ Ù„Ù…Ø´ØºÙ„ Ø§Ø®ØªÙŠØ§Ø± Ø£ÙØ¶Ù„ Ø¬ÙˆØ¯Ø©';
 
   @override
-  String get autoReconnectLive => 'إعادة اتصال مباشرة تلقائية';
+  String get autoReconnectLive =>
+      'Ø¥Ø¹Ø§Ø¯Ø© Ø§ØªØµØ§Ù„ Ù…Ø¨Ø§Ø´Ø±Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠØ©';
 
   @override
   String get autoReconnectLiveSubtitle =>
-      'محاولة إعادة الاتصال تلقائيًا إذا انقطع البث';
+      'Ù…Ø­Ø§ÙˆÙ„Ø© Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ø§ØªØµØ§Ù„ ØªÙ„Ù‚Ø§Ø¦ÙŠÙ‹Ø§ Ø¥Ø°Ø§ Ø§Ù†Ù‚Ø·Ø¹ Ø§Ù„Ø¨Ø«';
 
   @override
-  String get avSyncDialogHint => 'إيجابي = الصوت متقدم، سلبي = الصوت متأخر';
+  String get avSyncDialogHint =>
+      'Ø¥ÙŠØ¬Ø§Ø¨ÙŠ = Ø§Ù„ØµÙˆØª Ù…ØªÙ‚Ø¯Ù…ØŒ Ø³Ù„Ø¨ÙŠ = Ø§Ù„ØµÙˆØª Ù…ØªØ£Ø®Ø±';
 
   @override
-  String get avSyncDialogLabel => 'الإزاحة (بالملي ثانية)';
+  String get avSyncDialogLabel => 'Ø§Ù„Ø¥Ø²Ø§Ø­Ø© (Ø¨Ø§Ù„Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©)';
 
   @override
-  String get avSyncDialogTitle => 'معايرة الصوت/الفيديو';
+  String get avSyncDialogTitle => 'Ù…Ø¹Ø§ÙŠØ±Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get backupExport => 'تصدير الإعدادات';
+  String get backupExport => 'ØªØµØ¯ÙŠØ± Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
 
   @override
-  String get backupExportSubtitle => 'نسخ الإعدادات كاملة إلى الحافظة';
+  String get backupExportSubtitle =>
+      'Ù†Ø³Ø® Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª ÙƒØ§Ù…Ù„Ø© Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø§ÙØ¸Ø©';
 
   @override
-  String get backupImport => 'استيراد الإعدادات';
+  String get backupImport => 'Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
 
   @override
-  String get backupImportSubtitle => 'الاستعادة من الحافظة (JSON)';
+  String get backupImportSubtitle =>
+      'Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø© Ù…Ù† Ø§Ù„Ø­Ø§ÙØ¸Ø© (JSON)';
 
   @override
-  String get bassKiller => 'قاطع الباص (قطع أقل من 120 هرتز)';
+  String get bassKiller =>
+      'Ù‚Ø§Ø·Ø¹ Ø§Ù„Ø¨Ø§Øµ (Ù‚Ø·Ø¹ Ø£Ù‚Ù„ Ù…Ù† 120 Ù‡Ø±ØªØ²)';
 
   @override
-  String get bassKillerSubtitle => 'يقلل الترددات المنخفضة لتجنب الاهتزازات';
+  String get bassKillerSubtitle =>
+      'ÙŠÙ‚Ù„Ù„ Ø§Ù„ØªØ±Ø¯Ø¯Ø§Øª Ø§Ù„Ù…Ù†Ø®ÙØ¶Ø© Ù„ØªØ¬Ù†Ø¨ Ø§Ù„Ø§Ù‡ØªØ²Ø§Ø²Ø§Øª';
 
   @override
-  String get cancel => 'إلغاء';
+  String get cancel => 'Ø¥Ù„ØºØ§Ø¡';
 
   @override
-  String get castToChromecast => 'إرسال إلى Chromecast';
+  String get castToChromecast => 'Ø¥Ø±Ø³Ø§Ù„ Ø¥Ù„Ù‰ Chromecast';
 
   @override
-  String get catchUpTv => 'متابعة البرامج';
+  String get catchUpTv => 'Ù…ØªØ§Ø¨Ø¹Ø© Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬';
 
   @override
-  String get categories => 'الفئات';
+  String get categories => 'Ø§Ù„ÙØ¦Ø§Øª';
 
   @override
-  String get certPinning => 'تفعيل تثبيت الشهادة';
+  String get certPinning => 'ØªÙØ¹ÙŠÙ„ ØªØ«Ø¨ÙŠØª Ø§Ù„Ø´Ù‡Ø§Ø¯Ø©';
 
   @override
-  String get certPinningAdd => 'إضافة البصمات أعلاه';
+  String get certPinningAdd => 'Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¨ØµÙ…Ø§Øª Ø£Ø¹Ù„Ø§Ù‡';
 
   @override
   String get certPinningHint =>
-      'البصمات المسموح بها (واحدة لكل سطر، سداسية عشرية بأحرف كبيرة):';
+      'Ø§Ù„Ø¨ØµÙ…Ø§Øª Ø§Ù„Ù…Ø³Ù…ÙˆØ­ Ø¨Ù‡Ø§ (ÙˆØ§Ø­Ø¯Ø© Ù„ÙƒÙ„ Ø³Ø·Ø±ØŒ Ø³Ø¯Ø§Ø³ÙŠØ© Ø¹Ø´Ø±ÙŠØ© Ø¨Ø£Ø­Ø±Ù ÙƒØ¨ÙŠØ±Ø©):';
 
   @override
   String get certPinningSubtitle =>
-      'يتحقق من بصمة SHA-256 لشهادة SSL الخاصة بالخادم (مضاد للـ MITM)';
+      'ÙŠØªØ­Ù‚Ù‚ Ù…Ù† Ø¨ØµÙ…Ø© SHA-256 Ù„Ø´Ù‡Ø§Ø¯Ø© SSL Ø§Ù„Ø®Ø§ØµØ© Ø¨Ø§Ù„Ø®Ø§Ø¯Ù… (Ù…Ø¶Ø§Ø¯ Ù„Ù„Ù€ MITM)';
 
   @override
-  String get changePinCode => 'تغيير رمز PIN';
+  String get changePinCode => 'ØªØºÙŠÙŠØ± Ø±Ù…Ø² PIN';
 
   @override
-  String get channelsUnavailable => 'القنوات غير متاحة';
+  String get channelsUnavailable => 'Ø§Ù„Ù‚Ù†ÙˆØ§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get chooseProfile => 'اختر ملفاً شخصياً';
+  String get chooseProfile => 'Ø§Ø®ØªØ± Ù…Ù„ÙØ§Ù‹ Ø´Ø®ØµÙŠØ§Ù‹';
 
   @override
-  String get clearCaches => 'مسح كل الكاش';
+  String get clearCaches => 'Ù…Ø³Ø­ ÙƒÙ„ Ø§Ù„ÙƒØ§Ø´';
 
   @override
-  String get clearCachesSubtitle => 'الصور، فهرس البحث، بيانات TMDB/TVmaze';
+  String get clearCachesSubtitle =>
+      'Ø§Ù„ØµÙˆØ±ØŒ ÙÙ‡Ø±Ø³ Ø§Ù„Ø¨Ø­Ø«ØŒ Ø¨ÙŠØ§Ù†Ø§Øª TMDB/TVmaze';
 
   @override
-  String get cloudSyncEnabled => 'المزامنة مفعّلة';
+  String get cloudSyncEnabled => 'Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ù…ÙØ¹Ù‘Ù„Ø©';
 
   @override
   String cloudSyncLastSync(String time) {
-    return 'آخر مزامنة: $time';
+    return 'Ø¢Ø®Ø± Ù…Ø²Ø§Ù…Ù†Ø©: $time';
   }
 
   @override
-  String get cloudSyncNow => 'زامن الآن';
+  String get cloudSyncNow => 'Ø²Ø§Ù…Ù† Ø§Ù„Ø¢Ù†';
 
   @override
-  String get cloudSyncNowSubtitle => 'إرسال التغييرات المحلية إلى السحابة';
+  String get cloudSyncNowSubtitle =>
+      'Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„ØªØºÙŠÙŠØ±Ø§Øª Ø§Ù„Ù…Ø­Ù„ÙŠØ© Ø¥Ù„Ù‰ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©';
 
   @override
   String get cloudSyncSubtitleOff =>
-      'مزامنة المفضلات والمُشاهَد والحديث نحو السحابة';
+      'Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ù…ÙØ¶Ù„Ø§Øª ÙˆØ§Ù„Ù…ÙØ´Ø§Ù‡ÙŽØ¯ ÙˆØ§Ù„Ø­Ø¯ÙŠØ« Ù†Ø­Ùˆ Ø§Ù„Ø³Ø­Ø§Ø¨Ø©';
 
   @override
-  String get cloudflareReset => 'إعادة ضبط إعدادات Cloudflare';
+  String get cloudflareReset => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Cloudflare';
 
   @override
   String get cloudflareResetSubtitle =>
-      'مسح الكوكيز، TLS Impersonation=OFF، وكيل ExoPlayer الافتراضي';
+      'Ù…Ø³Ø­ Ø§Ù„ÙƒÙˆÙƒÙŠØ²ØŒ TLS Impersonation=OFFØŒ ÙˆÙƒÙŠÙ„ ExoPlayer Ø§Ù„Ø§ÙØªØ±Ø§Ø¶ÙŠ';
 
   @override
-  String get comingSoon => 'قريباً';
+  String get comingSoon => 'Ù‚Ø±ÙŠØ¨Ø§Ù‹';
 
   @override
-  String get confirmAndContinue => 'تأكيد والمتابعة';
+  String get confirmAndContinue => 'ØªØ£ÙƒÙŠØ¯ ÙˆØ§Ù„Ù…ØªØ§Ø¨Ø¹Ø©';
 
   @override
-  String get coverCacheCleared => 'تم تفريغ ذاكرة التخزين المؤقت للأغلفة.';
+  String get coverCacheCleared =>
+      'ØªÙ… ØªÙØ±ÙŠØº Ø°Ø§ÙƒØ±Ø© Ø§Ù„ØªØ®Ø²ÙŠÙ† Ø§Ù„Ù…Ø¤Ù‚Øª Ù„Ù„Ø£ØºÙ„ÙØ©.';
 
   @override
-  String get createKidProfile => 'إنشاء ملف شخصي للأطفال';
+  String get createKidProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù„Ù„Ø£Ø·ÙØ§Ù„';
 
   @override
-  String get createNewProfile => 'إنشاء ملف شخصي جديد';
+  String get createNewProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ø¬Ø¯ÙŠØ¯';
 
   @override
-  String get createProfile => 'إنشاء ملف شخصي';
+  String get createProfile => 'Ø¥Ù†Ø´Ø§Ø¡ Ù…Ù„Ù Ø´Ø®ØµÙŠ';
 
   @override
   String currentProfileLabel(String name) {
-    return 'الملف الشخصي الحالي: $name';
+    return 'Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ Ø§Ù„Ø­Ø§Ù„ÙŠ: $name';
   }
 
   @override
-  String get dataAlreadyFresh => 'البيانات محدثة (أقل من 30 دقيقة)';
+  String get dataAlreadyFresh =>
+      'Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª Ù…Ø­Ø¯Ø«Ø© (Ø£Ù‚Ù„ Ù…Ù† 30 Ø¯Ù‚ÙŠÙ‚Ø©)';
 
   @override
-  String get dataAndPrivacy => 'البيانات والخصوصية';
+  String get dataAndPrivacy => 'Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ§Ù„Ø®ØµÙˆØµÙŠØ©';
 
   @override
-  String get deleteAll => 'حذف الكل';
+  String get deleteAll => 'Ø­Ø°Ù Ø§Ù„ÙƒÙ„';
 
   @override
-  String get deleteAllConfirm => 'هل تريد حذف الكل؟';
+  String get deleteAllConfirm => 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ø§Ù„ÙƒÙ„ØŸ';
 
   @override
-  String get deletePin => 'حذف رمز PIN';
+  String get deletePin => 'Ø­Ø°Ù Ø±Ù…Ø² PIN';
 
   @override
-  String get deleteProfileConfirm => 'هل تريد حذف الملف الشخصي؟';
+  String get deleteProfileConfirm =>
+      'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø­Ø°Ù Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠØŸ';
 
   @override
-  String get detailUnavailable => 'التفاصيل غير متاحة';
+  String get detailUnavailable => 'Ø§Ù„ØªÙØ§ØµÙŠÙ„ ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get diagnosticUnavailable => 'التشخيص غير متاح';
+  String get diagnosticUnavailable => 'Ø§Ù„ØªØ´Ø®ÙŠØµ ØºÙŠØ± Ù…ØªØ§Ø­';
 
   @override
-  String get dialogueBoost => 'تعزيز الحوار (+4 ديسيبل)';
+  String get dialogueBoost => 'ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø± (+4 Ø¯ÙŠØ³ÙŠØ¨Ù„)';
 
   @override
-  String get dialogueBoostSubtitle => 'يضخّم الأصوات مقارنة بالمؤثرات/الموسيقى';
+  String get dialogueBoostSubtitle =>
+      'ÙŠØ¶Ø®Ù‘Ù… Ø§Ù„Ø£ØµÙˆØ§Øª Ù…Ù‚Ø§Ø±Ù†Ø© Ø¨Ø§Ù„Ù…Ø¤Ø«Ø±Ø§Øª/Ø§Ù„Ù…ÙˆØ³ÙŠÙ‚Ù‰';
 
   @override
-  String get disableSubtitles => 'تعطيل الترجمة';
+  String get disableSubtitles => 'ØªØ¹Ø·ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©';
 
   @override
   String get dnsCloudflare => '1.1.1.1 (Cloudflare DoH)';
@@ -266,1115 +282,1172 @@ class AppLocalizationsAr extends AppLocalizations {
   String get dnsGoogle => '8.8.8.8 (Google DoH)';
 
   @override
-  String get dnsProvider => 'مزود DNS (DoH)';
+  String get dnsProvider => 'Ù…Ø²ÙˆØ¯ DNS (DoH)';
 
   @override
-  String get dnsProviderSubtitle => 'الخادم المستخدم لاستعلامات DNS عبر HTTPS';
+  String get dnsProviderSubtitle =>
+      'Ø§Ù„Ø®Ø§Ø¯Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ù„Ø§Ø³ØªØ¹Ù„Ø§Ù…Ø§Øª DNS Ø¹Ø¨Ø± HTTPS';
 
   @override
   String get dnsQuad9 => '9.9.9.9 (Quad9 DoH)';
 
   @override
-  String get dnsSystem => 'تلقائي (النظام)';
+  String get dnsSystem => 'ØªÙ„Ù‚Ø§Ø¦ÙŠ (Ø§Ù„Ù†Ø¸Ø§Ù…)';
 
   @override
   String downloadFailed(Object error) {
-    return 'فشل التنزيل: $error';
+    return 'ÙØ´Ù„ Ø§Ù„ØªÙ†Ø²ÙŠÙ„: $error';
   }
 
   @override
-  String get downloads => 'التنزيلات';
+  String get downloads => 'Ø§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª';
 
   @override
-  String get dpadNavigation => 'تنقل محسّن بلوحة الاتجاهات';
+  String get dpadNavigation =>
+      'ØªÙ†Ù‚Ù„ Ù…Ø­Ø³Ù‘Ù† Ø¨Ù„ÙˆØ­Ø© Ø§Ù„Ø§ØªØ¬Ø§Ù‡Ø§Øª';
 
   @override
   String get dpadNavigationSubtitle =>
-      'تركيز مرئي، هالة مضيئة، التفاف النص (وضع التلفاز)';
+      'ØªØ±ÙƒÙŠØ² Ù…Ø±Ø¦ÙŠØŒ Ù‡Ø§Ù„Ø© Ù…Ø¶ÙŠØ¦Ø©ØŒ Ø§Ù„ØªÙØ§Ù Ø§Ù„Ù†Øµ (ÙˆØ¶Ø¹ Ø§Ù„ØªÙ„ÙØ§Ø²)';
 
   @override
-  String get enableParentalControl => 'تفعيل الرقابة الأبوية';
+  String get enableParentalControl =>
+      'ØªÙØ¹ÙŠÙ„ Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
 
   @override
   String enginesSubtitle(String live, String vod) {
-    return 'مباشر: $live · فيديو عند الطلب: $vod';
+    return 'Ù…Ø¨Ø§Ø´Ø±: $live Â· ÙÙŠØ¯ÙŠÙˆ Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨: $vod';
   }
 
   @override
-  String get enginesTile => 'محركات التشغيل';
+  String get enginesTile => 'Ù…Ø­Ø±ÙƒØ§Øª Ø§Ù„ØªØ´ØºÙŠÙ„';
 
   @override
-  String get enterNew4DigitPin => 'أدخل رمزاً جديداً من 4 أرقام';
+  String get enterNew4DigitPin =>
+      'Ø£Ø¯Ø®Ù„ Ø±Ù…Ø²Ø§Ù‹ Ø¬Ø¯ÙŠØ¯Ø§Ù‹ Ù…Ù† 4 Ø£Ø±Ù‚Ø§Ù…';
 
   @override
-  String get epgGrille => 'EPG (الجدول)';
+  String get epgGrille => 'EPG (Ø§Ù„Ø¬Ø¯ÙˆÙ„)';
 
   @override
-  String get epgGuideTv => 'دليل TV (EPG)';
+  String get epgGuideTv => 'Ø¯Ù„ÙŠÙ„ TV (EPG)';
 
   @override
-  String get episode => 'الحلقة';
+  String get episode => 'Ø§Ù„Ø­Ù„Ù‚Ø©';
 
   @override
   String errorGeneric(Object error) {
-    return 'خطأ: $error';
+    return 'Ø®Ø·Ø£: $error';
   }
 
   @override
   String errorLoading(Object error) {
-    return 'خطأ في التحميل: $error';
+    return 'Ø®Ø·Ø£ ÙÙŠ Ø§Ù„ØªØ­Ù…ÙŠÙ„: $error';
   }
 
   @override
-  String get errorSaving => 'خطأ أثناء الحفظ';
+  String get errorSaving => 'Ø®Ø·Ø£ Ø£Ø«Ù†Ø§Ø¡ Ø§Ù„Ø­ÙØ¸';
 
   @override
-  String get exitWithoutSaving => 'الخروج بدون حفظ؟';
+  String get exitWithoutSaving => 'Ø§Ù„Ø®Ø±ÙˆØ¬ Ø¨Ø¯ÙˆÙ† Ø­ÙØ¸ØŸ';
 
   @override
-  String get failedToLoadProfiles => 'تعذر تحميل الملفات الشخصية';
+  String get failedToLoadProfiles =>
+      'ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø´Ø®ØµÙŠØ©';
 
   @override
-  String get fallbackEngine => 'المحرك الاحتياطي';
+  String get fallbackEngine => 'Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ';
 
   @override
-  String get favoriteGenres => 'الأنواع المفضلة';
+  String get favoriteGenres => 'Ø§Ù„Ø£Ù†ÙˆØ§Ø¹ Ø§Ù„Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get filmsVod => 'أفلام (VOD)';
+  String get filmsVod => 'Ø£ÙÙ„Ø§Ù… (VOD)';
 
   @override
-  String get firstName => 'الاسم الأول';
+  String get firstName => 'Ø§Ù„Ø§Ø³Ù… Ø§Ù„Ø£ÙˆÙ„';
 
   @override
-  String get fontSize => 'حجم نص أكبر';
+  String get fontSize => 'Ø­Ø¬Ù… Ù†Øµ Ø£ÙƒØ¨Ø±';
 
   @override
-  String get fontSizeSubtitle => 'يكبّر النصوص في التطبيق كله';
+  String get fontSizeSubtitle =>
+      'ÙŠÙƒØ¨Ù‘Ø± Ø§Ù„Ù†ØµÙˆØµ ÙÙŠ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ ÙƒÙ„Ù‡';
 
   @override
-  String get forYou => 'لك';
+  String get forYou => 'Ù„Ùƒ';
 
   @override
-  String get forYouAndDuo => 'لك ومبني على ثنائي';
+  String get forYouAndDuo => 'Ù„Ùƒ ÙˆÙ…Ø¨Ù†ÙŠ Ø¹Ù„Ù‰ Ø«Ù†Ø§Ø¦ÙŠ';
 
   @override
-  String get forYouMatchmaking => 'لك (المطابقة)';
+  String get forYouMatchmaking => 'Ù„Ùƒ (Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©)';
 
   @override
-  String get forward10s => 'تقديم 10 ثوانٍ';
+  String get forward10s => 'ØªÙ‚Ø¯ÙŠÙ… 10 Ø«ÙˆØ§Ù†Ù';
 
   @override
-  String get forward30s => 'تقديم 30 ثانية';
+  String get forward30s => 'ØªÙ‚Ø¯ÙŠÙ… 30 Ø«Ø§Ù†ÙŠØ©';
 
   @override
-  String get groupMode => 'مجتمعي';
+  String get groupMode => 'Ù…Ø¬ØªÙ…Ø¹ÙŠ';
 
   @override
-  String get highContrast => 'وضع التباين العالي';
+  String get highContrast => 'ÙˆØ¶Ø¹ Ø§Ù„ØªØ¨Ø§ÙŠÙ† Ø§Ù„Ø¹Ø§Ù„ÙŠ';
 
   @override
-  String get highContrastSubtitle => 'يحسن الوضوح لضعاف البصر';
+  String get highContrastSubtitle =>
+      'ÙŠØ­Ø³Ù† Ø§Ù„ÙˆØ¶ÙˆØ­ Ù„Ø¶Ø¹Ø§Ù Ø§Ù„Ø¨ØµØ±';
 
   @override
-  String get historyUnavailable => 'السجل غير متاح';
+  String get historyUnavailable => 'Ø§Ù„Ø³Ø¬Ù„ ØºÙŠØ± Ù…ØªØ§Ø­';
 
   @override
-  String get instantZapping => 'تنقل فوري (تحميل مسبق)';
+  String get instantZapping => 'ØªÙ†Ù‚Ù„ ÙÙˆØ±ÙŠ (ØªØ­Ù…ÙŠÙ„ Ù…Ø³Ø¨Ù‚)';
 
   @override
   String get instantZappingSubtitle =>
-      'تحميل القنوات المجاورة مسبقًا في الذاكرة';
+      'ØªØ­Ù…ÙŠÙ„ Ø§Ù„Ù‚Ù†ÙˆØ§Øª Ø§Ù„Ù…Ø¬Ø§ÙˆØ±Ø© Ù…Ø³Ø¨Ù‚Ù‹Ø§ ÙÙŠ Ø§Ù„Ø°Ø§ÙƒØ±Ø©';
 
   @override
-  String get langArabic => 'العربية';
+  String get langArabic => 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©';
 
   @override
-  String get langFrench => 'Français';
+  String get langFrench => 'FranÃ§ais';
 
   @override
-  String get langPortuguese => 'Português';
+  String get langPortuguese => 'PortuguÃªs';
 
   @override
-  String get langSpanish => 'Español';
+  String get langSpanish => 'EspaÃ±ol';
 
   @override
-  String get language => 'اللغة';
+  String get language => 'Ø§Ù„Ù„ØºØ©';
 
   @override
-  String get languageExample => 'Français, English, إلخ';
+  String get languageExample => 'FranÃ§ais, English, Ø¥Ù„Ø®';
 
   @override
-  String get languagePreference => 'لغة التطبيق';
+  String get languagePreference => 'Ù„ØºØ© Ø§Ù„ØªØ·Ø¨ÙŠÙ‚';
 
   @override
-  String get languageUndetermined => 'غير محدد';
+  String get languageUndetermined => 'ØºÙŠØ± Ù…Ø­Ø¯Ø¯';
 
   @override
-  String get later => 'لاحقاً';
+  String get later => 'Ù„Ø§Ø­Ù‚Ø§Ù‹';
 
   @override
-  String get legalNotice => 'اقرأني · إشعار قانوني';
+  String get legalNotice => 'Ø§Ù‚Ø±Ø£Ù†ÙŠ Â· Ø¥Ø´Ø¹Ø§Ø± Ù‚Ø§Ù†ÙˆÙ†ÙŠ';
 
   @override
-  String get legalNoticeSubtitle => 'استخدام التطبيق، أصحاب الحقوق والخصوصية';
+  String get legalNoticeSubtitle =>
+      'Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ØŒ Ø£ØµØ­Ø§Ø¨ Ø§Ù„Ø­Ù‚ÙˆÙ‚ ÙˆØ§Ù„Ø®ØµÙˆØµÙŠØ©';
 
   @override
-  String get liveChannelsAndZapping => 'القنوات المباشرة والتبديل';
+  String get liveChannelsAndZapping =>
+      'Ø§Ù„Ù‚Ù†ÙˆØ§Øª Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø© ÙˆØ§Ù„ØªØ¨Ø¯ÙŠÙ„';
 
   @override
   String get liveTv => 'Live TV';
 
   @override
-  String get logsDiagnostic => 'السجلات والتشخيص';
+  String get logsDiagnostic => 'Ø§Ù„Ø³Ø¬Ù„Ø§Øª ÙˆØ§Ù„ØªØ´Ø®ÙŠØµ';
 
   @override
-  String get logsDiagnosticSubtitle => 'عرض السجلات، التصدير، مسح الكاش';
+  String get logsDiagnosticSubtitle =>
+      'Ø¹Ø±Ø¶ Ø§Ù„Ø³Ø¬Ù„Ø§ØªØŒ Ø§Ù„ØªØµØ¯ÙŠØ±ØŒ Ù…Ø³Ø­ Ø§Ù„ÙƒØ§Ø´';
 
   @override
   String get m3uPlaylist => 'M3U Playlist';
 
   @override
-  String get m3uPlaylistUrl => 'رابط قائمة التشغيل M3U';
+  String get m3uPlaylistUrl => 'Ø±Ø§Ø¨Ø· Ù‚Ø§Ø¦Ù…Ø© Ø§Ù„ØªØ´ØºÙŠÙ„ M3U';
 
   @override
-  String get mainCast => 'طاقم التمثيل الرئيسي';
+  String get mainCast => 'Ø·Ø§Ù‚Ù… Ø§Ù„ØªÙ…Ø«ÙŠÙ„ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ';
 
   @override
-  String get manualAvCalibration => 'معايرة يدوية للصوت/الفيديو';
+  String get manualAvCalibration =>
+      'Ù…Ø¹Ø§ÙŠØ±Ø© ÙŠØ¯ÙˆÙŠØ© Ù„Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
   String manualAvCalibrationSubtitle(int ms) {
-    return 'الإزاحة الحالية: $ms ملي ثانية';
+    return 'Ø§Ù„Ø¥Ø²Ø§Ø­Ø© Ø§Ù„Ø­Ø§Ù„ÙŠØ©: $ms Ù…Ù„ÙŠ Ø«Ø§Ù†ÙŠØ©';
   }
 
   @override
-  String get matchmaking => 'من أجلك (المطابقة)';
+  String get matchmaking => 'Ù…Ù† Ø£Ø¬Ù„Ùƒ (Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø©)';
 
   @override
-  String get matchmakingSubtitle => 'إدارة المطابقة والاقتراحات المخصصة';
+  String get matchmakingSubtitle =>
+      'Ø¥Ø¯Ø§Ø±Ø© Ø§Ù„Ù…Ø·Ø§Ø¨Ù‚Ø© ÙˆØ§Ù„Ø§Ù‚ØªØ±Ø§Ø­Ø§Øª Ø§Ù„Ù…Ø®ØµØµØ©';
 
   @override
   String maxProfilesReached(Object max) {
-    return 'تم الوصول إلى الحد الأقصى لعدد الملفات الشخصية ($max)';
+    return 'ØªÙ… Ø§Ù„ÙˆØµÙˆÙ„ Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø¯ Ø§Ù„Ø£Ù‚ØµÙ‰ Ù„Ø¹Ø¯Ø¯ Ø§Ù„Ù…Ù„ÙØ§Øª Ø§Ù„Ø´Ø®ØµÙŠØ© ($max)';
   }
 
   @override
-  String get memory => 'الذاكرة';
+  String get memory => 'Ø§Ù„Ø°Ø§ÙƒØ±Ø©';
 
   @override
-  String get moreResults => 'عرض المزيد من النتائج';
+  String get moreResults => 'Ø¹Ø±Ø¶ Ø§Ù„Ù…Ø²ÙŠØ¯ Ù…Ù† Ø§Ù„Ù†ØªØ§Ø¦Ø¬';
 
   @override
-  String get moviesUnavailable => 'الأفلام غير متاحة';
+  String get moviesUnavailable => 'Ø§Ù„Ø£ÙÙ„Ø§Ù… ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get multiScreen => 'شاشات متعددة';
+  String get multiScreen => 'Ø´Ø§Ø´Ø§Øª Ù…ØªØ¹Ø¯Ø¯Ø©';
 
   @override
-  String get multiVideo => 'فيديو متعدد';
+  String get multiVideo => 'ÙÙŠØ¯ÙŠÙˆ Ù…ØªØ¹Ø¯Ø¯';
 
   @override
-  String get myProfile => 'ملفي الشخصي';
+  String get myProfile => 'Ù…Ù„ÙÙŠ Ø§Ù„Ø´Ø®ØµÙŠ';
 
   @override
-  String get nameOptional => 'الاسم (اختياري)';
+  String get nameOptional => 'Ø§Ù„Ø§Ø³Ù… (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)';
 
   @override
-  String get nameOrNickname => 'الاسم / الكنية';
+  String get nameOrNickname => 'Ø§Ù„Ø§Ø³Ù… / Ø§Ù„ÙƒÙ†ÙŠØ©';
 
   @override
-  String get navigateToOkToSelect => 'انتقل إلى OK للتحديد';
+  String get navigateToOkToSelect => 'Ø§Ù†ØªÙ‚Ù„ Ø¥Ù„Ù‰ OK Ù„Ù„ØªØ­Ø¯ÙŠØ¯';
 
   @override
-  String get networkDisconnected => 'انقطع الاتصال بالشبكة';
+  String get networkDisconnected => 'Ø§Ù†Ù‚Ø·Ø¹ Ø§Ù„Ø§ØªØµØ§Ù„ Ø¨Ø§Ù„Ø´Ø¨ÙƒØ©';
 
   @override
-  String get never => 'أبدًا';
+  String get never => 'Ø£Ø¨Ø¯Ù‹Ø§';
 
   @override
-  String get newAnd4K => 'أفلام عند الطلب';
+  String get newAnd4K => 'Ø£ÙÙ„Ø§Ù… Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨';
 
   @override
-  String get newProfile => 'ملف شخصي جديد';
+  String get newProfile => 'Ù…Ù„Ù Ø´Ø®ØµÙŠ Ø¬Ø¯ÙŠØ¯';
 
   @override
-  String get nextChannel => 'القناة التالية';
+  String get nextChannel => 'Ø§Ù„Ù‚Ù†Ø§Ø© Ø§Ù„ØªØ§Ù„ÙŠØ©';
 
   @override
-  String get nightFocusEnable => 'تفعيل وضع الليل';
+  String get nightFocusEnable => 'ØªÙØ¹ÙŠÙ„ ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
 
   @override
   String get nightFocusEnableSubtitle =>
-      'معالجة صوتية فورية: تعزيز الحوار، خفض الباص، المزامنة';
+      'Ù…Ø¹Ø§Ù„Ø¬Ø© ØµÙˆØªÙŠØ© ÙÙˆØ±ÙŠØ©: ØªØ¹Ø²ÙŠØ² Ø§Ù„Ø­ÙˆØ§Ø±ØŒ Ø®ÙØ¶ Ø§Ù„Ø¨Ø§ØµØŒ Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø©';
 
   @override
-  String get nightFocusTitle => 'وضع الليل (وضع الليل)';
+  String get nightFocusTitle => 'ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„ (ÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„)';
 
   @override
-  String get noAudioTrackDetected => 'لم يتم اكتشاف مسار صوتي';
+  String get noAudioTrackDetected =>
+      'Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ù…Ø³Ø§Ø± ØµÙˆØªÙŠ';
 
   @override
-  String get noChannelsAvailable => 'لا توجد قنوات متاحة';
+  String get noChannelsAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get noChromecastDeviceFound => 'لم يتم العثور على جهاز Chromecast.';
+  String get noChromecastDeviceFound =>
+      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø¬Ù‡Ø§Ø² Chromecast.';
 
   @override
-  String get noDownloads => 'لا توجد تنزيلات';
+  String get noDownloads => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªÙ†Ø²ÙŠÙ„Ø§Øª';
 
   @override
-  String get noEpisodes => 'لا توجد حلقات';
+  String get noEpisodes => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø­Ù„Ù‚Ø§Øª';
 
   @override
-  String get noFavoriteChannels => 'لا توجد قنوات مفضلة';
+  String get noFavoriteChannels => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get noFavoriteMovies => 'لا توجد أفلام مفضلة';
+  String get noFavoriteMovies => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„Ø§Ù… Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get noFavoriteReplays => 'لا توجد إعادة مشاهدة مفضلة';
+  String get noFavoriteReplays =>
+      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get noFavoriteSeries => 'لا توجد سلسل مفضلة';
+  String get noFavoriteSeries => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get noGroupAffinity => 'لم يتم العثور على تقارب مشترك';
+  String get noGroupAffinity =>
+      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ ØªÙ‚Ø§Ø±Ø¨ Ù…Ø´ØªØ±Ùƒ';
 
   @override
-  String get noHistory => 'لا يوجد سجل';
+  String get noHistory => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø³Ø¬Ù„';
 
   @override
-  String get noKidsChannels => 'لا توجد قنوات أطفال';
+  String get noKidsChannels => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù‚Ù†ÙˆØ§Øª Ø£Ø·ÙØ§Ù„';
 
   @override
-  String get noKidsMovies => 'لا توجد أفلam أطفال';
+  String get noKidsMovies => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„am Ø£Ø·ÙØ§Ù„';
 
   @override
-  String get noKidsReplays => 'لا توجد إعادة مشاهدة أطفال';
+  String get noKidsReplays =>
+      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© Ø£Ø·ÙØ§Ù„';
 
   @override
-  String get noKidsSeries => 'لا توجد سلسل أطفال';
+  String get noKidsSeries => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ø£Ø·ÙØ§Ù„';
 
   @override
-  String get noMoviesAvailable => 'لا توجد أفلام متاحة';
+  String get noMoviesAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø£ÙÙ„Ø§Ù… Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get noProfileAvailable => 'لا يوجد ملف شخصي متاح';
+  String get noProfileAvailable => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù…ØªØ§Ø­';
 
   @override
-  String get noProfilesYet => 'لا توجد ملفات شخصية بعد';
+  String get noProfilesYet => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ù„ÙØ§Øª Ø´Ø®ØµÙŠØ© Ø¨Ø¹Ø¯';
 
   @override
-  String get noProgramInfoAvailable => 'لا تتوفر معلومات عن البرنامج';
+  String get noProgramInfoAvailable =>
+      'Ù„Ø§ ØªØªÙˆÙØ± Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ø¹Ù† Ø§Ù„Ø¨Ø±Ù†Ø§Ù…Ø¬';
 
   @override
-  String get noRankings => 'لا توجد ترتيبات';
+  String get noRankings => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªØ±ØªÙŠØ¨Ø§Øª';
 
   @override
-  String get noRecommendations => 'لا توجد توصيات متاحة';
+  String get noRecommendations => 'Ù„Ø§ ØªÙˆØ¬Ø¯ ØªÙˆØµÙŠØ§Øª Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get noReplaysInCategory => 'لا توجد إعادة مشاهدة في هذه الفئة';
+  String get noReplaysInCategory =>
+      'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø´Ø§Ù‡Ø¯Ø© ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©';
 
   @override
   String noResultsFor(Object query) {
-    return 'لا توجد نتائج لـ $query';
+    return 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù„Ù€ $query';
   }
 
   @override
-  String get noSeriesAvailable => 'لا توجد سلسل متاحة';
+  String get noSeriesAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø³Ù„Ø³Ù„ Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get noStationsAvailable => 'لا توجد محطات متاحة';
+  String get noStationsAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ù…Ø­Ø·Ø§Øª Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get noVideoQualityDetected => 'لم يتم اكتشاف جودة فيديو';
+  String get noVideoQualityDetected =>
+      'Ù„Ù… ÙŠØªÙ… Ø§ÙƒØªØ´Ø§Ù Ø¬ÙˆØ¯Ø© ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get notAvailableInCatalog => 'غير متوفر في الكتالوج';
+  String get notAvailableInCatalog => 'ØºÙŠØ± Ù…ØªÙˆÙØ± ÙÙŠ Ø§Ù„ÙƒØªØ§Ù„ÙˆØ¬';
 
   @override
-  String get offline => 'غير متصل';
+  String get offline => 'ØºÙŠØ± Ù…ØªØµÙ„';
 
   @override
-  String get parentalControl => 'الرقابة الأبوية';
+  String get parentalControl => 'Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
 
   @override
-  String get parentalControlSubtitle => 'إضافة رمز PIN وتقييد المحتوى';
+  String get parentalControlSubtitle =>
+      'Ø¥Ø¶Ø§ÙØ© Ø±Ù…Ø² PIN ÙˆØªÙ‚ÙŠÙŠØ¯ Ø§Ù„Ù…Ø­ØªÙˆÙ‰';
 
   @override
-  String get pauseDownload => 'إيقاف مؤقت';
+  String get pauseDownload => 'Ø¥ÙŠÙ‚Ø§Ù Ù…Ø¤Ù‚Øª';
 
   @override
-  String get pinCode => 'رمز PIN';
+  String get play => 'تشغيل';
 
   @override
-  String get pinDeleted => 'تم حذف رمز PIN';
+  String get pinCode => 'Ø±Ù…Ø² PIN';
 
   @override
-  String get pinMustBe4Digits => 'يجب أن يحتوي رمز PIN على 4 أرقام بالضبط';
+  String get pinDeleted => 'ØªÙ… Ø­Ø°Ù Ø±Ù…Ø² PIN';
 
   @override
-  String get pinSaved => 'تم حفظ رمز PIN';
+  String get pinMustBe4Digits =>
+      'ÙŠØ¬Ø¨ Ø£Ù† ÙŠØ­ØªÙˆÙŠ Ø±Ù…Ø² PIN Ø¹Ù„Ù‰ 4 Ø£Ø±Ù‚Ø§Ù… Ø¨Ø§Ù„Ø¶Ø¨Ø·';
 
   @override
-  String get pip => 'العرض العائم (PiP)';
+  String get pinSaved => 'ØªÙ… Ø­ÙØ¸ Ø±Ù…Ø² PIN';
 
   @override
-  String get pipUnavailable => 'العرض العائم (PiP) غير متاح على هذا الجهاز';
+  String get pip => 'Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ø§Ø¦Ù… (PiP)';
 
   @override
-  String get playHistoryCleared => 'تم مسح سجل المشاهدة.';
+  String get pipUnavailable =>
+      'Ø§Ù„Ø¹Ø±Ø¶ Ø§Ù„Ø¹Ø§Ø¦Ù… (PiP) ØºÙŠØ± Ù…ØªØ§Ø­ Ø¹Ù„Ù‰ Ù‡Ø°Ø§ Ø§Ù„Ø¬Ù‡Ø§Ø²';
+
+  @override
+  String get playHistoryCleared => 'ØªÙ… Ù…Ø³Ø­ Ø³Ø¬Ù„ Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©.';
 
   @override
   String plusAgeYears(Object age) {
-    return '+$age سنوات';
+    return '+$age Ø³Ù†ÙˆØ§Øª';
   }
 
   @override
-  String get preferences => 'التفضيلات';
+  String get preferences => 'Ø§Ù„ØªÙØ¶ÙŠÙ„Ø§Øª';
 
   @override
-  String get previousChannel => 'القناة السابقة';
+  String get previousChannel => 'Ø§Ù„Ù‚Ù†Ø§Ø© Ø§Ù„Ø³Ø§Ø¨Ù‚Ø©';
 
   @override
-  String get primaryEngine => 'المحرك الرئيسي';
+  String get primaryEngine => 'Ø§Ù„Ù…Ø­Ø±Ùƒ Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠ';
 
   @override
   String profilesSelected(int count) {
-    return 'تم تحديد $count ملفات تعريف';
+    return 'ØªÙ… ØªØ­Ø¯ÙŠØ¯ $count Ù…Ù„ÙØ§Øª ØªØ¹Ø±ÙŠÙ';
   }
 
   @override
-  String get profileVisible => 'ملف شخصي مرئي';
+  String get profileVisible => 'Ù…Ù„Ù Ø´Ø®ØµÙŠ Ù…Ø±Ø¦ÙŠ';
 
   @override
-  String get programGrid => 'جدول البرامج';
+  String get programGrid => 'Ø¬Ø¯ÙˆÙ„ Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬';
 
   @override
-  String get protectWithPin => 'الحماية برمز PIN';
+  String get protectWithPin => 'Ø§Ù„Ø­Ù…Ø§ÙŠØ© Ø¨Ø±Ù…Ø² PIN';
 
   @override
-  String get rankingsUnavailable => 'الترتيب غير متاح';
+  String get rankingsUnavailable => 'Ø§Ù„ØªØ±ØªÙŠØ¨ ØºÙŠØ± Ù…ØªØ§Ø­';
 
   @override
-  String get recentSearch => 'بحث حديث';
+  String get recentSearch => 'Ø¨Ø­Ø« Ø­Ø¯ÙŠØ«';
 
   @override
-  String get recentSearches => 'الأخيرة';
+  String get recentSearches => 'Ø§Ù„Ø£Ø®ÙŠØ±Ø©';
 
   @override
-  String get recentlyWatched => 'شوهد مؤخراً';
+  String get recentlyWatched => 'Ø´ÙˆÙ‡Ø¯ Ù…Ø¤Ø®Ø±Ø§Ù‹';
 
   @override
-  String get removeAll => 'إزالة الكل';
+  String get removeAll => 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ÙƒÙ„';
 
   @override
-  String get removeFromWatchedConfirm => 'إزالة الكل من المشاهدة؟';
+  String get removeFromWatchedConfirm =>
+      'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ÙƒÙ„ Ù…Ù† Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©ØŸ';
 
   @override
-  String get replaysUnavailable => 'إعادة المشاهدة غير متاحة';
+  String get replaysUnavailable =>
+      'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get reset => 'إعادة تعيين';
+  String get reset => 'Ø¥Ø¹Ø§Ø¯Ø© ØªØ¹ÙŠÙŠÙ†';
 
   @override
-  String get resetApp => 'إعادة ضبط التطبيق';
+  String get resetApp => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø§Ù„ØªØ·Ø¨ÙŠÙ‚';
 
   @override
   String get resetAppDialogBody =>
-      'سيتم مسح جميع البيانات: الملفات، المفضلات، السجل، الإعدادات. هذا الإجراء لا يمكن التراجع عنه.';
+      'Ø³ÙŠØªÙ… Ù…Ø³Ø­ Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª: Ø§Ù„Ù…Ù„ÙØ§ØªØŒ Ø§Ù„Ù…ÙØ¶Ù„Ø§ØªØŒ Ø§Ù„Ø³Ø¬Ù„ØŒ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª. Ù‡Ø°Ø§ Ø§Ù„Ø¥Ø¬Ø±Ø§Ø¡ Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ù„ØªØ±Ø§Ø¬Ø¹ Ø¹Ù†Ù‡.';
 
   @override
-  String get resetAppDialogConfirm => 'مسح كل شيء';
+  String get resetAppDialogConfirm => 'Ù…Ø³Ø­ ÙƒÙ„ Ø´ÙŠØ¡';
 
   @override
-  String get resetAppDialogTitle => 'إعادة ضبط التطبيق؟';
+  String get resetAppDialogTitle => 'Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ØŸ';
 
   @override
   String get resetAppSubtitle =>
-      'يمسح جميع بيانات المستخدم (الملفات، المفضلات، السجل)';
+      'ÙŠÙ…Ø³Ø­ Ø¬Ù…ÙŠØ¹ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… (Ø§Ù„Ù…Ù„ÙØ§ØªØŒ Ø§Ù„Ù…ÙØ¶Ù„Ø§ØªØŒ Ø§Ù„Ø³Ø¬Ù„)';
 
   @override
-  String get resetCompleted => 'تمت إعادة التعيين';
+  String get resetCompleted => 'ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„ØªØ¹ÙŠÙŠÙ†';
 
   @override
-  String get resumePlayback => 'هل تريد استئناف التشغيل؟';
+  String get resumePlayback => 'Ù‡Ù„ ØªØ±ÙŠØ¯ Ø§Ø³ØªØ¦Ù†Ø§Ù Ø§Ù„ØªØ´ØºÙŠÙ„ØŸ';
 
   @override
-  String get retry => 'إعادة المحاولة';
+  String get retry => 'Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©';
 
   @override
-  String get retrySearch => 'إعادة محاولة البحث';
+  String get retrySearch => 'Ø¥Ø¹Ø§Ø¯Ø© Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„Ø¨Ø­Ø«';
 
   @override
-  String get rewind10s => 'ترجيع 10 ثوانٍ';
+  String get rewind10s => 'ØªØ±Ø¬ÙŠØ¹ 10 Ø«ÙˆØ§Ù†Ù';
 
   @override
-  String get rewind30s => 'ترجيع 30 ثانية';
+  String get rewind30s => 'ØªØ±Ø¬ÙŠØ¹ 30 Ø«Ø§Ù†ÙŠØ©';
 
   @override
-  String get rightsHolders => 'أصحاب الحقوق';
+  String get rightsHolders => 'Ø£ØµØ­Ø§Ø¨ Ø§Ù„Ø­Ù‚ÙˆÙ‚';
 
   @override
-  String get save => 'حفظ';
+  String get save => 'Ø­ÙØ¸';
 
   @override
   String get sdkAndroid => 'SDK Android';
 
   @override
-  String get searchChannel => 'البحث عن قناة';
+  String get searchChannel => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ù‚Ù†Ø§Ø©';
 
   @override
-  String get searchError => 'خطأ في البحث';
+  String get searchError => 'Ø®Ø·Ø£ ÙÙŠ Ø§Ù„Ø¨Ø­Ø«';
 
   @override
-  String get searchMovie => 'البحث عن فيلم';
+  String get searchMovie => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† ÙÙŠÙ„Ù…';
 
   @override
-  String get searchSeries => 'البحث عن سلسل';
+  String get searchSeries => 'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Ø³Ù„Ø³Ù„';
 
   @override
   String seasonNumber(Object season) {
-    return 'الموسم $season';
+    return 'Ø§Ù„Ù…ÙˆØ³Ù… $season';
   }
 
   @override
-  String get seasonsAndEpisodes => 'مسلسلات عند الطلب';
+  String get seasonsAndEpisodes => 'Ù…Ø³Ù„Ø³Ù„Ø§Øª Ø¹Ù†Ø¯ Ø§Ù„Ø·Ù„Ø¨';
 
   @override
-  String get sectionAccessibility => 'إمكانية الوصول';
+  String get sectionAccessibility => 'Ø¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„ÙˆØµÙˆÙ„';
 
   @override
-  String get sectionAccountProfile => 'الحساب والملف الشخصي';
+  String get sectionAccountProfile => 'Ø§Ù„Ø­Ø³Ø§Ø¨ ÙˆØ§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ';
 
   @override
-  String get sectionAntiThrottle => 'حماية من تخفيف سرعة مزود الإنترنت';
+  String get sectionAntiThrottle =>
+      'Ø­Ù…Ø§ÙŠØ© Ù…Ù† ØªØ®ÙÙŠÙ Ø³Ø±Ø¹Ø© Ù…Ø²ÙˆØ¯ Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
 
   @override
-  String get sectionAudioNight => 'الصوت ووضع الليل';
+  String get sectionAudioNight => 'Ø§Ù„ØµÙˆØª ÙˆÙˆØ¶Ø¹ Ø§Ù„Ù„ÙŠÙ„';
 
   @override
-  String get sectionAvSync => 'مزامنة الصوت/الفيديو';
+  String get sectionAvSync => 'Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„ØµÙˆØª/Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get sectionBackup => 'النسخ الاحتياطي / الاستعادة';
+  String get sectionBackup =>
+      'Ø§Ù„Ù†Ø³Ø® Ø§Ù„Ø§Ø­ØªÙŠØ§Ø·ÙŠ / Ø§Ù„Ø§Ø³ØªØ¹Ø§Ø¯Ø©';
 
   @override
-  String get sectionCertPinning => 'تثبيت الشهادة (SHA-256)';
+  String get sectionCertPinning => 'ØªØ«Ø¨ÙŠØª Ø§Ù„Ø´Ù‡Ø§Ø¯Ø© (SHA-256)';
 
   @override
-  String get sectionCloudSync => 'المزامنة السحابية (عدة أجهزة)';
+  String get sectionCloudSync =>
+      'Ø§Ù„Ù…Ø²Ø§Ù…Ù†Ø© Ø§Ù„Ø³Ø­Ø§Ø¨ÙŠØ© (Ø¹Ø¯Ø© Ø£Ø¬Ù‡Ø²Ø©)';
 
   @override
-  String get sectionCloudflare => 'تحسين Cloudflare';
+  String get sectionCloudflare => 'ØªØ­Ø³ÙŠÙ† Cloudflare';
 
   @override
-  String get sectionDiagnostics => 'التشخيص والصيانة';
+  String get sectionDiagnostics => 'Ø§Ù„ØªØ´Ø®ÙŠØµ ÙˆØ§Ù„ØµÙŠØ§Ù†Ø©';
 
   @override
-  String get sectionEngines => 'محركات التشغيل';
+  String get sectionEngines => 'Ù…Ø­Ø±ÙƒØ§Øª Ø§Ù„ØªØ´ØºÙŠÙ„';
 
   @override
-  String get sectionLegal => 'معلومات قانونية';
+  String get sectionLegal => 'Ù…Ø¹Ù„ÙˆÙ…Ø§Øª Ù‚Ø§Ù†ÙˆÙ†ÙŠØ©';
 
   @override
-  String get sectionMemory => 'الذاكرة والكاش';
+  String get sectionMemory => 'Ø§Ù„Ø°Ø§ÙƒØ±Ø© ÙˆØ§Ù„ÙƒØ§Ø´';
 
   @override
-  String get sectionOutput => 'مخرج الصوت';
+  String get sectionOutput => 'Ù…Ø®Ø±Ø¬ Ø§Ù„ØµÙˆØª';
 
   @override
-  String get sectionParental => 'الرقابة الأبوية';
+  String get sectionParental => 'Ø§Ù„Ø±Ù‚Ø§Ø¨Ø© Ø§Ù„Ø£Ø¨ÙˆÙŠØ©';
 
   @override
-  String get sectionRecommendations => 'التوصيات';
+  String get sectionRecommendations => 'Ø§Ù„ØªÙˆØµÙŠØ§Øª';
 
   @override
-  String get sectionResilience => 'مرونة الخدمة';
+  String get sectionResilience => 'Ù…Ø±ÙˆÙ†Ø© Ø§Ù„Ø®Ø¯Ù…Ø©';
 
   @override
-  String get sectionTmdb => 'تصنيفات TMDB';
+  String get sectionTmdb => 'ØªØµÙ†ÙŠÙØ§Øª TMDB';
 
   @override
-  String get sectionZapping => 'التنقل والأداء';
+  String get sectionZapping => 'Ø§Ù„ØªÙ†Ù‚Ù„ ÙˆØ§Ù„Ø£Ø¯Ø§Ø¡';
 
   @override
-  String get select => 'اختيار';
+  String get select => 'Ø§Ø®ØªÙŠØ§Ø±';
 
   @override
   String selectAtLeastOneProfile(int count) {
-    return 'اختر ملفًا واحدًا على الأقل ($count/4)';
+    return 'Ø§Ø®ØªØ± Ù…Ù„ÙÙ‹Ø§ ÙˆØ§Ø­Ø¯Ù‹Ø§ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ ($count/4)';
   }
 
   @override
   String get selectProfileForRecommendations =>
-      'اختر ملفاً شخصياً لعرض توصياته';
+      'Ø§Ø®ØªØ± Ù…Ù„ÙØ§Ù‹ Ø´Ø®ØµÙŠØ§Ù‹ Ù„Ø¹Ø±Ø¶ ØªÙˆØµÙŠØ§ØªÙ‡';
 
   @override
-  String get series => 'السلسل';
+  String get series => 'Ø§Ù„Ø³Ù„Ø³Ù„';
 
   @override
-  String get seriesNotFound => 'السلسل غير موجودة';
+  String get seriesNotFound => 'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯Ø©';
 
   @override
-  String get seriesUnavailable => 'السلسل غير متاحة';
+  String get seriesUnavailable => 'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get seriesUnavailableTemporarily => 'السلسل غير متاحة حالياً.';
+  String get seriesUnavailableTemporarily =>
+      'Ø§Ù„Ø³Ù„Ø³Ù„ ØºÙŠØ± Ù…ØªØ§Ø­Ø© Ø­Ø§Ù„ÙŠØ§Ù‹.';
 
   @override
-  String get serverProtectedAntiLeech => 'الخادم محمي (مضاد للتنزيل)';
+  String get serverProtectedAntiLeech =>
+      'Ø§Ù„Ø®Ø§Ø¯Ù… Ù…Ø­Ù…ÙŠ (Ù…Ø¶Ø§Ø¯ Ù„Ù„ØªÙ†Ø²ÙŠÙ„)';
 
   @override
-  String get serverUrlPlaceholder => 'رابط الخادم (مثال: https://provider.com)';
+  String get serverUrlPlaceholder =>
+      'Ø±Ø§Ø¨Ø· Ø§Ù„Ø®Ø§Ø¯Ù… (Ù…Ø«Ø§Ù„: https://provider.com)';
 
   @override
-  String get serviceNature => 'طبيعة الخدمة';
+  String get serviceNature => 'Ø·Ø¨ÙŠØ¹Ø© Ø§Ù„Ø®Ø¯Ù…Ø©';
 
   @override
-  String get setAsDefaultServer => 'تعيين كخادم افتراضي';
+  String get setAsDefaultServer => 'ØªØ¹ÙŠÙŠÙ† ÙƒØ®Ø§Ø¯Ù… Ø§ÙØªØ±Ø§Ø¶ÙŠ';
 
   @override
-  String get settings => 'الإعدادات';
+  String get settings => 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
 
   @override
-  String get settingsTitle => 'الإعدادات';
+  String get settingsTitle => 'Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª';
 
   @override
-  String get similarMovies => 'أفلام مشابهة';
+  String get similarMovies => 'Ø£ÙÙ„Ø§Ù… Ù…Ø´Ø§Ø¨Ù‡Ø©';
 
   @override
-  String get snackBackupExported => 'تم تصدير الإعدادات إلى الحافظة';
+  String get snackBackupExported =>
+      'ØªÙ… ØªØµØ¯ÙŠØ± Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø¥Ù„Ù‰ Ø§Ù„Ø­Ø§ÙØ¸Ø©';
 
   @override
-  String get snackCacheCleared => 'تم مسح الكاش';
+  String get snackCacheCleared => 'ØªÙ… Ù…Ø³Ø­ Ø§Ù„ÙƒØ§Ø´';
 
   @override
-  String get snackCloudflareReset => 'تمت إعادة ضبط إعدادات Cloudflare';
+  String get snackCloudflareReset =>
+      'ØªÙ…Øª Ø¥Ø¹Ø§Ø¯Ø© Ø¶Ø¨Ø· Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Cloudflare';
 
   @override
   String snackImportError(String message) {
-    return 'خطأ: $message';
+    return 'Ø®Ø·Ø£: $message';
   }
 
   @override
-  String get snackImportSuccess => 'تم استيراد الإعدادات بنجاح';
+  String get snackImportSuccess =>
+      'ØªÙ… Ø§Ø³ØªÙŠØ±Ø§Ø¯ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø¨Ù†Ø¬Ø§Ø­';
 
   @override
-  String get snackNoBackup => 'لم يتم العثور على نسخة احتياطية';
+  String get snackNoBackup =>
+      'Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù†Ø³Ø®Ø© Ø§Ø­ØªÙŠØ§Ø·ÙŠØ©';
 
   @override
-  String get sortAffinity => 'حسب التقارب';
+  String get sortAffinity => 'Ø­Ø³Ø¨ Ø§Ù„ØªÙ‚Ø§Ø±Ø¨';
 
   @override
   String get sortAffinityDescription =>
-      'يرتب وفق أذواقك المعلنة في الملف الشخصي (مطابقة)';
+      'ÙŠØ±ØªØ¨ ÙˆÙÙ‚ Ø£Ø°ÙˆØ§Ù‚Ùƒ Ø§Ù„Ù…Ø¹Ù„Ù†Ø© ÙÙŠ Ø§Ù„Ù…Ù„Ù Ø§Ù„Ø´Ø®ØµÙŠ (Ù…Ø·Ø§Ø¨Ù‚Ø©)';
 
   @override
-  String get sortAscending => 'ترتيب تصاعدي';
+  String get sortAscending => 'ØªØ±ØªÙŠØ¨ ØªØµØ§Ø¹Ø¯ÙŠ';
 
   @override
-  String get sortByDuration => 'حسب المدة';
+  String get sortByDuration => 'Ø­Ø³Ø¨ Ø§Ù„Ù…Ø¯Ø©';
 
   @override
-  String get sortByRating => 'حسب التقييم';
+  String get sortByRating => 'Ø­Ø³Ø¨ Ø§Ù„ØªÙ‚ÙŠÙŠÙ…';
 
   @override
-  String get sortByYear => 'حسب السنة';
+  String get sortByYear => 'Ø­Ø³Ø¨ Ø§Ù„Ø³Ù†Ø©';
 
   @override
-  String get sortDescending => 'ترتيب تنازلي';
+  String get sortDescending => 'ØªØ±ØªÙŠØ¨ ØªÙ†Ø§Ø²Ù„ÙŠ';
 
   @override
-  String get sortLatestM3UXtream => 'آخر الإضافات M3U/Xtream';
+  String get sortLatestM3UXtream => 'Ø¢Ø®Ø± Ø§Ù„Ø¥Ø¶Ø§ÙØ§Øª M3U/Xtream';
 
   @override
-  String get sortNameAToZ => 'الاسم (أ → ي)';
+  String get sortNameAToZ => 'Ø§Ù„Ø§Ø³Ù… (Ø£ â†’ ÙŠ)';
 
   @override
-  String get sortNameZToA => 'الاسم (ي → أ)';
+  String get sortNameZToA => 'Ø§Ù„Ø§Ø³Ù… (ÙŠ â†’ Ø£)';
 
   @override
-  String get sortResumePriority => 'المتابعة أولاً';
+  String get sortResumePriority => 'Ø§Ù„Ù…ØªØ§Ø¨Ø¹Ø© Ø£ÙˆÙ„Ø§Ù‹';
 
   @override
   String specialGuestsSeason(Object season) {
-    return 'ضيوف خاصين - الموسم $season';
+    return 'Ø¶ÙŠÙˆÙ Ø®Ø§ØµÙŠÙ† - Ø§Ù„Ù…ÙˆØ³Ù… $season';
   }
 
   @override
-  String get srtVttUrl => 'رابط .srt / .vtt';
+  String get srtVttUrl => 'Ø±Ø§Ø¨Ø· .srt / .vtt';
 
   @override
-  String get start => 'تشغيل';
+  String get start => 'ØªØ´ØºÙŠÙ„';
 
   @override
-  String get stationsUnavailable => 'المحطات غير متاحة';
+  String get stationsUnavailable => 'Ø§Ù„Ù…Ø­Ø·Ø§Øª ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get stopCasting => 'إيقاف الإرسال';
+  String get stopCasting => 'Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ø¥Ø±Ø³Ø§Ù„';
 
   @override
-  String get streamDetails => 'تفاصيل البث';
+  String get streamDetails => 'ØªÙØ§ØµÙŠÙ„ Ø§Ù„Ø¨Ø«';
 
   @override
   String subtitleLoadError(Object error) {
-    return 'خطأ في تحميل الترجمة: $error';
+    return 'Ø®Ø·Ø£ ÙÙŠ ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©: $error';
   }
 
   @override
-  String get subtitlesUnavailable => 'الترجمة: غير متاحة';
+  String get subtitlesUnavailable => 'Ø§Ù„ØªØ±Ø¬Ù…Ø©: ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get system => 'النظام';
+  String get system => 'Ø§Ù„Ù†Ø¸Ø§Ù…';
 
   @override
-  String get tabAccount => 'الحساب';
+  String get tabAccount => 'Ø§Ù„Ø­Ø³Ø§Ø¨';
 
   @override
-  String get tabAdvanced => 'متقدم';
+  String get tabAdvanced => 'Ù…ØªÙ‚Ø¯Ù…';
 
   @override
-  String get tabAudio => 'الصوت';
+  String get tabAudio => 'Ø§Ù„ØµÙˆØª';
 
   @override
-  String get tabNetwork => 'الشبكة';
+  String get tabNetwork => 'Ø§Ù„Ø´Ø¨ÙƒØ©';
 
   @override
-  String get tabPlayer => 'المشغّل';
+  String get tabPlayer => 'Ø§Ù„Ù…Ø´ØºÙ‘Ù„';
 
   @override
-  String get tabSecurity => 'الأمان';
+  String get tabSecurity => 'Ø§Ù„Ø£Ù…Ø§Ù†';
 
   @override
-  String get theme => 'المظهر';
+  String get theme => 'Ø§Ù„Ù…Ø¸Ù‡Ø±';
 
   @override
-  String get tlsImpersonation => 'انتحال TLS (خادم وسيط محلي)';
+  String get tlsImpersonation =>
+      'Ø§Ù†ØªØ­Ø§Ù„ TLS (Ø®Ø§Ø¯Ù… ÙˆØ³ÙŠØ· Ù…Ø­Ù„ÙŠ)';
 
   @override
   String get tlsImpersonationSubtitle =>
-      'يحاكي بصمة متصفح حديث لتجاوز Cloudflare';
+      'ÙŠØ­Ø§ÙƒÙŠ Ø¨ØµÙ…Ø© Ù…ØªØµÙØ­ Ø­Ø¯ÙŠØ« Ù„ØªØ¬Ø§ÙˆØ² Cloudflare';
 
   @override
-  String get tmdbKeyActive => 'المفتاح الشخصي نشط — يتم تجاهل المفتاح المشترك';
+  String get tmdbKeyActive =>
+      'Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ø´Ø®ØµÙŠ Ù†Ø´Ø· â€” ÙŠØªÙ… ØªØ¬Ø§Ù‡Ù„ Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ';
 
   @override
-  String get tmdbKeyColumn => 'مفاتيح TMDB';
+  String get tmdbKeyColumn => 'Ù…ÙØ§ØªÙŠØ­ TMDB';
 
   @override
-  String get tmdbKeyDelete => 'حذف المفتاح الشخصي';
+  String get tmdbKeyDelete => 'Ø­Ø°Ù Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ø´Ø®ØµÙŠ';
 
   @override
-  String get tmdbKeyHint => 'يُستخدم المفتاح المشترك المضمّن افتراضيًا';
+  String get tmdbKeyHint =>
+      'ÙŠÙØ³ØªØ®Ø¯Ù… Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ Ø§Ù„Ù…Ø¶Ù…Ù‘Ù† Ø§ÙØªØ±Ø§Ø¶ÙŠÙ‹Ø§';
 
   @override
-  String get tmdbKeyLabel => 'مفتاح TMDB API الشخصي (اختياري)';
+  String get tmdbKeyLabel =>
+      'Ù…ÙØªØ§Ø­ TMDB API Ø§Ù„Ø´Ø®ØµÙŠ (Ø§Ø®ØªÙŠØ§Ø±ÙŠ)';
 
   @override
   String get tmdbKeyShared =>
-      'المفتاح المشترك المضمّن قيد الاستخدام (لا يوجد مفتاح شخصي)';
+      'Ø§Ù„Ù…ÙØªØ§Ø­ Ø§Ù„Ù…Ø´ØªØ±Ùƒ Ø§Ù„Ù…Ø¶Ù…Ù‘Ù† Ù‚ÙŠØ¯ Ø§Ù„Ø§Ø³ØªØ®Ø¯Ø§Ù… (Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…ÙØªØ§Ø­ Ø´Ø®ØµÙŠ)';
 
   @override
-  String get tvChannels => 'قنوات TV';
+  String get tvChannels => 'Ù‚Ù†ÙˆØ§Øª TV';
 
   @override
-  String get unableToBuildReplayUrl => 'تعذر بناء رابط إعادة المشاهدة.';
+  String get unableToBuildReplayUrl =>
+      'ØªØ¹Ø°Ø± Ø¨Ù†Ø§Ø¡ Ø±Ø§Ø¨Ø· Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø©.';
 
   @override
-  String get unlockCloudflare => 'فتح القفل (Cloudflare)';
+  String get unlockCloudflare => 'ÙØªØ­ Ø§Ù„Ù‚ÙÙ„ (Cloudflare)';
 
   @override
-  String get unstableConnection => 'اتصال غير مستقر';
+  String get unstableConnection => 'Ø§ØªØµØ§Ù„ ØºÙŠØ± Ù…Ø³ØªÙ‚Ø±';
 
   @override
-  String get updateAllData => 'تحديث جميع البيانات';
+  String get updateAllData => 'ØªØ­Ø¯ÙŠØ« Ø¬Ù…ÙŠØ¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª';
 
   @override
-  String get aiTopicsTitle => 'موضوعات مقترحة بالذكاء الاصطناعي';
+  String get aiTopicsTitle =>
+      'Ù…ÙˆØ¶ÙˆØ¹Ø§Øª Ù…Ù‚ØªØ±Ø­Ø© Ø¨Ø§Ù„Ø°ÙƒØ§Ø¡ Ø§Ù„Ø§ØµØ·Ù†Ø§Ø¹ÙŠ';
 
   @override
-  String get updateThisCategory => 'تحديث هذه الفئة';
+  String get updateThisCategory => 'ØªØ­Ø¯ÙŠØ« Ù‡Ø°Ù‡ Ø§Ù„ÙØ¦Ø©';
 
   @override
-  String get updating => 'جارٍ التحديث…';
+  String get updating => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¯ÙŠØ«â€¦';
 
   @override
-  String get updatingMediaContent => 'جارٍ تحديث المحتوى متعدد الوسائط…';
+  String get updatingMediaContent =>
+      'Ø¬Ø§Ø±Ù ØªØ­Ø¯ÙŠØ« Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ù…ØªØ¹Ø¯Ø¯ Ø§Ù„ÙˆØ³Ø§Ø¦Ø·â€¦';
 
   @override
-  String get volumeNormalization => 'معادلة الصوت';
+  String get volumeNormalization => 'Ù…Ø¹Ø§Ø¯Ù„Ø© Ø§Ù„ØµÙˆØª';
 
   @override
   String get volumeNormalizationSubtitle =>
-      'تحد من قمم الصوت بين القنوات/البرامج (AGC)';
+      'ØªØ­Ø¯ Ù…Ù† Ù‚Ù…Ù… Ø§Ù„ØµÙˆØª Ø¨ÙŠÙ† Ø§Ù„Ù‚Ù†ÙˆØ§Øª/Ø§Ù„Ø¨Ø±Ø§Ù…Ø¬ (AGC)';
 
   @override
-  String get watchLive => 'المشاهدة المباشرة';
+  String get watchLive => 'Ø§Ù„Ù…Ø´Ø§Ù‡Ø¯Ø© Ø§Ù„Ù…Ø¨Ø§Ø´Ø±Ø©';
 
   @override
-  String get whoIsWatching => 'من يشاهد؟';
+  String get whoIsWatching => 'Ù…Ù† ÙŠØ´Ø§Ù‡Ø¯ØŸ';
 
   @override
   String get xtreamCodes => 'Xtream Codes';
 
   @override
-  String get yourChannelsAndContent => 'قنواتك ومحتواك';
+  String get yourChannelsAndContent => 'Ù‚Ù†ÙˆØ§ØªÙƒ ÙˆÙ…Ø­ØªÙˆØ§Ùƒ';
 
   @override
-  String get subtitleSection => 'الترجمة';
+  String get subtitleSection => 'Ø§Ù„ØªØ±Ø¬Ù…Ø©';
 
   @override
-  String get audioSection => 'الصوت';
+  String get audioSection => 'Ø§Ù„ØµÙˆØª';
 
   @override
-  String get videoSection => 'الفيديو';
+  String get videoSection => 'Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get autoQuality => 'تلقائي';
+  String get autoQuality => 'ØªÙ„Ù‚Ø§Ø¦ÙŠ';
 
   @override
-  String get noneOption => 'لا شيء';
+  String get noneOption => 'Ù„Ø§ Ø´ÙŠØ¡';
 
   @override
-  String get subtitleNotApplicable => 'لا ينطبق';
+  String get subtitleNotApplicable => 'Ù„Ø§ ÙŠÙ†Ø·Ø¨Ù‚';
 
   @override
-  String get subtitleNotApplicableInfo => 'البث المباشر لا يوفر مسار ترجمة.';
+  String get subtitleNotApplicableInfo =>
+      'Ø§Ù„Ø¨Ø« Ø§Ù„Ù…Ø¨Ø§Ø´Ø± Ù„Ø§ ÙŠÙˆÙØ± Ù…Ø³Ø§Ø± ØªØ±Ø¬Ù…Ø©.';
 
   @override
-  String get subtitleUnavailable => 'غير متاح';
+  String get subtitleUnavailable => 'ØºÙŠØ± Ù…ØªØ§Ø­';
 
   @override
-  String get subtitleNoTrack => 'لا يوجد مسار';
+  String get subtitleNoTrack => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ù…Ø³Ø§Ø±';
 
   @override
-  String get subtitleNoTrackInfo => 'لا يوفّر المزوّد ترجمات لهذا المحتوى.';
+  String get subtitleNoTrackInfo =>
+      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
 
   @override
-  String get subtitleGuessed => 'مسارات مُستنتجة';
+  String get subtitleGuessed => 'Ù…Ø³Ø§Ø±Ø§Øª Ù…ÙØ³ØªÙ†ØªØ¬Ø©';
 
   @override
   String get subtitleGuessedInfo =>
-      'لا يعلن المزوّد ترجماته: تُشتق هذه المسارات من اصطلاح عنوان URL. وأي مسار غير موجود سيُبلّغ عن خطأ عند التفعيل.';
+      'Ù„Ø§ ÙŠØ¹Ù„Ù† Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§ØªÙ‡: ØªÙØ´ØªÙ‚ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø³Ø§Ø±Ø§Øª Ù…Ù† Ø§ØµØ·Ù„Ø§Ø­ Ø¹Ù†ÙˆØ§Ù† URL. ÙˆØ£ÙŠ Ù…Ø³Ø§Ø± ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯ Ø³ÙŠÙØ¨Ù„Ù‘Øº Ø¹Ù† Ø®Ø·Ø£ Ø¹Ù†Ø¯ Ø§Ù„ØªÙØ¹ÙŠÙ„.';
 
   @override
-  String get subtitleUnavailableToast => 'الترجمة غير متاحة';
+  String get subtitleUnavailableToast => 'Ø§Ù„ØªØ±Ø¬Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©';
 
   @override
-  String get audioTrackFallback => 'مسار صوتي';
+  String get audioTrackFallback => 'Ù…Ø³Ø§Ø± ØµÙˆØªÙŠ';
 
   @override
-  String get subtitleLoading => 'جارٍ تحميل الترجمة…';
+  String get subtitleLoading => 'Ø¬Ø§Ø±Ù ØªØ­Ù…ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø©â€¦';
 
   @override
-  String get videoQualityFallback => 'جودة الفيديو';
+  String get videoQualityFallback => 'Ø¬ÙˆØ¯Ø© Ø§Ù„ÙÙŠØ¯ÙŠÙˆ';
 
   @override
-  String get close => 'إغلاق';
+  String get close => 'Ø¥ØºÙ„Ø§Ù‚';
 
   @override
-  String get streamTracksError => 'تعذّرت قراءة مسارات هذا البث.';
+  String get streamTracksError =>
+      'ØªØ¹Ø°Ù‘Ø±Øª Ù‚Ø±Ø§Ø¡Ø© Ù…Ø³Ø§Ø±Ø§Øª Ù‡Ø°Ø§ Ø§Ù„Ø¨Ø«.';
 
   @override
-  String get subtitleProviderNoAnswer => 'لم يستجب المزوّد.';
+  String get subtitleProviderNoAnswer => 'Ù„Ù… ÙŠØ³ØªØ¬Ø¨ Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯.';
 
   @override
   String subtitleUnavailableDetail(Object reason) {
-    return 'الترجمة غير متاحة: $reason';
+    return 'Ø§Ù„ØªØ±Ø¬Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: $reason';
   }
 
   @override
-  String get epgNoDataTitle => 'لا توجد بيانات برامج';
+  String get epgNoDataTitle => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¨ÙŠØ§Ù†Ø§Øª Ø¨Ø±Ø§Ù…Ø¬';
 
   @override
-  String get epgLiveNow => 'مباشر';
+  String get epgLiveNow => 'Ù…Ø¨Ø§Ø´Ø±';
 
   @override
-  String get epgSelectChannelHint => 'اختر قناة لعرض برنامجها';
+  String get epgSelectChannelHint =>
+      'Ø§Ø®ØªØ± Ù‚Ù†Ø§Ø© Ù„Ø¹Ø±Ø¶ Ø¨Ø±Ù†Ø§Ù…Ø¬Ù‡Ø§';
 
   @override
-  String get epgNow => 'الآن';
+  String get epgNow => 'Ø§Ù„Ø¢Ù†';
 
   @override
-  String get epgZoomIn => 'تكبير';
+  String get epgZoomIn => 'ØªÙƒØ¨ÙŠØ±';
 
   @override
-  String get epgZoomOut => 'تصغير';
+  String get epgZoomOut => 'ØªØµØºÙŠØ±';
 
   @override
-  String get epgNoCurrentProgram => 'لا يوجد برنامج جارٍ';
+  String get epgNoCurrentProgram => 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¬Ø§Ø±Ù';
 
   @override
   String replayWindowBadge(Object days) {
-    return 'إعادة $days يوم';
+    return 'Ø¥Ø¹Ø§Ø¯Ø© $days ÙŠÙˆÙ…';
   }
 
   @override
   String replayWindowBadgeHours(Object hours) {
-    return 'إعادة $hours ساعة';
+    return 'Ø¥Ø¹Ø§Ø¯Ø© $hours Ø³Ø§Ø¹Ø©';
   }
 
   @override
-  String get replayNoAvailable => 'لا توجد إعادة متاحة';
+  String get replayNoAvailable => 'Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¥Ø¹Ø§Ø¯Ø© Ù…ØªØ§Ø­Ø©';
 
   @override
   String replayNoneInArchiveDays(Object days) {
-    return 'لا يوجد برنامج عُرض سابقًا ضمن أرشيف $days يومًا لهذا الحساب في هذه القناة.';
+    return 'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¹ÙØ±Ø¶ Ø³Ø§Ø¨Ù‚Ù‹Ø§ Ø¶Ù…Ù† Ø£Ø±Ø´ÙŠÙ $days ÙŠÙˆÙ…Ù‹Ø§ Ù„Ù‡Ø°Ø§ Ø§Ù„Ø­Ø³Ø§Ø¨ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù‚Ù†Ø§Ø©.';
   }
 
   @override
   String get replayNonePublished =>
-      'لا ينشر المزوّد أي برنامج عُرض سابقًا لهذه القناة.';
+      'Ù„Ø§ ÙŠÙ†Ø´Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ Ø£ÙŠ Ø¨Ø±Ù†Ø§Ù…Ø¬ Ø¹ÙØ±Ø¶ Ø³Ø§Ø¨Ù‚Ù‹Ø§ Ù„Ù‡Ø°Ù‡ Ø§Ù„Ù‚Ù†Ø§Ø©.';
 
   @override
-  String get epgActionFavorite => 'مفضّل';
+  String get epgActionFavorite => 'Ù…ÙØ¶Ù‘Ù„';
 
   @override
-  String get epgActionRecording => 'تسجيل';
+  String get epgActionRecording => 'ØªØ³Ø¬ÙŠÙ„';
 
   @override
-  String get epgActionReminder => 'تذكير';
+  String get epgActionReminder => 'ØªØ°ÙƒÙŠØ±';
 
   @override
-  String get epgStartReplay => 'بدء الإعادة';
+  String get epgStartReplay => 'Ø¨Ø¯Ø¡ Ø§Ù„Ø¥Ø¹Ø§Ø¯Ø©';
 
   @override
-  String get epgBack => 'رجوع';
+  String get epgBack => 'Ø±Ø¬ÙˆØ¹';
 
   @override
   String epgWatchChannel(Object name) {
-    return 'شاهد $name';
+    return 'Ø´Ø§Ù‡Ø¯ $name';
   }
 
   @override
   String get subtitleNoneServedByPanel =>
-      'لا يوفّر المزوّد ترجمات لهذا المحتوى.';
+      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ ØªØ±Ø¬Ù…Ø§Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
 
   @override
   String subtitleVerifying(Object count) {
-    return 'جارٍ التحقق من الترجمة… ($count)';
+    return 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„ØªØ±Ø¬Ù…Ø©â€¦ ($count)';
   }
 
   @override
-  String get subtitleSearchOnline => 'ابحث عبر الإنترنت';
+  String get subtitleSearchOnline => 'Ø§Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
 
   @override
   String get subtitleSearchOnlineInfo =>
-      'لا يوفّر المزوّد شيئًا لهذا المحتوى. قد يعثر البحث عبر الإنترنت على ترجمة.';
+      'Ù„Ø§ ÙŠÙˆÙÙ‘Ø± Ø§Ù„Ù…Ø²ÙˆÙ‘Ø¯ Ø´ÙŠØ¦Ù‹Ø§ Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰. Ù‚Ø¯ ÙŠØ¹Ø«Ø± Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ø¹Ù„Ù‰ ØªØ±Ø¬Ù…Ø©.';
 
   @override
-  String get subtitleSearchOnlineRunning => 'جارٍ البحث…';
+  String get subtitleSearchOnlineRunning => 'Ø¬Ø§Ø±Ù Ø§Ù„Ø¨Ø­Ø«â€¦';
 
   @override
-  String get subtitleOnlineResults => 'ترجمات عُثر عليها عبر الإنترنت';
+  String get subtitleOnlineResults =>
+      'ØªØ±Ø¬Ù…Ø§Øª Ø¹ÙØ«Ø± Ø¹Ù„ÙŠÙ‡Ø§ Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª';
 
   @override
   String get subtitleOnlineEmpty =>
-      'لم يُعثر على ترجمة عبر الإنترنت لهذا المحتوى.';
+      'Ù„Ù… ÙŠÙØ¹Ø«Ø± Ø¹Ù„Ù‰ ØªØ±Ø¬Ù…Ø© Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ù„Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰.';
 
   @override
   String subtitleOnlineDownloads(Object count) {
-    return '$count تنزيل';
+    return '$count ØªÙ†Ø²ÙŠÙ„';
   }
 
   @override
   String get subtitleOnlineNoTmdb =>
-      'تعذّر تحديد هذا المحتوى على TMDB: يحتاج البحث عبر الإنترنت إلى معرّفه.';
+      'ØªØ¹Ø°Ù‘Ø± ØªØ­Ø¯ÙŠØ¯ Ù‡Ø°Ø§ Ø§Ù„Ù…Ø­ØªÙˆÙ‰ Ø¹Ù„Ù‰ TMDB: ÙŠØ­ØªØ§Ø¬ Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª Ø¥Ù„Ù‰ Ù…Ø¹Ø±Ù‘ÙÙ‡.';
 
   @override
   String get opensubtitlesKeyLabel =>
-      'البحث عن ترجمة عبر الإنترنت (OpenSubtitles)';
+      'Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† ØªØ±Ø¬Ù…Ø© Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª (OpenSubtitles)';
 
   @override
-  String get opensubtitlesKeyHint => 'مفتاح API — اختياري';
+  String get opensubtitlesKeyHint => 'Ù…ÙØªØ§Ø­ API â€” Ø§Ø®ØªÙŠØ§Ø±ÙŠ';
 
   @override
-  String get opensubtitlesKeyActive => 'المفتاح محفوظ: حصة تنزيل أعلى.';
+  String get opensubtitlesKeyActive =>
+      'Ø§Ù„Ù…ÙØªØ§Ø­ Ù…Ø­ÙÙˆØ¸: Ø­ØµØ© ØªÙ†Ø²ÙŠÙ„ Ø£Ø¹Ù„Ù‰.';
 
   @override
   String get opensubtitlesKeyAnonymous =>
-      'بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.';
+      'Ø¨Ø¯ÙˆÙ† Ù…ÙØªØ§Ø­: Ø§Ù„Ø¨Ø­Ø« Ù…ØªØ§Ø­ØŒ 5 ØªÙ†Ø²ÙŠÙ„Ø§Øª Ù„ÙƒÙ„ Ø¹Ù†ÙˆØ§Ù† IP ÙƒÙ„ 24 Ø³Ø§Ø¹Ø©.';
 
   @override
-  String get opensubtitlesKeyDelete => 'امسح المفتاح';
+  String get opensubtitlesKeyDelete => 'Ø§Ù…Ø³Ø­ Ø§Ù„Ù…ÙØªØ§Ø­';
 
   @override
-  String get opensubtitlesKeyCheck => 'التحقق من المفتاح';
+  String get opensubtitlesKeyCheck => 'Ø§Ù„ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ù„Ù…ÙØªØ§Ø­';
 
   @override
-  String get opensubtitlesKeyChecking => 'جارٍ التحقق…';
+  String get opensubtitlesKeyChecking => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ù‚Ù‚â€¦';
 
   @override
-  String get opensubtitlesKeyValid => 'مفتاح صالح: الخدمة تقبله.';
+  String get opensubtitlesKeyValid =>
+      'Ù…ÙØªØ§Ø­ ØµØ§Ù„Ø­: Ø§Ù„Ø®Ø¯Ù…Ø© ØªÙ‚Ø¨Ù„Ù‡.';
 
   @override
   String get opensubtitlesKeyRejected =>
-      'تم رفض المفتاح من الخدمة: تحقق من أنك لصقته كاملًا.';
+      'ØªÙ… Ø±ÙØ¶ Ø§Ù„Ù…ÙØªØ§Ø­ Ù…Ù† Ø§Ù„Ø®Ø¯Ù…Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø£Ù†Ùƒ Ù„ØµÙ‚ØªÙ‡ ÙƒØ§Ù…Ù„Ù‹Ø§.';
 
   @override
   String get opensubtitlesKeyUnreachable =>
-      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
+      'Ø§Ù„Ø®Ø¯Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§ØªØµØ§Ù„Ùƒ ÙˆØ£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.';
 
   @override
-  String get opensubtitlesLoginLabel => 'تسجيل الدخول إلى حساب OpenSubtitles';
+  String get opensubtitlesLoginLabel =>
+      'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ø¥Ù„Ù‰ Ø­Ø³Ø§Ø¨ OpenSubtitles';
 
   @override
-  String get opensubtitlesLoginHintUsername => 'اسم المستخدم';
+  String get opensubtitlesLoginHintUsername => 'Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…';
 
   @override
-  String get opensubtitlesLoginHintPassword => 'كلمة المرور';
+  String get opensubtitlesLoginHintPassword => 'ÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±';
 
   @override
   String get opensubtitlesLoginActive =>
-      'تم حفظ الحساب: ستتمكن التنزيلات من تسجيل الدخول.';
+      'ØªÙ… Ø­ÙØ¸ Ø§Ù„Ø­Ø³Ø§Ø¨: Ø³ØªØªÙ…ÙƒÙ† Ø§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª Ù…Ù† ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„.';
 
   @override
   String get opensubtitlesLoginNone =>
-      'لا يوجد حساب: يبقى التنزيل مرفوضًا (503).';
+      'Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø­Ø³Ø§Ø¨: ÙŠØ¨Ù‚Ù‰ Ø§Ù„ØªÙ†Ø²ÙŠÙ„ Ù…Ø±ÙÙˆØ¶Ù‹Ø§ (503).';
 
   @override
-  String get opensubtitlesLoginDelete => 'امسح الحساب';
+  String get opensubtitlesLoginDelete => 'Ø§Ù…Ø³Ø­ Ø§Ù„Ø­Ø³Ø§Ø¨';
 
   @override
-  String get opensubtitlesLoginConnect => 'تسجيل الدخول / التحقق';
+  String get opensubtitlesLoginConnect =>
+      'ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„ / Ø§Ù„ØªØ­Ù‚Ù‚';
 
   @override
-  String get opensubtitlesLoginConnecting => 'جارٍ تسجيل الدخول…';
+  String get opensubtitlesLoginConnecting =>
+      'Ø¬Ø§Ø±Ù ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø¯Ø®ÙˆÙ„â€¦';
 
   @override
   String get opensubtitlesLoginValid =>
-      'تم قبول الحساب: أصدرت الخدمة رمزًا مميزًا.';
+      'ØªÙ… Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø­Ø³Ø§Ø¨: Ø£ØµØ¯Ø±Øª Ø§Ù„Ø®Ø¯Ù…Ø© Ø±Ù…Ø²Ù‹Ø§ Ù…Ù…ÙŠØ²Ù‹Ø§.';
 
   @override
   String get opensubtitlesLoginRejected =>
-      'تم رفض بيانات الدخول: تحقق من اسم المستخدم وكلمة المرور.';
+      'ØªÙ… Ø±ÙØ¶ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø¯Ø®ÙˆÙ„: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ÙˆÙƒÙ„Ù…Ø© Ø§Ù„Ù…Ø±ÙˆØ±.';
 
   @override
   String get opensubtitlesLoginUnreachable =>
-      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
+      'Ø§Ù„Ø®Ø¯Ù…Ø© ØºÙŠØ± Ù…ØªØ§Ø­Ø©: ØªØ­Ù‚Ù‚ Ù…Ù† Ø§ØªØµØ§Ù„Ùƒ ÙˆØ£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø©.';
 
   @override
   String get subtitleOnlineNoApiKey =>
-      'مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.';
+      'Ù…ÙØªØ§Ø­ OpenSubtitles API Ù…ÙÙ‚ÙˆØ¯: Ø£Ø¯Ø®Ù„Ù‡ ÙÙŠ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù„ØªÙØ¹ÙŠÙ„ Ø§Ù„Ø¨Ø­Ø« Ø¹Ø¨Ø± Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª.';
 
   @override
   String get subtitleOnlineKeyRejected =>
-      'تم رفض مفتاح OpenSubtitles API: إنه موجود، لكن الخدمة ترفضه. تحقق منه في الإعدادات.';
+      'ØªÙ… Ø±ÙØ¶ Ù…ÙØªØ§Ø­ OpenSubtitles API: Ø¥Ù†Ù‡ Ù…ÙˆØ¬ÙˆØ¯ØŒ Ù„ÙƒÙ† Ø§Ù„Ø®Ø¯Ù…Ø© ØªØ±ÙØ¶Ù‡. ØªØ­Ù‚Ù‚ Ù…Ù†Ù‡ ÙÙŠ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª.';
 
   @override
   String get subtitleOnlineQuota =>
-      'تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.';
+      'ØªÙ… Ø¨Ù„ÙˆØº Ø­ØµØ© ØªÙ†Ø²ÙŠÙ„ OpenSubtitles Ø§Ù„ÙŠÙˆÙ…. Ø£Ø¹Ø¯ Ø§Ù„Ù…Ø­Ø§ÙˆÙ„Ø© ØºØ¯Ù‹Ø§.';
 
   @override
   String get subtitleOnlineNeedsLogin =>
-      'يتطلب تنزيل OpenSubtitles حسابًا مسجَّل الدخول، وليس مفتاح API فقط: البحث يعمل، لكن يتم رفض التنزيل.';
+      'ÙŠØªØ·Ù„Ø¨ ØªÙ†Ø²ÙŠÙ„ OpenSubtitles Ø­Ø³Ø§Ø¨Ù‹Ø§ Ù…Ø³Ø¬ÙŽÙ‘Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ØŒ ÙˆÙ„ÙŠØ³ Ù…ÙØªØ§Ø­ API ÙÙ‚Ø·: Ø§Ù„Ø¨Ø­Ø« ÙŠØ¹Ù…Ù„ØŒ Ù„ÙƒÙ† ÙŠØªÙ… Ø±ÙØ¶ Ø§Ù„ØªÙ†Ø²ÙŠÙ„.';
 
   @override
-  String get favorites => 'المفضلة';
+  String get favorites => 'Ø§Ù„Ù…ÙØ¶Ù„Ø©';
 
   @override
-  String get films => 'أفلام';
+  String get films => 'Ø£ÙÙ„Ø§Ù…';
 
   @override
-  String get replay => 'إعادة';
+  String get replay => 'Ø¥Ø¹Ø§Ø¯Ø©';
 
   @override
-  String get myContent => 'محتواي';
+  String get myContent => 'Ù…Ø­ØªÙˆØ§ÙŠ';
 
   @override
-  String get contentTypeSelector => 'نوع المحتوى';
+  String get contentTypeSelector => 'Ù†ÙˆØ¹ Ø§Ù„Ù…Ø­ØªÙˆÙ‰';
 
   @override
-  String get downloadStatusDownloading => 'جارٍ التنزيل';
+  String get downloadStatusDownloading => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªÙ†Ø²ÙŠÙ„';
 
   @override
-  String get downloadStatusPreparing => 'جارٍ التحضير';
+  String get downloadStatusPreparing => 'Ø¬Ø§Ø±Ù Ø§Ù„ØªØ­Ø¶ÙŠØ±';
 
   @override
-  String get downloadStatusPaused => 'متوقف مؤقتًا';
+  String get downloadStatusPaused => 'Ù…ØªÙˆÙ‚Ù Ù…Ø¤Ù‚ØªÙ‹Ø§';
 
   @override
-  String get downloadStatusCompleted => 'مكتمل';
+  String get downloadStatusCompleted => 'Ù…ÙƒØªÙ…Ù„';
 
   @override
-  String get downloadStatusFailed => 'فشل';
+  String get downloadStatusFailed => 'ÙØ´Ù„';
 
   @override
-  String get downloadStatusCancelled => 'أُلغي';
+  String get downloadStatusCancelled => 'Ø£ÙÙ„ØºÙŠ';
 
   @override
-  String get downloadStatusQueued => 'في الانتظار';
+  String get downloadStatusQueued => 'ÙÙŠ Ø§Ù„Ø§Ù†ØªØ¸Ø§Ø±';
 
   @override
-  String get history => 'السجل';
+  String get history => 'Ø§Ù„Ø³Ø¬Ù„';
 
   @override
-  String get explore => 'استكشاف';
+  String get explore => 'Ø§Ø³ØªÙƒØ´Ø§Ù';
 
   @override
-  String get downloadsEmptyHint => 'أضف محتوى من صفحة تفاصيل فيلم أو مسلسل.';
+  String get downloadsEmptyHint =>
+      'Ø£Ø¶Ù Ù…Ø­ØªÙˆÙ‰ Ù…Ù† ØµÙØ­Ø© ØªÙØ§ØµÙŠÙ„ ÙÙŠÙ„Ù… Ø£Ùˆ Ù…Ø³Ù„Ø³Ù„.';
 
   @override
-  String get downloadsLocation => 'الملفات';
+  String get downloadsLocation => 'Ø§Ù„Ù…Ù„ÙØ§Øª';
 
   @override
-  String get advancedSettingsTitle => 'إعدادات متقدمة';
+  String get advancedSettingsTitle => 'Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ù…ØªÙ‚Ø¯Ù…Ø©';
 
   @override
   String get advancedSettingsIntro =>
-      'بيانات API وإعدادات الشبكة. هذه الإعدادات تربط حسابك بخدمات خارجية: مفتاح مشترك يستهلك حصته، وإعداد شبكة خاطئ قد يمنع التطبيق من البدء.';
+      'Ø¨ÙŠØ§Ù†Ø§Øª API ÙˆØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ø´Ø¨ÙƒØ©. Ù‡Ø°Ù‡ Ø§Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª ØªØ±Ø¨Ø· Ø­Ø³Ø§Ø¨Ùƒ Ø¨Ø®Ø¯Ù…Ø§Øª Ø®Ø§Ø±Ø¬ÙŠØ©: Ù…ÙØªØ§Ø­ Ù…Ø´ØªØ±Ùƒ ÙŠØ³ØªÙ‡Ù„Ùƒ Ø­ØµØªÙ‡ØŒ ÙˆØ¥Ø¹Ø¯Ø§Ø¯ Ø´Ø¨ÙƒØ© Ø®Ø§Ø·Ø¦ Ù‚Ø¯ ÙŠÙ…Ù†Ø¹ Ø§Ù„ØªØ·Ø¨ÙŠÙ‚ Ù…Ù† Ø§Ù„Ø¨Ø¯Ø¡.';
 
   @override
-  String get advancedSubtitlesProvider => 'مزوّد الترجمة';
+  String get advancedSubtitlesProvider => 'Ù…Ø²ÙˆÙ‘Ø¯ Ø§Ù„ØªØ±Ø¬Ù…Ø©';
 
   @override
-  String get advancedStatus => 'حالة بيانات الاعتماد';
+  String get advancedStatus => 'Ø­Ø§Ù„Ø© Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯';
 
   @override
-  String get advancedAccessTitle => 'وصول محجوز';
+  String get advancedAccessTitle => 'ÙˆØµÙˆÙ„ Ù…Ø­Ø¬ÙˆØ²';
 
   @override
-  String get advancedAccessHint => 'الرمز';
+  String get advancedAccessHint => 'Ø§Ù„Ø±Ù…Ø²';
 
   @override
-  String get advancedAccessConfirm => 'فتح';
+  String get advancedAccessConfirm => 'ÙØªØ­';
 
   @override
-  String get advancedAccessWrong => 'رمز غير صحيح';
+  String get advancedAccessWrong => 'Ø±Ù…Ø² ØºÙŠØ± ØµØ­ÙŠØ­';
 
   @override
-  String get advancedHiddenHint => 'اضغط مطولاً للإعدادات المتقدمة';
+  String get advancedHiddenHint =>
+      'Ø§Ø¶ØºØ· Ù…Ø·ÙˆÙ„Ø§Ù‹ Ù„Ù„Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§Ù„Ù…ØªÙ‚Ø¯Ù…Ø©';
 
   @override
-  String get favoritesAndDownloads => 'المفضلة والتنزيلات';
+  String get favoritesAndDownloads => 'Ø§Ù„Ù…ÙØ¶Ù„Ø© ÙˆØ§Ù„ØªÙ†Ø²ÙŠÙ„Ø§Øª';
 
   @override
-  String get activeAudio => 'الصوت يعمل على هذه الشاشة';
+  String get activeAudio => 'Ø§Ù„ØµÙˆØª ÙŠØ¹Ù…Ù„ Ø¹Ù„Ù‰ Ù‡Ø°Ù‡ Ø§Ù„Ø´Ø§Ø´Ø©';
 
   @override
-  String get addChannel => 'إضافة قناة';
+  String get addChannel => 'Ø¥Ø¶Ø§ÙØ© Ù‚Ù†Ø§Ø©';
 
   @override
-  String get noChannelSelected => 'لم يتم تحديد أي قناة';
+  String get noChannelSelected => 'Ù„Ù… ÙŠØªÙ… ØªØ­Ø¯ÙŠØ¯ Ø£ÙŠ Ù‚Ù†Ø§Ø©';
 
   @override
-  String get removeChannel => 'إزالة القناة';
+  String get removeChannel => 'Ø¥Ø²Ø§Ù„Ø© Ø§Ù„Ù‚Ù†Ø§Ø©';
 
   @override
-  String get avatarCategoryAll => 'جميع';
+  String get avatarCategoryAll => 'Ø¬Ù…ÙŠØ¹';
 
   @override
-  String get avatarCategoryCharacters => 'شخصيات';
+  String get avatarCategoryCharacters => 'Ø´Ø®ØµÙŠØ§Øª';
 
   @override
-  String get avatarCategorySmileys => 'مزاح';
+  String get avatarCategorySmileys => 'Ù…Ø²Ø§Ø­';
 
   @override
-  String get avatarCategoryBlackWhite => 'أبيض وأسود';
+  String get avatarCategoryBlackWhite => 'Ø£Ø¨ÙŠØ¶ ÙˆØ£Ø³ÙˆØ¯';
 
   @override
-  String get avatarCategoryPixels => 'بكسلات';
+  String get avatarCategoryPixels => 'Ø¨ÙƒØ³Ù„Ø§Øª';
 }

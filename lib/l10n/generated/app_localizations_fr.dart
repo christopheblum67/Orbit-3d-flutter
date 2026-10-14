@@ -622,6 +622,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pauseDownload => 'Mettre en pause';
 
   @override
+  String get play => 'Lire';
+
+  @override
   String get pinCode => 'Code PIN';
 
   @override

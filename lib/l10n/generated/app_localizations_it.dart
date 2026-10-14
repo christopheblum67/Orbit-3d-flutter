@@ -13,7 +13,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String accountDeviceProfileSubtitle(String label) {
-    return 'Profilo $label · diagnostica lettore';
+    return 'Profilo $label Â· diagnostica lettore';
   }
 
   @override
@@ -23,7 +23,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get accountPreferences => 'Preferenze profilo';
 
   @override
-  String get accountPreferencesSubtitle => 'Lingua, tema, limiti di età, PIN';
+  String get accountPreferencesSubtitle => 'Lingua, tema, limiti di etÃ , PIN';
 
   @override
   String get accountProfiles => 'Profili utente';
@@ -49,7 +49,7 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get age => 'Età';
+  String get age => 'EtÃ ';
 
   @override
   String get ageRange13to17 => '13 - 17 anni';
@@ -67,7 +67,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get ageRange45to54 => '45 - 54 anni';
 
   @override
-  String get ageRange55plus => '55 anni e più';
+  String get ageRange55plus => '55 anni e piÃ¹';
 
   @override
   String get ageRangeUnder12 => '- 12 anni';
@@ -103,7 +103,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get autoQualityDescription =>
-      'Lascia al lettore la scelta della qualità migliore';
+      'Lascia al lettore la scelta della qualitÃ  migliore';
 
   @override
   String get autoReconnectLive => 'Riconnessione automatica live';
@@ -233,7 +233,7 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get dataAlreadyFresh => 'Dati già aggiornati (meno di 30 min)';
+  String get dataAlreadyFresh => 'Dati giÃ  aggiornati (meno di 30 min)';
 
   @override
   String get dataAndPrivacy => 'Dati e privacy';
@@ -297,14 +297,14 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get dpadNavigationSubtitle =>
-      'Focus visibile, alone luminoso, ritorno a capo (modalità TV)';
+      'Focus visibile, alone luminoso, ritorno a capo (modalitÃ  TV)';
 
   @override
   String get enableParentalControl => 'Attiva il controllo parentale';
 
   @override
   String enginesSubtitle(String live, String vod) {
-    return 'Live: $live · VOD: $vod';
+    return 'Live: $live Â· VOD: $vod';
   }
 
   @override
@@ -378,11 +378,11 @@ class AppLocalizationsIt extends AppLocalizations {
   String get groupMode => 'In gruppo';
 
   @override
-  String get highContrast => 'Modalità ad alto contrasto';
+  String get highContrast => 'ModalitÃ  ad alto contrasto';
 
   @override
   String get highContrastSubtitle =>
-      'Migliora la leggibilità per gli ipovedenti';
+      'Migliora la leggibilitÃ  per gli ipovedenti';
 
   @override
   String get historyUnavailable => 'Cronologia non disponibile';
@@ -395,22 +395,22 @@ class AppLocalizationsIt extends AppLocalizations {
       'Precarica i canali adiacenti nel buffer';
 
   @override
-  String get langArabic => 'العربية';
+  String get langArabic => 'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©';
 
   @override
-  String get langFrench => 'Français';
+  String get langFrench => 'FranÃ§ais';
 
   @override
-  String get langPortuguese => 'Português';
+  String get langPortuguese => 'PortuguÃªs';
 
   @override
-  String get langSpanish => 'Español';
+  String get langSpanish => 'EspaÃ±ol';
 
   @override
   String get language => 'Lingua';
 
   @override
-  String get languageExample => 'Français, English, ecc.';
+  String get languageExample => 'FranÃ§ais, English, ecc.';
 
   @override
   String get languagePreference => 'Lingua dell\'applicazione';
@@ -419,10 +419,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get languageUndetermined => 'Indeterminato';
 
   @override
-  String get later => 'Piú tardi';
+  String get later => 'PiÃº tardi';
 
   @override
-  String get legalNotice => 'Leggimi · Informativa legale';
+  String get legalNotice => 'Leggimi Â· Informativa legale';
 
   @override
   String get legalNoticeSubtitle =>
@@ -519,7 +519,7 @@ class AppLocalizationsIt extends AppLocalizations {
       'Elaborazione audio in tempo reale: boost dialoghi, taglio bassi, sincronizzazione';
 
   @override
-  String get nightFocusTitle => 'Night Focus (modalità notte)';
+  String get nightFocusTitle => 'Night Focus (modalitÃ  notte)';
 
   @override
   String get noAudioTrackDetected => 'Nessuna traccia audio rilevata';
@@ -550,7 +550,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get noFavoriteSeries => 'Nessuna serie preferita';
 
   @override
-  String get noGroupAffinity => 'Nessuna affinità comune trovata';
+  String get noGroupAffinity => 'Nessuna affinitÃ  comune trovata';
 
   @override
   String get noHistory => 'Nessuna cronologia';
@@ -601,7 +601,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get noStationsAvailable => 'Nessuna stazione disponibile';
 
   @override
-  String get noVideoQualityDetected => 'Nessuna qualità video rilevata';
+  String get noVideoQualityDetected => 'Nessuna qualitÃ  video rilevata';
 
   @override
   String get notAvailableInCatalog => 'Non disponibile nel catalogo';
@@ -618,6 +618,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get pauseDownload => 'Metti in pausa';
+
+  @override
+  String get play => 'Riprodurre';
 
   @override
   String get pinCode => 'Codice PIN';
@@ -698,7 +701,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'Tutti i dati verranno cancellati: profili, preferiti, cronologia, impostazioni. Questa azione è irreversibile.';
+      'Tutti i dati verranno cancellati: profili, preferiti, cronologia, impostazioni. Questa azione Ã¨ irreversibile.';
 
   @override
   String get resetAppDialogConfirm => 'Cancella tutto';
@@ -758,7 +761,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get seasonsAndEpisodes => 'Serie on Demand';
 
   @override
-  String get sectionAccessibility => 'Accessibilità';
+  String get sectionAccessibility => 'AccessibilitÃ ';
 
   @override
   String get sectionAccountProfile => 'Account e profilo';
@@ -779,7 +782,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sectionCertPinning => 'Certificate Pinning (SHA-256)';
 
   @override
-  String get sectionCloudSync => 'Sincronizzazione cloud (più dispositivi)';
+  String get sectionCloudSync => 'Sincronizzazione cloud (piÃ¹ dispositivi)';
 
   @override
   String get sectionCloudflare => 'Ottimizzazione Cloudflare';
@@ -882,7 +885,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get snackNoBackup => 'Nessun backup trovato';
 
   @override
-  String get sortAffinity => 'Per affinità';
+  String get sortAffinity => 'Per affinitÃ ';
 
   @override
   String get sortAffinityDescription =>
@@ -907,13 +910,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sortLatestM3UXtream => 'Ultimi aggiunti M3U/Xtream';
 
   @override
-  String get sortNameAToZ => 'Nome (A → Z)';
+  String get sortNameAToZ => 'Nome (A â†’ Z)';
 
   @override
-  String get sortNameZToA => 'Nome (Z → A)';
+  String get sortNameZToA => 'Nome (Z â†’ A)';
 
   @override
-  String get sortResumePriority => 'Da riprendere in prioritá';
+  String get sortResumePriority => 'Da riprendere in prioritÃ¡';
 
   @override
   String specialGuestsSeason(Object season) {
@@ -1018,11 +1021,11 @@ class AppLocalizationsIt extends AppLocalizations {
   String get updateThisCategory => 'Aggiorna questa categoria';
 
   @override
-  String get updating => 'Aggiornamento in corso…';
+  String get updating => 'Aggiornamento in corsoâ€¦';
 
   @override
   String get updatingMediaContent =>
-      'Aggiornamento dei contenuti multimediali…';
+      'Aggiornamento dei contenuti multimedialiâ€¦';
 
   @override
   String get volumeNormalization => 'Normalizzazione del volume';
@@ -1089,10 +1092,10 @@ class AppLocalizationsIt extends AppLocalizations {
   String get audioTrackFallback => 'Traccia audio';
 
   @override
-  String get subtitleLoading => 'Caricamento sottotitoli…';
+  String get subtitleLoading => 'Caricamento sottotitoliâ€¦';
 
   @override
-  String get videoQualityFallback => 'Qualità video';
+  String get videoQualityFallback => 'QualitÃ  video';
 
   @override
   String get close => 'Chiudi';
@@ -1146,12 +1149,12 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String replayNoneInArchiveDays(Object days) {
-    return 'Nessun programma già andato in onda nell\'archivio di $days giorni di questo account per questo canale.';
+    return 'Nessun programma giÃ  andato in onda nell\'archivio di $days giorni di questo account per questo canale.';
   }
 
   @override
   String get replayNonePublished =>
-      'Il provider non pubblica programmi già andati in onda per questo canale.';
+      'Il provider non pubblica programmi giÃ  andati in onda per questo canale.';
 
   @override
   String get epgActionFavorite => 'Preferito';
@@ -1179,7 +1182,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String subtitleVerifying(Object count) {
-    return 'Verifica dei sottotitoli… ($count)';
+    return 'Verifica dei sottotitoliâ€¦ ($count)';
   }
 
   @override
@@ -1187,10 +1190,10 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get subtitleSearchOnlineInfo =>
-      'Il provider non offre nulla per questo contenuto. Una ricerca online può trovare un sottotitolo.';
+      'Il provider non offre nulla per questo contenuto. Una ricerca online puÃ² trovare un sottotitolo.';
 
   @override
-  String get subtitleSearchOnlineRunning => 'Ricerca in corso…';
+  String get subtitleSearchOnlineRunning => 'Ricerca in corsoâ€¦';
 
   @override
   String get subtitleOnlineResults => 'Sottotitoli trovati online';
@@ -1213,11 +1216,11 @@ class AppLocalizationsIt extends AppLocalizations {
       'Ricerca sottotitoli online (OpenSubtitles)';
 
   @override
-  String get opensubtitlesKeyHint => 'Chiave API — facoltativa';
+  String get opensubtitlesKeyHint => 'Chiave API â€” facoltativa';
 
   @override
   String get opensubtitlesKeyActive =>
-      'Chiave salvata: quota di download più alta.';
+      'Chiave salvata: quota di download piÃ¹ alta.';
 
   @override
   String get opensubtitlesKeyAnonymous =>
@@ -1230,7 +1233,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get opensubtitlesKeyCheck => 'Verifica la chiave';
 
   @override
-  String get opensubtitlesKeyChecking => 'Verifica in corso…';
+  String get opensubtitlesKeyChecking => 'Verifica in corsoâ€¦';
 
   @override
   String get opensubtitlesKeyValid => 'Chiave valida: il servizio la accetta.';
@@ -1267,7 +1270,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get opensubtitlesLoginConnect => 'Accedi / verifica';
 
   @override
-  String get opensubtitlesLoginConnecting => 'Accesso in corso…';
+  String get opensubtitlesLoginConnecting => 'Accesso in corsoâ€¦';
 
   @override
   String get opensubtitlesLoginValid =>
@@ -1287,7 +1290,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get subtitleOnlineKeyRejected =>
-      'Chiave API OpenSubtitles rifiutata: è configurata, ma il servizio la respinge. Verificala nelle Impostazioni.';
+      'Chiave API OpenSubtitles rifiutata: Ã¨ configurata, ma il servizio la respinge. Verificala nelle Impostazioni.';
 
   @override
   String get subtitleOnlineQuota =>
@@ -1351,7 +1354,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get advancedSettingsIntro =>
-      'Credenziali API e impostazioni di rete. Queste impostazioni vincolano il tuo account a servizi di terze parti: una chiave condivisa consuma la sua quota e un\'impostazione di rete errata può impedire l\'avvio dell\'app.';
+      'Credenziali API e impostazioni di rete. Queste impostazioni vincolano il tuo account a servizi di terze parti: una chiave condivisa consuma la sua quota e un\'impostazione di rete errata puÃ² impedire l\'avvio dell\'app.';
 
   @override
   String get advancedSubtitlesProvider => 'Fornitore di sottotitoli';

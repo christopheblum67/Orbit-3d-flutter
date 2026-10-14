@@ -247,6 +247,7 @@
   "parentalControl": "Contrôle parental",
   "parentalControlSubtitle": "Ajouter un code PIN et restreindre le contenu",
   "pauseDownload": "Mettre en pause",
+  "play": "Lire",
   "pinCode": "Code PIN",
   "pinDeleted": "PIN supprimé",
   "pinMustBe4Digits": "Le PIN doit contenir exactement 4 chiffres",

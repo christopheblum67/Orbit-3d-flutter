@@ -188,6 +188,7 @@
   "parentalControl": "Parental control",
   "parentalControlSubtitle": "Add a PIN code and restrict content",
   "pauseDownload": "Pause",
+  "play": "Play",
   "pinCode": "PIN code",
   "pinDeleted": "PIN deleted",
   "pinMustBe4Digits": "PIN must be exactly 4 digits",

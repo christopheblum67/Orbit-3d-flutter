@@ -1234,6 +1234,12 @@ abstract class AppLocalizations {
   /// **'Mettre en pause'**
   String get pauseDownload;
 
+  /// No description provided for @play.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lire'**
+  String get play;
+
   /// No description provided for @pinCode.
   ///
   /// In fr, this message translates to:
