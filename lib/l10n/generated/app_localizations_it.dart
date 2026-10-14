@@ -673,9 +673,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get rankingsUnavailable => 'Classifica non disponibile';
 
   @override
-  String get receiveAlertsAndTips => 'Ricevi avvisi e suggerimenti';
-
-  @override
   String get recentSearch => 'Ricerca recente';
 
   @override
@@ -800,9 +797,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get sectionMemory => 'Memoria e cache';
 
   @override
-  String get sectionNotifications => 'Notifiche';
-
-  @override
   String get sectionOutput => 'Uscita audio';
 
   @override
@@ -888,7 +882,26 @@ class AppLocalizationsIt extends AppLocalizations {
   String get snackNoBackup => 'Nessun backup trovato';
 
   @override
-  String get sortBestRated => 'Piú votati (XCIPTV)';
+  String get sortAffinity => 'Per affinità';
+
+  @override
+  String get sortAffinityDescription =>
+      'Ordina in base ai tuoi gusti dichiarati nel profilo (matchmaking)';
+
+  @override
+  String get sortAscending => 'Ordine crescente';
+
+  @override
+  String get sortByDuration => 'Per durata';
+
+  @override
+  String get sortByRating => 'Per voto';
+
+  @override
+  String get sortByYear => 'Per anno';
+
+  @override
+  String get sortDescending => 'Ordine decrescente';
 
   @override
   String get sortLatestM3UXtream => 'Ultimi aggiunti M3U/Xtream';
@@ -901,9 +914,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get sortResumePriority => 'Da riprendere in prioritá';
-
-  @override
-  String get sortYearRecentToOld => 'Anno di uscita (Recente → Vecchio)';
 
   @override
   String specialGuestsSeason(Object season) {
@@ -953,12 +963,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get tabSecurity => 'Sicurezza';
-
-  @override
-  String get testNotifications => 'Prova notifiche';
-
-  @override
-  String get testNotificationsSubtitle => 'Invia una notifica locale di prova';
 
   @override
   String get theme => 'Tema';
@@ -1015,6 +1019,10 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get updating => 'Aggiornamento in corso…';
+
+  @override
+  String get updatingMediaContent =>
+      'Aggiornamento dei contenuti multimediali…';
 
   @override
   String get volumeNormalization => 'Normalizzazione del volume';
@@ -1216,8 +1224,67 @@ class AppLocalizationsIt extends AppLocalizations {
   String get opensubtitlesKeyDelete => 'Cancella la chiave';
 
   @override
+  String get opensubtitlesKeyCheck => 'Verifica la chiave';
+
+  @override
+  String get opensubtitlesKeyChecking => 'Verifica in corso…';
+
+  @override
+  String get opensubtitlesKeyValid => 'Chiave valida: il servizio la accetta.';
+
+  @override
+  String get opensubtitlesKeyRejected =>
+      'Chiave rifiutata dal servizio: controlla di averla incollata per intero.';
+
+  @override
+  String get opensubtitlesKeyUnreachable =>
+      'Servizio irraggiungibile: controlla la connessione e riprova.';
+
+  @override
+  String get opensubtitlesLoginLabel => 'Accesso all\'account OpenSubtitles';
+
+  @override
+  String get opensubtitlesLoginHintUsername => 'Nome utente';
+
+  @override
+  String get opensubtitlesLoginHintPassword => 'Password';
+
+  @override
+  String get opensubtitlesLoginActive =>
+      'Account salvato: i download potranno accedere.';
+
+  @override
+  String get opensubtitlesLoginNone =>
+      'Nessun account: il download resta rifiutato (503).';
+
+  @override
+  String get opensubtitlesLoginDelete => 'Cancella l\'account';
+
+  @override
+  String get opensubtitlesLoginConnect => 'Accedi / verifica';
+
+  @override
+  String get opensubtitlesLoginConnecting => 'Accesso in corso…';
+
+  @override
+  String get opensubtitlesLoginValid =>
+      'Account accettato: il servizio ha emesso un token.';
+
+  @override
+  String get opensubtitlesLoginRejected =>
+      'Credenziali rifiutate: controlla nome utente e password.';
+
+  @override
+  String get opensubtitlesLoginUnreachable =>
+      'Servizio irraggiungibile: controlla la connessione e riprova.';
+
+  @override
   String get subtitleOnlineNoApiKey =>
       'Chiave API OpenSubtitles mancante: inseriscila nelle Impostazioni per attivare la ricerca online.';
+
+  @override
+  String get subtitleOnlineKeyRejected =>
+      'Chiave API OpenSubtitles rifiutata: è configurata, ma il servizio la respinge. Verificala nelle Impostazioni.';
 
   @override
   String get subtitleOnlineQuota =>
@@ -1306,4 +1373,31 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get favoritesAndDownloads => 'Preferiti e Download';
+
+  @override
+  String get activeAudio => 'Audio su questo schermo';
+
+  @override
+  String get addChannel => 'Aggiungi un canale';
+
+  @override
+  String get noChannelSelected => 'Nessun canale selezionato';
+
+  @override
+  String get removeChannel => 'Rimuovi canale';
+
+  @override
+  String get avatarCategoryAll => 'Tutte';
+
+  @override
+  String get avatarCategoryCharacters => 'Personaggi';
+
+  @override
+  String get avatarCategorySmileys => 'Smileys';
+
+  @override
+  String get avatarCategoryBlackWhite => 'Nero e Bianco';
+
+  @override
+  String get avatarCategoryPixels => 'Pixel';
 }

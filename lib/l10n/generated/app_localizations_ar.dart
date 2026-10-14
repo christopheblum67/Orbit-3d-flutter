@@ -659,9 +659,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get rankingsUnavailable => 'الترتيب غير متاح';
 
   @override
-  String get receiveAlertsAndTips => 'استقبال التنبيهات والنصائح';
-
-  @override
   String get recentSearch => 'بحث حديث';
 
   @override
@@ -786,9 +783,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sectionMemory => 'الذاكرة والكاش';
 
   @override
-  String get sectionNotifications => 'الإشعارات';
-
-  @override
   String get sectionOutput => 'مخرج الصوت';
 
   @override
@@ -872,7 +866,26 @@ class AppLocalizationsAr extends AppLocalizations {
   String get snackNoBackup => 'لم يتم العثور على نسخة احتياطية';
 
   @override
-  String get sortBestRated => 'الأعلى تقييماً (XCIPTV)';
+  String get sortAffinity => 'حسب التقارب';
+
+  @override
+  String get sortAffinityDescription =>
+      'يرتب وفق أذواقك المعلنة في الملف الشخصي (مطابقة)';
+
+  @override
+  String get sortAscending => 'ترتيب تصاعدي';
+
+  @override
+  String get sortByDuration => 'حسب المدة';
+
+  @override
+  String get sortByRating => 'حسب التقييم';
+
+  @override
+  String get sortByYear => 'حسب السنة';
+
+  @override
+  String get sortDescending => 'ترتيب تنازلي';
 
   @override
   String get sortLatestM3UXtream => 'آخر الإضافات M3U/Xtream';
@@ -885,9 +898,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get sortResumePriority => 'المتابعة أولاً';
-
-  @override
-  String get sortYearRecentToOld => 'سنة الإصدار (الأحدث → الأقدم)';
 
   @override
   String specialGuestsSeason(Object season) {
@@ -937,12 +947,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tabSecurity => 'الأمان';
-
-  @override
-  String get testNotifications => 'اختبار الإشعارات';
-
-  @override
-  String get testNotificationsSubtitle => 'إرسال إشعار محلي تجريبي';
 
   @override
   String get theme => 'المظهر';
@@ -996,6 +1000,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get updating => 'جارٍ التحديث…';
+
+  @override
+  String get updatingMediaContent => 'جارٍ تحديث المحتوى متعدد الوسائط…';
 
   @override
   String get volumeNormalization => 'معادلة الصوت';
@@ -1192,8 +1199,67 @@ class AppLocalizationsAr extends AppLocalizations {
   String get opensubtitlesKeyDelete => 'امسح المفتاح';
 
   @override
+  String get opensubtitlesKeyCheck => 'التحقق من المفتاح';
+
+  @override
+  String get opensubtitlesKeyChecking => 'جارٍ التحقق…';
+
+  @override
+  String get opensubtitlesKeyValid => 'مفتاح صالح: الخدمة تقبله.';
+
+  @override
+  String get opensubtitlesKeyRejected =>
+      'تم رفض المفتاح من الخدمة: تحقق من أنك لصقته كاملًا.';
+
+  @override
+  String get opensubtitlesKeyUnreachable =>
+      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
+
+  @override
+  String get opensubtitlesLoginLabel => 'تسجيل الدخول إلى حساب OpenSubtitles';
+
+  @override
+  String get opensubtitlesLoginHintUsername => 'اسم المستخدم';
+
+  @override
+  String get opensubtitlesLoginHintPassword => 'كلمة المرور';
+
+  @override
+  String get opensubtitlesLoginActive =>
+      'تم حفظ الحساب: ستتمكن التنزيلات من تسجيل الدخول.';
+
+  @override
+  String get opensubtitlesLoginNone =>
+      'لا يوجد حساب: يبقى التنزيل مرفوضًا (503).';
+
+  @override
+  String get opensubtitlesLoginDelete => 'امسح الحساب';
+
+  @override
+  String get opensubtitlesLoginConnect => 'تسجيل الدخول / التحقق';
+
+  @override
+  String get opensubtitlesLoginConnecting => 'جارٍ تسجيل الدخول…';
+
+  @override
+  String get opensubtitlesLoginValid =>
+      'تم قبول الحساب: أصدرت الخدمة رمزًا مميزًا.';
+
+  @override
+  String get opensubtitlesLoginRejected =>
+      'تم رفض بيانات الدخول: تحقق من اسم المستخدم وكلمة المرور.';
+
+  @override
+  String get opensubtitlesLoginUnreachable =>
+      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
+
+  @override
   String get subtitleOnlineNoApiKey =>
       'مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.';
+
+  @override
+  String get subtitleOnlineKeyRejected =>
+      'تم رفض مفتاح OpenSubtitles API: إنه موجود، لكن الخدمة ترفضه. تحقق منه في الإعدادات.';
 
   @override
   String get subtitleOnlineQuota =>
@@ -1281,4 +1347,31 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get favoritesAndDownloads => 'المفضلة والتنزيلات';
+
+  @override
+  String get activeAudio => 'الصوت يعمل على هذه الشاشة';
+
+  @override
+  String get addChannel => 'إضافة قناة';
+
+  @override
+  String get noChannelSelected => 'لم يتم تحديد أي قناة';
+
+  @override
+  String get removeChannel => 'إزالة القناة';
+
+  @override
+  String get avatarCategoryAll => 'جميع';
+
+  @override
+  String get avatarCategoryCharacters => 'شخصيات';
+
+  @override
+  String get avatarCategorySmileys => 'مزاح';
+
+  @override
+  String get avatarCategoryBlackWhite => 'أبيض وأسود';
+
+  @override
+  String get avatarCategoryPixels => 'بكسلات';
 }

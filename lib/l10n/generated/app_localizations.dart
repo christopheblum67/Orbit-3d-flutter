@@ -1330,12 +1330,6 @@ abstract class AppLocalizations {
   /// **'Classement indisponible'**
   String get rankingsUnavailable;
 
-  /// No description provided for @receiveAlertsAndTips.
-  ///
-  /// In fr, this message translates to:
-  /// **'Recevoir les alertes et conseils'**
-  String get receiveAlertsAndTips;
-
   /// No description provided for @recentSearch.
   ///
   /// In fr, this message translates to:
@@ -1576,12 +1570,6 @@ abstract class AppLocalizations {
   /// **'Mémoire & Cache'**
   String get sectionMemory;
 
-  /// No description provided for @sectionNotifications.
-  ///
-  /// In fr, this message translates to:
-  /// **'Notifications'**
-  String get sectionNotifications;
-
   /// No description provided for @sectionOutput.
   ///
   /// In fr, this message translates to:
@@ -1738,11 +1726,47 @@ abstract class AppLocalizations {
   /// **'Aucune sauvegarde trouvée'**
   String get snackNoBackup;
 
-  /// No description provided for @sortBestRated.
+  /// No description provided for @sortAffinity.
   ///
   /// In fr, this message translates to:
-  /// **'Les Mieux Notés (XCIPTV)'**
-  String get sortBestRated;
+  /// **'Par affinité'**
+  String get sortAffinity;
+
+  /// No description provided for @sortAffinityDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classe selon vos goûts déclarés dans le profil (matchmaking)'**
+  String get sortAffinityDescription;
+
+  /// No description provided for @sortAscending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri croissant'**
+  String get sortAscending;
+
+  /// No description provided for @sortByDuration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par durée'**
+  String get sortByDuration;
+
+  /// No description provided for @sortByRating.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par note'**
+  String get sortByRating;
+
+  /// No description provided for @sortByYear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par année'**
+  String get sortByYear;
+
+  /// No description provided for @sortDescending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri décroissant'**
+  String get sortDescending;
 
   /// No description provided for @sortLatestM3UXtream.
   ///
@@ -1767,12 +1791,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'À reprendre en priorité'**
   String get sortResumePriority;
-
-  /// No description provided for @sortYearRecentToOld.
-  ///
-  /// In fr, this message translates to:
-  /// **'Année de Sortie (Récent → Ancien)'**
-  String get sortYearRecentToOld;
 
   /// No description provided for @specialGuestsSeason.
   ///
@@ -1863,18 +1881,6 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Sécurité'**
   String get tabSecurity;
-
-  /// No description provided for @testNotifications.
-  ///
-  /// In fr, this message translates to:
-  /// **'Tester les notifications'**
-  String get testNotifications;
-
-  /// No description provided for @testNotificationsSubtitle.
-  ///
-  /// In fr, this message translates to:
-  /// **'Envoie une notification locale de test'**
-  String get testNotificationsSubtitle;
 
   /// No description provided for @theme.
   ///
@@ -1977,6 +1983,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Mise à jour en cours…'**
   String get updating;
+
+  /// No description provided for @updatingMediaContent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour du contenu multimédia en cours…'**
+  String get updatingMediaContent;
 
   /// No description provided for @volumeNormalization.
   ///
@@ -2320,11 +2332,113 @@ abstract class AppLocalizations {
   /// **'Effacer la clé'**
   String get opensubtitlesKeyDelete;
 
+  /// No description provided for @opensubtitlesKeyCheck.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifier la clé'**
+  String get opensubtitlesKeyCheck;
+
+  /// No description provided for @opensubtitlesKeyChecking.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification en cours…'**
+  String get opensubtitlesKeyChecking;
+
+  /// No description provided for @opensubtitlesKeyValid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé valide : le service l\'accepte.'**
+  String get opensubtitlesKeyValid;
+
+  /// No description provided for @opensubtitlesKeyRejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé refusée par le service : vérifiez que vous l\'avez copiée en entier.'**
+  String get opensubtitlesKeyRejected;
+
+  /// No description provided for @opensubtitlesKeyUnreachable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
+  String get opensubtitlesKeyUnreachable;
+
+  /// No description provided for @opensubtitlesLoginLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion au compte OpenSubtitles'**
+  String get opensubtitlesLoginLabel;
+
+  /// No description provided for @opensubtitlesLoginHintUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiant'**
+  String get opensubtitlesLoginHintUsername;
+
+  /// No description provided for @opensubtitlesLoginHintPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe'**
+  String get opensubtitlesLoginHintPassword;
+
+  /// No description provided for @opensubtitlesLoginActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte enregistré : les téléchargements pourront se connecter.'**
+  String get opensubtitlesLoginActive;
+
+  /// No description provided for @opensubtitlesLoginNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun compte : le téléchargement reste refusé (503).'**
+  String get opensubtitlesLoginNone;
+
+  /// No description provided for @opensubtitlesLoginDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer le compte'**
+  String get opensubtitlesLoginDelete;
+
+  /// No description provided for @opensubtitlesLoginConnect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se connecter / vérifier'**
+  String get opensubtitlesLoginConnect;
+
+  /// No description provided for @opensubtitlesLoginConnecting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion en cours…'**
+  String get opensubtitlesLoginConnecting;
+
+  /// No description provided for @opensubtitlesLoginValid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte accepté : le service délivre un jeton.'**
+  String get opensubtitlesLoginValid;
+
+  /// No description provided for @opensubtitlesLoginRejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiants refusés : vérifiez l\'identifiant et le mot de passe.'**
+  String get opensubtitlesLoginRejected;
+
+  /// No description provided for @opensubtitlesLoginUnreachable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
+  String get opensubtitlesLoginUnreachable;
+
   /// No description provided for @subtitleOnlineNoApiKey.
   ///
   /// In fr, this message translates to:
   /// **'Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.'**
   String get subtitleOnlineNoApiKey;
+
+  /// No description provided for @subtitleOnlineKeyRejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé API OpenSubtitles refusée : elle est présente mais le service la rejette. Vérifiez sa validité dans Réglages.'**
+  String get subtitleOnlineKeyRejected;
 
   /// No description provided for @subtitleOnlineQuota.
   ///
@@ -2493,6 +2607,60 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Favoris et Téléchargements'**
   String get favoritesAndDownloads;
+
+  /// No description provided for @activeAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Son actif sur cet écran'**
+  String get activeAudio;
+
+  /// No description provided for @addChannel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter une chaîne'**
+  String get addChannel;
+
+  /// No description provided for @noChannelSelected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne sélectionnée'**
+  String get noChannelSelected;
+
+  /// No description provided for @removeChannel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer la chaîne'**
+  String get removeChannel;
+
+  /// No description provided for @avatarCategoryAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toutes'**
+  String get avatarCategoryAll;
+
+  /// No description provided for @avatarCategoryCharacters.
+  ///
+  /// In fr, this message translates to:
+  /// **'Personnages'**
+  String get avatarCategoryCharacters;
+
+  /// No description provided for @avatarCategorySmileys.
+  ///
+  /// In fr, this message translates to:
+  /// **'Smileys'**
+  String get avatarCategorySmileys;
+
+  /// No description provided for @avatarCategoryBlackWhite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Noir & Blanc'**
+  String get avatarCategoryBlackWhite;
+
+  /// No description provided for @avatarCategoryPixels.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pixels'**
+  String get avatarCategoryPixels;
 }
 
 class _AppLocalizationsDelegate

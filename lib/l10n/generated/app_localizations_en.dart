@@ -669,9 +669,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingsUnavailable => 'Rankings unavailable';
 
   @override
-  String get receiveAlertsAndTips => 'Receive alerts and tips';
-
-  @override
   String get recentSearch => 'Recent search';
 
   @override
@@ -796,9 +793,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionMemory => 'Memory & Cache';
 
   @override
-  String get sectionNotifications => 'Notifications';
-
-  @override
   String get sectionOutput => 'Audio output';
 
   @override
@@ -882,7 +876,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get snackNoBackup => 'No backup found';
 
   @override
-  String get sortBestRated => 'Highest rated (XCIPTV)';
+  String get sortAffinity => 'By affinity';
+
+  @override
+  String get sortAffinityDescription =>
+      'Ranks by your declared profile tastes (matchmaking)';
+
+  @override
+  String get sortAscending => 'Ascending order';
+
+  @override
+  String get sortByDuration => 'By duration';
+
+  @override
+  String get sortByRating => 'By rating';
+
+  @override
+  String get sortByYear => 'By year';
+
+  @override
+  String get sortDescending => 'Descending order';
 
   @override
   String get sortLatestM3UXtream => 'Latest M3U/Xtream additions';
@@ -895,9 +908,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sortResumePriority => 'Resume first';
-
-  @override
-  String get sortYearRecentToOld => 'Release year (New → Old)';
 
   @override
   String specialGuestsSeason(Object season) {
@@ -947,12 +957,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tabSecurity => 'Security';
-
-  @override
-  String get testNotifications => 'Test notifications';
-
-  @override
-  String get testNotificationsSubtitle => 'Send a local test notification';
 
   @override
   String get theme => 'Theme';
@@ -1005,6 +1009,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updating => 'Updating…';
+
+  @override
+  String get updatingMediaContent => 'Updating media content…';
 
   @override
   String get volumeNormalization => 'Volume normalization';
@@ -1202,8 +1209,67 @@ class AppLocalizationsEn extends AppLocalizations {
   String get opensubtitlesKeyDelete => 'Clear the key';
 
   @override
+  String get opensubtitlesKeyCheck => 'Check the key';
+
+  @override
+  String get opensubtitlesKeyChecking => 'Checking…';
+
+  @override
+  String get opensubtitlesKeyValid => 'Valid key: the service accepts it.';
+
+  @override
+  String get opensubtitlesKeyRejected =>
+      'Key rejected by the service: check that you pasted the whole key.';
+
+  @override
+  String get opensubtitlesKeyUnreachable =>
+      'Service unreachable: check your connection and try again.';
+
+  @override
+  String get opensubtitlesLoginLabel => 'OpenSubtitles account login';
+
+  @override
+  String get opensubtitlesLoginHintUsername => 'Username';
+
+  @override
+  String get opensubtitlesLoginHintPassword => 'Password';
+
+  @override
+  String get opensubtitlesLoginActive =>
+      'Account saved: downloads will be able to sign in.';
+
+  @override
+  String get opensubtitlesLoginNone =>
+      'No account: downloads stay refused (503).';
+
+  @override
+  String get opensubtitlesLoginDelete => 'Delete account';
+
+  @override
+  String get opensubtitlesLoginConnect => 'Sign in / verify';
+
+  @override
+  String get opensubtitlesLoginConnecting => 'Signing in…';
+
+  @override
+  String get opensubtitlesLoginValid =>
+      'Account accepted: the service issued a token.';
+
+  @override
+  String get opensubtitlesLoginRejected =>
+      'Credentials rejected: check your username and password.';
+
+  @override
+  String get opensubtitlesLoginUnreachable =>
+      'Service unreachable: check your connection and retry.';
+
+  @override
   String get subtitleOnlineNoApiKey =>
       'OpenSubtitles API key missing: enter it in Settings to enable online search.';
+
+  @override
+  String get subtitleOnlineKeyRejected =>
+      'OpenSubtitles API key rejected: it is set, but the service refuses it. Check it in Settings.';
 
   @override
   String get subtitleOnlineQuota =>
@@ -1292,4 +1358,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get favoritesAndDownloads => 'Favorites & Downloads';
+
+  @override
+  String get activeAudio => 'Audio playing on this screen';
+
+  @override
+  String get addChannel => 'Add a channel';
+
+  @override
+  String get noChannelSelected => 'No channel selected';
+
+  @override
+  String get removeChannel => 'Remove channel';
+
+  @override
+  String get avatarCategoryAll => 'All';
+
+  @override
+  String get avatarCategoryCharacters => 'Characters';
+
+  @override
+  String get avatarCategorySmileys => 'Smileys';
+
+  @override
+  String get avatarCategoryBlackWhite => 'Black & White';
+
+  @override
+  String get avatarCategoryPixels => 'Pixels';
 }
