@@ -2,8 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-/// Filet de sélection d'avatar (30 images DiceBear) avec filtres par
+/// Filet de sélection d'avatar (72 images DiceBear) avec filtres par
 /// catégorie, navigable à la télécommande (d-pad / Entrée) et tactile.
 /// Les images sont mises en cache via `CachedNetworkImage`.
 class AvatarPickerGrid extends StatefulWidget {
@@ -21,18 +22,19 @@ class AvatarPickerGrid extends StatefulWidget {
 }
 
 class _AvatarPickerGridState extends State<AvatarPickerGrid> {
-  String _selectedCategory = 'Tous';
+  String _selectedCategoryId = 'all';
 
   List<AvatarItem> get _filteredAvatars {
-    if (_selectedCategory == 'Tous') return orbit3DAvatars;
+    if (_selectedCategoryId == 'all') return orbit3DAvatars;
     return orbit3DAvatars
-        .where((item) => item.category == _selectedCategory)
+        .where((item) => item.category == _selectedCategoryId)
         .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -40,16 +42,17 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
           height: 42,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount: avatarCategories.length,
+            itemCount: avatarCategoryIds.length,
             itemBuilder: (context, index) {
-              final cat = avatarCategories[index];
-              final isSelected = cat == _selectedCategory;
+              final catId = avatarCategoryIds[index];
+              final isSelected = catId == _selectedCategoryId;
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: TvFocus(
-                  onActivate: () => setState(() => _selectedCategory = cat),
+                  onActivate: () =>
+                      setState(() => _selectedCategoryId = catId),
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedCategory = cat),
+                    onTap: () => setState(() => _selectedCategoryId = catId),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -67,7 +70,7 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
                         ),
                       ),
                       child: Text(
-                        cat,
+                        avatarCategoryLabel(l, catId),
                         style: TextStyle(
                           color: isSelected
                               ? scheme.primary
