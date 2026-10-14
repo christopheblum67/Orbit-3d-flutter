@@ -44,6 +44,6 @@ void main() {
   }
 
   stderr.writeln(
-      '${messages.length} messages, $problems probleme(s) sur ${locales.length} locales');
+      '${messages.length} messages, $problems probleme(s) sur ${locales.length} locales',);
   exit(problems == 0 ? 0 : 1);
 }

@@ -163,7 +163,7 @@ void main(List<String> args) {
 
   // Liste les « ? » isolés restants, à corriger manuellement.
   final lone = <String>[];
-  for (final m in RegExp('$patternPlaceholder').allMatches(output)) {}
+  for (final m in RegExp(patternPlaceholder).allMatches(output)) {}
 
   for (final mm in RegExp('\uFFFD').allMatches(output)) {
     final s = mm.start > 20 ? mm.start - 20 : 0;

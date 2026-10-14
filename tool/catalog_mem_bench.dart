@@ -1,4 +1,4 @@
-﻿// Mesure de l'empreinte reelle d'un catalogue VOD en memoire.
+// Mesure de l'empreinte reelle d'un catalogue VOD en memoire.
 //
 // Le profil des champs est celui REELLEMENT observe sur le panel
 // (99 569 entrees) : `plot`, `director`, `genre` et `year` sont ABSENTS, et
@@ -97,7 +97,7 @@ void main() {
       streamUrl:
           'http://1.888000.eu/player_api.php?username=Premchrisfr25&password=xwQt75SyX2jK&action=stream&type=movie&stream_id=${m['stream_id']}&extension=mkv',
       categoryId: m['category_id'].toString(),
-    ));
+    ),);
   }
   final rss2 = ProcessInfo.currentRss;
 
@@ -112,7 +112,7 @@ void main() {
       genre: 'Action / Aventure / Drame',
       rating: double.tryParse(m['rating'].toString()) ?? 0,
       categoryId: m['category_id'].toString(),
-    ));
+    ),);
   }
   final rss3 = ProcessInfo.currentRss;
 
@@ -149,7 +149,7 @@ void main() {
           m.director.length +
           m.pegi.length +
           m.streamUrl.length +
-          m.categoryId.length);
+          m.categoryId.length,);
   print('');
   print('=== poids des chaines (projection 99 569) ===');
   print('streamUrl        : ${mb(urlChars * scale).toStringAsFixed(0)} Mo'
