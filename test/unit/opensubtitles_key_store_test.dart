@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_key_store.dart';
+import 'package:orbit_3d_flutter/services/secret_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Exactitude de la clé stockée, au sens BYTE.
@@ -77,11 +78,15 @@ void main() {
   });
 
   group('persistance', () {
-    setUp(() => SharedPreferences.setMockInitialValues({}));
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      overrideSecretStoreForTesting(InMemorySecretStore());
+    });
 
-    /// Ce qui est RÉELLEMENT écrit dans les préférences.
-    Future<String?> stored() async =>
-        (await SharedPreferences.getInstance()).getString(prefsKey);
+    tearDown(restoreSecretStoreForTesting);
+
+    /// Ce qui est RÉELLEMENT écrit dans le coffre sécurisé.
+    Future<String?> stored() async => secretStore.read(prefsKey);
 
     test('ce qui est écrit ne contient aucun invisible', () async {
       await OpenSubtitlesKeyStore.instance.setApiKey('$clean${ch(0x200B)}');
@@ -98,7 +103,8 @@ void main() {
 
     test('une clé enregistrée avant le nettoyage est nettoyée à la lecture',
         () async {
-      // Simule une clé écrite par une version antérieure du code.
+      // Simule une clé écrite par une version antérieure du code (préférences
+      // legacy, migrées vers le coffre au premier chargement).
       SharedPreferences.setMockInitialValues(
         {prefsKey: '${ch(0x200B)}$clean${ch(0xFEFF)}'},
       );
@@ -106,6 +112,13 @@ void main() {
       await OpenSubtitlesKeyStore.instance.load();
 
       expect(OpenSubtitlesKeyStore.instance.apiKey, clean);
+      expect(
+        await stored(),
+        clean,
+        reason: 'après migration, la clé vit dans le coffre sécurisé',
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(prefsKey), isNull);
     });
 
     test('une clé vide efface la précédente', () async {

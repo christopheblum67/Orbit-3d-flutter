@@ -46,10 +46,6 @@ class PreferencesNotifier extends Notifier<UserPreferences> {
     await update(state.copyWith(allowRecording: allow));
   }
 
-  Future<void> setNotifications(bool enabled) async {
-    await update(state.copyWith(notificationsEnabled: enabled));
-  }
-
   Future<void> setLanguage(String language) async {
     await update(state.copyWith(language: language));
   }

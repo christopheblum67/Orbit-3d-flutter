@@ -1,14 +1,18 @@
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/services/secret_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Clé API OpenSubtitles, pour la recherche de sous-titres en ligne.
 ///
 /// ## Où est stockée la clé
 ///
-/// Uniquement dans les préférences de l'application, saisies UNE fois depuis
-/// les réglages. Elle n'est jamais écrite dans le code ni dans un commit : une
-/// clé d'API en dur dans le dépôt finit par fuiter, et celle-ci permet de
-/// consommer le quota de téléchargement d'un compte.
+/// Dans le coffre sécurisé de l'application ([SecretStore], chiffrement
+/// Keystore Android), saisie UNE fois depuis les réglages. Elle n'est jamais
+/// écrite dans le code ni dans un commit : une clé d'API en dur dans le dépôt
+/// finit par fuiter, et celle-ci permet de consommer le quota de
+/// téléchargement d'un compte. Une valeur encore présente dans les anciennes
+/// préférences (version d'avant la migration S1) est migrée au premier
+/// chargement puis retirée.
 class OpenSubtitlesKeyStore {
   OpenSubtitlesKeyStore._();
 
@@ -80,14 +84,26 @@ class OpenSubtitlesKeyStore {
   }
 
   /// Charge la clé persistée (appelé au démarrage de l'application).
+  ///
+  /// La clé vit dans le coffre ([SecretStore]) ; une valeur encore présente
+  /// dans les préférences provient d'une version antérieure (stockage en
+  /// clair) et est migrée puis retirée.
   Future<void> load() async {
     final result = await safeAsync<String>(
       () async {
+        final secret = await secretStore.read(_prefsKey);
+        if (secret != null && secret.isNotEmpty) return sanitise(secret);
         final prefs = await SharedPreferences.getInstance();
-        final stored = prefs.getString(_prefsKey) ?? '';
-        // Une clé enregistrée AVANT l'introduction de [sanitise] peut encore
-        // contenir des invisibles : on ne la ressort pas telle quelle.
-        return sanitise(stored);
+        final legacy = prefs.getString(_prefsKey);
+        if (legacy != null && legacy.isNotEmpty) {
+          // Une clé enregistrée AVANT l'introduction de [sanitise] peut encore
+          // contenir des invisibles : on ne la ressort pas telle quelle.
+          final clean = sanitise(legacy);
+          await secretStore.write(_prefsKey, clean);
+          await prefs.remove(_prefsKey);
+          return clean;
+        }
+        return '';
       },
       context: 'OpenSubtitlesKeyStore.load',
       fallbackValue: '',
@@ -101,11 +117,10 @@ class OpenSubtitlesKeyStore {
     _key = sanitise(value);
     await safeAsync<void>(
       () async {
-        final prefs = await SharedPreferences.getInstance();
         if (_key.isEmpty) {
-          await prefs.remove(_prefsKey);
+          await secretStore.delete(_prefsKey);
         } else {
-          await prefs.setString(_prefsKey, _key);
+          await secretStore.write(_prefsKey, _key);
         }
       },
       context: 'OpenSubtitlesKeyStore.setApiKey',
