@@ -143,7 +143,7 @@ void main() {
     expect(read, isNotNull);
     expect(read!.id, 't1');
     expect(
-      read.progress?.estimatedTimeRemaining,
+      read.progress.estimatedTimeRemaining,
       const Duration(seconds: 90),
       reason: 'la durée doit survivre à l\'aller-retour Hive',
     );
@@ -178,7 +178,7 @@ DownloadTask _task(String id, {bool withProgress = false}) => DownloadTask(
               bytesDownloaded: 1024,
               totalBytes: 2048,
               speedBytesPerSec: 512,
-              estimatedTimeRemaining: Duration(seconds: 90),
+              estimatedTimeRemaining: const Duration(seconds: 90),
             )
           : null,
     );
