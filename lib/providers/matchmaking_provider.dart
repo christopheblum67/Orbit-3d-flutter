@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:collection/collection.dart';
 
 const int kMatchmakingLimit = 50;
@@ -259,51 +260,92 @@ String _normalizeGenre(String genre) {
 String _normalizeForMatch(String text) =>
     text.toLowerCase().replaceAll(RegExp(r'[\-_]'), ' ');
 
+/// Vrai si [label] est — ou contient — un genre **reconnu**, plutôt qu'un simple
+/// nom de catégorie Xtream (« Récents », « Nouveautés », « Netflix », …).
+///
+/// Sert à décider s'il faut aller chercher le vrai genre d'une œuvre auprès de
+/// TMDB : un film rangé dans une catégorie non-genre reçoit le nom de cette
+/// catégorie comme `genre` (cf. `ApiService._enrichMovieListMap`), ce qui donne
+/// une affinité faussement nulle. On découpe sur les séparateurs usuels pour
+/// accepter « Action & Aventure », « Horreur, Thriller », etc.
+bool isKnownGenreLabel(String label) {
+  for (final raw in label.split(RegExp(r'[,/|&]'))) {
+    final token = raw.trim().toLowerCase();
+    if (token.isEmpty) continue;
+    if (_genreAliases.containsKey(token)) return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
+
+/// Découpe un libellé de genre multi-valeurs (« Horreur, Fantastique, Mystère »)
+/// en jetons **canoniques** (alias résolus), insensibles à la casse.
+///
+/// C'est le cœur du correctif d'affinité : les deux côtés (genres du film ET
+/// genres favoris du profil) sont ramenés au MÊME vocabulaire AVANT de
+/// comparer. Sans cela, un profil étiqueté `fantasy` (anglais) ne matchait
+/// jamais un film listé `Fantastique` (français), car `_genreAliases` n'allait
+/// que dans un sens (`fantastique` → `fantasy`, jamais l'inverse).
+Set<String> _canonicalGenreTokens(String raw) {
+  final tokens = <String>{};
+  for (final part in raw.split(RegExp(r'[,/|&]'))) {
+    final t = part.trim().toLowerCase();
+    if (t.isNotEmpty) tokens.add(_normalizeGenre(t));
+  }
+  return tokens;
+}
 
 /// Affinité normalisée (0.0 → 1.0) d'un contenu pour un profil donné.
 ///
-/// Chaque genre favori : +1.0 s'il apparaît dans le genre, +0.6 dans le titre,
-/// +0.4 dans la description. Bonus de note si rating ≥ 5 (petit) ou ≥ 7.
+/// Fondée **uniquement sur les genres déclarés du profil** — jamais sur la
+/// liste des favoris, qui est vidée après visionnage et n'est donc pas un
+/// signal de goût stable.
+///
+/// * **précision** — part des genres DU FILM que le profil aime. C'était le
+///   défaut : on divisait par le nombre de genres du PROFIL (6), si bien que
+///   deux genres sur trois qui matchaient ne valaient que `2/6 = 33 %`. Un film
+///   de moins de 3 genres est plafonné (dénominateur mini 3) pour qu'un film
+///   mono-genre ne décroche pas 100 % sur un seul match.
+/// * **rappel** — part des genres favoris présents dans le film. Dampène les
+///   profils très larges : 2 matchs sur 6 favoris ≠ 2 sur 2.
+///
+/// La précision pèse 4× le rappel : « ce film me correspond » compte plus que
+/// « ce film couvre mes cases ». Bonus de note mineur (rating ≥ 5 ou ≥ 7).
 /// Sans genres favoris : signal faible fondé sur la note uniquement.
 double profileAffinity(Recommendation reco, List<String> favorites) {
-  final title = _normalizeForMatch(reco.title);
-  final desc = _normalizeForMatch(reco.description);
-  // Le genre est teste sous ses deux formes : séparateurs normalises et
-  // alias canonique.
-  final genreForms = <String>{
-    _normalizeForMatch(reco.genre),
-    _normalizeGenre(reco.genre),
-  };
-
   if (favorites.isEmpty) {
     return (reco.rating / 20).clamp(0.0, 0.5).toDouble();
   }
 
-  var sum = 0.0;
-  for (final raw in favorites) {
-    final fav = _normalizeForMatch(raw);
-    if (fav.isEmpty) continue;
-    // Un genre favori correspond si SON libelle d'origine OU son alias
-    // canonique apparait. Canoniser un seul des deux cote voilait des
-    // correspondances : « Science-Fiction » -> « science fiction » ne matchait
-    // plus « science-fiction spatiale », et « Aventure » -> « adventure »
-    // ne matchait plus le titre « Aventure spatiale ».
-    final alias = _genreAliases[raw.trim().toLowerCase()];
-    bool contains(String haystack) =>
-        haystack.contains(fav) || (alias != null && haystack.contains(alias));
-
-    if (genreForms.any(contains)) {
-      sum += 1.0;
-    } else if (contains(title)) {
-      sum += 0.6;
-    } else if (contains(desc)) {
-      sum += 0.4;
-    }
+  final favTokens = <String>{
+    for (final f in favorites) ..._canonicalGenreTokens(f),
+  };
+  if (favTokens.isEmpty) {
+    return (reco.rating / 20).clamp(0.0, 0.5).toDouble();
   }
 
   final ratingBoost = reco.rating >= 7 ? 0.08 : (reco.rating >= 5 ? 0.03 : 0.0);
-  return (sum / favorites.length + ratingBoost).clamp(0.0, 1.0).toDouble();
+
+  final filmGenres = _canonicalGenreTokens(reco.genre);
+  if (filmGenres.isEmpty) {
+    // Film sans genre exploitable : repli sur titre + description.
+    final text =
+        '${_normalizeForMatch(reco.title)} ${_normalizeForMatch(reco.description)}';
+    final touched = favTokens.where(text.contains).length;
+    return ((touched / favTokens.length) * 0.5 + ratingBoost).clamp(0.0, 1.0);
+  }
+
+  bool isFav(String filmGenre) => favTokens.any(
+        (f) => f == filmGenre || filmGenre.contains(f) || f.contains(filmGenre),
+      );
+
+  final matched = filmGenres.where(isFav).length;
+  final denominator = filmGenres.length < 3 ? 3 : filmGenres.length;
+  final precision = matched / denominator;
+  final recall = matched / favTokens.length;
+
+  return ((precision * 0.8) + (recall * 0.2) + ratingBoost).clamp(0.0, 1.0);
 }
 
 /// Affinité enrichie par signaux profils : favoris (+), déjà vues (exclusion)
@@ -317,7 +359,9 @@ double profileAffinityWithSignals(
 }) {
   if (seenIds.contains(reco.id)) return 0.0;
   var a = profileAffinity(reco, favorites);
-  if (favoriteIds.contains(reco.id)) a = (a + 0.15).clamp(0.0, 1.0);
+  // Le boost « présent dans la liste des favoris » (+0.15) a été retiré : cette
+  // liste est vidée après visionnage, ce n'est pas un signal de goût stable.
+  // Le pourcentage ne dépend donc QUE des genres déclarés du profil.
   final normTitle = reco.title.trim().toLowerCase();
   if (tmdbTitles.contains(normTitle)) a = (a + 0.08).clamp(0.0, 1.0);
   return a;
@@ -489,14 +533,16 @@ List<ScoredReco> _rankByAffinity({
   for (final r in recos) {
     // Catégories masquées par l'utilisateur (préférences) : on ne propose pas
     // de contenu qui ne doit pas être visible, quel que soit son score.
-    if (hiddenCategories.isNotEmpty && hiddenCategories.contains(r.categoryId)) {
+    if (hiddenCategories.isNotEmpty &&
+        hiddenCategories.contains(r.categoryId)) {
       continue;
     }
     if (sessionFilters.isNotEmpty) {
       // Meme normalisation que `profileAffinity`, sinon un filtre « Science
       // Fiction » ne matche jamais un genre « Science-Fiction ».
       final recoGenre = _normalizeForMatch(r.genre);
-      if (!sessionFilters.any((f) => recoGenre.contains(_normalizeForMatch(f)))) {
+      if (!sessionFilters
+          .any((f) => recoGenre.contains(_normalizeForMatch(f)))) {
         continue;
       }
     }
@@ -564,16 +610,15 @@ class ProfileAffinityScorer {
   final Set<String> tmdbTitles;
 
   /// Affinité en pourcentage (0-100), prête pour [MediaCard.matchPercent].
-  int percentFor(Recommendation reco) =>
-      (profileAffinityWithSignals(
-        reco,
-        favoriteGenres,
-        favoriteIds: favoriteIds,
-        seenIds: seenIds,
-        tmdbTitles: tmdbTitles,
-      ) *
-              100)
-          .round();
+  int percentFor(Recommendation reco) => (profileAffinityWithSignals(
+            reco,
+            favoriteGenres,
+            favoriteIds: favoriteIds,
+            seenIds: seenIds,
+            tmdbTitles: tmdbTitles,
+          ) *
+          100)
+      .round();
 
   int percentForMovie(Movie m) =>
       percentFor(Recommendation(kind: RecommendationKind.movie, movie: m));
@@ -605,6 +650,194 @@ final profileAffinityScorerProvider = Provider<ProfileAffinityScorer?>((ref) {
   );
 });
 
+/// Clé d'identité d'une demande de « vrai genre » (film).
+///
+/// Riverpod indexe les providers `family` par égalité d'argument : une classe
+/// sans `==`/`hashCode` produirait une nouvelle entrée de cache à chaque build
+/// (« nouveau provider → requête → rebuild → nouveau provider »). D'où
+/// l'égalité par valeur.
+class MovieGenreQuery {
+  const MovieGenreQuery({
+    required this.id,
+    required this.title,
+    required this.year,
+    required this.catalogGenre,
+  });
+
+  final String id;
+  final String title;
+  final int year;
+
+  /// Genre tel que fourni par le catalogue (souvent le nom de catégorie Xtream).
+  final String catalogGenre;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MovieGenreQuery &&
+      other.id == id &&
+      other.title == title &&
+      other.year == year &&
+      other.catalogGenre == catalogGenre;
+
+  @override
+  int get hashCode => Object.hash(id, title, year, catalogGenre);
+
+  @override
+  String toString() => 'MovieGenreQuery($id)';
+}
+
+/// Vrai genre d'un film, résolu à la demande pour le scoring d'affinité.
+///
+/// Le catalogue VOD ne porte pas le genre réel : `get_vod_streams` ne le renvoie
+/// pas et l'app le remplace par le **nom de catégorie** du panel
+/// (`ApiService._enrichMovieListMap`). Un film récent rangé dans « Récents »
+/// n'obtient donc jamais de correspondance avec les genres favoris et retombe au
+/// seul bonus de note (3 %). On va chercher ici le genre TMDB (une requête
+/// `searchMovieLight`, mise en cache Hive 24 h) pour les seules tuiles
+/// réellement affichées dont le genre catalogue n'est pas un genre.
+///
+/// Ne se déclenche que si le profil courant a des genres favoris : sans eux le
+/// badge ne dépend pas du genre, la requête serait inutile.
+final movieRealGenreProvider =
+    FutureProvider.autoDispose.family<String, MovieGenreQuery>((ref, q) async {
+  final scorer = ref.watch(profileAffinityScorerProvider);
+  final favs = scorer?.favoriteGenres ?? const <String>[];
+
+  // Plus de court-circuit `isKnownGenreLabel` : une catégorie nommée comme un
+  // genre (ex. « Horreur ») masquait les genres TMDB réels, plus riches
+  // (ex. « Horreur, Thriller, Mystère ») → le score restait sous-évalué.
+  // La requête est mise en cache Hive 24 h, une seule fois par tuile.
+  if (favs.isEmpty) return q.catalogGenre;
+
+  ref.watch(tmdbApiKeyOverrideProvider);
+  // Instance DÉDIÉE à l'affinité : sa file de rate-limit est séparée de celle
+  // de la fiche détail, donc ces recherches de genre ne peuvent plus retarder
+  // l'enrichissement TMDB du détail film.
+  final tmdb = ref.watch(tmdbAffinityServiceProvider);
+  if (!tmdb.hasApiKey || q.title.trim().isEmpty) {
+    return q.catalogGenre;
+  }
+
+  final entry = await tmdb.searchMovieLight(
+    q.title,
+    year: q.year > 0 ? q.year : null,
+  );
+  final real = entry?.genreNames ?? '';
+  return real.isNotEmpty ? real : q.catalogGenre;
+});
+
+/// Clé d'égalité par valeur pour [seriesRealGenreProvider] (même raison que
+/// [MovieGenreQuery] : Riverpod famille indexée par `==`/`hashCode`).
+class SeriesGenreQuery {
+  const SeriesGenreQuery({
+    required this.id,
+    required this.title,
+    required this.year,
+    required this.catalogGenre,
+  });
+
+  final String id;
+  final String title;
+  final int year;
+
+  /// Genre tel que fourni par le catalogue (souvent le nom de catégorie Xtream).
+  final String catalogGenre;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SeriesGenreQuery &&
+      other.id == id &&
+      other.title == title &&
+      other.year == year &&
+      other.catalogGenre == catalogGenre;
+
+  @override
+  int get hashCode => Object.hash(id, title, year, catalogGenre);
+
+  @override
+  String toString() => 'SeriesGenreQuery($id)';
+}
+
+/// Vrai genre d'une série, résolu à la demande pour le scoring d'affinité.
+///
+/// `get_series` ne renvoie pas le genre réel (comme `get_vod_streams`, l'app y
+/// met le nom de catégorie) : une série d'un onglet « Tous » ne matcherait
+/// donc aucun genre favori. Même correctif que [movieRealGenreProvider], côté
+/// TMDB TV (`searchTvLight`, cache Hive 24 h), pour les seules tuiles
+/// réellement affichées.
+final seriesRealGenreProvider =
+    FutureProvider.autoDispose.family<String, SeriesGenreQuery>((ref, q) async {
+  final scorer = ref.watch(profileAffinityScorerProvider);
+  final favs = scorer?.favoriteGenres ?? const <String>[];
+
+  if (favs.isEmpty) return q.catalogGenre;
+
+  ref.watch(tmdbApiKeyOverrideProvider);
+  // Instance DÉDIÉE à l'affinité (file de rate-limit séparée de la fiche
+  // détail) : même isolation que la VOD.
+  final tmdb = ref.watch(tmdbAffinityServiceProvider);
+  if (!tmdb.hasApiKey || q.title.trim().isEmpty) {
+    return q.catalogGenre;
+  }
+
+  // Pas de court-circuit `isKnownGenreLabel` ici : un genre panel nommé comme
+  // un genre (ex. « Drame ») cache les genres TMDB réels, plus riches (ex.
+  // « Drame, Fantastique, Action & Aventure »). C'est ce qui laissait
+  // « Avatar : Seven Havens » à 33 % alors que TMDB le classe différemment.
+  final entry = await tmdb.searchTvLight(
+    q.title,
+    year: q.year > 0 ? q.year : null,
+  );
+  final real = entry?.genreNames ?? '';
+  return real.isNotEmpty ? real : q.catalogGenre;
+});
+
+/// Applique un vrai genre TMDB déjà résolu à un [Movie] (copie).
+///
+/// No-op si le genre réel est inconnu (`realGenre` vide) ou identique au genre
+/// catalogue : aucune régression pour les titres non résolus.
+Movie movieWithRealGenre(Movie movie, String realGenre) {
+  if (realGenre.isEmpty || realGenre == movie.genre) return movie;
+  return movie.copyWith(genre: realGenre);
+}
+
+/// Idem [movieWithRealGenre], côté [Series].
+Series seriesWithRealGenre(Series series, String realGenre) {
+  if (realGenre.isEmpty || realGenre == series.genre) return series;
+  return series.withGenre(realGenre);
+}
+
+/// Réinjecte un genre réel TMDB déjà résolu dans une [Recommendation].
+///
+/// Alignement « Pour vous » ↔ grilles : les tuiles Films/Séries et le tri par
+/// affinité scorent sur le **vrai genre TMDB** (« Horreur, Mystère, … »), pas sur
+/// le nom de catégorie Xtream que porte le catalogue. Le matchmaking parcourt
+/// tout le catalogue et ne peut pas résoudre les genres à la volée (rate-limit
+/// TMDB) : il réutilise donc le cache Hive partagé via `TmdbService.peek*Light`,
+/// puis applique ici le genre connu. Sans genre réel, la recommandation est
+/// rendue telle quelle.
+Recommendation recommendationWithRealGenre(
+  Recommendation base,
+  String realGenre,
+) {
+  if (realGenre.isEmpty || realGenre == base.genre) return base;
+  final movie = base.movie;
+  if (movie != null) {
+    return Recommendation(
+      kind: base.kind,
+      movie: movieWithRealGenre(movie, realGenre),
+    );
+  }
+  final series = base.series;
+  if (series != null) {
+    return Recommendation(
+      kind: base.kind,
+      series: seriesWithRealGenre(series, realGenre),
+    );
+  }
+  return base;
+}
+
 /// Films + séries classés par affinité profil (onglets Films / Séries, mode « Pour vous »).
 final matchmakingTabProvider = FutureProvider.autoDispose
     .family<TabMatchmaking, String>((ref, profileId) async {
@@ -635,11 +868,45 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   final hiddenMovies = categoryFilter.hiddenVodCategoryIds;
   final hiddenSeries = categoryFilter.hiddenSeriesCategoryIds;
 
+  // Alignement avec les grilles : on réinjecte le vrai genre TMDB déjà résolu
+  // (cache Hive partagé écrit par les tuiles et l'enrichissement de grille, lu
+  // ici **sans réseau ni latence**) avant de scorer. Sans ça, « Pour vous »
+  // classerait un film rangé dans « Récents » sur son seul nom de catégorie et
+  // divergerait du badge de sa tuile. Le peek est court-circuité sans genres
+  // favoris, cas où le score ne dépend pas du genre.
+  final affinityTmdb = ref.watch(tmdbAffinityServiceProvider);
+  final useRealGenre = favoriteGenres.isNotEmpty;
+  Recommendation movieReco(Movie m) {
+    if (!useRealGenre) {
+      return Recommendation(kind: RecommendationKind.movie, movie: m);
+    }
+    final real =
+        affinityTmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+                ?.genreNames ??
+            '';
+    return recommendationWithRealGenre(
+      Recommendation(kind: RecommendationKind.movie, movie: m),
+      real,
+    );
+  }
+
+  Recommendation seriesReco(Series s) {
+    if (!useRealGenre) {
+      return Recommendation(kind: RecommendationKind.series, series: s);
+    }
+    final real =
+        affinityTmdb.peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+                ?.genreNames ??
+            '';
+    return recommendationWithRealGenre(
+      Recommendation(kind: RecommendationKind.series, series: s),
+      real,
+    );
+  }
+
   final scoredMovies = _rankByAffinity(
     // Iterable paresseux : pas de liste de 99 569 `Recommendation` en mémoire.
-    recos: movies.map(
-      (m) => Recommendation(kind: RecommendationKind.movie, movie: m),
-    ),
+    recos: movies.map(movieReco),
     favoriteGenres: favoriteGenres,
     favoriteIds: _favoriteIdsOf(ref, ContentType.vod),
     seenIds: seenIds,
@@ -650,9 +917,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   );
 
   final scoredSeries = _rankByAffinity(
-    recos: series.map(
-      (s) => Recommendation(kind: RecommendationKind.series, series: s),
-    ),
+    recos: series.map(seriesReco),
     favoriteGenres: favoriteGenres,
     favoriteIds: _favoriteIdsOf(ref, ContentType.series),
     seenIds: seenIds,
@@ -664,7 +929,6 @@ final matchmakingTabProvider = FutureProvider.autoDispose
 
   return (movies: scoredMovies, series: scoredSeries);
 });
-
 
 /// Contexte de scoring d'un groupe, résolu UNE FOIS avant de parcourir le
 /// catalogue. Toute donnée calculée ici était auparavant recalculée à chaque
@@ -806,6 +1070,9 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
     allSeen.addAll(ref.watch(seenRecoIdsProvider(id)));
   }
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
+  // Alignement avec les grilles (voir [recommendationWithRealGenre]) : le mode
+  // groupe réutilise lui aussi le vrai genre TMDB déjà résolu, sans réseau.
+  final affinityTmdb = ref.watch(tmdbAffinityServiceProvider);
   final categoryFilter = ref.watch(vodCategoryFilterProvider);
   final moviesAsync = ref.watch(moviesProvider.future);
   final seriesAsync = ref.watch(seriesProvider.future);
@@ -836,10 +1103,38 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
     return (movies: const <GroupReco>[], series: const <GroupReco>[]);
   }
 
+  // Alignement du vrai genre TMDB (cache partagé, sans réseau) avant le scoring
+  // groupe, pour rester cohérent avec l'onglet simple et les grilles.
+  final alignGenres = ctx.favoritesPerProfile.any((g) => g.isNotEmpty);
+  final moviesAligned = alignGenres
+      ? [
+          for (final m in movies)
+            movieWithRealGenre(
+              m,
+              affinityTmdb
+                      .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+                      ?.genreNames ??
+                  '',
+            ),
+        ]
+      : movies;
+  final seriesAligned = alignGenres
+      ? [
+          for (final s in series)
+            seriesWithRealGenre(
+              s,
+              affinityTmdb
+                      .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+                      ?.genreNames ??
+                  '',
+            ),
+        ]
+      : series;
+
   return _computeGroupTab(
     key,
-    movies,
-    series,
+    moviesAligned,
+    seriesAligned,
     ctx,
     limit: kMatchmakingTabLimit,
   );

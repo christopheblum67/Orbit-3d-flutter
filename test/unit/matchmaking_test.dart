@@ -125,28 +125,45 @@ void main() {
   });
 
   group('profileAffinity', () {
-    test('genre favori présent dans le genre du contenu → affinité = 1.0', () {
+    test('genre du film entièrement couvert par un favori unique → ≈0,50', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie('a', 'Aventure Alpha', 'Aventure', rating: 5),
       );
-      expect(profileAffinity(reco, ['Aventure']), 1.0);
+      // Un film mono-genre est plafonné (dénominateur mini 3) : un match
+      // unique ne vaut pas un « coup de cœur ».
+      expect(profileAffinity(reco, ['Aventure']), closeTo(0.50, 0.02));
     });
 
-    test('genre favori uniquement dans la description → affinité partielle',
-        () {
+    test('film sans genre exploitable → repli sur le titre/la description', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
         movie: _movie(
           'b',
           'Océan calme',
-          'Drame',
+          '',
           description: 'Une histoire de science-fiction spatiale',
         ),
       );
       final affinity = profileAffinity(reco, ['Science-Fiction']);
       expect(affinity, greaterThan(0));
       expect(affinity, lessThan(1.0));
+    });
+
+    test('une description ne suffit plus quand le genre du film est renseigné',
+        () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie(
+          'b2',
+          'Océan calme',
+          'Drame',
+          description: 'Une histoire de science-fiction spatiale',
+        ),
+      );
+      // Le genre « Drame » ne touche aucun favori : la mention en description
+      // ne fabrique plus d'affinité (signal trop bruité).
+      expect(profileAffinity(reco, ['Science-Fiction']), 0.0);
     });
 
     test('aucun genre favori → signal faible fondé sur la note uniquement', () {
@@ -162,17 +179,41 @@ void main() {
     test('affinité élevée pour un film qui touche plusieurs favoris', () {
       final reco = Recommendation(
         kind: RecommendationKind.movie,
-        movie: _movie(
-          'd',
-          'Aventure spatiale',
-          'Action',
-          description: 'science-fiction épique',
-          rating: 7,
-        ),
+        movie: _movie('d', 'Aventure spatiale', 'Action, Aventure', rating: 7),
       );
       final affinity =
           profileAffinity(reco, ['Action', 'Aventure', 'Science-fiction']);
       expect(affinity, greaterThan(0.7));
+    });
+
+    test(
+        'régression 36 % : Pinocchio (Horreur, Fantastique, Mystère) vs 6 favoris',
+        () {
+      // Le profil a un libellé ANGLAIS « fantasy » ; le film est tagué en
+      // FRANÇAIS « Fantastique ». Avant la canonisation par jeton, le match
+      // échouait et l'affinité tombait à 2/6 + 0.03 = 36 %.
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie(
+          'pin',
+          'Pinocchio : Déchaîné',
+          'Horreur, Fantastique, Mystère',
+          rating: 6,
+        ),
+      );
+      final affinity = profileAffinity(
+        reco,
+        ['horreur', 'thriller', 'crime', 'mystère', 'sci-fi', 'fantasy'],
+      );
+      expect(affinity, greaterThan(0.6));
+    });
+
+    test('« fantasy » (EN) matche « Fantastique » (FR) via les alias', () {
+      final reco = Recommendation(
+        kind: RecommendationKind.movie,
+        movie: _movie('f', 'X', 'Fantastique'),
+      );
+      expect(profileAffinity(reco, ['fantasy']), greaterThan(0));
     });
   });
 
@@ -197,14 +238,14 @@ void main() {
       movie: _movie('pp', 'Action Fort', 'Action', rating: 7),
     );
 
-    test('favori → bonus d\'affinité', () {
+    test('favori (liste) → plus de bonus : signal retiré (liste vidée)', () {
       final base = profileAffinity(reco, ['Action', 'Drame']);
-      final boosted = profileAffinityWithSignals(
+      final withFav = profileAffinityWithSignals(
         reco,
         ['Action', 'Drame'],
         favoriteIds: {'pp'},
       );
-      expect(boosted, greaterThan(base));
+      expect(withFav, base);
     });
 
     test('déjà vu → exclusion (affinité nulle)', () {
