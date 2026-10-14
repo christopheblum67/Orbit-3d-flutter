@@ -61,15 +61,31 @@ class SynopsisTranslationService {
 
   final Dio _dio;
 
-  static const _endpoint = 'https://translate.googleapis.com/translate_a/single';
+  static const _endpoint =
+      'https://translate.googleapis.com/translate_a/single';
 
   /// Langues que l'on considère comme « déjà dans la bonne langue ».
   static const _targetLanguage = 'fr';
 
   /// Heuristique : caractères accentués / mots très français.
   static const _frenchMarkers = <String>[
-    ' le ', ' la ', ' les ', ' des ', ' un ', ' une ', ' est ', ' et ', ' du ',
-    ' dans ', ' pour ', ' qui ', ' ce ', ' plus ', ' avec ', ' sur ', ' au ',
+    ' le ',
+    ' la ',
+    ' les ',
+    ' des ',
+    ' un ',
+    ' une ',
+    ' est ',
+    ' et ',
+    ' du ',
+    ' dans ',
+    ' pour ',
+    ' qui ',
+    ' ce ',
+    ' plus ',
+    ' avec ',
+    ' sur ',
+    ' au ',
   ];
 
   /// Décide quoi afficher pour [rawSynopsis].
@@ -127,17 +143,27 @@ class SynopsisTranslationService {
     );
   }
 
+  /// Vrai si [text] semble déjà en français (heuristique mots français).
+  ///
+  /// Exposée pour le provider : TMDB sert fr-FR par défaut mais **retombe sur
+  /// la langue d'origine** quand la traduction fr n'existe pas (surtout les
+  /// séries inédites). Il ne faut alors pas présenter ce texte comme du TMDB
+  /// français, sinon un synopsis anglais passerait pour traduit.
+  bool isFrench(String text) {
+    final lower = ' $text '.toLowerCase();
+    final hits =
+        _frenchMarkers.where((marker) => lower.contains(marker)).length;
+    // 3 marqueurs suffisent à considérer le texte comme francophone.
+    return hits >= 3;
+  }
+
   /// Détection inexpensive : on se fie au code de langue fourni par l'API si
-  /// présent, sinon à une heuristique sur les mots français.
+  /// présent, sinon à l'heuristique [isFrench].
   String? _detectLanguage(String text, String? originalLanguageCode) {
     if (originalLanguageCode != null && originalLanguageCode.isNotEmpty) {
       return originalLanguageCode.toLowerCase();
     }
-    final lower = ' $text ';
-    final hits =
-        _frenchMarkers.where((marker) => lower.contains(marker)).length;
-    // 3 marqueurs suffisent à considérer le texte comme francophone.
-    return hits >= 3 ? _targetLanguage : null;
+    return isFrench(text) ? _targetLanguage : null;
   }
 
   /// Appel à l'endpoint unofficial Google Translate.
@@ -173,8 +199,7 @@ class SynopsisTranslationService {
       }
       return null;
     } catch (error) {
-      LoggerService.instance
-          .info('SynopsisTranslate indisponible: $error');
+      LoggerService.instance.info('SynopsisTranslate indisponible: $error');
       return null;
     }
   }

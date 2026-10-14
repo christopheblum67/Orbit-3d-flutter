@@ -13,17 +13,24 @@ class TranslatedSynopsisView extends ConsumerWidget {
     super.key,
     required this.title,
     required this.rawSynopsis,
+    this.isSeries = false,
   });
 
   final String title;
   final String rawSynopsis;
+
+  /// Vrai si le contenu est une série : la résolution TMDB passe alors par
+  /// `/search/tv` + `/tv/{id}` (overview fr-FR) au lieu du chemin film.
+  final bool isSeries;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (rawSynopsis.trim().isEmpty) return const SizedBox.shrink();
 
     final async = ref.watch(
-      translatedSynopsisProvider((title: title, raw: rawSynopsis)),
+      translatedSynopsisProvider(
+        (title: title, raw: rawSynopsis, isSeries: isSeries),
+      ),
     );
 
     return async.when(
