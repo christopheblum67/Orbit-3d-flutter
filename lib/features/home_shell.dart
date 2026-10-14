@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -30,13 +31,7 @@ class HomeShell extends ConsumerWidget {
     return Scaffold(
       drawer: isWide ? null : const HomeMenuDrawer(),
       appBar: AppBar(
-        leading: isWide
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.menu_rounded),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                tooltip: 'Menu',
-              ),
+        leading: isWide ? null : const DrawerMenuButton(),
         title: Text(_titleForPath(context, location)),
         actions: [
           _ProfileSwitchButton(profile: profile),
