@@ -88,7 +88,7 @@ void main() {
       final input = [item('2', title: 'b'), item('1', title: 'a')];
       manager.applySort(input, SortMode.nameAsc);
       expect(input.map((e) => e.id), ['2', '1'],
-          reason: 'applySort doit travailler sur une copie');
+          reason: 'applySort doit travailler sur une copie',);
     });
 
     test('titres identiques : tous les items sont conservés', () {
@@ -110,12 +110,35 @@ void main() {
       expect(sorted.map((e) => e.id), ['2', '3', '1']);
     });
 
+    test('ratingAsc est l\'inverse exact de ratingDesc', () {
+      final input = [
+        item('1', rating: 3),
+        item('2', rating: 9),
+        item('3', rating: 5),
+        item('4', rating: 7),
+      ];
+      final desc =
+          manager.applySort(input, SortMode.ratingDesc).map((e) => e.id);
+      final asc = manager.applySort(input, SortMode.ratingAsc).map((e) => e.id);
+      // Notes toutes distinctes : `List.sort` n'étant pas stable, un doublon
+      // (ex. deux notes 9) inverserait l'ordre relatif entre les deux tris.
+      expect(asc, desc.toList().reversed);
+    });
+
     test('yearDesc', () {
       final sorted = manager.applySort(
         [item('1', year: 1999), item('2', year: 2021), item('3', year: 2010)],
         SortMode.yearDesc,
       );
       expect(sorted.map((e) => e.id), ['2', '3', '1']);
+    });
+
+    test('yearAsc remonte les années anciennes (année 0 en tête)', () {
+      final sorted = manager.applySort(
+        [item('1', year: 1999), item('2', year: 0), item('3', year: 2021)],
+        SortMode.yearAsc,
+      );
+      expect(sorted.map((e) => e.id), ['2', '1', '3']);
     });
 
     test('durationShort et durationLong', () {
@@ -148,6 +171,19 @@ void main() {
       expect(sorted.map((e) => e.id), ['3', '2', '1']);
     });
 
+    test('recentlyAddedAsc classe du plus ancien au plus récent', () {
+      final sorted = manager.applySort(
+        [
+          item('1'),
+          item('2', added: DateTime(2024, 5, 1)),
+          item('3', added: DateTime(2025, 1, 1)),
+        ],
+        SortMode.recentlyAddedAsc,
+      );
+      // Les items sans date restent en fin de liste, comme dans le sens inverse.
+      expect(sorted.map((e) => e.id), ['2', '3', '1']);
+    });
+
     test('resumeFirst remonte les vidéos commencées non terminées', () {
       final sorted = manager.applySort(
         [
@@ -161,6 +197,75 @@ void main() {
       // l'item jamais vu en dernier (borne basse epoch).
       expect(sorted.first.id, '2');
       expect(sorted.last.id, '3');
+    });
+  });
+
+  group('sens et inversibilité (bouton ↑/↓)', () {
+    test('chaque critère réversible a un inverse de même critère', () {
+      final pairs = <SortMode, SortMode>{
+        SortMode.nameAsc: SortMode.nameDesc,
+        SortMode.ratingDesc: SortMode.ratingAsc,
+        SortMode.yearDesc: SortMode.yearAsc,
+        SortMode.recentlyAdded: SortMode.recentlyAddedAsc,
+        SortMode.durationShort: SortMode.durationLong,
+        SortMode.affinity: SortMode.affinityAsc,
+      };
+      for (final entry in pairs.entries) {
+        expect(
+          entry.key.reversed,
+          entry.value,
+          reason: '${entry.key} doit s\'inverser en ${entry.value}',
+        );
+        expect(
+          entry.value.reversed,
+          entry.key,
+          reason: '${entry.value} doit s\'inverser en ${entry.key}',
+        );
+        expect(
+          entry.key.criterion,
+          entry.value.criterion,
+          reason: '${entry.key} et ${entry.value} partagent le même critère',
+        );
+      }
+    });
+
+    test('« À reprendre » est le seul critère sans inverse', () {
+      expect(SortMode.resumeFirst.reversed, isNull);
+      for (final mode in SortMode.values) {
+        if (mode != SortMode.resumeFirst) {
+          expect(mode.reversed, isNotNull, reason: '$mode doit être inversible');
+        }
+      }
+    });
+
+    test('le sens annoncé correspond à l\'ordre produit par applySort', () {
+      final byRating = [
+        item('1', rating: 3),
+        item('2', rating: 9),
+      ];
+      final ascIds = manager.applySort(byRating, SortMode.ratingAsc)
+          .map((e) => e.id)
+          .toList();
+      expect(SortMode.ratingAsc.isAscending, isTrue);
+      expect(ascIds, ['1', '2']);
+      final descIds = manager.applySort(byRating, SortMode.ratingDesc)
+          .map((e) => e.id)
+          .toList();
+      expect(SortMode.ratingDesc.isAscending, isFalse);
+      expect(descIds, ['2', '1']);
+    });
+
+    test('criterion réduit chaque sens au même représentant', () {
+      expect(SortMode.nameDesc.criterion, SortMode.nameDesc);
+      expect(SortMode.nameAsc.criterion, SortMode.nameDesc);
+      expect(SortMode.affinityAsc.criterion, SortMode.affinity);
+      expect(SortMode.resumeFirst.criterion, SortMode.resumeFirst);
+    });
+
+    test('isAlphabetical ne concerne que les modes triés par titre', () {
+      expect(SortMode.nameAsc.isAlphabetical, isTrue);
+      expect(SortMode.nameDesc.isAlphabetical, isTrue);
+      expect(SortMode.ratingDesc.isAlphabetical, isFalse);
     });
   });
 }

@@ -3,16 +3,95 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Types de tri disponibles
+/// Types de tri disponibles.
+///
+/// Chaque critère (nom, note, année, date d'ajout, durée, affinité) n'existe
+/// qu'en une entrée dans la liste de choix : le sens se règle avec le bouton
+/// ↑/↓ de la barre d'outils (`SortModeDirection.reversed`), au lieu
+/// d'apparaître comme deux options distinctes dans le menu.
 enum SortMode {
   nameAsc, // A -> Z
   nameDesc, // Z -> A
   ratingDesc, // Mieux notés (XCIPTV)
+  ratingAsc, // Moins bien notés d'abord
   yearDesc, // Plus récents par année de sortie
+  yearAsc, // Années anciennes d'abord
   recentlyAdded, // Ajoutés récemment à la liste
+  recentlyAddedAsc, // Ajoutés le plus anciennement d'abord
   resumeFirst, // Intuitif : À reprendre en priorité
   durationShort, // Durée : Plus courts d'abord
   durationLong, // Durée : Plus longs d'abord
+  affinity, // Affinité matchmaking : score du profil, ordre décroissant
+  affinityAsc, // Affinité matchmaking : score du profil, ordre croissant
+}
+
+/// Sens d'un mode de tri et possibilité de l'inverser.
+///
+/// Le bouton ↑/↓ de la barre d'outils lit ces trois getters :
+/// `reversed` dit quoi appliquer au clic (`null` ⇒ bouton désactivé),
+/// `isAscending` dit quelle flèche afficher, `criterion` réduit le mode au
+/// critère seul pour marquer l'entrée active de la liste de choix (mode
+/// `yearAsc` ⇒ l'entrée « Par année » est active).
+extension SortModeDirection on SortMode {
+  /// Mode de même critère dans le sens opposé, `null` si le critère n'est pas
+  /// inversible.
+  ///
+  /// « À reprendre » n'a pas d'inverse : son ordre est « commencés non
+  /// terminés d'abord, puis les plus récemment vus ». Le retourner mettrait
+  /// les contenus jamais lancés en tête et viderait le critère de son sens.
+  SortMode? get reversed => switch (this) {
+        SortMode.nameAsc => SortMode.nameDesc,
+        SortMode.nameDesc => SortMode.nameAsc,
+        SortMode.ratingDesc => SortMode.ratingAsc,
+        SortMode.ratingAsc => SortMode.ratingDesc,
+        SortMode.yearDesc => SortMode.yearAsc,
+        SortMode.yearAsc => SortMode.yearDesc,
+        SortMode.recentlyAdded => SortMode.recentlyAddedAsc,
+        SortMode.recentlyAddedAsc => SortMode.recentlyAdded,
+        SortMode.durationShort => SortMode.durationLong,
+        SortMode.durationLong => SortMode.durationShort,
+        SortMode.affinity => SortMode.affinityAsc,
+        SortMode.affinityAsc => SortMode.affinity,
+        SortMode.resumeFirst => null,
+      };
+
+  /// Vrai si le mode classe du plus petit au plus grand sur son critère.
+  bool get isAscending => switch (this) {
+        SortMode.nameAsc ||
+        SortMode.ratingAsc ||
+        SortMode.yearAsc ||
+        SortMode.recentlyAddedAsc ||
+        SortMode.durationShort ||
+        SortMode.affinityAsc =>
+          true,
+        SortMode.nameDesc ||
+        SortMode.ratingDesc ||
+        SortMode.yearDesc ||
+        SortMode.recentlyAdded ||
+        SortMode.durationLong ||
+        SortMode.affinity ||
+        SortMode.resumeFirst =>
+          false,
+      };
+
+  /// Critère seul, sans le sens : deux modes de même critère partagent le même
+  /// `criterion` (ex. `yearDesc` et `yearAsc` ⇒ `yearDesc`).
+  SortMode get criterion => switch (this) {
+        SortMode.nameAsc || SortMode.nameDesc => SortMode.nameDesc,
+        SortMode.ratingDesc || SortMode.ratingAsc => SortMode.ratingDesc,
+        SortMode.yearDesc || SortMode.yearAsc => SortMode.yearDesc,
+        SortMode.recentlyAdded ||
+        SortMode.recentlyAddedAsc =>
+          SortMode.recentlyAdded,
+        SortMode.durationShort || SortMode.durationLong => SortMode.durationShort,
+        SortMode.affinity || SortMode.affinityAsc => SortMode.affinity,
+        SortMode.resumeFirst => SortMode.resumeFirst,
+      };
+
+  /// Vrai si le tri est piloté par le titre plutôt que par une métadonnée
+  /// (note, année, …). Ces modes vivent sur le bouton A→Z, pas dans la liste.
+  bool get isAlphabetical =>
+      this == SortMode.nameAsc || this == SortMode.nameDesc;
 }
 
 /// Epoch utilisé comme borne basse des dates de lecture, hors comparateur.
@@ -103,14 +182,12 @@ class MediaItem {
 class MediaLibraryManager extends ChangeNotifier {
   static const String _historyKey = 'orbit_recently_watched';
 
-  List<MediaItem> _allItems = [];
   List<MediaItem> _historyItems = [];
 
   List<MediaItem> get recentlyWatched => _historyItems;
 
   /// Initialisation et chargement du stockage local
   Future<void> init(List<MediaItem> rawPlaylist) async {
-    _allItems = rawPlaylist;
     final prefs = await SharedPreferences.getInstance();
 
     // Historique des contenus regardés.
@@ -171,7 +248,7 @@ class MediaLibraryManager extends ChangeNotifier {
       ];
       keyed.sort(mode == SortMode.nameAsc
           ? (a, b) => a.$2.compareTo(b.$2)
-          : (a, b) => b.$2.compareTo(a.$2));
+          : (a, b) => b.$2.compareTo(a.$2),);
       return [for (final e in keyed) e.$1];
     }
 
@@ -186,8 +263,14 @@ class MediaLibraryManager extends ChangeNotifier {
       case SortMode.ratingDesc:
         sorted.sort((a, b) => b.rating.compareTo(a.rating));
         break;
+      case SortMode.ratingAsc:
+        sorted.sort((a, b) => a.rating.compareTo(b.rating));
+        break;
       case SortMode.yearDesc:
         sorted.sort((a, b) => b.releaseYear.compareTo(a.releaseYear));
+        break;
+      case SortMode.yearAsc:
+        sorted.sort((a, b) => a.releaseYear.compareTo(b.releaseYear));
         break;
       case SortMode.recentlyAdded:
         // Les items sans date d'ajout (panel qui n'envoie pas `added`) passent
@@ -199,6 +282,18 @@ class MediaLibraryManager extends ChangeNotifier {
           if (da == null) return 1;
           if (db == null) return -1;
           return db.compareTo(da);
+        });
+        break;
+      case SortMode.recentlyAddedAsc:
+        // Même politique pour les dates absentes : une date inconnue n'est pas
+        // une date ancienne, elle reste en fin de liste dans les deux sens.
+        sorted.sort((a, b) {
+          final da = a.addedDate;
+          final db = b.addedDate;
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
         });
         break;
       case SortMode.resumeFirst:
@@ -218,6 +313,14 @@ class MediaLibraryManager extends ChangeNotifier {
         break;
       case SortMode.durationLong:
         sorted.sort((a, b) => b.durationMinutes.compareTo(a.durationMinutes));
+        break;
+      case SortMode.affinity:
+      case SortMode.affinityAsc:
+        // Jamais atteint par les écrans Films/Séries : ils interceptent ces
+        // modes AVANT `applySort` et trient avec le score matchmaking
+        // (`ProfileAffinityScorer`, sur le genre TMDB corrigé). Repli défensif
+        // ici (écran Parcourir) : la note reste le meilleur signal sans profil.
+        sorted.sort((a, b) => b.rating.compareTo(a.rating));
         break;
     }
     return sorted;
