@@ -644,7 +644,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             textCapitalization: TextCapitalization.words,
             inputFormatters: [
               FilteringTextInputFormatter.allow(
-                RegExp(r"[\p{L}\p{N}\p{M}'\-\s]"), // lettres (toutes), chiffres, accents, apostrophe, tiret, espace
+                RegExp(r"[\p{L}\p{N}\p{M}'\-\s]", unicode: true),
               ),
               LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
             ],

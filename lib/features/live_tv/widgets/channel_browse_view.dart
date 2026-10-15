@@ -499,8 +499,9 @@ class _EpgList extends ConsumerWidget {
   /// `true` sur les écrans étroits : une ligne compacte, sans description.
   final bool dense;
 
-  /// Nombre de programmes affichés, indépendamment de leur durée.
-  static const int _maxPrograms = 2;
+  /// Nombre de programmes affichés (prochains à venir, passé écarté).
+  /// 4 à 5 selon la demande : assez pour voir la soirée sans noyer l'aperçu.
+  static const int _maxPrograms = 5;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -581,7 +582,7 @@ class _EpgRow extends StatelessWidget {
       color: isCurrent ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
       padding: EdgeInsets.symmetric(
         horizontal: 10,
-        vertical: dense ? 7 : 10,
+        vertical: dense ? 5 : 7,
       ),
       child: Row(
         children: [

@@ -1420,16 +1420,32 @@ class ApiService {
   /// concurrents à 3 : ce réglage ne gouverne que la sonde.
   static const int _probeConcurrency = 2;
 
-  /// Fenêtre de repli quand le panneau ne déclare aucune durée d'archive
-  /// (`catchup-days` / `tv_archive_duration` absents).
-  static const Duration _replayWindow = Duration(hours: 48);
+  /// Durée de rétroactivité de repli, en jours, quand le panneau ne déclare
+  /// AUCUNE durée d'archive (`catchup-days` / `tv_archive_duration` absents
+  /// ou à 0).
+  ///
+  /// **Source unique** : le Replay ([archiveWindow]) et le rattrapage depuis
+  /// l'EPG (`channelCatchUpProvider`) passent tous les deux par
+  /// [effectiveArchiveDays]. Ils divergeaient auparavant — 48 h d'un côté,
+  /// 7 j de l'autre — si bien qu'un même programme pouvait être rejouable sur
+  /// un écran et pas sur l'autre.
+  ///
+  /// 14 jours : la durée de l'abonnement de référence, la plus large observée.
+  /// Ce repli n'invente rien, le serveur reste le vrai limiteur : un panneau
+  /// qui conserve moins ne renvoie que ce qu'il a.
+  static const int fallbackArchiveDays = 14;
+
+  /// Le même repli, en [Duration], pour les filtres qui comparent des instants.
+  static const Duration fallbackArchiveWindow =
+      Duration(days: fallbackArchiveDays);
 
   /// Nombre d'entrées demandées à ``get_short_epg``.
   ///
-  /// Un programme TV dure en moyenne 30 à 90 minutes : 48 h de replay
-  /// représentent 40 à 100 programmes selon la chaîne. On demande 100 pour
-  /// couvrir la fenêtre entière, quitte à ce que le panel en renvoie moins.
-  static const int _replayLimit = 100;
+  /// Couvre la fenêtre de repli (14 j) à raison d'un programme par heure au
+  /// plus dense : 14 × 24 = 336, arrondi à 400. Le paramètre est de toute
+  /// façon souvent ignoré par les panels (retour observé : 4 entrées pour
+  /// `limit=100`) ; c'est un plafond de demande, pas une garantie.
+  static const int _replayLimit = 400;
 
   /// Construit les replays à partir de l'**EPG global** déjà téléchargé.
   ///
@@ -1482,7 +1498,7 @@ class ApiService {
         continue;
       }
       // Fenêtre propre à la chaîne : `catchup-days` de l'abonnement quand le
-      // provider le déclare, 48 h sinon.
+      // provider le déclare, repli partagé (14 j) sinon.
       if (now.difference(p.start) > archiveWindow(channel)) continue;
 
       final startEpoch = p.start.millisecondsSinceEpoch ~/ 1000;
@@ -2025,19 +2041,26 @@ class ApiService {
     );
   }
 
-  /// Fenêtre de rétroactivité d'une chaîne.
+  /// Durée de rétroactivité EFFECTIVE d'une chaîne, en jours.
   ///
-  /// `catchup-days` / `tv_archive_duration` est la durée réelle annoncée par
-  /// l'abonnement — 48 h, 7 jours, 14 jours selon le compte. On la respecte
-  /// telle quelle : la plafonner en dur à 48 h bridait le Replay des comptes
-  /// 7/14 j alors que le serveur sert bel et bien l'historique (constat terrain,
-  /// et c'est ce que fait XCIPTV). Le 48 h ne sert plus que de repli quand le
-  /// panel ne déclare aucune durée — ce qui explique l'écart entre les deux :
-  /// le vrai plafond était la SOURCE d'EPG (`get_short_epg`), pas cette fenêtre.
-  static Duration archiveWindow(Channel channel) {
-    if (channel.archiveDays > 0) return Duration(days: channel.archiveDays);
-    return _replayWindow;
-  }
+  /// Seul endroit qui tranche : la durée réellement annoncée par l'abonnement
+  /// (`catchup-days` / `tv_archive_duration`) quand elle existe — 48 h, 7 j,
+  /// 14 j selon le compte — sinon le repli partagé [fallbackArchiveDays].
+  ///
+  /// La respecter telle quelle est délibéré : la plafonner en dur bridait le
+  /// Replay des comptes 7/14 j alors que le serveur sert bel et bien
+  /// l'historique (constat terrain, et c'est ce que fait XCIPTV). Et parce que
+  /// le Replay comme le rattrapage EPG passent par ici, la divergence
+  /// historique 48 h / 7 j est impossible par construction.
+  static int effectiveArchiveDays(Channel channel) =>
+      channel.archiveDays > 0 ? channel.archiveDays : fallbackArchiveDays;
+
+  /// Fenêtre de rétroactivité d'une chaîne, en [Duration].
+  ///
+  /// Simple projection de [effectiveArchiveDays] : aucun filtre ne doit
+  /// recalculer la règle lui-même.
+  static Duration archiveWindow(Channel channel) =>
+      Duration(days: effectiveArchiveDays(channel));
 
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
   Future<List<ReplayItem>> _fetchChannelReplayPrograms({
