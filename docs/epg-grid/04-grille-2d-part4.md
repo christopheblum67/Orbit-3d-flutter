@@ -8,11 +8,29 @@ Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/wi
 
 ### 4.1 `EpgGrid2dView` — la grille — suite 4/4
 
-`lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1566
+`lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1593
 
 #### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1400 · partie 1/2
 
 ```dart
+      valueListenable: controller.gridOffset,
+      builder: (context, offset, _) {
+        return ValueListenableBuilder<DateTime>(
+          valueListenable: controller.now,
+          builder: (context, now, _) {
+            final x = nowLineX(
+              channelWidth: channelWidth,
+              timePixels: controller.timeToPixels(now),
+              offset: offset,
+            );
+
+            // Mesure du décalage, et non plus supposition.
+            //
+            // « La ligne rouge n'est pas à la bonne heure » a resistsé à une
+            // correction : la ligne et la frise partageaient déjà le même
+            // contrôleur. Reste à savoir de combien elles divergent, et dans
+            // quel sens — sans nombre, tout correctif suivant serait une
+            // hypothèse de plus.
             //
             // On relit l'heure que la frise affichera à cette position x, via
             // la conversion aller-retour, en retirant la colonne des noms que
@@ -162,8 +180,13 @@ class _EpgGridPainter extends CustomPainter {
     if (pos == null) return null;
     if (pos.dy < 0 || pos.dy > rowHeight) return null;
     final ch = channels[channelIndex];
+    // `pos.dx` est relatif au canvas de la ligne (tranche visible), alors que
+    // `rp.left` est ABSOLU depuis minuit : sans cette conversion, la
+    // surbrillance suivait le programme situé à la même abscisse près de
+    // minuit au lieu de celui sous le pointeur.
+    final absolute = pos.dx + (horizontalOffset?.value ?? 0.0);
     for (final rp in renderCacheOf()[ch] ?? const <_RenderProgram>[]) {
-      if (pos.dx >= rp.left && pos.dx < rp.left + rp.width) {
+      if (absolute >= rp.left && absolute < rp.left + rp.width) {
         return rp;
       }
     }
@@ -186,10 +209,15 @@ class _EpgGridPainter extends CustomPainter {
     canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), linePaint);
 
     final (cullMin, cullMax) = _cullRange;
-    // Translation : les positions sont absolues dans la journée (0 → 5760 px),
-    // le canvas ne montre que la tranche visible.
-    final shift = -(horizontalOffset?.value ?? 0.0);
+    // Positions absolues dans la journée (0 → 5760 px) : le canvas ne montre
+    // que la tranche visible, donc on les ramène à l'écran via `screenXFor`.
+    final screenOffset = horizontalOffset?.value ?? 0.0;
     final hovered = _resolveHovered(touchPosition?.value);
+```
+
+#### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1401–1593 · partie 2/2
+
+```dart
 
     final ch = channels[channelIndex];
     final programs = renderCacheOf()[ch] ?? const <_RenderProgram>[];
@@ -204,20 +232,19 @@ class _EpgGridPainter extends CustomPainter {
         final width = rp.width;
         if (left + width < cullMin || left > cullMax) continue;
 
+        // Abscisse ÉCRAN du bord gauche du bloc : partagée par le fond, le
+        // titre et le badge REPLAY (source unique `screenXFor`).
+        final screenLeft = screenXFor(left, screenOffset);
+
         final isHovered = rp == hovered;
         final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(left + shift, y, width, h),
+          Rect.fromLTWH(screenLeft, y, width, h),
           const Radius.circular(6),
         );
 
         // Un bloc de trou n'est pas un programme : il doit se lire comme une
         // absence de données, pas comme une émission sans titre. Fond vide,
         // bordure discrète, texte attenué.
-```
-
-#### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1401–1566 · partie 2/2
-
-```dart
         final isDummy = rp.program.isDummy;
         final bgPaint = Paint()
           ..color = isDummy
@@ -281,7 +308,7 @@ class _EpgGridPainter extends CustomPainter {
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(rp.left + kTitlePaddingH, y + (h - textPainter.height) / 2),
+            Offset(screenLeft + kTitlePaddingH, y + (h - textPainter.height) / 2),
           );
         }
 
@@ -313,7 +340,7 @@ class _EpgGridPainter extends CustomPainter {
           replayPainter.paint(
             canvas,
             Offset(
-              rp.left + rp.width - replayPainter.width - 6,
+              screenLeft + rp.width - replayPainter.width - 6,
               y + h - 14,
             ),
           );

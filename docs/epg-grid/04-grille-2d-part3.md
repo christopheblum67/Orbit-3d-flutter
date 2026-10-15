@@ -270,6 +270,24 @@ double programWidthPx(int durationMinutes, double pixelsPerMinute) {
   return raw < kMinProgramBlockWidth ? kMinProgramBlockWidth : raw;
 }
 
+/// Abscisse ÉCRAN (0 = bord gauche du canvas de la ligne) d'une position
+/// ABSOLUE de la journée.
+///
+/// Le canvas de chaque ligne ne montre qu'une tranche de la journée : toute
+/// abscisse issue de [programLeftPx] (donc relative à minuit, jusqu'à 5760 px)
+/// doit passer par ici avant d'être dessinée.
+///
+/// Oublier cet appel — le défaut qui touchait le titre et le badge « REPLAY » —
+/// peignait le texte à sa position absolue, hors du canvas dès que la grille
+/// est défilée : les blocs restaient visibles mais vides de texte, ce qui se
+/// lisait comme « aucun programme dans la grille ».
+///
+/// Source unique : fond, titre et badge appellent cette fonction, donc ils ne
+/// peuvent plus diverger.
+@visibleForTesting
+double screenXFor(double absolutePx, double horizontalOffset) =>
+    absolutePx - horizontalOffset;
+
 /// Abscisse de départ de l'axe des heures.
 @visibleForTesting
 double axisLeftInset() => kChannelWidth;
@@ -400,22 +418,4 @@ class _NowLineOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
-      valueListenable: controller.gridOffset,
-      builder: (context, offset, _) {
-        return ValueListenableBuilder<DateTime>(
-          valueListenable: controller.now,
-          builder: (context, now, _) {
-            final x = nowLineX(
-              channelWidth: channelWidth,
-              timePixels: controller.timeToPixels(now),
-              offset: offset,
-            );
-
-            // Mesure du décalage, et non plus supposition.
-            //
-            // « La ligne rouge n'est pas à la bonne heure » a resistsé à une
-            // correction : la ligne et la frise partageaient déjà le même
-            // contrôleur. Reste à savoir de combien elles divergent, et dans
-            // quel sens — sans nombre, tout correctif suivant serait une
-            // hypothèse de plus.
 ```
