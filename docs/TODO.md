@@ -2,7 +2,7 @@
 
 > Fichier unique de suivi. Une ligne = une tâche vérifiable.
 > Statuts : `[ ]` à faire · `[~]` en cours · `[x]` fait (à valider) · `[X]` validé sur appareil.
-> Dernière mise à jour : 2026-10-13.
+> Dernière mise à jour : 2026-10-15.
 
 ---
 
@@ -53,6 +53,12 @@
       → `StreamSubtitleTracksService._toLanguages` **dédupliquait par code langue** et collait au survivant le libellé de la **dernière** piste (`Français (SDH)`, `English [Original] (SDH)`) : l'utilisateur lisait « 3 options » face aux 6 du lecteur. Remplacé par `_toTrackChoices` (**une entrée par piste**, valeur = libellé, `Map` pour dédupliquer sans violer l'assertion `DropdownButton` sur valeurs dupliquées) ; nouveau `pickEmbeddedSubtitleTrackForPreference` (libellé exact → nom de langue traduit → code langue, pour les préférences enregistrées avant ce changement) ; items du menu complétés par la préférence mémorisée quand la sonde courante ne la contient pas (sinon assertion → crash de l'écran série). Tests : `embedded_subtitle_pick_test` (+5).
 
 État : `flutter analyze <fichiers touchés>` → « No issues found! », **suite complète 915 verts**, build release installé et validé sur le S20.
+
+## 2 quater. Chantiers du 15/10 — artefacts d'encodage, lecture locale, aperçu live
+
+- [ ] **Aperçu live — étendre l'EPG à 4-5 programmes** — *Demande (15/10)* : « étendre le programme EPG à 4-5 programmes dans l'aperçu live ».
+      Aujourd'hui `_EpgList` (`lib/features/live_tv/widgets/channel_browse_view.dart`) est **borné à `_maxPrograms = 2`** (programme en cours + suivant), à cause d'une hauteur contrainte dans la maquette à deux zones (voir commentaire l. 174-177 : « les deux programmes EPG passaient sous le bord de l'écran »).
+      Attend : lister les **4 à 5 prochains programmes** (en écartant le passé), en rendant la liste **défilable** et/ou en densifiant les lignes pour tenir dans la zone allouée, sans repousser la vidéo hors écran.
 
 ## 3. Chantiers en cours (issus du plan précédent)
 
