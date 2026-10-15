@@ -6,7 +6,7 @@
 
 Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/widgets/epg_row_diagnostics.dart`
 
-### 4.1 `EpgGrid2dView` — la grille — suite 2/4
+### 4.1 `EpgGrid2dView` — la grille — suite 2/5
 
 `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 401–800
 

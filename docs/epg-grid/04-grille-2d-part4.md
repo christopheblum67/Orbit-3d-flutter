@@ -6,13 +6,34 @@
 
 Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/widgets/epg_row_diagnostics.dart`
 
-### 4.1 `EpgGrid2dView` — la grille — suite 4/4
+### 4.1 `EpgGrid2dView` — la grille — suite 4/5
 
-`lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1593
+`lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1600
 
 #### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1201–1400 · partie 1/2
 
 ```dart
+  const _NowLineOverlay({
+    required this.controller,
+    required this.channelWidth,
+  });
+
+  /// Source unique de vérité pour l'heure, l'échelle et le décalage.
+  ///
+  /// L'overlay lisait ses propres champs (`gridStartTime`, `pixelsPerMinute`,
+  /// `horizontalOffset`) alors que la frise lit le contrôleur. Les deux
+  /// divergeaient : le zoom change `pixelsPerMinute` dans le contrôleur, et le
+  /// défilement écrit dans `gridOffset` — donc la ligne rouge n'était plus
+  /// alignée sur la pastille de l'heure réelle. En repassant par le contrôleur,
+  /// les deux affichages ne peuvent plus diverger.
+  final EpgTimelineController controller;
+
+  /// Largeur de la colonne des noms, traversée par la ligne.
+  final double channelWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
       valueListenable: controller.gridOffset,
       builder: (context, offset, _) {
         return ValueListenableBuilder<DateTime>(
@@ -136,6 +157,12 @@ class _EpgGridPainter extends CustomPainter {
   /// elle qui supprime l'empreinte mémoire délirante.
   final int channelIndex;
 
+  /// Libellé « en direct », résolu par l'écran (`epgLiveNow`).
+  ///
+  /// Le painter n'a pas de `BuildContext` : le texte est lu dans le `build` puis
+  /// passé ici, pour que l'indicateur suive la langue de l'application.
+  final String liveLabel;
+
   /// Lecture différée du cache de rendu.
   ///
   /// Le painter ne reçoit pas la map : il la lit au moment du paint. Capturer
@@ -152,6 +179,7 @@ class _EpgGridPainter extends CustomPainter {
     required this.channelWidth,
     required this.viewportWidth,
     required this.channelIndex,
+    required this.liveLabel,
     required this.horizontalOffset,
     required this.touchPosition,
     required this.dataRevision,
@@ -185,6 +213,11 @@ class _EpgGridPainter extends CustomPainter {
     // surbrillance suivait le programme situé à la même abscisse près de
     // minuit au lieu de celui sous le pointeur.
     final absolute = pos.dx + (horizontalOffset?.value ?? 0.0);
+```
+
+#### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1401–1600 · partie 2/2
+
+```dart
     for (final rp in renderCacheOf()[ch] ?? const <_RenderProgram>[]) {
       if (absolute >= rp.left && absolute < rp.left + rp.width) {
         return rp;
@@ -213,11 +246,6 @@ class _EpgGridPainter extends CustomPainter {
     // que la tranche visible, donc on les ramène à l'écran via `screenXFor`.
     final screenOffset = horizontalOffset?.value ?? 0.0;
     final hovered = _resolveHovered(touchPosition?.value);
-```
-
-#### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1401–1593 · partie 2/2
-
-```dart
 
     final ch = channels[channelIndex];
     final programs = renderCacheOf()[ch] ?? const <_RenderProgram>[];
@@ -283,14 +311,54 @@ class _EpgGridPainter extends CustomPainter {
           canvas.drawRRect(rect, borderPaint);
         }
 
-        // Titre du programme, adapté au bloc.
+        // Contenu du bloc : pastille « en direct », puis éventuellement son
+        // libellé, puis le titre — tous posés SÉQUENTIELLEMENT depuis la
+        // gauche. C'est la correction du défaut d'origine : « DIRECT » et le
+        // titre partageaient la même abscisse (`rp.left + 6`) et se
+        // recouvraient, le titre passant toujours au-dessus.
+        var contentLeft = screenLeft + kTitlePaddingH;
+        if (rp.isLive && !isDummy) {
+          final centerY = y + h / 2;
+          canvas.drawCircle(
+            Offset(contentLeft + kLiveDotRadius, centerY),
+            kLiveDotRadius,
+            Paint()..color = kLiveIndicatorColor,
+          );
+          contentLeft += kLiveDotRadius * 2 + kLiveDotGap;
+          // Le libellé n'est écrit que si le bloc peut le porter sans écraser
+          // le titre : en dessous de [kLiveLabelMinWidth], la pastille suffit à
+          // dire « en direct ».
+          if (rp.width >= kLiveLabelMinWidth) {
+            final livePainter = TextPainter(
+              text: TextSpan(
+                text: liveLabel,
+                style: const TextStyle(
+                  color: kLiveIndicatorColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              textDirection: TextDirection.ltr,
+              maxLines: 1,
+            )..layout();
+            livePainter.paint(
+              canvas,
+              Offset(contentLeft, centerY - livePainter.height / 2),
+            );
+            contentLeft += livePainter.width + kLiveDotGap;
+          }
+        }
+
+        // Titre du programme, adapté à la place restante.
         //
         // Le seuil est dérivé de la marge intérieure : il faut de la place pour
         // au moins quelques caractères, sinon n'écrire rien. L'ancien
         // `width > 26` produisait deux défauts opposés — du texte broyé entre
         // 26 et 38 px, et un bloc totalement vide en dessous, ce qui se lisait
         // comme une description disparue au défilement.
-        final textMaxWidth = rp.width - kTitlePaddingH * 2;
+        final textMaxWidth =
+            screenLeft + rp.width - kTitlePaddingH - contentLeft;
         if (textMaxWidth >= kTitleMinReadableWidth) {
           final textPainter = TextPainter(
             text: TextSpan(
@@ -308,19 +376,9 @@ class _EpgGridPainter extends CustomPainter {
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(screenLeft + kTitlePaddingH, y + (h - textPainter.height) / 2),
+            Offset(contentLeft, y + (h - textPainter.height) / 2),
           );
         }
-
-        // Indicateur « en direct », volontairement absent.
-//
-// Il partageait la position du titre (`rp.left + 6`) : sur un bloc étroit,
-// deux `TextPainter` se disputaient le même pixel, et le titre passait en
-// premier — donc « DIRECT » disparaissait. Ce qui se lisait comme une
-// information manquante au défilement.
-//
-// L'information reste disponible ailleurs : la ligne rouge donne l'heure
-// courante, et le mini-lecteur donne le titre du programme en cours.
 
         // Badge "replay" pour les programmes terminés des chaînes DVR
         if (rp.replayable && rp.width > 34) {
@@ -360,55 +418,4 @@ class _EpgGridPainter extends CustomPainter {
             text: 'Aucune donnée de programme',
             style: TextStyle(
               color: Color(0xFF5A6273),
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
-        if (cullMin <= 8 && emptyPainter.width > 0) {
-          emptyPainter.paint(
-              canvas, Offset(8, y + (h - emptyPainter.height) / 2),);
-        }
-      }
-    }
-
-    // La ligne « maintenant » n'est PAS tracée ici.
-//
-// Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
-// aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
-// signification. Elle est désormais peinte une seule fois, par-dessus toute la
-// grille, dans `_NowLineOverlay`.
-  }
-
-  /// Rectangle à bordure pointillée, pour les blocs de trou.
-  ///
-  /// `Paint` n'a pas de style pointillé : on trace donc le chemin segment par
-  /// segment. Le motif dit « il n'y a rien ici » sans se confondre avec les
-  /// programmes voisins.
-  void _drawDashedRect(Canvas canvas, RRect rect, Paint paint) {
-    final path = Path()..addRRect(rect.deflate(0.5));
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = (distance + 4).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance = end + 3;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _EpgGridPainter old) {
-    // La map n'est plus capturée : c'est [dataRevision] qui arbitre, et il est
-    // déjà écouté via `repaint`. On ne compare donc plus l'identité d'une map
-    // — deux painters successifs lisaient la même instance, et l'égalité
-    // disait « rien à repeindre » alors que son contenu venait de changer.
-    if (old.dataRevision != dataRevision) return true;
-    return old.gridStartTime != gridStartTime ||
-        old.pixelsPerMinute != pixelsPerMinute ||
-        old.viewportWidth != viewportWidth ||
-        old.channelIndex != channelIndex;
-  }
-}
 ```

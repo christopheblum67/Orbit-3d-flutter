@@ -6,6 +6,66 @@
 
 Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/widgets/epg_row_diagnostics.dart`
 
+### 4.1 `EpgGrid2dView` — la grille — suite 5/5
+
+`lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1601–1651
+
+#### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1601–1651 · partie 1/1
+
+```dart
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
+        if (cullMin <= 8 && emptyPainter.width > 0) {
+          emptyPainter.paint(
+              canvas, Offset(8, y + (h - emptyPainter.height) / 2),);
+        }
+      }
+    }
+
+    // La ligne « maintenant » n'est PAS tracée ici.
+    //
+    // Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
+    // aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
+    // signification. Elle est désormais peinte une seule fois, par-dessus toute la
+    // grille, dans `_NowLineOverlay`.
+  }
+
+  /// Rectangle à bordure pointillée, pour les blocs de trou.
+  ///
+  /// `Paint` n'a pas de style pointillé : on trace donc le chemin segment par
+  /// segment. Le motif dit « il n'y a rien ici » sans se confondre avec les
+  /// programmes voisins.
+  void _drawDashedRect(Canvas canvas, RRect rect, Paint paint) {
+    final path = Path()..addRRect(rect.deflate(0.5));
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = (distance + 4).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance = end + 3;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EpgGridPainter old) {
+    // La map n'est plus capturée : c'est [dataRevision] qui arbitre, et il est
+    // déjà écouté via `repaint`. On ne compare donc plus l'identité d'une map
+    // — deux painters successifs lisaient la même instance, et l'égalité
+    // disait « rien à repeindre » alors que son contenu venait de changer.
+    if (old.dataRevision != dataRevision) return true;
+    return old.gridStartTime != gridStartTime ||
+        old.pixelsPerMinute != pixelsPerMinute ||
+        old.viewportWidth != viewportWidth ||
+        old.channelIndex != channelIndex;
+  }
+}
+```
+
 ### 4.2 `epg_row_diagnostics` — diagnostics de ligne
 
 `lib/features/epg/widgets/epg_row_diagnostics.dart` · lignes 1–86

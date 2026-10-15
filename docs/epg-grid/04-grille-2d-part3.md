@@ -6,7 +6,7 @@
 
 Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/widgets/epg_row_diagnostics.dart`
 
-### 4.1 `EpgGrid2dView` — la grille — suite 3/4
+### 4.1 `EpgGrid2dView` — la grille — suite 3/5
 
 `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 801–1200
 
@@ -163,6 +163,7 @@ Sources : `lib/features/epg/widgets/epg_grid_2d_view.dart`, `lib/features/epg/wi
                                       channelWidth: channelWidth,
                                       viewportWidth: viewportWidth,
                                       channelIndex: index,
+                                      liveLabel: l.epgLiveNow,
                                       horizontalOffset: _horizontalOffset,
                                       touchPosition: _hoverPosition,
                                       dataRevision: _dataRevision,
@@ -212,12 +213,12 @@ const double kChannelWidth = 140.0;
 const double kTitlePaddingH = 6.0;
 
 /// Largeur minimale pour écrire un titre, une fois la marge retirée.
-///
 ```
 
 #### `lib/features/epg/widgets/epg_grid_2d_view.dart` · lignes 1001–1200 · partie 2/2
 
 ```dart
+///
 /// En dessous, `TextPainter` ne produit qu'une colonne de lettres broyées :
 /// plus illisible que rien du tout. Le seuil historique (`width > 26`)
 /// laissait passer des blocs de 26 à 38 px pour lesquels `maxWidth` tombait
@@ -242,6 +243,26 @@ double cullMarginFor(double pixelsPerMinute) => pixelsPerMinute * 60.0;
 /// centaines.
 @visibleForTesting
 const double kMinProgramBlockWidth = 4.0;
+
+/// Couleur de l'indicateur « en direct ».
+///
+/// Alignée sur la ligne « maintenant » (`#FF5252`) : les deux désignent le même
+/// instant, ils doivent se lire comme un seul repère.
+const Color kLiveIndicatorColor = Color(0xFFFF5252);
+
+/// Rayon de la pastille « en direct », en px logiques.
+const double kLiveDotRadius = 3.0;
+
+/// Espace entre la pastille, le libellé et le titre, en px logiques.
+const double kLiveDotGap = 4.0;
+
+/// Largeur de bloc à partir de laquelle le libellé « en direct » est écrit.
+///
+/// En dessous, seule la pastille reste : écrire le libellé dans un bloc trop
+/// étroit écraserait le titre — c'était exactement le défaut d'origine, où
+/// « DIRECT » et le titre partageaient la même abscisse et le titre gagnait
+/// toujours.
+const double kLiveLabelMinWidth = 72.0;
 
 /// Abscisse du bord gauche d'un bloc, en px, dans le repère [gridStartTime].
 ///
@@ -397,25 +418,4 @@ double nowLineX({
     channelWidth + timePixels - offset;
 
 class _NowLineOverlay extends StatelessWidget {
-  const _NowLineOverlay({
-    required this.controller,
-    required this.channelWidth,
-  });
-
-  /// Source unique de vérité pour l'heure, l'échelle et le décalage.
-  ///
-  /// L'overlay lisait ses propres champs (`gridStartTime`, `pixelsPerMinute`,
-  /// `horizontalOffset`) alors que la frise lit le contrôleur. Les deux
-  /// divergeaient : le zoom change `pixelsPerMinute` dans le contrôleur, et le
-  /// défilement écrit dans `gridOffset` — donc la ligne rouge n'était plus
-  /// alignée sur la pastille de l'heure réelle. En repassant par le contrôleur,
-  /// les deux affichages ne peuvent plus diverger.
-  final EpgTimelineController controller;
-
-  /// Largeur de la colonne des noms, traversée par la ligne.
-  final double channelWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<double>(
 ```
