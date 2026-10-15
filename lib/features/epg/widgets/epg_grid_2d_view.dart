@@ -432,10 +432,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     return 1.0;
   }
 
-  double _getOffsetForTime(DateTime time) {
-    final diffInMinutes = time.difference(_gridStartTime).inSeconds / 60.0;
-    return diffInMinutes * _pixelsPerMinute;
-  }
+  double _getOffsetForTime(DateTime time) =>
+      programLeftPx(time, _gridStartTime, _pixelsPerMinute);
 
   /// Signature légère (O(channels)) pour détecter un changement de données
   /// sans comparer des listes entières : suffixée par le zoom et l'origine
@@ -487,8 +485,12 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     _dataRevision.value++;
 
     final cache = <String, List<_RenderProgram>>{};
-    final ppm = _pixelsPerMinute;
     final now = DateTime.now();
+    // Échelle lue UNE fois. Les positions et largeurs sont précalculées ici,
+    // puis seulement multipliées pendant le `paint` : sur une box Android
+    // ancienne, un `DateTime.difference` par programme et par trame saturait
+    // le thread UI (le guide saccadait dès qu'on faisait défiler).
+    final ppm = _pixelsPerMinute;
     for (final ch in widget.channels) {
       final programs = widget.epgData[ch] ?? const <EPGProgram>[];
       final channelHasReplay = widget.replayChannels.contains(ch);
@@ -496,8 +498,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
         for (final p in programs)
           _RenderProgram(
             program: p,
-            left: _getOffsetForTime(p.startTime),
-            width: _clampWidth(p.durationMinutes * ppm),
+            left: programLeftPx(p.startTime, _gridStartTime, ppm),
+            width: programWidthPx(p.durationMinutes, ppm),
             isLive: p.isLive,
             replayable: isReplayableProgram(
               p,
@@ -559,24 +561,6 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     return 'aucune';
   }
 
-  /// Largeur d'un bloc de programme, en px.
-  ///
-  /// `raw` vaut `durée × pxParMin - 2`. On ne le BORNE PLUS PAR EN BAS.
-  ///
-  /// Le minimum de 40 px était là pour qu'un programme court reste cliquable,
-  /// mais il falsifiait la géométrie : `EpgGapFiller` garantit des blocs
-  /// contigus, et gonfler les uns cassait cette garantie. Mesuré à 1,0 px/min,
-  /// un programme de 20 min occupe 18 px et était dessiné sur 40 — plus du
-  /// double. Le test `epg_program_width_test.dart` compte 61 blocs qui se
-  /// recouvrent sur une journée et une seule chaîne, et le culling écartait
-  /// alors les blocs voisins légitimes : la grille finissait vide au
-  /// défilement.
-  ///
-  /// Il ne reste qu'un plancher de 1 px : une durée nulle donnerait
-  /// `raw = -2`, et une largeur négative fait disparaître le bloc sans que le
-  /// culling l'explique. Le combleur écarte déjà ces programmes.
-  static double _clampWidth(double raw) => raw < 1.0 ? 1.0 : raw;
-
   /// Appui court (peu de déplacement, < 400 ms) sur la grille : ouvre le
   /// programme sous le doigt. Un appui hors programme sélectionne la chaîne
   /// de la ligne (comme un appui sur la colonne des noms).
@@ -633,7 +617,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   _RenderProgram? _programAt(double dx, String channelName) {
     final absolute = dx + _horizontalOffset.value;
     for (final rp in _renderCache[channelName] ?? const <_RenderProgram>[]) {
-      if (absolute >= rp.left && absolute <= rp.left + rp.width) return rp;
+      if (absolute >= rp.left && absolute < rp.left + rp.width) return rp;
     }
     return null;
   }
@@ -995,6 +979,45 @@ const double kTitleMinReadableWidth = 12.0;
 @visibleForTesting
 double cullMarginFor(double pixelsPerMinute) => pixelsPerMinute * 60.0;
 
+/// Plancher de largeur d'un bloc, en px.
+///
+/// Ne sert qu'à garder VISIBLE et cliquable un bloc dont la durée réelle
+/// donnerait moins de 4 px (programme très court, ou zoom très dézoomé). Il est
+/// volontairement minuscule : l'ancien plancher de 40 px faisait déborder
+/// chaque bloc sur ses voisins, et le culling occultait alors la suite de la
+/// grille. Sur un appareil Android ancien, où le zoom minimum est atteint
+/// souvent, ce plancher borne le recouvrement à 4 px au lieu de plusieurs
+/// centaines.
+@visibleForTesting
+const double kMinProgramBlockWidth = 4.0;
+
+/// Abscisse du bord gauche d'un bloc, en px, dans le repère [gridStartTime].
+///
+/// Fonction pure, extraite du `paint` pour être verrouillée par un test : c'est
+/// elle qui garantit que deux programmes de la même tranche horaire ne se
+/// superposent plus. [start] peut précéder [gridStartTime] (programme à cheval
+/// sur minuit) : le résultat est alors négatif, et c'est le culling qui s'en
+/// charge.
+@visibleForTesting
+double programLeftPx(
+  DateTime start,
+  DateTime gridStartTime,
+  double pixelsPerMinute,
+) =>
+    start.difference(gridStartTime).inSeconds / 60.0 * pixelsPerMinute;
+
+/// Largeur d'un bloc, en px : durée réelle × échelle, plancher
+/// [kMinProgramBlockWidth].
+///
+/// Pas de gouttière soustraite : les tuiles sont volontairement pleine largeur
+/// (chaque bloc va jusqu'au début du suivant), ce qui évite les fentes
+/// claires qui se lisaient comme des trous d'EPG.
+@visibleForTesting
+double programWidthPx(int durationMinutes, double pixelsPerMinute) {
+  final raw = durationMinutes * pixelsPerMinute;
+  return raw < kMinProgramBlockWidth ? kMinProgramBlockWidth : raw;
+}
+
 /// Abscisse de départ de l'axe des heures.
 @visibleForTesting
 double axisLeftInset() => kChannelWidth;
@@ -1037,11 +1060,23 @@ class _AxisButton extends StatelessWidget {
   }
 }
 
-/// Programme préparé pour le rendu (positions précalculées).
+/// Programme préparé pour le rendu (positions précalculées une fois).
+///
+/// [left] et [width] sont calculés à la construction du cache, à partir de
+/// l'heure réelle (`startTime`/`durationMinutes`) et de l'origine de la
+/// journée. La grille a un temps quantifié les programmes en créneaux de 2 h :
+/// tous ceux d'un même créneau recevaient la MÊME abscisse et se masquaient
+/// les uns les autres. On revient à un placement exact.
 class _RenderProgram {
   final EPGProgram program;
+
+  /// Abscisse du bord gauche, en px, depuis l'origine de la journée.
+  /// Négative pour un programme commencé la veille.
   final double left;
+
+  /// Largeur réelle en px : `durée × échelle`, plancher [kMinProgramBlockWidth].
   final double width;
+
   final bool isLive;
   final bool replayable;
 
@@ -1281,7 +1316,7 @@ class _EpgGridPainter extends CustomPainter {
     if (pos.dy < 0 || pos.dy > rowHeight) return null;
     final ch = channels[channelIndex];
     for (final rp in renderCacheOf()[ch] ?? const <_RenderProgram>[]) {
-      if (pos.dx >= rp.left && pos.dx <= rp.left + rp.width) {
+      if (pos.dx >= rp.left && pos.dx < rp.left + rp.width) {
         return rp;
       }
     }
@@ -1318,11 +1353,13 @@ class _EpgGridPainter extends CustomPainter {
       for (final rp in programs) {
         // Culling : on ne dessine/layout que les barres visibles dans le
         // viewport + marge (évite ~des milliers de TextPainter hors écran).
-        if (rp.left + rp.width < cullMin || rp.left > cullMax) continue;
+        final left = rp.left;
+        final width = rp.width;
+        if (left + width < cullMin || left > cullMax) continue;
 
         final isHovered = rp == hovered;
         final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(rp.left + shift, y, rp.width, h),
+          Rect.fromLTWH(left + shift, y, width, h),
           const Radius.circular(6),
         );
 
