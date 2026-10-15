@@ -459,6 +459,14 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
 class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
   final Map<String, List<EPGProgram>> _epgData = {};
 
+  /// Instant du dernier chargement réussi, affiché dans le bandeau de
+  /// fraîcheur. `null` tant que rien n'a été chargé.
+  DateTime? _lastLoadedAt;
+
+  /// Vrai pendant un rafraîchissement forcé : verrouille le bouton et anime
+  /// l'indicateur.
+  bool _refreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -546,6 +554,12 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       'lignes construites.${missingIds.isEmpty ? '' : ' Sans résultat pour : '
           '${missingIds.take(8).join(', ')}'}',
     );
+
+    if (mounted) {
+      // `cache` est lu AVANT toute suspension (règle Riverpod) : on relit son
+      // horodatage local plutôt que de repasser par `ref`.
+      setState(() => _lastLoadedAt = cache.fetchedAt);
+    }
   }
 
   Future<void> _loadOne(
@@ -608,53 +622,165 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     }
   }
 
+  /// Rafraîchissement FORCÉ (bouton + tirer-pour-rafraîchir).
+  ///
+  /// Passe par `EPGDataCache.forceRefresh` : invalide le cache mémoire et
+  /// supprime le tampon disque avant de retélécharger. Un simple `_loadAllEpg`
+  /// n'aurait rien rafraîchi tant que le cache avait moins de 30 min.
+  Future<void> _refreshForced() async {
+    if (_refreshing) return;
+    final api = ref.read(apiServiceProvider);
+    final cache = ref.read(epgDataCacheProvider);
+    setState(() => _refreshing = true);
+    final result = await safeAsync(
+      () => cache.forceRefresh(api),
+      context: '_refreshForced forceRefresh',
+    );
+    if (!mounted) return;
+    if (!result.isSuccess) {
+      // Jamais d'échec silencieux : sans ce message, l'utilisateur croirait
+      // que les données sont à jour alors que le panel n'a pas répondu.
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Rafraîchissement EPG impossible : le panel n\'a pas répondu. '
+            'Les programmes affichés restent ceux du dernier chargement.',
+          ),
+        ),
+      );
+    }
+    setState(() => _refreshing = false);
+    // Reconstruit `_epgData` depuis le cache (désormais frais).
+    await _loadAllEpg();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadAllEpg,
-      child: EpgGrid2DView(
-        channels: widget.channels,
-        epgData: _epgData,
-        pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
-        replayChannels: {
-          for (final c in widget.channelObjects)
-            if (c.supportsReplay) c.name,
-        },
-        loadingChannels: widget.loadingChannels,
-        onProgramTap: (program, channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          widget.onProgramSelected?.call(program, channel);
-        },
-        onChannelTap: (channelName) {
-          // Invalidate EPG cache on zap to free memory
-          ref.read(epgDataCacheProvider).invalidate();
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          Navigator.pushNamed(
-            context,
-            '/player',
-            arguments: {
-              'streamUrl': channel.streamUrl,
-              'title': channel.name,
-              'contentType': 'live',
-            },
-          );
-        },
-        onChannelLongPress: (channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          if (channel.supportsReplay) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CatchUpScreen(channel: channel),
-              ),
-            );
-          }
-        },
-        // Use shared timeline controller
-        timelineController: widget.timelineController,
+    return Column(
+      children: [
+        _EpgFreshnessBar(
+          loadedAt: _lastLoadedAt,
+          refreshing: _refreshing,
+          onRefresh: _refreshForced,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refreshForced,
+            child: EpgGrid2DView(
+              channels: widget.channels,
+              epgData: _epgData,
+              pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
+              replayChannels: {
+                for (final c in widget.channelObjects)
+                  if (c.supportsReplay) c.name,
+              },
+              loadingChannels: widget.loadingChannels,
+              onProgramTap: (program, channelName) {
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                widget.onProgramSelected?.call(program, channel);
+              },
+              onChannelTap: (channelName) {
+                // Invalidate EPG cache on zap to free memory
+                ref.read(epgDataCacheProvider).invalidate();
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                Navigator.pushNamed(
+                  context,
+                  '/player',
+                  arguments: {
+                    'streamUrl': channel.streamUrl,
+                    'title': channel.name,
+                    'contentType': 'live',
+                  },
+                );
+              },
+              onChannelLongPress: (channelName) {
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                if (channel.supportsReplay) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CatchUpScreen(channel: channel),
+                    ),
+                  );
+                }
+              },
+              // Use shared timeline controller
+              timelineController: widget.timelineController,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bandeau de fraîcheur de l'EPG, avec bouton de rafraîchissement forcé.
+///
+/// Répond à deux manques constatés : rien n'indiquait QUAND les données
+/// avaient été chargées, et « tirer pour rafraîchir » servait le cache mémoire
+/// sans jamais retélécharger — donc sans effet visible ni explication.
+class _EpgFreshnessBar extends StatelessWidget {
+  const _EpgFreshnessBar({
+    required this.loadedAt,
+    required this.refreshing,
+    required this.onRefresh,
+  });
+
+  final DateTime? loadedAt;
+  final bool refreshing;
+  final Future<void> Function() onRefresh;
+
+  static String _two(int v) => v < 10 ? '0$v' : '$v';
+
+  @override
+  Widget build(BuildContext context) {
+    final at = loadedAt;
+    final String label;
+    final Color color;
+    if (refreshing) {
+      label = 'Rafraîchissement de l\'EPG…';
+      color = const Color(0xFF8B5CF6);
+    } else if (at == null) {
+      label = 'EPG non chargé';
+      color = Colors.white38;
+    } else {
+      label = 'EPG mis à jour à ${_two(at.hour)}:${_two(at.minute)}';
+      color = Colors.white54;
+    }
+
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      color: const Color(0xFF13151B),
+      child: Row(
+        children: [
+          if (refreshing)
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(Icons.cloud_done_outlined, size: 14, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 11),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            color: Colors.white70,
+            tooltip: 'Forcer le rechargement de l\'EPG',
+            onPressed: refreshing ? null : () => onRefresh(),
+          ),
+        ],
       ),
     );
   }

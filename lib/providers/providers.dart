@@ -1012,6 +1012,14 @@ class EPGDataCache {
   static bool _sameLocalDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  /// Instant du dernier chargement réussi, pour l'indicateur de fraîcheur de
+  /// l'écran EPG.
+  DateTime? get fetchedAt => _fetchedAt;
+
+  /// Durée de validité du cache, pour que l'UI puisse dire « périmé » sans
+  /// dupliquer la constante.
+  Duration get ttl => _ttl;
+
   /// Charge l'intégralité du guide (filtre 48 h) UNE seule fois à la fois via
   /// un futur partagé : la grille (`_loadAllEpg`) et l'onglet Recherche
   /// (`epgProgramsProvider`) ne déclenchent chacun qu'un seul téléchargement
@@ -1027,6 +1035,28 @@ class EPGDataCache {
     } finally {
       _inFlight = null;
     }
+  }
+
+  /// Force un rechargement réseau, en ignorant le cache mémoire ET le tampon
+  /// disque.
+  ///
+  /// « Tirer pour rafraîchir » ne pouvait rien rafraîchir : [loadFull] rendait
+  /// le cache mémoire tant qu'il avait moins de 30 min, et relisait le tampon
+  /// disque tel quel. L'utilisateur tirait, l'indicateur tournait, et les
+  /// données restaient identiques — sans qu'aucun message ne l'explique.
+  Future<List<EPGProgram>> forceRefresh(ApiService api) async {
+    // Un chargement déjà en vol écrirait son résultat APRÈS le nôtre et
+    // remettrait des données plus anciennes dans l'index : on l'attend d'abord.
+    final pending = _inFlight;
+    if (pending != null) {
+      await pending.then<void>((_) {}, onError: (_) {});
+    }
+    invalidate();
+    final cacheKey = await api.resolveSubscriptionCacheKey();
+    if (cacheKey != null) {
+      await EpgBufferStore.instance.clear(cacheKey);
+    }
+    return loadFull(api);
   }
 
   Future<List<EPGProgram>> _fetchAndFilter(ApiService api) async {
@@ -1111,6 +1141,9 @@ class EPGDataCache {
     _all = null;
     _fetchedAt = null;
     _byChannel.clear();
+    // Sans ceci, la table de secours survivait à l'invalidation et pouvait
+    // résoudre une chaîne vers des données qui ne sont plus chargées.
+    _normalizedToChannelId.clear();
   }
 }
 
