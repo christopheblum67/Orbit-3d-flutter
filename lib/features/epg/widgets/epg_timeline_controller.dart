@@ -24,6 +24,29 @@ class EpgTimelineController {
   final ValueNotifier<DateTime?> scheduledJump = ValueNotifier(null);
   final ValueNotifier<String?> targetedChannel = ValueNotifier(null);
 
+  /// Dernier défilement connu (px), mémorisé par la grille quand elle est
+  /// détruite et restauré quand elle est recréée (changement de catégorie).
+  ///
+  /// L'état vit sur le contrôleur, et non dans la grille, parce que `EpgScreen`
+  /// recrée la grille à chaque catégorie : un champ local repartait de zéro, et
+  /// l'écran sautait sur l'heure courante en perdant la position de
+  /// l'utilisateur.
+  double lastHorizontalOffset = 0;
+  double lastVerticalOffset = 0;
+
+  /// Vrai dès qu'une position a été mémorisée : distingue « jamais positionné »
+  /// (on se place alors sur l'heure courante) de « positionné à 0 ».
+  bool hasSavedScroll = false;
+
+  void saveScrollOffsets({
+    required double horizontal,
+    required double vertical,
+  }) {
+    lastHorizontalOffset = horizontal;
+    lastVerticalOffset = vertical;
+    hasSavedScroll = true;
+  }
+
   DateTime get gridStartTimeValue => _gridStartTime;
   set gridStartTime(DateTime v) => _gridStartTime = v;
 

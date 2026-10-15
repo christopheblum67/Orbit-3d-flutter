@@ -178,7 +178,15 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToCurrentTime();
+      if (!mounted) return;
+      // Une position mémorisée (retour d'une autre catégorie) prime sur le
+      // recentrage : l'utilisateur revient où il était, au lieu de sauter sur
+      // l'heure courante à chaque changement de catégorie.
+      if (_timelineController.hasSavedScroll) {
+        _restoreScrollOffsets();
+      } else {
+        _scrollToCurrentTime();
+      }
     });
   }
 
@@ -206,6 +214,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   @override
   void dispose() {
     _timer.cancel();
+    // Mémorise la position AVANT de libérer `_horizontalOffset`/le contrôleur
+    // vertical : c'est ici que le défilement survit au changement de catégorie
+    // (la grille est détruite puis recréée).
+    _timelineController.saveScrollOffsets(
+      horizontal: _horizontalOffset.value,
+      vertical:
+          _verticalController.hasClients ? _verticalController.offset : 0.0,
+    );
     _timelineController.scheduledJump.removeListener(_consumeJump);
     // Symétrique de l'abonnement. Sans cette ligne, chaque changement de
     // catégorie de chaîne empilait un State et son cache de rendu.
@@ -355,6 +371,22 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   void _scrollToCurrentTime() {
     _setHorizontalOffset(_getOffsetForTime(DateTime.now()) - 120);
+  }
+
+  /// Restaure le défilement mémorisé par une précédente instance de la grille.
+  ///
+  /// Les deux offsets sont re-bornés : entre-temps la fenêtre a pu rétrécir
+  /// (rotation, clavier), et `jumpTo` hors bornes lève. On teste aussi
+  /// `hasClients` avant de toucher à la colonne verticale — le rappel de
+  /// `postFrame` s'exécute parfois avant que les `ListView` soient attachés.
+  void _restoreScrollOffsets() {
+    final c = _timelineController;
+    _setHorizontalOffset(c.lastHorizontalOffset);
+    if (!_verticalController.hasClients) return;
+    final target = c.lastVerticalOffset.clamp(0.0, _maxVerticalOffset);
+    if ((_verticalController.offset - target).abs() > 0.5) {
+      _verticalController.jumpTo(target);
+    }
   }
 
   /// Bornes du zoom, en px/min.
