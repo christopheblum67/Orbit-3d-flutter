@@ -307,7 +307,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                           ? 'Aucun résultat'
                                           : 'Aucun film dans cette catégorie',
                               message: _selectedCategoryId == 'fav'
-                                  ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
+                                  ? 'Appuie sur le cœur d\'un film pour le retrouver ici.'
                                   : _selectedCategoryId == 'recent'
                                       ? 'Les films regardés s\'afficheront ici.'
                                       : _selectedCategoryId.isEmpty
