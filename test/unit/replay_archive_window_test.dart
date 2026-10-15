@@ -40,10 +40,12 @@ void main() {
       );
     });
 
-    test('repli à 48 h quand le panel ne déclare aucune durée', () {
+    test('repli à 14 j quand le panel ne déclare aucune durée', () {
+      // Le repli unifié (fallbackArchiveDays = 14) remplace l'ancien 48 h.
+      // Cela débloque les comptes 14 j dont le panel ne déclare pas la durée.
       expect(
         ApiService.archiveWindow(_channel(archiveDays: 0)),
-        const Duration(hours: 48),
+        const Duration(days: 14),
       );
     });
 

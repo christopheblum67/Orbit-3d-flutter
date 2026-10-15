@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 
@@ -107,30 +108,60 @@ class SettingsSwitchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        child: SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          secondary: icon == null ? null : Icon(icon, color: scheme.primary),
-          activeThumbColor: scheme.primary,
-          activeTrackColor: scheme.primary.withValues(alpha: 0.4),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: scheme.onSurfaceVariant,
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.space ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          onChanged(!value);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final focused = Focus.of(context).hasFocus;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                secondary: icon == null
+                    ? null
+                    : Icon(
+                        icon,
+                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                activeThumbColor: scheme.primary,
+                activeTrackColor: scheme.primary.withValues(alpha: 0.4),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                value: value,
+                onChanged: onChanged,
               ),
             ),
-          ),
-          value: value,
-          onChanged: onChanged,
-        ),
+          );
+        },
       ),
     );
   }
@@ -157,26 +188,59 @@ class SettingsNavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              subtitle,
-              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.space ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final focused = Focus.of(context).hasFocus;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: icon == null
+                    ? null
+                    : Icon(
+                        icon!,
+                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+                trailing: trailing ??
+                    Icon(
+                      Icons.chevron_right,
+                      color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                onTap: onTap,
+              ),
             ),
-          ),
-          trailing: trailing ??
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          onTap: onTap,
-        ),
+          );
+        },
       ),
     );
   }
@@ -201,25 +265,58 @@ class SettingsActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              subtitle,
-              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.space ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final focused = Focus.of(context).hasFocus;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: icon == null
+                    ? null
+                    : Icon(
+                        icon!,
+                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right,
+                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                onTap: onTap,
+              ),
             ),
-          ),
-          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          onTap: onTap,
-        ),
+          );
+        },
       ),
     );
   }
