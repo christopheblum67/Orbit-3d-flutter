@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
@@ -547,4 +551,159 @@ group('EpgGapFiller — la grille est continue', () {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('EpgGrid2DView — le texte est peint dans le viewport', () {
+    test('`screenXFor` ramène une abscisse absolue dans le viewport', () {
+      // 10:00 à 4 px/min = 2400 px depuis minuit ; défilé de 2300 px, le bord
+      // gauche du bloc se retrouve à 100 px du bord visible.
+      expect(screenXFor(2400, 2300), 100);
+      expect(screenXFor(100, 0), 100);
+      // Programme à cheval sur minuit : l'abscisse reste négative, le culling
+      // s'en charge.
+      expect(screenXFor(-60, 0), -60);
+    });
+
+    testWidgets('le titre reste peint DANS le bloc après défilement',
+        (tester) async {
+      final day = DateTime.now();
+      final start = DateTime(day.year, day.month, day.day);
+      // Un programme par heure, de 00:00 à 24:00 : la fenêtre visible en
+      // contient toujours, quel que soit le décalage.
+      final programs = [
+        for (var h = 0; h < 24; h++)
+          EPGProgram(
+            channelId: 'c1',
+            title: 'P$h',
+            description: '',
+            start: start.add(Duration(hours: h)),
+            end: start.add(Duration(hours: h + 1)),
+          ),
+      ];
+
+      await tester.pumpWidget(
+        _captureHarness(['AAAA'], {'AAAA': programs}),
+      );
+      // Deux frames : le postFrame qui recentre sur l'heure courante passe au
+      // premier ; on impose ensuite notre position.
+      await tester.pump();
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      // Place le programme de 10:00 à 100 px du bord gauche visible.
+      const ppm = 4.0;
+      final tenAm = start.add(const Duration(hours: 10));
+      final offset = programLeftPx(tenAm, start, ppm) - 100;
+      state.debugSetHorizontalOffsetForTest(offset);
+      await tester.pump();
+      expect(state.debugHorizontalOffsetForTest, closeTo(offset, 0.5));
+
+      final captureRect = tester.getRect(find.byKey(_captureKey));
+      // La ligne 0 commence sous la frise et le mini-lecteur : on lit sa vraie
+      // position plutôt que de la supposer.
+      final gridList = find.byWidgetPredicate(
+        (w) => w is ListView && w.itemExtent == EpgGrid2DViewState.kRowStride,
+      );
+      final gridRect = tester.getRect(gridList.last);
+      expect(gridRect.left - captureRect.left, closeTo(kChannelWidth, 1.0),
+          reason: 'la liste de droite doit être la grille de programmes',);
+
+      // `toImage` doit tourner hors de la zone async simulée du test.
+      final image = await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_captureKey),
+        );
+        return boundary.toImage();
+      });
+      expect(image, isNotNull, reason: 'capture de la grille impossible');
+      final rgba = await tester.runAsync(() async {
+        final data =
+            await image!.toByteData(format: ui.ImageByteFormat.rawRgba);
+        return data!.buffer.asUint8List();
+      });
+
+      final blockLeft = gridRect.left - captureRect.left + 100;
+      final rowTop = gridRect.top - captureRect.top;
+      final bright = _countBrightPixels(
+        rgba!,
+        image!.width,
+        x0: blockLeft.round() + 2,
+        x1: (blockLeft + 200).round(),
+        y0: rowTop.round() + 4,
+        y1: rowTop.round() + 44,
+      );
+
+      image.dispose();
+      expect(
+        bright,
+        greaterThan(50),
+        reason: 'le titre doit être peint dans le bloc visible ; des blocs '
+            'vides signifient que le texte part à son abscisse ABSOLUE '
+            '(hors du canvas) au lieu de son abscisse écran',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+/// Clé de capture : la grille est enveloppée dans une frontière de repeint
+/// dédiée, pour la photographier au pixel près dans le test de visibilité.
+const Key _captureKey = Key('epg-capture');
+
+Widget _captureHarness(
+  List<String> channels,
+  Map<String, List<EPGProgram>> data,
+) {
+  return MaterialApp(
+    locale: const Locale('fr'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(
+      body: Center(
+        child: RepaintBoundary(
+          key: _captureKey,
+          child: SizedBox(
+            width: 500,
+            height: 700,
+            child: EpgGrid2DView(channels: channels, epgData: data),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Compte les pixels franchement clairs (glyphes blancs sur fond sombre) d'un
+/// rectangle de l'image RGBA.
+///
+/// Seuil sur les trois canaux : le texte (blanc à 70 %) passe largement, alors
+/// que le fond (#1C1F26), la bordure (blanc à 10 %) et la ligne « maintenant »
+/// (rouge, vert et bleu bas) restent sous le seuil.
+int _countBrightPixels(
+  Uint8List rgba,
+  int width, {
+  required int x0,
+  required int x1,
+  required int y0,
+  required int y1,
+}) {
+  const threshold = 130;
+  final height = rgba.length ~/ (width * 4);
+  var count = 0;
+  for (var y = y0 < 0 ? 0 : y0; y < y1 && y < height; y++) {
+    for (var x = x0 < 0 ? 0 : x0; x < x1 && x < width; x++) {
+      final i = (y * width + x) * 4;
+      if (rgba[i] > threshold &&
+          rgba[i + 1] > threshold &&
+          rgba[i + 2] > threshold) {
+        count++;
+      }
+    }
+  }
+  return count;
 }
