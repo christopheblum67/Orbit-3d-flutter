@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -2290,7 +2291,7 @@ class ApiService {
       });
       // `responseType: bytes` : on veut les octets bruts, pas une String déjà
       // décodée par Dio selon un charset HTTP souvent absent => accents
-      // cassés. Le décodage réel est fait par [_decodeXmltvPayload].
+      // cassés. Le décodage réel est fait par [decodeXmltvBytes].
       final response = await _get(
         url,
         options: Options(responseType: ResponseType.bytes),
@@ -2300,10 +2301,18 @@ class ApiService {
       // défaut (latin1), ce qui transformait chaque accent en « é ». On
       // décode donc les octets bruts nous-mêmes, en suivant la déclaration
       // `encoding=` du prologue XML quand elle existe.
-      final content = _decodeXmltvPayload(response);
+      //
+      // Les octets sont TRANSFÉRÉS (zero-copy) vers l'isolate et y sont
+      // décodés : plus de String multi-dizaines de Mo construite sur le
+      // thread UI puis recopiée dans l'isolate.
+      final bytes = _xmltvBytes(response);
+      final headerCharset = _xmltvHeaderCharset(response);
       // Le parse complet (~94 000 entrées) est lourd : déporté sur un isolate
       // pour ne pas figer le thread UI (évite l'ANR sur les box TV/phones).
-      final programs = await compute(_parseXmltvIsolate, content);
+      final programs = await compute(
+        _parseXmltvIsolate,
+        (TransferableTypedData.fromList([bytes]), headerCharset),
+      );
       debugPrint('Orbit3D epg fetched=${programs.length} '
           'first=${programs.isEmpty ? '<none>' : programs.first.channelId} '
           'url=${url.split('?').first}');
@@ -2314,9 +2323,59 @@ class ApiService {
     return const <EPGProgram>[];
   }
 
-  /// Entrée isolate : `compute` exige une fonction top-level.
-  static List<EPGProgram> _parseXmltvIsolate(String content) =>
-      ApiService().parseXmltv(content);
+  /// Entrée isolate : reçoit les octets XMLTV **transférés** et le `charset`
+  /// de l'en-tête HTTP, puis décode et parse hors du thread UI.
+  ///
+  /// `compute` exige une fonction top-level ou statique et un message unique.
+  /// Les octets voyagent en [TransferableTypedData] : le tampon est déplacé
+  /// (zero-copy) et non recopié dans l'isolate. Le décodage lui-même (une
+  /// String de plusieurs dizaines de Mo) y a lieu aussi, d'où le gain.
+  static List<EPGProgram> _parseXmltvIsolate(
+    (TransferableTypedData, String) message,
+  ) {
+    final (data, headerCharset) = message;
+    final bytes = data.materialize().asUint8List();
+    final content = decodeXmltvBytes(bytes, headerCharset: headerCharset);
+    return ApiService().parseXmltv(content);
+  }
+
+  /// Octets bruts d'une réponse XMLTV, quel que soit le type servi par Dio.
+  ///
+  /// La requête demande `ResponseType.bytes` ; le repli couvre le cas où Dio a
+  /// tout de même rendu une String (on la réencode en UTF-8, sans pouvoir
+  /// rattraper un charset perdu).
+  static Uint8List _xmltvBytes(Response<dynamic> response) {
+    final dynamic data = response.data;
+    if (data is Uint8List) return data;
+    if (data is List<int>) return Uint8List.fromList(data);
+    return Uint8List.fromList(utf8.encode(data?.toString() ?? ''));
+  }
+
+  /// `charset` déclaré par l'en-tête HTTP, ou chaîne vide.
+  static String _xmltvHeaderCharset(Response<dynamic> response) {
+    final header = response.headers.value('content-type')?.toLowerCase() ?? '';
+    return RegExp('charset=([A-Za-z0-9_.\\-]+)')
+            .firstMatch(header)
+            ?.group(1) ??
+        '';
+  }
+
+  /// Essai public de l'isolate XMLTV : même message que [fetchEpg], octets
+  /// transférés compris.
+  ///
+  /// Sert à verrouiller le point le plus risqué du chemin : un message
+  /// **enregistrement** `(TransferableTypedData, String)` doit passer au
+  /// travers de `Isolate.run`. Si ce type devenait non-transmissible, on le
+  /// saurait au test plutôt qu'au premier lancement réel.
+  @visibleForTesting
+  static Future<List<EPGProgram>> debugParseXmltvInIsolate(
+    Uint8List bytes, {
+    String headerCharset = '',
+  }) =>
+      compute(
+        _parseXmltvIsolate,
+        (TransferableTypedData.fromList([bytes]), headerCharset),
+      );
 
   /// Décode une réponse JSON dont l'encodage HTTP est absent ou faux.
   ///
@@ -2342,40 +2401,33 @@ class ApiService {
     }
   }
 
-  /// Décode le corps XMLTV en respectant l'encodage réellement déclaré.
+  /// Décode des octets XMLTV en respectant l'encodage réellement déclaré.
   ///
   /// Priorité : la déclaration `encoding="…"` du prologue XML, puis l'en-tête
   /// HTTP de la réponse, puis UTF-8. On retombe sur latin1 seulement si le
   /// décodage strict UTF-8 échoue, ce qui couvre les vieux dumps CP1252.
-  static String _decodeXmltvPayload(Response<dynamic> response) {
-    final dynamic data = response.data;
-    final List<int> bytes;
-    if (data is List<int>) {
-      bytes = data;
-    } else if (data is String) {
-      // Dio a déjà décodé : on ne peut plus rattraper l'encodage, on réencode
-      // en UTF-8 pour uniformiser la suite du traitement.
-      return data;
-    } else {
-      return data?.toString() ?? '';
-    }
-
+  ///
+  /// Fonction pure et testable : c'est elle qui décide si un accent devient
+  /// « é » ou reste mojibake. Elle tourne dans [_parseXmltvIsolate], donc hors
+  /// du thread UI — le gain n'est pas seulement le zero-copy des octets.
+  @visibleForTesting
+  static String decodeXmltvBytes(
+    Uint8List bytes, {
+    String headerCharset = '',
+  }) {
     // 1. Déclaration XML du prologue (les 4 premiers Ko suffisent).
-    final head = latin1.decode(bytes.take(4096).toList(), allowInvalid: true);
-    final match = RegExp(
+    final head = latin1.decode(
+      bytes.take(4096).toList(),
+      allowInvalid: true,
+    );
+    final declared = RegExp(
       "encoding\\s*=\\s*['\"]([A-Za-z0-9_.\\-]+)['\"]",
       caseSensitive: false,
-    ).firstMatch(head);
-    final declared = match?.group(1)?.toLowerCase();
-
-    // 2. En-tête HTTP.
-    final header = response.headers.value('content-type')?.toLowerCase() ?? '';
-    final headerCharset =
-        RegExp('charset=([A-Za-z0-9_.\\-]+)').firstMatch(header)?.group(1);
+    ).firstMatch(head)?.group(1)?.toLowerCase();
 
     final candidates = <String>[
-      if (declared != null) declared,
-      if (headerCharset != null) headerCharset,
+      if (declared != null && declared.isNotEmpty) declared,
+      if (headerCharset.isNotEmpty) headerCharset,
       'utf-8',
       'iso-8859-1',
     ];
