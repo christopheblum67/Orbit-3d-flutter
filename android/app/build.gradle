@@ -48,6 +48,10 @@ android {
                 ? file(keystoreProperties['storeFile'])
                 : null
             storePassword = keystoreProperties['storePassword']
+            // APK Signature Scheme v3 : permet la rotation de clé (proof-of-rotation),
+            // exigée par les stores pour les nouvelles clés. v2 conservé pour
+            // compatibilité appareils anciens.
+            enableV3Signing = true
         }
     }
 
