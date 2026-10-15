@@ -948,6 +948,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                       channelWidth: channelWidth,
                                       viewportWidth: viewportWidth,
                                       channelIndex: index,
+                                      liveLabel: l.epgLiveNow,
                                       horizontalOffset: _horizontalOffset,
                                       touchPosition: _hoverPosition,
                                       dataRevision: _dataRevision,
@@ -1022,6 +1023,26 @@ double cullMarginFor(double pixelsPerMinute) => pixelsPerMinute * 60.0;
 /// centaines.
 @visibleForTesting
 const double kMinProgramBlockWidth = 4.0;
+
+/// Couleur de l'indicateur « en direct ».
+///
+/// Alignée sur la ligne « maintenant » (`#FF5252`) : les deux désignent le même
+/// instant, ils doivent se lire comme un seul repère.
+const Color kLiveIndicatorColor = Color(0xFFFF5252);
+
+/// Rayon de la pastille « en direct », en px logiques.
+const double kLiveDotRadius = 3.0;
+
+/// Espace entre la pastille, le libellé et le titre, en px logiques.
+const double kLiveDotGap = 4.0;
+
+/// Largeur de bloc à partir de laquelle le libellé « en direct » est écrit.
+///
+/// En dessous, seule la pastille reste : écrire le libellé dans un bloc trop
+/// étroit écraserait le titre — c'était exactement le défaut d'origine, où
+/// « DIRECT » et le titre partageaient la même abscisse et le titre gagnait
+/// toujours.
+const double kLiveLabelMinWidth = 72.0;
 
 /// Abscisse du bord gauche d'un bloc, en px, dans le repère [gridStartTime].
 ///
@@ -1321,6 +1342,12 @@ class _EpgGridPainter extends CustomPainter {
   /// elle qui supprime l'empreinte mémoire délirante.
   final int channelIndex;
 
+  /// Libellé « en direct », résolu par l'écran (`epgLiveNow`).
+  ///
+  /// Le painter n'a pas de `BuildContext` : le texte est lu dans le `build` puis
+  /// passé ici, pour que l'indicateur suive la langue de l'application.
+  final String liveLabel;
+
   /// Lecture différée du cache de rendu.
   ///
   /// Le painter ne reçoit pas la map : il la lit au moment du paint. Capturer
@@ -1337,6 +1364,7 @@ class _EpgGridPainter extends CustomPainter {
     required this.channelWidth,
     required this.viewportWidth,
     required this.channelIndex,
+    required this.liveLabel,
     required this.horizontalOffset,
     required this.touchPosition,
     required this.dataRevision,
@@ -1463,14 +1491,54 @@ class _EpgGridPainter extends CustomPainter {
           canvas.drawRRect(rect, borderPaint);
         }
 
-        // Titre du programme, adapté au bloc.
+        // Contenu du bloc : pastille « en direct », puis éventuellement son
+        // libellé, puis le titre — tous posés SÉQUENTIELLEMENT depuis la
+        // gauche. C'est la correction du défaut d'origine : « DIRECT » et le
+        // titre partageaient la même abscisse (`rp.left + 6`) et se
+        // recouvraient, le titre passant toujours au-dessus.
+        var contentLeft = screenLeft + kTitlePaddingH;
+        if (rp.isLive && !isDummy) {
+          final centerY = y + h / 2;
+          canvas.drawCircle(
+            Offset(contentLeft + kLiveDotRadius, centerY),
+            kLiveDotRadius,
+            Paint()..color = kLiveIndicatorColor,
+          );
+          contentLeft += kLiveDotRadius * 2 + kLiveDotGap;
+          // Le libellé n'est écrit que si le bloc peut le porter sans écraser
+          // le titre : en dessous de [kLiveLabelMinWidth], la pastille suffit à
+          // dire « en direct ».
+          if (rp.width >= kLiveLabelMinWidth) {
+            final livePainter = TextPainter(
+              text: TextSpan(
+                text: liveLabel,
+                style: const TextStyle(
+                  color: kLiveIndicatorColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              textDirection: TextDirection.ltr,
+              maxLines: 1,
+            )..layout();
+            livePainter.paint(
+              canvas,
+              Offset(contentLeft, centerY - livePainter.height / 2),
+            );
+            contentLeft += livePainter.width + kLiveDotGap;
+          }
+        }
+
+        // Titre du programme, adapté à la place restante.
         //
         // Le seuil est dérivé de la marge intérieure : il faut de la place pour
         // au moins quelques caractères, sinon n'écrire rien. L'ancien
         // `width > 26` produisait deux défauts opposés — du texte broyé entre
         // 26 et 38 px, et un bloc totalement vide en dessous, ce qui se lisait
         // comme une description disparue au défilement.
-        final textMaxWidth = rp.width - kTitlePaddingH * 2;
+        final textMaxWidth =
+            screenLeft + rp.width - kTitlePaddingH - contentLeft;
         if (textMaxWidth >= kTitleMinReadableWidth) {
           final textPainter = TextPainter(
             text: TextSpan(
@@ -1488,19 +1556,9 @@ class _EpgGridPainter extends CustomPainter {
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(screenLeft + kTitlePaddingH, y + (h - textPainter.height) / 2),
+            Offset(contentLeft, y + (h - textPainter.height) / 2),
           );
         }
-
-        // Indicateur « en direct », volontairement absent.
-//
-// Il partageait la position du titre (`rp.left + 6`) : sur un bloc étroit,
-// deux `TextPainter` se disputaient le même pixel, et le titre passait en
-// premier — donc « DIRECT » disparaissait. Ce qui se lisait comme une
-// information manquante au défilement.
-//
-// L'information reste disponible ailleurs : la ligne rouge donne l'heure
-// courante, et le mini-lecteur donne le titre du programme en cours.
 
         // Badge "replay" pour les programmes terminés des chaînes DVR
         if (rp.replayable && rp.width > 34) {
@@ -1554,11 +1612,11 @@ class _EpgGridPainter extends CustomPainter {
     }
 
     // La ligne « maintenant » n'est PAS tracée ici.
-//
-// Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
-// aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
-// signification. Elle est désormais peinte une seule fois, par-dessus toute la
-// grille, dans `_NowLineOverlay`.
+    //
+    // Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
+    // aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
+    // signification. Elle est désormais peinte une seule fois, par-dessus toute la
+    // grille, dans `_NowLineOverlay`.
   }
 
   /// Rectangle à bordure pointillée, pour les blocs de trou.

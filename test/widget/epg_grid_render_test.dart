@@ -643,6 +643,107 @@ group('EpgGapFiller — la grille est continue', () {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('l\'indicateur « en direct » est peint dans le bloc',
+        (tester) async {
+      final now = DateTime.now();
+      final day = DateTime(now.year, now.month, now.day);
+      // Programme couvrant l'instant courant, pour être « live ».
+      final liveStart = now.isBefore(day.add(const Duration(minutes: 45)))
+          ? day
+          : now.subtract(const Duration(minutes: 45));
+      final liveEnd = now.add(const Duration(minutes: 45));
+      final programs = [
+        EPGProgram(
+          channelId: 'c1',
+          title: 'EN COURS',
+          description: '',
+          start: liveStart,
+          end: liveEnd,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _captureHarness(['TF1 HD'], {'TF1 HD': programs}),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      const ppm = 4.0;
+      final desiredOffset = programLeftPx(liveStart, day, ppm) - 100;
+      state.debugSetHorizontalOffsetForTest(desiredOffset);
+      await tester.pump();
+      final actualOffset = state.debugHorizontalOffsetForTest;
+      final liveLeft = programLeftPx(liveStart, day, ppm) - actualOffset;
+
+      expect(
+        liveLeft,
+        greaterThanOrEqualTo(-50),
+        reason: 'le bloc « live » doit être positionnable sur la fenêtre visible',
+      );
+      expect(
+        liveLeft,
+        lessThan(300),
+        reason: 'le bloc « live » doit rester dans la fenêtre de test',
+      );
+
+      final captureRect = tester.getRect(find.byKey(_captureKey));
+      final gridList = find.byWidgetPredicate(
+        (w) => w is ListView && w.itemExtent == EpgGrid2DViewState.kRowStride,
+      );
+      final gridRect = tester.getRect(gridList.last);
+      expect(gridRect.left - captureRect.left, closeTo(kChannelWidth, 1.0));
+
+      final image = await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_captureKey),
+        );
+        return boundary.toImage();
+      });
+      expect(image, isNotNull, reason: 'capture de la grille impossible');
+      final rgba = await tester.runAsync(() async {
+        final data =
+            await image!.toByteData(format: ui.ImageByteFormat.rawRgba);
+        return data!.buffer.asUint8List();
+      });
+
+      final gridDelta = gridRect.left - captureRect.left;
+      final rowTop = gridRect.top - captureRect.top;
+      final red = _countRedPixels(
+        rgba!,
+        image!.width,
+        x0: (gridDelta + liveLeft + 2).round(),
+        x1: (gridDelta + liveLeft + 62).round(),
+        y0: (rowTop + 4).round(),
+        y1: (rowTop + 44).round(),
+      );
+      // On vérifie aussi que le titre existe à droite de l'indicateur.
+      final white = _countBrightPixels(
+        rgba,
+        image.width,
+        x0: (gridDelta + liveLeft + 68).round(),
+        x1: (gridDelta + liveLeft + 200).round(),
+        y0: (rowTop + 4).round(),
+        y1: (rowTop + 44).round(),
+      );
+
+      image.dispose();
+      expect(
+        red,
+        greaterThan(25),
+        reason: 'l\'indicateur « en direct » (pastille + libellé) doit être '
+            'peint dans le bloc visible',
+      );
+      expect(
+        white,
+        greaterThan(30),
+        reason: 'le titre doit rester peint à droite de l\'indicateur live, '
+            'sans se superposer à celui-ci',
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
@@ -701,6 +802,37 @@ int _countBrightPixels(
       if (rgba[i] > threshold &&
           rgba[i + 1] > threshold &&
           rgba[i + 2] > threshold) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/// Compte les pixels « rouge vif » typiques de la pastille et du libellé
+/// « en direct » (`#FF5252`).
+///
+/// Critère : rouge dominant (R > 200), vert et bleu faibles (G,B < 140).
+/// Cela évite de compter du blanc (tous hauts), du violet de fond/bordure
+/// (R moyen) ou de la ligne rouge très fine au mauvais endroit.
+int _countRedPixels(
+  Uint8List rgba,
+  int width, {
+  required int x0,
+  required int x1,
+  required int y0,
+  required int y1,
+}) {
+  const rThresh = 200;
+  const gbThresh = 140;
+  final height = rgba.length ~/ (width * 4);
+  var count = 0;
+  for (var y = y0 < 0 ? 0 : y0; y < y1 && y < height; y++) {
+    for (var x = x0 < 0 ? 0 : x0; x < x1 && x < width; x++) {
+      final i = (y * width + x) * 4;
+      if (rgba[i] > rThresh &&
+          rgba[i + 1] < gbThresh &&
+          rgba[i + 2] < gbThresh) {
         count++;
       }
     }
