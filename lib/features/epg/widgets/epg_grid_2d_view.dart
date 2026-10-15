@@ -1050,6 +1050,24 @@ double programWidthPx(int durationMinutes, double pixelsPerMinute) {
   return raw < kMinProgramBlockWidth ? kMinProgramBlockWidth : raw;
 }
 
+/// Abscisse ÉCRAN (0 = bord gauche du canvas de la ligne) d'une position
+/// ABSOLUE de la journée.
+///
+/// Le canvas de chaque ligne ne montre qu'une tranche de la journée : toute
+/// abscisse issue de [programLeftPx] (donc relative à minuit, jusqu'à 5760 px)
+/// doit passer par ici avant d'être dessinée.
+///
+/// Oublier cet appel — le défaut qui touchait le titre et le badge « REPLAY » —
+/// peignait le texte à sa position absolue, hors du canvas dès que la grille
+/// est défilée : les blocs restaient visibles mais vides de texte, ce qui se
+/// lisait comme « aucun programme dans la grille ».
+///
+/// Source unique : fond, titre et badge appellent cette fonction, donc ils ne
+/// peuvent plus diverger.
+@visibleForTesting
+double screenXFor(double absolutePx, double horizontalOffset) =>
+    absolutePx - horizontalOffset;
+
 /// Abscisse de départ de l'axe des heures.
 @visibleForTesting
 double axisLeftInset() => kChannelWidth;
@@ -1347,8 +1365,13 @@ class _EpgGridPainter extends CustomPainter {
     if (pos == null) return null;
     if (pos.dy < 0 || pos.dy > rowHeight) return null;
     final ch = channels[channelIndex];
+    // `pos.dx` est relatif au canvas de la ligne (tranche visible), alors que
+    // `rp.left` est ABSOLU depuis minuit : sans cette conversion, la
+    // surbrillance suivait le programme situé à la même abscisse près de
+    // minuit au lieu de celui sous le pointeur.
+    final absolute = pos.dx + (horizontalOffset?.value ?? 0.0);
     for (final rp in renderCacheOf()[ch] ?? const <_RenderProgram>[]) {
-      if (pos.dx >= rp.left && pos.dx < rp.left + rp.width) {
+      if (absolute >= rp.left && absolute < rp.left + rp.width) {
         return rp;
       }
     }
@@ -1371,9 +1394,9 @@ class _EpgGridPainter extends CustomPainter {
     canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), linePaint);
 
     final (cullMin, cullMax) = _cullRange;
-    // Translation : les positions sont absolues dans la journée (0 → 5760 px),
-    // le canvas ne montre que la tranche visible.
-    final shift = -(horizontalOffset?.value ?? 0.0);
+    // Positions absolues dans la journée (0 → 5760 px) : le canvas ne montre
+    // que la tranche visible, donc on les ramène à l'écran via `screenXFor`.
+    final screenOffset = horizontalOffset?.value ?? 0.0;
     final hovered = _resolveHovered(touchPosition?.value);
 
     final ch = channels[channelIndex];
@@ -1389,9 +1412,13 @@ class _EpgGridPainter extends CustomPainter {
         final width = rp.width;
         if (left + width < cullMin || left > cullMax) continue;
 
+        // Abscisse ÉCRAN du bord gauche du bloc : partagée par le fond, le
+        // titre et le badge REPLAY (source unique `screenXFor`).
+        final screenLeft = screenXFor(left, screenOffset);
+
         final isHovered = rp == hovered;
         final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(left + shift, y, width, h),
+          Rect.fromLTWH(screenLeft, y, width, h),
           const Radius.circular(6),
         );
 
@@ -1461,7 +1488,7 @@ class _EpgGridPainter extends CustomPainter {
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(rp.left + kTitlePaddingH, y + (h - textPainter.height) / 2),
+            Offset(screenLeft + kTitlePaddingH, y + (h - textPainter.height) / 2),
           );
         }
 
@@ -1493,7 +1520,7 @@ class _EpgGridPainter extends CustomPainter {
           replayPainter.paint(
             canvas,
             Offset(
-              rp.left + rp.width - replayPainter.width - 6,
+              screenLeft + rp.width - replayPainter.width - 6,
               y + h - 14,
             ),
           );
