@@ -13,7 +13,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String accountDeviceProfileSubtitle(String label) {
-    return 'Profile $label ┬À player diagnostics';
+    return 'Profile $label · player diagnostics';
   }
 
   @override
@@ -304,7 +304,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String enginesSubtitle(String live, String vod) {
-    return 'Live: $live ┬À VOD: $vod';
+    return 'Live: $live · VOD: $vod';
   }
 
   @override
@@ -395,34 +395,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Prefetch adjacent channels into the buffer';
 
   @override
-  String get langArabic => 'Ïº┘äÏ╣Ï▒Ï¿┘èÏ®';
+  String get langArabic => 'العربية';
 
   @override
-  String get langFrench => 'Fran├ºais';
+  String get langFrench => 'Français';
 
   @override
-  String get langPortuguese => 'Portugu├¬s';
+  String get langPortuguese => 'Português';
 
   @override
-  String get langSpanish => 'Espa├▒ol';
+  String get langSpanish => 'Español';
 
   @override
   String get language => 'Language';
 
   @override
-  String get languageExample => 'English, French, etc.';
-
-  @override
-  String get noneOption => 'None';
-
-  @override
-  String get play => 'Play';
-
-  @override
-  String get newAnd4K => 'Movies on Demand';
-
-  @override
-  String get seasonsAndEpisodes => 'Series on Demand';
+  String get languageExample => 'Français, English, etc.';
 
   @override
   String get languagePreference => 'Application language';
@@ -434,7 +422,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get later => 'Later';
 
   @override
-  String get legalNotice => 'Read me ┬À Legal notice';
+  String get legalNotice => 'Read me · Legal notice';
 
   @override
   String get legalNoticeSubtitle => 'App usage, rights holders and privacy';
@@ -512,6 +500,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get never => 'never';
+
+  @override
+  String get newAnd4K => 'Movies on Demand';
 
   @override
   String get newProfile => 'New profile';
@@ -623,6 +614,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pauseDownload => 'Pause';
+
+  @override
+  String get play => 'Play';
 
   @override
   String get pinCode => 'PIN code';
@@ -758,6 +752,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String seasonNumber(Object season) {
     return 'Season $season';
   }
+
+  @override
+  String get seasonsAndEpisodes => 'Series on Demand';
 
   @override
   String get sectionAccessibility => 'Accessibility';
@@ -907,10 +904,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sortLatestM3UXtream => 'Latest M3U/Xtream additions';
 
   @override
-  String get sortNameAToZ => 'Name (A ÔåÆ Z)';
+  String get sortNameAToZ => 'Name (A → Z)';
 
   @override
-  String get sortNameZToA => 'Name (Z ÔåÆ A)';
+  String get sortNameZToA => 'Name (Z → A)';
 
   @override
   String get sortResumePriority => 'Resume first';
@@ -1014,10 +1011,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateThisCategory => 'Update this category';
 
   @override
-  String get updating => 'UpdatingÔÇª';
+  String get updating => 'Updating…';
 
   @override
-  String get updatingMediaContent => 'Updating media contentÔÇª';
+  String get updatingMediaContent => 'Updating media content…';
 
   @override
   String get volumeNormalization => 'Volume normalization';
@@ -1051,6 +1048,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoQuality => 'Automatic';
 
   @override
+  String get noneOption => 'None';
+
+  @override
   String get subtitleNotApplicable => 'Not applicable';
 
   @override
@@ -1081,7 +1081,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get audioTrackFallback => 'Audio track';
 
   @override
-  String get subtitleLoading => 'Loading subtitlesÔÇª';
+  String get subtitleLoading => 'Loading subtitles…';
 
   @override
   String get videoQualityFallback => 'Video quality';
@@ -1169,7 +1169,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String subtitleVerifying(Object count) {
-    return 'Checking subtitlesÔÇª ($count)';
+    return 'Checking subtitles… ($count)';
   }
 
   @override
@@ -1180,7 +1180,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The provider offers nothing for this content. An online search may find a subtitle.';
 
   @override
-  String get subtitleSearchOnlineRunning => 'SearchingÔÇª';
+  String get subtitleSearchOnlineRunning => 'Searching…';
 
   @override
   String get subtitleOnlineResults => 'Subtitles found online';
@@ -1202,7 +1202,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get opensubtitlesKeyLabel => 'Online subtitle search (OpenSubtitles)';
 
   @override
-  String get opensubtitlesKeyHint => 'API key ÔÇö optional';
+  String get opensubtitlesKeyHint => 'API key — optional';
 
   @override
   String get opensubtitlesKeyActive => 'Key saved: higher download quota.';
@@ -1218,7 +1218,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get opensubtitlesKeyCheck => 'Check the key';
 
   @override
-  String get opensubtitlesKeyChecking => 'CheckingÔÇª';
+  String get opensubtitlesKeyChecking => 'Checking…';
 
   @override
   String get opensubtitlesKeyValid => 'Valid key: the service accepts it.';
@@ -1255,7 +1255,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get opensubtitlesLoginConnect => 'Sign in / verify';
 
   @override
-  String get opensubtitlesLoginConnecting => 'Signing inÔÇª';
+  String get opensubtitlesLoginConnecting => 'Signing in…';
 
   @override
   String get opensubtitlesLoginValid =>

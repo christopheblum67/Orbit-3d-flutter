@@ -115,7 +115,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountDeviceProfileSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Profil {label} ┬À diagnostic lecteur'**
+  /// **'Profil {label} · diagnostic lecteur'**
   String accountDeviceProfileSubtitle(String label);
 
   /// No description provided for @accountNoSubscription.
@@ -127,13 +127,13 @@ abstract class AppLocalizations {
   /// No description provided for @accountPreferences.
   ///
   /// In fr, this message translates to:
-  /// **'Pr├®f├®rences profil'**
+  /// **'Préférences profil'**
   String get accountPreferences;
 
   /// No description provided for @accountPreferencesSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Langue, th├¿me, restrictions d\'├óge, PIN'**
+  /// **'Langue, thème, restrictions d\'âge, PIN'**
   String get accountPreferencesSubtitle;
 
   /// No description provided for @accountProfiles.
@@ -145,7 +145,7 @@ abstract class AppLocalizations {
   /// No description provided for @accountProfilesSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'G├®rer les profils et le profil actif'**
+  /// **'Gérer les profils et le profil actif'**
   String get accountProfilesSubtitle;
 
   /// No description provided for @accountSubscriptions.
@@ -169,13 +169,13 @@ abstract class AppLocalizations {
   /// No description provided for @addedToFavorites.
   ///
   /// In fr, this message translates to:
-  /// **'┬½ {title} ┬╗ ajout├® aux favoris'**
+  /// **'« {title} » ajouté aux favoris'**
   String addedToFavorites(Object title);
 
   /// No description provided for @age.
   ///
   /// In fr, this message translates to:
-  /// **'├ége'**
+  /// **'Âge'**
   String get age;
 
   /// No description provided for @ageRange13to17.
@@ -229,7 +229,7 @@ abstract class AppLocalizations {
   /// No description provided for @appearInSearchAndRecommendations.
   ///
   /// In fr, this message translates to:
-  /// **'Appara├«tre dans les recherches et recommandations'**
+  /// **'Apparaître dans les recherches et recommandations'**
   String get appearInSearchAndRecommendations;
 
   /// No description provided for @apply.
@@ -253,7 +253,7 @@ abstract class AppLocalizations {
   /// No description provided for @audioShift.
   ///
   /// In fr, this message translates to:
-  /// **'D├®calage audio configurable'**
+  /// **'Décalage audio configurable'**
   String get audioShift;
 
   /// No description provided for @audioShiftMinus50.
@@ -271,19 +271,19 @@ abstract class AppLocalizations {
   /// No description provided for @audioShiftSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'D├®calage audio/vid├®o manuel (ms)'**
+  /// **'Décalage audio/vidéo manuel (ms)'**
   String get audioShiftSubtitle;
 
   /// No description provided for @autoQualityDescription.
   ///
   /// In fr, this message translates to:
-  /// **'Laisse le lecteur choisir la meilleure qualit├®'**
+  /// **'Laisse le lecteur choisir la meilleure qualité'**
   String get autoQualityDescription;
 
   /// No description provided for @autoReconnectLive.
   ///
   /// In fr, this message translates to:
-  /// **'Auto-r├®connexion Live'**
+  /// **'Auto-réconnexion Live'**
   String get autoReconnectLive;
 
   /// No description provided for @autoReconnectLiveSubtitle.
@@ -295,13 +295,13 @@ abstract class AppLocalizations {
   /// No description provided for @avSyncDialogHint.
   ///
   /// In fr, this message translates to:
-  /// **'Positif = audio en avance, N├®gatif = audio en retard'**
+  /// **'Positif = audio en avance, Négatif = audio en retard'**
   String get avSyncDialogHint;
 
   /// No description provided for @avSyncDialogLabel.
   ///
   /// In fr, this message translates to:
-  /// **'D├®calage (ms)'**
+  /// **'Décalage (ms)'**
   String get avSyncDialogLabel;
 
   /// No description provided for @avSyncDialogTitle.
@@ -319,7 +319,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupExportSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Copie la config compl├¿te dans le presse-papiers'**
+  /// **'Copie la config complète dans le presse-papiers'**
   String get backupExportSubtitle;
 
   /// No description provided for @backupImport.
@@ -343,7 +343,7 @@ abstract class AppLocalizations {
   /// No description provided for @bassKillerSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Att├®nue les basses fr├®quences pour ├®viter les vibrations'**
+  /// **'Atténue les basses fréquences pour éviter les vibrations'**
   String get bassKillerSubtitle;
 
   /// No description provided for @cancel.
@@ -361,13 +361,13 @@ abstract class AppLocalizations {
   /// No description provided for @catchUpTv.
   ///
   /// In fr, this message translates to:
-  /// **'Rattrapage des cha├«nes'**
+  /// **'Rattrapage des chaînes'**
   String get catchUpTv;
 
   /// No description provided for @categories.
   ///
   /// In fr, this message translates to:
-  /// **'Cat├®gories'**
+  /// **'Catégories'**
   String get categories;
 
   /// No description provided for @certPinning.
@@ -385,13 +385,13 @@ abstract class AppLocalizations {
   /// No description provided for @certPinningHint.
   ///
   /// In fr, this message translates to:
-  /// **'Empreintes autoris├®es (une par ligne, format hex uppercase) :'**
+  /// **'Empreintes autorisées (une par ligne, format hex uppercase) :'**
   String get certPinningHint;
 
   /// No description provided for @certPinningSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'V├®rifie l\'empreinte SHA-256 du certificat SSL du serveur (anti-MITM)'**
+  /// **'Vérifie l\'empreinte SHA-256 du certificat SSL du serveur (anti-MITM)'**
   String get certPinningSubtitle;
 
   /// No description provided for @changePinCode.
@@ -403,7 +403,7 @@ abstract class AppLocalizations {
   /// No description provided for @channelsUnavailable.
   ///
   /// In fr, this message translates to:
-  /// **'Cha├«nes indisponibles'**
+  /// **'Chaînes indisponibles'**
   String get channelsUnavailable;
 
   /// No description provided for @chooseProfile.
@@ -421,19 +421,19 @@ abstract class AppLocalizations {
   /// No description provided for @clearCachesSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Images, index recherche, m├®tadonn├®es TMDB/TVmaze'**
+  /// **'Images, index recherche, métadonnées TMDB/TVmaze'**
   String get clearCachesSubtitle;
 
   /// No description provided for @cloudSyncEnabled.
   ///
   /// In fr, this message translates to:
-  /// **'Synchronisation activ├®e'**
+  /// **'Synchronisation activée'**
   String get cloudSyncEnabled;
 
   /// No description provided for @cloudSyncLastSync.
   ///
   /// In fr, this message translates to:
-  /// **'Derni├¿re sync : {time}'**
+  /// **'Dernière sync : {time}'**
   String cloudSyncLastSync(String time);
 
   /// No description provided for @cloudSyncNow.
@@ -451,25 +451,25 @@ abstract class AppLocalizations {
   /// No description provided for @cloudSyncSubtitleOff.
   ///
   /// In fr, this message translates to:
-  /// **'Synchronise favoris, vus et r├®cents vers le cloud'**
+  /// **'Synchronise favoris, vus et récents vers le cloud'**
   String get cloudSyncSubtitleOff;
 
   /// No description provided for @cloudflareReset.
   ///
   /// In fr, this message translates to:
-  /// **'R├®initialiser config Cloudflare'**
+  /// **'Réinitialiser config Cloudflare'**
   String get cloudflareReset;
 
   /// No description provided for @cloudflareResetSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Efface cookies, remet TLS Impersonation=OFF, UA ExoPlayer par d├®faut'**
+  /// **'Efface cookies, remet TLS Impersonation=OFF, UA ExoPlayer par défaut'**
   String get cloudflareResetSubtitle;
 
   /// No description provided for @comingSoon.
   ///
   /// In fr, this message translates to:
-  /// **'Bient├┤t disponible'**
+  /// **'Bientôt disponible'**
   String get comingSoon;
 
   /// No description provided for @confirmAndContinue.
@@ -481,25 +481,25 @@ abstract class AppLocalizations {
   /// No description provided for @coverCacheCleared.
   ///
   /// In fr, this message translates to:
-  /// **'Cache des pochettes purg├®.'**
+  /// **'Cache des pochettes purgé.'**
   String get coverCacheCleared;
 
   /// No description provided for @createKidProfile.
   ///
   /// In fr, this message translates to:
-  /// **'Cr├®er un profil Enfant'**
+  /// **'Créer un profil Enfant'**
   String get createKidProfile;
 
   /// No description provided for @createNewProfile.
   ///
   /// In fr, this message translates to:
-  /// **'Cr├®er un nouveau profil'**
+  /// **'Créer un nouveau profil'**
   String get createNewProfile;
 
   /// No description provided for @createProfile.
   ///
   /// In fr, this message translates to:
-  /// **'Cr├®er un profil'**
+  /// **'Créer un profil'**
   String get createProfile;
 
   /// No description provided for @currentProfileLabel.
@@ -511,13 +511,13 @@ abstract class AppLocalizations {
   /// No description provided for @dataAlreadyFresh.
   ///
   /// In fr, this message translates to:
-  /// **'Donn├®es d├®j├á fra├«ches (moins de 30 min)'**
+  /// **'Données déjà fraîches (moins de 30 min)'**
   String get dataAlreadyFresh;
 
   /// No description provided for @dataAndPrivacy.
   ///
   /// In fr, this message translates to:
-  /// **'Donn├®es & confidentialit├®'**
+  /// **'Données & confidentialité'**
   String get dataAndPrivacy;
 
   /// No description provided for @deleteAll.
@@ -547,7 +547,7 @@ abstract class AppLocalizations {
   /// No description provided for @detailUnavailable.
   ///
   /// In fr, this message translates to:
-  /// **'D├®tail indisponible'**
+  /// **'Détail indisponible'**
   String get detailUnavailable;
 
   /// No description provided for @diagnosticUnavailable.
@@ -571,7 +571,7 @@ abstract class AppLocalizations {
   /// No description provided for @disableSubtitles.
   ///
   /// In fr, this message translates to:
-  /// **'D├®sactiver les sous-titres'**
+  /// **'Désactiver les sous-titres'**
   String get disableSubtitles;
 
   /// No description provided for @dnsCloudflare.
@@ -595,7 +595,7 @@ abstract class AppLocalizations {
   /// No description provided for @dnsProviderSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Serveur utilis├® pour les requ├¬tes DNS over HTTPS'**
+  /// **'Serveur utilisé pour les requêtes DNS over HTTPS'**
   String get dnsProviderSubtitle;
 
   /// No description provided for @dnsQuad9.
@@ -607,25 +607,25 @@ abstract class AppLocalizations {
   /// No description provided for @dnsSystem.
   ///
   /// In fr, this message translates to:
-  /// **'Automatique (Syst├¿me)'**
+  /// **'Automatique (Système)'**
   String get dnsSystem;
 
   /// No description provided for @downloadFailed.
   ///
   /// In fr, this message translates to:
-  /// **'T├®l├®chargement impossible : {error}'**
+  /// **'Téléchargement impossible : {error}'**
   String downloadFailed(Object error);
 
   /// No description provided for @downloads.
   ///
   /// In fr, this message translates to:
-  /// **'T├®l├®chargements'**
+  /// **'Téléchargements'**
   String get downloads;
 
   /// No description provided for @dpadNavigation.
   ///
   /// In fr, this message translates to:
-  /// **'Navigation D-pad renforc├®e'**
+  /// **'Navigation D-pad renforcée'**
   String get dpadNavigation;
 
   /// No description provided for @dpadNavigationSubtitle.
@@ -637,13 +637,13 @@ abstract class AppLocalizations {
   /// No description provided for @enableParentalControl.
   ///
   /// In fr, this message translates to:
-  /// **'Activer le contr├┤le parental'**
+  /// **'Activer le contrôle parental'**
   String get enableParentalControl;
 
   /// No description provided for @enginesSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Live : {live} ┬À VOD : {vod}'**
+  /// **'Live : {live} · VOD : {vod}'**
   String enginesSubtitle(String live, String vod);
 
   /// No description provided for @enginesTile.
@@ -655,7 +655,7 @@ abstract class AppLocalizations {
   /// No description provided for @enterNew4DigitPin.
   ///
   /// In fr, this message translates to:
-  /// **'Saisir un nouveau code ├á 4 chiffres'**
+  /// **'Saisir un nouveau code à 4 chiffres'**
   String get enterNew4DigitPin;
 
   /// No description provided for @epgGrille.
@@ -673,7 +673,7 @@ abstract class AppLocalizations {
   /// No description provided for @episode.
   ///
   /// In fr, this message translates to:
-  /// **'├ëpisode'**
+  /// **'Épisode'**
   String get episode;
 
   /// No description provided for @errorGeneric.
@@ -727,13 +727,13 @@ abstract class AppLocalizations {
   /// No description provided for @firstName.
   ///
   /// In fr, this message translates to:
-  /// **'Pr├®nom'**
+  /// **'Prénom'**
   String get firstName;
 
   /// No description provided for @fontSize.
   ///
   /// In fr, this message translates to:
-  /// **'Taille du texte augment├®e'**
+  /// **'Taille du texte augmentée'**
   String get fontSize;
 
   /// No description provided for @fontSizeSubtitle.
@@ -781,13 +781,13 @@ abstract class AppLocalizations {
   /// No description provided for @highContrast.
   ///
   /// In fr, this message translates to:
-  /// **'Mode contraste ├®lev├®'**
+  /// **'Mode contraste élevé'**
   String get highContrast;
 
   /// No description provided for @highContrastSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Am├®liore la lisibilit├® pour les malvoyants'**
+  /// **'Améliore la lisibilité pour les malvoyants'**
   String get highContrastSubtitle;
 
   /// No description provided for @historyUnavailable.
@@ -799,37 +799,37 @@ abstract class AppLocalizations {
   /// No description provided for @instantZapping.
   ///
   /// In fr, this message translates to:
-  /// **'Zapping Instantan├® (Prefetching)'**
+  /// **'Zapping Instantané (Prefetching)'**
   String get instantZapping;
 
   /// No description provided for @instantZappingSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Pr├®charge les cha├«nes adjacentes en m├®moire tampon'**
+  /// **'Précharge les chaînes adjacentes en mémoire tampon'**
   String get instantZappingSubtitle;
 
   /// No description provided for @langArabic.
   ///
   /// In fr, this message translates to:
-  /// **'Ïº┘äÏ╣Ï▒Ï¿┘èÏ®'**
+  /// **'Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©'**
   String get langArabic;
 
   /// No description provided for @langFrench.
   ///
   /// In fr, this message translates to:
-  /// **'Fran├ºais'**
+  /// **'Français'**
   String get langFrench;
 
   /// No description provided for @langPortuguese.
   ///
   /// In fr, this message translates to:
-  /// **'Portugu├¬s'**
+  /// **'Português'**
   String get langPortuguese;
 
   /// No description provided for @langSpanish.
   ///
   /// In fr, this message translates to:
-  /// **'Espa├▒ol'**
+  /// **'Español'**
   String get langSpanish;
 
   /// No description provided for @language.
@@ -844,30 +844,6 @@ abstract class AppLocalizations {
   /// **'Français, English, etc.'**
   String get languageExample;
 
-  /// Option for disabling a track
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucun'**
-  String get noneOption;
-
-  /// Play button for downloaded content
-  ///
-  /// In fr, this message translates to:
-  /// **'Lire'**
-  String get play;
-
-  /// No description provided for @newAnd4K.
-  ///
-  /// In fr, this message translates to:
-  /// **'Films à la demande'**
-  String get newAnd4K;
-
-  /// No description provided for @seasonsAndEpisodes.
-  ///
-  /// In fr, this message translates to:
-  /// **'Séries à la demande'**
-  String get seasonsAndEpisodes;
-
   /// No description provided for @languagePreference.
   ///
   /// In fr, this message translates to:
@@ -877,7 +853,7 @@ abstract class AppLocalizations {
   /// No description provided for @languageUndetermined.
   ///
   /// In fr, this message translates to:
-  /// **'Ind├®termin├®'**
+  /// **'Indéterminé'**
   String get languageUndetermined;
 
   /// No description provided for @later.
@@ -889,19 +865,19 @@ abstract class AppLocalizations {
   /// No description provided for @legalNotice.
   ///
   /// In fr, this message translates to:
-  /// **'Lisez-moi ┬À Mentions l├®gales'**
+  /// **'Lisez-moi · Mentions légales'**
   String get legalNotice;
 
   /// No description provided for @legalNoticeSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Usage de l\'application, ayants droit et confidentialit├®'**
+  /// **'Usage de l\'application, ayants droit et confidentialité'**
   String get legalNoticeSubtitle;
 
   /// No description provided for @liveChannelsAndZapping.
   ///
   /// In fr, this message translates to:
-  /// **'Cha├«nes en direct & Zapping'**
+  /// **'Chaînes en direct & Zapping'**
   String get liveChannelsAndZapping;
 
   /// No description provided for @liveTv.
@@ -949,7 +925,7 @@ abstract class AppLocalizations {
   /// No description provided for @manualAvCalibrationSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'D├®calage actuel: {ms} ms'**
+  /// **'Décalage actuel: {ms} ms'**
   String manualAvCalibrationSubtitle(int ms);
 
   /// No description provided for @matchmaking.
@@ -961,7 +937,7 @@ abstract class AppLocalizations {
   /// No description provided for @matchmakingSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'G├®rer l\'appariement et les suggestions personnalis├®es'**
+  /// **'Gérer l\'appariement et les suggestions personnalisées'**
   String get matchmakingSubtitle;
 
   /// No description provided for @maxProfilesReached.
@@ -973,13 +949,13 @@ abstract class AppLocalizations {
   /// No description provided for @memory.
   ///
   /// In fr, this message translates to:
-  /// **'M├®moire'**
+  /// **'Mémoire'**
   String get memory;
 
   /// No description provided for @moreResults.
   ///
   /// In fr, this message translates to:
-  /// **'Voir plus de r├®sultats'**
+  /// **'Voir plus de résultats'**
   String get moreResults;
 
   /// No description provided for @moviesUnavailable.
@@ -991,13 +967,13 @@ abstract class AppLocalizations {
   /// No description provided for @multiScreen.
   ///
   /// In fr, this message translates to:
-  /// **'Multi-├®crans'**
+  /// **'Multi-écrans'**
   String get multiScreen;
 
   /// No description provided for @multiVideo.
   ///
   /// In fr, this message translates to:
-  /// **'Multi-vid├®o'**
+  /// **'Multi-vidéo'**
   String get multiVideo;
 
   /// No description provided for @myProfile.
@@ -1021,13 +997,13 @@ abstract class AppLocalizations {
   /// No description provided for @navigateToOkToSelect.
   ///
   /// In fr, this message translates to:
-  /// **'Naviguer ├á OK pour s├®lectionner'**
+  /// **'Naviguer à OK pour sélectionner'**
   String get navigateToOkToSelect;
 
   /// No description provided for @networkDisconnected.
   ///
   /// In fr, this message translates to:
-  /// **'R├®seau coup├®'**
+  /// **'Réseau coupé'**
   String get networkDisconnected;
 
   /// No description provided for @never.
@@ -1035,6 +1011,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'jamais'**
   String get never;
+
+  /// No description provided for @newAnd4K.
+  ///
+  /// In fr, this message translates to:
+  /// **'Films à la demande'**
+  String get newAnd4K;
 
   /// No description provided for @newProfile.
   ///
@@ -1045,7 +1027,7 @@ abstract class AppLocalizations {
   /// No description provided for @nextChannel.
   ///
   /// In fr, this message translates to:
-  /// **'Cha├«ne suivante'**
+  /// **'Chaîne suivante'**
   String get nextChannel;
 
   /// No description provided for @nightFocusEnable.
@@ -1057,7 +1039,7 @@ abstract class AppLocalizations {
   /// No description provided for @nightFocusEnableSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Traitement audio temps r├®el : boost dialogues, coupe basses, sync'**
+  /// **'Traitement audio temps réel : boost dialogues, coupe basses, sync'**
   String get nightFocusEnableSubtitle;
 
   /// No description provided for @nightFocusTitle.
@@ -1069,37 +1051,37 @@ abstract class AppLocalizations {
   /// No description provided for @noAudioTrackDetected.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune piste audio d├®tect├®e'**
+  /// **'Aucune piste audio détectée'**
   String get noAudioTrackDetected;
 
   /// No description provided for @noChannelsAvailable.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cha├«ne disponible'**
+  /// **'Aucune chaîne disponible'**
   String get noChannelsAvailable;
 
   /// No description provided for @noChromecastDeviceFound.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun appareil Chromecast trouv├®.'**
+  /// **'Aucun appareil Chromecast trouvé.'**
   String get noChromecastDeviceFound;
 
   /// No description provided for @noDownloads.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun t├®l├®chargement'**
+  /// **'Aucun téléchargement'**
   String get noDownloads;
 
   /// No description provided for @noEpisodes.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun ├®pisode'**
+  /// **'Aucun épisode'**
   String get noEpisodes;
 
   /// No description provided for @noFavoriteChannels.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cha├«ne favorite'**
+  /// **'Aucune chaîne favorite'**
   String get noFavoriteChannels;
 
   /// No description provided for @noFavoriteMovies.
@@ -1117,13 +1099,13 @@ abstract class AppLocalizations {
   /// No description provided for @noFavoriteSeries.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune s├®rie favorite'**
+  /// **'Aucune série favorite'**
   String get noFavoriteSeries;
 
   /// No description provided for @noGroupAffinity.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune affinit├® commune trouv├®e'**
+  /// **'Aucune affinité commune trouvée'**
   String get noGroupAffinity;
 
   /// No description provided for @noHistory.
@@ -1135,7 +1117,7 @@ abstract class AppLocalizations {
   /// No description provided for @noKidsChannels.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cha├«ne pour enfants'**
+  /// **'Aucune chaîne pour enfants'**
   String get noKidsChannels;
 
   /// No description provided for @noKidsMovies.
@@ -1153,7 +1135,7 @@ abstract class AppLocalizations {
   /// No description provided for @noKidsSeries.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune s├®rie pour enfants'**
+  /// **'Aucune série pour enfants'**
   String get noKidsSeries;
 
   /// No description provided for @noMoviesAvailable.
@@ -1195,19 +1177,19 @@ abstract class AppLocalizations {
   /// No description provided for @noReplaysInCategory.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun replay dans cette cat├®gorie'**
+  /// **'Aucun replay dans cette catégorie'**
   String get noReplaysInCategory;
 
   /// No description provided for @noResultsFor.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun r├®sultat pour {query}'**
+  /// **'Aucun résultat pour {query}'**
   String noResultsFor(Object query);
 
   /// No description provided for @noSeriesAvailable.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune s├®rie disponible'**
+  /// **'Aucune série disponible'**
   String get noSeriesAvailable;
 
   /// No description provided for @noStationsAvailable.
@@ -1219,7 +1201,7 @@ abstract class AppLocalizations {
   /// No description provided for @noVideoQualityDetected.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune qualit├® vid├®o d├®tect├®e'**
+  /// **'Aucune qualité vidéo détectée'**
   String get noVideoQualityDetected;
 
   /// No description provided for @notAvailableInCatalog.
@@ -1237,7 +1219,7 @@ abstract class AppLocalizations {
   /// No description provided for @parentalControl.
   ///
   /// In fr, this message translates to:
-  /// **'Contr├┤le parental'**
+  /// **'Contrôle parental'**
   String get parentalControl;
 
   /// No description provided for @parentalControlSubtitle.
@@ -1252,6 +1234,12 @@ abstract class AppLocalizations {
   /// **'Mettre en pause'**
   String get pauseDownload;
 
+  /// No description provided for @play.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lire'**
+  String get play;
+
   /// No description provided for @pinCode.
   ///
   /// In fr, this message translates to:
@@ -1261,7 +1249,7 @@ abstract class AppLocalizations {
   /// No description provided for @pinDeleted.
   ///
   /// In fr, this message translates to:
-  /// **'PIN supprim├®'**
+  /// **'PIN supprimé'**
   String get pinDeleted;
 
   /// No description provided for @pinMustBe4Digits.
@@ -1273,7 +1261,7 @@ abstract class AppLocalizations {
   /// No description provided for @pinSaved.
   ///
   /// In fr, this message translates to:
-  /// **'PIN enregistr├®'**
+  /// **'PIN enregistré'**
   String get pinSaved;
 
   /// No description provided for @pip.
@@ -1291,7 +1279,7 @@ abstract class AppLocalizations {
   /// No description provided for @playHistoryCleared.
   ///
   /// In fr, this message translates to:
-  /// **'Historique de lecture effac├®.'**
+  /// **'Historique de lecture effacé.'**
   String get playHistoryCleared;
 
   /// No description provided for @plusAgeYears.
@@ -1303,13 +1291,13 @@ abstract class AppLocalizations {
   /// No description provided for @preferences.
   ///
   /// In fr, this message translates to:
-  /// **'Pr├®f├®rences'**
+  /// **'Préférences'**
   String get preferences;
 
   /// No description provided for @previousChannel.
   ///
   /// In fr, this message translates to:
-  /// **'Cha├«ne pr├®c├®dente'**
+  /// **'Chaîne précédente'**
   String get previousChannel;
 
   /// No description provided for @primaryEngine.
@@ -1321,7 +1309,7 @@ abstract class AppLocalizations {
   /// No description provided for @profilesSelected.
   ///
   /// In fr, this message translates to:
-  /// **'{count} profils s├®lectionn├®s'**
+  /// **'{count} profils sélectionnés'**
   String profilesSelected(int count);
 
   /// No description provided for @profileVisible.
@@ -1339,7 +1327,7 @@ abstract class AppLocalizations {
   /// No description provided for @protectWithPin.
   ///
   /// In fr, this message translates to:
-  /// **'Prot├®ger par code PIN'**
+  /// **'Protéger par code PIN'**
   String get protectWithPin;
 
   /// No description provided for @rankingsUnavailable.
@@ -1351,19 +1339,19 @@ abstract class AppLocalizations {
   /// No description provided for @recentSearch.
   ///
   /// In fr, this message translates to:
-  /// **'Recherche r├®cente'**
+  /// **'Recherche récente'**
   String get recentSearch;
 
   /// No description provided for @recentSearches.
   ///
   /// In fr, this message translates to:
-  /// **'R├®cents'**
+  /// **'Récents'**
   String get recentSearches;
 
   /// No description provided for @recentlyWatched.
   ///
   /// In fr, this message translates to:
-  /// **'R├®cemment'**
+  /// **'Récemment'**
   String get recentlyWatched;
 
   /// No description provided for @removeAll.
@@ -1375,7 +1363,7 @@ abstract class AppLocalizations {
   /// No description provided for @removeFromWatchedConfirm.
   ///
   /// In fr, this message translates to:
-  /// **'Tout retirer des d├®j├á vus ?'**
+  /// **'Tout retirer des déjà vus ?'**
   String get removeFromWatchedConfirm;
 
   /// No description provided for @replaysUnavailable.
@@ -1387,19 +1375,19 @@ abstract class AppLocalizations {
   /// No description provided for @reset.
   ///
   /// In fr, this message translates to:
-  /// **'R├®initialiser'**
+  /// **'Réinitialiser'**
   String get reset;
 
   /// No description provided for @resetApp.
   ///
   /// In fr, this message translates to:
-  /// **'R├®initialiser l\'application'**
+  /// **'Réinitialiser l\'application'**
   String get resetApp;
 
   /// No description provided for @resetAppDialogBody.
   ///
   /// In fr, this message translates to:
-  /// **'Toutes les donn├®es seront effac├®es : profils, favoris, historique, r├®glages. Cette action est irr├®versible.'**
+  /// **'Toutes les données seront effacées : profils, favoris, historique, réglages. Cette action est irréversible.'**
   String get resetAppDialogBody;
 
   /// No description provided for @resetAppDialogConfirm.
@@ -1411,19 +1399,19 @@ abstract class AppLocalizations {
   /// No description provided for @resetAppDialogTitle.
   ///
   /// In fr, this message translates to:
-  /// **'R├®initialiser l\'application ?'**
+  /// **'Réinitialiser l\'application ?'**
   String get resetAppDialogTitle;
 
   /// No description provided for @resetAppSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Efface toutes les donn├®es utilisateur (profils, favoris, historique)'**
+  /// **'Efface toutes les données utilisateur (profils, favoris, historique)'**
   String get resetAppSubtitle;
 
   /// No description provided for @resetCompleted.
   ///
   /// In fr, this message translates to:
-  /// **'R├®initialisation effectu├®e'**
+  /// **'Réinitialisation effectuée'**
   String get resetCompleted;
 
   /// No description provided for @resumePlayback.
@@ -1435,7 +1423,7 @@ abstract class AppLocalizations {
   /// No description provided for @retry.
   ///
   /// In fr, this message translates to:
-  /// **'R├®essayer'**
+  /// **'Réessayer'**
   String get retry;
 
   /// No description provided for @retrySearch.
@@ -1477,7 +1465,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchChannel.
   ///
   /// In fr, this message translates to:
-  /// **'Rechercher une cha├«ne'**
+  /// **'Rechercher une chaîne'**
   String get searchChannel;
 
   /// No description provided for @searchError.
@@ -1495,7 +1483,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchSeries.
   ///
   /// In fr, this message translates to:
-  /// **'Rechercher une s├®rie'**
+  /// **'Rechercher une série'**
   String get searchSeries;
 
   /// No description provided for @seasonNumber.
@@ -1504,10 +1492,16 @@ abstract class AppLocalizations {
   /// **'Saison {season}'**
   String seasonNumber(Object season);
 
+  /// No description provided for @seasonsAndEpisodes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Séries à la demande'**
+  String get seasonsAndEpisodes;
+
   /// No description provided for @sectionAccessibility.
   ///
   /// In fr, this message translates to:
-  /// **'Accessibilit├®'**
+  /// **'Accessibilité'**
   String get sectionAccessibility;
 
   /// No description provided for @sectionAccountProfile.
@@ -1573,13 +1567,13 @@ abstract class AppLocalizations {
   /// No description provided for @sectionLegal.
   ///
   /// In fr, this message translates to:
-  /// **'Informations l├®gales'**
+  /// **'Informations légales'**
   String get sectionLegal;
 
   /// No description provided for @sectionMemory.
   ///
   /// In fr, this message translates to:
-  /// **'M├®moire & Cache'**
+  /// **'Mémoire & Cache'**
   String get sectionMemory;
 
   /// No description provided for @sectionOutput.
@@ -1591,7 +1585,7 @@ abstract class AppLocalizations {
   /// No description provided for @sectionParental.
   ///
   /// In fr, this message translates to:
-  /// **'Contr├┤le parental'**
+  /// **'Contrôle parental'**
   String get sectionParental;
 
   /// No description provided for @sectionRecommendations.
@@ -1603,7 +1597,7 @@ abstract class AppLocalizations {
   /// No description provided for @sectionResilience.
   ///
   /// In fr, this message translates to:
-  /// **'R├®silience du Service'**
+  /// **'Résilience du Service'**
   String get sectionResilience;
 
   /// No description provided for @sectionTmdb.
@@ -1621,49 +1615,49 @@ abstract class AppLocalizations {
   /// No description provided for @select.
   ///
   /// In fr, this message translates to:
-  /// **'S├®lectionner'**
+  /// **'Sélectionner'**
   String get select;
 
   /// No description provided for @selectAtLeastOneProfile.
   ///
   /// In fr, this message translates to:
-  /// **'S├®lectionnez au moins 1 profil suppl├®mentaire ({count}/4)'**
+  /// **'Sélectionnez au moins 1 profil supplémentaire ({count}/4)'**
   String selectAtLeastOneProfile(int count);
 
   /// No description provided for @selectProfileForRecommendations.
   ///
   /// In fr, this message translates to:
-  /// **'S├®lectionnez un profil pour voir ses recommandations'**
+  /// **'Sélectionnez un profil pour voir ses recommandations'**
   String get selectProfileForRecommendations;
 
   /// No description provided for @series.
   ///
   /// In fr, this message translates to:
-  /// **'S├®ries'**
+  /// **'Séries'**
   String get series;
 
   /// No description provided for @seriesNotFound.
   ///
   /// In fr, this message translates to:
-  /// **'S├®rie introuvable'**
+  /// **'Série introuvable'**
   String get seriesNotFound;
 
   /// No description provided for @seriesUnavailable.
   ///
   /// In fr, this message translates to:
-  /// **'S├®ries indisponibles'**
+  /// **'Séries indisponibles'**
   String get seriesUnavailable;
 
   /// No description provided for @seriesUnavailableTemporarily.
   ///
   /// In fr, this message translates to:
-  /// **'S├®rie indisponible pour le moment.'**
+  /// **'Série indisponible pour le moment.'**
   String get seriesUnavailableTemporarily;
 
   /// No description provided for @serverProtectedAntiLeech.
   ///
   /// In fr, this message translates to:
-  /// **'Serveur prot├®g├® (anti-leech)'**
+  /// **'Serveur protégé (anti-leech)'**
   String get serverProtectedAntiLeech;
 
   /// No description provided for @serverUrlPlaceholder.
@@ -1681,13 +1675,13 @@ abstract class AppLocalizations {
   /// No description provided for @setAsDefaultServer.
   ///
   /// In fr, this message translates to:
-  /// **'D├®finir comme serveur par d├®faut'**
+  /// **'Définir comme serveur par défaut'**
   String get setAsDefaultServer;
 
   /// No description provided for @settings.
   ///
   /// In fr, this message translates to:
-  /// **'R├®glages'**
+  /// **'Réglages'**
   String get settings;
 
   /// No description provided for @settingsTitle.
@@ -1705,19 +1699,19 @@ abstract class AppLocalizations {
   /// No description provided for @snackBackupExported.
   ///
   /// In fr, this message translates to:
-  /// **'Configuration export├®e dans le presse-papiers'**
+  /// **'Configuration exportée dans le presse-papiers'**
   String get snackBackupExported;
 
   /// No description provided for @snackCacheCleared.
   ///
   /// In fr, this message translates to:
-  /// **'Caches vid├®s'**
+  /// **'Caches vidés'**
   String get snackCacheCleared;
 
   /// No description provided for @snackCloudflareReset.
   ///
   /// In fr, this message translates to:
-  /// **'Config Cloudflare r├®initialis├®e'**
+  /// **'Config Cloudflare réinitialisée'**
   String get snackCloudflareReset;
 
   /// No description provided for @snackImportError.
@@ -1729,25 +1723,25 @@ abstract class AppLocalizations {
   /// No description provided for @snackImportSuccess.
   ///
   /// In fr, this message translates to:
-  /// **'Configuration import├®e avec succ├¿s'**
+  /// **'Configuration importée avec succès'**
   String get snackImportSuccess;
 
   /// No description provided for @snackNoBackup.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune sauvegarde trouv├®e'**
+  /// **'Aucune sauvegarde trouvée'**
   String get snackNoBackup;
 
   /// No description provided for @sortAffinity.
   ///
   /// In fr, this message translates to:
-  /// **'Par affinit├®'**
+  /// **'Par affinité'**
   String get sortAffinity;
 
   /// No description provided for @sortAffinityDescription.
   ///
   /// In fr, this message translates to:
-  /// **'Classe selon vos go├╗ts d├®clar├®s dans le profil (matchmaking)'**
+  /// **'Classe selon vos goûts déclarés dans le profil (matchmaking)'**
   String get sortAffinityDescription;
 
   /// No description provided for @sortAscending.
@@ -1759,7 +1753,7 @@ abstract class AppLocalizations {
   /// No description provided for @sortByDuration.
   ///
   /// In fr, this message translates to:
-  /// **'Par dur├®e'**
+  /// **'Par durée'**
   String get sortByDuration;
 
   /// No description provided for @sortByRating.
@@ -1771,13 +1765,13 @@ abstract class AppLocalizations {
   /// No description provided for @sortByYear.
   ///
   /// In fr, this message translates to:
-  /// **'Par ann├®e'**
+  /// **'Par année'**
   String get sortByYear;
 
   /// No description provided for @sortDescending.
   ///
   /// In fr, this message translates to:
-  /// **'Tri d├®croissant'**
+  /// **'Tri décroissant'**
   String get sortDescending;
 
   /// No description provided for @sortLatestM3UXtream.
@@ -1789,25 +1783,25 @@ abstract class AppLocalizations {
   /// No description provided for @sortNameAToZ.
   ///
   /// In fr, this message translates to:
-  /// **'Nom (A ÔåÆ Z)'**
+  /// **'Nom (A → Z)'**
   String get sortNameAToZ;
 
   /// No description provided for @sortNameZToA.
   ///
   /// In fr, this message translates to:
-  /// **'Nom (Z ÔåÆ A)'**
+  /// **'Nom (Z → A)'**
   String get sortNameZToA;
 
   /// No description provided for @sortResumePriority.
   ///
   /// In fr, this message translates to:
-  /// **'├Ç reprendre en priorit├®'**
+  /// **'À reprendre en priorité'**
   String get sortResumePriority;
 
   /// No description provided for @specialGuestsSeason.
   ///
   /// In fr, this message translates to:
-  /// **'Invit├®s sp├®ciaux - Saison {season}'**
+  /// **'Invités spéciaux - Saison {season}'**
   String specialGuestsSeason(Object season);
 
   /// No description provided for @srtVttUrl.
@@ -1819,7 +1813,7 @@ abstract class AppLocalizations {
   /// No description provided for @start.
   ///
   /// In fr, this message translates to:
-  /// **'D├®marrer'**
+  /// **'Démarrer'**
   String get start;
 
   /// No description provided for @stationsUnavailable.
@@ -1831,13 +1825,13 @@ abstract class AppLocalizations {
   /// No description provided for @stopCasting.
   ///
   /// In fr, this message translates to:
-  /// **'Arr├¬ter la diffusion'**
+  /// **'Arrêter la diffusion'**
   String get stopCasting;
 
   /// No description provided for @streamDetails.
   ///
   /// In fr, this message translates to:
-  /// **'D├®tails du flux'**
+  /// **'Détails du flux'**
   String get streamDetails;
 
   /// No description provided for @subtitleLoadError.
@@ -1855,7 +1849,7 @@ abstract class AppLocalizations {
   /// No description provided for @system.
   ///
   /// In fr, this message translates to:
-  /// **'Syst├¿me'**
+  /// **'Système'**
   String get system;
 
   /// No description provided for @tabAccount.
@@ -1867,7 +1861,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabAdvanced.
   ///
   /// In fr, this message translates to:
-  /// **'Avanc├®'**
+  /// **'Avancé'**
   String get tabAdvanced;
 
   /// No description provided for @tabAudio.
@@ -1879,7 +1873,7 @@ abstract class AppLocalizations {
   /// No description provided for @tabNetwork.
   ///
   /// In fr, this message translates to:
-  /// **'R├®seau'**
+  /// **'Réseau'**
   String get tabNetwork;
 
   /// No description provided for @tabPlayer.
@@ -1891,13 +1885,13 @@ abstract class AppLocalizations {
   /// No description provided for @tabSecurity.
   ///
   /// In fr, this message translates to:
-  /// **'S├®curit├®'**
+  /// **'Sécurité'**
   String get tabSecurity;
 
   /// No description provided for @theme.
   ///
   /// In fr, this message translates to:
-  /// **'Th├¿me'**
+  /// **'Thème'**
   String get theme;
 
   /// No description provided for @tlsImpersonation.
@@ -1915,43 +1909,43 @@ abstract class AppLocalizations {
   /// No description provided for @tmdbKeyActive.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® personnelle active ÔÇö la cl├® partag├®e est ignor├®e'**
+  /// **'Clé personnelle active — la clé partagée est ignorée'**
   String get tmdbKeyActive;
 
   /// No description provided for @tmdbKeyColumn.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├®s TMDB'**
+  /// **'Clés TMDB'**
   String get tmdbKeyColumn;
 
   /// No description provided for @tmdbKeyDelete.
   ///
   /// In fr, this message translates to:
-  /// **'Supprimer la cl├® personnelle'**
+  /// **'Supprimer la clé personnelle'**
   String get tmdbKeyDelete;
 
   /// No description provided for @tmdbKeyHint.
   ///
   /// In fr, this message translates to:
-  /// **'La cl├® partag├®e embarqu├®e est utilis├®e par d├®faut'**
+  /// **'La clé partagée embarquée est utilisée par défaut'**
   String get tmdbKeyHint;
 
   /// No description provided for @tmdbKeyLabel.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® API TMDB personnelle (optionnel)'**
+  /// **'Clé API TMDB personnelle (optionnel)'**
   String get tmdbKeyLabel;
 
   /// No description provided for @tmdbKeyShared.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® partag├®e embarqu├®e utilis├®e (aucune cl├® personnelle)'**
+  /// **'Clé partagée embarquée utilisée (aucune clé personnelle)'**
   String get tmdbKeyShared;
 
   /// No description provided for @tvChannels.
   ///
   /// In fr, this message translates to:
-  /// **'Cha├«nes TV'**
+  /// **'Chaînes TV'**
   String get tvChannels;
 
   /// No description provided for @unableToBuildReplayUrl.
@@ -1963,7 +1957,7 @@ abstract class AppLocalizations {
   /// No description provided for @unlockCloudflare.
   ///
   /// In fr, this message translates to:
-  /// **'D├®bloquer (Cloudflare)'**
+  /// **'Débloquer (Cloudflare)'**
   String get unlockCloudflare;
 
   /// No description provided for @unstableConnection.
@@ -1975,31 +1969,31 @@ abstract class AppLocalizations {
   /// No description provided for @updateAllData.
   ///
   /// In fr, this message translates to:
-  /// **'Mettre ├á jour toutes les donn├®es'**
+  /// **'Mettre à jour toutes les données'**
   String get updateAllData;
 
   /// No description provided for @aiTopicsTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Sujets recommand├®s par IA'**
+  /// **'Sujets recommandés par IA'**
   String get aiTopicsTitle;
 
   /// No description provided for @updateThisCategory.
   ///
   /// In fr, this message translates to:
-  /// **'Mettre ├á jour cette cat├®gorie'**
+  /// **'Mettre à jour cette catégorie'**
   String get updateThisCategory;
 
   /// No description provided for @updating.
   ///
   /// In fr, this message translates to:
-  /// **'Mise ├á jour en coursÔÇª'**
+  /// **'Mise à jour en cours…'**
   String get updating;
 
   /// No description provided for @updatingMediaContent.
   ///
   /// In fr, this message translates to:
-  /// **'Mise ├á jour du contenu multim├®dia en coursÔÇª'**
+  /// **'Mise à jour du contenu multimédia en cours…'**
   String get updatingMediaContent;
 
   /// No description provided for @volumeNormalization.
@@ -2011,7 +2005,7 @@ abstract class AppLocalizations {
   /// No description provided for @volumeNormalizationSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Limite les pics de volume entre cha├«nes/programmes (AGC)'**
+  /// **'Limite les pics de volume entre chaînes/programmes (AGC)'**
   String get volumeNormalizationSubtitle;
 
   /// No description provided for @watchLive.
@@ -2035,7 +2029,7 @@ abstract class AppLocalizations {
   /// No description provided for @yourChannelsAndContent.
   ///
   /// In fr, this message translates to:
-  /// **'Vos cha├«nes & contenus'**
+  /// **'Vos chaînes & contenus'**
   String get yourChannelsAndContent;
 
   /// No description provided for @subtitleSection.
@@ -2053,7 +2047,7 @@ abstract class AppLocalizations {
   /// No description provided for @videoSection.
   ///
   /// In fr, this message translates to:
-  /// **'Vid├®o'**
+  /// **'Vidéo'**
   String get videoSection;
 
   /// No description provided for @autoQuality.
@@ -2061,6 +2055,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Automatique'**
   String get autoQuality;
+
+  /// No description provided for @noneOption.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun'**
+  String get noneOption;
 
   /// No description provided for @subtitleNotApplicable.
   ///
@@ -2095,13 +2095,13 @@ abstract class AppLocalizations {
   /// No description provided for @subtitleGuessed.
   ///
   /// In fr, this message translates to:
-  /// **'Pistes d├®duites'**
+  /// **'Pistes déduites'**
   String get subtitleGuessed;
 
   /// No description provided for @subtitleGuessedInfo.
   ///
   /// In fr, this message translates to:
-  /// **'Le panel ne d├®clare pas ses sous-titres : ces pistes sont obtenues par convention d\'URL. Celle qui n\'existe pas signale une erreur ├á l\'activation.'**
+  /// **'Le panel ne déclare pas ses sous-titres : ces pistes sont obtenues par convention d\'URL. Celle qui n\'existe pas signale une erreur à l\'activation.'**
   String get subtitleGuessedInfo;
 
   /// No description provided for @subtitleUnavailableToast.
@@ -2119,13 +2119,13 @@ abstract class AppLocalizations {
   /// No description provided for @subtitleLoading.
   ///
   /// In fr, this message translates to:
-  /// **'Chargement des sous-titresÔÇª'**
+  /// **'Chargement des sous-titres…'**
   String get subtitleLoading;
 
   /// No description provided for @videoQualityFallback.
   ///
   /// In fr, this message translates to:
-  /// **'Qualit├® vid├®o'**
+  /// **'Qualité vidéo'**
   String get videoQualityFallback;
 
   /// No description provided for @close.
@@ -2143,7 +2143,7 @@ abstract class AppLocalizations {
   /// No description provided for @subtitleProviderNoAnswer.
   ///
   /// In fr, this message translates to:
-  /// **'Le panel n\'a pas r├®pondu.'**
+  /// **'Le panel n\'a pas répondu.'**
   String get subtitleProviderNoAnswer;
 
   /// No description provided for @subtitleUnavailableDetail.
@@ -2155,7 +2155,7 @@ abstract class AppLocalizations {
   /// No description provided for @epgNoDataTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune donn├®e de programme'**
+  /// **'Aucune donnée de programme'**
   String get epgNoDataTitle;
 
   /// No description provided for @epgLiveNow.
@@ -2167,7 +2167,7 @@ abstract class AppLocalizations {
   /// No description provided for @epgSelectChannelHint.
   ///
   /// In fr, this message translates to:
-  /// **'S├®lectionnez une cha├«ne pour voir son programme'**
+  /// **'Sélectionnez une chaîne pour voir son programme'**
   String get epgSelectChannelHint;
 
   /// No description provided for @epgNow.
@@ -2185,7 +2185,7 @@ abstract class AppLocalizations {
   /// No description provided for @epgZoomOut.
   ///
   /// In fr, this message translates to:
-  /// **'D├®zoomer'**
+  /// **'Dézoomer'**
   String get epgZoomOut;
 
   /// No description provided for @epgNoCurrentProgram.
@@ -2215,13 +2215,13 @@ abstract class AppLocalizations {
   /// No description provided for @replayNoneInArchiveDays.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun programme d├®j├á diffus├® dans les {days} jours d\'archives de ce compte pour cette cha├«ne.'**
+  /// **'Aucun programme déjà diffusé dans les {days} jours d\'archives de ce compte pour cette chaîne.'**
   String replayNoneInArchiveDays(Object days);
 
   /// No description provided for @replayNonePublished.
   ///
   /// In fr, this message translates to:
-  /// **'Le panel ne publie aucun programme d├®j├á diffus├® pour cette cha├«ne.'**
+  /// **'Le panel ne publie aucun programme déjà diffusé pour cette chaîne.'**
   String get replayNonePublished;
 
   /// No description provided for @epgActionFavorite.
@@ -2269,7 +2269,7 @@ abstract class AppLocalizations {
   /// No description provided for @subtitleVerifying.
   ///
   /// In fr, this message translates to:
-  /// **'V├®rification des sous-titresÔÇª ({count})'**
+  /// **'Vérification des sous-titres… ({count})'**
   String subtitleVerifying(Object count);
 
   /// No description provided for @subtitleSearchOnline.
@@ -2287,25 +2287,25 @@ abstract class AppLocalizations {
   /// No description provided for @subtitleSearchOnlineRunning.
   ///
   /// In fr, this message translates to:
-  /// **'Recherche en coursÔÇª'**
+  /// **'Recherche en cours…'**
   String get subtitleSearchOnlineRunning;
 
   /// No description provided for @subtitleOnlineResults.
   ///
   /// In fr, this message translates to:
-  /// **'Sous-titres trouv├®s en ligne'**
+  /// **'Sous-titres trouvés en ligne'**
   String get subtitleOnlineResults;
 
   /// No description provided for @subtitleOnlineEmpty.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun sous-titre trouv├® en ligne pour ce contenu.'**
+  /// **'Aucun sous-titre trouvé en ligne pour ce contenu.'**
   String get subtitleOnlineEmpty;
 
   /// No description provided for @subtitleOnlineDownloads.
   ///
   /// In fr, this message translates to:
-  /// **'{count} t├®l├®chargements'**
+  /// **'{count} téléchargements'**
   String subtitleOnlineDownloads(Object count);
 
   /// No description provided for @subtitleOnlineNoTmdb.
@@ -2323,55 +2323,55 @@ abstract class AppLocalizations {
   /// No description provided for @opensubtitlesKeyHint.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® API ÔÇö facultative'**
+  /// **'Clé API — facultative'**
   String get opensubtitlesKeyHint;
 
   /// No description provided for @opensubtitlesKeyActive.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® enregistr├®e : quota de t├®l├®chargement relev├®.'**
+  /// **'Clé enregistrée : quota de téléchargement relevé.'**
   String get opensubtitlesKeyActive;
 
   /// No description provided for @opensubtitlesKeyAnonymous.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cl├® : recherche possible, 5 t├®l├®chargements par IP et par 24 h.'**
+  /// **'Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.'**
   String get opensubtitlesKeyAnonymous;
 
   /// No description provided for @opensubtitlesKeyDelete.
   ///
   /// In fr, this message translates to:
-  /// **'Effacer la cl├®'**
+  /// **'Effacer la clé'**
   String get opensubtitlesKeyDelete;
 
   /// No description provided for @opensubtitlesKeyCheck.
   ///
   /// In fr, this message translates to:
-  /// **'V├®rifier la cl├®'**
+  /// **'Vérifier la clé'**
   String get opensubtitlesKeyCheck;
 
   /// No description provided for @opensubtitlesKeyChecking.
   ///
   /// In fr, this message translates to:
-  /// **'V├®rification en coursÔÇª'**
+  /// **'Vérification en cours…'**
   String get opensubtitlesKeyChecking;
 
   /// No description provided for @opensubtitlesKeyValid.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® valide : le service l\'accepte.'**
+  /// **'Clé valide : le service l\'accepte.'**
   String get opensubtitlesKeyValid;
 
   /// No description provided for @opensubtitlesKeyRejected.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® refus├®e par le service : v├®rifiez que vous l\'avez copi├®e en entier.'**
+  /// **'Clé refusée par le service : vérifiez que vous l\'avez copiée en entier.'**
   String get opensubtitlesKeyRejected;
 
   /// No description provided for @opensubtitlesKeyUnreachable.
   ///
   /// In fr, this message translates to:
-  /// **'Service injoignable : v├®rifiez votre connexion et r├®essayez.'**
+  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
   String get opensubtitlesKeyUnreachable;
 
   /// No description provided for @opensubtitlesLoginLabel.
@@ -2395,13 +2395,13 @@ abstract class AppLocalizations {
   /// No description provided for @opensubtitlesLoginActive.
   ///
   /// In fr, this message translates to:
-  /// **'Compte enregistr├® : les t├®l├®chargements pourront se connecter.'**
+  /// **'Compte enregistré : les téléchargements pourront se connecter.'**
   String get opensubtitlesLoginActive;
 
   /// No description provided for @opensubtitlesLoginNone.
   ///
   /// In fr, this message translates to:
-  /// **'Aucun compte : le t├®l├®chargement reste refus├® (503).'**
+  /// **'Aucun compte : le téléchargement reste refusé (503).'**
   String get opensubtitlesLoginNone;
 
   /// No description provided for @opensubtitlesLoginDelete.
@@ -2413,55 +2413,55 @@ abstract class AppLocalizations {
   /// No description provided for @opensubtitlesLoginConnect.
   ///
   /// In fr, this message translates to:
-  /// **'Se connecter / v├®rifier'**
+  /// **'Se connecter / vérifier'**
   String get opensubtitlesLoginConnect;
 
   /// No description provided for @opensubtitlesLoginConnecting.
   ///
   /// In fr, this message translates to:
-  /// **'Connexion en coursÔÇª'**
+  /// **'Connexion en cours…'**
   String get opensubtitlesLoginConnecting;
 
   /// No description provided for @opensubtitlesLoginValid.
   ///
   /// In fr, this message translates to:
-  /// **'Compte accept├® : le service d├®livre un jeton.'**
+  /// **'Compte accepté : le service délivre un jeton.'**
   String get opensubtitlesLoginValid;
 
   /// No description provided for @opensubtitlesLoginRejected.
   ///
   /// In fr, this message translates to:
-  /// **'Identifiants refus├®s : v├®rifiez l\'identifiant et le mot de passe.'**
+  /// **'Identifiants refusés : vérifiez l\'identifiant et le mot de passe.'**
   String get opensubtitlesLoginRejected;
 
   /// No description provided for @opensubtitlesLoginUnreachable.
   ///
   /// In fr, this message translates to:
-  /// **'Service injoignable : v├®rifiez votre connexion et r├®essayez.'**
+  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
   String get opensubtitlesLoginUnreachable;
 
   /// No description provided for @subtitleOnlineNoApiKey.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® API OpenSubtitles absente : saisissez-la dans R├®glages pour activer la recherche en ligne.'**
+  /// **'Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.'**
   String get subtitleOnlineNoApiKey;
 
   /// No description provided for @subtitleOnlineKeyRejected.
   ///
   /// In fr, this message translates to:
-  /// **'Cl├® API OpenSubtitles refus├®e : elle est pr├®sente mais le service la rejette. V├®rifiez sa validit├® dans R├®glages.'**
+  /// **'Clé API OpenSubtitles refusée : elle est présente mais le service la rejette. Vérifiez sa validité dans Réglages.'**
   String get subtitleOnlineKeyRejected;
 
   /// No description provided for @subtitleOnlineQuota.
   ///
   /// In fr, this message translates to:
-  /// **'Quota de t├®l├®chargement OpenSubtitles atteint pour aujourd\'hui. R├®essayez demain.'**
+  /// **'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.'**
   String get subtitleOnlineQuota;
 
   /// No description provided for @subtitleOnlineNeedsLogin.
   ///
   /// In fr, this message translates to:
-  /// **'Le t├®l├®chargement OpenSubtitles exige un compte connect├®, pas seulement la cl├® API : la recherche fonctionne, mais le t├®l├®chargement est refus├®.'**
+  /// **'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.'**
   String get subtitleOnlineNeedsLogin;
 
   /// No description provided for @favorites.
@@ -2497,13 +2497,13 @@ abstract class AppLocalizations {
   /// No description provided for @downloadStatusDownloading.
   ///
   /// In fr, this message translates to:
-  /// **'T├®l├®chargement'**
+  /// **'Téléchargement'**
   String get downloadStatusDownloading;
 
   /// No description provided for @downloadStatusPreparing.
   ///
   /// In fr, this message translates to:
-  /// **'Pr├®paration'**
+  /// **'Préparation'**
   String get downloadStatusPreparing;
 
   /// No description provided for @downloadStatusPaused.
@@ -2515,19 +2515,19 @@ abstract class AppLocalizations {
   /// No description provided for @downloadStatusCompleted.
   ///
   /// In fr, this message translates to:
-  /// **'Termin├®'**
+  /// **'Terminé'**
   String get downloadStatusCompleted;
 
   /// No description provided for @downloadStatusFailed.
   ///
   /// In fr, this message translates to:
-  /// **'├ëchec'**
+  /// **'Échec'**
   String get downloadStatusFailed;
 
   /// No description provided for @downloadStatusCancelled.
   ///
   /// In fr, this message translates to:
-  /// **'Annul├®'**
+  /// **'Annulé'**
   String get downloadStatusCancelled;
 
   /// No description provided for @downloadStatusQueued.
@@ -2551,7 +2551,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadsEmptyHint.
   ///
   /// In fr, this message translates to:
-  /// **'Ajoutez des contenus depuis les d├®tails d\'un film ou d\'une s├®rie.'**
+  /// **'Ajoutez des contenus depuis les détails d\'un film ou d\'une série.'**
   String get downloadsEmptyHint;
 
   /// No description provided for @downloadsLocation.
@@ -2563,13 +2563,13 @@ abstract class AppLocalizations {
   /// No description provided for @advancedSettingsTitle.
   ///
   /// In fr, this message translates to:
-  /// **'R├®glages avanc├®s'**
+  /// **'Réglages avancés'**
   String get advancedSettingsTitle;
 
   /// No description provided for @advancedSettingsIntro.
   ///
   /// In fr, this message translates to:
-  /// **'Identifiants d\'API et param├¿tres r├®seau. Ces r├®glages engagent votre compte aupr├¿s de services tiers : une cl├® partag├®e consomme son quota, et une mauvaise manipulation du r├®seau peut emp├¬cher l\'application de d├®marrer.'**
+  /// **'Identifiants d\'API et paramètres réseau. Ces réglages engagent votre compte auprès de services tiers : une clé partagée consomme son quota, et une mauvaise manipulation du réseau peut empêcher l\'application de démarrer.'**
   String get advancedSettingsIntro;
 
   /// No description provided for @advancedSubtitlesProvider.
@@ -2581,13 +2581,13 @@ abstract class AppLocalizations {
   /// No description provided for @advancedStatus.
   ///
   /// In fr, this message translates to:
-  /// **'├ëtat des identifiants'**
+  /// **'État des identifiants'**
   String get advancedStatus;
 
   /// No description provided for @advancedAccessTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Acc├¿s r├®serv├®'**
+  /// **'Accès réservé'**
   String get advancedAccessTitle;
 
   /// No description provided for @advancedAccessHint.
@@ -2611,37 +2611,37 @@ abstract class AppLocalizations {
   /// No description provided for @advancedHiddenHint.
   ///
   /// In fr, this message translates to:
-  /// **'Maintenir appuy├® pour les r├®glages avanc├®s'**
+  /// **'Maintenir appuyé pour les réglages avancés'**
   String get advancedHiddenHint;
 
   /// No description provided for @favoritesAndDownloads.
   ///
   /// In fr, this message translates to:
-  /// **'Favoris et T├®l├®chargements'**
+  /// **'Favoris et Téléchargements'**
   String get favoritesAndDownloads;
 
   /// No description provided for @activeAudio.
   ///
   /// In fr, this message translates to:
-  /// **'Son actif sur cet ├®cran'**
+  /// **'Son actif sur cet écran'**
   String get activeAudio;
 
   /// No description provided for @addChannel.
   ///
   /// In fr, this message translates to:
-  /// **'Ajouter une cha├«ne'**
+  /// **'Ajouter une chaîne'**
   String get addChannel;
 
   /// No description provided for @noChannelSelected.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune cha├«ne s├®lectionn├®e'**
+  /// **'Aucune chaîne sélectionnée'**
   String get noChannelSelected;
 
   /// No description provided for @removeChannel.
   ///
   /// In fr, this message translates to:
-  /// **'Retirer la cha├«ne'**
+  /// **'Retirer la chaîne'**
   String get removeChannel;
 
   /// No description provided for @avatarCategoryAll.
