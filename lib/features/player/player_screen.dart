@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -63,6 +64,8 @@ class PlayerRouteData {
     this.series,
     this.episode,
     this.vodId,
+    this.isLocalFile = false,
+    this.headers,
   });
 
   final String streamUrl;
@@ -93,6 +96,12 @@ class PlayerRouteData {
   /// statut « vu » quand l'épisode atteint 80 % de progression.
   final Series? series;
   final Episode? episode;
+
+  /// Si true, `streamUrl` est un chemin de fichier local (hors-ligne).
+  final bool isLocalFile;
+
+  /// Headers HTTP optionnels (pour flux protégés ou fichiers locaux avec auth).
+  final Map<String, String>? headers;
 }
 
 class PlayerScreen extends ConsumerStatefulWidget {
@@ -116,6 +125,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.series,
     this.episode,
     this.vodId,
+    this.isLocalFile = false,
+    this.headers,
   });
 
   final String streamUrl;
@@ -139,6 +150,12 @@ class PlayerScreen extends ConsumerStatefulWidget {
   /// Identifiant VOD du film (`stream_id`), utilisé pour découvrir les
   /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
   final String? vodId;
+
+  /// Si true, `streamUrl` est un chemin de fichier local (hors-ligne).
+  final bool isLocalFile;
+
+  /// Headers HTTP optionnels (pour flux protégés ou fichiers locaux avec auth).
+  final Map<String, String>? headers;
 
   @override
   ConsumerState<PlayerScreen> createState() => PlayerScreenState();
@@ -913,6 +930,30 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     await PlayerProfileService.pushForDevice(
       ref.read(deviceProfileProvider),
     );
+    VideoPlayerController createController(String url, int agentIndex) {
+      if (widget.isLocalFile) {
+        // Pour les fichiers locaux, utiliser `VideoPlayerController.file`.
+        // Le chemin peut être absolu ou un URI `file://`.
+        final filePath = widget.streamUrl.startsWith('file://')
+            ? widget.streamUrl.substring(7)
+            : widget.streamUrl;
+        return VideoPlayerController.file(
+          File(filePath),
+          videoPlayerOptions: _exclusivePlayback,
+        );
+      }
+      // Pour les flux réseau, utiliser `VideoPlayerController.networkUrl`.
+      final headers = _resolvedHeaders(url, agentIndex);
+      if (widget.headers != null) {
+        headers.addAll(widget.headers!);
+      }
+      return VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        httpHeaders: headers,
+        videoPlayerOptions: _exclusivePlayback,
+      );
+    }
+
     for (final agentIndex in userAgentOrder) {
       // Laisse un intervalle entre deux essais : marteler le panneau IPTV
       // déclenche son anti-leech (401 « indisponible » temporaire).
@@ -920,11 +961,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         await Future<void>.delayed(const Duration(milliseconds: 900));
         if (!mounted || gen != _generation) return false;
       }
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        httpHeaders: _resolvedHeaders(url, agentIndex),
-        videoPlayerOptions: _exclusivePlayback,
-      );
+      final controller = createController(url, agentIndex);
       _controller = controller;
       controller.addListener(_onControllerUpdate);
       _appliedAudioPref = false;

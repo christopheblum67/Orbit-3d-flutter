@@ -355,11 +355,19 @@ final GoRouter router = GoRouter(
       pageBuilder: (context, state) {
         final playerKey = GlobalKey<PlayerScreenState>();
 
-        // Normaliser les paramètres vers PlayerRouteData (extra prioritaire, sinon queryParams)
         PlayerRouteData routeData;
         final extra = state.extra;
         if (extra is PlayerRouteData) {
           routeData = extra;
+        } else if (extra is Map<String, dynamic>) {
+          // Support pour lecture locale (fichiers téléchargés) via Map extra
+          routeData = PlayerRouteData(
+            streamUrl: extra['url'] as String? ?? '',
+            title: extra['title'] as String?,
+            isLocalFile: extra['isLocalFile'] as bool? ?? false,
+            headers: extra['headers'] as Map<String, String>?,
+            posterUrl: extra['posterUrl'] as String?,
+          );
         } else {
           // Fallback pour deep links externes (query parameters)
           final url = state.uri.queryParameters['url'] ?? '';
@@ -444,6 +452,8 @@ final GoRouter router = GoRouter(
               episodeLabel: routeData.episodeLabel,
               series: routeData.series,
               episode: routeData.episode,
+              isLocalFile: routeData.isLocalFile,
+              headers: routeData.headers,
             ),
           ),
         );

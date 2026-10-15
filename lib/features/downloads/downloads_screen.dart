@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +9,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/download_manager.dart';
 
-/// Ã‰cran de gestion des tÃ©lÃ©chargements hors-ligne.
+/// Écran de gestion des téléchargements hors-ligne.
 class DownloadsScreen extends ConsumerStatefulWidget {
   const DownloadsScreen({super.key});
 
@@ -20,20 +20,20 @@ class DownloadsScreen extends ConsumerStatefulWidget {
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   final DownloadManager _downloadManager = DownloadManager();
 
-  /// AffectÃ© dans `initState()`, donc avant le premier `build()`.
+  /// Affecté dans `initState()`, donc avant le premier `build()`.
   ///
-  /// Ne dÃ©pend pas de l'`await` de `init()` : `tasksStream` est un getter sur
-  /// le singleton `DownloadManager`. Avant ce correctif, le champ Ã©tait `late`
-  /// et affectÃ© APRÃˆS l'ouverture de Hive â€” or `_firstBuild()` appelle
-  /// `initState()` puis `build()` dans le mÃªme frame, donc le premier rendu
+  /// Ne dépend pas de l'`await` de `init()` : `tasksStream` est un getter sur
+  /// le singleton `DownloadManager`. Avant ce correctif, le champ était `late`
+  /// et affecté APRÈS l'ouverture de Hive — or `_firstBuild()` appelle
+  /// `initState()` puis `build()` dans le même frame, donc le premier rendu
   /// levait `LateInitializationError`.
   late final Stream<List<DownloadTask>> _tasksStream;
 
-  /// DÃ©rivation mÃ©morisÃ©e.
+  /// Dérivation mémorisée.
   ///
-  /// `StreamBuilder(stream: source.map(...))` construisait un NOUVEAU stream Ã 
-  /// chaque `build`, donc le builder se rÃ©abonnait Ã  la source Ã  chaque
-  /// reconstruction â€” donc perdait son Ã©tat et reprenait depuis le dÃ©but du
+  /// `StreamBuilder(stream: source.map(...))` construisait un NOUVEAU stream à
+  /// chaque `build`, donc le builder se réabonnait à la source à chaque
+  /// reconstruction — donc perdait son état et reprenait depuis le début du
   /// flux Hive.
   late final Stream<int> _activeCountStream;
 
@@ -50,8 +50,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
 
   Future<void> _initDownloadManager() async {
     await _downloadManager.init();
-    // Garde obligatoire : l'utilisateur peut Ãªtre restÃ© sur l'Ã©cran pendant
-    // l'ouverture de Hive. `setState` sur un State dÃ©montÃ© est une exception.
+    // Garde obligatoire : l'utilisateur peut être resté sur l'écran pendant
+    // l'ouverture de Hive. `setState` sur un State démonté est une exception.
     if (!mounted) return;
     setState(() => _ready = true);
   }
@@ -106,8 +106,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       body: StreamBuilder<List<DownloadTask>>(
         stream: _tasksStream,
         builder: (context, snapshot) {
-          // Tant que Hive n'est pas ouvert, le flux n'Ã©met rien : on affiche
-          // le loader pour Ã©viter un "aucun tÃ©lÃ©chargement" trompeur.
+          // Tant que Hive n'est pas ouvert, le flux n'émet rien : on affiche
+          // le loader pour éviter un "aucun téléchargement" trompeur.
           if (!_ready || snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -132,10 +132,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 }
 
-/// Rang d'affichage d'un statut : actifs d'abord, puis terminÃ©s, puis Ã©chouÃ©s.
+/// Rang d'affichage d'un statut : actifs d'abord, puis terminés, puis échoués.
 ///
-/// ExposÃ©e pour que l'Ã©cran Â« Mes contenus Â» trie ses sections de la mÃªme
-/// faÃ§on, sans dupliquer une rÃ¨gle qui n'a de sens qu'Ã  un endroit.
+/// Exposée pour que l'écran « Mes contenus » trie ses sections de la même
+/// façon, sans dupliquer une règle qui n'a de sens qu'à un endroit.
 int downloadStatusOrder(DownloadStatus status) {
   switch (status) {
     case DownloadStatus.downloading:
@@ -154,11 +154,11 @@ int downloadStatusOrder(DownloadStatus status) {
   }
 }
 
-/// Liste de tÃ©lÃ©chargements, filtrable par l'appelant.
+/// Liste de téléchargements, filtrable par l'appelant.
 ///
-/// Extraite de l'Ã©cran pour Ãªtre rÃ©utilisÃ©e telle quelle par Â« Mes contenus Â» :
+/// Extraite de l'écran pour être réutilisée telle quelle par « Mes contenus » :
 /// `DownloadTile` exige six callbacks, dont l'ouverture du contenu, qui
-/// reposait sur du code privÃ©. Dupliquer cette logique aurait produit deux
+/// reposait sur du code privé. Dupliquer cette logique aurait produit deux
 /// listes qui divergent au premier correctif.
 class DownloadList extends StatelessWidget {
   const DownloadList({super.key, required this.tasks});
@@ -196,11 +196,11 @@ class DownloadList extends StatelessWidget {
   }
 }
 
-/// Ouvre le contenu d'un tÃ©lÃ©chargement terminÃ©.
+/// Ouvre le contenu d'un téléchargement terminé.
 ///
 /// Les routes `/live/detail` et `/replay/detail` n'existent pas : y naviguer
 /// depuis une liste ne pouvait donc rien ouvrir. On renvoie vers l'accueil
-/// plutÃ´t que de pousser une route inconnue.
+/// plutôt que de pousser une route inconnue.
 void openDownloadedContent(BuildContext context, DownloadTask task) {
   final id = task.mediaItemId;
   final seriesId = task.seriesId;
@@ -212,7 +212,7 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
       context.go('/vod/detail', extra: {'id': id});
     case 'series':
       if (seriesId != null && season != null && episode != null) {
-        // L'Ã©cran de dÃ©tail d'Ã©pisode gÃ¨re l'extra, on garde l'existant.
+        // L'écran de détail d'épisode gère l'extra, on garde l'existant.
         context.go(
           '/episode/detail',
           extra: {
@@ -226,8 +226,8 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
           '/series/detail?id=${Uri.encodeComponent(seriesId)}',
         );
       }
-    // Aucun tÃ©lÃ©chargement Live ni Replay n'est possible : le gestionnaire
-    // refuse les playlists HLS. Le cas reste traitÃ© pour ne pas rester muet si
+    // Aucun téléchargement Live ni Replay n'est possible : le gestionnaire
+    // refuse les playlists HLS. Le cas reste traité pour ne pas rester muet si
     // un fichier direct se glisse dans la liste un jour.
     case 'live':
       context.go('/live');
@@ -238,8 +238,8 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
   }
 }
 
-/// Lance la lecture **directe** d'un fichier tÃ©lÃ©chargÃ© (hors-ligne).
-/// N'utilise pas le flux rÃ©seau â€” passe par le lecteur interne avec le chemin local.
+/// Lance la lecture **directe** d'un fichier téléchargé (hors-ligne).
+/// N'utilise pas le flux réseau — passe par le lecteur interne avec le chemin local.
 void playDownloadedContent(BuildContext context, DownloadTask task) {
   final path = task.localPath;
   final file = File(path);
@@ -247,34 +247,37 @@ void playDownloadedContent(BuildContext context, DownloadTask task) {
 
   if (!dir.existsSync()) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('RÃ©pertoire introuvable : ${dir.path}')),
+      SnackBar(content: Text('Répertoire introuvable : ${dir.path}')),
     );
     return;
   }
 
   if (!file.existsSync()) {
-    // Lister les fichiers dans le rÃ©pertoire pour diagnostic
+    // Lister les fichiers dans le répertoire pour diagnostic
     final files = dir.listSync();
     final names = files.map((f) => f.path.split('/').last).join(', ');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Fichier introuvable : $path. Fichiers prÃ©sents : $names'),
+        content: Text('Fichier introuvable : $path. Fichiers présents : $names'),
         duration: const Duration(seconds: 5),
       ),
     );
     return;
   }
 
-  context.go('/player', extra: {
-    'url': path,
-    'title': task.title,
-    'isLocalFile': true,
-    'headers': task.headers,
-    'posterUrl': task.posterUrl,
-  });
+  context.go(
+    '/player',
+    extra: {
+      'url': path,
+      'title': task.title,
+      'isLocalFile': true,
+      'headers': task.headers,
+      'posterUrl': task.posterUrl,
+    },
+  );
 }
 
-/// Tuile d'un tÃ©lÃ©chargement avec progression et actions.
+/// Tuile d'un téléchargement avec progression et actions.
 class DownloadTile extends ConsumerWidget {
   const DownloadTile({
     super.key,
@@ -329,7 +332,7 @@ class DownloadTile extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Titre + mÃ©tadonnÃ©es
+                // Titre + métadonnées
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -390,7 +393,7 @@ class DownloadTile extends ConsumerWidget {
                 ],
               ),
             ],
-            // Actions secondaires pour terminÃ©s/Ã©chouÃ©s
+            // Actions secondaires pour terminés/échoués
             if (task.isCompleted || task.isFailed) ...[
               const SizedBox(height: 12),
               Row(
@@ -441,7 +444,7 @@ class DownloadTile extends ConsumerWidget {
   }
 }
 
-/// Chip de statut colorÃ©.
+/// Chip de statut coloré.
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
@@ -569,7 +572,7 @@ class _ActionButtons extends StatelessWidget {
   }
 }
 
-/// Barre de progression animÃ©e.
+/// Barre de progression animée.
 class _ProgressBar extends StatelessWidget {
   const _ProgressBar({required this.progress, this.isPaused = false});
 
@@ -599,7 +602,7 @@ class _ProgressBar extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${(fraction * 100).toStringAsFixed(1)}% â€¢ ${_formatBytes(progress.bytesDownloaded)} / ${_formatBytes(progress.totalBytes)}',
+          '${(fraction * 100).toStringAsFixed(1)}% • ${_formatBytes(progress.bytesDownloaded)} / ${_formatBytes(progress.totalBytes)}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
