@@ -1118,6 +1118,18 @@ final epgDataCacheProvider = Provider<EPGDataCache>((ref) => EPGDataCache());
 
 /// Cache des guides courts (get_short_epg) + service de précharge 7 jours (S4).
 final shortEpgCacheProvider = Provider<ShortEpgCache>((ref) => ShortEpgCache());
+
+/// Cache de l'EPG **complet** d'une chaîne (`get_simple_data_table`) pour le
+/// rattrapage.
+///
+/// Volontairement distinct de [shortEpgCacheProvider] : celui-ci reçoit
+/// l'aperçu COURT (4 entrées futures) écrit par la barre du lecteur et le
+/// zapping. Partager la même instance/clé ferait servir cet aperçu tronqué à la
+/// place de l'historique multi-jours dès que le lecteur a été ouvert avant
+/// l'écran Replay.
+final catchUpEpgCacheProvider = Provider<ShortEpgCache>(
+  (ref) => ShortEpgCache(),
+);
 final epgPreloadServiceProvider = Provider<EpgPreloadService>(
   (ref) => EpgPreloadService(cache: ref.watch(shortEpgCacheProvider)),
 );
@@ -1142,11 +1154,12 @@ final channelCatchUpProvider =
         );
     if (channel == null) return const <EPGProgram>[];
 
-    // Fenêtre de rattrapage propre à la chaîne : on retombe sur 7 jours
-    // lorsque le panel n'annonce aucune durée d'archive (`archiveDays == 0`).
+    // Fenêtre de rattrapage = durée réelle annoncée par l'abonnement
+    // (`tv_archive_duration`) ; 7 jours par défaut si le panel ne dit rien.
+    // Plus de plafond à 48 h : il bridait les comptes 7/14 j.
     final archiveDays = channel.archiveDays > 0 ? channel.archiveDays : 7;
 
-    final cache = ref.read(shortEpgCacheProvider);
+    final cache = ref.read(catchUpEpgCacheProvider);
     final cached = cache.get(channelId);
     if (cached != null) return _pastPrograms(cached, archiveDays);
 
@@ -1157,7 +1170,10 @@ final channelCatchUpProvider =
     // ouvrait la grille EPG.
     final api = ref.read(apiServiceProvider);
     final result = await safeAsync<List<EPGProgram>>(
-      () => api.fetchChannelEpgPrograms(channel),
+      // EPG complet de la chaîne (`get_simple_data_table`), et non l'aperçu
+      // court `get_short_epg` : seul l'EPG complet porte l'historique
+      // multi-jours du serveur.
+      () => api.fetchChannelCatchUpPrograms(channel),
       context: 'channelCatchUpProvider',
     );
     final programs = result.valueOrNull;

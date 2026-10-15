@@ -28,7 +28,8 @@ class CatchUpScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    // Récupère les programmes passés + futurs via get_short_epg
+    // Programmes passés + à venir via l'EPG COMPLET de la chaîne
+    // (`get_simple_data_table`), source du rattrapage multi-jours.
     final catchUpAsync = ref.watch(channelCatchUpProvider(channel.id));
 
     return Scaffold(

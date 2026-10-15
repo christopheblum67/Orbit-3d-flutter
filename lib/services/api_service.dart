@@ -1419,7 +1419,8 @@ class ApiService {
   /// concurrents à 3 : ce réglage ne gouverne que la sonde.
   static const int _probeConcurrency = 2;
 
-  /// Fenêtre de replay : on ne remonte pas au-delà de 48h.
+  /// Fenêtre de repli quand le panneau ne déclare aucune durée d'archive
+  /// (`catchup-days` / `tv_archive_duration` absents).
   static const Duration _replayWindow = Duration(hours: 48);
 
   /// Nombre d'entrées demandées à ``get_short_epg``.
@@ -1739,30 +1740,9 @@ class ApiService {
                 : const <dynamic>[]);
         final programs = <EPGProgram>[];
         for (final e in list.whereType<Map>()) {
-          final map = Map<String, dynamic>.from(e);
-          final start =
-              _parseReplayDate(map['start_timestamp'] ?? map['start']);
-          final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-          if (start == null || end == null || !end.isAfter(start)) continue;
-          final title = PanelText.decode(
-            map['title']?.toString().trim() ?? '',
-          );
-          if (title.isEmpty) continue;
-          programs.add(
-            EPGProgram(
-              // `epgChannelId` peut contenir plusieurs candidats séparés par
-              // une virgule : on retient le premier, sinon l'id de la chaîne.
-              channelId: channel.primaryEpgChannelId.isNotEmpty
-                  ? channel.primaryEpgChannelId
-                  : channel.id,
-              title: title,
-              description: PanelText.decode(
-                (map['description'] ?? map['plot'] ?? '').toString().trim(),
-              ),
-              start: start,
-              end: end,
-            ),
-          );
+          final program =
+              _epgProgramFromMap(Map<String, dynamic>.from(e), channel);
+          if (program != null) programs.add(program);
         }
         return programs;
       },
@@ -1770,6 +1750,72 @@ class ApiService {
       fallbackValue: const <EPGProgram>[],
     );
     return result.getOrElse(const <EPGProgram>[]);
+  }
+
+  /// Convertit une entrée brute d'EPG (JSON panel) en [EPGProgram].
+  ///
+  /// Source unique de la lecture des champs, partagée par
+  /// [fetchChannelEpgPrograms] (aperçu court) et [fetchChannelCatchUpPrograms]
+  /// (EPG complet). Les deux chemins divergeaient sur le nom du champ de fin
+  /// (`stop` vs `end`) et sur le décodage des titres, ce qui produisait deux
+  /// listes différentes pour une même chaîne.
+  EPGProgram? _epgProgramFromMap(Map<String, dynamic> map, Channel channel) {
+    final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
+    final end = _parseReplayDate(
+      map['stop_timestamp'] ?? map['stop'] ?? map['end'],
+    );
+    if (start == null || end == null || !end.isAfter(start)) return null;
+    final title = PanelText.decode(map['title']?.toString().trim() ?? '');
+    if (title.isEmpty) return null;
+    return EPGProgram(
+      // `epgChannelId` peut contenir plusieurs candidats séparés par une
+      // virgule : on retient le premier, sinon l'id de la chaîne.
+      channelId: channel.primaryEpgChannelId.isNotEmpty
+          ? channel.primaryEpgChannelId
+          : channel.id,
+      title: title,
+      description: PanelText.decode(
+        _firstString(map, const ['description', 'plot', 'desc', 'summary']),
+      ),
+      start: start,
+      end: end,
+    );
+  }
+
+  /// EPG **complet** d'une chaîne (passé compris) via `get_simple_data_table`.
+  ///
+  /// C'est la source du rattrapage multi-jours. `get_short_epg`, utilisé
+  /// jusqu'ici pour le catch-up, ne renvoie que 4 entrées — presque toutes
+  /// futures — et ne peut donc pas décrire l'historique : l'écran restait
+  /// bloqué sur le dernier programme passé, quelle que soit la durée annoncée
+  /// par l'abonnement. `get_simple_data_table` renvoie tout ce que le serveur
+  /// conserve, et c'est cette source qu'exploite XCIPTV pour son Replay.
+  ///
+  /// Repli sur l'aperçu court si le panel ne sert pas cet appel, pour ne pas
+  /// régresser sur les panels qui l'ignorent.
+  Future<List<EPGProgram>> fetchChannelCatchUpPrograms(Channel channel) async {
+    final sub = await _activeSub();
+    if (sub['type'] != 'xtream') return const <EPGProgram>[];
+    final baseUrl = sub['baseUrl']!;
+    final username = sub['username']!;
+    final password = sub['password']!;
+
+    final entries = await _fetchChannelFullEpg(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+      channel: channel,
+    );
+    if (entries.isEmpty) return fetchChannelEpgPrograms(channel);
+
+    final programs = <EPGProgram>[];
+    for (final e in entries) {
+      final program = _epgProgramFromMap(e, channel);
+      if (program != null) programs.add(program);
+    }
+    // Repli uniquement si l'EPG complet ne produit aucun programme exploitable.
+    if (programs.isEmpty) return fetchChannelEpgPrograms(channel);
+    return programs;
   }
 
   /// Programmes rejouables d'**une seule** chaîne : un appel.
@@ -1978,11 +2024,15 @@ class ApiService {
     );
   }
 
-  /// Fenêtre de retroactivité d'une chaîne.
+  /// Fenêtre de rétroactivité d'une chaîne.
   ///
-  /// `catchup-days` / `tv_archive_duration` est la fenêtre **de l'abonnement**
-  /// — 48 h, 7 jours, 14 jours selon le compte. C'est donc elle qu'on lit, et
-  /// le 48 h n'est plus qu'un repli pour les panels qui ne déclarent rien.
+  /// `catchup-days` / `tv_archive_duration` est la durée réelle annoncée par
+  /// l'abonnement — 48 h, 7 jours, 14 jours selon le compte. On la respecte
+  /// telle quelle : la plafonner en dur à 48 h bridait le Replay des comptes
+  /// 7/14 j alors que le serveur sert bel et bien l'historique (constat terrain,
+  /// et c'est ce que fait XCIPTV). Le 48 h ne sert plus que de repli quand le
+  /// panel ne déclare aucune durée — ce qui explique l'écart entre les deux :
+  /// le vrai plafond était la SOURCE d'EPG (`get_short_epg`), pas cette fenêtre.
   static Duration archiveWindow(Channel channel) {
     if (channel.archiveDays > 0) return Duration(days: channel.archiveDays);
     return _replayWindow;

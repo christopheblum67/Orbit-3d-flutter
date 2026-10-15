@@ -118,6 +118,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     // venir de l'abonnement précédent — symptôme : des programmes et des
     // catégories qui ne « complètent » pas après un changement.
     ref.invalidate(shortEpgCacheProvider);
+    // Cache de l'EPG complet du rattrapage : même raison (indexé sur le
+    // `stream_id`, partagé entre abonnements).
+    ref.invalidate(catchUpEpgCacheProvider);
     // Outrepasse la règle des 30 min : on marque les données comme non
     // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
     // re-autorisé immédiatement après un changement d'abonnement.

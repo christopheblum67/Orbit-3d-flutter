@@ -415,6 +415,8 @@ class _ChannelBand extends StatelessWidget {
     AppLocalizations l,
     Channel channel,
   ) {
+    // Fenêtre EFFECTIVE : on suit la durée annoncée par l'abonnement (7/14 j
+    // compris), plus de plafond à 48 h.
     final days = channel.archiveDays;
     if (days > 0) return l.replayWindowBadge(days);
     final hours = ApiService.archiveWindow(channel).inHours;
@@ -567,6 +569,8 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   /// programme. Un « aucun replay » nu ne permettait aucune de ces réponses.
   Widget _noProgram(ThemeData theme, ColorScheme scheme) {
     final l = AppLocalizations.of(context);
+    // La distinction « le panel ne publie rien » / « au-delà de la fenêtre »
+    // reste portée par ce que l'abonnement annonce.
     final days = widget.channel.archiveDays;
     return Center(
       child: Padding(
