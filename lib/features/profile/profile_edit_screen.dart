@@ -36,6 +36,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _scrollController = ScrollController();
   ProfileType _type = ProfileType.adult;
   int _gradientIndex = 0;
   String? _remoteAvatarUrl;
@@ -245,9 +246,36 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   bool get _isEdit => widget.profileId != null;
 
+  /// Scroll vers la section "Informations personnelles" (la carte suivante après
+  /// le pseudo). Utilise un GlobalKey sur la carte pour trouver sa position.
+  final _personalCardKey = GlobalKey();
+
+  /// Scroll vers la section "Informations personnelles".
+  void _scrollToNextSection() {
+    if (_nameController.text.trim().isEmpty) {
+      setState(() => _submitted = true);
+      return;
+    }
+    // Attend la fin de la frame pour que le layout soit à jour.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients || !mounted) return;
+      final ctx = _personalCardKey.currentContext;
+      if (ctx == null) return;
+      final box = ctx.findRenderObject() as RenderBox?;
+      if (box == null) return;
+      final offset = box.localToGlobal(Offset.zero).dy;
+      _scrollController.animateTo(
+        _scrollController.offset + offset - 100, // 100 px de marge haute
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -471,6 +499,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final showPin = _type == ProfileType.child || _type == ProfileType.expert;
 
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       children: [
         _buildAvatarSection(),
@@ -479,7 +508,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         const SizedBox(height: 8),
         _buildIdentityCard(),
         const SizedBox(height: 16),
-        _buildPersonalCard(),
+        _buildPersonalCard(key: _personalCardKey),
         const SizedBox(height: 16),
         _buildTypeSection(),
         if (showPin) ...[
@@ -606,6 +635,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final l = AppLocalizations.of(context);
     return AppCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
             controller: _nameController,
@@ -614,7 +644,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             textCapitalization: TextCapitalization.words,
             inputFormatters: [
               FilteringTextInputFormatter.allow(
-                RegExp("[a-zA-Z\\u00C0-\\u017F' -]"),
+                RegExp(r"[\p{L}\p{N}\p{M}'\-\s]"), // lettres (toutes), chiffres, accents, apostrophe, tiret, espace
               ),
               LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
             ],
@@ -629,18 +659,37 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             onChanged: (_) {
               if (_submitted) setState(() {});
             },
+            onFieldSubmitted: (_) {
+              // Sur TV : Entrée/OK = valider le pseudo et passer à la suite
+              _scrollToNextSection();
+            },
+          ),
+          const SizedBox(height: 12),
+          // Bouton "Suivant" visible pour TV (D-pad) : évite de devoir scroller
+          // jusqu'en bas pour trouver "Enregistrer".
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: _scrollToNextSection,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: const Text('Suivant'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPersonalCard() {
+  Widget _buildPersonalCard({Key? key}) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final ageRangesLocalized = _ageRangesLocalized(l);
     return AppCard(
+      key: key,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -977,9 +1026,9 @@ class _GradientSwatch extends StatelessWidget {
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: gradient.start.withValues(alpha: 0.5),
-                      blurRadius: 12,
-                      spreadRadius: 1,
+                      color: gradient.start.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      spreadRadius: 0,
                     ),
                   ]
                 : null,
