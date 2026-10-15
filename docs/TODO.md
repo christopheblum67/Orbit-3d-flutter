@@ -59,6 +59,12 @@
 - [ ] **Aperçu live — étendre l'EPG à 4-5 programmes** — *Demande (15/10)* : « étendre le programme EPG à 4-5 programmes dans l'aperçu live ».
       Aujourd'hui `_EpgList` (`lib/features/live_tv/widgets/channel_browse_view.dart`) est **borné à `_maxPrograms = 2`** (programme en cours + suivant), à cause d'une hauteur contrainte dans la maquette à deux zones (voir commentaire l. 174-177 : « les deux programmes EPG passaient sous le bord de l'écran »).
       Attend : lister les **4 à 5 prochains programmes** (en écartant le passé), en rendant la liste **défilable** et/ou en densifiant les lignes pour tenir dans la zone allouée, sans repousser la vidéo hors écran.
+- [ ] **Signature APK en schéma v3** — *Demande (15/10)* : « faire passer la signature en v3 pour le keystore ».
+      → *Constat mesuré* : l'APK release est signé **v2 uniquement**. `apksigner verify --verbose` (build-tools 36.0.0, AGP 9.0.1) renvoie `v1: false`, `v2: true`, `v3: false`, `v3.1: false`, `v4: false`. Signature `CN=Orbit3D, OU=Mobile, O=Orbit, C=FR`, SHA-256 `856837ba79570f2bc2658766880e8fceb112439418b9c96554abe2428446fb2a`.
+      Cible : ajouter **APK Signature Scheme v3** (permet la **rotation de clé** via `proof-of-rotation`, exigée par les stores pour les nouvelles clés), en **conservant v2** pour les appareils anciens.
+      Piste : `signingConfigs.release { enableV3Signing = true }` dans `android/app/build.gradle` (propriété disponible depuis AGP 7 ; ici AGP 9.0.1), puis `flutter build apk --release` et **re-vérifier** avec `apksigner verify --verbose` (attendu : `v3: true`).
+      ⚠️ **Aucun impact sur les données** : la clé et son certificat ne changent pas (`upload-keystore.jks`, `CN=Orbit3D`), l'identité de l'app reste identique → les mises à jour `adb install -r` conservent **abonnement et profil**. Seul le schéma de signature est ajouté.
+      ⚠️ v3.1 / v4 : propriétés distinctes (`enableV31Signing` / `enableV4Signing`) dont le nom exact est à confirmer sur AGP 9. v4 produit un `.apk.idsig` séparé, inutile pour une install `adb`/sideload — probablement à écarter.
 
 ## 3. Chantiers en cours (issus du plan précédent)
 
