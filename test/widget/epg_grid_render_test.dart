@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
@@ -741,6 +742,189 @@ group('EpgGapFiller — la grille est continue', () {
         greaterThan(30),
         reason: 'le titre doit rester peint à droite de l\'indicateur live, '
             'sans se superposer à celui-ci',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('EpgGrid2DView — navigation à la télécommande (D-pad)', () {
+    /// Journée horaire complète (0 h → 25 h) pour chaque chaîne.
+    ///
+    /// Le focus s'initialise sur le programme EN COURS ; en allant jusqu'à
+    /// 25 h, le programme suivant existe toujours, quel que soit l'instant où
+    /// le test tourne (même à 23 h).
+    Map<String, List<EPGProgram>> dayFor(List<String> channels) => {
+          for (final c in channels)
+            c: [for (var h = 0; h <= 25; h++) prog('$c-$h', h)],
+        };
+
+    Widget dpadHarness({
+      required List<String> channels,
+      required Map<String, List<EPGProgram>> data,
+      void Function(EPGProgram, String)? onProgramTap,
+    }) =>
+        MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 500,
+                height: 700,
+                child: EpgGrid2DView(
+                  channels: channels,
+                  epgData: data,
+                  onProgramTap: onProgramTap,
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('les flèches déplacent la cellule désignée', (tester) async {
+      final channels = ['AAAA', 'BBBB'];
+      await tester.pumpWidget(
+        dpadHarness(channels: channels, data: dayFor(channels)),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      expect(
+        state.debugGridFocusNodeForTest.hasFocus,
+        isTrue,
+        reason: 'la grille doit pouvoir prendre le focus clavier : sans lui, '
+            'aucune touche de télécommande n\'est reçue',
+      );
+      // Le focus initial est le programme en cours de la première chaîne.
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+      final start = state.debugFocusedProgramStartForTest;
+      expect(start, isNotNull);
+
+      // Droite : le programme SUIVANT de la même chaîne.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+      expect(
+        state.debugFocusedProgramStartForTest,
+        start!.add(const Duration(hours: 1)),
+        reason: 'la flèche droite doit avancer d\'un programme dans la ligne',
+      );
+
+      // Bas : la chaîne suivante, à la MÊME colonne horaire.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'BBBB');
+      expect(
+        state.debugFocusedProgramStartForTest,
+        start.add(const Duration(hours: 1)),
+        reason: 'la flèche bas doit conserver la colonne horaire',
+      );
+
+      // Haut : retour à la première chaîne.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('les chaînes sans EPG sont sautées', (tester) async {
+      // Une ligne vide ne doit pas piéger la télécommande : sinon deux appuis
+      // sur « bas » donnent l'impression que rien ne répond.
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['AAAA', 'VIDE', 'ZZZZ'],
+        data: {
+          'AAAA': [for (var h = 0; h <= 25; h++) prog('A-$h', h)],
+          // 'VIDE' volontairement absente de la map EPG.
+          'ZZZZ': [for (var h = 0; h <= 25; h++) prog('Z-$h', h)],
+        },
+      ),);
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(
+        state.debugFocusedChannelForTest,
+        'ZZZZ',
+        reason: 'la chaîne sans EPG doit être franchie d\'un seul appui',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('OK ouvre le programme désigné', (tester) async {
+      EPGProgram? tapped;
+      final channels = ['AAAA', 'BBBB'];
+      await tester.pumpWidget(dpadHarness(
+        channels: channels,
+        data: dayFor(channels),
+        onProgramTap: (p, _) => tapped = p,
+      ),);
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      final start = state.debugFocusedProgramStartForTest;
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+
+      expect(tapped, isNotNull,
+          reason: '« OK » doit ouvrir le programme focalisé, pas rester muet',);
+      expect(tapped!.start, start);
+
+      // Même comportement avec la touche « entrée » d'un clavier.
+      tapped = null;
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(tapped?.start, start);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la cellule désignée est ramenée dans la vue', (tester) async {
+      // La télécommande peut focaliser un programme hors écran (après un
+      // déplacement) : sans recentrage, on validerait un programme invisible.
+      final channels = ['AAAA'];
+      await tester.pumpWidget(
+        dpadHarness(channels: channels, data: dayFor(channels)),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      // On pousse la grille à la fin de la journée : le programme focalisé
+      // (l'heure courante) passe alors à gauche du viewport.
+      state.debugSetHorizontalOffsetForTest(999999);
+      await tester.pump();
+      final before = state.debugHorizontalOffsetForTest;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      expect(
+        state.debugHorizontalOffsetForTest,
+        lessThan(before),
+        reason: 'la grille doit défiler pour ramener la cellule dans la vue',
       );
       expect(tester.takeException(), isNull);
     });

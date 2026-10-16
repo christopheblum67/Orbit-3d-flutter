@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerScaleEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_day_window.dart';
@@ -64,6 +65,16 @@ class EpgGrid2DView extends StatefulWidget {
   State<EpgGrid2DView> createState() => EpgGrid2DViewState();
 }
 
+/// Cellule désignée au D-pad dans la grille EPG.
+///
+/// Identité STABLE (`channelIndex`, `start`) plutôt qu'une référence à un
+/// `_RenderProgram` : le cache de rendu est reconstruit (zoom, nouvelles
+/// données) et les objets qu'il contient sont alors remplacés, alors que le
+/// couple (chaîne, début de programme) reste vrai. L'égalité structurelle des
+/// records fait le reste : le `ValueNotifier` ne notifie que sur changement
+/// réel, donc le painter ne repeint pas pour rien.
+typedef _GridFocusCell = ({int channelIndex, DateTime start});
+
 class EpgGrid2DViewState extends State<EpgGrid2DView> {
   late Timer _timer;
   final ScrollController _verticalController = ScrollController();
@@ -83,6 +94,20 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
   Offset? _tapDownPos;
   DateTime? _tapDownTime;
+
+  /// Cellule désignée au D-pad (télécommande TV) — voir [_onGridKey].
+  ///
+  /// Ce n'est PAS un `FocusNode` par cellule : la grille est virtualisée
+  /// (628 chaînes × N programmes) et peinte au canvas, donc plusieurs milliers
+  /// de nœuds de focus tueraient la mémoire et le layout — exactement le
+  /// chemin qui menait aux ANR. On ne garde qu'une cellule LOGIQUE, désignée
+  /// par son identité (chaîne + début de programme), que le painter met en
+  /// évidence. La navigation repeint via ce `ValueNotifier`, sans rebuild.
+  final ValueNotifier<_GridFocusCell?> _focusCell =
+      ValueNotifier<_GridFocusCell?>(null);
+
+  /// Le focus clavier est porté par la grille ENTIÈRE (un seul nœud).
+  final FocusNode _gridFocusNode = FocusNode(debugLabel: 'EpgGrid2D');
 
   late DateTime _gridStartTime;
   late double _pixelsPerMinute;
@@ -236,6 +261,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     _hoverPosition.dispose();
     _horizontalOffset.dispose();
     _dataRevision.dispose();
+    _focusCell.dispose();
+    _gridFocusNode.dispose();
     _verticalController.removeListener(_syncNamesColumn);
     _verticalController.dispose();
     _namesVerticalController.dispose();
@@ -616,6 +643,259 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Navigation à la télécommande (D-pad)
+  //
+  // La grille n'a pas de widget par cellule : tout est peint par un
+  // `CustomPainter`. Le focus est donc modélisé comme une CELLULE LOGIQUE
+  // (`_focusCell`) que le painter surligne, et la navigation à flèches est
+  // traitée par le seul nœud de focus de la grille. Aucun rebuild du widget n'a
+  // lieu pendant les déplacements : seul le `ValueNotifier` de focus est
+  // notifié, ce que les painters écoutent via `repaint`.
+  // ---------------------------------------------------------------------------
+
+  /// Programmes d'une ligne, dans l'ordre du cache de rendu (croissant).
+  List<_RenderProgram> _programsOf(int channelIndex) {
+    if (channelIndex < 0 || channelIndex >= widget.channels.length) {
+      return const <_RenderProgram>[];
+    }
+    return _renderCache[widget.channels[channelIndex]] ??
+        const <_RenderProgram>[];
+  }
+
+  /// Programme actuellement désigné, résolu depuis l'identité mémorisée.
+  ///
+  /// Retourne null si le cache a été reconstruit sans ce programme (données
+  /// rafraîchies) : la navigation suivante réinitialisera le focus.
+  _RenderProgram? _focusedProgram() {
+    final cell = _focusCell.value;
+    if (cell == null) return null;
+    for (final rp in _programsOf(cell.channelIndex)) {
+      if (rp.program.start == cell.start) return rp;
+    }
+    return null;
+  }
+
+  /// Positionne la cellule de focus sur [channelIndex].
+  ///
+  /// [anchorLeft] cherche le programme le plus proche d'une abscisse (pour un
+  /// déplacement vertical : on garde la colonne horaire) ; sinon on prend le
+  /// programme en cours à [preferNow], puis le premier programme de la ligne.
+  /// Les blocs de trou (sans données) sont écartés : ils n'ont rien à
+  /// sélectionner, et une télécommande qui s'y arrête paraît cassée.
+  bool _focusOnRow(
+    int channelIndex, {
+    DateTime? preferNow,
+    double? anchorLeft,
+  }) {
+    final programs = _programsOf(channelIndex);
+    _RenderProgram? target;
+
+    if (anchorLeft != null) {
+      var best = double.infinity;
+      for (final rp in programs) {
+        if (rp.program.isDummy) continue;
+        final distance = (rp.left - anchorLeft).abs();
+        if (distance < best) {
+          best = distance;
+          target = rp;
+        }
+      }
+    } else {
+      final now = preferNow ?? DateTime.now();
+      for (final rp in programs) {
+        if (rp.program.isDummy) continue;
+        if (!rp.program.start.isAfter(now) && rp.program.end.isAfter(now)) {
+          target = rp;
+          break;
+        }
+      }
+      if (target == null) {
+        for (final rp in programs) {
+          if (!rp.program.isDummy) {
+            target = rp;
+            break;
+          }
+        }
+      }
+    }
+
+    if (target == null) return false;
+    _focusCell.value = (
+      channelIndex: channelIndex,
+      start: target.program.start,
+    );
+    return true;
+  }
+
+  /// Première cellule proposée : le programme en cours de la chaîne ciblée,
+  /// à défaut la première ligne garnie de la grille.
+  ///
+  /// Appelée à la prise de focus ; sans cela la première flèche partirait d'une
+  /// cellule nulle et ne ferait rien.
+  void _ensureFocusCell() {
+    if (_focusCell.value != null) return;
+    if (widget.channels.isEmpty) return;
+
+    final targeted = _timelineController.targetedChannel.value;
+    var index = (targeted == null || targeted.isEmpty)
+        ? 0
+        : widget.channels.indexOf(targeted);
+    if (index < 0) index = 0;
+
+    // La chaîne ciblée peut ne pas porter d'EPG : on descend, puis on remonte,
+    // pour trouver la première ligne réellement sélectionnable.
+    for (var i = index; i < widget.channels.length; i++) {
+      if (_focusOnRow(i)) return;
+    }
+    for (var i = index - 1; i >= 0; i--) {
+      if (_focusOnRow(i)) return;
+    }
+  }
+
+  /// Flèche gauche/droite : programme précédent/suivant de la MÊME chaîne.
+  ///
+  /// Retourne true si la cellule a effectivement bougé — sinon la touche est
+  /// rendue au gestionnaire de focus, pour que la flèche puisse sortir de la
+  /// grille (remonter vers la barre d'outils) au lieu d'y rester piégée.
+  bool _moveFocusHorizontal(int step) {
+    _ensureFocusCell();
+    final cell = _focusCell.value;
+    if (cell == null) return false;
+    final programs = _programsOf(cell.channelIndex);
+    final current = _focusedProgram();
+    if (current == null) return false;
+
+    final index = programs.indexOf(current);
+    for (var i = index + step; i >= 0 && i < programs.length; i += step) {
+      final rp = programs[i];
+      if (rp.program.isDummy) continue;
+      _focusCell.value = (
+        channelIndex: cell.channelIndex,
+        start: rp.program.start,
+      );
+      _revealFocused();
+      return true;
+    }
+    return false;
+  }
+
+  /// Flèche haut/bas : chaîne voisine, en conservant la colonne horaire.
+  ///
+  /// Les chaînes sans EPG sont sautées : sur plusieurs centaines de lignes,
+  /// s'arrêter sur une ligne vide donnerait l'impression que la télécommande ne
+  /// répond plus. Retourne true si la cellule a bougé (cf.
+  /// [_moveFocusHorizontal] pour l'échappement du focus).
+  bool _moveFocusVertical(int step) {
+    _ensureFocusCell();
+    final cell = _focusCell.value;
+    if (cell == null || widget.channels.isEmpty) return false;
+    final anchorLeft = _focusedProgram()?.left ?? 0.0;
+
+    for (var i = cell.channelIndex + step;
+        i >= 0 && i < widget.channels.length;
+        i += step) {
+      if (_focusOnRow(i, anchorLeft: anchorLeft)) {
+        _revealFocused();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Amène la cellule focalisée dans la vue (horizontal ET vertical).
+  ///
+  /// `jumpTo` et non animation : la télécommande envoie des répétitions
+  /// rapprochées, et des animations qui se recouvrent rendraient la grille
+  /// illisible. Une marge de respiration de 24 px évite que la cellule collée
+  /// au bord passe sous l'overscan de la TV.
+  void _revealFocused() {
+    final rp = _focusedProgram();
+    final cell = _focusCell.value;
+    if (rp == null || cell == null) return;
+
+    const margin = 24.0;
+    if (_viewportWidth > 0) {
+      final offset = _horizontalOffset.value;
+      final viewport = _viewportWidth;
+      if (rp.left < offset + margin) {
+        _setHorizontalOffset(rp.left - margin);
+      } else if (rp.left + rp.width > offset + viewport - margin) {
+        _setHorizontalOffset(rp.left + rp.width - viewport + margin);
+      }
+    }
+
+    if (!_verticalController.hasClients) return;
+    final viewport = _verticalController.position.viewportDimension;
+    final top = cell.channelIndex * kRowStride;
+    final bottom = top + kRowHeight;
+    final current = _verticalController.offset;
+    if (top >= current && bottom <= current + viewport) return;
+
+    // Centrée quand la ligne est entièrement hors écran, alignée en haut quand
+    // elle n'est que tronquée : même règle que `_revealChannel`. La colonne des
+    // noms suit via son écouteur d'offset.
+    final target = (top < current || bottom > current + viewport)
+        ? (top - (viewport - kRowHeight) / 2).clamp(0.0, _maxVerticalOffset)
+        : top;
+    _verticalController.jumpTo(target);
+  }
+
+  /// Valide la cellule focalisée : ouvre le programme (comme un appui court).
+  bool _openFocused() {
+    final cell = _focusCell.value;
+    final rp = _focusedProgram();
+    if (cell == null || rp == null) return false;
+    final ch = widget.channels[cell.channelIndex];
+    _timelineController.setTargetedChannel(ch);
+    widget.onProgramTap?.call(rp.program, ch);
+    return true;
+  }
+
+  /// Touches de la télécommande : flèches pour se déplacer, OK pour ouvrir.
+  ///
+  /// La cellule est initialisée paresseusement : sur une grille fraîche, la
+  /// première flèche part du programme en cours de la chaîne ciblée.
+  ///
+  /// Une flèche qui ne déplace PAS la cellule est « ignorée » et non
+  /// « traitée » : elle est alors rendue au gestionnaire de focus, qui peut
+  /// sortir de la grille (remonter vers la barre d'outils par exemple). Sinon
+  /// le focus resterait prisonnier des programmes.
+  KeyEventResult _onGridKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      return _moveFocusHorizontal(-1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      return _moveFocusHorizontal(1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      return _moveFocusVertical(-1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowDown) {
+      return _moveFocusVertical(1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      return _openFocused()
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    return KeyEventResult.ignored;
+  }
+
   /// Contrôleur partagé — pour les tests.
   @visibleForTesting
   EpgTimelineController get debugTimelineControllerForTest => _timelineController;
@@ -628,6 +908,22 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// Décalage horizontal courant, en px — pour les tests.
   @visibleForTesting
   double get debugHorizontalOffsetForTest => _horizontalOffset.value;
+
+  /// Nœud de focus de la grille — pour les tests D-pad.
+  @visibleForTesting
+  FocusNode get debugGridFocusNodeForTest => _gridFocusNode;
+
+  /// Chaîne désignée au D-pad, ou null — pour les tests.
+  @visibleForTesting
+  String? get debugFocusedChannelForTest {
+    final cell = _focusCell.value;
+    if (cell == null) return null;
+    return widget.channels[cell.channelIndex];
+  }
+
+  /// Début du programme désigné au D-pad, ou null — pour les tests.
+  @visibleForTesting
+  DateTime? get debugFocusedProgramStartForTest => _focusCell.value?.start;
 
   /// Titre du programme sous l'abscisse ÉCRAN [screenDx] — pour les tests.
   ///
@@ -764,6 +1060,26 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
           Expanded(
             child: Stack(
               children: [
+                // Couche de focus D-pad (télécommande TV).
+                //
+                // Invisible et sans conséquence sur le toucher (aucun
+                // recognizer : `Stack` teste les enfants dans l'ordre inverse,
+                // et un `SizedBox` n'absorbe pas les appuis), elle donne à la
+                // grille UN SEUL nœud de focus couvrant toute la zone des
+                // programmes. C'est ce nœud qui reçoit les flèches et « OK » et
+                // déplace la cellule logique `_focusCell` — pas un focus par
+                // cellule, qui ferait exploser la mémoire de la liste
+                // virtualisée.
+                Positioned.fill(
+                  child: Focus(
+                    focusNode: _gridFocusNode,
+                    onKeyEvent: _onGridKey,
+                    onFocusChange: (hasFocus) {
+                      if (hasFocus) _ensureFocusCell();
+                    },
+                    child: const SizedBox.expand(),
+                  ),
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -951,11 +1267,13 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                       liveLabel: l.epgLiveNow,
                                       horizontalOffset: _horizontalOffset,
                                       touchPosition: _hoverPosition,
+                                      focusCell: _focusCell,
                                       dataRevision: _dataRevision,
                                       repaint: Listenable.merge([
                                         _hoverPosition,
                                         _timelineController.now,
                                         _horizontalOffset,
+                                        _focusCell,
                                         _dataRevision,
                                       ]),
                                     ),
@@ -1329,6 +1647,12 @@ class _EpgGridPainter extends CustomPainter {
   final ValueListenable<double>? horizontalOffset;
   final ValueListenable<Offset?>? touchPosition;
 
+  /// Cellule désignée au D-pad (télécommande TV), à mettre en évidence.
+  ///
+  /// Écoutée via `repaint` (comme le survol) : la navigation TV repeint donc
+  /// une ligne sans reconstruire le widget.
+  final ValueListenable<_GridFocusCell?>? focusCell;
+
   /// Notifié quand le cache de rendu est reconstruit.
   ///
   /// Écouté via `repaint` : c'est lui qui fait repeindre une ligne déjà
@@ -1367,6 +1691,7 @@ class _EpgGridPainter extends CustomPainter {
     required this.liveLabel,
     required this.horizontalOffset,
     required this.touchPosition,
+    required this.focusCell,
     required this.dataRevision,
     super.repaint,
   });
@@ -1404,6 +1729,17 @@ class _EpgGridPainter extends CustomPainter {
       }
     }
     return null;
+  }
+
+  /// Vrai si [rp] est la cellule désignée au D-pad sur CETTE ligne.
+  ///
+  /// Comparaison par identité de programme (début) et non par référence :
+  /// l'objet `_RenderProgram` est recréé à chaque reconstruction du cache.
+  bool _isFocusedCell(_RenderProgram rp) {
+    final cell = focusCell?.value;
+    return cell != null &&
+        cell.channelIndex == channelIndex &&
+        cell.start == rp.program.start;
   }
 
   @override
@@ -1445,6 +1781,7 @@ class _EpgGridPainter extends CustomPainter {
         final screenLeft = screenXFor(left, screenOffset);
 
         final isHovered = rp == hovered;
+        final isFocused = _isFocusedCell(rp);
         final rect = RRect.fromRectAndRadius(
           Rect.fromLTWH(screenLeft, y, width, h),
           const Radius.circular(6),
@@ -1459,7 +1796,7 @@ class _EpgGridPainter extends CustomPainter {
               ? const Color(0x00000000)
               : rp.isLive
                   ? const Color(0xFF2D224D)
-                  : (isHovered
+                  : (isHovered || isFocused
                       ? const Color(0xFF2A2F3A)
                       : const Color(0xFF1C1F26));
         if (isDummy) {
@@ -1475,14 +1812,19 @@ class _EpgGridPainter extends CustomPainter {
 
         final borderPaint = Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
+          // Le focus D-pad est plus épais : à plusieurs mètres d'un téléviseur,
+          // une bordure de 1 px violette se confond avec la surbrillance de
+          // survol. C'est le seul repère de « où je suis » à la télécommande.
+          ..strokeWidth = isFocused ? 2.0 : 1.0
           ..color = isDummy
               ? Colors.white10.withValues(alpha: 0.4)
-              : rp.isLive
+              : isFocused
                   ? const Color(0xFF8B5CF6)
-                  : (isHovered
-                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.5)
-                      : Colors.white10);
+                  : rp.isLive
+                      ? const Color(0xFF8B5CF6)
+                      : (isHovered
+                          ? const Color(0xFF8B5CF6).withValues(alpha: 0.5)
+                          : Colors.white10);
         if (isDummy) {
           // Bordure en pointillés : le motif dit « il n'y a rien ici » sans
           // competing avec les programmes voisins.
