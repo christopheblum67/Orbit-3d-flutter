@@ -64,6 +64,11 @@ class EpgBufferStore {
   /// les semaines du dump.
   static const int horizonHours = 30;
 
+  /// Taille maxi du tampon sur disque (Mo). Au-delà, il est considéré comme
+  /// corrompu/obsolète et sera régénéré — garde-fou contre les OOM en lecture.
+  /// 60 Mo = marge de ~20 % sur le pic observé (51,7 Mo).
+  static const int maxBufferSizeMiB = 60;
+
   String? _cachedDir;
 
   /// Horloge du tampon, injectable pour les tests.
@@ -120,7 +125,18 @@ class EpgBufferStore {
       () async {
         final file = File('${(await _dir()).path}/${fileNameFor(cacheKey)}');
         if (!file.existsSync()) return null;
-        fileBytes = file.lengthSync();
+        final bytes = file.lengthSync();
+        fileBytes = bytes;
+        // Garde-fou OOM : au-delà de la taille maxi, on traite le fichier comme
+        // absent — il sera régénéré. Évite de charger en mémoire un tampon
+        // démesuré (corrompu ou d'un format inattendu).
+        if (bytes > maxBufferSizeMiB * 1024 * 1024) {
+          LoggerService.instance.warning(
+            'EPG tampon: taille ${_humanSize(bytes)} > $maxBufferSizeMiB Mo, '
+            'tampon purgé',
+          );
+          return null;
+        }
         final modifiedAt = DateTime.fromMillisecondsSinceEpoch(
           file.lastModifiedSync().millisecondsSinceEpoch,
         );
@@ -195,6 +211,16 @@ class EpgBufferStore {
           ],
         });
         await temp.writeAsString(payload, flush: true);
+        // Garde-fou OOM : on mesure la taille réellement écrite (aucun encodage
+        // UTF-8 supplémentaire en mémoire) et on abandonne au-delà de la maxi.
+        if (temp.lengthSync() > maxBufferSizeMiB * 1024 * 1024) {
+          temp.deleteSync();
+          LoggerService.instance.warning(
+            'EPG tampon: taille écrite > $maxBufferSizeMiB Mo, '
+            'écriture annulée',
+          );
+          return;
+        }
         await temp.rename(target.path);
         // Taille réellement écrite : c'est le seul chiffre qui décide si le
         // format mérite d'être compressé. On le mesure, on ne le devine pas.
