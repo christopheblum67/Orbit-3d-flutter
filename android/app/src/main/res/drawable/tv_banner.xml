@@ -1,26 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- TV Banner for Android TV Launcher (320x180) -->
-<!-- This vector drawable scales to 320x180 for the leanback launcher -->
+<!-- Vector drawable scalable : net sur toutes les densités (launcher TV). -->
+<!-- Couleurs unies (pas de gradient inline via <aapt:attr>) : aapt2 rejetait -->
+<!-- « Cannot find attribute fillColor » dans ce contexte, ce qui cassait le -->
+<!-- build ; l'APK partagé au Bureau ne contenait donc jamais ce banner. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="320dp"
     android:height="180dp"
     android:viewportWidth="320"
     android:viewportHeight="180">
-    <!-- Background gradient matching app theme -->
+    <!-- Fond sombre du bandeau -->
     <path
+        android:fillColor="#FF0E1117"
         android:fillType="evenOdd"
-        android:pathData="M0,0h320v180h-320z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="0"
-                android:startY="0"
-                android:endX="320"
-                android:endY="180"
-                android:startColor="#FF0E1117"
-                android:endColor="#FF1A1D2E" />
-        </aapt:attr>
-    </path>
+        android:pathData="M0,0h320v180h-320z" />
     <!-- Orbital accent ring -->
     <path
         android:fillColor="#00FFFFFF"
@@ -33,17 +26,6 @@
         android:pathData="M148,75 l30,15 l-30,15 z" />
     <!-- App name -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M60,130 h200">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="60"
-                android:startY="130"
-                android:endX="260"
-                android:endY="130"
-                android:startColor="#FF00CFE8"
-                android:endColor="#FFFFFFFF" />
-        </aapt:attr>
-    </path>
+        android:fillColor="#FF00CFE8"
+        android:pathData="M60,130 h200" />
 </vector>
