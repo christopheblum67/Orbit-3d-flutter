@@ -395,7 +395,7 @@ class _ChannelBand extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      _archiveBadgeLabel(l, channel),
+                      replayWindowBadgeLabel(l, channel),
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: scheme.onSurfaceVariant),
                     ),
@@ -408,23 +408,27 @@ class _ChannelBand extends StatelessWidget {
     );
   }
 
-  /// Fenêtre de replay du compte, en clair.
-  ///
-  /// `catchup-days` / `tv_archive_duration` décrit ce que le compte permet
-  /// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
-  /// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
-  /// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
-  static String _archiveBadgeLabel(
-    AppLocalizations l,
-    Channel channel,
-  ) {
-    // Fenêtre EFFECTIVE : on suit la durée annoncée par l'abonnement (7/14 j
-    // compris), plus de plafond à 48 h.
-    final days = channel.archiveDays;
-    if (days > 0) return l.replayWindowBadge(days);
-    final hours = ApiService.archiveWindow(channel).inHours;
-    return l.replayWindowBadgeHours(hours);
-  }
+}
+
+/// Fenêtre de replay du compte, en clair.
+///
+/// `catchup-days` / `tv_archive_duration` décrit ce que le compte permet
+/// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
+/// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
+/// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
+///
+/// **Toujours exprimée en jours.** La source unique est
+/// [ApiService.effectiveArchiveDays] : la durée annoncée par l'abonnement,
+/// sinon le repli de 14 jours. L'ancienne version partait de
+/// `channel.archiveDays` (brut) et, quand le panel ne renseignait rien,
+/// retombait sur `archiveWindow(...).inHours` — soit « Replay 336 h » au lieu
+/// de « Replay 14 j », en plus de diverger de `channelCatchUpProvider`.
+String replayWindowBadgeLabel(AppLocalizations l, Channel channel) {
+  final days = ApiService.effectiveArchiveDays(channel);
+  if (days > 0) return l.replayWindowBadge(days);
+  // Jamais atteint aujourd'hui (le repli vaut 14 j) : garde-fou qui évite
+  // d'afficher « Replay 0 j » si le repli était mis à jour à 0.
+  return l.replayWindowBadgeHours(ApiService.archiveWindow(channel).inHours);
 }
 
 /// Le détail : bandeau de chaîne, onglets de jours, puis les programmes du

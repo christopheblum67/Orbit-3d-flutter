@@ -1167,14 +1167,12 @@ final epgPreloadServiceProvider = Provider<EpgPreloadService>(
   (ref) => EpgPreloadService(cache: ref.watch(shortEpgCacheProvider)),
 );
 
-/// Fenêtre catch-up : on ne montre que les programmes terminés depuis 14 jours.
-//plus de kCatchUpWindow global ; on utilise channel.archiveDays
-
 /// Programmes **terminés** d'une chaîne pour le rattrapage (catch-up).
 ///
 /// Diffère de [channelEpgProvider] : l'EPG décrit l'avenir, le catch-up
 /// décrit le passé. Seuls les programmes dont la fin est passée et pas trop
-/// anciens ([kCatchUpWindow]) sont retournés, du plus récent au plus ancien.
+/// anciens (fenêtre de [ApiService.effectiveArchiveDays], soit la durée de
+/// l'abonnement ou 14 jours) sont retournés, du plus récent au plus ancien.
 final channelCatchUpProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
   (ref, channelId) async {
@@ -1188,9 +1186,10 @@ final channelCatchUpProvider =
     if (channel == null) return const <EPGProgram>[];
 
     // Fenêtre de rattrapage = durée réelle annoncée par l'abonnement
-    // (`tv_archive_duration`) ; 7 jours par défaut si le panel ne dit rien.
-    // Plus de plafond à 48 h : il bridait les comptes 7/14 j.
-    final archiveDays = channel.archiveDays > 0 ? channel.archiveDays : 7;
+    // (`tv_archive_duration`), sinon le repli partagé de 14 jours. **Source
+    // unique** : même chose que l'écran Replay, sinon un programme rejouable
+    // sur un écran l'était absent de l'autre (plafond à 48 h avant, 7 j ici).
+    final archiveDays = ApiService.effectiveArchiveDays(channel);
 
     final cache = ref.read(catchUpEpgCacheProvider);
     final cached = cache.get(channelId);
