@@ -55,30 +55,67 @@ class SettingsDropdownTile<T> extends StatelessWidget {
       child: AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: icon == null ? null : Icon(icon!, color: scheme.primary),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              subtitle,
-              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-            ),
-          ),
-          trailing: DropdownButtonHideUnderline(
-            child: DropdownButton<T>(
-              value: value,
-              isDense: true,
-              borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-              items: [
-                for (var i = 0; i < options.length; i++)
-                  DropdownMenuItem(value: options[i], child: Text(labels[i])),
-              ],
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
-            ),
+        child: Focus(
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.space ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+              return KeyEventResult.ignored;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Builder(
+            builder: (context) {
+              final focused = Focus.of(context).hasFocus;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: icon == null
+                    ? null
+                    : Icon(
+                        icon!,
+                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                trailing: DropdownButtonHideUnderline(
+                  child: DropdownButton<T>(
+                    value: value,
+                    isDense: true,
+                    focusNode: Focus.of(context),
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    items: [
+                      for (var i = 0; i < options.length; i++)
+                        DropdownMenuItem(
+                          value: options[i],
+                          child: Text(labels[i]),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) onChanged(v);
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

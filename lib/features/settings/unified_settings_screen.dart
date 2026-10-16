@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
@@ -133,22 +134,56 @@ class _NavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon, color: scheme.primary),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-          trailing: trailing ??
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          onTap: onTap,
-        ),
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.space ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Builder(
+        builder: (context) {
+          final focused = Focus.of(context).hasFocus;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  icon,
+                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: trailing ??
+                    Icon(
+                      Icons.chevron_right,
+                      color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                onTap: onTap,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -374,35 +409,68 @@ class _DnsProviderTile extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            Icons.dns_outlined,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          title: Text(l.dnsProvider, style: const TextStyle(fontSize: 14)),
-          subtitle: Text(
-            l.dnsProviderSubtitle,
-            style: const TextStyle(fontSize: 11),
-          ),
-          trailing: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _options.contains(s.dnsProvider)
-                  ? s.dnsProvider
-                  : _options.last,
-              isDense: true,
-              items: [
-                for (final o in _options)
-                  DropdownMenuItem(value: o, child: Text(o)),
-              ],
-              onChanged: (v) {
-                if (v != null) n.setDnsProvider(v);
-              },
-            ),
+        child: Focus(
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.space ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+              return KeyEventResult.ignored;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Builder(
+            builder: (context) {
+              final focused = Focus.of(context).hasFocus;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.dns_outlined,
+                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  l.dnsProvider,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Text(
+                  l.dnsProviderSubtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _options.contains(s.dnsProvider)
+                        ? s.dnsProvider
+                        : _options.last,
+                    isDense: true,
+                    focusNode: Focus.of(context),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.radiusLg,
+                    ),
+                    items: [
+                      for (final o in _options)
+                        DropdownMenuItem(value: o, child: Text(o)),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) n.setDnsProvider(v);
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
