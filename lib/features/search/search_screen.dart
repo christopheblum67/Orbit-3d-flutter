@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -28,10 +29,41 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Timer? _debounceTimer;
   String _lastQuery = '';
 
+  /// Notifier du mode TV, lu une seule fois dans [initState] (Riverpod interdit
+  /// d'utiliser `ref` dans [dispose]).
+  TvModeNotifier? _tvModeNotifier;
+
+  /// Mode TV courant : il décide si le clavier logiciel doit s'ouvrir.
+  bool _isTv = false;
+
   @override
   void initState() {
     super.initState();
-    _focusNode.requestFocus();
+    // Autofocus au doigt : sur téléphone, le clavier doit s'ouvrir dès
+    // l'arrivée. Sur TV c'est l'inverse — le champ de saisie consomme les
+    // flèches (elles déplacent le curseur dans le texte au lieu de parcourir
+    // les résultats) et il n'y a pas de clavier : on laisse le focus libre.
+    final tvMode = ref.read(tvModeNotifierProvider);
+    _tvModeNotifier = tvMode;
+    _isTv = tvMode.enabled;
+    tvMode.addListener(_onTvModeChange);
+    if (!_isTv) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  /// Le mode TV s'active à la première pression D-pad, donc parfois APRÈS
+  /// l'ouverture de l'écran (ouverture au doigt puis usage de la télécommande).
+  /// Si le champ tenait le focus, on le relâche : sinon les flèches restent
+  /// prisonnières du texte et l'utilisateur ne peut plus atteindre les
+  /// résultats.
+  void _onTvModeChange() {
+    final enabled = _tvModeNotifier?.enabled ?? false;
+    if (enabled == _isTv || !mounted) return;
+    setState(() => _isTv = enabled);
+    if (enabled && _focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
   }
 
   void _onQueryChanged(String query) {
@@ -53,6 +85,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _tvModeNotifier?.removeListener(_onTvModeChange);
+    _tvModeNotifier = null;
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -213,6 +247,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           return SearchBar(
             controller: controller,
             focusNode: _focusNode,
+            // Sur TV, pas d'ouverture automatique du clavier : l'utilisateur le
+            // décide lui-même (voir [initState]).
+            autoFocus: !_isTv,
+            // La télécommande Android TV affiche alors une touche « Rechercher »
+            // sur son clavier virtuel, au lieu d'une validation muette.
+            textInputAction: TextInputAction.search,
             hintText: filterType != null
                 ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
                 : 'Rechercher...',
@@ -315,31 +355,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildSuggestionTile(SearchSuggestion suggestion) {
-    return ListTile(
-      leading: Icon(
-        suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
-        size: 20,
+    // `TvFocus` : les suggestions du panneau `SearchAnchor` ne sont pas
+    // atteignables à la télécommande sans cela (aucun halo, aucune activation
+    // au D-pad), alors que c'est le seul moyen de chercher vite sur TV.
+    void apply() {
+      _searchController.text = suggestion.text;
+      _searchController.selection =
+          TextSelection.collapsed(offset: suggestion.text.length);
+      _focusNode.unfocus();
+    }
+
+    return TvFocus(
+      onActivate: apply,
+      child: ListTile(
+        leading: Icon(
+          suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
+          size: 20,
+        ),
+        title: Text(suggestion.text),
+        trailing: suggestion.isHistory
+            ? IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () async {
+                  await ref.read(searchServiceProvider).clearHistory();
+                  // Effacement disque : aucune garde, le `setState` pouvait
+                  // s'exécuter sur un State démonté.
+                  if (!mounted) return;
+                  setState(() {});
+                },
+                tooltip: 'Supprimer de l\'historique',
+              )
+            : null,
+        onTap: apply,
       ),
-      title: Text(suggestion.text),
-      trailing: suggestion.isHistory
-          ? IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () async {
-                await ref.read(searchServiceProvider).clearHistory();
-                // Effacement disque : aucune garde, le `setState` pouvait
-                // s'exécuter sur un State démonté.
-                if (!mounted) return;
-                setState(() {});
-              },
-              tooltip: 'Supprimer de l\'historique',
-            )
-          : null,
-      onTap: () {
-        _searchController.text = suggestion.text;
-        _searchController.selection =
-            TextSelection.collapsed(offset: suggestion.text.length);
-        _focusNode.unfocus();
-      },
     );
   }
 
@@ -442,13 +490,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildHistoryChip(String query) {
-    return ActionChip(
-      label: Text(query),
-      onPressed: () {
-        _searchController.text = query;
-        _focusNode.unfocus();
-      },
-      avatar: const Icon(Icons.history, size: 16),
+    void apply() {
+      _searchController.text = query;
+      _focusNode.unfocus();
+    }
+
+    return TvFocus(
+      onActivate: apply,
+      child: ActionChip(
+        label: Text(query),
+        onPressed: apply,
+        avatar: const Icon(Icons.history, size: 16),
+      ),
     );
   }
 
@@ -607,40 +660,43 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final highlightedTitle = _highlightMatch(item.title, query);
     final highlightedSubtitle = _highlightMatch(item.subtitle, query);
 
-    return InkWell(
-      onTap: () => _onItemTap(item),
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: item.posterUrl.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: CachedImage(
-                    imageUrl: item.posterUrl,
-                    width: 56,
-                    height: 84,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => _placeholderIcon(item.type),
-                  ),
-                )
-              : _placeholderIcon(item.type),
-          title: Text.rich(
-            highlightedTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return TvFocus(
+      onActivate: () => _onItemTap(item),
+      child: InkWell(
+        onTap: () => _onItemTap(item),
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: item.posterUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedImage(
+                      imageUrl: item.posterUrl,
+                      width: 56,
+                      height: 84,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => _placeholderIcon(item.type),
+                    ),
+                  )
+                : _placeholderIcon(item.type),
+            title: Text.rich(
+              highlightedTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: item.subtitle.isNotEmpty
+                ? Text.rich(
+                    highlightedSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
+            trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
+                ? const Icon(Icons.play_circle_filled, size: 28)
+                : null,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           ),
-          subtitle: item.subtitle.isNotEmpty
-              ? Text.rich(
-                  highlightedSubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
-              ? const Icon(Icons.play_circle_filled, size: 28)
-              : null,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         ),
       ),
     );
