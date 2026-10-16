@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_grid_card.dart';
@@ -94,23 +95,25 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
             ),
         ],
       ),
-      body: channelsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text(userFriendlyError(err))),
-        data: (channels) {
-          // Le catalogue est la seule source du niveau 1 : `supportsReplay`
-          // vient de `get_live_streams`, déjà chargé pour le Live TV. Aucun
-          // appel supplémentaire.
-          final replayable = channels.where((c) => c.supportsReplay).toList();
-          final open = selected;
-          if (open == null) {
-            if (replayable.isEmpty) {
-              return const _NoReplayAtAll();
+      body: TvSafeArea(
+        child: channelsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text(userFriendlyError(err))),
+          data: (channels) {
+            // Le catalogue est la seule source du niveau 1 : `supportsReplay`
+            // vient de `get_live_streams`, déjà chargé pour le Live TV. Aucun
+            // appel supplémentaire.
+            final replayable = channels.where((c) => c.supportsReplay).toList();
+            final open = selected;
+            if (open == null) {
+              if (replayable.isEmpty) {
+                return const _NoReplayAtAll();
+              }
+              return _ChannelGrid(channels: replayable, onOpen: _open);
             }
-            return _ChannelGrid(channels: replayable, onOpen: _open);
-          }
-          return _ChannelReplaysView(channel: open);
-        },
+            return _ChannelReplaysView(channel: open);
+          },
+        ),
       ),
     );
   }

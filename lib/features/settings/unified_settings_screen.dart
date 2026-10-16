@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
@@ -96,16 +97,18 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _AccountSection(),
-          _NetworkSection(),
-          _PlayerSection(),
-          _SecuritySection(),
-          _AudioSection(),
-          _AdvancedSection(),
-        ],
+      body: TvSafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: const [
+            _AccountSection(),
+            _NetworkSection(),
+            _PlayerSection(),
+            _SecuritySection(),
+            _AudioSection(),
+            _AdvancedSection(),
+          ],
+        ),
       ),
     );
   }

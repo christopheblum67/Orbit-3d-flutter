@@ -12,5 +12,6 @@ export 'profile_avatar.dart';
 export 'profile_type_badge.dart';
 export 'profiles_count_badge.dart';
 export 'section_header.dart';
+export 'tv_safe_area.dart';
 export 'video_error_state.dart';
 export 'video_loading_state.dart';

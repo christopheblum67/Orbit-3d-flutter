@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
@@ -80,7 +81,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             : null,
         title: Text(l.epgGuideTv),
       ),
-      body: _buildGrid2DTab(),
+      body: TvSafeArea(child: _buildGrid2DTab()),
     );
   }
 

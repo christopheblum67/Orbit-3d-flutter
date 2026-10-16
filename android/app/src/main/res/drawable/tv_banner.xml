@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TV Banner for Android TV Launcher (320x180) -->
+<!-- This vector drawable scales to 320x180 for the leanback launcher -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- Background gradient matching app theme -->
+    <path
+        android:fillType="evenOdd"
+        android:pathData="M0,0h320v180h-320z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="320"
+                android:endY="180"
+                android:startColor="#FF0E1117"
+                android:endColor="#FF1A1D2E" />
+        </aapt:attr>
+    </path>
+    <!-- Orbital accent ring -->
+    <path
+        android:fillColor="#00FFFFFF"
+        android:strokeColor="#FF00CFE8"
+        android:strokeWidth="3"
+        android:pathData="M160,90 m-50,0 a50,50 0,1,1 100,0 a50,50 0,1,1 -100,0" />
+    <!-- Play icon inside ring -->
+    <path
+        android:fillColor="#FF00CFE8"
+        android:pathData="M148,75 l30,15 l-30,15 z" />
+    <!-- App name -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M60,130 h200">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="60"
+                android:startY="130"
+                android:endX="260"
+                android:endY="130"
+                android:startColor="#FF00CFE8"
+                android:endColor="#FFFFFFFF" />
+        </aapt:attr>
+    </path>
+</vector>

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
@@ -117,37 +118,39 @@ class _AdvancedSettingsScreenState
         ),
         title: Text(l.advancedSettingsTitle),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            l.advancedSettingsIntro,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 16),
-          SettingsSectionTitle(l.sectionCertPinning),
-          const _CertPinningSection(),
-          const SizedBox(height: 24),
-          SettingsSectionTitle(l.sectionTmdb),
-          const TmdbApiKeyTile(),
-          const SizedBox(height: 24),
-          SettingsSectionTitle(l.advancedSubtitlesProvider),
-          const OpenSubtitlesApiKeyTile(),
-          const SizedBox(height: 16),
-          const OpenSubtitlesLoginTile(),
-          const SizedBox(height: 24),
-          SettingsSectionTitle(l.advancedStatus),
-          _KeyStatus(
-            label: l.tmdbKeyLabel,
-            active: tmdbKey.isNotEmpty,
-          ),
-          _KeyStatus(
-            label: l.opensubtitlesKeyLabel,
-            active: osKey.isNotEmpty,
-          ),
-        ],
+      body: TvSafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              l.advancedSettingsIntro,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            SettingsSectionTitle(l.sectionCertPinning),
+            const _CertPinningSection(),
+            const SizedBox(height: 24),
+            SettingsSectionTitle(l.sectionTmdb),
+            const TmdbApiKeyTile(),
+            const SizedBox(height: 24),
+            SettingsSectionTitle(l.advancedSubtitlesProvider),
+            const OpenSubtitlesApiKeyTile(),
+            const SizedBox(height: 16),
+            const OpenSubtitlesLoginTile(),
+            const SizedBox(height: 24),
+            SettingsSectionTitle(l.advancedStatus),
+            _KeyStatus(
+              label: l.tmdbKeyLabel,
+              active: tmdbKey.isNotEmpty,
+            ),
+            _KeyStatus(
+              label: l.opensubtitlesKeyLabel,
+              active: osKey.isNotEmpty,
+            ),
+          ],
+        ),
       ),
     );
   }

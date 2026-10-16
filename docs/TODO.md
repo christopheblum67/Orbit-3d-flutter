@@ -26,10 +26,10 @@
       → *Cause racine trouvée* : le **tampon EPG local** (`lib/services/epg_buffer_store.dart`) est ancré sur la **journée de l'écriture** (`project(windowStart = minuit du jour, horizon = écriture + 30 h)`), et `read()` ne le rejetait que sur une péremption de 12 h. Écrit la veille au soir, il couvre « hier 00:00 → aujourd'hui ~05:00 » ; relu le lendemain matin (moins de 12 h plus tard, donc « frais »), il ne reste que les **premières heures après minuit** — le reste est comblé par des blocs « Aucune donnée de programme » quasi invisibles, d'où « tout disparaît ».
       *Correctif* : ① `EpgBufferStore.read` refuse un tampon écrit un **autre jour civil** (horloge injectable pour le test) ; ② `EPGDataCache.isFresh` rejette aussi les données en mémoire chargées la veille (application restée ouverte à cheval sur minuit). Tests : `test/unit/epg_buffer_store_test.dart` (2 nouveaux, dont un échouait avant le correctif).
       **Reste : confirmation visuelle sur le S20** — le diagnostic est une hypothèse forte appuyée par un défaut prouvé, pas une mesure faite sur l'appareil.
-- [ ] **Améliorations Replay — durée réelle de l'abonnement** — *Demande (13/10)* : « avoir le replay réel que chaque abonnement propose en durée de jours ».
+- [x] **Améliorations Replay — durée réelle de l'abonnement** — *Demande (13/10)* : « avoir le replay réel que chaque abonnement propose en durée de jours ».
       → La fenêtre de replay doit refléter la rétroactivité **réellement annoncée par l'abonnement/le panel**, par chaîne et par compte, au lieu d'une constante globale.
       Aujourd'hui : `kCatchUpWindow = 14 jours` en dur (`lib/providers/providers.dart:1091`) + `Channel.archiveDays` (`tv_archive_duration`, `models/channel.dart`) et logique dans `api_service.dart` (~1820, ~1983).
-      Attendu : bornage par la durée réelle (catchup-days / tv_archive_duration), par chaîne, et non systématiquement 14 j.
+      **FAIT** : fenêtre unifiée via `ApiService.fallbackArchiveDays = 14` (remplace 48 h / 7 j divergents) ; `effectiveArchiveDays` source unique pour Replay + rattrapage EPG ; `_replayLimit = 400`. Validé S20 : 517 replays FRANCE 2 (archiveDays=0 → repli 14 j). Tests : `replay_archive_window_test` mis à jour.
 
 ## 2 bis. Chantiers du 13/10 — demande utilisateur (ordre 1→4, tous livrés)
 
@@ -56,15 +56,49 @@
 
 ## 2 quater. Chantiers du 15/10 — artefacts d'encodage, lecture locale, aperçu live
 
-- [ ] **Aperçu live — étendre l'EPG à 4-5 programmes** — *Demande (15/10)* : « étendre le programme EPG à 4-5 programmes dans l'aperçu live ».
+- [x] **Aperçu live — étendre l'EPG à 4-5 programmes** — *Demande (15/10)* : « étendre le programme EPG à 4-5 programmes dans l'aperçu live ».
       Aujourd'hui `_EpgList` (`lib/features/live_tv/widgets/channel_browse_view.dart`) est **borné à `_maxPrograms = 2`** (programme en cours + suivant), à cause d'une hauteur contrainte dans la maquette à deux zones (voir commentaire l. 174-177 : « les deux programmes EPG passaient sous le bord de l'écran »).
-      Attend : lister les **4 à 5 prochains programmes** (en écartant le passé), en rendant la liste **défilable** et/ou en densifiant les lignes pour tenir dans la zone allouée, sans repousser la vidéo hors écran.
-- [ ] **Signature APK en schéma v3** — *Demande (15/10)* : « faire passer la signature en v3 pour le keystore ».
+      **FAIT** : `_maxPrograms = 5` + padding vertical densifié (dense: 7→5, normal: 10→7). Validé S20.
+- [x] **Signature APK en schéma v3** — *Demande (15/10)* : « faire passer la signature en v3 pour le keystore ».
       → *Constat mesuré* : l'APK release est signé **v2 uniquement**. `apksigner verify --verbose` (build-tools 36.0.0, AGP 9.0.1) renvoie `v1: false`, `v2: true`, `v3: false`, `v3.1: false`, `v4: false`. Signature `CN=Orbit3D, OU=Mobile, O=Orbit, C=FR`, SHA-256 `856837ba79570f2bc2658766880e8fceb112439418b9c96554abe2428446fb2a`.
-      Cible : ajouter **APK Signature Scheme v3** (permet la **rotation de clé** via `proof-of-rotation`, exigée par les stores pour les nouvelles clés), en **conservant v2** pour les appareils anciens.
-      Piste : `signingConfigs.release { enableV3Signing = true }` dans `android/app/build.gradle` (propriété disponible depuis AGP 7 ; ici AGP 9.0.1), puis `flutter build apk --release` et **re-vérifier** avec `apksigner verify --verbose` (attendu : `v3: true`).
-      ⚠️ **Aucun impact sur les données** : la clé et son certificat ne changent pas (`upload-keystore.jks`, `CN=Orbit3D`), l'identité de l'app reste identique → les mises à jour `adb install -r` conservent **abonnement et profil**. Seul le schéma de signature est ajouté.
-      ⚠️ v3.1 / v4 : propriétés distinctes (`enableV31Signing` / `enableV4Signing`) dont le nom exact est à confirmer sur AGP 9. v4 produit un `.apk.idsig` séparé, inutile pour une install `adb`/sideload — probablement à écarter.
+      **FAIT** : `signingConfigs.release { enableV3Signing = true }` → `apksigner verify --verbose` → `v3: true`. Clé/certificat inchangés → mises à jour `adb install -r` conservent abonnement/profil.
+
+## 2 quinquies. TV Support (Android TV / Fire TV / TV Boxes) — 2026-10-15
+
+### Priorité 1 : Manifest & Assets (CRITICAL — bloquant pour TV Launcher)
+- [x] **AndroidManifest.xml** : `android:software.leanback required="true"`, `<category android:name="android.intent.category.LEANBACK_LAUNCHER"/>`, `android:largeHeap="true"`, `android:banner="@drawable/tv_banner"` sur `<application>`
+- [x] **TV Banner (320×180)** : `android/app/src/main/res/drawable/tv_banner.xml` (vector drawable scalable)
+
+### Priorité 2 : Safe Area / Overscan (CRITICAL — contenu coupé aux bords)
+- [x] **TvSafeArea widget** (`lib/core/widgets/tv_safe_area.dart`) : minimum `EdgeInsets.symmetric(horizontal: 48, vertical: 27)` pour overscan 5-10%
+- [x] **Appliqué aux écrans principaux** : Home, Live TV, VOD, Séries, Replay, EPG, Search, Settings, Advanced Settings
+
+### Priorité 3 : Navigation D-pad / Focus System (HIGH)
+- [x] **TvFocus** existant : glow + scale + border + haptique + clés OK/Enter/Space/GamepadA
+- [x] **CategoriesRail** : `_FocusableCategoryTile` avec `Focus` + `onKeyEvent` (Enter = select)
+- [x] **ProfileEditScreen** : chips focales (`_ProfileChoiceChip`), SegmentedButton, "Suivant" button accessible D-pad
+- [x] **PlayerScreen** : `_onKeyEvent` gère flèches (zapping), Space (play/pause), Escape (footer)
+- [~] **EPG Grid** : CustomPainter sans FocusNode par cellule — **nécessite refactor majeur** pour D-pad left/right entre programmes
+- [~] **SearchScreen** : SearchAnchor/TextField pas TV-ready — IME options, conditional keyboard, SearchManager manquant
+- [~] **UnifiedSettingsScreen** : TabBar, DropdownButton, ListTile pas focus-wrappés — navigation D-pad limitée
+
+### Priorité 4 : Audio Focus / MediaSession (MEDIUM)
+- [ ] **MediaSessionCompat + MediaButtonReceiver** Android natif pour contrôles télécommande (play/pause/next/prev)
+- [ ] **AudioAttributes** explicites (USAGE_MEDIA, CONTENT_TYPE_MOVIE)
+- [ ] Bridge Flutter ↔ MediaSession via platform channel
+
+### Priorité 5 : Tests TV (LOW)
+- [ ] `integration_test/tv_navigation_test.dart` : scénarios navigation complète, lecture, zapping, recherche, profil
+
+### État actuel
+- `flutter analyze lib` → 0 erreur, 0 warning (hors infos préexistantes EPG)
+- `flutter test` → **943 tests passed**
+- `dart run tool/check_i18n_sync.dart` → 428 messages, 0 problème sur 6 locales
+- Build release installé sur S20 (mode TV forcé via réglages avancés)
+
+**Prochaines étapes prioritaires** : EPG Grid D-pad refactor + SearchScreen TV delegate + MediaSession bridge.
+
+---
 
 ## 3. Chantiers en cours (issus du plan précédent)
 

@@ -227,126 +227,128 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           ),
         ],
       ),
-      body: moviesAsync.when(
-        data: (movies) {
-          if (movies.isEmpty) {
-            return EmptyState(
-              icon: Icons.movie_outlined,
-              title: l.noMoviesAvailable,
-              message: 'La bibliothèque VOD est vide pour le moment.',
+      body: TvSafeArea(
+        child: moviesAsync.when(
+          data: (movies) {
+            if (movies.isEmpty) {
+              return EmptyState(
+                icon: Icons.movie_outlined,
+                title: l.noMoviesAvailable,
+                message: 'La bibliothèque VOD est vide pour le moment.',
+              );
+            }
+            final vodFavIds = favoriteEntries.values
+                .where((e) => e.type == ContentType.vod)
+                .map((e) => e.id)
+                .toSet();
+            final vodRecentIds = recentEntries.values
+                .where((e) => e.type == ContentType.vod)
+                .map((e) => e.id)
+                .toSet();
+            // Un seul passage sur le catalogue : categories, filtres, recherche
+            // et tri sont memoises dans le pipeline.
+            final catalog = _pipeline.apply(
+              movies: movies,
+              hiddenCategories: hiddenCategories,
+              categoryId: _selectedCategoryId,
+              favoriteIds: vodFavIds,
+              recentIds: vodRecentIds,
+              query: _query,
+              sortMode: _pipelineSortKey(_selectedSortMode),
             );
-          }
-          final vodFavIds = favoriteEntries.values
-              .where((e) => e.type == ContentType.vod)
-              .map((e) => e.id)
-              .toSet();
-          final vodRecentIds = recentEntries.values
-              .where((e) => e.type == ContentType.vod)
-              .map((e) => e.id)
-              .toSet();
-          // Un seul passage sur le catalogue : categories, filtres, recherche
-          // et tri sont memoises dans le pipeline.
-          final catalog = _pipeline.apply(
-            movies: movies,
-            hiddenCategories: hiddenCategories,
-            categoryId: _selectedCategoryId,
-            favoriteIds: vodFavIds,
-            recentIds: vodRecentIds,
-            query: _query,
-            sortMode: _pipelineSortKey(_selectedSortMode),
-          );
-          final visibleMovies = catalog.visibleMovies;
-          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
-              .where((c) => !hiddenCategories.contains(c.id))
-              .toList(growable: false);
-          // Les compteurs du rail viennent du pipeline, qui les a déjà
-          // calculés sur les films hors catégories masquées. On ne recompte
-          // donc pas 100 000 films à chaque build.
-          final categories = _withRealCounts(
-            serverCategories,
-            catalog.categoryCounts,
-          );
-          final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
-            MediaCategory(
-                id: 'fav', name: 'Favoris', count: catalog.favoriteCount,),
-            MediaCategory(
-                id: 'recent', name: 'Récemment', count: catalog.recentCount,),
-            ...categories,
-          ];
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CategoriesRail(
-                categories: railCategories,
-                selectedId: _selectedCategoryId,
-                onSelected: (id) => setState(() => _selectedCategoryId = id),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: _SearchField(
-                        controller: _searchController,
-                        hint: 'Rechercher un film ou un genre…',
-                        onChanged: (value) => setState(() => _query = value),
-                      ),
-                    ),
-                    Expanded(
-                      child: visibleMovies.isEmpty
-                          ? EmptyState(
-                              icon: Icons.movie_outlined,
-                              title: _selectedCategoryId == 'fav'
-                                  ? l.noFavoriteMovies
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Aucun film récent'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun résultat'
-                                          : 'Aucun film dans cette catégorie',
-                              message: _selectedCategoryId == 'fav'
-                                  ? 'Appuie sur le cœur d\'un film pour le retrouver ici.'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Les films regardés s\'afficheront ici.'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun film ne correspond à cette recherche.'
-                                          : 'Aucun film ne correspond à cette catégorie.',
-                            )
-                          : GridView.builder(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 200,
-                                childAspectRatio: 0.55,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
-                              itemCount: visibleMovies.length,
-                              itemBuilder: (context, index) {
-                                final movie = visibleMovies[index];
-                                return _VodTile(
-                                  movie: movie,
-                                  enrichment: enrichments[movie.id],
-                                  affinity: affinity,
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+            final visibleMovies = catalog.visibleMovies;
+            final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+                .where((c) => !hiddenCategories.contains(c.id))
+                .toList(growable: false);
+            // Les compteurs du rail viennent du pipeline, qui les a déjà
+            // calculés sur les films hors catégories masquées. On ne recompte
+            // donc pas 100 000 films à chaque build.
+            final categories = _withRealCounts(
+              serverCategories,
+              catalog.categoryCounts,
+            );
+            final railCategories = <MediaCategory>[
+              MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
+              MediaCategory(
+                  id: 'fav', name: 'Favoris', count: catalog.favoriteCount,),
+              MediaCategory(
+                  id: 'recent', name: 'Récemment', count: catalog.recentCount,),
+              ...categories,
+            ];
+  
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CategoriesRail(
+                  categories: railCategories,
+                  selectedId: _selectedCategoryId,
+                  onSelected: (id) => setState(() => _selectedCategoryId = id),
                 ),
-              ),
-            ],
-          );
-        },
-        loading: () => const LoadingState(message: 'Chargement…'),
-        error: (err, _) => ErrorState(
-          icon: Icons.movie_outlined,
-          title: l.moviesUnavailable,
-          message: userFriendlyError(err),
-          onRetry: () => ref.invalidate(moviesProvider),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: _SearchField(
+                          controller: _searchController,
+                          hint: 'Rechercher un film ou un genre…',
+                          onChanged: (value) => setState(() => _query = value),
+                        ),
+                      ),
+                      Expanded(
+                        child: visibleMovies.isEmpty
+                            ? EmptyState(
+                                icon: Icons.movie_outlined,
+                                title: _selectedCategoryId == 'fav'
+                                    ? l.noFavoriteMovies
+                                    : _selectedCategoryId == 'recent'
+                                        ? 'Aucun film récent'
+                                        : _selectedCategoryId.isEmpty
+                                            ? 'Aucun résultat'
+                                            : 'Aucun film dans cette catégorie',
+                                message: _selectedCategoryId == 'fav'
+                                    ? 'Appuie sur le cœur d\'un film pour le retrouver ici.'
+                                    : _selectedCategoryId == 'recent'
+                                        ? 'Les films regardés s\'afficheront ici.'
+                                        : _selectedCategoryId.isEmpty
+                                            ? 'Aucun film ne correspond à cette recherche.'
+                                            : 'Aucun film ne correspond à cette catégorie.',
+                              )
+                            : GridView.builder(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                                gridDelegate:
+                                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 200,
+                                  childAspectRatio: 0.55,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                ),
+                                itemCount: visibleMovies.length,
+                                itemBuilder: (context, index) {
+                                  final movie = visibleMovies[index];
+                                  return _VodTile(
+                                    movie: movie,
+                                    enrichment: enrichments[movie.id],
+                                    affinity: affinity,
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+          loading: () => const LoadingState(message: 'Chargement…'),
+          error: (err, _) => ErrorState(
+            icon: Icons.movie_outlined,
+            title: l.moviesUnavailable,
+            message: userFriendlyError(err),
+            onRetry: () => ref.invalidate(moviesProvider),
+          ),
         ),
       ),
     );

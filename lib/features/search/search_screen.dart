@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -81,7 +82,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
 
     return Scaffold(
-      body: SafeArea(
+      body: TvSafeArea(
         child: Column(
           children: [
             _buildSearchBar(query, suggestionsAsync, historyAsync, filterType),
