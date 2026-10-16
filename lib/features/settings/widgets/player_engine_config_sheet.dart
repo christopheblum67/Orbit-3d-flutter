@@ -106,7 +106,12 @@ class _PlayerEngineConfigSheetState
     required List<DropdownMenuItem<PlayerEngine>> items,
   }) {
     return Focus(
-      focusNode: focusNode,
+      // Le nœud est porté par le `DropdownButton` ci-dessous. Le lui donner
+      // aussi au `Focus` parent produisait « FocusNode._reparent: assert
+      // (child != this) » à chaque frame — le contenu de la feuille ne se
+      // construisait plus en debug (« écran gris » rapporté). Parent non
+      // focalisable : les touches remontent quand même vers son `onKeyEvent`.
+      canRequestFocus: false,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||

@@ -56,6 +56,12 @@ class SettingsDropdownTile<T> extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         child: Focus(
+          // Le nœud de focus est porté par le `DropdownButton` (voir plus bas).
+          // Le donner aussi au `Focus` parent levait « FocusNode._reparent:
+          // assert(child != this) » à chaque frame (rendu en échec en debug).
+          // Ce parent ne sert qu'à exposer `hasFocus` (visuel) ; il ne doit
+          // donc pas être une cible de focus lui-même.
+          canRequestFocus: false,
           onKeyEvent: (node, event) {
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -100,7 +106,6 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                   child: DropdownButton<T>(
                     value: value,
                     isDense: true,
-                    focusNode: Focus.of(context),
                     borderRadius: BorderRadius.circular(AppConstants.radiusLg),
                     items: [
                       for (var i = 0; i < options.length; i++)

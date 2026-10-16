@@ -415,6 +415,11 @@ class _DnsProviderTile extends ConsumerWidget {
       child: AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Focus(
+          // Le nœud de focus est porté par le `DropdownButton` (voir plus bas) ;
+          // le partager avec ce `Focus` parent levait « FocusNode._reparent:
+          // assert(child != this) » à chaque frame. Parent exposant juste
+          // `hasFocus` pour le halo : il ne doit pas être une cible de focus.
+          canRequestFocus: false,
           onKeyEvent: (node, event) {
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -456,7 +461,6 @@ class _DnsProviderTile extends ConsumerWidget {
                         ? s.dnsProvider
                         : _options.last,
                     isDense: true,
-                    focusNode: Focus.of(context),
                     borderRadius: BorderRadius.circular(
                       AppConstants.radiusLg,
                     ),
