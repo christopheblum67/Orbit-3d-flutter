@@ -293,6 +293,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   // Picture-in-Picture & lecture en arrière-plan
   final _pipService = PipService();
   final _bgService = BackgroundPlaybackService();
+  StreamSubscription<String>? _remoteCommandSub;
   bool? _pipSupported;
 
   // Monitoring réseau & stall
@@ -327,6 +328,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Commandes de la MediaSession native (télécommande TV, casque, contrôles
+    // de la notification) : reçues quand l'app n'a plus le focus clavier.
+    _remoteCommandSub = _bgService.commands.listen(_handleRemoteCommand);
     // Contexte de découverte des sous-titres pour le contenu lu. Renseigné
     // ici (et non au moment de l'appui sur l'icône) pour que la feuille puisse
     // interroger le panel dès son ouverture.
@@ -396,6 +400,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveProgressTimer?.cancel();
     _monitoringTimer?.cancel();
     _stallDetector?.stop();
+    _remoteCommandSub?.cancel();
+    _remoteCommandSub = null;
     _bgService.stop();
     _saveProgress();
     _focusNode.dispose();
@@ -418,7 +424,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // le foreground service mediaPlayback garde le process vivant (Android 14+).
       if (_controller?.value.isPlaying == true &&
           _status == _PlayerStatus.ready) {
-        _bgService.start(title: _playbackTitle, subtitle: _playbackSubtitle);
+        _bgService.start(
+          title: _playbackTitle,
+          subtitle: _playbackSubtitle,
+          playing: true,
+        );
       }
     }
   }
@@ -1810,6 +1820,45 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _preloadTarget = null;
   }
 
+  /// Applique une commande issue de la MediaSession native (notification,
+  /// télécommande TV, casque Bluetooth). Le natif ne connaît pas l'état réel du
+  /// lecteur : le traitement est donc idempotent (« play » alors qu'on joue
+  /// déjà ne relance rien).
+  void _handleRemoteCommand(String command) {
+    if (!mounted) return;
+    switch (command) {
+      case 'play':
+        {
+          final controller = _controller;
+          if (controller != null && !controller.value.isPlaying) {
+            setState(() => controller.play());
+            _syncImmersive();
+          }
+        }
+      case 'pause':
+        {
+          final controller = _controller;
+          if (controller != null && controller.value.isPlaying) {
+            setState(() => controller.pause());
+            _syncImmersive();
+          }
+        }
+      case 'stop':
+        {
+          final controller = _controller;
+          if (controller != null && controller.value.isPlaying) {
+            setState(() => controller.pause());
+            _syncImmersive();
+          }
+          _bgService.stop();
+        }
+      case 'next':
+        _goNext();
+      case 'previous':
+        _goPrevious();
+    }
+  }
+
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
@@ -1828,6 +1877,34 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (key == LogicalKeyboardKey.escape) {
       _toggleFooter();
+      return KeyEventResult.handled;
+    }
+    // Touches média émises par les télécommandes TV et les casques
+    // Bluetooth : arrivées ici comme événements clavier tant que la
+    // MediaSession native n'est pas active (app au premier plan). Une fois
+    // la session active (arrière-plan), les mêmes intentions passent par le
+    // MethodChannel « orbit/playback_service » (voir _handleRemoteCommand).
+    if (key == LogicalKeyboardKey.mediaPlayPause ||
+        key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.mediaPause) {
+      _togglePlayPause();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaStop) {
+      final controller = _controller;
+      if (controller != null && controller.value.isPlaying) {
+        setState(() => controller.pause());
+        _bgService.stop();
+        _syncImmersive();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      _goNext();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      _goPrevious();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;

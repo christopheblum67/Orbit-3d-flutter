@@ -82,4 +82,8 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"
+    // MediaSessionCompat / MediaButtonReceiver / NotificationCompat.MediaStyle :
+    // requises pour la MediaSession des contrôles TV/télécommande et de la
+    // notification de lecture. Non fournies par media3-common.
+    implementation "androidx.media:media:1.7.0"
 }

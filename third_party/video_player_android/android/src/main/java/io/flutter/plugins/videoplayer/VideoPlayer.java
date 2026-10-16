@@ -266,8 +266,15 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   private static void setAudioAttributes(ExoPlayer exoPlayer, boolean isMixMode) {
+    // Usage MEDIA explicite (et non le défaut implicite de Media3) : l'app est
+    // un lecteur de contenu, le système doit la traiter comme telle pour le
+    // routage audio, le ducking et l'affichage des contrôles média. Le
+    // contentType MOVIE reflète le contenu dominant (film/série/live).
     exoPlayer.setAudioAttributes(
-        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
+        new AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build(),
         !isMixMode);
   }
 
