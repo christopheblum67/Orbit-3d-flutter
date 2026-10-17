@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -29,9 +30,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Timer? _debounceTimer;
   String _lastQuery = '';
 
-  /// Notifier du mode TV, lu une seule fois dans [initState] (Riverpod interdit
-  /// d'utiliser `ref` dans [dispose]).
-  TvModeNotifier? _tvModeNotifier;
+  /// Controller du mode TV, lu une seule fois dans [initState]
+  TvModeController? _tvModeController;
 
   /// Mode TV courant : il décide si le clavier logiciel doit s'ouvrir.
   bool _isTv = false;
@@ -43,10 +43,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // l'arrivée. Sur TV c'est l'inverse — le champ de saisie consomme les
     // flèches (elles déplacent le curseur dans le texte au lieu de parcourir
     // les résultats) et il n'y a pas de clavier : on laisse le focus libre.
-    final tvMode = ref.read(tvModeNotifierProvider);
-    _tvModeNotifier = tvMode;
-    _isTv = tvMode.enabled;
-    tvMode.addListener(_onTvModeChange);
+    final controller = ref.read(tvModeControllerProvider);
+    _tvModeController = controller;
+    _isTv = controller.enabled;
+    controller.addListener(_onTvModeChange);
     if (!_isTv) {
       _focusNode.requestFocus();
     }
@@ -58,7 +58,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// prisonnières du texte et l'utilisateur ne peut plus atteindre les
   /// résultats.
   void _onTvModeChange() {
-    final enabled = _tvModeNotifier?.enabled ?? false;
+    final enabled = _tvModeController?.enabled ?? false;
     if (enabled == _isTv || !mounted) return;
     setState(() => _isTv = enabled);
     if (enabled && _focusNode.hasFocus) {
@@ -85,8 +85,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    _tvModeNotifier?.removeListener(_onTvModeChange);
-    _tvModeNotifier = null;
+    _tvModeController?.removeListener(_onTvModeChange);
+    _tvModeController = null;
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
