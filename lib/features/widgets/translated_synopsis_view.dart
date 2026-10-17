@@ -39,12 +39,27 @@ class TranslatedSynopsisView extends ConsumerWidget {
       error: (_, __) => _body(context, rawSynopsis, null),
       data: (resolved) {
         if (resolved.text.trim().isEmpty) return const SizedBox.shrink();
-        return _body(context, resolved.text, resolved.attribution);
+        return _body(
+          context,
+          resolved.text,
+          resolved.attribution,
+          isTranslated: resolved.isTranslated,
+        );
       },
     );
   }
 
-  Widget _body(BuildContext context, String text, String? attribution) {
+  /// Couleur du texte quand le synopsis affiché provient d'une traduction
+  /// (TMDB fr ou Google) : le rouge signale visuellement que ce n'est pas le
+  /// texte d'origine du fournisseur.
+  static const Color translatedTextColor = Colors.redAccent;
+
+  Widget _body(
+    BuildContext context,
+    String text,
+    String? attribution, {
+    bool isTranslated = false,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
@@ -59,8 +74,10 @@ class TranslatedSynopsisView extends ConsumerWidget {
         const SizedBox(height: 8),
         Text(
           text,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isTranslated ? translatedTextColor : scheme.onSurfaceVariant,
+            height: 1.4,
+          ),
         ),
         if (attribution != null) ...[
           const SizedBox(height: 6),
