@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/features/profile/profile_palette_picker.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
@@ -72,6 +73,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               },
             ),
           ),
+          const Divider(height: 1),
+          const ProfilePalettePicker(),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.family_restroom_outlined),
