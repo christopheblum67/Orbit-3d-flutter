@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 /// Simple global notifier for TV mode (avoids Riverpod 3.x provider API changes)
+/// Maintenu pour compatibilité rétroactive - délègue au controller centralisé
 class TvModeNotifier extends ChangeNotifier {
-  bool _enabled = false;
-  bool get enabled => _enabled;
+  final TvModeController _controller;
 
-  void enable() {
-    if (!_enabled) {
-      _enabled = true;
-      notifyListeners();
-    }
+  TvModeNotifier(this._controller) {
+    _controller.addListener(_onControllerChange);
   }
 
-  void disable() {
-    if (_enabled) {
-      _enabled = false;
-      notifyListeners();
-    }
+  bool get enabled => _controller.enabled;
+
+  void enable() => _controller.enable();
+  void disable() => _controller.disable();
+  void setEnabled(bool v) => _controller.setEnabled(v);
+
+  void _onControllerChange() {
+    notifyListeners();
   }
 
-  void setEnabled(bool v) {
-    if (_enabled != v) {
-      _enabled = v;
-      notifyListeners();
-    }
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChange);
+    super.dispose();
   }
 }
 
 final tvModeNotifierProvider = Provider<TvModeNotifier>((ref) {
-  final notifier = TvModeNotifier();
+  final controller = ref.watch(tvModeControllerProvider);
+  final notifier = TvModeNotifier(controller);
   ref.onDispose(() => notifier.dispose());
   return notifier;
 });
@@ -210,7 +211,7 @@ class TvModeDetector extends ConsumerWidget {
     return Focus(
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
-          ref.read(tvModeNotifierProvider).enable();
+          ref.read(tvModeControllerProvider).enable();
         }
         return KeyEventResult.ignored;
       },

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 /// Marge de sécurité « overscan » des téléviseurs.
 ///
@@ -46,18 +46,15 @@ class TvSafeArea extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tvMode = ref.watch(tvModeNotifierProvider);
-    // `tvModeNotifierProvider` est un `ChangeNotifier` : `ListenableBuilder`
-    // reconstruit quand l'état TV change, sans dépendre d'une API Riverpod
-    // réactive supplémentaire.
+    final controller = ref.watch(tvModeControllerProvider);
     return ListenableBuilder(
-      listenable: tvMode,
+      listenable: controller,
       builder: (context, _) => SafeArea(
         left: left,
         top: top,
         right: right,
         bottom: bottom,
-        minimum: tvMode.enabled ? minimum : EdgeInsets.zero,
+        minimum: controller.enabled ? minimum : EdgeInsets.zero,
         child: child,
       ),
     );
