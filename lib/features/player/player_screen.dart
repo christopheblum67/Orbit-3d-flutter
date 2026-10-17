@@ -1335,6 +1335,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _goNext() {
     if (!_hasNext) return;
+    _cachedNext = null;
+    _cachedNextIndex = null;
+    _preloadTarget = null;
+    LoggerService.instance.info('ZAPPING_START next channel');
     _showFooterBar();
     // `_switchTo` incremente `_generation` de facon synchrone avant son
     // premier `await`, donc un zapping rapide reste correctement ordonne :
