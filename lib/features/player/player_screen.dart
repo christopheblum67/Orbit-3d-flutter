@@ -1145,7 +1145,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       ctrl.embeddedTracks,
       preference,
     );
-    if (track == null) return;
+    if (track == null) {
+      // Pas de sous-titre correspondante ou sélection "aucun" : forcer
+      // la désactivation au lieu de laisser le flux appliquer sa piste par défaut.
+      ctrl.disable();
+      return;
+    }
 
     await ctrl.selectEmbeddedTrack(track.id);
     if (!mounted || generation != _generation) return;
