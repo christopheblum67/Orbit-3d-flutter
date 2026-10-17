@@ -1340,8 +1340,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _goNext() {
     if (!_hasNext) return;
+    LoggerService.instance.info('ZAPPING_START: cleaning caches before switch');
     _cachedNext = null;
     _cachedNextIndex = null;
+    _cachedPrev = null;
+    _cachedPrevIndex = null;
     _preloadTarget = null;
     LoggerService.instance.info('ZAPPING_START next channel');
     _showFooterBar();
