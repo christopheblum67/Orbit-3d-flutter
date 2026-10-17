@@ -489,8 +489,8 @@ class _ChannelStrip extends StatelessWidget {
   }
 }
 
-/// Les programmes diffusés sur la chaîne : le programme en cours et le
-/// suivant. Deux programmes au maximum, quelle que soit leur durée.
+/// Les programmes diffusés sur la chaîne : le programme en cours et les
+/// suivants. Le nombre de lignes est borné par [kEpgPreviewMaxPrograms].
 class _EpgList extends ConsumerWidget {
   const _EpgList({required this.channel, required this.dense});
 
@@ -498,10 +498,6 @@ class _EpgList extends ConsumerWidget {
 
   /// `true` sur les écrans étroits : une ligne compacte, sans description.
   final bool dense;
-
-  /// Nombre de programmes affichés (prochains à venir, passé écarté).
-  /// 4 à 5 selon la demande : assez pour voir la soirée sans noyer l'aperçu.
-  static const int _maxPrograms = 5;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -528,13 +524,10 @@ class _EpgList extends ConsumerWidget {
           );
         }
         final now = DateTime.now();
-        // Deux programmes au maximum, QUELLE QUE SOIT LEUR DURÉE : un film de
-        // 2 h comme un journal de 30 min occupent la même place. On retient le
-        // programme en cours et le suivant, donc en écartant le passé.
-        final visible = programs
-            .where((p) => p.end.isAfter(now))
-            .take(_maxPrograms)
-            .toList(growable: false);
+        // Le passé est écarté, puis on garde [kEpgPreviewMaxPrograms] lignes.
+        // La logique de sélection vit dans `epgPreviewPrograms` (core/utils),
+        // où elle est couverte par des tests unitaires.
+        final visible = epgPreviewPrograms(programs, now);
         final current = epgCurrentProgram(programs, now);
         if (visible.isEmpty) {
           return Center(
