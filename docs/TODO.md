@@ -112,6 +112,19 @@
 
 ---
 
+## 2 ter. Garde-fou TV et grilles portrait (17/10)
+
+- [x] **Détection TV multi-méthodes** (`lib/core/utils/device_info.dart`) — `DeviceInfoUtils.detectDeviceType()` combine : ① feature `android.software.leanback` (packaging), ② taille d'écran (`shortestSide >= 720dp`), ③ UI mode. Retourne `DeviceDetectionResult` avec `isTv`, `confidence` (0-1) et `details`. Fallback synchrone `isTvFromContext()` pour le `build()`.
+- [x] **Provider centralisé `TvModeController`** (`lib/providers/tv_mode_provider.dart`) — `ChangeNotifier` unique avec `enabled`, `autoDetected`, `detectionResult`. `enable()`/`disable()`/`setEnabled()` pour activation manuelle (première pression D-pad). `updateFromDetection()` pour auto-détection au démarrage. `tvModeControllerProvider` + `tvModeProvider` (booléen).
+- [x] **Adaptation `TvFocus`/`TvSafeArea`** (`lib/core/widgets/tv_focus.dart`, `tv_safe_area.dart`) — `TvModeNotifier` wrapper rétrocompatible délègue au controller centralisé. `TvFocus` et `TvSafeArea` lisent `tvModeNotifierProvider` (qui watch le controller). Aucun changement d'API.
+- [x] **Intégration détection auto au démarrage** — `main.dart` appelle `DeviceInfoUtils.detectDeviceType()` et `controller.updateFromDetection()` avant `runApp()`. Le mode TV s'active automatiquement si leanback détecté.
+- [x] **Adaptation `SearchScreen`** (`lib/features/search/search_screen.dart`) — Utilise `tvModeControllerProvider` au lieu de l'ancien `tvModeNotifierProvider`. `initState` lit le controller, `dispose` nettoie correctement.
+- [x] **Tests TvSafeArea/TvFocus** — `test/widget/tv_safe_area_test.dart` et `test/widget/tv_focus_test.dart` ajoutés par l'agent.
+- [x] **Grilles films/séries 2 colonnes en portrait** (`vod_screen.dart`, `series_screen.dart`) — `maxCrossAxisExtent: 200` → `140`, `childAspectRatio: 0.55/0.62` → `0.65`. En portrait (~360dp), 2 colonnes au lieu de 1. Commit `8308a23`.
+- [x] **Nettoyage imports inutiles** (`providers.dart`) — Suppression de `tv_mode_provider.dart` et `device_info.dart` (inutiles dans ce fichier). Commit `14c9bcc`.
+
+---
+
 ## 3. Chantiers en cours (issus du plan précédent)
 
 - [x] **P1 — Rafraîchissement à la demande** (`RefreshStepsController` / `RefreshProgressView` / `showRefreshProgress`) : implémenté — **reste à valider sur device** (démarrage périmé + changement d'abonnement).
