@@ -412,8 +412,8 @@ class _NetworkSecuritySection extends ConsumerWidget {
         SettingsSwitchTile(
           title: l.autoReconnectLive,
           subtitle: l.autoReconnectLiveSubtitle,
-          value: s.zeroLagPrefetch, // réutilise le flag existant pour la démo
-          onChanged: n.setZeroLagPrefetch,
+          value: true,
+          onChanged: (_) {}, // indépendant du zapping
           icon: Icons.sync_rounded,
         ),
         const SizedBox(height: 16),
