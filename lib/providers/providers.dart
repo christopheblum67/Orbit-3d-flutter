@@ -22,6 +22,8 @@ import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/recently_watched_service.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';

@@ -43,6 +43,8 @@ import 'package:orbit_3d_flutter/services/home_widget_service.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/services/beta_config.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
@@ -818,6 +820,18 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   Widget build(BuildContext context) {
     final advancedSettings = ref.watch(advancedSettingsProvider);
     final prefs = ref.watch(preferencesProvider);
+
+    // Détection automatique du mode TV multi-méthodes
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final result = await DeviceInfoUtils.detectDeviceType(context: context);
+        if (context.mounted) {
+          ref.read(tvModeControllerProvider).updateFromDetection(result);
+        }
+      } catch (_) {
+        // Ignorer les erreurs de détection
+      }
+    });
 
     // Locale chargée depuis les préférences (défaut 'fr'). Retombe sur la
     // locale système si la langue choisie n'est pas supportée.
