@@ -121,7 +121,9 @@ class MediaCard extends ConsumerWidget {
       label: _accessibilityLabel,
       child: AppCard(
         padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         onTap: onTap,
         onLongPress: onLongPress,
         child: Column(
