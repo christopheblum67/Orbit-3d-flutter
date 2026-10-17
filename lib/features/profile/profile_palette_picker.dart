@@ -45,9 +45,25 @@ class ProfilePalettePicker extends ConsumerWidget {
               _PaletteChip(
                 def: p,
                 selected: prefs.palette == p.key,
-                onTap: () => notifier.setPalette(p.key),
+                onTap: () {
+                  notifier.setPalette(p.key);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Palette « ${p.name} » appliquée — redémarrage recommandé'),
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                },
               ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          "Redémarrer l'application pour appliquer complètement la nouvelle palette.",
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontStyle: FontStyle.italic,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
