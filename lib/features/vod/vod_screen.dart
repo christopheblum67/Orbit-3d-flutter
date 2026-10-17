@@ -320,8 +320,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     const EdgeInsets.fromLTRB(16, 16, 16, 16),
                                 gridDelegate:
                                     const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 200,
-                                  childAspectRatio: 0.55,
+                                  maxCrossAxisExtent: 140,
+                                  childAspectRatio: 0.65,
                                   crossAxisSpacing: 12,
                                   mainAxisSpacing: 12,
                                 ),
