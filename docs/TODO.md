@@ -2,7 +2,7 @@
 
 > Fichier unique de suivi. Une ligne = une tâche vérifiable.
 > Statuts : `[ ]` à faire · `[~]` en cours · `[x]` fait (à valider) · `[X]` validé sur appareil.
-> Dernière mise à jour : 2026-10-15.
+> Dernière mise à jour : 2026-10-17.
 
 ---
 
@@ -92,11 +92,23 @@
 
 ### État actuel
 - `flutter analyze lib` → 0 erreur, 0 warning (hors infos préexistantes EPG)
-- `flutter test` → **943 tests passed**
+- `flutter test` → **966 tests passed**
 - `dart run tool/check_i18n_sync.dart` → 428 messages, 0 problème sur 6 locales
 - Build release installé sur S20 (mode TV forcé via réglages avancés)
 
 **Prochaines étapes prioritaires** : EPG Grid D-pad refactor + SearchScreen TV delegate + MediaSession bridge.
+
+---
+
+## 2 sexies. Chantiers du 17/10 — synopsis, aperçu EPG, menus Réglages
+
+- [x] **Synopsis traduit affiché en ROUGE (film ET série)** — *Demande (17/10)* : « pour le synopsis, si traduction, affichage du texte en rouge », « valable pour film et série évidemment ».
+      `TranslatedSynopsisView` (partagé par `movie_detail_screen` et `series_detail_screen`) colorait le texte en `onSurfaceVariant` quelle que soit la source. Le texte passe désormais en `Colors.redAccent` dès que `resolved.isTranslated` (synopsis TMDB fr **ou** traduction automatique Google) ; la source du traducteur reste affichée sous le texte. Couleur exposée en `TranslatedSynopsisView.translatedTextColor`. Tests : `test/widget/translated_synopsis_view_test.dart` (3, dont 2 échouaient sans le rouge).
+- [x] **Aperçu Live TV — 7 programmes EPG au lieu de 5** — *Demande (17/10)* : « augmenter le nombre de programmes valides en validant 2 lignes de plus ».
+      `_EpgList._maxPrograms` (5) remplacé par l'appel à `epgPreviewPrograms(programs, now)` (`lib/core/utils/epg_lookup.dart`) avec `kEpgPreviewMaxPrograms = 7`. La sélection quitte le widget pour devenir testable. Tests : `test/unit/epg_preview_programs_test.dart` (6, dont 1 échouait avec l'ancienne limite de 5).
+- [x] **Réglages — fusion des menus (Réseau + Sécurité / Lecteur + Audio)** — *Demande (17/10)* : « fusionner les menus Réseau + Sécurité / Lecteur vidéo + Audio, avec un séparateur en sous-titre distinctif pour bien différencier les 2 ».
+      Barre d'onglets ramenée de 6 à 4 : **Compte · « Réseau & Sécurité » · « Lecteur & Audio » · Avancé**. Nouveau widget `SettingsGroupDivider` (`lib/features/settings/widgets/settings_widgets.dart`) : libellé cyan (`tertiary`) en majuscules espacées, encadré de deux traits, qui marque la frontière entre les deux anciens menus dans chaque onglet fusionné. Les noms d'onglets sont la concaténation des libellés existants → correct dans les 6 langues sans nouvelle clé l10n. Vérif : suite complète **966 verts**, `flutter analyze` sans erreur.
+- [~] **Bug d'affichage « Moteurs de lecture » (écran gris)** — *investigation* en cours (agent externe, lecture seule). Le fix FocusNode du 16/10 (`6c6a923`) couvre le double usage du `FocusNode` ; la cause exacte de l'écran gris reste à confirmer, faute de device connecté.
 
 ---
 
