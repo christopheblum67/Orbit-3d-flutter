@@ -1466,9 +1466,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _startPreload() async {
+    LoggerService.instance.info('ZAPPING_PRELOAD start');
     final gen = _generation;
     if (!mounted || _channels.isEmpty) return;
-    if (!ref.read(advancedSettingsProvider).zeroLagPrefetch) return;
+    if (!ref.read(advancedSettingsProvider).zeroLagPrefetch) {
+      LoggerService.instance.info('ZAPPING_PRELOAD blocked: zeroLagPrefetch=false');
+      return;
+    }
     final target = _index + 1;
     if (target >= _channels.length) return;
     if (_cachedNext != null || _preloadTarget == target) return;
@@ -1477,6 +1481,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _preloadTarget = target;
     // Préchargement relais : on passe par le proxy local si celui-ci est prêt
     // et que la chaîne cible est un candidat au relais.
+    LoggerService.instance.info('ZAPPING_PRELOAD target=$target url=$channelUrl');
     final targetUrl = maybeRebaseThroughProxy(
       channelUrl,
       proxyReady: ref.read(rustProxyManagerProvider).isReady,
