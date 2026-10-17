@@ -40,12 +40,13 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  // Onglets : 0=Compte, 1=Réseau & Sécurité, 2=Lecture & Audio, 3=Avancé.
+  // Les deux menus historiquement séparés « Réseau »/« Sécurité » et
+  // « Lecteur »/« Audio » sont fusionnés pour raccourcir la barre d'onglets.
   static const _tabIcons = [
     Icons.person_outline,
-    Icons.wifi_tethering,
-    Icons.play_circle_outline,
-    Icons.security_outlined,
-    Icons.equalizer,
+    Icons.shield_outlined, // Réseau + Sécurité
+    Icons.play_circle_outline, // Lecture + Audio
     Icons.tune,
   ];
 
@@ -65,10 +66,10 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     final l = AppLocalizations.of(context);
     return switch (i) {
       0 => l.tabAccount,
-      1 => l.tabNetwork,
-      2 => l.tabPlayer,
-      3 => l.tabSecurity,
-      4 => l.tabAudio,
+      // Nom des menus fusionnés : concaténation des deux anciens libellés,
+      // ce qui reste correct dans les six langues sans nouvelle clé l10n.
+      1 => '${l.tabNetwork} & ${l.tabSecurity}',
+      2 => '${l.tabPlayer} & ${l.tabAudio}',
       _ => l.tabAdvanced,
     };
   }
@@ -103,10 +104,8 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
           controller: _tabController,
           children: const [
             _AccountSection(),
-            _NetworkSection(),
-            _PlayerSection(),
-            _SecuritySection(),
-            _AudioSection(),
+            _NetworkSecuritySection(),
+            _PlayerAudioSection(),
             _AdvancedSection(),
           ],
         ),
@@ -288,7 +287,9 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _exportSettings(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     final s = ref.read(advancedSettingsProvider);
     final prefs = ref.read(preferencesProvider);
@@ -309,7 +310,9 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _importSettings(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     final backup =
         ref.read(storageServiceProvider).getSetting('settings_backup');
@@ -349,9 +352,13 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
-/// ─── RÉSEAU ──────────────────────────────────────────────────────
-class _NetworkSection extends ConsumerWidget {
-  const _NetworkSection();
+/// ─── RÉSEAU & SÉCURITÉ ───────────────────────────────────────────
+/// Fusion des anciens menus « Réseau » et « Sécurité ». Un séparateur de
+/// groupe distinctif (cyan, encadré) marque la frontière entre les deux :
+/// sans lui, l'utilisateur ne saurait plus où finit le réseau et où commence
+/// la sécurité.
+class _NetworkSecuritySection extends ConsumerWidget {
+  const _NetworkSecuritySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -361,6 +368,8 @@ class _NetworkSection extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── Groupe RÉSEAU (anti-throttle, DNS, Cloudflare) ──
+        SettingsGroupDivider(l.tabNetwork, icon: Icons.wifi_tethering),
         SettingsSectionTitle(l.sectionAntiThrottle),
         SettingsSwitchTile(
           title: l.tlsImpersonation,
@@ -388,6 +397,32 @@ class _NetworkSection extends ConsumerWidget {
               );
             }
           },
+        ),
+        // ── Groupe SÉCURITÉ (contrôle parental, résilience, mentions) ──
+        SettingsGroupDivider(l.tabSecurity, icon: Icons.lock_outline),
+        SettingsSectionTitle(l.sectionParental),
+        _NavTile(
+          icon: Icons.gpp_good_outlined,
+          title: l.parentalControl,
+          subtitle: l.parentalControlSubtitle,
+          onTap: () => context.go('/parental'),
+        ),
+        const SizedBox(height: 16),
+        SettingsSectionTitle(l.sectionResilience),
+        SettingsSwitchTile(
+          title: l.autoReconnectLive,
+          subtitle: l.autoReconnectLiveSubtitle,
+          value: s.zeroLagPrefetch, // réutilise le flag existant pour la démo
+          onChanged: n.setZeroLagPrefetch,
+          icon: Icons.sync_rounded,
+        ),
+        const SizedBox(height: 16),
+        SettingsSectionTitle(l.sectionLegal),
+        _NavTile(
+          icon: Icons.balance_outlined,
+          title: l.legalNotice,
+          subtitle: l.legalNoticeSubtitle,
+          onTap: () => context.go('/legal?flow=settings'),
         ),
       ],
     );
@@ -482,9 +517,12 @@ class _DnsProviderTile extends ConsumerWidget {
   }
 }
 
-/// ─── LECTEUR ─────────────────────────────────────────────────────
-class _PlayerSection extends ConsumerWidget {
-  const _PlayerSection();
+/// ─── LECTURE & AUDIO ─────────────────────────────────────────────
+/// Fusion des anciens menus « Lecteur » (vidéo) et « Audio ». Le séparateur
+/// de groupe distinctif marque le passage de la configuration de lecture à la
+/// configuration audio.
+class _PlayerAudioSection extends ConsumerWidget {
+  const _PlayerAudioSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -494,16 +532,10 @@ class _PlayerSection extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // ── Groupe LECTURE (moteurs, zapping, mémoire) ──
+        SettingsGroupDivider(l.tabPlayer, icon: Icons.play_circle_outline),
         SettingsSectionTitle(l.sectionEngines),
         const _PlayerEngineTile(),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionAudioNight),
-        SettingsNavTile(
-          icon: Icons.nightlight_outlined,
-          title: l.audioAndNightFocus,
-          subtitle: l.audioAndNightFocusSubtitle,
-          onTap: () => showAudioControlsSheet(context),
-        ),
         const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionZapping),
         SettingsSwitchTile(
@@ -516,84 +548,15 @@ class _PlayerSection extends ConsumerWidget {
         const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionMemory),
         const MemorySettingsPanel(),
-      ],
-    );
-  }
-}
-
-class _PlayerEngineTile extends ConsumerWidget {
-  const _PlayerEngineTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    return SettingsNavTile(
-      icon: Icons.play_circle_outline,
-      title: l.enginesTile,
-      subtitle: l.enginesSubtitle(
-        s.playerLive.primary.label,
-        s.playerVod.primary.label,
-      ),
-      onTap: () => showPlayerEngineConfigSheet(context),
-    );
-  }
-}
-
-/// ─── SÉCURITÉ ────────────────────────────────────────────────────
-class _SecuritySection extends ConsumerWidget {
-  const _SecuritySection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionParental),
-        _NavTile(
-          icon: Icons.gpp_good_outlined,
-          title: l.parentalControl,
-          subtitle: l.parentalControlSubtitle,
-          onTap: () => context.go('/parental'),
+        // ── Groupe AUDIO (night focus, sync A/V, sortie) ──
+        SettingsGroupDivider(l.tabAudio, icon: Icons.equalizer),
+        SettingsSectionTitle(l.sectionAudioNight),
+        SettingsNavTile(
+          icon: Icons.nightlight_outlined,
+          title: l.audioAndNightFocus,
+          subtitle: l.audioAndNightFocusSubtitle,
+          onTap: () => showAudioControlsSheet(context),
         ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionResilience),
-        SettingsSwitchTile(
-          title: l.autoReconnectLive,
-          subtitle: l.autoReconnectLiveSubtitle,
-          value: s.zeroLagPrefetch, // réutilise le flag existant pour la démo
-          onChanged: n.setZeroLagPrefetch,
-          icon: Icons.sync_rounded,
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionLegal),
-        _NavTile(
-          icon: Icons.balance_outlined,
-          title: l.legalNotice,
-          subtitle: l.legalNoticeSubtitle,
-          onTap: () => context.go('/legal?flow=settings'),
-        ),
-      ],
-    );
-  }
-}
-
-/// ─── AUDIO ───────────────────────────────────────────────────────
-class _AudioSection extends ConsumerWidget {
-  const _AudioSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
         SettingsSectionTitle(l.nightFocusTitle),
         SettingsSwitchTile(
           title: l.nightFocusEnable,
@@ -645,132 +608,155 @@ class _AudioSection extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
-    final n = ref.read(advancedSettingsProvider.notifier);
+class _PlayerEngineTile extends ConsumerWidget {
+  const _PlayerEngineTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final controller = TextEditingController(text: '0');
+    final s = ref.watch(advancedSettingsProvider);
+    return SettingsNavTile(
+      icon: Icons.play_circle_outline,
+      title: l.enginesTile,
+      subtitle: l.enginesSubtitle(
+        s.playerLive.primary.label,
+        s.playerVod.primary.label,
+      ),
+      onTap: () => showPlayerEngineConfigSheet(context),
+    );
+  }
+}
 
-    final cancelFocus = FocusNode();
-    final confirmFocus = FocusNode();
-    final fieldFocus = FocusNode();
+/// Boîte de dialogue de calibration manuelle du décalage audio (ms).
+///
+/// Extraite en fonction de premier niveau : elle était méthode privée de
+/// l'ancienne `_AudioSection`, désormais fusionnée dans [_PlayerAudioSection].
+Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
+  final n = ref.read(advancedSettingsProvider.notifier);
+  final l = AppLocalizations.of(context);
+  final controller = TextEditingController(text: '0');
 
-    void requestFocus(FocusNode focus) {
-      if (context.mounted) {
-        FocusScope.of(context).requestFocus(focus);
-      }
+  final cancelFocus = FocusNode();
+  final confirmFocus = FocusNode();
+  final fieldFocus = FocusNode();
+
+  void requestFocus(FocusNode focus) {
+    if (context.mounted) {
+      FocusScope.of(context).requestFocus(focus);
     }
+  }
 
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.avSyncDialogTitle),
-        content: Focus(
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.avSyncDialogTitle),
+      content: Focus(
+        focusNode: fieldFocus,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+              final ms = int.tryParse(controller.text) ?? 0;
+              n.setNightFocusAudioShiftMs(ms);
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              requestFocus(cancelFocus);
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: controller,
           focusNode: fieldFocus,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          decoration: InputDecoration(
+            labelText: l.avSyncDialogLabel,
+            hintText: l.avSyncDialogHint,
+          ),
+          textInputAction: TextInputAction.done,
+          onEditingComplete: () {
+            final ms = int.tryParse(controller.text) ?? 0;
+            n.setNightFocusAudioShiftMs(ms);
+            Navigator.pop(ctx);
+          },
+        ),
+      ),
+      actions: [
+        Focus(
+          focusNode: cancelFocus,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              if (event.logicalKey == LogicalKeyboardKey.enter ||
-                  event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                requestFocus(cancelFocus);
-                return KeyEventResult.handled;
-              }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(confirmFocus);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              requestFocus(fieldFocus);
+              return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
           },
-          child: TextField(
-            controller: controller,
-            focusNode: fieldFocus,
-            keyboardType: const TextInputType.numberWithOptions(signed: true),
-            decoration: InputDecoration(
-              labelText: l.avSyncDialogLabel,
-              hintText: l.avSyncDialogHint,
-            ),
-            textInputAction: TextInputAction.done,
-            onEditingComplete: () {
+          child: TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.cancel),
+          ),
+        ),
+        Focus(
+          focusNode: confirmFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              final ms = int.tryParse(controller.text) ?? 0;
+              n.setNightFocusAudioShiftMs(ms);
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(cancelFocus);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              requestFocus(fieldFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: FilledButton(
+            onPressed: () {
               final ms = int.tryParse(controller.text) ?? 0;
               n.setNightFocusAudioShiftMs(ms);
               Navigator.pop(ctx);
             },
+            child: Text(l.apply),
           ),
         ),
-        actions: [
-          Focus(
-            focusNode: cancelFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(confirmFocus);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                requestFocus(fieldFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(l.cancel),
-            ),
-          ),
-          Focus(
-            focusNode: confirmFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(cancelFocus);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                requestFocus(fieldFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: FilledButton(
-              onPressed: () {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-              },
-              child: Text(l.apply),
-            ),
-          ),
-        ],
-      ),
-    );
+      ],
+    ),
+  );
 
-    cancelFocus.dispose();
-    confirmFocus.dispose();
-    fieldFocus.dispose();
-  }
+  cancelFocus.dispose();
+  confirmFocus.dispose();
+  fieldFocus.dispose();
 }
 
 /// ─── AVANCÉ ──────────────────────────────────────────────────────
@@ -1064,5 +1050,3 @@ class _AdvancedEntry extends StatelessWidget {
     }
   }
 }
-
-

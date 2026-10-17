@@ -27,6 +27,60 @@ class SettingsSectionTitle extends StatelessWidget {
   }
 }
 
+/// Séparateur de groupe **distinctif** : un double trait horizontal encadrant
+/// un libellé en majuscules espacées, teinté par la couleur tertiaire du thème.
+///
+/// Utilisé pour marquer la frontière entre deux menus historiquement séparés
+/// que l'on a fusionnés dans un même onglet (ex. « Réseau » + « Sécurité ») :
+/// l'œil identifie immédiatement où commence le second groupe, là où le
+/// [SettingsSectionTitle] classique (couleur primaire, sans trait) ne sert
+/// qu'à nommer une sous-catégorie interne.
+class SettingsGroupDivider extends StatelessWidget {
+  const SettingsGroupDivider(this.label, {super.key, this.icon});
+
+  final String label;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final accent = scheme.tertiary;
+    final line = Expanded(
+      child: Divider(color: accent.withValues(alpha: 0.45), thickness: 1.5),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 24, 4, 4),
+      child: Row(
+        children: [
+          line,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: accent),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label.toUpperCase(),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          line,
+        ],
+      ),
+    );
+  }
+}
+
 /// Liste déroulante sur fond de carte, pour les choix de configuration.
 class SettingsDropdownTile<T> extends StatelessWidget {
   const SettingsDropdownTile({
@@ -82,7 +136,8 @@ class SettingsDropdownTile<T> extends StatelessWidget {
                     ? null
                     : Icon(
                         icon!,
-                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                        color:
+                            focused ? scheme.primary : scheme.onSurfaceVariant,
                       ),
                 title: Text(
                   title,
@@ -176,7 +231,8 @@ class SettingsSwitchTile extends StatelessWidget {
                     ? null
                     : Icon(
                         icon,
-                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                        color:
+                            focused ? scheme.primary : scheme.onSurfaceVariant,
                       ),
                 activeThumbColor: scheme.primary,
                 activeTrackColor: scheme.primary.withValues(alpha: 0.4),
@@ -256,7 +312,8 @@ class SettingsNavTile extends StatelessWidget {
                     ? null
                     : Icon(
                         icon!,
-                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                        color:
+                            focused ? scheme.primary : scheme.onSurfaceVariant,
                       ),
                 title: Text(
                   title,
@@ -270,7 +327,8 @@ class SettingsNavTile extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     subtitle,
-                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                    style:
+                        TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   ),
                 ),
                 trailing: trailing ??
@@ -333,7 +391,8 @@ class SettingsActionTile extends StatelessWidget {
                     ? null
                     : Icon(
                         icon!,
-                        color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                        color:
+                            focused ? scheme.primary : scheme.onSurfaceVariant,
                       ),
                 title: Text(
                   title,
@@ -347,7 +406,8 @@ class SettingsActionTile extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     subtitle,
-                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                    style:
+                        TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   ),
                 ),
                 trailing: Icon(
