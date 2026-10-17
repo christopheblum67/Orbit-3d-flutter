@@ -477,16 +477,28 @@ final advancedSettingsProvider =
   AdvancedSettingsNotifier.new,
 );
 
+PlayerEngine _engineFromName(
+  String? name, {
+  PlayerEngine orElse = PlayerEngine.exoPlayer,
+}) {
+  if (name == null || name.isEmpty) return orElse;
+  return PlayerEngine.values.firstWhere(
+    (e) => e.name == name,
+    orElse: () => orElse,
+  );
+}
+
 PlayerPerTypeConfig _readPlayerConfig(
   SharedPreferences prefs,
   PlaybackContentType type,
 ) {
   return PlayerPerTypeConfig(
-    primary: PlayerEngineX.fromLabel(
+    primary: _engineFromName(
       prefs.getString(AdvancedSettings.kPlayerPrimary(type)),
     ),
-    fallback: PlayerEngineX.fromLabel(
+    fallback: _engineFromName(
       prefs.getString(AdvancedSettings.kPlayerFallback(type)),
+      orElse: PlayerEngine.vlc,
     ),
   );
 }
