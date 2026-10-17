@@ -6,24 +6,33 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData lightTheme({bool highContrast = false}) =>
-      _buildTheme(Brightness.light, highContrast);
+  static ThemeData lightTheme({bool highContrast = false, String palette = 'cyan'}) =>
+      _buildTheme(Brightness.light, highContrast, palette);
 
-  static ThemeData darkTheme({bool highContrast = false}) =>
-      _buildTheme(Brightness.dark, highContrast);
+  static ThemeData darkTheme({bool highContrast = false, String palette = 'cyan'}) =>
+      _buildTheme(Brightness.dark, highContrast, palette);
 
-  static ThemeData _buildTheme(Brightness brightness, bool highContrast) {
+  static Color _paletteSeed(String palette) => switch (palette) {
+        'cyan' => AppConstants.tertiaryColor,
+        'indigo' => AppConstants.primaryColor,
+        'rose' => AppConstants.secondaryColor,
+        'violet' => const Color(0xFF7C4DFF),
+        'vert' => const Color(0xFF00E676),
+        'orange' => const Color(0xFFFFAB00),
+        'rouge' => const Color(0xFFFF5252),
+        'bleu' => const Color(0xFF448AFF),
+        _ => AppConstants.tertiaryColor,
+      };
+
+  static ThemeData _buildTheme(Brightness brightness, bool highContrast, String palette) {
     final isDark = brightness == Brightness.dark;
+    final seed = _paletteSeed(palette);
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppConstants.seedColor,
+      seedColor: seed,
       brightness: brightness,
-      primary:
-          isDark ? AppConstants.darkPrimaryColor : AppConstants.primaryColor,
-      secondary: isDark
-          ? AppConstants.darkSecondaryColor
-          : AppConstants.secondaryColor,
-      tertiary:
-          isDark ? AppConstants.darkTertiaryColor : AppConstants.tertiaryColor,
+      primary: isDark ? AppConstants.darkPrimaryColor : AppConstants.primaryColor,
+      secondary: isDark ? AppConstants.darkSecondaryColor : AppConstants.secondaryColor,
+      tertiary: isDark ? AppConstants.darkTertiaryColor : AppConstants.tertiaryColor,
       error: isDark ? AppConstants.darkErrorColor : AppConstants.errorColor,
     );
 

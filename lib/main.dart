@@ -853,9 +853,14 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
         locale: resolveLocale(),
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
-        darkTheme:
-            AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
+        theme: AppTheme.lightTheme(
+          highContrast: advancedSettings.highContrast,
+          palette: prefs.palette,
+        ),
+        darkTheme: AppTheme.darkTheme(
+          highContrast: advancedSettings.highContrast,
+          palette: prefs.palette,
+        ),
         // Le thème est un réglage utilisateur (PreferencesNotifier.setTheme) :
         // il était codé en dur sur `system`, ce qui rendait le thème clair
         // inatteignable même en le sélectionnant dans les préférences.
