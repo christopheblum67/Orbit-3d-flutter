@@ -102,4 +102,45 @@ void main() {
       expect(onboarding.contains('_prewarmMicrophone'), isFalse);
     });
   });
+
+  group('Recherche unifiée (abandonnée)', () {
+    // La recherche unifiée a été remplacée par les recherches par section
+    // (chaînes / films / séries / replay / radio). Ces contrôles échouent sur
+    // l'état d'avant la suppression : ils verrouillent le changement.
+    test('le tiroir n\'a plus d\'entrée « Recherche » unifiée', () {
+      final drawer = File(
+        'lib/core/widgets/home_menu_drawer.dart',
+      ).readAsStringSync();
+      expect(
+        drawer.contains("route: '/search'"),
+        isFalse,
+        reason: 'la recherche unifiée a été abandonnée au profit des '
+            'recherches par section',
+      );
+    });
+
+    test('l\'écran de recherche n\'a plus le mode unifié', () {
+      final search = File(
+        'lib/features/search/search_screen.dart',
+      ).readAsStringSync();
+      expect(search.contains('Recherche unifiée'), isFalse);
+      expect(search.contains('searchProvider'), isFalse);
+      expect(search.contains('Rechercher Live, Films, Séries'), isFalse);
+    });
+
+    test('la route /search exige un type de section', () {
+      final main = File('lib/main.dart').readAsStringSync();
+      final route = main.indexOf("path: '/search'");
+      expect(route, greaterThan(-1), reason: 'la route /search doit exister');
+      // Le bloc de route (jusqu'au prochain `GoRoute(`) doit contenir un
+      // `redirect` qui renvoie vers `/home` quand `type` est absent.
+      final next = main.indexOf('GoRoute(', route + 1);
+      final block = main.substring(
+        route,
+        next == -1 ? main.length : next,
+      );
+      expect(block.contains('redirect:'), isTrue);
+      expect(block.contains('/home'), isTrue);
+    });
+  });
 }

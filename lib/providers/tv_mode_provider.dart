@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 /// Garde-fou centralisé pour le mode TV
 ///
@@ -11,6 +12,7 @@ import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 class TvModeController extends ChangeNotifier {
   bool _enabled = false;
   bool _autoDetected = false;
+  bool _detectionLogged = false;
   DeviceDetectionResult? _detectionResult;
 
   bool get enabled => _enabled;
@@ -21,6 +23,7 @@ class TvModeController extends ChangeNotifier {
   void enable() {
     if (!_enabled) {
       _enabled = true;
+      LoggerService.instance.info('TVMODE ON (manual, auto=$_autoDetected)');
       notifyListeners();
     }
   }
@@ -29,6 +32,7 @@ class TvModeController extends ChangeNotifier {
   void disable() {
     if (_enabled) {
       _enabled = false;
+      LoggerService.instance.info('TVMODE OFF (manual)');
       notifyListeners();
     }
   }
@@ -37,6 +41,7 @@ class TvModeController extends ChangeNotifier {
   void setEnabled(bool v) {
     if (_enabled != v) {
       _enabled = v;
+      LoggerService.instance.info('TVMODE setEnabled=$v');
       notifyListeners();
     }
   }
@@ -44,10 +49,23 @@ class TvModeController extends ChangeNotifier {
   /// Met à jour depuis la détection automatique
   Future<void> updateFromDetection(DeviceDetectionResult result) async {
     _detectionResult = result;
+    // Diagnostic : une seule ligne par résultat. Si l'appelant réinscrit son
+    // post-frame callback (c'est le cas de `OrbitApp` en cours de correction),
+    // la garde évite de noyer logcat.
+    if (!_detectionLogged) {
+      _detectionLogged = true;
+      LoggerService.instance.info(
+        'TVMODE detection isTv=${result.isTv} '
+        'confidence=${result.confidence.toStringAsFixed(2)} '
+        'type=${result.deviceType.name} '
+        'brand=${result.details['brand']} model=${result.details['model']}',
+      );
+    }
     if (result.isTv && !_autoDetected) {
       _autoDetected = true;
       if (!_enabled) {
         _enabled = true;
+        LoggerService.instance.info('TVMODE ON (auto-detected)');
         notifyListeners();
       }
     }

@@ -430,21 +430,11 @@ final searchServiceProvider = Provider<SearchService>((ref) {
 String searchQueryKey(String query) =>
     query.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
-final searchProvider = FutureProvider.autoDispose
-    .family<UnifiedSearchResult, String>((ref, query) async {
-  final normalized = searchQueryKey(query);
-  if (normalized.length < 2) return UnifiedSearchResult.empty();
-  // Le masquage de catégories doit aussi s'appliquer à la recherche : sans
-  // cela, un contenu d'une catégorie masquée réapparaît dans les résultats de
-  // recherche alors qu'il a été retiré des grilles.
-  final filter = ref.watch(vodCategoryFilterProvider);
-  return ref.watch(searchServiceProvider).search(
-        normalized,
-        hiddenVodCategoryIds: filter.hiddenVodCategoryIds.toList(),
-        hiddenSeriesCategoryIds: filter.hiddenSeriesCategoryIds.toList(),
-      );
-});
-
+// La recherche unifiée (sans `filterType`) a été abandonnée au profit des
+// recherches par section : chaque écran ouvre `/search?type=...`, et la route
+// renvoie vers `/home` quand `type` est absent ou invalide. Le fournisseur
+// global `searchProvider` n'était lu que par le mode unifié : il a été
+// supprimé, `searchFilteredProvider` reste la seule entrée.
 final searchFilteredProvider = FutureProvider.autoDispose.family<
     UnifiedSearchResult,
     ({

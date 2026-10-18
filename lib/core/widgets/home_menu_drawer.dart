@@ -42,11 +42,11 @@ class HomeMenuDrawer extends ConsumerWidget {
       _MenuSection(
         header: 'Découvrir',
         items: [
-          const _MenuEntry(
-            icon: Icons.search,
-            label: 'Recherche',
-            route: '/search',
-          ),
+          // Plus d'entrée « Recherche » unifiée : le projet a été abandonné au
+          // profit des recherches par section (chaînes / films / séries /
+          // replay / radio), accessibles depuis l'icône ☰ propre à chaque
+          // écran de section. L'entrée du tiroir pointait vers `/search`,
+          // devenue sans objet : la route renvoie maintenant vers `/home`.
           _MenuEntry(
             icon: Icons.calendar_today,
             label: l.epgGrille,

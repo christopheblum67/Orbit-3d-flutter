@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 /// Simple global notifier for TV mode (avoids Riverpod 3.x provider API changes)
 /// Maintenu pour compatibilité rétroactive - délègue au controller centralisé
@@ -95,8 +96,15 @@ class _TvFocusState extends ConsumerState<TvFocus>
   }
 
   void _onTvModeChange() {
+    final was = _isTvMode;
     if (mounted) {
       setState(() => _isTvMode = _tvModeNotifier?.enabled ?? _isTvMode);
+    }
+    // Des centaines d'instances de `TvFocus` sont à l'écoute : on ne
+    // journalise que le changement sur le widget réellement focalisé, sinon le
+    // basculement du mode TV remplirait logcat en une seule fois.
+    if (_isTvMode != was && _isTvMode && _isFocused) {
+      LoggerService.instance.info('TVFOCUS tvMode ON while focused');
     }
   }
 
@@ -113,6 +121,12 @@ class _TvFocusState extends ConsumerState<TvFocus>
     if (focused) {
       _scaleController.forward();
       HapticFeedback.selectionClick();
+      // Diagnostic : on ne journalise que le GAIN de focus et seulement si le
+      // halo TV sera réellement dessiné. Une tuile focalisée sans mode TV
+      // n'est pas le sujet du diagnostic.
+      if (widget.enableTvEffects && _isTvMode) {
+        LoggerService.instance.info('TVFOCUS focused=true (border+halo drawn)');
+      }
     } else {
       _scaleController.reverse();
     }
@@ -201,6 +215,39 @@ class _TvFocusState extends ConsumerState<TvFocus>
   }
 }
 
+/// Touches qui trahissent une télécommande ou une manette.
+///
+/// Le mode TV ne doit s'activer QUE sur celles-ci. Avant, n'importe quelle
+/// touche (`KeyDownEvent`) suffisait : une pression sur le clavier d'un
+/// téléphone basculait l'interface en mode TV, sans revenir en arrière
+/// possible. Les touches de volume, les caractères saisis ou les touches système
+/// ne comptent plus comme signal « télécommande ».
+// `final` et non `const` : `LogicalKeyboardKey` redéfinit `==` / `hashCode`, ce
+// qui interdit un ensemble constant de ce type.
+final Set<LogicalKeyboardKey> _tvTriggerKeys = {
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.select,
+  LogicalKeyboardKey.enter,
+  LogicalKeyboardKey.space,
+  LogicalKeyboardKey.gameButtonA,
+  LogicalKeyboardKey.gameButtonB,
+  LogicalKeyboardKey.gameButtonX,
+  LogicalKeyboardKey.gameButtonY,
+  LogicalKeyboardKey.goBack,
+  LogicalKeyboardKey.escape,
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.mediaPlay,
+  LogicalKeyboardKey.mediaPause,
+  LogicalKeyboardKey.mediaStop,
+  LogicalKeyboardKey.mediaFastForward,
+  LogicalKeyboardKey.mediaRewind,
+  LogicalKeyboardKey.mediaTrackNext,
+  LogicalKeyboardKey.mediaTrackPrevious,
+};
+
 /// Wrapper pour détecter la première interaction clavier/D-pad et activer le mode TV
 class TvModeDetector extends ConsumerWidget {
   final Widget child;
@@ -210,7 +257,8 @@ class TvModeDetector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Focus(
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
+        if (event is KeyDownEvent &&
+            _tvTriggerKeys.contains(event.logicalKey)) {
           ref.read(tvModeControllerProvider).enable();
         }
         return KeyEventResult.ignored;

@@ -97,21 +97,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final query = _searchController.text.trim();
     final uri = GoRouterState.of(context).uri;
     final typeParam = uri.queryParameters['type'];
-    final filterType =
-        typeParam != null ? SearchType.values.byName(typeParam) : null;
+    // Garanti non nul par le `redirect` de la route `/search` (voir `main.dart`) :
+    // sans `type` valide, la navigation repart vers `/home`. La recherche
+    // unifiée a été abandonnée au profit des recherches par section — le mode
+    // « toutes sections » n'existe plus.
+    //
+    // `firstWhere` + `OrElse` plutôt que `byName` : si un `type` invalide
+    // échappait malgré tout au filtre de route, on retombe sur une section
+    // valide au lieu d'une `RangeError`.
+    final filterType = SearchType.values.firstWhere(
+      (t) => t.name == typeParam,
+      orElse: () => SearchType.vod,
+    );
     final categoryId = uri.queryParameters['category'];
 
-    final searchAsync = filterType != null
-        ? ref.watch(
-            searchFilteredProvider(
-              (
-                query: query,
-                filterType: filterType,
-                categoryId: categoryId,
-              ),
-            ),
-          )
-        : ref.watch(searchProvider(query));
+    final searchAsync = ref.watch(
+      searchFilteredProvider(
+        (
+          query: query,
+          filterType: filterType,
+          categoryId: categoryId,
+        ),
+      ),
+    );
     final suggestionsAsync = ref.watch(searchSuggestionsProvider(query));
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
 
@@ -124,8 +132,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             // filtrage que les grilles VOD / Séries / Chaînes. Sans lui, une
             // recherche dans une section renvoyait toute la section, et
             // l'utilisateur découvrait des résultats hors du périmètre choisi.
-            if (filterType != null && categoryId != null)
-              _buildCategorySelector(filterType),
+            if (categoryId != null) _buildCategorySelector(filterType),
             Expanded(
               child: query.isEmpty
                   ? _buildEmptyState(historyAsync, filterType)
@@ -218,7 +225,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     String query,
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
-    SearchType? filterType,
+    SearchType filterType,
   ) {
     final scheme = Theme.of(context).colorScheme;
     final searchController = SearchController();
@@ -228,9 +235,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: SearchAnchor(
         searchController: searchController,
         viewBackgroundColor: scheme.surface,
-        viewHintText: filterType != null
-            ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
-            : 'Rechercher Live, Films, Séries, Replay, EPG...',
+        viewHintText:
+            'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
         viewTrailing: query.isNotEmpty
             ? <Widget>[
                 IconButton(
@@ -253,9 +259,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             // La télécommande Android TV affiche alors une touche « Rechercher »
             // sur son clavier virtuel, au lieu d'une validation muette.
             textInputAction: TextInputAction.search,
-            hintText: filterType != null
-                ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
-                : 'Rechercher...',
+            hintText:
+                'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
             leading: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -393,7 +398,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildEmptyState(
     Future<List<String>> historyFuture,
-    SearchType? filterType,
+    SearchType filterType,
   ) {
     return FutureBuilder<List<String>>(
       future: historyFuture,
@@ -415,29 +420,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 Row(
                   children: [
                     Text(
-                      filterType != null
-                          ? 'Recherche dans ${_typeLabel(filterType)}'
-                          : 'Recherche unifiée',
+                      'Recherche dans ${_typeLabel(filterType)}',
                       style:
                           Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
                     ),
-                    if (filterType != null) ...[
-                      const SizedBox(width: 12),
-                      Chip(
-                        label: Text(_typeLabel(filterType)),
-                        avatar: Icon(_typeIcon(filterType), size: 18),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
+                    const SizedBox(width: 12),
+                    Chip(
+                      label: Text(_typeLabel(filterType)),
+                      avatar: Icon(_typeIcon(filterType), size: 18),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  filterType != null
-                      ? 'Tapez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.'
-                      : 'Tapez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
+                  'Tapez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -508,7 +507,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildResults(
     AsyncValue<UnifiedSearchResult> searchAsync,
     String query,
-    SearchType? filterType,
+    SearchType filterType,
   ) {
     return searchAsync.when(
       data: (result) {
@@ -517,21 +516,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
         return RefreshIndicator(
           onRefresh: () async {
-            if (filterType != null) {
-              ref.invalidate(
-                searchFilteredProvider(
-                  (
-                    query: query,
-                    filterType: filterType,
-                    categoryId: GoRouterState.of(context)
-                        .uri
-                        .queryParameters['category'],
-                  ),
+            ref.invalidate(
+              searchFilteredProvider(
+                (
+                  query: query,
+                  filterType: filterType,
+                  categoryId: GoRouterState.of(context)
+                      .uri
+                      .queryParameters['category'],
                 ),
-              );
-            } else {
-              ref.invalidate(searchProvider(query));
-            }
+              ),
+            );
             await ref.read(searchServiceProvider).addToHistory(query);
           },
           child: ListView(
@@ -545,7 +540,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => _buildErrorState(error.toString()),
+      error: (error, stack) => _buildErrorState(error.toString(), filterType),
     );
   }
 
@@ -579,7 +574,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget _buildResultsHeader(
     BuildContext context,
     UnifiedSearchResult result,
-    SearchType? filterType,
+    SearchType filterType,
   ) {
     final l = AppLocalizations.of(context);
     return Padding(
@@ -593,12 +588,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
           ),
           const Spacer(),
-          if (filterType != null)
-            Chip(
-              label: Text(_typeLabel(filterType)),
-              avatar: Icon(_typeIcon(filterType), size: 14),
-              visualDensity: VisualDensity.compact,
-            ),
+          Chip(
+            label: Text(_typeLabel(filterType)),
+            avatar: Icon(_typeIcon(filterType), size: 14),
+            visualDensity: VisualDensity.compact,
+          ),
           if (result.isOffline)
             Chip(
               label: Text(l.offline),
@@ -871,7 +865,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildErrorState(String error) {
+  Widget _buildErrorState(String error, SearchType filterType) {
     final l = AppLocalizations.of(context);
     return Center(
       child: Column(
@@ -894,8 +888,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () =>
-                ref.invalidate(searchProvider(_searchController.text.trim())),
+            onPressed: () => ref.invalidate(
+              searchFilteredProvider(
+                (
+                  query: _searchController.text.trim(),
+                  filterType: filterType,
+                  categoryId:
+                      GoRouterState.of(context).uri.queryParameters['category'],
+                ),
+              ),
+            ),
             child: Text(l.retry),
           ),
         ],

@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeShell extends ConsumerWidget {
@@ -22,6 +23,16 @@ class HomeShell extends ConsumerWidget {
     final profile = ref.watch(currentProfileProvider);
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
+    // Le rail latéral est permanent : il occupe ~80 dp en permanence, y compris
+    // quand l'utilisateur ne navigue pas. En mode TV (télécommande), le menu
+    // ne doit apparaître QUE sur demande, via l'icône ☰ de la barre
+    // supérieure — exactement comme sur un téléphone, mais avec la place
+    // libérée pour la grille de contenus.
+    //
+    // Conséquence : en TV on garde le tiroir + le bouton ☰, et on supprime le
+    // rail. En dehors du TV, le comportement existant est inchangé.
+    final useRail = isWide && !ref.watch(tvModeProvider);
+    final hasDrawer = !useRail;
 
     final entries = _navEntries(isM3u, l);
     final railEntries = _railEntries(isM3u, l);
@@ -29,9 +40,9 @@ class HomeShell extends ConsumerWidget {
     final railIndex = _indexFor(location, railEntries);
 
     return Scaffold(
-      drawer: isWide ? null : const HomeMenuDrawer(),
+      drawer: hasDrawer ? const HomeMenuDrawer() : null,
       appBar: AppBar(
-        leading: isWide ? null : const DrawerMenuButton(),
+        leading: hasDrawer ? const DrawerMenuButton() : null,
         title: Text(_titleForPath(context, location)),
         actions: [
           _ProfileSwitchButton(profile: profile),
@@ -39,7 +50,7 @@ class HomeShell extends ConsumerWidget {
       ),
       body: Row(
         children: [
-          if (isWide)
+          if (useRail)
             NavigationRail(
               selectedIndex: railIndex,
               onDestinationSelected: (index) {
@@ -82,7 +93,7 @@ class HomeShell extends ConsumerWidget {
                   ),
               ],
             ),
-          if (isWide)
+          if (useRail)
             VerticalDivider(
               width: 1,
               thickness: 1,
@@ -91,6 +102,9 @@ class HomeShell extends ConsumerWidget {
           Expanded(child: child),
         ],
       ),
+      // En mode TV (large + TV), la barre inférieure disparaît avec le rail :
+      // la navigation passe par le tiroir ☰, sinon la barre prend de la place
+      // pour redonner au rail une fonction que le mode TV vient de lui retirer.
       bottomNavigationBar: isWide
           ? null
           : DecoratedBox(

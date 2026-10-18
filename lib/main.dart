@@ -45,6 +45,7 @@ import 'package:orbit_3d_flutter/services/beta_config.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
@@ -694,6 +695,17 @@ final GoRouter router = GoRouter(
         ),
         GoRoute(
           path: '/search',
+          // La recherche unifiée a été abandonnée au profit des recherches par
+          // section (chaînes / films / séries / replay / radio) : chaque écran
+          // ouvre `/search?type=...`. Sans `type` valide, il n'y a plus rien à
+          // afficher — on renvoie à l'accueil plutôt qu'à un écran vide ou à
+          // une `RangeError` de `SearchType.values.byName`.
+          redirect: (context, state) {
+            final type = state.uri.queryParameters['type'];
+            if (type == null) return '/home';
+            const names = {'live', 'vod', 'series', 'replay', 'epg'};
+            return names.contains(type) ? null : '/home';
+          },
           pageBuilder: (context, state) => MaterialPage(
             key: state.pageKey,
             restorationId: 'search',
@@ -809,6 +821,35 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleWidgetLaunch();
     });
+    // Détection du mode TV, une seule fois après la première trame.
+    //
+    // ## Pourquoi ce callback n'est plus dans `build()`
+    //
+    // Enregistrer un `addPostFrameCallback` depuis `build()` réinscrit le
+    // callback à CHAQUE reconstruction de la racine — et la racine se
+    // reconstruit à chaque changement de préférence, de thème ou de route.
+    // `DeviceInfoUtils.detectDeviceType` (appel plugin + `MediaQuery`) était
+    // donc relancé des dizaines de fois par session : du travail natif gratuit,
+    // mais aussi le risque que la détection écrase un mode TV posé à la main.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _detectTvMode());
+  }
+
+  /// Détection multi-méthodes du mode TV, exécutée une seule fois au premier
+  /// affichage. La taille d'écran n'est lisible qu'après la première trame,
+  /// d'où le `addPostFrameCallback`.
+  Future<void> _detectTvMode() async {
+    if (!mounted) return;
+    try {
+      final result = await DeviceInfoUtils.detectDeviceType(context: context);
+      if (!mounted) return;
+      LoggerService.instance.info(
+        'TVMODE detection launch isTv=${result.isTv} '
+        'type=${result.deviceType.name}',
+      );
+      ref.read(tvModeControllerProvider).updateFromDetection(result);
+    } catch (error) {
+      LoggerService.instance.info('TVMODE detection failed: $error');
+    }
   }
 
   Future<void> _handleWidgetLaunch() async {
@@ -828,18 +869,6 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   Widget build(BuildContext context) {
     final advancedSettings = ref.watch(advancedSettingsProvider);
     final prefs = ref.watch(preferencesProvider);
-
-    // Détection automatique du mode TV multi-méthodes
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        final result = await DeviceInfoUtils.detectDeviceType(context: context);
-        if (context.mounted) {
-          ref.read(tvModeControllerProvider).updateFromDetection(result);
-        }
-      } catch (_) {
-        // Ignorer les erreurs de détection
-      }
-    });
 
     // Locale chargée depuis les préférences (défaut 'fr'). Retombe sur la
     // locale système si la langue choisie n'est pas supportée.
