@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/synopsis_translation_service.dart';
 
@@ -10,9 +11,9 @@ final synopsisTranslationServiceProvider = Provider<SynopsisTranslationService>(
 /// Synopsis traduit pour un contenu, calculé une seule fois par identifiant.
 ///
 /// Ordre de résolution (cf. [SynopsisTranslationService]) :
-/// 1. synopsis français TMDB s'il existe ;
-/// 2. texte d'origine s'il est déjà en français ;
-/// 3. traduction automatique Google Translate.
+/// 1. synopsis XMLTV déjà dans la langue de l'app → conserver tel quel ;
+/// 2. sinon, synopsis TMDB dans la langue cible s'il existe ;
+/// 3. sinon, traduction automatique Google Translate.
 ///
 /// `isSeries` est nécessaire : le catalogue série ne répond pas aux endpoints
 /// film. Sans lui, `searchMovieId`/`getMovieDetail` ne trouvaient rien pour
@@ -22,11 +23,13 @@ final translatedSynopsisProvider = FutureProvider.family<TranslatedSynopsis,
     ({String title, String raw, bool isSeries})>((ref, arg) async {
   final service = ref.watch(synopsisTranslationServiceProvider);
   final tmdb = ref.watch(tmdbServiceProvider);
+  final appLanguage =
+      ref.watch(preferencesProvider.select((p) => p.language));
 
-  // Cherche un synopsis TMDB en français. TMDB sert fr-FR par défaut (Dio
-  // baseOptions) mais retombe sur la langue d'origine quand la traduction fr
-  // n'existe pas : le garde `isFrench` évite de présenter de l'anglais comme
-  // une traduction TMDB.
+  // Cherche un synopsis TMDB dans la langue de l'app. TMDB sert la langue
+  // demandée par défaut mais retombe sur la langue d'origine quand la
+  // traduction n'existe pas : le garde `isFrench` évite de présenter de
+  // l'anglais comme une traduction TMDB.
   String? tmdbFrench;
   if (tmdb.hasApiKey && arg.title.trim().isNotEmpty) {
     try {
@@ -55,6 +58,7 @@ final translatedSynopsisProvider = FutureProvider.family<TranslatedSynopsis,
   final result = await service.resolve(
     rawSynopsis: arg.raw,
     tmdbFrenchSynopsis: tmdbFrench,
+    targetLanguage: appLanguage,
   );
 
   return result;

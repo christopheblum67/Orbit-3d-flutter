@@ -50,12 +50,15 @@ class TranslatedSynopsis {
   String? get attribution => source.label;
 }
 
-/// Résout le synopsis à afficher : TMDB en priorité si un résumé français
-/// existe, sinon traduction automatique via l'endpoint unofficial Google.
+/// Résout le synopsis à afficher en suivant la règle de priorité :
 ///
-/// L'ordre de préférence est dicté par l'ergonomie : un synopsis écrit par
-/// TMDB est de bien meilleure qualité qu'une traduction automatique, donc on
-/// ne traduit que lorsqu'il n'y a rien de meilleur.
+/// 1. Synopsis XMLTV présent **et** dans la langue de l'app → conserver tel quel.
+/// 2. Synopsis XMLTV présent **mais** dans une autre langue → TMDB (traduction humaine).
+/// 3. TMDB absent → Google Translate (traduction automatique).
+///
+/// L'ordre est dicté par l'ergonomie : le XMLTV du fournisseur est la source
+/// primaire. TMDB n'est utilisé que comme fallback de traduction quand le
+/// texte n'est pas dans la langue courante de l'app.
 class SynopsisTranslationService {
   SynopsisTranslationService({Dio? dio}) : _dio = dio ?? Dio();
 
@@ -64,8 +67,8 @@ class SynopsisTranslationService {
   static const _endpoint =
       'https://translate.googleapis.com/translate_a/single';
 
-  /// Langues que l'on considère comme « déjà dans la bonne langue ».
-  static const _targetLanguage = 'fr';
+  /// Langue par défaut (utilisée quand aucune locale n'est fournie).
+  static const _defaultLanguage = 'fr';
 
   /// Heuristique : caractères accentués / mots très français.
   static const _frenchMarkers = <String>[
@@ -88,58 +91,69 @@ class SynopsisTranslationService {
     ' au ',
   ];
 
-  /// Décide quoi afficher pour [rawSynopsis].
+  /// Décide quoi afficher pour [rawSynopsis] en suivant la règle :
+  ///
+  /// 1. XMLTV présent et dans la langue de l'app → conserver.
+  /// 2. XMLTV présent mais dans une autre langue → TMDB.
+  /// 3. TMDB absent → Google Translate.
   ///
   /// [tmdbFrenchSynopsis] est le résumé que TMDB renvoie pour la langue
-  /// fr-FR (souvent vide si le film n'a pas été traduit).
+  /// cible (souvent vide si le contenu n'a pas été traduit).
+  /// [targetLanguage] est la langue courante de l'app (défaut 'fr').
   Future<TranslatedSynopsis> resolve({
     required String rawSynopsis,
     String? tmdbFrenchSynopsis,
     String? originalLanguageCode,
+    String targetLanguage = _defaultLanguage,
   }) async {
     final raw = rawSynopsis.trim();
     final tmdbFr = (tmdbFrenchSynopsis ?? '').trim();
 
-    // 1. TMDB a bien un synopsis français : c'est la meilleure source, on
-    //    n traduit pas.
+    // 1. XMLTV présent ET déjà dans la langue de l'app → conserver tel quel.
+    if (raw.isNotEmpty) {
+      final detected = _detectLanguage(raw, originalLanguageCode);
+      if (detected == targetLanguage) {
+        return TranslatedSynopsis(
+          text: raw,
+          source: SynopsisSource.original,
+          detectedLanguage: detected,
+        );
+      }
+    }
+
+    // 2. XMLTV présent mais dans une autre langue → TMDB (meilleure qualité).
     if (tmdbFr.isNotEmpty) {
       return TranslatedSynopsis(
         text: tmdbFr,
         source: SynopsisSource.tmdb,
-        detectedLanguage: _targetLanguage,
+        detectedLanguage: targetLanguage,
       );
     }
 
-    if (raw.isEmpty) {
-      return const TranslatedSynopsis(
-        text: '',
-        source: SynopsisSource.none,
-      );
-    }
-
-    // 2. Le synopsis est déjà en français : on ne fait rien.
-    final detected = _detectLanguage(raw, originalLanguageCode);
-    if (detected == _targetLanguage) {
+    // 3. TMDB absent → Google Translate (traduction automatique).
+    if (raw.isNotEmpty) {
+      final detected = _detectLanguage(raw, originalLanguageCode);
+      final translated =
+          await _googleTranslate(raw, detected ?? 'auto', targetLanguage);
+      if (translated == null || translated.trim().isEmpty) {
+        // Google Translate échoue → retourner le texte d'origine tel quel.
+        return TranslatedSynopsis(
+          text: raw,
+          source: SynopsisSource.original,
+          detectedLanguage: detected,
+        );
+      }
       return TranslatedSynopsis(
-        text: raw,
-        source: SynopsisSource.original,
+        text: translated.trim(),
+        source: SynopsisSource.googleTranslate,
         detectedLanguage: detected,
       );
     }
 
-    // 3. Traduction automatique.
-    final translated = await _googleTranslate(raw, detected ?? 'auto');
-    if (translated == null || translated.trim().isEmpty) {
-      return TranslatedSynopsis(
-        text: raw,
-        source: SynopsisSource.original,
-        detectedLanguage: detected,
-      );
-    }
-    return TranslatedSynopsis(
-      text: translated.trim(),
-      source: SynopsisSource.googleTranslate,
-      detectedLanguage: detected,
+    // Aucun synopsis disponible.
+    return const TranslatedSynopsis(
+      text: '',
+      source: SynopsisSource.none,
     );
   }
 
@@ -163,7 +177,7 @@ class SynopsisTranslationService {
     if (originalLanguageCode != null && originalLanguageCode.isNotEmpty) {
       return originalLanguageCode.toLowerCase();
     }
-    return isFrench(text) ? _targetLanguage : null;
+    return isFrench(text) ? _defaultLanguage : null;
   }
 
   /// Appel à l'endpoint unofficial Google Translate.
@@ -171,14 +185,18 @@ class SynopsisTranslationService {
   /// L'API n'est pas publique : elle peut être limitée ou changer de forme.
   /// D'où un timeout court, et un repli silencieux sur le texte d'origine en
   /// cas d'échec (l'utilisateur voit le synopsis, pas une erreur).
-  Future<String?> _googleTranslate(String text, String sourceLang) async {
+  Future<String?> _googleTranslate(
+    String text,
+    String sourceLang,
+    String targetLanguage,
+  ) async {
     try {
       final response = await _dio.get(
         _endpoint,
         queryParameters: {
           'client': 'gtx',
           'sl': sourceLang,
-          'tl': _targetLanguage,
+          'tl': targetLanguage,
           'dt': 't',
           'q': text,
         },
