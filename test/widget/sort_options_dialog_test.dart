@@ -86,12 +86,12 @@ void main() {
         .first;
 
     expect(
-      find.descendant(of: yearTile, matching: find.text('Actif')),
+      find.descendant(of: yearTile, matching: find.text(l.sortOptionActive)),
       findsOneWidget,
       reason: '« Par année » doit rester actif même en sens inverse',
     );
     expect(
-      find.descendant(of: ratingTile, matching: find.text('Actif')),
+      find.descendant(of: ratingTile, matching: find.text(l.sortOptionActive)),
       findsNothing,
     );
   });

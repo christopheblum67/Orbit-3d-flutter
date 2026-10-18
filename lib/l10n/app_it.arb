@@ -427,9 +427,38 @@
   "avatarCategoryCharacters": "Personaggi",
   "avatarCategorySmileys": "Smileys",
   "avatarCategoryBlackWhite": "Nero e Bianco",
-  "avatarCategoryPixels": "Pixel"
+  "avatarCategoryPixels": "Pixel",
+  "backTooltip": "Indietro",
+  "categoryFilters": "Filtri delle categorie",
+  "categoryFiltersSubtitle": "Categorie nascoste per abbonamento",
+  "memoryCacheTitle": "Gestione della memoria e della cache",
+  "memoryCacheSubtitle": "Libera spazio e pulisci i dati locali.",
+  "clearWatchHistoryTitle": "Svuota la cronologia di visione",
+  "clearWatchHistorySubtitle": "Cancella l'elenco dei contenuti visti di recente e le posizioni di ripresa.",
+  "clearWatchHistoryAction": "Svuota",
+  "clearCoverCacheTitle": "Pulisci la cache delle copertine",
+  "clearCoverCacheSubtitle": "Libera lo spazio su disco occupato dalle miniature VOD/EPG salvate localmente.",
+  "clearCoverCacheAction": "Svuota",
+  "enginesDescription": "Scegli il motore usato per ogni tipo di contenuto e il motore di ripiego in caso di errore di riproduzione.",
+  "sortAdvancedTitle": "Opzioni di ordinamento avanzate",
+  "sortAdvancedSubtitle": "Seleziona una modalità con il telecomando:",
+  "sortDescRecentlyAdded": "Contenuti aggiunti di recente all'elenco",
+  "sortDescResumePriority": "Mette in cima i contenuti iniziati e non conclusi",
+  "sortDescByRating": "Classifica in base ai voti assegnati",
+  "sortDescByYear": "Ordine cronologico per anno di produzione",
+  "sortDescByDuration": "Ordinamento per durata del contenuto",
+  "sortOptionActive": "Attivo",
+  "categoryScanFailed": "Analisi non riuscita: il pannello non risponde.",
+  "showAll": "Mostra tutto",
+  "noActiveSubscription": "Nessun abbonamento attivo",
+  "noVodCategories": "Nessuna categoria film su questo pannello.",
+  "noSeriesCategories": "Nessuna categoria serie su questo pannello.",
+  "neverScanned": "Mai analizzato",
+  "scannedToday": "Analizzato oggi",
+  "scannedYesterday": "Analizzato ieri",
+  "scannedDaysAgo": "Analizzato {days} giorni fa",
+  "subscriptionSettingsNote": "Impostazioni specifiche di questo abbonamento — {scanned}",
+  "rescanCategories": "Rianalizza le categorie",
+  "scanningCategories": "Analisi…",
+  "categoryTitlesCount": "{count} titoli"
 }
-
-
-
-

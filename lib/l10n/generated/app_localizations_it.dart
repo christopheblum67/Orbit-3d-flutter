@@ -1406,4 +1406,117 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Pixel';
+
+  @override
+  String get backTooltip => 'Indietro';
+
+  @override
+  String get categoryFilters => 'Filtri delle categorie';
+
+  @override
+  String get categoryFiltersSubtitle => 'Categorie nascoste per abbonamento';
+
+  @override
+  String get memoryCacheTitle => 'Gestione della memoria e della cache';
+
+  @override
+  String get memoryCacheSubtitle => 'Libera spazio e pulisci i dati locali.';
+
+  @override
+  String get clearWatchHistoryTitle => 'Svuota la cronologia di visione';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'Cancella l\'elenco dei contenuti visti di recente e le posizioni di ripresa.';
+
+  @override
+  String get clearWatchHistoryAction => 'Svuota';
+
+  @override
+  String get clearCoverCacheTitle => 'Pulisci la cache delle copertine';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'Libera lo spazio su disco occupato dalle miniature VOD/EPG salvate localmente.';
+
+  @override
+  String get clearCoverCacheAction => 'Svuota';
+
+  @override
+  String get enginesDescription =>
+      'Scegli il motore usato per ogni tipo di contenuto e il motore di ripiego in caso di errore di riproduzione.';
+
+  @override
+  String get sortAdvancedTitle => 'Opzioni di ordinamento avanzate';
+
+  @override
+  String get sortAdvancedSubtitle =>
+      'Seleziona una modalità con il telecomando:';
+
+  @override
+  String get sortDescRecentlyAdded =>
+      'Contenuti aggiunti di recente all\'elenco';
+
+  @override
+  String get sortDescResumePriority =>
+      'Mette in cima i contenuti iniziati e non conclusi';
+
+  @override
+  String get sortDescByRating => 'Classifica in base ai voti assegnati';
+
+  @override
+  String get sortDescByYear => 'Ordine cronologico per anno di produzione';
+
+  @override
+  String get sortDescByDuration => 'Ordinamento per durata del contenuto';
+
+  @override
+  String get sortOptionActive => 'Attivo';
+
+  @override
+  String get categoryScanFailed =>
+      'Analisi non riuscita: il pannello non risponde.';
+
+  @override
+  String get showAll => 'Mostra tutto';
+
+  @override
+  String get noActiveSubscription => 'Nessun abbonamento attivo';
+
+  @override
+  String get noVodCategories => 'Nessuna categoria film su questo pannello.';
+
+  @override
+  String get noSeriesCategories =>
+      'Nessuna categoria serie su questo pannello.';
+
+  @override
+  String get neverScanned => 'Mai analizzato';
+
+  @override
+  String get scannedToday => 'Analizzato oggi';
+
+  @override
+  String get scannedYesterday => 'Analizzato ieri';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'Analizzato $days giorni fa';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'Impostazioni specifiche di questo abbonamento — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'Rianalizza le categorie';
+
+  @override
+  String get scanningCategories => 'Analisi…';
+
+  @override
+  String categoryTitlesCount(int count) {
+    return '$count titoli';
+  }
 }

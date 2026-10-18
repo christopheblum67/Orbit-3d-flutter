@@ -108,7 +108,12 @@ _MenuSection(
     ];
 
     return Drawer(
-      child: SafeArea(
+      // `TvSafeArea` et non `SafeArea` : en mode TV, le tiroir s'ouvre collé au
+      // bord gauche de la dalle, précisément la zone rognée par l'overscan (5 à
+      // 10 %). Sans la marge de 48/27 dp, les sections et les premiers caractères
+      // des libellés étaient coupés sur un téléviseur. En mode téléphone le
+      // retrait est nul : rien ne bouge.
+      child: TvSafeArea(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [

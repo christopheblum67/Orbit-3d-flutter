@@ -132,7 +132,9 @@ class _EpgTimelinePainter extends CustomPainter {
         );
       }
 
-      final isNowHour = false; // Affiché toutes les 2h, pas l'heure courante
+      // Libellé horaire affiché toutes les 2 h : il porte l'heure du repère,
+      // jamais l'heure courante (l'ancien marqueur `isNowHour` toujours faux
+      // ne servait plus à rien et ne faisait qu'un warning).
       final tp = TextPainter(
         text: TextSpan(
           text: '${win.hour.toString().padLeft(2, '0')}:00',

@@ -81,7 +81,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: AppLocalizations.of(context).backTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -807,8 +807,8 @@ class _AdvancedSection extends ConsumerWidget {
         ),
         _NavTile(
           icon: Icons.filter_list_rounded,
-          title: 'Filtres de catégories',
-          subtitle: 'Catégories masquées par abonnement',
+          title: l.categoryFilters,
+          subtitle: l.categoryFiltersSubtitle,
           onTap: () => context.push('/category-filters'),
         ),
         const SizedBox(height: 16),

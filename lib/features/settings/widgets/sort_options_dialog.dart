@@ -70,31 +70,31 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
       SortOptionData(
         mode: SortMode.recentlyAdded,
         label: l.sortLatestM3UXtream,
-        description: 'Contenus importés récemment dans la liste',
+        description: l.sortDescRecentlyAdded,
         icon: Icons.access_time,
       ),
       SortOptionData(
         mode: SortMode.resumeFirst,
         label: l.sortResumePriority,
-        description: 'Place les contenus commencés non terminés en haut',
+        description: l.sortDescResumePriority,
         icon: Icons.play_circle_outline,
       ),
       SortOptionData(
         mode: SortMode.ratingDesc,
         label: l.sortByRating,
-        description: 'Classement selon les notes attribuées',
+        description: l.sortDescByRating,
         icon: Icons.star,
       ),
       SortOptionData(
         mode: SortMode.yearDesc,
         label: l.sortByYear,
-        description: 'Tri chronologique par année de production',
+        description: l.sortDescByYear,
         icon: Icons.calendar_today,
       ),
       SortOptionData(
         mode: SortMode.durationShort,
         label: l.sortByDuration,
-        description: 'Tri par durée du contenu',
+        description: l.sortDescByDuration,
         icon: Icons.timer,
       ),
       // Ajouté en fin de liste pour ne pas voler l'autofocus D-Pad (index 0 =
@@ -137,17 +137,17 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // En-tête
-            const Row(
+            Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.filter_alt,
                   color: Color(0xFF8B5CF6),
                   size: 28,
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Text(
-                  'Options de Tri Avancé',
-                  style: TextStyle(
+                  l.sortAdvancedTitle,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -156,9 +156,9 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Sélectionnez un mode avec la télécommande :',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+            Text(
+              l.sortAdvancedSubtitle,
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
             ),
             const Divider(color: Color(0xFF262933), height: 28),
 
@@ -218,6 +218,7 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Focus(
@@ -305,9 +306,9 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                       color: Colors.amber.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text(
-                      'Actif',
-                      style: TextStyle(
+                    child: Text(
+                      l.sortOptionActive,
+                      style: const TextStyle(
                         color: Colors.amber,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,

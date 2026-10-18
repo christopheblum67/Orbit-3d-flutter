@@ -486,6 +486,59 @@
   "avatarCategoryCharacters": "Personnages",
   "avatarCategorySmileys": "Smileys",
   "avatarCategoryBlackWhite": "Noir & Blanc",
-  "avatarCategoryPixels": "Pixels"
+  "avatarCategoryPixels": "Pixels",
+  "backTooltip": "Retour",
+  "categoryFilters": "Filtres de catégories",
+  "categoryFiltersSubtitle": "Catégories masquées par abonnement",
+  "memoryCacheTitle": "Gestion de la Mémoire & Cache",
+  "memoryCacheSubtitle": "Libérez de l'espace et nettoyez les données locales.",
+  "clearWatchHistoryTitle": "Vider l'historique des vues",
+  "clearWatchHistorySubtitle": "Efface la liste des récemment regardés et les positions de reprise.",
+  "clearWatchHistoryAction": "Effacer",
+  "clearCoverCacheTitle": "Nettoyer le cache des pochettes",
+  "clearCoverCacheSubtitle": "Libère l'espace disque occupé par les vignettes VOD/EPG stockées localement.",
+  "clearCoverCacheAction": "Purger",
+  "enginesDescription": "Choisissez le moteur utilisé pour chaque type de contenu, ainsi que le moteur de secours en cas d'échec de lecture.",
+  "sortAdvancedTitle": "Options de Tri Avancé",
+  "sortAdvancedSubtitle": "Sélectionnez un mode avec la télécommande :",
+  "sortDescRecentlyAdded": "Contenus importés récemment dans la liste",
+  "sortDescResumePriority": "Place les contenus commencés non terminés en haut",
+  "sortDescByRating": "Classement selon les notes attribuées",
+  "sortDescByYear": "Tri chronologique par année de production",
+  "sortDescByDuration": "Tri par durée du contenu",
+  "sortOptionActive": "Actif",
+  "categoryScanFailed": "Analyse impossible : le panel ne répond pas.",
+  "showAll": "Tout afficher",
+  "noActiveSubscription": "Aucun abonnement actif",
+  "noVodCategories": "Aucune catégorie Films sur ce panel.",
+  "noSeriesCategories": "Aucune catégorie Séries sur ce panel.",
+  "neverScanned": "Jamais analysé",
+  "scannedToday": "Analysé aujourd'hui",
+  "scannedYesterday": "Analysé hier",
+  "scannedDaysAgo": "Analysé il y a {days} jours",
+  "@scannedDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "subscriptionSettingsNote": "Réglages propres à cet abonnement — {scanned}",
+  "@subscriptionSettingsNote": {
+    "placeholders": {
+      "scanned": {
+        "type": "String"
+      }
+    }
+  },
+  "rescanCategories": "Réanalyser les catégories",
+  "scanningCategories": "Analyse…",
+  "categoryTitlesCount": "{count} titres",
+  "@categoryTitlesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
-

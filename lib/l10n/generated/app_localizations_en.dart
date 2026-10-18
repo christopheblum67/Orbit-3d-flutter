@@ -1391,4 +1391,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Pixels';
+
+  @override
+  String get backTooltip => 'Back';
+
+  @override
+  String get categoryFilters => 'Category filters';
+
+  @override
+  String get categoryFiltersSubtitle => 'Categories hidden per subscription';
+
+  @override
+  String get memoryCacheTitle => 'Memory & cache management';
+
+  @override
+  String get memoryCacheSubtitle => 'Free up space and clean up local data.';
+
+  @override
+  String get clearWatchHistoryTitle => 'Clear watch history';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'Clears the recently watched list and resume positions.';
+
+  @override
+  String get clearWatchHistoryAction => 'Clear';
+
+  @override
+  String get clearCoverCacheTitle => 'Clear the cover cache';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'Frees the disk space used by locally stored VOD/EPG thumbnails.';
+
+  @override
+  String get clearCoverCacheAction => 'Purge';
+
+  @override
+  String get enginesDescription =>
+      'Choose the engine used for each content type, and the fallback engine used when playback fails.';
+
+  @override
+  String get sortAdvancedTitle => 'Advanced sort options';
+
+  @override
+  String get sortAdvancedSubtitle => 'Select a mode with the remote:';
+
+  @override
+  String get sortDescRecentlyAdded => 'Content added to the list recently';
+
+  @override
+  String get sortDescResumePriority => 'Puts unfinished items at the top';
+
+  @override
+  String get sortDescByRating => 'Ranked by the ratings given';
+
+  @override
+  String get sortDescByYear => 'Chronological order by release year';
+
+  @override
+  String get sortDescByDuration => 'Sorted by content duration';
+
+  @override
+  String get sortOptionActive => 'Active';
+
+  @override
+  String get categoryScanFailed => 'Scan failed: the panel is not responding.';
+
+  @override
+  String get showAll => 'Show all';
+
+  @override
+  String get noActiveSubscription => 'No active subscription';
+
+  @override
+  String get noVodCategories => 'No movie categories on this panel.';
+
+  @override
+  String get noSeriesCategories => 'No series categories on this panel.';
+
+  @override
+  String get neverScanned => 'Never scanned';
+
+  @override
+  String get scannedToday => 'Scanned today';
+
+  @override
+  String get scannedYesterday => 'Scanned yesterday';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'Scanned $days days ago';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'Settings specific to this subscription — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'Rescan categories';
+
+  @override
+  String get scanningCategories => 'Scanning…';
+
+  @override
+  String categoryTitlesCount(int count) {
+    return '$count titles';
+  }
 }

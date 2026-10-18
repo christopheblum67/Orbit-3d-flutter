@@ -494,7 +494,9 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     // des lignes vides alors que le dump contenait les programmes.
     if (!mounted) return;
 
-    LoggerService.instance.info(
+    // Journal de diagnostic d'ouverture : `debug`, pas `info`, car il part
+    // vers logcat à chaque chargement d'écran et n'intéresse que le debug.
+    LoggerService.instance.debug(
       'EPG: XMLTV chargé (${resolved.isSuccess ? 'ok' : 'échec'}), '
       '$widget.loadingChannels chaînes à résoudre',
     );
@@ -549,7 +551,7 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     final missing = missingIds.length;
     if (mounted) setState(() {});
 
-    LoggerService.instance.info(
+    LoggerService.instance.debug(
       'EPG: $total chaînes, ${total - missing} avec programmes, '
       '$missing sans (aucun programme dans la fenêtre) — ${_epgData.length} '
       'lignes construites.${missingIds.isEmpty ? '' : ' Sans résultat pour : '

@@ -1450,4 +1450,113 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Ø¨ÙƒØ³Ù„Ø§Øª';
+
+  @override
+  String get backTooltip => 'رجوع';
+
+  @override
+  String get categoryFilters => 'مرشحات الفئات';
+
+  @override
+  String get categoryFiltersSubtitle => 'فئات مخفية حسب الاشتراك';
+
+  @override
+  String get memoryCacheTitle => 'إدارة الذاكرة والكاش';
+
+  @override
+  String get memoryCacheSubtitle => 'حرّر المساحة ونظّف البيانات المحلية.';
+
+  @override
+  String get clearWatchHistoryTitle => 'مسح سجل المشاهدة';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'يمسح قائمة ما شاهدته مؤخرًا ومواقف الاستئناف.';
+
+  @override
+  String get clearWatchHistoryAction => 'مسح';
+
+  @override
+  String get clearCoverCacheTitle => 'مسح ذاكرة أغلفة الصور المؤقتة';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'يحرّر مساحة القرص التي تشغلها مصغّرات VOD/EPG المخزنة محليًا.';
+
+  @override
+  String get clearCoverCacheAction => 'تفريغ';
+
+  @override
+  String get enginesDescription =>
+      'اختر المحرك المستخدم لكل نوع من المحتوى، ومحرك الاحتياط في حال فشل التشغيل.';
+
+  @override
+  String get sortAdvancedTitle => 'خيارات فرز متقدمة';
+
+  @override
+  String get sortAdvancedSubtitle => 'اختر وضعًا باستخدام جهاز التحكم:';
+
+  @override
+  String get sortDescRecentlyAdded => 'محتويات أُضيفت مؤخرًا إلى القائمة';
+
+  @override
+  String get sortDescResumePriority =>
+      'يضع في الأعلى المحتويات المبدأة غير المنتهية';
+
+  @override
+  String get sortDescByRating => 'ترتيب حسب التقييمات الممنوحة';
+
+  @override
+  String get sortDescByYear => 'ترتيب زمني حسب سنة الإنتاج';
+
+  @override
+  String get sortDescByDuration => 'فرز حسب مدة المحتوى';
+
+  @override
+  String get sortOptionActive => 'مفعّل';
+
+  @override
+  String get categoryScanFailed => 'تعذر التحليل: اللوحة لا تستجيب.';
+
+  @override
+  String get showAll => 'إظهار الكل';
+
+  @override
+  String get noActiveSubscription => 'لا يوجد اشتراك نشط';
+
+  @override
+  String get noVodCategories => 'لا توجد فئات أفلام على هذه اللوحة.';
+
+  @override
+  String get noSeriesCategories => 'لا توجد فئات مسلسلات على هذه اللوحة.';
+
+  @override
+  String get neverScanned => 'لم يُحلَّل من قبل';
+
+  @override
+  String get scannedToday => 'حُلِّل اليوم';
+
+  @override
+  String get scannedYesterday => 'حُلِّل أمس';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'حُلِّل قبل $days يومًا';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'إعدادات خاصة بهذا الاشتراك — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'إعادة تحليل الفئات';
+
+  @override
+  String get scanningCategories => 'جارٍ التحليل…';
+
+  @override
+  String categoryTitlesCount(int count) {
+    return '$count عنوان';
+  }
 }

@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Réglages d'affichage des catégories Films / Séries.
 ///
@@ -46,8 +47,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Analyse impossible : le panel ne répond pas.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).categoryScanFailed),
           ),
         );
     }
@@ -55,6 +56,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final sub = ref.watch(activeSubscriptionProvider);
     final filter = ref.watch(vodCategoryFilterProvider);
     final notifier = ref.read(vodCategoryFilterProvider.notifier);
@@ -76,17 +78,17 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: const Text('Catégories'),
+        title: Text(l.categories),
         actions: [
           if (filter.hiddenCount > 0)
             TextButton(
               onPressed: notifier.resetToAllVisible,
-              child: const Text('Tout afficher'),
+              child: Text(l.showAll),
             ),
         ],
       ),
       body: sub == null
-          ? const Center(child: Text('Aucun abonnement actif'))
+          ? Center(child: Text(l.noActiveSubscription))
           : ListView(
               padding: const EdgeInsets.only(bottom: 32),
               children: [
@@ -97,15 +99,15 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
                   onRescan: _rescan,
                 ),
                 _CategorySection(
-                  title: 'Films',
-                  emptyMessage: 'Aucune catégorie Films sur ce panel.',
+                  title: l.films,
+                  emptyMessage: l.noVodCategories,
                   categories: vodCategories,
                   isHidden: filter.isVodHidden,
                   onToggle: notifier.setVodCategoryVisible,
                 ),
                 _CategorySection(
-                  title: 'Séries',
-                  emptyMessage: 'Aucune catégorie Séries sur ce panel.',
+                  title: l.series,
+                  emptyMessage: l.noSeriesCategories,
                   categories: seriesCategories,
                   isHidden: filter.isSeriesHidden,
                   onToggle: notifier.setSeriesCategoryVisible,
@@ -129,18 +131,19 @@ class _SubscriptionHeader extends StatelessWidget {
   final bool scanning;
   final Future<void> Function() onRescan;
 
-  String get _scannedLabel {
+  String _scannedLabel(AppLocalizations l) {
     final at = scannedAt;
-    if (at == null) return 'Jamais analysé';
+    if (at == null) return l.neverScanned;
     final days = DateTime.now().difference(at).inDays;
-    if (days <= 0) return 'Analysé aujourd\'hui';
-    if (days == 1) return 'Analysé hier';
-    return 'Analysé il y a $days jours';
+    if (days <= 0) return l.scannedToday;
+    if (days == 1) return l.scannedYesterday;
+    return l.scannedDaysAgo(days);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
@@ -161,7 +164,7 @@ class _SubscriptionHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Réglages propres à cet abonnement — $_scannedLabel',
+            l.subscriptionSettingsNote(_scannedLabel(l)),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -178,7 +181,7 @@ class _SubscriptionHeader extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 18),
-              label: Text(scanning ? 'Analyse…' : 'Réanalyser les catégories'),
+              label: Text(scanning ? l.scanningCategories : l.rescanCategories),
             ),
           ),
         ],
@@ -205,6 +208,7 @@ class _CategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     if (categories.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -246,7 +250,9 @@ class _CategorySection extends StatelessWidget {
                         : null,
                   ),
                 ),
-                subtitle: category.count > 0 ? Text('${category.count} titres') : null,
+                subtitle: category.count > 0
+                    ? Text(l.categoryTitlesCount(category.count))
+                    : null,
               ),
             );
           },

@@ -596,7 +596,11 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       // et l'ancien compteur les confondait avec les lignes ayant de vrais
       // programmes — rendant le bilan incomparable à celui du chargeur.
       final diag = diagnoseEpgRows(widget.epgData);
-      LoggerService.instance.info(
+      // Mesure de rendu : le cache se reconstruit à chaque lot de chaînes
+      // chargées, donc en `info` ce bilan partait vers logcat des dizaines de
+      // fois par ouverture d'écran. `debug` le conserve au build de dev et
+      // l'efface du logcat de release.
+      LoggerService.instance.debug(
         'EPG rendu: $diag, étendue $minLeft..'
         '${maxLeft == double.negativeInfinity ? 0 : maxLeft} '
         'px, origine ${_gridStartTime.toIso8601String()}, '
@@ -1566,7 +1570,10 @@ class _NowLineOverlay extends StatelessWidget {
             );
             final drift = now.difference(axisTime).inSeconds;
             if (drift.abs() >= 30) {
-              LoggerService.instance.info(
+              // Ce build tourne à chaque défilement horizontal : avec un
+              // décalage persistant, le bilan partait en logcat à chaque
+              // frame. `debug` le limite au build de dev.
+              LoggerService.instance.debug(
                 'EPG : ligne « maintenant » décalée de ${drift}s — '
                 'axe=$axisTime grille=$now '
                 '(décalage=$offset, colonne=$channelWidth, '

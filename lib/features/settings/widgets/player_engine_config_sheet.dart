@@ -201,10 +201,10 @@ class _PlayerEngineConfigSheetState
                       color: scheme.primary,
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Moteurs de lecture',
-                        style: TextStyle(
+                        l.enginesTile,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -235,7 +235,7 @@ class _PlayerEngineConfigSheetState
                         return KeyEventResult.ignored;
                       },
                       child: IconButton(
-                        tooltip: 'Annuler',
+                        tooltip: l.cancel,
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
                       ),
@@ -251,9 +251,7 @@ class _PlayerEngineConfigSheetState
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
                       child: Text(
-                        'Choisissez le moteur utilisé pour chaque type de '
-                        'contenu, ainsi que le moteur de secours en cas '
-                        'd\'échec de lecture.',
+                        l.enginesDescription,
                         style: TextStyle(
                           fontSize: 12,
                           color: scheme.onSurfaceVariant,
