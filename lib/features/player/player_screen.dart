@@ -375,6 +375,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_index < 0) _index = 0;
       if (_index >= _channels.length) _index = _channels.length - 1;
     }
+    LoggerService.instance.info(
+      'PLAYER_INIT channels=${_channels.length} index=$_index '
+      'url=${widget.streamUrl}',
+    );
     // Nouvelle lecture (nouvelle PlayerScreen) : le contrôleur de sous-titres
     // est partagé par toute l'app — sans ce reset, la piste externe choisie
     // sur le contenu précédent restait active et son texte s'affichait sur
@@ -591,11 +595,19 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
+    LoggerService.instance.info(
+      'ZAPPING_ATTEMPT start: url=$_activeStreamUrl gen=$gen rateLimitUntil=$_rateLimitUntil',
+    );
 
     // Refroidissement après un 401 anti-leech : on laisse l'endpoint avant de
     // repartir, sinon on accumulate les refus et le blocage s'allonge.
     await _awaitRateLimitCooldown();
-    if (!mounted || gen != _generation) return;
+    if (!mounted || gen != _generation) {
+      LoggerService.instance.info(
+        'ZAPPING_ATTEMPT aborted after cooldown: gen=$gen cur=$_generation',
+      );
+      return;
+    }
 
     // Attendre que la session Cloudflare soit prete (Xtream) AVANT la 1ere
     // tentative. Pas de cap externe : CloudflareSessionManager borne lui-meme
@@ -1339,7 +1351,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _goNext() {
-    if (!_hasNext) return;
+    if (!_hasNext) {
+      LoggerService.instance.info(
+        'ZAPPING_BLOCKED next: hasNext=false index=$_index channels=${_channels.length}',
+      );
+      return;
+    }
     LoggerService.instance.info('ZAPPING_START: cleaning caches before switch');
     _cachedNext = null;
     _cachedNextIndex = null;
@@ -1356,7 +1373,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _goPrevious() {
-    if (!_hasPrevious) return;
+    if (!_hasPrevious) {
+      LoggerService.instance.info(
+        'ZAPPING_BLOCKED previous: hasPrevious=false index=$_index channels=${_channels.length}',
+      );
+      return;
+    }
+    LoggerService.instance.info('ZAPPING_START previous channel');
     _showFooterBar();
     unawaited(_switchTo(_index - 1));
   }
@@ -1389,10 +1412,22 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         target == _index ||
         target < 0 ||
         target >= _channels.length) {
+      LoggerService.instance.info(
+        'ZAPPING_ABORT _switchTo: target=$target index=$_index channels=${_channels.length} mounted=$mounted',
+      );
       return;
     }
-    final gen = _generation;
+    LoggerService.instance.info(
+      'ZAPPING_SWITCH target=$target from=$_index gen=$_generation',
+    );
+    // Ordre important : INCREMENTER puis capturer. Dans l'ordre inverse
+    // (capture puis increment), `gen` valait `_generation - 1` pour tout le
+    // reste de l'execution : la garde `gen != _generation` apres le premier
+    // `await` était donc VRAIE par construction et chaque bascule s'abandonnait
+    // elle-meme — l'ancien lecteur etait pause puis libere, `_index` avancait,
+    // `_controller` restait null : le zapping ne fonctionnait plus du tout.
     _generation++;
+    final gen = _generation;
     _autorecovered = false;
     _handlingError = false;
     // Nouveau contenu (zapping) : la piste externe du flux précédent ne doit
@@ -1421,6 +1456,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         // pas passee, l'ancien decodeur audio tourne encore.
         await oldActive.pause();
         if (!mounted || gen != _generation) {
+          LoggerService.instance.info(
+            'ZAPPING_ABORT _switchTo (pause old): gen=$gen cur=$_generation',
+          );
           // Un autre zapping a pris la main pendant l'attente : cet ancien
           // controleur n'appartient plus a personne. On ne le remet surtout
           // pas en cache, on le libere.
@@ -1438,7 +1476,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         oldActive.dispose();
       }
     }
-    if (!mounted || gen != _generation) return;
+    if (!mounted || gen != _generation) {
+      LoggerService.instance.info(
+        'ZAPPING_ABORT _switchTo (post-pause guard): gen=$gen cur=$_generation',
+      );
+      return;
+    }
     if (newActive != null) {
       newActive.addListener(_onControllerUpdate);
       // Le focus audio est pris ICI, apres la pause confirmee de l'ancien
@@ -1451,7 +1494,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // tick sur un contrôleur disposé si l'ancien était en erreur.
       _startStallDetection();
       _showInfoBrief();
+      LoggerService.instance.info(
+        'ZAPPING_SWITCH_DONE target=$_index (cached controller)',
+      );
     } else {
+      LoggerService.instance.info(
+        'ZAPPING_SWITCH_COLD target=$_index -> _startAttempt',
+      );
       _startAttempt();
     }
     _startPreload();
@@ -1878,6 +1927,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    LoggerService.instance.info(
+      'ZAPPING_KEY received: ${event.logicalKey.debugName} '
+      '(hasFocus=${node.hasFocus})',
+    );
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.pageUp) {
       _goPrevious();

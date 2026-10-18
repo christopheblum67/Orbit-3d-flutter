@@ -209,6 +209,16 @@ Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
 
 String routerInitialLocation = '/profiles';
 
+/// Clé du lecteur, créée UNE SEULE FOIS au niveau module.
+///
+/// Elle était déclarée dans le `pageBuilder` de `/player` : chaque rebuild du
+/// Router produisait un `GlobalKey` neuf, et comme un GlobalKey identifie
+/// l'élément, Flutter démontait la PlayerScreen (State, FocusNode, contrôleurs
+/// vidéo) pour en monter une nouvelle — la lecture redémarrait à froid sur la
+/// chaîne initiale et le zapping perdait son état. Hoistée ici, la clé est
+/// stable d'un rebuild à l'autre et le State du lecteur survit.
+final GlobalKey<PlayerScreenState> playerKey = GlobalKey<PlayerScreenState>();
+
 /// Journalise un `screen_view` à chaque changement de route (Firebase Analytics).
 /// Fire-and-forget : aucun échec ne doit perturber la navigation.
 class AnalyticsRouteObserver extends NavigatorObserver {
@@ -355,8 +365,6 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/player',
       pageBuilder: (context, state) {
-        final playerKey = GlobalKey<PlayerScreenState>();
-
         PlayerRouteData routeData;
         final extra = state.extra;
         if (extra is PlayerRouteData) {
