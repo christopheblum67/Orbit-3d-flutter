@@ -546,6 +546,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
       padding: const EdgeInsets.all(20),
+      color: Colors.transparent,
       child: Row(
         children: [
           ValueListenableBuilder<TextEditingValue>(
@@ -603,6 +604,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
       padding: const EdgeInsets.all(20),
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -634,6 +636,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget _buildIdentityCard() {
     final l = AppLocalizations.of(context);
     return AppCard(
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -690,6 +693,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final ageRangesLocalized = _ageRangesLocalized(l);
     return AppCard(
       key: key,
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -775,6 +779,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget _buildTypeSection() {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
+      color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -830,6 +835,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget _buildPinSection() {
     final l = AppLocalizations.of(context);
     return AppCard(
+      color: Colors.transparent,
       child: Column(
         children: [
           SettingsSwitchTile(
