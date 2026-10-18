@@ -122,8 +122,7 @@ class MediaCard extends ConsumerWidget {
       child: AppCard(
         padding: EdgeInsets.zero,
         borderRadius: BorderRadius.zero,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
+        color: Colors.transparent,
         onTap: onTap,
         onLongPress: onLongPress,
         child: Column(

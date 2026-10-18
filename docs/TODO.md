@@ -141,3 +141,5 @@
 ## 5. Hygiène dépôt
 
 - [x] **Commits** : 19 commits atomiques réalisés le 14/10, couvrant tout le reliquat (config, docs, l10n, sécurité/SecretStore, stockage Hive, OpenSubtitles, sous-titres + fork media3, tri/affinité, EPG, replay `archiveDays`, démarrage/rafraîchissement, connectivité, synopsis, métadonnées, matchmaking, bouton hamburger, avatars, UI, style). Arbre de travail propre ; suite complète verte (906 tests) et build release installé sur le S20.
+[ ~ ]   S o u s - t i t r e   d � s a c t i v �   n o n   a c q u i s      T r a n s l a t e d S y n o p s i s V i e w   s ' a f f i c h e   i n d � p e n d a m m e n t   d e   s u b t i t l e C o n t r o l l e r . d i s a b l e ( )      f i x   s u g g � r �   :   c o u p l e r   a v e c   s u b t i t l e C o n t r o l l e r P r o v i d e r   o u   c a c h e r   d a n s   p l a y e r _ s c r e e n   q u a n d   s o u s - t i t r e   o f f  
+ 
