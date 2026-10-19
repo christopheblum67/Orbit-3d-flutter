@@ -19,6 +19,15 @@ class TvModeController extends ChangeNotifier {
   bool get autoDetected => _autoDetected;
   DeviceDetectionResult? get detectionResult => _detectionResult;
 
+  /// Vrai uniquement si l'appareil a réellement été reconnu comme une TV.
+  ///
+  /// [enabled] ne suffit pas : [enable] est appelé à la première touche
+  /// « télécommande », et un téléphone tactile en produit aussi (touche Entrée
+  /// du clavier virtuel, touche Retour système). Or l'overscan de télévision
+  /// (48/27 dp) ne doit jamais rogner l'écran d'un appareil tactile : il
+  /// « encadre » alors toute l'application et fait perdre 96 dp de largeur.
+  bool get isRealTv => _autoDetected || (_detectionResult?.isTv ?? false);
+
   /// Active le mode TV manuellement (ex. première pression D-pad)
   void enable() {
     if (!_enabled) {

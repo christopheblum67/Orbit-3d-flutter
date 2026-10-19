@@ -222,6 +222,10 @@ class _TvFocusState extends ConsumerState<TvFocus>
 /// téléphone basculait l'interface en mode TV, sans revenir en arrière
 /// possible. Les touches de volume, les caractères saisis ou les touches système
 /// ne comptent plus comme signal « télécommande ».
+///
+/// `space` et `goBack` sont également exclus : tous deux sont émis par un
+/// téléphone tactile (touche Espace du clavier virtuel, bouton Retour système),
+/// jamais par une télécommande de TV.
 // `final` et non `const` : `LogicalKeyboardKey` redéfinit `==` / `hashCode`, ce
 // qui interdit un ensemble constant de ce type.
 final Set<LogicalKeyboardKey> _tvTriggerKeys = {
@@ -231,12 +235,10 @@ final Set<LogicalKeyboardKey> _tvTriggerKeys = {
   LogicalKeyboardKey.arrowRight,
   LogicalKeyboardKey.select,
   LogicalKeyboardKey.enter,
-  LogicalKeyboardKey.space,
   LogicalKeyboardKey.gameButtonA,
   LogicalKeyboardKey.gameButtonB,
   LogicalKeyboardKey.gameButtonX,
   LogicalKeyboardKey.gameButtonY,
-  LogicalKeyboardKey.goBack,
   LogicalKeyboardKey.escape,
   LogicalKeyboardKey.mediaPlayPause,
   LogicalKeyboardKey.mediaPlay,

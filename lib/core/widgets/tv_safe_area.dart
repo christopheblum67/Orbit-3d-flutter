@@ -18,9 +18,11 @@ const EdgeInsets tvOverscanInsets =
 
 /// [SafeArea] avec protection contre le dépassement des téléviseurs.
 ///
-/// **Le retrait n'est appliqué qu'en mode TV.** Détecté par [tvModeNotifierProvider]
-/// (activé à la première interaction D-pad par [TvModeDetector]), il reste à zéro
-/// sur téléphone : pas de marge perdue sur un écran tactile, pas de régression.
+/// **Le retrait n'est appliqué qu'en mode TV ET sur une vraie TV.** Le mode TV
+/// n'est pas une preuve de télévision : il s'active à la première touche
+/// ressemblant à une télécommande, or un téléphone tactile en produit aussi
+/// (Entrée du clavier virtuel, Retour système). Exiger en plus qu'une TV ait
+/// réellement été détectée garantit qu'un écran tactile ne perd jamais de marge.
 class TvSafeArea extends ConsumerWidget {
   const TvSafeArea({
     super.key,
@@ -54,7 +56,12 @@ class TvSafeArea extends ConsumerWidget {
         top: top,
         right: right,
         bottom: bottom,
-        minimum: controller.enabled ? minimum : EdgeInsets.zero,
+        // La marge d'overscan est une contrainte de dalle de télévision : elle
+        // ne doit JAMAIS s'appliquer sur un écran tactile, même si le mode TV a
+        // été activé par une touche (Entrée du clavier virtuel, Retour).
+        minimum: controller.enabled && controller.isRealTv
+            ? minimum
+            : EdgeInsets.zero,
         child: child,
       ),
     );

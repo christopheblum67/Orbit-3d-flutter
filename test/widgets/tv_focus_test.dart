@@ -63,6 +63,44 @@ void main() {
     expect(container.read(tvModeProvider), true);
   });
 
+  testWidgets('la touche Espace n active pas le mode TV', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Scaffold(
+            body: TvModeDetector(
+              child: Focus(
+                autofocus: true,
+                child: const Text('Detect'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // `space` sort du clavier virtuel d'un téléphone (champ de recherche) et
+    // activait le mode TV : l'overscan encadrait alors toute l'application.
+    // `goBack` est retiré des déclencheurs pour la même raison, mais il n'est
+    // pas simulable ici : Flutter ne fournit aucune touche physique associée
+    // (`sendKeyEvent` lève une assertion), la touche Retour Android ne passant
+    // pas par le système de touches.
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(tvModeProvider),
+      false,
+      reason: 'la barre espace du clavier virtuel ne doit pas activer le mode '
+          "TV (il encadrerait alors toute l'application)",
+    );
+  });
+
   testWidgets('Extension tvFocus fonctionne', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
