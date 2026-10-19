@@ -655,8 +655,9 @@ class _SubscriptionFormDialogState
     bool obscureText = false,
     Widget? suffixIcon,
     List<TextInputFormatter>? inputFormatters,
+    bool isLastField = false,
   }) {
-    return TextFormField(
+    Widget field = TextFormField(
       controller: controller,
       focusNode: focusNode,
       decoration: InputDecoration(
@@ -666,10 +667,29 @@ class _SubscriptionFormDialogState
       keyboardType: keyboardType,
       obscureText: obscureText,
       inputFormatters: inputFormatters,
-      textInputAction: TextInputAction.next,
+      textInputAction: isLastField ? TextInputAction.done : TextInputAction.next,
       onEditingComplete: () => _requestFocus(nextFocusNode),
       validator: validator,
     );
+
+    if (isLastField) {
+      // Sur TV : Entrée/OK/Select/GameButtonA sur le dernier champ -> focus sur Valider
+      field = Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+            _requestFocus(nextFocusNode);
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: field,
+      );
+    }
+
+    return field;
   }
 
   @override
@@ -677,8 +697,7 @@ class _SubscriptionFormDialogState
     final l = AppLocalizations.of(context);
     final isEditing = widget.subscription != null;
 
-    final nextAfterName =
-        _type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus;
+    final nextAfterName = _segmentedButtonFocus;
 
     return AlertDialog(
       title: Text(isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement'),
@@ -699,21 +718,43 @@ class _SubscriptionFormDialogState
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 16),
-                  SegmentedButton<SubscriptionType>(
-                    segments: [
-                      ButtonSegment(
-                        value: SubscriptionType.xtream,
-                        label: Text(l.xtreamCodes),
-                      ),
-                      ButtonSegment(
-                        value: SubscriptionType.m3u,
-                        label: Text(l.m3uPlaylist),
-                      ),
-                    ],
-                    selected: {_type},
-                    onSelectionChanged: (Set<SubscriptionType> newSelection) {
-                      setState(() => _type = newSelection.first);
+                  Focus(
+                    focusNode: _segmentedButtonFocus,
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          final nextFocus = _type == SubscriptionType.xtream
+                              ? _baseUrlFocus
+                              : _m3uFocus;
+                          _requestFocus(nextFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_nameFocus);
+                          return KeyEventResult.handled;
+                        }
+                      }
+                      return KeyEventResult.ignored;
                     },
+                    child: SegmentedButton<SubscriptionType>(
+                      segments: [
+                        ButtonSegment(
+                          value: SubscriptionType.xtream,
+                          label: Text(l.xtreamCodes),
+                        ),
+                        ButtonSegment(
+                          value: SubscriptionType.m3u,
+                          label: Text(l.m3uPlaylist),
+                        ),
+                      ],
+                      selected: {_type},
+                      onSelectionChanged: (Set<SubscriptionType> newSelection) {
+                        setState(() => _type = newSelection.first);
+                      },
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_type == SubscriptionType.xtream) ...[
@@ -753,6 +794,7 @@ class _SubscriptionFormDialogState
                         ),
                       ),
                       validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      isLastField: true,
                     ),
                   ] else ...[
                     _buildTvTextField(
@@ -761,6 +803,7 @@ class _SubscriptionFormDialogState
                       nextFocusNode: _submitFocus,
                       labelText: l.m3uPlaylistUrl,
                       validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      isLastField: true,
                     ),
                   ],
                 ],
@@ -770,13 +813,38 @@ class _SubscriptionFormDialogState
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+        Focus(
+          focusNode: _submitFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              _save();
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.escape ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonB)) {
+              Navigator.pop(context);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              const SizedBox(width: 12),
+              FilledButton(
+                onPressed: _save,
+                child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+              ),
+            ],
+          ),
         ),
       ],
     );
