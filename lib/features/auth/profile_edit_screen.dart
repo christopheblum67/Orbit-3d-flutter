@@ -53,6 +53,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
+  final _nameFocus = FocusNode();
+  final _ageFocus = FocusNode();
   String? _gender;
   String _avatarId = '';
   final List<String> _favoriteGenres = [];
@@ -79,6 +81,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
   void dispose() {
     _nameController.dispose();
     _ageController.dispose();
+    _nameFocus.dispose();
+    _ageFocus.dispose();
     super.dispose();
   }
 
@@ -204,22 +208,38 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                           ),
                         ),
                         const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _nameController,
-                          maxLength: AppConstants.maxNameLength,
-                          decoration: InputDecoration(
-                            labelText: l.nameOrNickname,
-                            prefixIcon: const Icon(Icons.badge_outlined),
-                            border: const OutlineInputBorder(),
+                        const SizedBox(height: 20),
+                        Focus(
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent &&
+                                (event.logicalKey == LogicalKeyboardKey.enter ||
+                                    event.logicalKey == LogicalKeyboardKey.select ||
+                                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                              _ageFocus.requestFocus();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextFormField(
+                            controller: _nameController,
+                            focusNode: _nameFocus,
+                            maxLength: AppConstants.maxNameLength,
+                            decoration: InputDecoration(
+                              labelText: l.nameOrNickname,
+                              prefixIcon: const Icon(Icons.badge_outlined),
+                              border: const OutlineInputBorder(),
+                            ),
+                            textInputAction: TextInputAction.next,
+                            onEditingComplete: () => _ageFocus.requestFocus(),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Obligatoire'
+                                : null,
                           ),
-                          textInputAction: TextInputAction.next,
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Obligatoire'
-                              : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _ageController,
+                          focusNode: _ageFocus,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
