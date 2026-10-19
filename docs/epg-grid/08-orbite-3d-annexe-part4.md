@@ -1,16 +1,19 @@
-# EPG — grille : 8. annexe — orbite 3D
+﻿# EPG â€” grille : 8. annexe â€” orbite 3D
 
 > **Partie 4/5**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : les 5 widgets 3D documentés ici (constellation_dual_screen, avorites_orbit_system_3d, gravity_focus_node, 
+ebula_search_space, orbit_planet_node) ont été **supprimés** par le commit 4458d6d (« chore(cleanup): code mort, identite visuelle cyan/navy, jetifier desactive »). Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/constellation_dual_screen.dart`, `lib/features/epg/widgets/favorites_orbit_system_3d.dart`, `lib/features/epg/widgets/gravity_focus_node.dart`, `lib/features/epg/widgets/nebula_search_space.dart`, `lib/features/epg/widgets/orbit_planet_node.dart`
 
 ### 8.4 `nebula_search_space`
 
-`lib/features/epg/widgets/nebula_search_space.dart` · lignes 1–280
+`lib/features/epg/widgets/nebula_search_space.dart` Â· lignes 1â€“280
 
-#### `lib/features/epg/widgets/nebula_search_space.dart` · lignes 1–200 · partie 1/2
+#### `lib/features/epg/widgets/nebula_search_space.dart` Â· lignes 1â€“200 Â· partie 1/2
 
 ```dart
 import 'dart:math' as math;
@@ -140,7 +143,7 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                   const Icon(Icons.cloud_off, size: 64, color: Colors.white24),
                   const SizedBox(height: 16),
                   Text(
-                    'Aucun résultat pour "${widget.searchQuery}"',
+                    'Aucun rÃ©sultat pour "${widget.searchQuery}"',
                     style: const TextStyle(color: Colors.white38, fontSize: 16),
                   ),
                 ],
@@ -163,7 +166,7 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
                   Icon(Icons.keyboard_arrow_right, color: Colors.white38),
                   SizedBox(width: 16),
                   Text(
-                    'Naviguer · OK pour sélectionner',
+                    'Naviguer Â· OK pour sÃ©lectionner',
                     style: TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                 ],
@@ -215,7 +218,7 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
         decoration: BoxDecoration(
 ```
 
-#### `lib/features/epg/widgets/nebula_search_space.dart` · lignes 201–280 · partie 2/2
+#### `lib/features/epg/widgets/nebula_search_space.dart` Â· lignes 201â€“280 Â· partie 2/2
 
 ```dart
           color: color.withValues(alpha: 0.3),
@@ -299,3 +302,6 @@ class _NebulaSearchSpaceState extends State<NebulaSearchSpace>
   }
 }
 ```
+
+
+

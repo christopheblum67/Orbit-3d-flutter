@@ -1,45 +1,47 @@
-# EPG — grille : 7. rattrapage et recherche
+﻿# EPG â€” grille : 7. rattrapage et recherche
 
 > **Partie 3/3**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : epg_ai_search.dart (service de recherche IA EPG) a été **supprimé** par le commit 4458d6d. Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/catch_up_screen.dart`, `lib/utils/epg_search.dart`, `lib/utils/epg_gap_filler.dart`, `lib/services/epg_ai_search.dart`
 
-### 7.4 `epg_ai_search` — recherche IA
+### 7.4 `epg_ai_search` â€” recherche IA
 
-`lib/services/epg_ai_search.dart` · lignes 1–272
+`lib/services/epg_ai_search.dart` Â· lignes 1â€“272
 
-#### `lib/services/epg_ai_search.dart` · lignes 1–200 · partie 1/2
+#### `lib/services/epg_ai_search.dart` Â· lignes 1â€“200 Â· partie 1/2
 
 ```dart
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/epg_search.dart';
 
-/// Recherche IA « locale » sur le guide TV réel : agent local sans réseau,
-/// règles françaises + scoring sur les champs EPG (titre, description,
-/// horaires). Ne réinvente aucune source : si la chaîne n'a pas d'EPG, aucun
-/// résultat n'est produit (fallback texte possible côté UI).
+/// Recherche IA Â« locale Â» sur le guide TV rÃ©el : agent local sans rÃ©seau,
+/// rÃ¨gles franÃ§aises + scoring sur les champs EPG (titre, description,
+/// horaires). Ne rÃ©invente aucune source : si la chaÃ®ne n'a pas d'EPG, aucun
+/// rÃ©sultat n'est produit (fallback texte possible cÃ´tÃ© UI).
 
 String _fold(String s) {
   const accents = {
-    'à': 'a',
-    'â': 'a',
-    'ä': 'a',
-    'á': 'a',
-    'é': 'e',
-    'è': 'e',
-    'ê': 'e',
-    'ë': 'e',
-    'î': 'i',
-    'ï': 'i',
-    'ô': 'o',
-    'ö': 'o',
-    'ù': 'u',
-    'û': 'u',
-    'ü': 'u',
-    'ç': 'c',
+    'Ã ': 'a',
+    'Ã¢': 'a',
+    'Ã¤': 'a',
+    'Ã¡': 'a',
+    'Ã©': 'e',
+    'Ã¨': 'e',
+    'Ãª': 'e',
+    'Ã«': 'e',
+    'Ã®': 'i',
+    'Ã¯': 'i',
+    'Ã´': 'o',
+    'Ã¶': 'o',
+    'Ã¹': 'u',
+    'Ã»': 'u',
+    'Ã¼': 'u',
+    'Ã§': 'c',
   };
   final buffer = StringBuffer();
   for (final rune in s.toLowerCase().codeUnits) {
@@ -49,11 +51,11 @@ String _fold(String s) {
   return buffer.toString().replaceAll(RegExp(r"[^a-z0-9 ]+"), ' ').trim();
 }
 
-/// Analyse une requête en langage naturel français en [EpgSearchQuery].
+/// Analyse une requÃªte en langage naturel franÃ§ais en [EpgSearchQuery].
 ///
-/// Reconnaît : « maintenant / en ce moment », « ce soir », « demain »,
-/// « demain soir », « à 20h(30) », une intention de contenu
-/// (film / série / sport / info / documentaire), et les noms de chaînes
+/// ReconnaÃ®t : Â« maintenant / en ce moment Â», Â« ce soir Â», Â« demain Â»,
+/// Â« demain soir Â», Â« Ã  20h(30) Â», une intention de contenu
+/// (film / sÃ©rie / sport / info / documentaire), et les noms de chaÃ®nes
 /// connues.
 class EpgQueryParser {
   EpgQueryParser({List<Channel> channels = const []}) : _channels = channels;
@@ -141,7 +143,7 @@ class EpgQueryParser {
       }
     }
 
-    // Une chaîne reconnue en plusieurs mots (« france 2 ») : relit la phrase.
+    // Une chaÃ®ne reconnue en plusieurs mots (Â« france 2 Â») : relit la phrase.
     for (final channel in _channels) {
       final name = _fold(channel.name);
       if (name.length < 3) continue;
@@ -180,7 +182,7 @@ class EpgQueryParser {
   }
 }
 
-/// Moteur de recherche : filtre et score les [EPGProgram] face à la requête.
+/// Moteur de recherche : filtre et score les [EPGProgram] face Ã  la requÃªte.
 class EpgAiEngine {
   const EpgAiEngine();
 
@@ -192,9 +194,9 @@ class EpgAiEngine {
     required List<Channel> channels,
     int limit = _defaultLimit,
   }) {
-    // On indexe sur TOUS les identifiants EPG possibles d'une chaîne
+    // On indexe sur TOUS les identifiants EPG possibles d'une chaÃ®ne
     // (`stream_id` et `num:stream_id`) : n'indexer que le premier faisait
-    // perdre les programmes dont le XMLTV utilise la forme préfixée.
+    // perdre les programmes dont le XMLTV utilise la forme prÃ©fixÃ©e.
     final byChannel = <String, Channel>{};
     for (final c in channels) {
       for (final id in c.epgChannelIds) {
@@ -215,7 +217,7 @@ class EpgAiEngine {
 
 ```
 
-#### `lib/services/epg_ai_search.dart` · lignes 201–272 · partie 2/2
+#### `lib/services/epg_ai_search.dart` Â· lignes 201â€“272 Â· partie 2/2
 
 ```dart
       final title = _fold(program.title);
@@ -245,8 +247,8 @@ class EpgAiEngine {
       }
 
       if (!matched && query.contentTypeIntent == null) {
-        // Requête sans mot-clé significatif (« que regarder ce soir ») : on
-        // ne retient que les programmes en cours ou à venir proches.
+        // RequÃªte sans mot-clÃ© significatif (Â« que regarder ce soir Â») : on
+        // ne retient que les programmes en cours ou Ã  venir proches.
         if (!query.preferLiveNow && query.referenceTime == null) {
           if (!program.isLive) continue;
           score += 1;
@@ -291,3 +293,6 @@ class EpgAiEngine {
   }
 }
 ```
+
+
+

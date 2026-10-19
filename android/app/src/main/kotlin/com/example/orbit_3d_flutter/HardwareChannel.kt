@@ -15,8 +15,12 @@ import io.flutter.plugin.common.MethodChannel
 object HardwareChannel {
     private const val CHANNEL = "orbit/hardware"
 
+    @Volatile private var channel: MethodChannel? = null
+
     fun register(engine: FlutterEngine, context: Context) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val ch = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        channel = ch
+        ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getMemory" -> {
                     val activityManager =
@@ -34,5 +38,18 @@ object HardwareChannel {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /**
+     * Detache le canal : retire le handler du binaryMessenger et libere la
+     * reference statique au MethodChannel.
+     *
+     * Appele depuis [MainActivity.onDestroy] avant la destruction de l'engine.
+     * Le handler, qui capture l'Activity / le Context, n'est alors plus
+     * atteignable depuis une racine statique.
+     */
+    fun detach() {
+        channel?.setMethodCallHandler(null)
+        channel = null
     }
 }

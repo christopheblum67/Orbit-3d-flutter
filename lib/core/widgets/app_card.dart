@@ -4,8 +4,8 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 /// Carte arrondie moderne, réutilisable sur tous les écrans.
 ///
-/// Par défaut : fond noir charbon (0xFF12141C) pour harmoniser
-/// toutes les cartes (chaînes, films, séries).
+/// Par défaut : fond dérivé du thème via `colorScheme.surfaceContainer`
+/// pour s'adapter automatiquement aux palettes (clair/sombre/personnalisée).
 /// Titre en texte blanc doux (white70) pour lisibilité.
 class AppCard extends StatelessWidget {
   const AppCard({
@@ -33,22 +33,21 @@ class AppCard extends StatelessWidget {
   /// stateless de changer d'aspect à l'exécution.
   static String? _lastLoggedColorSignature;
 
-  // Couleur de fond par défaut : rouge sombre désaturé. Assez sombre pour ne
-  // pas éblouir ni concurrencer les logos, assez rouge pour être perceptible.
-  static const Color _defaultCardColor = Color(0xFF33181C);
-
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final radius = borderRadius ?? BorderRadius.circular(AppConstants.radiusLg);
     // Quand la carte est transparente (ex. MediaCard dans les grilles
     // films/séries), on supprime la bordure et l'ombre qui dessinent un
     // encadré visible autour de chaque tuile.
     final transparent = color == Colors.transparent;
+    // Couleur effective : explicite, transparente, ou défaut thématique.
+    final effectiveColor = color ?? scheme.surfaceContainer;
     // Diagnostic : « APPCARD » n'apparaît que lorsqu'un parent change la
     // couleur demandée d'une carte (ex. transparent ↔ défaut). Si l'encadré
     // d'une tuile apparaît sans log, la cause n'est PAS AppCard.
     final signature = color == null
-        ? 'default(#33181C)'
+        ? 'default(surfaceContainer)'
         : color == Colors.transparent
             ? 'transparent'
             : '$color';
@@ -61,12 +60,12 @@ class AppCard extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: color ?? _defaultCardColor,
+        color: effectiveColor,
         borderRadius: radius,
         border: transparent
             ? null
             : Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: scheme.outlineVariant,
               ),
         boxShadow: transparent
             ? null

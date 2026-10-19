@@ -1,16 +1,18 @@
-# EPG — grille : 7. rattrapage et recherche
+﻿# EPG â€” grille : 7. rattrapage et recherche
 
 > **Partie 2/3**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : epg_ai_search.dart (service de recherche IA EPG) a été **supprimé** par le commit 4458d6d. Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/catch_up_screen.dart`, `lib/utils/epg_search.dart`, `lib/utils/epg_gap_filler.dart`, `lib/services/epg_ai_search.dart`
 
-### 7.1 `CatchUpScreen` — rattrapage depuis la grille — suite 2/2
+### 7.1 `CatchUpScreen` â€” rattrapage depuis la grille â€” suite 2/2
 
-`lib/features/epg/widgets/catch_up_screen.dart` · lignes 401–452
+`lib/features/epg/widgets/catch_up_screen.dart` Â· lignes 401â€“452
 
-#### `lib/features/epg/widgets/catch_up_screen.dart` · lignes 401–452 · partie 1/1
+#### `lib/features/epg/widgets/catch_up_screen.dart` Â· lignes 401â€“452 Â· partie 1/1
 
 ```dart
                         fontWeight: FontWeight.bold,),
@@ -67,35 +69,35 @@ Sources : `lib/features/epg/widgets/catch_up_screen.dart`, `lib/utils/epg_search
 }
 ```
 
-### 7.2 `epg_search` — recherche locale
+### 7.2 `epg_search` â€” recherche locale
 
-`lib/utils/epg_search.dart` · lignes 1–67
+`lib/utils/epg_search.dart` Â· lignes 1â€“67
 
-#### `lib/utils/epg_search.dart` · lignes 1–67 · partie 1/1
+#### `lib/utils/epg_search.dart` Â· lignes 1â€“67 Â· partie 1/1
 
 ```dart
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 
-/// Recherche des programmes d'une chaîne dans une fenêtre horaire.
+/// Recherche des programmes d'une chaÃ®ne dans une fenÃªtre horaire.
 ///
-/// ## Pourquoi pas de déréférencement forcé
+/// ## Pourquoi pas de dÃ©rÃ©fÃ©rencement forcÃ©
 ///
 /// Les champs `startEpochSec` / `endEpochSec` sont nullables : certaines
-/// sources (panel renvoyant des entrées tronquées) ne les renseignent pas. Un
-/// `!` ici faisait sauter la recherche binaire entière, et l'exception était
-/// avalée par le `safeAsync` appelant : la ligne restait vide sans qu'aucun
+/// sources (panel renvoyant des entrÃ©es tronquÃ©es) ne les renseignent pas. Un
+/// `!` ici faisait sauter la recherche binaire entiÃ¨re, et l'exception Ã©tait
+/// avalÃ©e par le `safeAsync` appelant : la ligne restait vide sans qu'aucun
 /// message n'explique pourquoi. On compare donc sur les `DateTime`, qui sont
 /// non nulles par construction, et l'on retombe sur un balayage si l'indexation
 /// n'est pas fiable.
 class EPGSearchEngine {
   const EPGSearchEngine._();
 
-  /// Programmes chevauchant `[windowStart, windowEnd]`, triés par début.
+  /// Programmes chevauchant `[windowStart, windowEnd]`, triÃ©s par dÃ©but.
   ///
-  /// La liste fournie peut ne pas être triée (le cache EPG la range par chaîne,
+  /// La liste fournie peut ne pas Ãªtre triÃ©e (le cache EPG la range par chaÃ®ne,
   /// mais un appelant peut fournir un ordre quelconque) : on la copie et on la
-  /// trie si nécessaire. Le tri est indispensable : la recherche dichotomique
-  /// ci-dessous en dépend.
+  /// trie si nÃ©cessaire. Le tri est indispensable : la recherche dichotomique
+  /// ci-dessous en dÃ©pend.
   static List<EPGProgram> getProgramsInWindow(
     List<EPGProgram> programs,
     int windowStartSec,
@@ -108,8 +110,8 @@ class EPGSearchEngine {
           ..sort((a, b) => a.start.compareTo(b.start)))
         : programs;
 
-    // Recherche dichotomique du premier programme finissant après le début de
-    // la fenêtre. Les chevauchements au début (programme commencé la veille)
+    // Recherche dichotomique du premier programme finissant aprÃ¨s le dÃ©but de
+    // la fenÃªtre. Les chevauchements au dÃ©but (programme commencÃ© la veille)
     // sont donc bien inclus.
     var low = 0;
     var high = sorted.length - 1;
@@ -143,11 +145,11 @@ class EPGSearchEngine {
 }
 ```
 
-### 7.3 `epg_gap_filler` — comblement de trous
+### 7.3 `epg_gap_filler` â€” comblement de trous
 
-`lib/utils/epg_gap_filler.dart` · lignes 1–86
+`lib/utils/epg_gap_filler.dart` Â· lignes 1â€“86
 
-#### `lib/utils/epg_gap_filler.dart` · lignes 1–86 · partie 1/1
+#### `lib/utils/epg_gap_filler.dart` Â· lignes 1â€“86 Â· partie 1/1
 
 ```dart
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -156,27 +158,27 @@ import 'package:orbit_3d_flutter/models/epg_program.dart';
 ///
 /// ## Pourquoi
 ///
-/// Un flux EPG n'est jamais continu : il y a des trous entre deux émissions, en
-/// début de journée, et autour des programmes en cours. Sur une grille dont
-/// l'axe horaire est continu, un trou n'est pas un blanc neutre — c'est une
-/// absence qui se lit comme « rien n'est programmé », et qui décale la lecture
-/// de l'axe. On insère donc un bloc explicite, ce qui rend le trou visible et
+/// Un flux EPG n'est jamais continu : il y a des trous entre deux Ã©missions, en
+/// dÃ©but de journÃ©e, et autour des programmes en cours. Sur une grille dont
+/// l'axe horaire est continu, un trou n'est pas un blanc neutre â€” c'est une
+/// absence qui se lit comme Â« rien n'est programmÃ© Â», et qui dÃ©cale la lecture
+/// de l'axe. On insÃ¨re donc un bloc explicite, ce qui rend le trou visible et
 /// dit sa cause.
 ///
-/// Le résultat couvre **exactement** `[windowStart, windowEnd]` : la somme des
-/// durées vaut la largeur de la fenêtre, et c'est ce qui garantit qu'aucun
-/// programme ne se retrouve décalé d'une colonne.
+/// Le rÃ©sultat couvre **exactement** `[windowStart, windowEnd]` : la somme des
+/// durÃ©es vaut la largeur de la fenÃªtre, et c'est ce qui garantit qu'aucun
+/// programme ne se retrouve dÃ©calÃ© d'une colonne.
 class EpgGapFiller {
   const EpgGapFiller._();
 
   /// Titre du bloc de remplacement.
-  static const String noDataTitle = 'Aucune donnée de programme';
+  static const String noDataTitle = 'Aucune donnÃ©e de programme';
 
-  /// Complète la couverture de la fenêtre pour une chaîne.
+  /// ComplÃ¨te la couverture de la fenÃªtre pour une chaÃ®ne.
   ///
-  /// Les programmes sont d'abord rognés aux bornes : un programme commencé la
-  /// veille commence à la fenêtre. Les chevauchements sont traités en rognant
-  /// le début du suivant, ce qui évite deux blocs superposés.
+  /// Les programmes sont d'abord rognÃ©s aux bornes : un programme commencÃ© la
+  /// veille commence Ã  la fenÃªtre. Les chevauchements sont traitÃ©s en rognant
+  /// le dÃ©but du suivant, ce qui Ã©vite deux blocs superposÃ©s.
   static List<EPGProgram> fill({
     required List<EPGProgram> programs,
     required DateTime windowStart,
@@ -194,11 +196,11 @@ class EpgGapFiller {
     var cursor = windowStart;
 
     for (final p in overlapping) {
-      // Borne de début : jamais avant le curseur (chevauchement), jamais avant
-      // la fenêtre.
+      // Borne de dÃ©but : jamais avant le curseur (chevauchement), jamais avant
+      // la fenÃªtre.
       final clippedStart = p.start.isAfter(windowStart) ? p.start : windowStart;
       final start = clippedStart.isBefore(cursor) ? cursor : clippedStart;
-      // Borne de fin : jamais après la fenêtre, et toujours après le début.
+      // Borne de fin : jamais aprÃ¨s la fenÃªtre, et toujours aprÃ¨s le dÃ©but.
       final end = p.end.isBefore(windowEnd) ? p.end : windowEnd;
       if (!end.isAfter(start)) continue;
 
@@ -219,7 +221,7 @@ class EpgGapFiller {
       cursor = end;
     }
 
-    // Trou de fin : du dernier programme (ou du début de fenêtre) à la fin.
+    // Trou de fin : du dernier programme (ou du dÃ©but de fenÃªtre) Ã  la fin.
     if (cursor.isBefore(windowEnd)) {
       out.add(_dummy(channelId, cursor, windowEnd));
     }
@@ -237,3 +239,6 @@ class EpgGapFiller {
       );
 }
 ```
+
+
+

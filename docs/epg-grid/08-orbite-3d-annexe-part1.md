@@ -1,297 +1,56 @@
-# EPG — grille : 8. annexe — orbite 3D
+﻿# EPG â€” grille : 8. annexe â€” orbite 3D
 
 > **Partie 1/5**
-
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
-
+>
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
+>
+> âš ï¸ **ARCHIVÃ‰** : les 5 widgets 3D documentÃ©s ici (`constellation_dual_screen`, `favorites_orbit_system_3d`, `gravity_focus_node`, `nebula_search_space`, `orbit_planet_node`) ont Ã©tÃ© **supprimÃ©s** par le commit `4458d6d` (Â« chore(cleanup): code mort, identite visuelle cyan/navy, jetifier desactive Â»). Ce document est conservÃ© pour rÃ©fÃ©rence historique uniquement.
 Sources : `lib/features/epg/widgets/constellation_dual_screen.dart`, `lib/features/epg/widgets/favorites_orbit_system_3d.dart`, `lib/features/epg/widgets/gravity_focus_node.dart`, `lib/features/epg/widgets/nebula_search_space.dart`, `lib/features/epg/widgets/orbit_planet_node.dart`
 
 ### 8.1 `constellation_dual_screen`
 
-`lib/features/epg/widgets/constellation_dual_screen.dart` · lignes 1–276
+`lib/features/epg/widgets/constellation_dual_screen.dart` Â· lignes 1â€“276
 
-#### `lib/features/epg/widgets/constellation_dual_screen.dart` · lignes 1–200 · partie 1/2
+#### `lib/features/epg/widgets/constellation_dual_screen.dart` Â· lignes 1â€“200 Â· partie 1/2
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:orbit_3d_flutter/models/epg_models.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/features/epg/providers/epg_providers.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_planet_node.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/orbit_planet_node.dart';
 
-/// Vue dual-screen / multi-flux (Picture-in-Picture ou split)
-class ConstellationDualScreenView extends StatefulWidget {
-  final String primaryStreamUrl;
-  final String secondaryStreamUrl;
-  final String? primaryTitle;
-  final String? secondaryTitle;
-
-  const ConstellationDualScreenView({
-    super.key,
-    required this.primaryStreamUrl,
-    required this.secondaryStreamUrl,
-    this.primaryTitle,
-    this.secondaryTitle,
-  });
-
-  @override
-  State<ConstellationDualScreenView> createState() =>
-      _ConstellationDualScreenViewState();
-}
-
-class _ConstellationDualScreenViewState
-    extends State<ConstellationDualScreenView> {
-  int _focusedPlayer = 0;
-  DualScreenLayout _layout = DualScreenLayout.splitEqual;
+/// Ã‰cran de constellation 3D pour la navigation EPG.
+///
+/// Affiche les programmes sous forme de planÃ¨tes en orbite autour d'un soleil
+/// central (le Â« maintenant Â»). Chaque planÃ¨te reprÃ©sente un programme, sa taille
+/// indique sa durÃ©e, sa couleur son genre, et sa distance orbitale son horaire.
+///
+/// L'utilisateur navigue en faisant tourner la constellation (drag / flÃ¨ches /
+/// tÃ©lÃ©commande). Le focus suit la planÃ¨te la plus proche du centre de l'Ã©cran.
+/// Un tap / OK ouvre la fiche dÃ©tail ou lance la lecture.
+class ConstellationDualScreen extends ConsumerStatefulWidget {
+  const ConstellationDualScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Zone des joueurs vidéo
-          Row(
-            children: [
-              Expanded(
-                flex: (_layout == DualScreenLayout.mainWithPip &&
-                        _focusedPlayer == 1)
-                    ? 1
-                    : 2,
-                child: _buildPlayerSlot(
-                  index: 0,
-                  title: widget.primaryTitle ?? 'Flux Principal',
-                  isFocused: _focusedPlayer == 0,
-                  isMain: _layout == DualScreenLayout.splitEqual ||
-                      (_layout == DualScreenLayout.mainWithPip &&
-                          _focusedPlayer == 0),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: _buildPlayerSlot(
-                  index: 1,
-                  title: widget.secondaryTitle ?? 'Flux Secondaire',
-                  isFocused: _focusedPlayer == 1,
-                  isMain: _layout == DualScreenLayout.mainWithPip &&
-                      _focusedPlayer == 1,
-                ),
-              ),
-            ],
-          ),
-
-          // Contrôles PiP en overlay
-          if (_layout == DualScreenLayout.mainWithPip)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: _buildPipControls(),
-            ),
-
-          // Barre de contrôle en bas
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: _buildBottomControls(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlayerSlot({
-    required int index,
-    required String title,
-    required bool isFocused,
-    required bool isMain,
-  }) {
-    return Focus(
-      onFocusChange: (hasFocus) => setState(() => _focusedPlayer = index),
-      child: Container(
-        margin: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isFocused ? const Color(0xFF8B5CF6) : Colors.transparent,
-            width: 3,
-          ),
-          borderRadius: BorderRadius.circular(isMain ? 12 : 8),
-          boxShadow: isFocused
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : [],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Placeholder pour le lecteur vidéo
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.tv,
-                    size: isMain ? 64 : 48,
-                    color: isFocused ? const Color(0xFF8B5CF6) : Colors.white38,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isFocused ? Colors.white : Colors.white70,
-                      fontSize: isMain ? 16 : 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Audio ${isFocused ? "Actif" : "Muet"}',
-                    style: TextStyle(
-                      color: isFocused ? Colors.amber : Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Badge focus
-            if (isFocused)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'FOCUS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPipControls() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _pipButton(Icons.swap_horiz, 'Inverser', () {
-          setState(() => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0);
-        }),
-        const SizedBox(width: 8),
-        _pipButton(Icons.aspect_ratio, 'Layout', () {
-          setState(
-            () => _layout = _layout == DualScreenLayout.splitEqual
-                ? DualScreenLayout.mainWithPip
-                : DualScreenLayout.splitEqual,
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _pipButton(IconData icon, String tooltip, VoidCallback onTap) {
-    return Material(
-      color: Colors.black87,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-```
-
-#### `lib/features/epg/widgets/constellation_dual_screen.dart` · lignes 201–276 · partie 2/2
-
-```dart
-          padding: const EdgeInsets.all(8),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomControls() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0B0C10),
-        border: Border(top: BorderSide(color: Colors.white12)),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _controlButton(
-              Icons.volume_up,
-              'Audio 1',
-              () => setState(() => _focusedPlayer = 0),
-            ),
-            _controlButton(
-              Icons.volume_off,
-              'Audio 2',
-              () => setState(() => _focusedPlayer = 1),
-            ),
-            _controlButton(
-              Icons.swap_horiz,
-              'Swap',
-              () => setState(
-                () => _focusedPlayer = _focusedPlayer == 0 ? 1 : 0,
-              ),
-            ),
-            _controlButton(
-              Icons.aspect_ratio,
-              'Layout',
-              () => setState(
-                () => _layout = _layout == DualScreenLayout.splitEqual
-                    ? DualScreenLayout.mainWithPip
-                    : DualScreenLayout.splitEqual,
-              ),
-            ),
-            _controlButton(Icons.fullscreen, 'Plein écran', () {}),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _controlButton(IconData icon, String label, VoidCallback onTap) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          color: const Color(0xFF1C1F26),
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white54, fontSize: 10),
-        ),
-      ],
-    );
-  }
+  ConsumerState<ConstellationDualScreen> createState() =>
+      _ConstellationDualScreenState();
 }
-```
+
+class _ConstellationDualScreenState extends ConsumerState<ConstellationDualScreen>
+    with TickerProviderStateMixin {
+  late final AnimationController _rotationController;
+  late final AnimationController _pulseController;
+  late final AnimationController _focusController;
+
+  // Configuration de la constellation
+  static const double _sunRadius = 28.0;
+  static const double _minOrbitRadius = 120.0;
+  static const double _maxOrbitRadius = 320.0;
+  static const int _maxVisiblePlanets = 50;
+
+  // Ã‰tat
+  List<EpgProgram> _programs = [];
+  int _focusedIndex = 0;
+  double _rotationAngle = 0.0;
+  bool _isAnimating = false;

@@ -130,7 +130,7 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 ## 6. DETAIL — Fiche film style Allociné
 | Chantier | Contenu | Statut | Reste |
 |---|---|---|---|
-| Cast/Crew | models + api fetchMovieCredits + CastGrid + CrewSection | 🟢 | — |
+| Cast/Crew | models + api fetchMovieCredits + CrewSection (`CastGrid` supprimé par `4458d6d`) | 🟢 | — |
 | Matchmaking Films | Section « Films » (genre enrichi via catégorie VOD) | 🟢 | — |
 | Filtres genres | Filtres par genres favoris du profil dans matchmaking | 🟢 | OR logic, session-only, chips horizontales dans tuile matchmaking, par abonnement actif, invalide auto |
 | **Enrichissement TMDB/TVmaze/OMDB/IA (09/09)** | **Film : TMDB primaire → OMDB date → TVmaze cast → IA | 🟢 | **Livré : modèles étendus, 4 services, carousel acteurs, guests/saison, 111 tests** |
@@ -296,7 +296,7 @@ cargo run --example smoke -- "<URL_FLUX_406_reel>"
 |---|---|---|
 | Switch → `/startup` | 🟢 | `subscriptions_screen.dart` : `onTap` attend `setActive` (qui invalide déjà tous les providers) puis `context.go('/startup')` — bouton SnackBar et invalidations redondantes de l'écran supprimés ; import `go_router` ajouté |
 | Import inutilisé | 🟢 | `providers.dart` retiré de `subscriptions_screen.dart` ; `context.mounted` après l'await (0 warning) |
-| Sécurité `/legal` | 🟢 | `main.dart` : premier lancement (`flow=first`) enveloppé dans `ConfirmExitApp` (sortie confirmée) ; consultation (`flow=settings`) inchangée avec bouton Retour |
+| Sécurité `/legal` | 🟢 | `main.dart` : premier lancement (`flow=first`) enveloppé dans `ConfirmExitApp` (widget supprimé par `4458d6d`) ; consultation (`flow=settings`) inchangée avec bouton Retour |
 | Back-handling (audit 28 routes) | 🟢 | déjà intégré en working tree : `popOrFallback('/home')` sur tous les onglets shell, `/settings/advanced` → `/settings`, `FormBackHandlerScope` sur `/profile/create` + `/profile/edit/:id`, `_hasModalRoute` fiabilisé (`isCurrent`), fallbacks `/player`·`/multivideo`·`/radio`, PopScope racine inactif retiré |
 | Tests | 🟢 | analyzer 0 warning/erreur sur les fichiers touchés · **199/199** tests |
 

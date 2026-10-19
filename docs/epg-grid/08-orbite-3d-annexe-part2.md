@@ -1,16 +1,19 @@
-# EPG — grille : 8. annexe — orbite 3D
+﻿# EPG â€” grille : 8. annexe â€” orbite 3D
 
 > **Partie 2/5**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : les 5 widgets 3D documentés ici (constellation_dual_screen, avorites_orbit_system_3d, gravity_focus_node, 
+ebula_search_space, orbit_planet_node) ont été **supprimés** par le commit 4458d6d (« chore(cleanup): code mort, identite visuelle cyan/navy, jetifier desactive »). Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/constellation_dual_screen.dart`, `lib/features/epg/widgets/favorites_orbit_system_3d.dart`, `lib/features/epg/widgets/gravity_focus_node.dart`, `lib/features/epg/widgets/nebula_search_space.dart`, `lib/features/epg/widgets/orbit_planet_node.dart`
 
 ### 8.2 `favorites_orbit_system_3d`
 
-`lib/features/epg/widgets/favorites_orbit_system_3d.dart` · lignes 1–315
+`lib/features/epg/widgets/favorites_orbit_system_3d.dart` Â· lignes 1â€“315
 
-#### `lib/features/epg/widgets/favorites_orbit_system_3d.dart` · lignes 1–200 · partie 1/2
+#### `lib/features/epg/widgets/favorites_orbit_system_3d.dart` Â· lignes 1â€“200 Â· partie 1/2
 
 ```dart
 import 'dart:math' as math;
@@ -19,7 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_models.dart';
 
-/// Système solaire des favoris : Soleil (Top Favori) + planètes orbitantes
+/// SystÃ¨me solaire des favoris : Soleil (Top Favori) + planÃ¨tes orbitantes
 class FavoritesOrbitSystem3D extends StatefulWidget {
   final List<FavoriteChannelNode> favorites;
   final VoidCallback onZoomOutToCategories;
@@ -67,12 +70,12 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
             Icon(Icons.favorite_border, size: 64, color: Colors.white38),
             SizedBox(height: 16),
             Text(
-              'Aucun favori enregistré',
+              'Aucun favori enregistrÃ©',
               style: TextStyle(color: Colors.white38, fontSize: 16),
             ),
             SizedBox(height: 8),
             Text(
-              'Appuyez longuement sur une chaîne pour l\'ajouter',
+              'Appuyez longuement sur une chaÃ®ne pour l\'ajouter',
               style: TextStyle(color: Colors.white24, fontSize: 12),
             ),
           ],
@@ -195,7 +198,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
               ),
             ),
 
-            // Planètes orbitantes
+            // PlanÃ¨tes orbitantes
             AnimatedBuilder(
               animation: _rotationController,
               builder: (context, child) {
@@ -215,7 +218,7 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
 
 ```
 
-#### `lib/features/epg/widgets/favorites_orbit_system_3d.dart` · lignes 201–315 · partie 2/2
+#### `lib/features/epg/widgets/favorites_orbit_system_3d.dart` Â· lignes 201â€“315 Â· partie 2/2
 
 ```dart
                     return Transform.translate(
@@ -334,3 +337,6 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
   }
 }
 ```
+
+
+

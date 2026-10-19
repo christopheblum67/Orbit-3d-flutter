@@ -438,8 +438,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Passe en plein écran immersif (masque status bar + navbar Android)
-  /// quand la vidéo joue. Ne fait RIEN si la footerbar est visible (tap/OK) —
-  /// son timer d'auto-masquage la fera disparaître (~5s) puis on reviendra ici.
+  /// quand la vidéo joue. Si la footerbar est visible (tap/OK), on attend sa
+  /// disparition (timer ~5s) puis on repasse en immersive via _syncImmersive().
   void _syncImmersive() {
     final playing = _status == _PlayerStatus.ready &&
         _controller != null &&
@@ -467,6 +467,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final firstShow = !_footerVisible;
     _footerVisible = true;
     if (mounted && firstShow) setState(() {});
+    // Synchroniser l'état : on sort de l'immersif avant de passer en edgeToEdge,
+    // sinon _syncImmersive() ne remettra jamais en immersive (garde !immersive).
+    _immersive = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _footerTimer = Timer(duration, () {
       if (!mounted) return;

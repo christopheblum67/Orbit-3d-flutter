@@ -17,8 +17,12 @@ import io.flutter.plugins.videoplayer.OrbitPlayerConfig
 object PlayerConfigChannel {
     private const val CHANNEL = "orbit/player_config"
 
+    @Volatile private var channel: MethodChannel? = null
+
     fun register(engine: FlutterEngine, context: Context) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        val ch = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        channel = ch
+        ch.setMethodCallHandler { call, result ->
             when (call.method) {
                 "configure" -> {
                     val args = call.arguments as? Map<*, *> ?: emptyMap<Any?, Any?>()
@@ -40,5 +44,18 @@ object PlayerConfigChannel {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    /**
+     * Detache le canal : retire le handler du binaryMessenger et libere la
+     * reference statique au MethodChannel.
+     *
+     * Appele depuis [MainActivity.onDestroy] avant la destruction de l'engine.
+     * Le handler, qui capture l'Activity / le Context, n'est alors plus
+     * atteignable depuis une racine statique.
+     */
+    fun detach() {
+        channel?.setMethodCallHandler(null)
+        channel = null
     }
 }

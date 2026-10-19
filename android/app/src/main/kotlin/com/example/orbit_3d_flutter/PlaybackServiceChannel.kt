@@ -66,6 +66,26 @@ object PlaybackServiceChannel {
         }
     }
 
+    /**
+     * Détache le canal de l'engine : retire le handler du binaryMessenger, libère
+     * la référence statique et purge les commandes en attente sur le main thread.
+     *
+     * À appeler depuis [MainActivity.onDestroy] avant la destruction de l'engine.
+     * Sans cela `channel` (référence statique, conservée volontairement pour que le
+     * service natif puisse émettre vers Dart) maintient le messenger de l'engine et,
+     * à travers le handler enregistré, le `context` capturé — donc l'Activity
+     * détruite resterait fortement atteignable jusqu'à la fin du processus.
+     *
+     * Comportement inchangé : après détachement, [sendCommand] retourne simplement
+     * sans rien faire, exactement comme l'appel à `invokeMethod` sur un engine déjà
+     * détruit, dont l'exception était déjà avalée par `runCatching`.
+     */
+    fun detach() {
+        channel?.setMethodCallHandler(null)
+        channel = null
+        mainHandler.removeCallbacksAndMessages(null)
+    }
+
     private fun sendToService(
         context: Context,
         action: String,

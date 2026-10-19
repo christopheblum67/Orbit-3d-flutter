@@ -1,23 +1,26 @@
-# EPG — grille : 8. annexe — orbite 3D
+﻿# EPG â€” grille : 8. annexe â€” orbite 3D
 
 > **Partie 3/5**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : les 5 widgets 3D documentés ici (constellation_dual_screen, avorites_orbit_system_3d, gravity_focus_node, 
+ebula_search_space, orbit_planet_node) ont été **supprimés** par le commit 4458d6d (« chore(cleanup): code mort, identite visuelle cyan/navy, jetifier desactive »). Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/constellation_dual_screen.dart`, `lib/features/epg/widgets/favorites_orbit_system_3d.dart`, `lib/features/epg/widgets/gravity_focus_node.dart`, `lib/features/epg/widgets/nebula_search_space.dart`, `lib/features/epg/widgets/orbit_planet_node.dart`
 
 ### 8.3 `gravity_focus_node`
 
-`lib/features/epg/widgets/gravity_focus_node.dart` · lignes 1–139
+`lib/features/epg/widgets/gravity_focus_node.dart` Â· lignes 1â€“139
 
-#### `lib/features/epg/widgets/gravity_focus_node.dart` · lignes 1–139 · partie 1/1
+#### `lib/features/epg/widgets/gravity_focus_node.dart` Â· lignes 1â€“139 Â· partie 1/1
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 
-/// Focus gravitationnel : grossissement + aura lumineuse au focus télécommande
+/// Focus gravitationnel : grossissement + aura lumineuse au focus tÃ©lÃ©commande
 class GravityFocusNode extends StatelessWidget {
   final bool isFocused;
   final Widget child;
@@ -78,7 +81,7 @@ class GravityFocusNode extends StatelessWidget {
   }
 }
 
-/// Wrapper pour Focus + GravityFocusNode combinés
+/// Wrapper pour Focus + GravityFocusNode combinÃ©s
 class FocusableGravityNode extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -153,3 +156,6 @@ class GravityFocusNodeConfig {
   });
 }
 ```
+
+
+

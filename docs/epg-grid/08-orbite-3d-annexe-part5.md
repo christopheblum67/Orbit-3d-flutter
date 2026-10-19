@@ -1,23 +1,26 @@
-# EPG — grille : 8. annexe — orbite 3D
+﻿# EPG â€” grille : 8. annexe â€” orbite 3D
 
 > **Partie 5/5**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
+
+> ⚠️ **ARCHIVÉ** : les 5 widgets 3D documentés ici (constellation_dual_screen, avorites_orbit_system_3d, gravity_focus_node, 
+ebula_search_space, orbit_planet_node) ont été **supprimés** par le commit 4458d6d (« chore(cleanup): code mort, identite visuelle cyan/navy, jetifier desactive »). Ce document est conservé pour référence historique uniquement.
 Sources : `lib/features/epg/widgets/constellation_dual_screen.dart`, `lib/features/epg/widgets/favorites_orbit_system_3d.dart`, `lib/features/epg/widgets/gravity_focus_node.dart`, `lib/features/epg/widgets/nebula_search_space.dart`, `lib/features/epg/widgets/orbit_planet_node.dart`
 
 ### 8.5 `orbit_planet_node`
 
-`lib/features/epg/widgets/orbit_planet_node.dart` · lignes 1–127
+`lib/features/epg/widgets/orbit_planet_node.dart` Â· lignes 1â€“127
 
-#### `lib/features/epg/widgets/orbit_planet_node.dart` · lignes 1–127 · partie 1/1
+#### `lib/features/epg/widgets/orbit_planet_node.dart` Â· lignes 1â€“127 Â· partie 1/1
 
 ```dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/models/epg_models.dart';
 
-/// Nœud planétaire individuel pour l'orbite 3D
+/// NÅ“ud planÃ©taire individuel pour l'orbite 3D
 class OrbitPlanetNode extends StatelessWidget {
   final OrbitChannelPlanet planet;
   final double angleRadians;
@@ -67,7 +70,7 @@ class OrbitPlanetNode extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Avatar de la chaîne
+                  // Avatar de la chaÃ®ne
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: const Color(0xFF16181E),
@@ -141,3 +144,6 @@ class OrbitPlanetNode extends StatelessWidget {
   }
 }
 ```
+
+
+

@@ -1,21 +1,21 @@
-/*.apk
+﻿/*.apk
 /build/
 /.dart_tool/
 
 # FVM Version Cache
 .fvm/
 
-# Artefacts du fork video_player_android (dépendance analysée)
+# Artefacts du fork video_player_android (dÃ©pendance analysÃ©e)
 third_party/video_player_android/.dart_tool/
 third_party/video_player_android/pubspec.lock
 
-# Artefacts du fork speech_to_text (stats AS, exemples, suites non utilisées)
+# Artefacts du fork speech_to_text (stats AS, exemples, suites non utilisÃ©es)
 third_party/speech_to_text/codestats.csv
 third_party/speech_to_text/example/
 third_party/speech_to_text/scripts/
 third_party/speech_to_text/test/
 
-# Artefacts de build / plugin générés
+# Artefacts de build / plugin gÃ©nÃ©rÃ©s
 .flutter-plugins
 .flutter-plugins-dependencies
 android/.gradle/
@@ -38,7 +38,7 @@ windows/flutter/generated_plugins.cmake
 # Identifiants de signature release (keystore) et sauvegardes de mots de passe
 docs/secrets/
 
-# Clés de compte de service Firebase (secrets à ne jamais committer)
+# ClÃ©s de compte de service Firebase (secrets Ã  ne jamais committer)
 *firebase-adminsdk*.json
 service_account.json
 
@@ -47,9 +47,16 @@ third_party/*/android/build/
 third_party/*/.gradle/
 third_party/*/build/
 
-# Outils locaux OpenCode (config/état de session, non partagé)
+# Outils locaux OpenCode (config/Ã©tat de session, non partagÃ©)
 .opencode/
 
 # Journaux de build locaux
 build_apk.log
+
+
+# Journaux de test Android (UTF-16LE, build local)
+android/test_output.txt
+
+# Artefacts de test locaux
+test_baseline.txt
 

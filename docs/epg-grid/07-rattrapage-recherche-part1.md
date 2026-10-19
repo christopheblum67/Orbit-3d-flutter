@@ -1,16 +1,16 @@
-# EPG — grille : 7. rattrapage et recherche
+﻿# EPG â€” grille : 7. rattrapage et recherche
 
 > **Partie 1/3**
 
-> Fiche générée depuis le code source — extraction fidèle, commentaires compris. Chaque bloc est limité à 200 lignes pour rester copiable sans saturer le presse-papier.
+> Fiche gÃ©nÃ©rÃ©e depuis le code source â€” extraction fidÃ¨le, commentaires compris. Chaque bloc est limitÃ© Ã  200 lignes pour rester copiable sans saturer le presse-papier.
 
 Sources : `lib/features/epg/widgets/catch_up_screen.dart`, `lib/utils/epg_search.dart`, `lib/utils/epg_gap_filler.dart`, `lib/services/epg_ai_search.dart`
 
-### 7.1 `CatchUpScreen` — rattrapage depuis la grille — suite 1/2
+### 7.1 `CatchUpScreen` â€” rattrapage depuis la grille â€” suite 1/2
 
-`lib/features/epg/widgets/catch_up_screen.dart` · lignes 1–400
+`lib/features/epg/widgets/catch_up_screen.dart` Â· lignes 1â€“400
 
-#### `lib/features/epg/widgets/catch_up_screen.dart` · lignes 1–200 · partie 1/2
+#### `lib/features/epg/widgets/catch_up_screen.dart` Â· lignes 1â€“200 Â· partie 1/2
 
 ```dart
 import 'package:flutter/material.dart';
@@ -25,13 +25,13 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 
-/// Écran Catch-up (rattrapage) pour une chaîne spécifique.
+/// Ã‰cran Catch-up (rattrapage) pour une chaÃ®ne spÃ©cifique.
 ///
 /// Affiche :
-/// - Header avec logo/nom de la chaîne
+/// - Header avec logo/nom de la chaÃ®ne
 /// - Barre horizontale de dates (7-14 jours glissants)
-/// - Liste verticale des programmes EPG du jour sélectionné
-///   avec titre, horaire, description complète, et bouton Replay si disponible.
+/// - Liste verticale des programmes EPG du jour sÃ©lectionnÃ©
+///   avec titre, horaire, description complÃ¨te, et bouton Replay si disponible.
 class CatchUpScreen extends ConsumerWidget {
   const CatchUpScreen({
     super.key,
@@ -43,7 +43,7 @@ class CatchUpScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    // Programmes passés + à venir via l'EPG COMPLET de la chaîne
+    // Programmes passÃ©s + Ã  venir via l'EPG COMPLET de la chaÃ®ne
     // (`get_simple_data_table`), source du rattrapage multi-jours.
     final catchUpAsync = ref.watch(channelCatchUpProvider(channel.id));
 
@@ -92,15 +92,15 @@ class CatchUpScreen extends ConsumerWidget {
               ),
             );
           }
-          // Grouper par date (clé yyyy-MM-dd)
+          // Grouper par date (clÃ© yyyy-MM-dd)
           final byDate = <String, List<EPGProgram>>{};
           for (final p in programs) {
             final key = _dateKey(p.start);
             (byDate[key] ??= <EPGProgram>[]).add(p);
           }
-          // Trier les dates : plus récent d'abord
+          // Trier les dates : plus rÃ©cent d'abord
           final dates = byDate.keys.toList()..sort((a, b) => b.compareTo(a));
-          // Date sélectionnée par défaut : aujourd'hui si présent, sinon la plus récente
+          // Date sÃ©lectionnÃ©e par dÃ©faut : aujourd'hui si prÃ©sent, sinon la plus rÃ©cente
           final now = DateTime.now();
           final todayKey = _dateKey(now);
           final defaultDate = dates.contains(todayKey)
@@ -124,7 +124,7 @@ class CatchUpScreen extends ConsumerWidget {
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
-/// Contenu avec état (date sélectionnée)
+/// Contenu avec Ã©tat (date sÃ©lectionnÃ©e)
 class _CatchUpContent extends ConsumerStatefulWidget {
   const _CatchUpContent({
     required this.channel,
@@ -215,7 +215,7 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
       messenger.showSnackBar(
 ```
 
-#### `lib/features/epg/widgets/catch_up_screen.dart` · lignes 201–400 · partie 2/2
+#### `lib/features/epg/widgets/catch_up_screen.dart` Â· lignes 201â€“400 Â· partie 2/2
 
 ```dart
         const SnackBar(
@@ -229,11 +229,11 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
 
     // Un seul constructeur d'URL de replay pour toute l'application.
     //
-    // Cet écran construisait l'URL lui-même, au format
+    // Cet Ã©cran construisait l'URL lui-mÃªme, au format
     // `/streaming/timeshift.php?...`, alors que le Replay passait par
     // `replayStreamUrl`, qui essaie d'abord le `catchup-source` du panel puis la
-    // convention `/timeshift/...`. Deux formats pour la même chose, dont un seul
-    // fonctionne sur ce panel : le rattrapage depuis l'EPG échouait là où le
+    // convention `/timeshift/...`. Deux formats pour la mÃªme chose, dont un seul
+    // fonctionne sur ce panel : le rattrapage depuis l'EPG Ã©chouait lÃ  oÃ¹ le
     // Replay aboutissait.
     final url = ref.read(apiServiceProvider).replayStreamUrl(
           channel: widget.channel,
@@ -328,17 +328,17 @@ class _DatePickerBar extends StatelessWidget {
     const months = [
       '',
       'JANV',
-      'FÉVR',
+      'FÃ‰VR',
       'MARS',
       'AVR',
       'MAI',
       'JUIN',
       'JUIL',
-      'AOÛT',
+      'AOÃ›T',
       'SEPT',
       'OCT',
       'NOV',
-      'DÉC',
+      'DÃ‰C',
     ];
     return months[m];
   }
@@ -374,7 +374,7 @@ class _ProgramTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ligne titre + badge catégorie + badge replay
+          // Ligne titre + badge catÃ©gorie + badge replay
           Row(
             children: [
               Expanded(
@@ -419,3 +419,4 @@ class _ProgramTile extends StatelessWidget {
                         color: Colors.black,
                         fontSize: 10,
 ```
+
