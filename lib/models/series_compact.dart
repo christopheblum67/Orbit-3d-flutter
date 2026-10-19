@@ -5,7 +5,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 ///
 /// Ne contient que les champs nécessaires à l'affichage en grille/liste.
 /// Les épisodes, la description détaillée et l'URL de stream sont
-/// chargés à la demande via [SeriesRepository].
+/// chargés à la demande par les providers de contenu.
 class SeriesCompact {
   const SeriesCompact({
     required this.id,

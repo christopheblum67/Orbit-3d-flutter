@@ -308,34 +308,12 @@ void main() {
     'lib/features/epg/widgets/catch_up_screen.dart',
     'lib/utils/epg_search.dart',
     'lib/utils/epg_gap_filler.dart',
-    'lib/services/epg_ai_search.dart',
   ]);
   _whole('lib/features/epg/widgets/catch_up_screen.dart',
       '7.1 `CatchUpScreen` — rattrapage depuis la grille');
   _whole('lib/utils/epg_search.dart', '7.2 `epg_search` — recherche locale');
   _whole('lib/utils/epg_gap_filler.dart', '7.3 `epg_gap_filler` — comblement de trous');
-  _whole('lib/services/epg_ai_search.dart', '7.4 `epg_ai_search` — recherche IA');
   _chapter(7, 'rattrapage-recherche', '7. rattrapage et recherche', []);
-
-  // --------------------------------------------------------------- 8
-  _startChapter('EPG — grille : 8. annexe — orbite 3D', [
-    'lib/features/epg/widgets/constellation_dual_screen.dart',
-    'lib/features/epg/widgets/favorites_orbit_system_3d.dart',
-    'lib/features/epg/widgets/gravity_focus_node.dart',
-    'lib/features/epg/widgets/nebula_search_space.dart',
-    'lib/features/epg/widgets/orbit_planet_node.dart',
-  ]);
-  _whole('lib/features/epg/widgets/constellation_dual_screen.dart',
-      '8.1 `constellation_dual_screen`');
-  _whole('lib/features/epg/widgets/favorites_orbit_system_3d.dart',
-      '8.2 `favorites_orbit_system_3d`');
-  _whole('lib/features/epg/widgets/gravity_focus_node.dart',
-      '8.3 `gravity_focus_node`');
-  _whole('lib/features/epg/widgets/nebula_search_space.dart',
-      '8.4 `nebula_search_space`');
-  _whole('lib/features/epg/widgets/orbit_planet_node.dart',
-      '8.5 `orbit_planet_node`');
-  _chapter(8, 'orbite-3d-annexe', '8. annexe — orbite 3D', []);
 
   // --------------------------------------------------------------- index
   final index = StringBuffer();

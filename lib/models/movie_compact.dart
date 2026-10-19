@@ -5,7 +5,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 ///
 /// Ne contient que les champs nécessaires à l'affichage en grille/liste.
 /// La description, le casting, l'équipe technique et l'URL de stream
-/// sont chargés à la demande via [MovieRepository].
+/// sont chargés à la demande par les providers de contenu.
 class MovieCompact {
   const MovieCompact({
     required this.id,

@@ -1,17 +1,23 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
 
 /// État de chargement générique : anneau animé dans une carte.
 class LoadingState extends StatelessWidget {
   const LoadingState({
     super.key,
+    this.showLogo = true,
     this.message = 'Chargement…',
     this.subtitle = 'Un instant…',
   });
 
   final String message;
   final String subtitle;
+
+  /// Affiche le logo de l'application au-dessus de l'anneau : identité
+  /// reprise de la bannière Android TV.
+  final bool showLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +31,10 @@ class LoadingState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (showLogo) ...[
+                const OrbitLogoIcon(size: 56),
+                const SizedBox(height: 20),
+              ],
               const _OrbitSpinner(),
               const SizedBox(height: 20),
               Text(

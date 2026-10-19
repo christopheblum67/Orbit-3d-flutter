@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
@@ -268,19 +269,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.primaryContainer.withValues(alpha: 0.5),
-              ),
-              child: Icon(
-                Icons.subscriptions_outlined,
-                size: 48,
-                color: scheme.primary,
-              ),
-            ),
+            const OrbitLogoIcon(size: 100),
             const SizedBox(height: 20),
             Text(
               'Aucun abonnement',
