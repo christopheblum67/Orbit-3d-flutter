@@ -290,6 +290,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _hasAppliedInitialPosition = false;
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
+  /// FocusNode du bouton Play/Pause de la footerbar TV : reçoit le focus
+  /// dès que la barre apparaît, pour que la télécommande pilote directement
+  /// la lecture sans devoir naviguer manuellement.
+  final FocusNode _footerPlayFocus =
+      FocusNode(debugLabel: 'FooterPlayPause');
 
   // Picture-in-Picture & lecture en arrière-plan
   final _pipService = PipService();
@@ -410,6 +415,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _bgService.stop();
     _saveProgress();
     _focusNode.dispose();
+    _footerPlayFocus.dispose();
     _generation++;
     _disposeActive();
     _disposeCachedNext();
@@ -467,7 +473,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _footerTimer?.cancel();
     final firstShow = !_footerVisible;
     _footerVisible = true;
-    if (mounted && firstShow) setState(() {});
+    if (mounted && firstShow) {
+      setState(() {});
+      // En mode TV, poser le focus sur Play/Pause dès l'apparition de la
+      // barre : la télécommande pilote directement la lecture.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _footerVisible) _footerPlayFocus.requestFocus();
+      });
+    }
     // Synchroniser l'état : on sort de l'immersif avant de passer en edgeToEdge,
     // sinon _syncImmersive() ne remettra jamais en immersive (garde !immersive).
     _immersive = false;
@@ -2124,6 +2137,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
+          playPauseFocusNode: _footerPlayFocus,
         ),
       PlaybackContentType.replay => _LiveFooterBar(
           channel: _currentChannel,
@@ -2144,6 +2158,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
+          playPauseFocusNode: _footerPlayFocus,
         ),
       PlaybackContentType.vod || PlaybackContentType.series => _VodFooterBar(
           controller: player,
@@ -2162,6 +2177,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           castButton: castButton,
           streamDetails: streamDetails,
           onToggleNightFocus: _toggleNightFocus,
+          playPauseFocusNode: _footerPlayFocus,
         ),
     };
   }
@@ -2220,6 +2236,7 @@ Widget _fbIcon(
 Widget _fbPlayPause({
   required bool isPlaying,
   required VoidCallback onPressed,
+  FocusNode? focusNode,
 }) {
   final button = IconButton(
     tooltip: isPlaying ? 'Pause' : 'Lecture',
@@ -2236,7 +2253,7 @@ Widget _fbPlayPause({
       size: 28,
     ),
   );
-  return TvFocus(onActivate: onPressed, child: button);
+  return TvFocus(onActivate: onPressed, focusNode: focusNode, child: button);
 }
 
 /// Icône Night Focus de la footerbar : l'icône et la couleur changent selon
@@ -2347,6 +2364,7 @@ class _LiveFooterBar extends ConsumerWidget {
     this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
+    this.playPauseFocusNode,
   });
 
   final Channel? channel;
@@ -2367,6 +2385,7 @@ class _LiveFooterBar extends ConsumerWidget {
   final Widget? castButton;
   final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
+  final FocusNode? playPauseFocusNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2474,7 +2493,11 @@ class _LiveFooterBar extends ConsumerWidget {
                   tooltip: l.rewind30s,
                   color: Colors.white,
                 ),
-              _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+              _fbPlayPause(
+                isPlaying: isPlaying,
+                onPressed: onTogglePlayPause,
+                focusNode: playPauseFocusNode,
+              ),
               if (showSeek) ...[
                 _fbIcon(
                   Icons.forward_30,
@@ -2528,6 +2551,7 @@ class _VodFooterBar extends ConsumerWidget {
     this.castButton,
     required this.streamDetails,
     required this.onToggleNightFocus,
+    this.playPauseFocusNode,
   });
 
   final VideoPlayerController controller;
@@ -2546,6 +2570,7 @@ class _VodFooterBar extends ConsumerWidget {
   final Widget? castButton;
   final _FooterStreamDetails streamDetails;
   final VoidCallback onToggleNightFocus;
+  final FocusNode? playPauseFocusNode;
 
   String? get _subLine {
     if (seriesName != null && episodeLabel != null) {
@@ -2632,7 +2657,11 @@ class _VodFooterBar extends ConsumerWidget {
                 tooltip: l.rewind30s,
                 color: Colors.white,
               ),
-              _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+              _fbPlayPause(
+                isPlaying: isPlaying,
+                onPressed: onTogglePlayPause,
+                focusNode: playPauseFocusNode,
+              ),
               _fbIcon(
                 Icons.forward_30,
                 onSeekForward30,

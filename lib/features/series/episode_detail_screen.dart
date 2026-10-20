@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
@@ -83,10 +84,13 @@ class EpisodeDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
+            ? TvFocus(
+                onActivate: () => context.pop(),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => context.pop(),
+                ),
               )
             : null,
         title: Text(l.episode),
@@ -165,36 +169,56 @@ class EpisodeDetailScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _openPlayer(context, ref),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(l.start),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+            // Boutons Lecture / Reprendre : navigation D-pad TV avec
+            // autofocus sur l'action principale (Lecture).
+            FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TvFocus(
+                      autofocus: true,
+                      onActivate: () => _openPlayer(context, ref),
+                      child: FilledButton.icon(
+                        onPressed: () => _openPlayer(context, ref),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text(l.start),
+                        style: FilledButton.styleFrom(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: hasProgress && episode.streamUrl.isNotEmpty
-                        ? () => _openPlayer(
-                              context,
-                              ref,
-                              positionMs: progress!.positionMs,
-                            )
-                        : null,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: const Text('Reprendre'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TvFocus(
+                      onActivate: hasProgress && episode.streamUrl.isNotEmpty
+                          ? () => _openPlayer(
+                                context,
+                                ref,
+                                positionMs: progress!.positionMs,
+                              )
+                          : null,
+                      child: OutlinedButton.icon(
+                        onPressed: hasProgress && episode.streamUrl.isNotEmpty
+                            ? () => _openPlayer(
+                                  context,
+                                  ref,
+                                  positionMs: progress!.positionMs,
+                                )
+                            : null,
+                        icon: const Icon(Icons.replay_rounded),
+                        label: const Text('Reprendre'),
+                        style: OutlinedButton.styleFrom(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (hasProgress && progress != null && progress.durationMs > 0) ...[
               const SizedBox(height: 16),

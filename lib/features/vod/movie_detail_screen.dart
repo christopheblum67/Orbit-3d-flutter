@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/crew_section.dart';
 import 'package:orbit_3d_flutter/features/widgets/translated_synopsis_view.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
@@ -35,10 +36,13 @@ class MovieDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
+            ? TvFocus(
+                onActivate: () => context.pop(),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => context.pop(),
+                ),
               )
             : null,
         title: Text(movie.title.isEmpty ? 'Détail' : movie.title),
@@ -400,48 +404,87 @@ class _MovieDetailContent extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Boutons Lecture — Wrap pour éviter le débordement en mode portrait
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _openPlayer(context),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(l.start),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+          // Boutons Lecture — Wrap pour éviter le débordement en mode portrait.
+          // FocusTraversalGroup + TvFocus : navigation D-pad télécommande TV,
+          // autofocus sur « Lecture » (action principale).
+          FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    TvFocus(
+                      autofocus: true,
+                      onActivate: () => _openPlayer(context),
+                      child: FilledButton.icon(
+                        onPressed: () => _openPlayer(context),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text(l.start),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                    TvFocus(
+                      onActivate: hasProgress
+                          ? () => _openPlayer(
+                                context,
+                                positionMs: progress!.positionMs,
+                              )
+                          : null,
+                      child: OutlinedButton.icon(
+                        onPressed: hasProgress
+                            ? () => _openPlayer(
+                                  context,
+                                  positionMs: progress!.positionMs,
+                                )
+                            : null,
+                        icon: const Icon(Icons.replay_rounded),
+                        label: const Text('Reprendre'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              OutlinedButton.icon(
-                onPressed: hasProgress
-                    ? () =>
-                        _openPlayer(context, positionMs: progress!.positionMs)
-                    : null,
-                icon: const Icon(Icons.replay_rounded),
-                label: const Text('Reprendre'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                ),
-              ),
-            ],
-          ),
-          // Bande-annonce
-          if (detail.trailerUrl != null) ...[
-            const SizedBox(height: 12),
-            Center(
-              child: OutlinedButton.icon(
-                onPressed: () => _launchTrailer(context, detail.trailerUrl!),
-                icon: const Icon(Icons.play_circle_outline),
-                label: const Text('Bande-annonce'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                  foregroundColor: Colors.redAccent,
-                ),
-              ),
+                // Bande-annonce
+                if (detail.trailerUrl != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TvFocus(
+                        onActivate: () =>
+                            _launchTrailer(context, detail.trailerUrl!),
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              _launchTrailer(context, detail.trailerUrl!),
+                          icon: const Icon(Icons.play_circle_outline),
+                          label: const Text('Bande-annonce'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 24,
+                            ),
+                            foregroundColor: Colors.redAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
           if (hasProgress && progress != null && progress.durationMs > 0) ...[
             const SizedBox(height: 16),
             LinearProgressIndicator(value: progress.fraction),
@@ -915,18 +958,22 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => setState(() => _expanded = !_expanded),
-          icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-          label: Text(
-            _expanded
-                ? 'Masquer l\'équipe technique'
-                : 'Voir l\'équipe technique',
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(44),
-            side: BorderSide(color: scheme.outlineVariant),
+        TvFocus(
+          onActivate: () => setState(() => _expanded = !_expanded),
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+            label: Text(
+              _expanded
+                  ? 'Masquer l\'équipe technique'
+                  : 'Voir l\'équipe technique',
+              style:
+                  textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
           ),
         ),
         AnimatedCrossFade(

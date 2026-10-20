@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -114,10 +115,12 @@ _MenuSection(
       // des libellés étaient coupés sur un téléviseur. En mode téléphone le
       // retrait est nul : rien ne bouge.
       child: TvSafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
               decoration: BoxDecoration(color: scheme.primaryContainer),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,10 +157,15 @@ _MenuSection(
                       ),
                 ),
               ),
-              for (final item in section.items) _MenuTile(item: item),
+              for (final item in section.items)
+                _MenuTile(
+                  item: item,
+                  autofocus: identical(item, sections.first.items.first),
+                ),
             ],
             const SizedBox(height: 16),
           ],
+        ),
         ),
       ),
     );
@@ -186,31 +194,38 @@ class _MenuEntry {
 }
 
 class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.item});
+  const _MenuTile({required this.item, this.autofocus = false});
 
   final _MenuEntry item;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final location = GoRouterState.of(context).uri.path;
     final selected = location.startsWith(item.route);
-    return ListTile(
-      leading: Icon(item.icon, color: item.color ?? scheme.primary),
-      title: Text(
-        item.label,
-        style: TextStyle(
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? scheme.primary : scheme.onSurface,
+    void navigate() {
+      Navigator.of(context).pop();
+      context.go(item.route);
+    }
+
+    return TvFocus(
+      autofocus: autofocus,
+      onActivate: navigate,
+      child: ListTile(
+        leading: Icon(item.icon, color: item.color ?? scheme.primary),
+        title: Text(
+          item.label,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? scheme.primary : scheme.onSurface,
+          ),
         ),
+        selected: selected,
+        selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onTap: navigate,
       ),
-      selected: selected,
-      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: () {
-        Navigator.of(context).pop();
-        context.go(item.route);
-      },
     );
   }
 }

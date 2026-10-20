@@ -41,10 +41,13 @@ class SeriesDetailScreen extends ConsumerWidget {
       return Scaffold(
         appBar: AppBar(
           leading: context.canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
-                  onPressed: () => context.pop(),
+              ? TvFocus(
+                  onActivate: () => context.pop(),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Retour',
+                    onPressed: () => context.pop(),
+                  ),
                 )
               : null,
           title: Text(l.detailUnavailable),
@@ -70,10 +73,13 @@ class SeriesDetailScreen extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             leading: context.canPop()
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: 'Retour',
-                    onPressed: () => context.pop(),
+                ? TvFocus(
+                    onActivate: () => context.pop(),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      tooltip: 'Retour',
+                      onPressed: () => context.pop(),
+                    ),
                   )
                 : null,
             title: Text(title.isEmpty ? baseSeries.title : title),
@@ -325,6 +331,9 @@ class _SeriesDetailContent extends ConsumerWidget {
           itemBuilder: (context, index) => _EpisodeTile(
             series: baseSeries,
             episode: episodes[index],
+            // Focus initial D-pad TV sur le premier épisode de la saison
+            // (hors onglets, où chaque tab reçoit sa propre insertion).
+            autofocus: !compact && index == 0,
           ),
         ),
       ),

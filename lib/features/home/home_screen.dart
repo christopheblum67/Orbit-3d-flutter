@@ -253,32 +253,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final rel = index - _currentPage;
-        final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
-        final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
-        final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
-        final transform = Matrix4.identity()
-          ..setEntry(3, 2, 0.0018)
-          ..rotateY(rotationY)
-          ..scaleByDouble(scale, scale, scale, 1.0);
-        final focused = rel.abs() < 0.4;
-        final item = items[index];
-        return Transform(
-          transform: transform,
-          alignment: Alignment.center,
-          child: Opacity(
-            opacity: opacity,
-            child: TvFocus(
-              onActivate: () => _openItem(context, item),
-              child: _buildCard(item, focused),
-            ),
-          ),
-        );
+    // En mode TV, les flèches gauche/droite du D-pad font défiler le
+    // carrousel : le Focus intercepte les touches et pilote le PageController.
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          _pageController.previousPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final rel = index - _currentPage;
+          final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
+          final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
+          final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
+          final transform = Matrix4.identity()
+            ..setEntry(3, 2, 0.0018)
+            ..rotateY(rotationY)
+            ..scaleByDouble(scale, scale, scale, 1.0);
+          final focused = rel.abs() < 0.4;
+          final item = items[index];
+          return Transform(
+            transform: transform,
+            alignment: Alignment.center,
+            child: Opacity(
+              opacity: opacity,
+              child: TvFocus(
+                autofocus: index == 0,
+                onActivate: () => _openItem(context, item),
+                child: _buildCard(item, focused),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
