@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
@@ -69,38 +70,41 @@ class _DuoProfileSelectionScreenState
         Expanded(
           child: others.isEmpty
               ? _buildEmptyOthers(context)
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 250,
-                    mainAxisExtent: 210,
-                    crossAxisSpacing: 18,
-                    mainAxisSpacing: 18,
-                  ),
-                  itemCount: othersAscending.length,
-                  itemBuilder: (context, index) {
-                    final profile = othersAscending[index];
-                    final selected = _selectedIds.contains(profile.id);
-                    final disabled =
-                        !selected && _selectedIds.length >= maxAdditional;
-                    return _DuoProfileCard(
-                      profile: profile,
-                      index: index,
-                      selected: selected,
-                      disabled: disabled,
-                      autofocus: index == 0 && !ready,
-                      onToggle: () {
-                        setState(() {
-                          if (selected) {
-                            _selectedIds.remove(profile.id);
-                          } else if (!disabled) {
-                            _selectedIds.add(profile.id);
-                          }
-                        });
+              : FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 250,
+                        mainAxisExtent: 210,
+                        crossAxisSpacing: 18,
+                        mainAxisSpacing: 18,
+                      ),
+                      itemCount: othersAscending.length,
+                      itemBuilder: (context, index) {
+                        final profile = othersAscending[index];
+                        final selected = _selectedIds.contains(profile.id);
+                        final disabled =
+                            !selected && _selectedIds.length >= maxAdditional;
+                        return _DuoProfileCard(
+                          profile: profile,
+                          index: index,
+                          selected: selected,
+                          disabled: disabled,
+                          autofocus: index == 0 && !ready,
+                          onToggle: () {
+                            setState(() {
+                              if (selected) {
+                                _selectedIds.remove(profile.id);
+                              } else if (!disabled) {
+                                _selectedIds.add(profile.id);
+                              }
+                            });
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
         ),
         _buildFooter(context, totalSelected, ready),
       ],
@@ -117,10 +121,13 @@ class _DuoProfileSelectionScreenState
           const DrawerMenuButton(end: true),
           const SizedBox(width: 4),
           if (context.canPop()) ...[
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => context.pop(),
-              tooltip: 'Retour',
+            TvFocus(
+              onActivate: () => context.pop(),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => context.pop(),
+                tooltip: 'Retour',
+              ),
             ),
             const SizedBox(width: 4),
           ],
@@ -206,8 +213,9 @@ class _DuoProfileSelectionScreenState
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
+          TvFocus(
+            autofocus: true,
+            onActivate: ready ? _launchDuo : null,
             child: FilledButton(
               onPressed: ready ? _launchDuo : null,
               style: FilledButton.styleFrom(
@@ -421,21 +429,13 @@ class _DuoProfileCardState extends ConsumerState<_DuoProfileCard>
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
+    return TvFocus(
       autofocus: widget.autofocus,
+      enableTvEffects: false,
+      onActivate: widget.disabled ? null : _activate,
       onFocusChange: (hasFocus) {
         if (hasFocus) HapticFeedback.selectionClick();
         setState(() => _focused = hasFocus);
-      },
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
-          if (widget.disabled) return KeyEventResult.ignored;
-          _activate();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
       },
       child: GestureDetector(
         onTap: widget.disabled ? null : _activate,
