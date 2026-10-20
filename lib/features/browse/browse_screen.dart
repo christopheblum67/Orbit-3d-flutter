@@ -1086,6 +1086,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                           entry: entry,
                           rank: index + 1,
                           onOpen: () => _openEntry(entry),
+                          autofocus: index == 0,
                         );
                       },
                     ),
@@ -1155,11 +1156,13 @@ class _RankCard extends StatelessWidget {
     required this.entry,
     required this.rank,
     required this.onOpen,
+    this.autofocus = false,
   });
 
   final TmdbRankEntry entry;
   final int rank;
   final VoidCallback onOpen;
+  final bool autofocus;
 
   Color _rankColor(ThemeData theme) {
     switch (rank) {
@@ -1178,6 +1181,7 @@ class _RankCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rankColor = _rankColor(Theme.of(context));
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onOpen,
       child: MediaCard(
         title: entry.title,

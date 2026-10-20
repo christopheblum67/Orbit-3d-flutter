@@ -225,6 +225,7 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
                         name: channel.name,
                         logoUrl: channel.logoUrl,
                         badgeNumber: channel.orderNum,
+                        autofocus: index == 0,
                         favoriteEntry: FavoriteEntry(
                           type: ContentType.live,
                           id: channel.id,

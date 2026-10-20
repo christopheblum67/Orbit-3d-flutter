@@ -347,6 +347,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             affinity: affinity,
                                             onOpen: onOpen,
                                             onLongPress: onLongPress,
+                                            autofocus: index == 0,
                                           );
                                         },
                                         childCount: visibleSeries.length,
@@ -404,12 +405,14 @@ class _SeriesTile extends ConsumerWidget {
     required this.affinity,
     required this.onOpen,
     required this.onLongPress,
+    this.autofocus = false,
   });
 
   final Series series;
   final ProfileAffinityScorer? affinity;
   final VoidCallback onOpen;
   final VoidCallback onLongPress;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -443,6 +446,7 @@ class _SeriesTile extends ConsumerWidget {
         : series;
 
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onOpen,
       child: MediaCard(
         title: series.title,

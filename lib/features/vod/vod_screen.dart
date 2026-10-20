@@ -338,6 +338,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                       movie: movie,
                                       enrichment: enrichments[movie.id],
                                       affinity: affinity,
+                                      autofocus: index == 0,
                                     );
                                   },
                                 ),
@@ -385,11 +386,13 @@ class _VodTile extends ConsumerWidget {
     required this.movie,
     required this.enrichment,
     required this.affinity,
+    this.autofocus = false,
   });
 
   final Movie movie;
   final TmdbRankEntry? enrichment;
   final ProfileAffinityScorer? affinity;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -436,6 +439,7 @@ class _VodTile extends ConsumerWidget {
     }
 
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onOpen,
       child: MediaCard(
         title: movie.title,

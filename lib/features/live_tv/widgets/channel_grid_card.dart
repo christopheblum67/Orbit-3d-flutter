@@ -39,6 +39,7 @@ class ChannelGridCard extends StatelessWidget {
     this.meta = '',
     this.badgeNumber = 0,
     this.favoriteEntry,
+    this.autofocus = false,
   });
 
   /// Nom de chaîne, tel que le panel le publie.
@@ -61,9 +62,13 @@ class ChannelGridCard extends StatelessWidget {
   /// cas aucun favori ne peut être proposé.
   final FavoriteEntry? favoriteEntry;
 
+  /// Se positionne automatiquement au focus au chargement (première tuile).
+  final bool autofocus;
+
   @override
   Widget build(BuildContext context) {
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onTap,
       onFocusChange: (focused) {
         if (focused) onFocus?.call();

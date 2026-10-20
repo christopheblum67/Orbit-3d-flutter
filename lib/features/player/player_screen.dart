@@ -15,6 +15,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
@@ -2194,6 +2195,7 @@ class _ContentFooterBar extends StatelessWidget {
 }
 
 /// Icône compacte de la footerbar (blanche sur fond translucide).
+/// Wrappée dans [TvFocus] pour être navigable au D-pad sur TV.
 Widget _fbIcon(
   IconData icon,
   VoidCallback? onPressed, {
@@ -2201,7 +2203,7 @@ Widget _fbIcon(
   Color color = Colors.white,
   double size = 22,
 }) {
-  return IconButton(
+  final button = IconButton(
     tooltip: tooltip,
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
@@ -2209,14 +2211,17 @@ Widget _fbIcon(
     onPressed: onPressed,
     icon: Icon(icon, color: color, size: size),
   );
+  if (onPressed == null) return button;
+  return TvFocus(onActivate: onPressed, child: button);
 }
 
 /// Bouton pause/lecture proéminent de la footerbar.
+/// Wrappé dans [TvFocus] pour être navigable au D-pad sur TV.
 Widget _fbPlayPause({
   required bool isPlaying,
   required VoidCallback onPressed,
 }) {
-  return IconButton(
+  final button = IconButton(
     tooltip: isPlaying ? 'Pause' : 'Lecture',
     style: IconButton.styleFrom(
       backgroundColor: Colors.white.withValues(alpha: 0.22),
@@ -2231,10 +2236,12 @@ Widget _fbPlayPause({
       size: 28,
     ),
   );
+  return TvFocus(onActivate: onPressed, child: button);
 }
 
 /// Icône Night Focus de la footerbar : l'icône et la couleur changent selon
 /// l'état ON/OFF du maître (toggle direct, sans ouvrir de sous-menu).
+/// Wrappée dans [TvFocus] pour être navigable au D-pad sur TV.
 Widget _fbNightFocus({
   required VoidCallback onPressed,
   required WidgetRef ref,
@@ -2242,7 +2249,7 @@ Widget _fbNightFocus({
   final enabled = ref.watch(
     advancedSettingsProvider.select((s) => s.nightFocusEnabled),
   );
-  return IconButton(
+  final button = IconButton(
     tooltip: enabled ? 'Night Focus (activé)' : 'Night Focus (désactivé)',
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
@@ -2254,6 +2261,7 @@ Widget _fbNightFocus({
       size: 22,
     ),
   );
+  return TvFocus(onActivate: onPressed, child: button);
 }
 
 /// Petit badge numéro de chaîne / étiquette genre (#num ou chip métadonnée).
@@ -2447,49 +2455,52 @@ class _LiveFooterBar extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 10),
-        Row(
-          children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            const Spacer(),
-            if (onPrevious != null)
-              _fbIcon(
-                Icons.skip_previous_rounded,
-                onPrevious,
-                tooltip: l.previousChannel,
-              ),
-            if (showSeek)
-              _fbIcon(
-                Icons.replay_30,
-                onSeekBack30,
-                tooltip: l.rewind30s,
-                color: Colors.white,
-              ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-            if (showSeek) ...[
-              _fbIcon(
-                Icons.forward_30,
-                onSeekForward30,
-                tooltip: l.forward30s,
-                color: Colors.white,
-              ),
+        FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Row(
+            children: [
+              _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+              const Spacer(),
+              if (onPrevious != null)
+                _fbIcon(
+                  Icons.skip_previous_rounded,
+                  onPrevious,
+                  tooltip: l.previousChannel,
+                ),
+              if (showSeek)
+                _fbIcon(
+                  Icons.replay_30,
+                  onSeekBack30,
+                  tooltip: l.rewind30s,
+                  color: Colors.white,
+                ),
+              _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+              if (showSeek) ...[
+                _fbIcon(
+                  Icons.forward_30,
+                  onSeekForward30,
+                  tooltip: l.forward30s,
+                  color: Colors.white,
+                ),
+              ],
+              if (onNext != null)
+                _fbIcon(
+                  Icons.skip_next_rounded,
+                  onNext,
+                  tooltip: l.nextChannel,
+                ),
+              const SizedBox(width: 8),
+              _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+              if (onPip != null)
+                _fbIcon(
+                  Icons.picture_in_picture_alt_rounded,
+                  onPip,
+                  tooltip: l.pip,
+                ),
+              if (castButton != null) castButton!,
+              streamDetails,
             ],
-            if (onNext != null)
-              _fbIcon(
-                Icons.skip_next_rounded,
-                onNext,
-                tooltip: l.nextChannel,
-              ),
-            const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            if (onPip != null)
-              _fbIcon(
-                Icons.picture_in_picture_alt_rounded,
-                onPip,
-                tooltip: l.pip,
-              ),
-            if (castButton != null) castButton!,
-            streamDetails,
-          ],
+          ),
         ),
       ],
     );
@@ -2609,34 +2620,37 @@ class _VodFooterBar extends ConsumerWidget {
           allowScrubbing: true,
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            const Spacer(),
-            _fbIcon(
-              Icons.replay_30,
-              onSeekBack30,
-              tooltip: l.rewind30s,
-              color: Colors.white,
-            ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-            _fbIcon(
-              Icons.forward_30,
-              onSeekForward30,
-              tooltip: l.forward30s,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            if (onPip != null)
+        FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Row(
+            children: [
+              _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+              const Spacer(),
               _fbIcon(
-                Icons.picture_in_picture_alt_rounded,
-                onPip,
-                tooltip: l.pip,
+                Icons.replay_30,
+                onSeekBack30,
+                tooltip: l.rewind30s,
+                color: Colors.white,
               ),
-            if (castButton != null) castButton!,
-            streamDetails,
-          ],
+              _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+              _fbIcon(
+                Icons.forward_30,
+                onSeekForward30,
+                tooltip: l.forward30s,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+              if (onPip != null)
+                _fbIcon(
+                  Icons.picture_in_picture_alt_rounded,
+                  onPip,
+                  tooltip: l.pip,
+                ),
+              if (castButton != null) castButton!,
+              streamDetails,
+            ],
+          ),
         ),
       ],
     );
@@ -2664,18 +2678,21 @@ class _FooterStreamDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return IconButton(
+    void open() async {
+      onOpened();
+      await showStreamDetailsSheet(context, controller, mediaKey ?? '');
+      if (context.mounted) onClosed();
+    }
+
+    final button = IconButton(
       tooltip: l.streamDetails,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-      onPressed: () async {
-        onOpened();
-        await showStreamDetailsSheet(context, controller, mediaKey ?? '');
-        if (context.mounted) onClosed();
-      },
+      onPressed: open,
       icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
     );
+    return TvFocus(onActivate: open, child: button);
   }
 }
 

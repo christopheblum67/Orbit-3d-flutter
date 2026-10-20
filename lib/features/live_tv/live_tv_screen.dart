@@ -224,6 +224,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                 name: channel.name,
                                 logoUrl: channel.logoUrl,
                                 badgeNumber: channel.orderNum,
+                                autofocus: index == 0,
                                 favoriteEntry: FavoriteEntry(
                                   type: ContentType.live,
                                   id: channel.id,
