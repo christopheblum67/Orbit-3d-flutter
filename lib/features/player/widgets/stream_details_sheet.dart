@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
@@ -489,10 +490,14 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: l.close,
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
+                  TvFocus(
+                    autofocus: true,
+                    onActivate: () => Navigator.of(context).pop(),
+                    child: IconButton(
+                      tooltip: l.close,
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
                   ),
                 ],
               ),
@@ -520,63 +525,70 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 12),
-                              OutlinedButton(
-                                onPressed: _load,
-                                child: Text(l.retry),
+                              TvFocus(
+                                onActivate: _load,
+                                child: OutlinedButton(
+                                  onPressed: _load,
+                                  child: Text(l.retry),
+                                ),
                               ),
                             ],
                           ),
                         )
-                      : ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          children: [
-                            _sectionTitle(l.audioSection),
-                            if (_audioTracks.isEmpty)
-                              _EmptyRow(label: l.noAudioTrackDetected)
-                            else ...[
-                              // « Aucun » en tête : coupe la sortie audio.
-                              _TrackTile(
-                                title: l.noneOption,
-                                subtitle: null,
-                                selected: _audioDisabled,
-                                onTap: _selectAudioNone,
-                              ),
-                              for (final track in _audioTracks)
+                      : FocusTraversalGroup(
+                          policy: OrderedTraversalPolicy(),
+                          child: ListView(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            children: [
+                              _sectionTitle(l.audioSection),
+                              if (_audioTracks.isEmpty)
+                                _EmptyRow(label: l.noAudioTrackDetected)
+                              else ...[
+                                // « Aucun » en tête : coupe la sortie audio.
                                 _TrackTile(
-                                  title: _audioLabel(context, track, l),
-                                  // Pas de ligne de métadonnées : les pistes
-                                  // audio s'identifient par leur langue, et
-                                  // les canaux/codecs n'aidaient pas à choisir.
+                                  title: l.noneOption,
                                   subtitle: null,
-                                  selected: _selectedAudioId == track.id,
-                                  onTap: () => _selectAudio(track.id),
+                                  selected: _audioDisabled,
+                                  onTap: _selectAudioNone,
+                                  autofocus: true,
                                 ),
+                                for (final track in _audioTracks)
+                                  _TrackTile(
+                                    title: _audioLabel(context, track, l),
+                                    // Pas de ligne de métadonnées : les pistes
+                                    // audio s'identifient par leur langue, et
+                                    // les canaux/codecs n'aidaient pas à choisir.
+                                    subtitle: null,
+                                    selected: _selectedAudioId == track.id,
+                                    onTap: () => _selectAudio(track.id),
+                                  ),
+                              ],
+                              const SizedBox(height: 12),
+                              _sectionTitle(l.videoSection),
+                              _TrackTile(
+                                title: l.autoQuality,
+                                subtitle: l.autoQualityDescription,
+                                selected: _selectedVideoId == 'auto',
+                                onTap: () => _selectVideo(null),
+                              ),
+                              if (_videoTracks.isEmpty)
+                                _EmptyRow(label: l.noVideoQualityDetected)
+                              else
+                                for (final track in _videoTracks)
+                                  _TrackTile(
+                                    title: _videoLabel(track, l),
+                                    subtitle: _videoMeta(track),
+                                    selected: _selectedVideoId == track.id,
+                                    onTap: () => _selectVideo(track.id),
+                                  ),
+                              const SizedBox(height: 12),
+                              _sectionTitle(l.subtitleSection),
+                              ..._buildSubtitleNoneTiles(),
+                              ..._buildEmbeddedSection(l),
+                              ..._buildSubtitleSection(),
+                              const SizedBox(height: 16),
                             ],
-                            const SizedBox(height: 12),
-                            _sectionTitle(l.videoSection),
-                            _TrackTile(
-                              title: l.autoQuality,
-                              subtitle: l.autoQualityDescription,
-                              selected: _selectedVideoId == 'auto',
-                              onTap: () => _selectVideo(null),
-                            ),
-                            if (_videoTracks.isEmpty)
-                              _EmptyRow(label: l.noVideoQualityDetected)
-                            else
-                              for (final track in _videoTracks)
-                                _TrackTile(
-                                  title: _videoLabel(track, l),
-                                  subtitle: _videoMeta(track),
-                                  selected: _selectedVideoId == track.id,
-                                  onTap: () => _selectVideo(track.id),
-                                ),
-                            const SizedBox(height: 12),
-                            _sectionTitle(l.subtitleSection),
-                            ..._buildSubtitleNoneTiles(),
-                            ..._buildEmbeddedSection(l),
-                            ..._buildSubtitleSection(),
-                            const SizedBox(height: 16),
-                          ],
+                          ),
                         ),
             ),
           ],
@@ -908,10 +920,13 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
 
   Widget _onlineButton(AppLocalizations l) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-        child: OutlinedButton.icon(
-          onPressed: _searchOnline,
-          icon: const Icon(Icons.travel_explore, size: 18),
-          label: Text(l.subtitleSearchOnline),
+        child: TvFocus(
+          onActivate: _searchOnline,
+          child: OutlinedButton.icon(
+            onPressed: _searchOnline,
+            icon: const Icon(Icons.travel_explore, size: 18),
+            label: Text(l.subtitleSearchOnline),
+          ),
         ),
       );
 
@@ -982,36 +997,42 @@ class _TrackTile extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
+    this.autofocus = false,
   });
 
   final String title;
   final String? subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: selected ? scheme.primary : scheme.onSurfaceVariant,
-        size: 20,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? scheme.primary : scheme.onSurface,
+    return TvFocus(
+      autofocus: autofocus,
+      onActivate: onTap,
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        leading: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+          size: 20,
         ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? scheme.primary : scheme.onSurface,
+          ),
+        ),
+        subtitle: subtitle != null && subtitle!.isNotEmpty
+            ? Text(subtitle!, style: const TextStyle(fontSize: 11))
+            : null,
+        onTap: onTap,
       ),
-      subtitle: subtitle != null && subtitle!.isNotEmpty
-          ? Text(subtitle!, style: const TextStyle(fontSize: 11))
-          : null,
-      onTap: onTap,
     );
   }
 }
