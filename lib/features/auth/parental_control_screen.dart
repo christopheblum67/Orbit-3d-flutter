@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -42,105 +43,120 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: GoRouter.of(context).canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => GoRouter.of(context).pop(),
+            ? TvFocus(
+                onActivate: () => GoRouter.of(context).pop(),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'Retour',
+                  onPressed: () => GoRouter.of(context).pop(),
+                ),
               )
             : null,
         title: Text(l.sectionParental),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SwitchListTile(
-            secondary: const Icon(Icons.gpp_good_outlined),
-            title: Text(l.enableParentalControl),
-            value: prefs.parentalControlEnabled,
-            onChanged: (v) => notifier.updateParental(
-              enabled: v,
-              ageRestriction: v ? prefs.ageRestriction : 0,
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-            initialValue: prefs.ageRestriction,
-            decoration: const InputDecoration(
-              labelText: 'Restriction d\'âge',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: 0, child: Text('Aucune')),
-              for (final age in [7, 10, 12, 16, 18])
-                DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
-            ],
-            onChanged: (v) => notifier.updateParental(
-              enabled: prefs.parentalControlEnabled,
-              ageRestriction: v ?? 0,
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            secondary: const Icon(Icons.no_adult_content_outlined),
-            title: const Text('Masquer le contenu adulte'),
-            subtitle:
-                const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
-            value: profile?.hideAdultContent ?? false,
-            onChanged: (v) => _updateContentFilter(
-              hideAdultContent: v,
-            ),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.no_backpack_outlined),
-            title: const Text('Masquer la violence'),
-            subtitle:
-                const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
-            value: profile?.hideViolentContent ?? false,
-            onChanged: (v) => _updateContentFilter(
-              hideViolentContent: v,
-            ),
-          ),
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            _hasPin ? 'PIN actuel : ${'•' * 4}' : 'Définir un code PIN',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _pinController,
-            keyboardType: TextInputType.number,
-            obscureText: _obscurePin,
-            maxLength: 4,
-            decoration: InputDecoration(
-              labelText:
-                  _hasPin ? 'Nouveau PIN (4 chiffres)' : 'PIN (4 chiffres)',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                tooltip: _obscurePin ? 'Afficher le PIN' : 'Masquer le PIN',
-                icon:
-                    Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscurePin = !_obscurePin),
+      body: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            SwitchListTile(
+              secondary: const Icon(Icons.gpp_good_outlined),
+              title: Text(l.enableParentalControl),
+              value: prefs.parentalControlEnabled,
+              onChanged: (v) => notifier.updateParental(
+                enabled: v,
+                ageRestriction: v ? prefs.ageRestriction : 0,
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            icon: const Icon(Icons.lock_outline),
-            label: Text(_hasPin ? 'Mettre à jour le PIN' : 'Définir le PIN'),
-            onPressed: _savePin,
-          ),
-          if (_hasPin) ...[
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.lock_open_outlined),
-              label: Text(l.deletePin),
-              onPressed: () => _clearPin(pinController),
+            DropdownButtonFormField<int>(
+              initialValue: prefs.ageRestriction,
+              decoration: const InputDecoration(
+                labelText: 'Restriction d\'âge',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                const DropdownMenuItem(value: 0, child: Text('Aucune')),
+                for (final age in [7, 10, 12, 16, 18])
+                  DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
+              ],
+              onChanged: (v) => notifier.updateParental(
+                enabled: prefs.parentalControlEnabled,
+                ageRestriction: v ?? 0,
+              ),
             ),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              secondary: const Icon(Icons.no_adult_content_outlined),
+              title: const Text('Masquer le contenu adulte'),
+              subtitle:
+                  const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
+              value: profile?.hideAdultContent ?? false,
+              onChanged: (v) => _updateContentFilter(
+                hideAdultContent: v,
+              ),
+            ),
+            SwitchListTile(
+              secondary: const Icon(Icons.no_backpack_outlined),
+              title: const Text('Masquer la violence'),
+              subtitle:
+                  const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
+              value: profile?.hideViolentContent ?? false,
+              onChanged: (v) => _updateContentFilter(
+                hideViolentContent: v,
+              ),
+            ),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              _hasPin ? 'PIN actuel : ${'•' * 4}' : 'Définir un code PIN',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              obscureText: _obscurePin,
+              maxLength: 4,
+              decoration: InputDecoration(
+                labelText:
+                    _hasPin ? 'Nouveau PIN (4 chiffres)' : 'PIN (4 chiffres)',
+                border: const OutlineInputBorder(),
+                suffixIcon: TvFocus(
+                  onActivate: () => setState(() => _obscurePin = !_obscurePin),
+                  child: IconButton(
+                    tooltip: _obscurePin ? 'Afficher le PIN' : 'Masquer le PIN',
+                    icon:
+                        Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setState(() => _obscurePin = !_obscurePin),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TvFocus(
+              onActivate: _savePin,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.lock_outline),
+                label: Text(_hasPin ? 'Mettre à jour le PIN' : 'Définir le PIN'),
+                onPressed: _savePin,
+              ),
+            ),
+            if (_hasPin) ...[
+              const SizedBox(height: 8),
+              TvFocus(
+                onActivate: () => _clearPin(pinController),
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.lock_open_outlined),
+                  label: Text(l.deletePin),
+                  onPressed: () => _clearPin(pinController),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
