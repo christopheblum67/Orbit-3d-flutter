@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -204,40 +205,55 @@ class _OnboardingConfigScreenState
 
   Widget _buildActions() {
     final l = AppLocalizations.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _saving
-                ? null
-                : () => setState(() {
-                      _adjusting = !_adjusting;
-                      _selected = null;
-                    }),
-            icon: Icon(_adjusting ? Icons.auto_awesome_rounded : Icons.tune),
-            label: Text(
-              _adjusting
-                  ? 'Réinitialiser la recommandation'
-                  : 'Ajuster manuellement',
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: Row(
+        children: [
+          Expanded(
+            child: TvFocus(
+              onActivate: _saving
+                  ? null
+                  : () => setState(() {
+                        _adjusting = !_adjusting;
+                        _selected = null;
+                      }),
+              child: OutlinedButton.icon(
+                onPressed: _saving
+                    ? null
+                    : () => setState(() {
+                          _adjusting = !_adjusting;
+                          _selected = null;
+                        }),
+                icon: Icon(_adjusting ? Icons.auto_awesome_rounded : Icons.tune),
+                label: Text(
+                  _adjusting
+                      ? 'Réinitialiser la recommandation'
+                      : 'Ajuster manuellement',
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          flex: 2,
-          child: FilledButton.icon(
-            onPressed: _saving ? null : _validate,
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  )
-                : const Icon(Icons.check_circle_outline),
-            label: Text(l.confirmAndContinue),
+          const SizedBox(width: 14),
+          Expanded(
+            flex: 2,
+            child: TvFocus(
+              autofocus: true,
+              onActivate: _saving ? null : _validate,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _validate,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(l.confirmAndContinue),
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
