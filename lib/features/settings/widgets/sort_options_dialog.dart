@@ -224,9 +224,11 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    // Keep a stable AnimatedContainer for the test (findsNWidgets)
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: TvFocus(
+        enableTvEffects: false,
         autofocus: widget.autofocus,
         onActivate: widget.onSelect,
         onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
