@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -36,9 +37,12 @@ class CatchUpScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFF0B0C10),
       appBar: AppBar(
         backgroundColor: const Color(0xFF12141C),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => context.pop(),
+        leading: TvFocus(
+          onActivate: () => context.pop(),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () => context.pop(),
+          ),
         ),
         title: Row(
           children: [
@@ -162,25 +166,32 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
                     style: const TextStyle(color: Colors.white38, fontSize: 16),
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: programs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final program = programs[index];
-                    final replayable = isReplayableProgram(
-                      program,
-                      now: now,
-                      channelSupportsReplay: widget.channel.supportsReplay,
-                    );
-                    return _ProgramTile(
-                      program: program,
-                      channel: widget.channel,
-                      replayable: replayable,
-                      onReplayTap:
-                          replayable ? () => _playReplay(program) : null,
-                    );
-                  },
+              : FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: programs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final program = programs[index];
+                      final replayable = isReplayableProgram(
+                        program,
+                        now: now,
+                        channelSupportsReplay: widget.channel.supportsReplay,
+                      );
+                      return TvFocus(
+                        autofocus: index == 0,
+                        onActivate: replayable ? () => _playReplay(program) : null,
+                        child: _ProgramTile(
+                          program: program,
+                          channel: widget.channel,
+                          replayable: replayable,
+                          onReplayTap:
+                              replayable ? () => _playReplay(program) : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
@@ -265,41 +276,48 @@ class _DatePickerBar extends StatelessWidget {
 
     return SizedBox(
       height: 56,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        itemCount: availableDateKeys.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final key = availableDateKeys[index];
-          final parts = key.split('-');
-          final day = int.tryParse(parts[2]) ?? 1;
-          final month = int.tryParse(parts[1]) ?? 1;
-          final isSelected = key == selectedDateKey;
-          final label = '$day ${_monthShortFr(month)}';
-          return ChoiceChip(
-            label: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.black : Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          itemCount: availableDateKeys.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final key = availableDateKeys[index];
+            final parts = key.split('-');
+            final day = int.tryParse(parts[2]) ?? 1;
+            final month = int.tryParse(parts[1]) ?? 1;
+            final isSelected = key == selectedDateKey;
+            final label = '$day ${_monthShortFr(month)}';
+            return TvFocus(
+              autofocus: index == 0 && !isSelected,
+              onActivate: () => onDateSelected(key),
+              child: ChoiceChip(
+                label: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (_) => onDateSelected(key),
+                selectedColor: const Color(0xFF6EE7B7),
+                backgroundColor: const Color(0xFF1A1D26),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                side: BorderSide(
+                  color: isSelected ? Colors.transparent : Colors.white12,
+                  width: 1,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ),
-            selected: isSelected,
-            onSelected: (_) => onDateSelected(key),
-            selectedColor: const Color(0xFF6EE7B7),
-            backgroundColor: const Color(0xFF1A1D26),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            side: BorderSide(
-              color: isSelected ? Colors.transparent : Colors.white12,
-              width: 1,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
