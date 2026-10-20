@@ -1066,25 +1066,29 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         'Ajoutez une clé API TMDB dans Réglages '
                         '(ou TMDB_API_KEY dans .env).',
                   )
-                : GridView.builder(
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    addAutomaticKeepAlives: false,
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200,
-                      childAspectRatio: 0.55,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                : FocusTraversalGroup(
+                    policy: OrderedTraversalPolicy(),
+                    child: GridView.builder(
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      addAutomaticKeepAlives: false,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 200,
+                        childAspectRatio: 0.55,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return _RankCard(
+                          entry: entry,
+                          rank: index + 1,
+                          onOpen: () => _openEntry(entry),
+                        );
+                      },
                     ),
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) {
-                      final entry = entries[index];
-                      return _RankCard(
-                        entry: entry,
-                        rank: index + 1,
-                        onOpen: () => _openEntry(entry),
-                      );
-                    },
                   ),
             loading: () => const LoadingState(message: 'Chargement…'),
             error: (err, _) => ErrorState(

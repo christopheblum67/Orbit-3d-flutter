@@ -210,30 +210,33 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                   ? 'Les chaînes regardées s\'afficheront ici.'
                                   : 'Ce groupe ne contient aucune chaîne.',
                         )
-                      : GridView.builder(
-                          padding: channelGridPadding,
-                          // Delegate partagé avec le Replay : même tuile, même
-                          // taille sur les deux écrans.
-                          gridDelegate: channelGridDelegate,
-                          itemCount: visibleChannels.length,
-                          itemBuilder: (context, index) {
-                            final channel = visibleChannels[index];
-                            return ChannelGridCard(
-                              name: channel.name,
-                              logoUrl: channel.logoUrl,
-                              badgeNumber: channel.orderNum,
-                              favoriteEntry: FavoriteEntry(
-                                type: ContentType.live,
-                                id: channel.id,
-                                title: channel.name,
-                                posterUrl: channel.logoUrl,
-                                subtitle: channel.groupLabel,
-                                streamUrl: channel.streamUrl,
-                              ),
-                              onTap: () => _openChannel(channel),
-                              onFocus: () => unawaited(_prewarm(channel)),
-                            );
-                          },
+                      : FocusTraversalGroup(
+                          policy: OrderedTraversalPolicy(),
+                          child: GridView.builder(
+                            padding: channelGridPadding,
+                            // Delegate partagé avec le Replay : même tuile, même
+                            // taille sur les deux écrans.
+                            gridDelegate: channelGridDelegate,
+                            itemCount: visibleChannels.length,
+                            itemBuilder: (context, index) {
+                              final channel = visibleChannels[index];
+                              return ChannelGridCard(
+                                name: channel.name,
+                                logoUrl: channel.logoUrl,
+                                badgeNumber: channel.orderNum,
+                                favoriteEntry: FavoriteEntry(
+                                  type: ContentType.live,
+                                  id: channel.id,
+                                  title: channel.name,
+                                  posterUrl: channel.logoUrl,
+                                  subtitle: channel.groupLabel,
+                                  streamUrl: channel.streamUrl,
+                                ),
+                                onTap: () => _openChannel(channel),
+                                onFocus: () => unawaited(_prewarm(channel)),
+                              );
+                            },
+                          ),
                         ),
                 ),
               ],

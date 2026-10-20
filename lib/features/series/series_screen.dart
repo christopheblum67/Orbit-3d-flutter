@@ -276,7 +276,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         : 'Aucune série ne correspond à cette '
                                             'recherche.',
                               )
-                            : CustomScrollView(
+                            : FocusTraversalGroup(
+                                policy: OrderedTraversalPolicy(),
+                                child: CustomScrollView(
                                 slivers: [
                                   SliverToBoxAdapter(
                                     child: SectionHeader(
@@ -352,6 +354,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     ),
                                   ),
                                 ],
+                                ),
                               ),
                       ),
                     ],

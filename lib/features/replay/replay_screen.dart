@@ -211,29 +211,32 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
         Expanded(
           child: visible.isEmpty
               ? _EmptyCategory(groupId: _selectedGroup)
-              : GridView.builder(
-                  padding: channelGridPadding,
-                  // Même tuile que le Live TV : le Replay montre des chaînes,
-                  // il doit les montrer comme le Live TV.
-                  gridDelegate: channelGridDelegate,
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) {
-                    final channel = visible[index];
-                    return ChannelGridCard(
-                      name: channel.name,
-                      logoUrl: channel.logoUrl,
-                      badgeNumber: channel.orderNum,
-                      favoriteEntry: FavoriteEntry(
-                        type: ContentType.live,
-                        id: channel.id,
-                        title: channel.name,
-                        posterUrl: channel.logoUrl,
-                        subtitle: channel.groupLabel,
-                        streamUrl: channel.streamUrl,
-                      ),
-                      onTap: () => widget.onOpen(channel),
-                    );
-                  },
+              : FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: GridView.builder(
+                    padding: channelGridPadding,
+                    // Même tuile que le Live TV : le Replay montre des chaînes,
+                    // il doit les montrer comme le Live TV.
+                    gridDelegate: channelGridDelegate,
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final channel = visible[index];
+                      return ChannelGridCard(
+                        name: channel.name,
+                        logoUrl: channel.logoUrl,
+                        badgeNumber: channel.orderNum,
+                        favoriteEntry: FavoriteEntry(
+                          type: ContentType.live,
+                          id: channel.id,
+                          title: channel.name,
+                          posterUrl: channel.logoUrl,
+                          subtitle: channel.groupLabel,
+                          streamUrl: channel.streamUrl,
+                        ),
+                        onTap: () => widget.onOpen(channel),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],

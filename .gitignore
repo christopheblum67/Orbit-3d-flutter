@@ -60,3 +60,7 @@ android/test_output.txt
 # Artefacts de test locaux
 test_baseline.txt
 
+
+# Captures écran de debug (ADB screencap copiées à la racine)
+orbi_*.png
+*.png.tmp

@@ -315,25 +315,32 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                             ? 'Aucun film ne correspond à cette recherche.'
                                             : 'Aucun film ne correspond à cette catégorie.',
                               )
-                            : GridView.builder(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                                gridDelegate:
-                                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 160,
-                                  childAspectRatio: 0.7,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
+                            : FocusTraversalGroup(
+                                policy: OrderedTraversalPolicy(),
+                                child: GridView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    16,
+                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 160,
+                                    childAspectRatio: 0.7,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
+                                  itemCount: visibleMovies.length,
+                                  itemBuilder: (context, index) {
+                                    final movie = visibleMovies[index];
+                                    return _VodTile(
+                                      movie: movie,
+                                      enrichment: enrichments[movie.id],
+                                      affinity: affinity,
+                                    );
+                                  },
                                 ),
-                                itemCount: visibleMovies.length,
-                                itemBuilder: (context, index) {
-                                  final movie = visibleMovies[index];
-                                  return _VodTile(
-                                    movie: movie,
-                                    enrichment: enrichments[movie.id],
-                                    affinity: affinity,
-                                  );
-                                },
                               ),
                       ),
                     ],
