@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -159,15 +159,6 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       final title = _getResumeTitle(progress);
       final timestamp = _formatTimestamp(progress.positionMs);
 
-      final cancelFocus = FocusNode();
-      final confirmFocus = FocusNode();
-
-      void requestFocus(FocusNode focus) {
-        if (mounted) {
-          FocusScope.of(context).requestFocus(focus);
-        }
-      }
-
       final shouldResume = await showDialog<bool>(
         context: context,
         barrierDismissible: true,
@@ -184,67 +175,43 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               style: const TextStyle(color: Colors.white70),
             ),
             actions: [
-              Focus(
-                focusNode: cancelFocus,
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent &&
-                      (event.logicalKey == LogicalKeyboardKey.enter ||
-                          event.logicalKey == LogicalKeyboardKey.select ||
-                          event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                    Navigator.pop(ctx, false);
-                    return KeyEventResult.handled;
-                  }
-                  if (event is KeyDownEvent &&
-                      (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                          event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                    requestFocus(confirmFocus);
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(
-                    l.later,
-                    style: const TextStyle(color: Colors.white54),
-                  ),
-                ),
-              ),
-              Focus(
-                focusNode: confirmFocus,
-                onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent &&
-                      (event.logicalKey == LogicalKeyboardKey.enter ||
-                          event.logicalKey == LogicalKeyboardKey.select ||
-                          event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                    Navigator.pop(ctx, true);
-                    return KeyEventResult.handled;
-                  }
-                  if (event is KeyDownEvent &&
-                      (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                          event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                    requestFocus(cancelFocus);
-                    return KeyEventResult.handled;
-                  }
-                  return KeyEventResult.ignored;
-                },
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF00CFE8),
-                  ),
-                  child: const Text(
-                    'Reprendre',
-                    style: TextStyle(color: Colors.black),
-                  ),
+              FocusTraversalGroup(
+                policy: OrderedTraversalPolicy(),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TvFocus(
+                      onActivate: () => Navigator.pop(ctx, false),
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(
+                          l.later,
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TvFocus(
+                      autofocus: true,
+                      onActivate: () => Navigator.pop(ctx, true),
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF00CFE8),
+                        ),
+                        child: const Text(
+                          'Reprendre',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           );
         },
       );
-      cancelFocus.dispose();
-      confirmFocus.dispose();
       if (shouldResume == true && mounted) {
         context.go(
           '/player',
