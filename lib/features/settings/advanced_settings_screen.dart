@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -65,13 +66,27 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
         onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(l.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(l.advancedAccessConfirm),
+        // Navigation D-pad TV : halos + Enter sur Annuler / Valider.
+        FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Row(
+            children: [
+              TvFocus(
+                onActivate: () => Navigator.of(dialogContext).pop(false),
+                child: TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l.cancel),
+                ),
+              ),
+              TvFocus(
+                onActivate: () => Navigator.of(dialogContext).pop(true),
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l.advancedAccessConfirm),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ),

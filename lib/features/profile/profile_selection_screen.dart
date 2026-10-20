@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
@@ -117,43 +118,63 @@ class _ProfileSelectionScreenState
     }
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l.deleteProfileConfirm),
-        content: Text(
-          '« ${profile.firstName} » et ses préférences seront supprimés '
-          'définitivement. Cette action est irréversible.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+      builder: (dialogContext) {
+        Future<void> confirmDelete() async {
+          Navigator.of(dialogContext).pop();
+          final storage = ref.read(storageServiceProvider);
+          await storage.deleteProfile(profile.id);
+          if (profile.id ==
+              ref.read(storageServiceProvider).getSetting('last_profile_id')) {
+            await storage.setSetting('last_profile_id', null);
+          }
+          final current = ref.read(currentProfileProvider);
+          if (current?.id == profile.id) {
+            ref.read(currentProfileProvider.notifier).setUserProfile(null);
+            ref.read(profileTypeProvider.notifier).clear();
+          }
+          ref.invalidate(profilesProvider);
+        }
+
+        // Navigation D-pad TV : halos + Enter, autofocus sur « Annuler »
+        // (action sûre par défaut pour une suppression irréversible).
+        final actions = FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Row(
+            children: [
+              TvFocus(
+                autofocus: true,
+                onActivate: () => Navigator.of(dialogContext).pop(),
+                child: TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              TvFocus(
+                onActivate: confirmDelete,
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.errorContainer,
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                  onPressed: confirmDelete,
+                  child: const Text('Supprimer'),
+                ),
+              ),
+            ],
           ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-            ),
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              final storage = ref.read(storageServiceProvider);
-              await storage.deleteProfile(profile.id);
-              if (profile.id ==
-                  ref
-                      .read(storageServiceProvider)
-                      .getSetting('last_profile_id')) {
-                await storage.setSetting('last_profile_id', null);
-              }
-              final current = ref.read(currentProfileProvider);
-              if (current?.id == profile.id) {
-                ref.read(currentProfileProvider.notifier).setUserProfile(null);
-                ref.read(profileTypeProvider.notifier).clear();
-              }
-              ref.invalidate(profilesProvider);
-            },
-            child: const Text('Supprimer'),
+        );
+
+        return AlertDialog(
+          title: Text(l.deleteProfileConfirm),
+          content: Text(
+            '« ${profile.firstName} » et ses préférences seront supprimés '
+            'définitivement. Cette action est irréversible.',
           ),
-        ],
-      ),
+          actions: [actions],
+        );
+      },
     );
   }
 

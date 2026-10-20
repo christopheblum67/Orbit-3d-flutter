@@ -291,13 +291,11 @@ class _FilmographyCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 130,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return SizedBox(
+      width: 130,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: credit.posterUrl.isNotEmpty
@@ -345,8 +343,7 @@ class _FilmographyCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Widget _placeholder(ColorScheme scheme) => Container(

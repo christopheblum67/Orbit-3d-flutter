@@ -753,23 +753,27 @@ class _BrowseTabBar extends StatelessWidget {
     return Container(
       color: colors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          for (final tab in tabs) ...[
-            Expanded(
-              child: TvFocus(
-                onActivate: () => onSelected(tab.id),
-                child: _BrowseTabPill(
-                  label: tab.label,
-                  icon: tab.icon,
-                  selected: tab.id == selected,
-                  color: colors.primary,
+      child: FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Row(
+          children: [
+            for (final tab in tabs) ...[
+              Expanded(
+                child: TvFocus(
+                  autofocus: tab.id == selected,
+                  onActivate: () => onSelected(tab.id),
+                  child: _BrowseTabPill(
+                    label: tab.label,
+                    icon: tab.icon,
+                    selected: tab.id == selected,
+                    color: colors.primary,
+                  ),
                 ),
               ),
-            ),
-            if (tab.id != tabs.last.id) const SizedBox(width: 8),
+              if (tab.id != tabs.last.id) const SizedBox(width: 8),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

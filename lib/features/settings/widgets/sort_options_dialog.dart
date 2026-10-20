@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Définition d'une option de tri avec son libellé et son icône
@@ -162,29 +162,33 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
             ),
             const Divider(color: Color(0xFF262933), height: 28),
 
-            // Liste scrollable des options
+            // Liste scrollable des options — FocusTraversalGroup : ordre de
+            // navigation D-pad télécommande TV explicite.
             Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  // Comparaison sur le critère seul : le mode courant peut être
-                  // le sens inverse (`yearAsc`) choisi via le bouton ↑/↓, et
-                  // l'entrée « Par année » doit rester marquée active.
-                  final isActive =
-                      option.mode.criterion == widget.currentMode.criterion;
+              child: FocusTraversalGroup(
+                policy: OrderedTraversalPolicy(),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final option = options[index];
+                    // Comparaison sur le critère seul : le mode courant peut être
+                    // le sens inverse (`yearAsc`) choisi via le bouton ↑/↓, et
+                    // l'entrée « Par année » doit rester marquée active.
+                    final isActive =
+                        option.mode.criterion == widget.currentMode.criterion;
 
-                  return SortOptionTileTV(
-                    option: option,
-                    isActive: isActive,
-                    autofocus: index == 0,
-                    onSelect: () {
-                      widget.onSortSelected(option.mode);
-                      Navigator.of(context).pop();
-                    },
-                  );
-                },
+                    return SortOptionTileTV(
+                      option: option,
+                      isActive: isActive,
+                      autofocus: index == 0,
+                      onSelect: () {
+                        widget.onSortSelected(option.mode);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -194,7 +198,8 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
   }
 }
 
-/// Éléments individuels gérant le Focus D-Pad
+/// Éléments individuels gérant le Focus D-Pad (wrapper [TvFocus] : halo TV +
+/// Enter/Select = sélection de l'option).
 class SortOptionTileTV extends StatefulWidget {
   final SortOptionData option;
   final bool isActive;
@@ -221,18 +226,10 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Focus(
+      child: TvFocus(
         autofocus: widget.autofocus,
+        onActivate: widget.onSelect,
         onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
-            widget.onSelect();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
         child: GestureDetector(
           onTap: widget.onSelect,
           child: AnimatedContainer(

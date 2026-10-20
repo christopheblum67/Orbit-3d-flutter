@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
@@ -260,37 +261,61 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.play_arrow),
-                    label: Text(l.watchLive),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(
-                        context,
-                        '/player',
-                        arguments: {
-                          'streamUrl': channel.streamUrl,
-                          'title': channel.name,
-                          'contentType': 'live',
-                        },
-                      );
-                    },
-                  ),
-                ),
-                if (replayable) ...[
-                  const SizedBox(width: 12),
+            // Navigation D-pad TV : halos + Enter, autofocus sur « Regarder ».
+            FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: Row(
+                children: [
                   Expanded(
-                    child: FilledButton.tonalIcon(
-                      icon: const Icon(Icons.replay),
-                      label: const Text('Replay'),
-                      onPressed: () => _playReplay(context, program, channel),
+                    child: TvFocus(
+                      autofocus: true,
+                      onActivate: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(
+                          context,
+                          '/player',
+                          arguments: {
+                            'streamUrl': channel.streamUrl,
+                            'title': channel.name,
+                            'contentType': 'live',
+                          },
+                        );
+                      },
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(l.watchLive),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.pushNamed(
+                            context,
+                            '/player',
+                            arguments: {
+                              'streamUrl': channel.streamUrl,
+                              'title': channel.name,
+                              'contentType': 'live',
+                            },
+                          );
+                        },
+                      ),
                     ),
                   ),
+                  if (replayable) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TvFocus(
+                        onActivate: () =>
+                            _playReplay(context, program, channel),
+                        child: FilledButton.tonalIcon(
+                          icon: const Icon(Icons.replay),
+                          label: const Text('Replay'),
+                          onPressed: () =>
+                              _playReplay(context, program, channel),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ],
         ),
@@ -419,7 +444,9 @@ class _CategoryFilterBar extends StatelessWidget {
     final labelled = count > 0 ? '$label ($count)' : label;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
+      child: TvFocus(
+        onActivate: onTap,
+        child: FilterChip(
         label: Text(labelled),
         selected: selected,
         onSelected: (_) => onTap(),
@@ -430,6 +457,7 @@ class _CategoryFilterBar extends StatelessWidget {
           color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
           fontWeight: FontWeight.w700,
           fontSize: 12,
+        ),
         ),
       ),
     );

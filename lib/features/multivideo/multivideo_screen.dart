@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -395,10 +396,14 @@ class _ChannelPickerSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: closeLabel,
-                  onPressed: () => Navigator.of(context).pop(),
+                // Navigation D-pad TV : halo + Enter pour fermer la feuille.
+                TvFocus(
+                  onActivate: () => Navigator.of(context).pop(),
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: closeLabel,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ],
             ),
@@ -423,33 +428,38 @@ class _ChannelPickerSheet extends StatelessWidget {
               itemBuilder: (context, index) {
                 final channel = channels[index];
                 final selected = isSelected(channel);
-                return ListTile(
-                  selected: selected,
-                  leading: Icon(
-                    Icons.live_tv_outlined,
-                    color: selected ? scheme.primary : null,
+                // Navigation D-pad TV : halo + Enter = ajouter/retirer.
+                return TvFocus(
+                  autofocus: index == 0,
+                  onActivate: () => onToggle(channel),
+                  child: ListTile(
+                    selected: selected,
+                    leading: Icon(
+                      Icons.live_tv_outlined,
+                      color: selected ? scheme.primary : null,
+                    ),
+                    title: Text(
+                      channel.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: channel.groupLabel.isEmpty
+                        ? null
+                        : Text(
+                            channel.groupLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                    trailing: Icon(
+                      selected
+                          ? Icons.check_circle
+                          : Icons.add_circle_outline,
+                      color: selected
+                          ? scheme.primary
+                          : (canAddMore ? null : Colors.white24),
+                    ),
+                    onTap: () => onToggle(channel),
                   ),
-                  title: Text(
-                    channel.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: channel.groupLabel.isEmpty
-                      ? null
-                      : Text(
-                          channel.groupLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                  trailing: Icon(
-                    selected
-                        ? Icons.check_circle
-                        : Icons.add_circle_outline,
-                    color: selected
-                        ? scheme.primary
-                        : (canAddMore ? null : Colors.white24),
-                  ),
-                  onTap: () => onToggle(channel),
                 );
               },
             ),

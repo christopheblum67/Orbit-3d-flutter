@@ -726,10 +726,17 @@ class _ResumeSection extends ConsumerWidget {
 }
 
 class _EpisodeTile extends ConsumerWidget {
-  const _EpisodeTile({required this.series, required this.episode});
+  const _EpisodeTile({
+    required this.series,
+    required this.episode,
+    this.autofocus = false,
+  });
 
   final Series series;
   final Episode episode;
+
+  /// Focus initial D-pad TV (premier épisode de la saison).
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -870,6 +877,7 @@ class _EpisodeTile extends ConsumerWidget {
     }
 
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onOpen,
       onLongPress: onLongPress,
       child: Padding(

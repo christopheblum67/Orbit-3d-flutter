@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -58,56 +59,74 @@ class _ProlongDecisionSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ce film vous appartient ?',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              reco.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            _DecisionTile(
-              icon: Icons.visibility_off_outlined,
-              label: 'Film déjà vu',
-              detail: 'Retiré des prochaines suggestions',
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            const SizedBox(height: 8),
-            _DecisionTile(
-              icon: Icons.thumb_down_alt_outlined,
-              label: 'Pas intéressé',
-              detail: 'Écarté définitivement des suggestions',
-              onTap: () => Navigator.of(context).pop(true),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Annuler'),
-                  ),
+        // FocusTraversalGroup + TvFocus : navigation D-pad télécommande TV,
+        // autofocus sur la première option de décision.
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ce film vous appartient ?',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                reco.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 16),
+              TvFocus(
+                autofocus: true,
+                onActivate: () => Navigator.of(context).pop(true),
+                child: _DecisionTile(
+                  icon: Icons.visibility_off_outlined,
+                  label: 'Film déjà vu',
+                  detail: 'Retiré des prochaines suggestions',
+                  onTap: () => Navigator.of(context).pop(true),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Confirmer'),
-                  ),
+              ),
+              const SizedBox(height: 8),
+              TvFocus(
+                onActivate: () => Navigator.of(context).pop(true),
+                child: _DecisionTile(
+                  icon: Icons.thumb_down_alt_outlined,
+                  label: 'Pas intéressé',
+                  detail: 'Écarté définitivement des suggestions',
+                  onTap: () => Navigator.of(context).pop(true),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TvFocus(
+                      onActivate: () => Navigator.of(context).pop(false),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TvFocus(
+                      onActivate: () => Navigator.of(context).pop(true),
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Confirmer'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

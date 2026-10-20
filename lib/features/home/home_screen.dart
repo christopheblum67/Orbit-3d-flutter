@@ -79,32 +79,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           style: TextStyle(color: Colors.white70, fontSize: 15),
         ),
         backgroundColor: const Color(0xFF16181E),
+        // Navigation D-pad TV : halos + Enter sur chaque bouton, autofocus
+        // sur « Non » (action sûre par défaut).
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Non',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Oui',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+          FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: Row(
+              children: [
+                TvFocus(
+                  autofocus: true,
+                  onActivate: () => Navigator.of(context).pop(false),
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text(
+                      'Non',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                TvFocus(
+                  onActivate: () => Navigator.of(context).pop(true),
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6B6B),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Oui',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

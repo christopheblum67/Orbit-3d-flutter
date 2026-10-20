@@ -250,50 +250,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           return _buildSuggestions(suggestionsAsync, historyFuture);
         },
         builder: (context, controller) {
-          return SearchBar(
-            controller: controller,
-            focusNode: _focusNode,
-            // Sur TV, pas d'ouverture automatique du clavier : l'utilisateur le
-            // décide lui-même (voir [initState]).
-            autoFocus: !_isTv,
-            // La télécommande Android TV affiche alors une touche « Rechercher »
-            // sur son clavier virtuel, au lieu d'une validation muette.
-            textInputAction: TextInputAction.search,
-            hintText:
-                'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'Retour',
-                ),
+          // `TvFocus` : en mode TV le champ devient un vrai arrêt de focus
+          // (`autofocus: _isTv`) avec halo, sans ouvrir le clavier — le nœud
+          // focalisé est le wrapper, pas le champ texte, donc les flèches
+          // restent disponibles pour descendre vers les résultats (le mode TV
+          // reste « non focalisé » côté `SearchBar`, voir [initState]).
+          // Entrée/OK ouvre le panneau de suggestions, comme le tap tactile.
+          return TvFocus(
+            autofocus: _isTv,
+            onActivate: () => controller.openView(),
+            child: SearchBar(
+              controller: controller,
+              focusNode: _focusNode,
+              // Sur TV, pas d'ouverture automatique du clavier : l'utilisateur le
+              // décide lui-même (voir [initState]).
+              autoFocus: !_isTv,
+              // La télécommande Android TV affiche alors une touche « Rechercher »
+              // sur son clavier virtuel, au lieu d'une validation muette.
+              textInputAction: TextInputAction.search,
+              hintText:
+                  'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Retour',
+                  ),
+                ],
+              ),
+              trailing: <Widget>[
+                if (query.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: _clearQuery,
+                    tooltip: 'Effacer',
+                  ),
               ],
+              onTap: () => controller.openView(),
+              onChanged: (value) {
+                _searchController.text = value;
+                _onQueryChanged(value);
+              },
+              onSubmitted: (value) {
+                _focusNode.unfocus();
+              },
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              ),
+              elevation: const WidgetStatePropertyAll(0),
             ),
-            trailing: <Widget>[
-              if (query.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: _clearQuery,
-                  tooltip: 'Effacer',
-                ),
-            ],
-            onTap: () => controller.openView(),
-            onChanged: (value) {
-              _searchController.text = value;
-              _onQueryChanged(value);
-            },
-            onSubmitted: (value) {
-              _focusNode.unfocus();
-            },
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 12),
-            ),
-            shape: WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            ),
-            elevation: const WidgetStatePropertyAll(0),
           );
         },
       ),
@@ -529,13 +539,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             );
             await ref.read(searchServiceProvider).addToHistory(query);
           },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (result.isOffline) _buildOfflineBanner(),
-              _buildResultsHeader(context, result, filterType),
-              ..._buildGroupedResults(result, query),
-            ],
+          // Chaque résultat est déjà wrappé dans `TvFocus`
+          // ([_buildResultTile]) : Enter ouvre le détail / la lecture.
+          // `FocusTraversalGroup` + `OrderedTraversalPolicy` donnent l'ordre
+          // de parcours D-pad (haut → bas) sur la liste de résultats.
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (result.isOffline) _buildOfflineBanner(),
+                _buildResultsHeader(context, result, filterType),
+                ..._buildGroupedResults(result, query),
+              ],
+            ),
           ),
         );
       },
