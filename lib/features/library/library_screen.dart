@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/favorites/favorites_screen.dart';
 import 'package:orbit_3d_flutter/features/library/content_type_selector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -77,22 +78,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () =>
+        leading: TvFocus(
+          onActivate: () =>
               context.canPop() ? context.pop() : context.go('/home'),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
+          ),
         ),
         title: Text(l.favoritesAndDownloads),
         actions: [
           // L'action reste sur l'onglet Favoris et suit l'onglet sélectionné :
           // « tout supprimer » n'a pas de sens sur les téléchargements.
           if (_tabs.index == 0 && favorites.isNotEmpty)
-            IconButton(
-              tooltip: l.deleteAll,
-              icon: const Icon(Icons.delete_sweep),
-              onPressed: () =>
+            TvFocus(
+              onActivate: () =>
                   confirmClearAllFavorites(context, ref, favorites.length),
+              child: IconButton(
+                tooltip: l.deleteAll,
+                icon: const Icon(Icons.delete_sweep),
+                onPressed: () =>
+                    confirmClearAllFavorites(context, ref, favorites.length),
+              ),
             ),
         ],
         bottom: TabBar(
