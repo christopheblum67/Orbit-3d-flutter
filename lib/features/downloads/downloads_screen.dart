@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/services/download_manager.dart';
@@ -175,23 +176,29 @@ class DownloadList extends StatelessWidget {
         return b.createdAt.compareTo(a.createdAt);
       });
 
-    return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
-      padding: const EdgeInsets.all(16),
-      addAutomaticKeepAlives: false,
-      itemCount: sorted.length,
-      itemBuilder: (context, index) {
-        final task = sorted[index];
-        return DownloadTile(
-          task: task,
-          onPause: () => manager.pause(task.id),
-          onResume: () => manager.resume(task.id),
-          onCancel: () => manager.cancel(task.id),
-          onDelete: () => manager.delete(task.id),
-          onRetry: () => manager.retry(task.id),
-          onTap: () => openDownloadedContent(context, task),
-        );
-      },
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: ListView.builder(
+        scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+        padding: const EdgeInsets.all(16),
+        addAutomaticKeepAlives: false,
+        itemCount: sorted.length,
+        itemBuilder: (context, index) {
+          final task = sorted[index];
+          return TvFocus(
+            autofocus: index == 0,
+            child: DownloadTile(
+              task: task,
+              onPause: () => manager.pause(task.id),
+              onResume: () => manager.resume(task.id),
+              onCancel: () => manager.cancel(task.id),
+              onDelete: () => manager.delete(task.id),
+              onRetry: () => manager.retry(task.id),
+              onTap: () => openDownloadedContent(context, task),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -400,28 +407,37 @@ class DownloadTile extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   if (task.isCompleted) ...[
-                    FilledButton.icon(
-                      onPressed: () => playDownloadedContent(context, task),
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: Text(l.play),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: scheme.primary,
-                        foregroundColor: scheme.onPrimary,
+                    TvFocus(
+                      onActivate: () => playDownloadedContent(context, task),
+                      child: FilledButton.icon(
+                        onPressed: () => playDownloadedContent(context, task),
+                        icon: const Icon(Icons.play_arrow, size: 18),
+                        label: Text(l.play),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: scheme.primary,
+                          foregroundColor: scheme.onPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
                   ],
                   if (task.isFailed)
-                    TextButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh, size: 18),
-                      label: Text(l.retry),
+                    TvFocus(
+                      onActivate: onRetry,
+                      child: TextButton.icon(
+                        onPressed: onRetry,
+                        icon: const Icon(Icons.refresh, size: 18),
+                        label: Text(l.retry),
+                      ),
                     ),
-                  TextButton.icon(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(l.cancel),
-                    style: TextButton.styleFrom(foregroundColor: scheme.error),
+                  TvFocus(
+                    onActivate: onDelete,
+                    child: TextButton.icon(
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text(l.cancel),
+                      style: TextButton.styleFrom(foregroundColor: scheme.error),
+                    ),
                   ),
                 ],
               ),
@@ -539,33 +555,45 @@ class _ActionButtons extends StatelessWidget {
     final l = AppLocalizations.of(context);
 
     if (task.status == DownloadStatus.downloading) {
-      return IconButton(
-        onPressed: onPause,
-        icon: Icon(Icons.pause, color: scheme.primary),
-        tooltip: l.pauseDownload,
+      return TvFocus(
+        onActivate: onPause,
+        child: IconButton(
+          onPressed: onPause,
+          icon: Icon(Icons.pause, color: scheme.primary),
+          tooltip: l.pauseDownload,
+        ),
       );
     } else if (task.status == DownloadStatus.paused) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            onPressed: onResume,
-            icon: Icon(Icons.play_arrow, color: scheme.primary),
-            tooltip: 'Reprendre',
+          TvFocus(
+            onActivate: onResume,
+            child: IconButton(
+              onPressed: onResume,
+              icon: Icon(Icons.play_arrow, color: scheme.primary),
+              tooltip: 'Reprendre',
+            ),
           ),
-          IconButton(
-            onPressed: onCancel,
-            icon: Icon(Icons.cancel, color: scheme.error),
-            tooltip: l.cancel,
+          TvFocus(
+            onActivate: onCancel,
+            child: IconButton(
+              onPressed: onCancel,
+              icon: Icon(Icons.cancel, color: scheme.error),
+              tooltip: l.cancel,
+            ),
           ),
         ],
       );
     } else if (task.status == DownloadStatus.queued ||
         task.status == DownloadStatus.preparing) {
-      return IconButton(
-        onPressed: onCancel,
-        icon: Icon(Icons.cancel, color: scheme.error),
-        tooltip: l.cancel,
+      return TvFocus(
+        onActivate: onCancel,
+        child: IconButton(
+          onPressed: onCancel,
+          icon: Icon(Icons.cancel, color: scheme.error),
+          tooltip: l.cancel,
+        ),
       );
     }
     return const SizedBox.shrink();

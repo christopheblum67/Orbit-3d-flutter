@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_palette_picker.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -19,10 +20,9 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       appBar: AppBar(
         // Retour toujours visible : en route racine (accès direct par les
         // réglages), `canPop()` est false et l'icône disparaissait.
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Retour',
-          onPressed: () {
+        leading: TvFocus(
+          autofocus: true,
+          onActivate: () {
             final router = GoRouter.of(context);
             if (router.canPop()) {
               router.pop();
@@ -30,6 +30,18 @@ class ProfilePreferencesScreen extends ConsumerWidget {
               router.go('/settings');
             }
           },
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: 'Retour',
+            onPressed: () {
+              final router = GoRouter.of(context);
+              if (router.canPop()) {
+                router.pop();
+              } else {
+                router.go('/settings');
+              }
+            },
+          ),
         ),
         title: Text(l.preferences),
       ),
@@ -76,16 +88,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           const Divider(height: 1),
           const ProfilePalettePicker(),
           const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.family_restroom_outlined),
-            title: Text(l.sectionParental),
-            subtitle: Text(
-              prefs.parentalControlEnabled
-                  ? 'Activé · Restriction ${prefs.ageRestriction > 0 ? l.plusAgeYears(prefs.ageRestriction) : 'désactivée'}'
-                  : 'Désactivé',
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
+          TvFocus(
+            onActivate: () async {
               final result = await _showParentalDialog(context, ref, prefs);
               if (result != null) {
                 await notifier.updateParental(
@@ -94,6 +98,25 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                 );
               }
             },
+            child: ListTile(
+              leading: const Icon(Icons.family_restroom_outlined),
+              title: Text(l.sectionParental),
+              subtitle: Text(
+                prefs.parentalControlEnabled
+                    ? 'Activé · Restriction ${prefs.ageRestriction > 0 ? l.plusAgeYears(prefs.ageRestriction) : 'désactivée'}'
+                    : 'Désactivé',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final result = await _showParentalDialog(context, ref, prefs);
+                if (result != null) {
+                  await notifier.updateParental(
+                    enabled: result.enabled,
+                    ageRestriction: result.ageRestriction,
+                  );
+                }
+              },
+            ),
           ),
           const Divider(height: 1),
           SwitchListTile(

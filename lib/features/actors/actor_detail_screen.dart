@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -239,9 +240,13 @@ class _ActorDetailBody extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final credit = person.knownFor[index];
-                  return _FilmographyCard(
-                    credit: credit,
-                    onTap: () => _openMovie(context, ref, credit),
+                  return TvFocus(
+                    autofocus: index == 0,
+                    onActivate: () => _openMovie(context, ref, credit),
+                    child: _FilmographyCard(
+                      credit: credit,
+                      onTap: () => _openMovie(context, ref, credit),
+                    ),
                   );
                 },
               ),

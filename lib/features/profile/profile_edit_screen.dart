@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -480,9 +481,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => context.go('/profiles'),
-                        child: Text(l.chooseProfile),
+                      TvFocus(
+                        autofocus: true,
+                        onActivate: () => context.go('/profiles'),
+                        child: FilledButton(
+                          onPressed: () => context.go('/profiles'),
+                          child: Text(l.chooseProfile),
+                        ),
                       ),
                     ],
                   ),
@@ -672,12 +677,21 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           // jusqu'en bas pour trouver "Enregistrer".
           Align(
             alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: _scrollToNextSection,
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: const Text('Suivant'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: TvFocus(
+                onActivate: _scrollToNextSection,
+                child: OutlinedButton.icon(
+                  onPressed: _scrollToNextSection,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                  label: const Text('Suivant'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -865,24 +879,37 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       child: Row(
         children: [
           Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _saving ? null : handleBack,
-              icon: const Icon(Icons.close_rounded),
-              label: const Text('Annuler'),
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: TvFocus(
+                onActivate: _saving ? null : handleBack,
+                child: OutlinedButton.icon(
+                  onPressed: _saving ? null : handleBack,
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Annuler'),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(_isEdit ? 'Enregistrer' : 'Créer le profil'),
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: TvFocus(
+                autofocus: true,
+                onActivate: _saving ? null : _save,
+                child: FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_isEdit ? 'Enregistrer' : 'Créer le profil'),
+                ),
+              ),
             ),
           ),
         ],

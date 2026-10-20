@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -58,74 +59,81 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               message: 'Tes lectures récentes apparaîtront ici.',
             );
           }
-          return ListView.builder(
-            scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
-            addAutomaticKeepAlives: false,
-            itemCount: hist.length,
-            itemBuilder: (context, index) {
-              final parts = hist[index].split('|');
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: AppCard(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(context).colorScheme.primaryContainer,
-                              Theme.of(context).colorScheme.tertiaryContainer,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.history,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              parts[0],
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            if (parts.length > 1 && parts[1].isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                parts[1],
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
+          return FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: ListView.builder(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+              padding: const EdgeInsets.all(16),
+              addAutomaticKeepAlives: false,
+              itemCount: hist.length,
+              itemBuilder: (context, index) {
+                final parts = hist[index].split('|');
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TvFocus(
+                    autofocus: index == 0,
+                    child: AppCard(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              gradient: LinearGradient(
+                                colors: [
+                                  Theme.of(context).colorScheme.primaryContainer,
+                                  Theme.of(context).colorScheme.tertiaryContainer,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
-                          ],
-                        ),
+                            ),
+                            child: Icon(
+                              Icons.history,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  parts[0],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                if (parts.length > 1 && parts[1].isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    parts[1],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           );
         },
         error: (error) => ErrorState(

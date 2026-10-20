@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -92,67 +93,79 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                       subtitle: '${radios.length} stations',
                     ),
                     const SizedBox(height: 8),
-                    for (final radio in radios)
+                    for (var i = 0; i < radios.length; i++)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: ChannelTile(
-                          title: radio.name,
-                          subtitle: radio.group,
-                          icon: Icons.radio,
-                          isActive: stationName == radio.name && isPlaying,
-                          trailing: _unavailable.contains(radio.name)
-                              ? Tooltip(
-                                  message:
-                                      'Flux radio indisponible sur cette station',
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .errorContainer,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.error_outline_rounded,
-                                          size: 16,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onErrorContainer,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Indisponible',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                        child: TvFocus(
+                          autofocus: i == 0,
+                          onActivate: () => _toggleStation(radios[i]),
+                          child: ChannelTile(
+                            title: radios[i].name,
+                            subtitle: radios[i].group,
+                            icon: Icons.radio,
+                            isActive: stationName == radios[i].name && isPlaying,
+                            trailing: _unavailable.contains(radios[i].name)
+                                ? Tooltip(
+                                    message:
+                                        'Flux radio indisponible sur cette station',
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .errorContainer,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.error_outline_rounded,
+                                            size: 16,
                                             color: Theme.of(context)
                                                 .colorScheme
                                                 .onErrorContainer,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Indisponible',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onErrorContainer,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : TvFocus(
+                                    onActivate: () => _toggleStation(radios[i]),
+                                    child: IconButton(
+                                      icon: Icon(
+                                        stationName == radios[i].name &&
+                                                isPlaying
+                                            ? Icons.stop_circle_outlined
+                                            : Icons.play_circle_outline,
+                                      ),
+                                      color: stationName == radios[i].name &&
+                                              isPlaying
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                      onPressed: () =>
+                                          _toggleStation(radios[i]),
                                     ),
                                   ),
-                                )
-                              : IconButton(
-                                  icon: Icon(
-                                    stationName == radio.name && isPlaying
-                                        ? Icons.stop_circle_outlined
-                                        : Icons.play_circle_outline,
-                                  ),
-                                  color: stationName == radio.name && isPlaying
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                  onPressed: () => _toggleStation(radio),
-                                ),
-                          onTap: () => _toggleStation(radio),
+                            onTap: () => _toggleStation(radios[i]),
+                          ),
                         ),
                       ),
                   ],

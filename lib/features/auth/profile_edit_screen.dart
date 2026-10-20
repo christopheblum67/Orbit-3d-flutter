@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/auth/widgets/profile_avatar_selector.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -113,6 +114,77 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     return parsed > 120 ? 120 : parsed;
   }
 
+  /// Enregistre le profil [loaded]. Partagé entre l'activation au D-pad
+  /// ([TvFocus.onActivate]) et le tap tactile ([FilledButton.onPressed]).
+  Future<void> _save(UserProfile loaded) async {
+    if (_saving) return;
+    if (!_formKey.currentState!.validate() ||
+        _gender == null ||
+        _favoriteGenres.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sélectionnez au moins un genre favori'),
+        ),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final l = AppLocalizations.of(context);
+    final result = await safeAsync<void>(
+      () async {
+        final age = _computedAge()!;
+        final dob = loaded.dateOfBirth;
+        final now = DateTime.now();
+        final updatedDob = DateTime(
+          now.year - age,
+          dob.month.clamp(1, 12),
+          dob.day.clamp(
+            1,
+            DateTime(
+              now.year - age,
+              dob.month.clamp(1, 12) + 1,
+              0,
+            ).day,
+          ),
+        );
+        final updated = loaded.copyWith(
+          firstName: _nameController.text.trim(),
+          dateOfBirth: updatedDob,
+          gender: _gender!,
+          favoriteGenres: _favoriteGenres,
+          avatarUrl: _avatarId.isEmpty
+              ? ''
+              : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
+          updatedAt: DateTime.now(),
+        );
+        await ref.read(storageServiceProvider).saveProfile(updated);
+        // Écriture disque, donc suspension possible.
+        // Trois lectures de `ref` suivaient, la garde
+        // `context.mounted` n'arrivait qu'après, à la ligne du `context.pop()`.
+        if (!mounted) return;
+        final current = ref.read(currentProfileProvider);
+        if (current?.id == updated.id) {
+          ref.read(currentProfileProvider.notifier).setUserProfile(updated);
+        }
+        ref.invalidate(profilesProvider);
+        if (!mounted) return;
+        context.pop();
+      },
+      context: 'ProfileEditScreen.saveProfile',
+    );
+    if (result.isFailure) {
+      // `context.mounted` protège le SnackBar, mais le `setState` juste après
+      // ne l'était pas : sur erreur d'écriture, l'utilisateur a souvent déjà
+      // quitté l'écran.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.errorSaving)),
+      );
+      setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -165,9 +237,13 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       style: TextStyle(color: scheme.onSurfaceVariant),
                     ),
                     const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () => context.go('/profiles'),
-                      child: Text(l.chooseProfile),
+                    TvFocus(
+                      autofocus: true,
+                      onActivate: () => context.go('/profiles'),
+                      child: FilledButton(
+                        onPressed: () => context.go('/profiles'),
+                        child: Text(l.chooseProfile),
+                      ),
                     ),
                   ],
                 ),
@@ -346,86 +422,17 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _saving
-                        ? null
-                        : () async {
-                            if (!_formKey.currentState!.validate() ||
-                                _gender == null ||
-                                _favoriteGenres.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Sélectionnez au moins un genre favori',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            setState(() => _saving = true);
-                            final result = await safeAsync<void>(
-                              () async {
-                                final age = _computedAge()!;
-                                final dob = loaded.dateOfBirth;
-                                final now = DateTime.now();
-                                final updatedDob = DateTime(
-                                  now.year - age,
-                                  dob.month.clamp(1, 12),
-                                  dob.day.clamp(
-                                    1,
-                                    DateTime(
-                                      now.year - age,
-                                      dob.month.clamp(1, 12) + 1,
-                                      0,
-                                    ).day,
-                                  ),
-                                );
-                                final updated = loaded.copyWith(
-                                  firstName: _nameController.text.trim(),
-                                  dateOfBirth: updatedDob,
-                                  gender: _gender!,
-                                  favoriteGenres: _favoriteGenres,
-                                  avatarUrl: _avatarId.isEmpty
-                                      ? ''
-                                      : '${ProfileAvatar.avatarIconPrefix}$_avatarId',
-                                  updatedAt: DateTime.now(),
-                                );
-                                await ref
-                                    .read(storageServiceProvider)
-                                    .saveProfile(updated);
-                                // Écriture disque, donc suspension possible.
-                                // Trois lectures de `ref` suivaient, la garde
-                                // `context.mounted` n'arrivait qu'après, à la
-                                // ligne du `context.pop()`.
-                                if (!context.mounted) return;
-                                final current =
-                                    ref.read(currentProfileProvider);
-                                if (current?.id == updated.id) {
-                                  ref
-                                      .read(currentProfileProvider.notifier)
-                                      .setUserProfile(updated);
-                                }
-                                ref.invalidate(profilesProvider);
-                                if (context.mounted) context.pop();
-                              },
-                              context: 'ProfileEditScreen.saveProfile',
-                            );
-                            if (result.isFailure) {
-                              // `context.mounted` protège le SnackBar, mais le
-                              // `setState` juste après ne l'était pas : sur
-                              // erreur d'écriture, l'utilisateur a souvent déjà
-                              // quitté l'écran.
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(l.errorSaving),
-                                ),
-                              );
-                              setState(() => _saving = false);
-                            }
-                          },
-                    icon: const Icon(Icons.save_outlined),
-                    label: const Text('Enregistrer'),
+                  FocusTraversalGroup(
+                    policy: OrderedTraversalPolicy(),
+                    child: TvFocus(
+                      autofocus: true,
+                      onActivate: _saving ? null : () => _save(loaded),
+                      child: FilledButton.icon(
+                        onPressed: _saving ? null : () => _save(loaded),
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Enregistrer'),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 24),
                 ],
