@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cast/cast.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/cast_provider.dart';
 import 'package:orbit_3d_flutter/services/cast_playback_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -254,32 +255,9 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                       ),
                     ),
                   ),
-                  Focus(
+                  TvFocus(
                     focusNode: _closeFocus,
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent &&
-                          (event.logicalKey == LogicalKeyboardKey.enter ||
-                              event.logicalKey == LogicalKeyboardKey.select ||
-                              event.logicalKey ==
-                                  LogicalKeyboardKey.gameButtonA)) {
-                        Navigator.of(context).pop();
-                        return KeyEventResult.handled;
-                      }
-                      if (event is KeyDownEvent &&
-                          (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                              event.logicalKey == LogicalKeyboardKey.arrowUp)) {
-                        // Move focus to first device or retry button
-                        if (_deviceFocusNodes.isNotEmpty) {
-                          _requestFocus(_deviceFocusNodes.first);
-                        } else if (_devices.isNotEmpty) {
-                          // fallback
-                        } else if (_retryFocus.hasFocus == false) {
-                          _requestFocus(_retryFocus);
-                        }
-                        return KeyEventResult.handled;
-                      }
-                      return KeyEventResult.ignored;
-                    },
+                    onActivate: () => Navigator.of(context).pop(),
                     child: IconButton(
                       tooltip: 'Fermer',
                       onPressed: () => Navigator.of(context).pop(),
@@ -305,28 +283,9 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
             if (connected)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Focus(
+                child: TvFocus(
                   focusNode: _disconnectFocus,
-                  onKeyEvent: (node, event) {
-                    if (event is KeyDownEvent &&
-                        (event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey ==
-                                LogicalKeyboardKey.gameButtonA)) {
-                      _disconnect();
-                      return KeyEventResult.handled;
-                    }
-                    if (event is KeyDownEvent &&
-                        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-                            event.logicalKey == LogicalKeyboardKey.arrowDown)) {
-                      // Move focus back to last device
-                      if (_deviceFocusNodes.isNotEmpty) {
-                        _requestFocus(_deviceFocusNodes.last);
-                      }
-                      return KeyEventResult.handled;
-                    }
-                    return KeyEventResult.ignored;
-                  },
+                  onActivate: _disconnect,
                   child: OutlinedButton.icon(
                     onPressed: _disconnect,
                     icon: const Icon(Icons.stop_rounded),
@@ -381,27 +340,10 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
             const SizedBox(height: 12),
             Text(l.noChromecastDeviceFound, textAlign: TextAlign.center),
             const SizedBox(height: 12),
-            Focus(
+            TvFocus(
               focusNode: _retryFocus,
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  _scan();
-                  return KeyEventResult.handled;
-                }
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.arrowUp ||
-                        event.logicalKey == LogicalKeyboardKey.arrowDown)) {
-                  // Loop to close button
-                  _requestFocus(_closeFocus);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child:
-                  OutlinedButton(onPressed: _scan, child: Text(l.retrySearch)),
+              onActivate: _scan,
+              child: OutlinedButton(onPressed: _scan, child: Text(l.retrySearch)),
             ),
           ],
         ),
@@ -411,65 +353,44 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
     // Ensure device focus nodes match device count
     _ensureDeviceFocusNodes(_devices.length);
 
-    return ListView(
-      shrinkWrap: true,
-      children: [
-        for (int i = 0; i < _devices.length; i++)
-          Focus(
-            focusNode: _deviceFocusNodes[i],
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent) {
-                if (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                  _connect(_devices[i]);
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                  if (i + 1 < _devices.length) {
-                    _requestFocus(_deviceFocusNodes[i + 1]);
-                  } else if (connected) {
-                    _requestFocus(_disconnectFocus);
-                  } else {
-                    _requestFocus(_closeFocus);
-                  }
-                  return KeyEventResult.handled;
-                }
-                if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                  if (i > 0) {
-                    _requestFocus(_deviceFocusNodes[i - 1]);
-                  } else {
-                    _requestFocus(_closeFocus);
-                  }
-                  return KeyEventResult.handled;
-                }
-              }
-              return KeyEventResult.ignored;
-            },
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: Icon(
-                Icons.tv_rounded,
-                color: Theme.of(context).colorScheme.primary,
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          for (int i = 0; i < _devices.length; i++)
+            TvFocus(
+              focusNode: _deviceFocusNodes[i],
+              autofocus: i == 0,
+              onActivate: () => _connect(_devices[i]),
+              onFocusChange: (hasFocus) {
+                if (hasFocus) HapticFeedback.selectionClick();
+              },
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                leading: Icon(
+                  Icons.tv_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title:
+                    Text(_devices[i].name, style: const TextStyle(fontSize: 14)),
+                subtitle:
+                    Text(_devices[i].host, style: const TextStyle(fontSize: 11)),
+                trailing: Icon(
+                  connected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: connected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+                onTap: () => _connect(_devices[i]),
               ),
-              title:
-                  Text(_devices[i].name, style: const TextStyle(fontSize: 14)),
-              subtitle:
-                  Text(_devices[i].host, style: const TextStyle(fontSize: 11)),
-              trailing: Icon(
-                connected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                color: connected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                size: 20,
-              ),
-              onTap: () => _connect(_devices[i]),
             ),
-          ),
-        const SizedBox(height: 8),
-      ],
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

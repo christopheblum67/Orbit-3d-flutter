@@ -25,75 +25,45 @@ Future<void> confirmClearAllFavorites(
   int total,
 ) async {
   final l = AppLocalizations.of(context);
-  final cancelFocus = FocusNode();
-  final confirmFocus = FocusNode();
-
-  void requestFocus(FocusNode focus) {
-    if (context.mounted) {
-      FocusScope.of(context).requestFocus(focus);
-    }
-  }
 
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(l.deleteAllConfirm),
-      content: Text(
-        'Retirer les $total favoris enregistrés ? '
-        'La liste des favoris sera vidée.',
-      ),
-      actions: [
-        Focus(
-          focusNode: cancelFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(dialogContext, false);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(confirmFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
-          ),
+    builder: (dialogContext) {
+      // Navigation D-pad TV : halos + Enter, autofocus sur « Annuler »
+      // (action sûre par défaut pour une suppression irréversible).
+      final actions = FocusTraversalGroup(
+        policy: OrderedTraversalPolicy(),
+        child: Row(
+          children: [
+            TvFocus(
+              autofocus: true,
+              onActivate: () => Navigator.of(dialogContext).pop(),
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Annuler'),
+              ),
+            ),
+            TvFocus(
+              onActivate: () => Navigator.of(dialogContext).pop(true),
+              child: FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: Text(l.deleteAll),
+              ),
+            ),
+          ],
         ),
-        Focus(
-          focusNode: confirmFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(dialogContext, true);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(cancelFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l.deleteAll),
-          ),
+      );
+
+      return AlertDialog(
+        title: Text(l.deleteAllConfirm),
+        content: Text(
+          'Retirer les $total favoris enregistrés ? '
+          'La liste des favoris sera vidée.',
         ),
-      ],
-    ),
+        actions: [actions],
+      );
+    },
   );
-  cancelFocus.dispose();
-  confirmFocus.dispose();
   if (confirmed == true && context.mounted) {
     await ref.read(favoritesProvider.notifier).clearAll();
   }
@@ -128,7 +98,8 @@ class FavoritesLiveSection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
