@@ -48,6 +48,7 @@ class TvFocus extends ConsumerStatefulWidget {
   final void Function()? onActivate;
   final void Function()? onLongPress;
   final void Function(bool focused)? onFocusChange;
+  final KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent;
   final bool autofocus;
   final bool enableTvEffects;
 
@@ -58,6 +59,7 @@ class TvFocus extends ConsumerStatefulWidget {
     this.onActivate,
     this.onLongPress,
     this.onFocusChange,
+    this.onKeyEvent,
     this.autofocus = false,
     this.enableTvEffects = true,
   });
@@ -179,7 +181,7 @@ class _TvFocusState extends ConsumerState<TvFocus>
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onFocusChange: _handleFocusChange,
-      onKeyEvent: _handleKeyEvent,
+      onKeyEvent: widget.onKeyEvent ?? _handleKeyEvent,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
@@ -203,15 +205,21 @@ class _TvFocusState extends ConsumerState<TvFocus>
                       border: Border.all(color: scheme.primary, width: 3),
                       boxShadow: [
                         BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.6),
-                          blurRadius: 20,
-                          spreadRadius: 2,
+                          color: scheme.primary.withValues(alpha: 0.95),
+                          blurRadius: 32,
+                          spreadRadius: 4,
                           offset: const Offset(0, 0),
                         ),
                         BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 40,
-                          spreadRadius: 6,
+                          color: scheme.primary.withValues(alpha: 0.6),
+                          blurRadius: 72,
+                          spreadRadius: 10,
+                          offset: const Offset(0, 0),
+                        ),
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          blurRadius: 16,
+                          spreadRadius: 1,
                           offset: const Offset(0, 0),
                         ),
                       ],
@@ -293,14 +301,30 @@ extension TvFocusExtension on Widget {
     FocusNode? focusNode,
     bool autofocus = false,
     bool enableTvEffects = true,
+    KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent,
+    String? a11yLabel,
+    String? a11yHint,
+    bool a11yButton = false,
+    bool a11ySelected = false,
   }) {
-    return TvFocus(
+    Widget w = TvFocus(
       focusNode: focusNode,
       onActivate: onActivate,
       onLongPress: onLongPress,
+      onKeyEvent: onKeyEvent,
       autofocus: autofocus,
       enableTvEffects: enableTvEffects,
       child: this,
     );
+    if (a11yLabel != null || a11yHint != null || a11yButton || a11ySelected) {
+      w = Semantics(
+        label: a11yLabel,
+        hint: a11yHint,
+        button: a11yButton,
+        selected: a11ySelected,
+        child: w,
+      );
+    }
+    return w;
   }
 }

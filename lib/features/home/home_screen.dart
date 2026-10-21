@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:orbit_3d_flutter/core/widgets/tv_dropdown.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
@@ -22,12 +23,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final PageController _pageController;
+  late final FocusNode _profileDropdownFocus;
   double _currentPage = 0.0;
   bool _autoRefreshing = false;
 
   @override
   void initState() {
     super.initState();
+    _profileDropdownFocus = FocusNode();
     _pageController = PageController(
       initialPage: 0,
       viewportFraction: 0.38,
@@ -52,14 +55,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _profileDropdownFocus.dispose();
     super.dispose();
   }
 
   Future<void> _confirmExit(BuildContext context) async {
     final shouldExit = await showDialog<bool>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
         title: const Row(
           children: [
             Icon(
@@ -88,9 +92,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 TvFocus(
                   autofocus: true,
-                  onActivate: () => Navigator.of(context).pop(false),
+                  onActivate: () => Navigator.of(dialogContext).pop(false),
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
                     child: const Text(
                       'Non',
                       style: TextStyle(
@@ -101,9 +105,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 TvFocus(
-                  onActivate: () => Navigator.of(context).pop(true),
+                  onActivate: () => Navigator.of(dialogContext).pop(true),
                   child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
+                    onPressed: () => Navigator.of(dialogContext).pop(true),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
@@ -274,6 +278,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
     // En mode TV, les flèches gauche/droite du D-pad font défiler le
     // carrousel : le Focus intercepte les touches et pilote le PageController.
+    // Touche OK/Enter/Select/GamepadA : active directement l'élément centré
+    // (évite que le focus ne "perde" la tuile sur certaines télécommandes).
     return Focus(
       onKeyEvent: (node, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -289,6 +295,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOut,
           );
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.space ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+          final page = _pageController.page ?? 0.0;
+          final index = page.round().clamp(0, items.length - 1);
+          if (index >= 0 && index < items.length) {
+            _openItem(context, items[index]);
+          }
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -485,25 +502,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           const _SubStatusChip(),
           const Spacer(),
-          GestureDetector(
-            onTap: () => context.go('/profiles'),
-            child: Row(
-              children: [
-                Text(
-                  'Profil : ',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 13,
-                  ),
+          TvDropdown<UserProfile?>(
+            value: current,
+            focusNode: _profileDropdownFocus,
+            autofocus: false,
+            items: [
+              for (final profile in profilesAsync.value ?? const <UserProfile>[])
+                TvDropdownItem<UserProfile?>(
+                  value: profile,
+                  label: profile.firstName,
+                  icon: Icons.person_outline,
+                  iconColor: _profileColor(
+                      profilesAsync.value?.indexWhere((p) => p.id == profile.id) ?? 0),
                 ),
-                const SizedBox(width: 8),
-                _buildProfileAvatar(
-                  context,
-                  current,
-                  profilesAsync.value ?? const <UserProfile>[],
+              const TvDropdownItem<UserProfile?>(
+                value: null,
+                label: 'Nouveau profil',
+                icon: Icons.person_add_outlined,
+                iconColor: Color(0xFF00CFE8),
+              ),
+            ],
+            onChanged: (profile) {
+              if (profile != null) {
+                ref.read(currentProfileProvider.notifier).setUserProfile(profile);
+                ref.read(storageServiceProvider).setSetting('last_profile_id', profile.id);
+                context.go('/home');
+              } else {
+                context.push('/profile/create');
+              }
+            },
+          ),
+          const SizedBox(width: 12),
+          Row(
+            children: [
+              Text(
+                'Profil : ',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 13,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _buildProfileAvatar(
+                context,
+                current,
+                profilesAsync.value ?? const <UserProfile>[],
+              ),
+            ],
           ),
         ],
       ),
@@ -653,24 +698,31 @@ class _SubStatusChip extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 10),
-        InkWell(
-          onTap: () => context.go('/subscriptions'),
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+        TvFocus(
+          onActivate: () => context.go('/subscriptions'),
+          child: InkWell(
+            onTap: () => context.go('/subscriptions'),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+                ),
               ),
-            ),
-            child: const Text(
-              'Changer',
-              style: TextStyle(
-                color: Color(0xFF00CFE8),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+              child: Semantics(
+                label: "Changer d'abonnement",
+                button: true,
+                child: Text(
+                  'Changer',
+                  style: TextStyle(
+                    color: Color(0xFF00CFE8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
@@ -715,24 +767,31 @@ class _NoSubscriptionChip extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        InkWell(
-          onTap: () => context.go('/subscriptions'),
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+        TvFocus(
+          onActivate: () => context.go('/subscriptions'),
+          child: InkWell(
+            onTap: () => context.go('/subscriptions'),
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+                ),
               ),
-            ),
-            child: const Text(
-              'Changer',
-              style: TextStyle(
-                color: Color(0xFF00CFE8),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+              child: Semantics(
+                label: "Changer d'abonnement",
+                button: true,
+                child: Text(
+                  'Changer',
+                  style: TextStyle(
+                    color: Color(0xFF00CFE8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
@@ -991,3 +1050,7 @@ class _UpdateStackState extends State<_UpdateStack> {
     );
   }
 }
+
+
+
+

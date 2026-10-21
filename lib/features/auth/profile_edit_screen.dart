@@ -40,6 +40,36 @@ const List<String> _genderOptions = [
   'Non spécifié',
 ];
 
+const List<String> _profileTypeOptions = [
+  'Adulte',
+  'Enfant',
+  'Expert',
+];
+
+ProfileType _profileTypeFromString(String s) {
+  switch (s) {
+    case 'Enfant':
+      return ProfileType.child;
+    case 'Expert':
+      return ProfileType.expert;
+    case 'Adulte':
+    default:
+      return ProfileType.adult;
+  }
+}
+
+String _profileTypeToString(ProfileType t) {
+  switch (t) {
+    case ProfileType.child:
+      return 'Enfant';
+    case ProfileType.expert:
+      return 'Expert';
+    case ProfileType.adult:
+    default:
+      return 'Adulte';
+  }
+}
+
 class ProfileEditScreen extends ConsumerStatefulWidget {
   const ProfileEditScreen({super.key, this.profileId});
 
@@ -57,6 +87,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
   final _nameFocus = FocusNode();
   final _ageFocus = FocusNode();
   String? _gender;
+  ProfileType? _profileType;
   String _avatarId = '';
   final List<String> _favoriteGenres = [];
   bool _saving = false;
@@ -74,6 +105,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     return _nameController.text.isNotEmpty ||
         _ageController.text.isNotEmpty ||
         _gender != null ||
+        _profileType != null ||
         _avatarId.isNotEmpty ||
         _favoriteGenres.isNotEmpty;
   }
@@ -100,6 +132,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     }
     if (age > 0 && age < 120) _ageController.text = age.toString();
     _gender = _genderOptions.contains(profile.gender) ? profile.gender : null;
+    _profileType = profile.profileType;
     _avatarId = profile.avatarUrl.startsWith(ProfileAvatar.avatarIconPrefix)
         ? profile.avatarUrl.substring(ProfileAvatar.avatarIconPrefix.length)
         : '';
@@ -120,6 +153,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     if (_saving) return;
     if (!_formKey.currentState!.validate() ||
         _gender == null ||
+        _profileType == null ||
         _favoriteGenres.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,6 +186,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
           firstName: _nameController.text.trim(),
           dateOfBirth: updatedDob,
           gender: _gender!,
+          profileType: _profileType!,
           favoriteGenres: _favoriteGenres,
           avatarUrl: _avatarId.isEmpty
               ? ''
@@ -265,18 +300,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                     child: Column(
                       children: [
                         ProfileAvatarSelector(
-                          avatars: profileAvatarOptions
-                              .map(
-                                (a) => AvatarItem(
-                                  id: a.id,
-                                  name: a.id,
-                                  category: 'Par défaut',
-                                  assetPath: '',
-                                  icon: a.icon,
-                                  color: a.color,
-                                ),
-                              )
-                              .toList(),
+                          avatars: const [],
                           selectedAvatarId: _avatarId,
                           onAvatarSelected: (avatar) => setState(
                             () => _avatarId =
@@ -393,6 +417,32 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                               (g) => DropdownMenuItem(value: g, child: Text(g)),)
                           .toList(),
                       onChanged: (v) => setState(() => _gender = v),
+                      validator: (v) => v == null ? 'Obligatoire' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SettingsSectionTitle('Type de profil'),
+                  AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: DropdownButtonFormField<ProfileType>(
+                      initialValue: _profileType,
+                      decoration: const InputDecoration(
+                        labelText: 'Type de profil',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      items: ProfileType.values
+                          .map(
+                            (t) => DropdownMenuItem(
+                              value: t,
+                              child: Text(_profileTypeToString(t)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _profileType = v),
                       validator: (v) => v == null ? 'Obligatoire' : null,
                     ),
                   ),

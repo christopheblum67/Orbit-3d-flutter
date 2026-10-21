@@ -32,6 +32,7 @@ class TvSafeArea extends ConsumerWidget {
     this.top = true,
     this.right = true,
     this.bottom = true,
+    this.backgroundColor,
   });
 
   /// Le contenu à protéger.
@@ -46,12 +47,19 @@ class TvSafeArea extends ConsumerWidget {
   final bool right;
   final bool bottom;
 
+  /// Couleur de fond qui s'étend derrière l'overscan (pour éviter les bandes
+  /// blanches/visibles sur les TV). Par défaut : `Theme.of(context).scaffoldBackgroundColor`.
+  final Color? backgroundColor;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(tvModeControllerProvider);
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => SafeArea(
+    final bgColor = backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+    final applyOverscan = controller.enabled && controller.isRealTv;
+
+    return ColoredBox(
+      color: bgColor,
+      child: SafeArea(
         left: left,
         top: top,
         right: right,
@@ -59,9 +67,7 @@ class TvSafeArea extends ConsumerWidget {
         // La marge d'overscan est une contrainte de dalle de télévision : elle
         // ne doit JAMAIS s'appliquer sur un écran tactile, même si le mode TV a
         // été activé par une touche (Entrée du clavier virtuel, Retour).
-        minimum: controller.enabled && controller.isRealTv
-            ? minimum
-            : EdgeInsets.zero,
+        minimum: applyOverscan ? minimum : EdgeInsets.zero,
         child: child,
       ),
     );

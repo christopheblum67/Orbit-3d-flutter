@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -265,7 +266,7 @@ class _TypeSection extends StatelessWidget {
   }
 }
 
-class _EngineRow extends StatelessWidget {
+class _EngineRow extends StatefulWidget {
   const _EngineRow({
     required this.label,
     required this.icon,
@@ -281,26 +282,113 @@ class _EngineRow extends StatelessWidget {
   final List<DropdownMenuItem<PlayerEngine>> dropdownItems;
 
   @override
+  State<_EngineRow> createState() => _EngineRowState();
+}
+
+class _EngineRowState extends State<_EngineRow> {
+  late FocusNode _focusNode;
+  bool _isDropdownOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggleDropdown() {
+    setState(() => _isDropdownOpen = !_isDropdownOpen);
+    if (!_isDropdownOpen) {
+      // Forcer la fermeture via le focus system
+      _focusNode.requestFocus();
+    }
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+      if (!_isDropdownOpen) {
+        // Ouvrir le dropdown
+        setState(() => _isDropdownOpen = true);
+        // Le DropdownButton gère son overlay interne
+      } else {
+        // Fermer le dropdown (la sélection se fait via onChanged)
+        setState(() => _isDropdownOpen = false);
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonB) {
+      if (_isDropdownOpen) {
+        setState(() => _isDropdownOpen = false);
+        return KeyEventResult.handled;
+      }
+    }
+    // Laisser les flèches haut/bas naviguer dans le dropdown ouvert
+    if (_isDropdownOpen &&
+        (event.logicalKey == LogicalKeyboardKey.arrowUp ||
+         event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.tertiary),
+          Icon(widget.icon, size: 18, color: Theme.of(context).colorScheme.tertiary),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 13)),
+            child: Text(widget.label, style: const TextStyle(fontSize: 13)),
           ),
           TvFocus(
+            focusNode: _focusNode,
+            onActivate: _toggleDropdown,
+            onKeyEvent: _onKey,
+            onFocusChange: (hasFocus) {
+              if (!hasFocus && _isDropdownOpen) {
+                setState(() => _isDropdownOpen = false);
+              }
+            },
             child: DropdownButtonHideUnderline(
               child: DropdownButton<PlayerEngine>(
-                value: value,
+                value: widget.value,
                 isDense: true,
-                borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-                items: dropdownItems,
+                isExpanded: false,
+                borderRadius: BorderRadius.circular(12),
+                items: widget.dropdownItems,
                 onChanged: (v) {
-                  if (v != null) onChanged(v);
+                  if (v != null) {
+                    widget.onChanged(v);
+                    setState(() => _isDropdownOpen = false);
+                  }
                 },
+                // Style pour indiquer visuellement le focus
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _isDropdownOpen
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                  fontWeight: _isDropdownOpen ? FontWeight.w600 : FontWeight.normal,
+                ),
+                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                icon: Icon(
+                  _isDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 20,
+                ),
               ),
             ),
           ),

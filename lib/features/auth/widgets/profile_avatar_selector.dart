@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 
 /// Nombre maximum de profils autorisés
 const int kMaxProfiles = 6;
@@ -22,6 +23,86 @@ class AvatarItem {
   });
 }
 
+/// Thème d'avatar : groupe d'avatars partageant une palette de couleurs
+class AvatarTheme {
+  const AvatarTheme({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.startColor,
+    required this.endColor,
+    required this.avatarIds,
+  });
+
+  final String id;
+  final String name;
+  final IconData icon;
+  final Color startColor;
+  final Color endColor;
+  final List<String> avatarIds;
+
+  /// Crée un dégradé pour l'aperçu du thème
+  LinearGradient get previewGradient => LinearGradient(
+        colors: [startColor, endColor],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+
+  /// Couleur principale du thème (pour bordures, focus, etc.)
+  Color get primaryColor => startColor;
+}
+
+/// Thèmes d'avatars prédéfinis (groupés par palette de couleurs)
+const List<AvatarTheme> avatarThemes = [
+  AvatarTheme(
+    id: 'cyan',
+    name: 'Cyan',
+    icon: Icons.water_drop,
+    startColor: Color(0xFF00B8D4),
+    endColor: Color(0xFF00E5FF),
+    avatarIds: ['face', 'music', 'account'],
+  ),
+  AvatarTheme(
+    id: 'violet',
+    name: 'Violet',
+    icon: Icons.auto_awesome,
+    startColor: Color(0xFF7C4DFF),
+    endColor: Color(0xFFB388FF),
+    avatarIds: ['film', 'smart_toy', 'movie_filter'],
+  ),
+  AvatarTheme(
+    id: 'rose',
+    name: 'Rose',
+    icon: Icons.favorite,
+    startColor: Color(0xFFFF4D8D),
+    endColor: Color(0xFFFF6FA8),
+    avatarIds: ['heart'],
+  ),
+  AvatarTheme(
+    id: 'orange',
+    name: 'Orange',
+    icon: Icons.local_fire_department,
+    startColor: Color(0xFFFFAB00),
+    endColor: Color(0xFFFF9A56),
+    avatarIds: ['rocket', 'sport'],
+  ),
+  AvatarTheme(
+    id: 'green',
+    name: 'Vert',
+    icon: Icons.eco,
+    startColor: Color(0xFF00E676),
+    endColor: Color(0xFF34D399),
+    avatarIds: ['esports', 'psychology'],
+  ),
+];
+
+/// Sélecteur d'avatar par thème (TV-friendly)
+///
+/// Affiche une barre horizontale de thèmes en haut, chacun avec :
+/// - Icône + nom du thème
+/// - Aperçu du dégradé du thème
+/// - Navigation D-pad (flèches G/D pour changer de thème)
+/// En dessous : grille des avatars du thème sélectionné
 class ProfileAvatarSelector extends StatefulWidget {
   final List<AvatarItem> avatars;
   final String selectedAvatarId;
@@ -39,25 +120,63 @@ class ProfileAvatarSelector extends StatefulWidget {
 }
 
 class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
-  String _selectedCategory = 'Tous';
-  late List<String> _categories;
+  int _selectedThemeIndex = 0;
+  late FocusNode _themeFocusNode;
+  late List<FocusNode> _avatarFocusNodes;
 
   @override
   void initState() {
     super.initState();
-    final cats = widget.avatars.map((e) => e.category).toSet().toList();
-    _categories = ['Tous', ...cats];
+    _themeFocusNode = FocusNode();
+
+    // Trouve le thème correspondant à l'avatar actuellement sélectionné
+    final selectedAvatar = widget.avatars.firstWhere(
+      (a) => a.id == widget.selectedAvatarId,
+      orElse: () => widget.avatars.first,
+    );
+    final themeIndex = avatarThemes.indexWhere(
+      (t) => t.avatarIds.contains(selectedAvatar.id),
+    );
+    _selectedThemeIndex = themeIndex >= 0 ? themeIndex : 0;
+
+    _avatarFocusNodes = List.generate(
+      widget.avatars.length,
+      (_) => FocusNode(),
+    );
   }
 
-  List<AvatarItem> get _filteredAvatars {
-    if (_selectedCategory == 'Tous') return widget.avatars;
+  @override
+  void dispose() {
+    _themeFocusNode.dispose();
+    for (final node in _avatarFocusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  AvatarTheme get _currentTheme => avatarThemes[_selectedThemeIndex];
+
+  List<AvatarItem> get _currentThemeAvatars {
     return widget.avatars
-        .where((a) => a.category == _selectedCategory)
+        .where((a) => _currentTheme.avatarIds.contains(a.id))
         .toList();
+  }
+
+  void _onThemeChanged(int index) {
+    setState(() => _selectedThemeIndex = index);
+    // Reset focus to first avatar of new theme
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _avatarFocusNodes.isNotEmpty) {
+        _avatarFocusNodes[0].requestFocus();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final currentThemeAvatars = _currentThemeAvatars;
+
     return Container(
       color: const Color(0xFF0D0E12),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
@@ -74,47 +193,108 @@ class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Barre de Filtres / Catégories (Adaptée D-Pad)
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = cat == _selectedCategory;
-                return CategoryChipTV(
-                  label: cat,
-                  isSelected: isSelected,
-                  onPressed: () => setState(() => _selectedCategory = cat),
-                );
-              },
+          // Barre de thèmes horizontale (TV-friendly)
+          TvFocus(
+            focusNode: _themeFocusNode,
+            autofocus: true,
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                if (_selectedThemeIndex < avatarThemes.length - 1) {
+                  _onThemeChanged(_selectedThemeIndex + 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                if (_selectedThemeIndex > 0) {
+                  _onThemeChanged(_selectedThemeIndex - 1);
+                }
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                // Descendre vers la grille d'avatars
+                if (_avatarFocusNodes.isNotEmpty) {
+                  _avatarFocusNodes[0].requestFocus();
+                }
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thème de couleur',
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 80,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: avatarThemes.length,
+                    itemBuilder: (context, index) {
+                      final theme = avatarThemes[index];
+                      final isSelected = index == _selectedThemeIndex;
+                      return _ThemeChipTV(
+                        theme: theme,
+                        isSelected: isSelected,
+                        autofocus: index == 0,
+                        onPressed: () => _onThemeChanged(index),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
 
-          // Grille des Avatars — 6 colonnes max, icônes agrandies
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 6, // 6 profils max → 6 colonnes
-                crossAxisSpacing: 24,
-                mainAxisSpacing: 24,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: _filteredAvatars.length,
-              itemBuilder: (context, index) {
-                final avatar = _filteredAvatars[index];
-                final isCurrent = avatar.id == widget.selectedAvatarId;
+          // Aperçu du thème sélectionné (dégradé + infos)
+          _ThemePreviewCard(theme: _currentTheme),
+          const SizedBox(height: 24),
 
-                return AvatarTileLarge(
-                  avatar: avatar,
-                  isCurrentSelection: isCurrent,
-                  onSelect: () => widget.onAvatarSelected(avatar),
-                );
-              },
+          // Grille des Avatars du thème sélectionné
+          Expanded(
+            child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: currentThemeAvatars.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Aucun avatar dans ce thème',
+                        style: TextStyle(color: scheme.onSurfaceVariant),
+                      ),
+                    )
+                  : GridView.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 6,
+                        crossAxisSpacing: 24,
+                        mainAxisSpacing: 24,
+                        childAspectRatio: 0.85,
+                      ),
+                      itemCount: currentThemeAvatars.length,
+                      itemBuilder: (context, index) {
+                        final avatar = currentThemeAvatars[index];
+                        final globalIndex = widget.avatars
+                            .indexWhere((a) => a.id == avatar.id);
+                        final isCurrent = avatar.id == widget.selectedAvatarId;
+
+                        return AvatarTileLarge(
+                          avatar: avatar,
+                          isCurrentSelection: isCurrent,
+                          focusNode: _avatarFocusNodes[globalIndex],
+                          autofocus: index == 0 && isCurrent,
+                          onSelect: () => widget.onAvatarSelected(avatar),
+                        );
+                      },
+                    ),
             ),
           ),
         ],
@@ -123,36 +303,113 @@ class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
   }
 }
 
-/// --- BOUTON DE CATÉGORIE ADAPTÉ D-PAD ---
-class CategoryChipTV extends StatefulWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onPressed;
+/// Carte d'aperçu du thème sélectionné (dégradé + nom + icône)
+class _ThemePreviewCard extends StatelessWidget {
+  const _ThemePreviewCard({required this.theme});
 
-  const CategoryChipTV({
-    super.key,
-    required this.label,
-    required this.isSelected,
-    required this.onPressed,
-  });
+  final AvatarTheme theme;
 
   @override
-  State<CategoryChipTV> createState() => _CategoryChipTVState();
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: theme.previewGradient,
+        boxShadow: [
+          BoxShadow(
+            color: theme.startColor.withValues(alpha: 0.4),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              theme.icon,
+              size: 32,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Thème ${theme.name}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${theme.avatarIds.length} avatars disponibles',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _CategoryChipTVState extends State<CategoryChipTV> {
+/// Puce de thème focusable TV (horizontal)
+class _ThemeChipTV extends StatefulWidget {
+  const _ThemeChipTV({
+    super.key,
+    required this.theme,
+    required this.isSelected,
+    required this.onPressed,
+    this.autofocus = false,
+  });
+
+  final AvatarTheme theme;
+  final bool isSelected;
+  final VoidCallback onPressed;
+  final bool autofocus;
+
+  @override
+  State<_ThemeChipTV> createState() => _ThemeChipTVState();
+}
+
+class _ThemeChipTVState extends State<_ThemeChipTV> {
   bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final theme = widget.theme;
+
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: 16),
       child: Focus(
+        autofocus: widget.autofocus,
         onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
+          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.space ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
             widget.onPressed();
             return KeyEventResult.handled;
           }
@@ -161,28 +418,66 @@ class _CategoryChipTVState extends State<CategoryChipTV> {
         child: GestureDetector(
           onTap: widget.onPressed,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            width: 140,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? const Color(0xFF8B5CF6)
-                  : (_isFocused ? Colors.white24 : const Color(0xFF1C1F26)),
-              borderRadius: BorderRadius.circular(20),
+              gradient: widget.isSelected || _isFocused
+                  ? theme.previewGradient
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.white.withValues(alpha: 0.04),
+                      ],
+                    ),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: _isFocused ? Colors.white : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: Text(
-              widget.label,
-              style: TextStyle(
-                color: (widget.isSelected || _isFocused)
+                color: _isFocused
                     ? Colors.white
-                    : Colors.white54,
-                fontWeight:
-                    widget.isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
+                    : (widget.isSelected
+                        ? theme.primaryColor
+                        : Colors.transparent),
+                width: _isFocused ? 3 : (widget.isSelected ? 2 : 1),
               ),
+              boxShadow: (_isFocused || widget.isSelected)
+                  ? [
+                      BoxShadow(
+                        color: theme.primaryColor.withValues(alpha: 0.5),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  theme.icon,
+                  size: 28,
+                  color: widget.isSelected || _isFocused
+                      ? Colors.white
+                      : theme.primaryColor,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  theme.name,
+                  style: TextStyle(
+                    color: widget.isSelected || _isFocused
+                        ? Colors.white
+                        : Colors.white70,
+                    fontWeight:
+                        widget.isSelected || _isFocused
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ),
@@ -191,18 +486,22 @@ class _CategoryChipTVState extends State<CategoryChipTV> {
   }
 }
 
-/// --- CARTE AVATAR AGRANDIE AVEC EFFET FOCUS D-PAD ---
+/// Carte avatar agrandie avec effet focus D-PAD
 class AvatarTileLarge extends StatefulWidget {
-  final AvatarItem avatar;
-  final bool isCurrentSelection;
-  final VoidCallback onSelect;
-
   const AvatarTileLarge({
     super.key,
     required this.avatar,
     required this.isCurrentSelection,
     required this.onSelect,
+    this.focusNode,
+    this.autofocus = false,
   });
+
+  final AvatarItem avatar;
+  final bool isCurrentSelection;
+  final VoidCallback onSelect;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   State<AvatarTileLarge> createState() => _AvatarTileLargeState();
@@ -235,12 +534,16 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Focus(
+      focusNode: widget.focusNode,
+      autofocus: widget.autofocus,
       onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter) {
           widget.onSelect();
           return KeyEventResult.handled;
         }
@@ -249,7 +552,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
       child: GestureDetector(
         onTap: widget.onSelect,
         child: AnimatedScale(
-          scale: _isFocused ? 1.12 : 1.0, // Légère mise à l'échelle au focus
+          scale: _isFocused ? 1.12 : 1.0,
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           child: AnimatedContainer(
@@ -259,19 +562,25 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: _isFocused
-                    ? const Color(0xFF8B5CF6)
+                    ? const Color(0xFF00E5FF)
                     : (widget.isCurrentSelection
                         ? Colors.amber
                         : Colors.white10),
-                width: _isFocused ? 3 : (widget.isCurrentSelection ? 2 : 1),
+                width: _isFocused ? 4 : (widget.isCurrentSelection ? 2 : 1),
               ),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.5),
-                        blurRadius: 20,
-                        spreadRadius: 3,
-                        offset: const Offset(0, 8),
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.95),
+                        blurRadius: 38,
+                        spreadRadius: 10,
+                        offset: const Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        blurRadius: 18,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 6),
                       ),
                     ]
                   : [
@@ -287,9 +596,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(
-                      20.0,
-                    ), // Plus d'espace pour l'image
+                    padding: const EdgeInsets.all(20.0),
                     child: widget.avatar.assetPath.isNotEmpty
                         ? Image.asset(
                             widget.avatar.assetPath,
@@ -305,8 +612,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
                   style: TextStyle(
                     color: _isFocused ? Colors.white : Colors.white70,
                     fontSize: 13,
-                    fontWeight:
-                        _isFocused ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

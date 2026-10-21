@@ -64,3 +64,5 @@ test_baseline.txt
 # Captures écran de debug (ADB screencap copiées à la racine)
 orbi_*.png
 *.png.tmp
+
+orbit-3d-8264d-firebase-adminsdk-*.json

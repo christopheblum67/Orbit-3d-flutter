@@ -11,10 +11,12 @@
     <uses-feature android:name="android.hardware.gamepad" android:required="false" />
     <uses-feature android:name="android.software.picture_in_picture" android:required="false" />
     <!-- Large heap for TV boxes with limited memory -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Orbit IPTV"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/launcher_icon"
         android:banner="@drawable/tv_banner"
         android:supportsRtl="true"

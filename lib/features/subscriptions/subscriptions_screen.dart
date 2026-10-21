@@ -6,6 +6,9 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_dropdown.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
@@ -36,17 +39,23 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                     tooltip: 'Retour',
                     onPressed: () => context.pop(),
                   ),
-                  IconButton(
-                    tooltip: l.addSubscription,
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: () => _showAddSubscriptionDialog(context, ref),
+                  TvFocus(
+                    onActivate: () => _showAddSubscriptionDialog(context, ref),
+                    child: IconButton(
+                      tooltip: l.addSubscription,
+                      icon: const Icon(Icons.add_rounded),
+                      onPressed: () => _showAddSubscriptionDialog(context, ref),
+                    ),
                   ),
                 ],
               )
-            : IconButton(
-                tooltip: l.addSubscription,
-                icon: const Icon(Icons.add_rounded),
-                onPressed: () => _showAddSubscriptionDialog(context, ref),
+            : TvFocus(
+                onActivate: () => _showAddSubscriptionDialog(context, ref),
+                child: IconButton(
+                  tooltip: l.addSubscription,
+                  icon: const Icon(Icons.add_rounded),
+                  onPressed: () => _showAddSubscriptionDialog(context, ref),
+                ),
               ),
         title: const Text('Abonnements'),
         actions: [],
@@ -302,7 +311,7 @@ class _SubscriptionCard extends ConsumerWidget {
   final Subscription subscription;
   final bool isActive;
   final VoidCallback onTap;
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -399,33 +408,28 @@ class _SubscriptionCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit':
-                      onEdit();
-                      break;
-                    case 'delete':
-                      onDelete();
-                      break;
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
+              TvDropdown<String>(
+                value: null,
+                items: [
+                  TvDropdownItem<String>(
                     value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit),
-                      title: Text('Modifier'),
-                    ),
+                    label: 'Modifier',
+                    icon: Icons.edit_outlined,
                   ),
-                  const PopupMenuItem(
+                  TvDropdownItem<String>(
                     value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete),
-                      title: Text('Supprimer'),
-                    ),
+                    label: 'Supprimer',
+                    icon: Icons.delete_outlined,
+                    isDestructive: true,
                   ),
                 ],
+                onChanged: (value) {
+                  if (value == 'edit') {
+                    onEdit();
+                  } else if (value == 'delete') {
+                    onDelete();
+                  }
+                },
               ),
             ],
           ),
@@ -486,7 +490,7 @@ class _TypeBadge extends StatelessWidget {
 class _TestResultRow extends ConsumerWidget {
   final Subscription subscription;
   final bool isTesting;
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
 
   const _TestResultRow({
     required this.subscription,
@@ -499,7 +503,10 @@ class _TestResultRow extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     if (subscription.lastTestResult == TestResultStatus.untested) {
-      return _TestButton(onTest: onTest, isTesting: isTesting);
+      return _TestButton(
+        onTest: () => _handleTestWithErrorDialog(context, ref, subscription, onTest),
+        isTesting: isTesting,
+      );
     }
 
     final status = subscription.lastTestResult;
@@ -524,7 +531,7 @@ class _TestResultRow extends ConsumerWidget {
               Expanded(
                 child: Text(
                   status == TestResultStatus.success
-                      ? 'Test OK ï¿½ ${latency != null ? '$latency ms' : 'ï¿½'}'
+                      ? 'Test OK — ${latency != null ? '$latency ms' : '—'}'
                       : 'Échec : ${error ?? 'Erreur inconnue'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success
@@ -540,14 +547,54 @@ class _TestResultRow extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _TestButton(onTest: onTest, isTesting: isTesting),
+        TvFocus(
+          onActivate: isTesting
+              ? null
+              : () => _handleTestWithErrorDialog(context, ref, subscription, onTest),
+          child: _TestButton(
+            onTest: () => _handleTestWithErrorDialog(context, ref, subscription, onTest),
+            isTesting: isTesting,
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _handleTestWithErrorDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Subscription subscription,
+    Future<void> Function() onTest,
+  ) async {
+    // Lance le test
+    await onTest();
+
+    // Attends un peu pour que le résultat soit mis à jour
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!context.mounted) return;
+
+    // Si le test a échoué, affiche le dialog d'erreur
+    final updatedSub = ref.read(subscriptionsProvider).firstWhere(
+      (s) => s.id == subscription.id,
+      orElse: () => subscription,
+    );
+
+    if (updatedSub.lastTestResult == TestResultStatus.error &&
+        updatedSub.lastTestError != null &&
+        updatedSub.lastTestError!.isNotEmpty) {
+      await showConnectionErrorDialog(
+        context,
+        updatedSub.lastTestError!,
+        type: subscription.type,
+        onRetry: () => _handleTestWithErrorDialog(context, ref, subscription, onTest),
+      );
+    }
   }
 }
 
 class _TestButton extends StatelessWidget {
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
   final bool isTesting;
 
   const _TestButton({required this.onTest, required this.isTesting});
@@ -598,7 +645,7 @@ class _SubscriptionFormDialogState
   final _passwordFocus = FocusNode();
   final _m3uFocus = FocusNode();
   final _submitFocus = FocusNode();
-  final _segmentedButtonFocus = FocusNode();
+  final _typeFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
 
@@ -632,94 +679,59 @@ class _SubscriptionFormDialogState
     _passwordFocus.dispose();
     _m3uFocus.dispose();
     _submitFocus.dispose();
-    _segmentedButtonFocus.dispose();
+    _typeFocus.dispose();
     super.dispose();
   }
 
   void _requestFocus(FocusNode focus) {
     if (mounted) {
-      // Use post-frame callback to avoid mutating layers during build/layout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) FocusScope.of(context).requestFocus(focus);
       });
     }
   }
 
-  Widget _buildTvTextField({
-    required TextEditingController controller,
-    required FocusNode focusNode,
-    required FocusNode nextFocusNode,
-    required String labelText,
-    required String? Function(String?) validator,
-    TextInputType keyboardType = TextInputType.text,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    List<TextInputFormatter>? inputFormatters,
-    bool isLastField = false,
-  }) {
-    Widget field = TextFormField(
-      controller: controller,
-      focusNode: focusNode,
-      decoration: InputDecoration(
-        labelText: labelText,
-        suffixIcon: suffixIcon,
-      ),
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      inputFormatters: inputFormatters,
-      textInputAction: isLastField ? TextInputAction.done : TextInputAction.next,
-      onEditingComplete: () => _requestFocus(nextFocusNode),
-      validator: validator,
-    );
-
-    if (isLastField) {
-      // Sur TV : Entrée/OK/Select/GameButtonA sur le dernier champ -> focus sur Valider
-      field = Focus(
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.enter ||
-                  event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-            _requestFocus(nextFocusNode);
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-        child: field,
-      );
-    }
-
-    return field;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final isEditing = widget.subscription != null;
 
-    final nextAfterName = _segmentedButtonFocus;
-
+    // Focus traversal order: Name -> Type (Xtream/M3U) -> Fields -> Submit
     return AlertDialog(
       title: Text(isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement'),
       content: SizedBox(
-        width: 400,
+        width: 480,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildTvTextField(
-                    controller: _nameController,
+                  // 1. NOM
+                  TvFocus(
                     focusNode: _nameFocus,
-                    nextFocusNode: nextAfterName,
-                    labelText: 'Nom de l\'abonnement',
-                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    onFocusChange: (hasFocus) {},
+                    child: TextFormField(
+                      controller: _nameController,
+                      focusNode: _nameFocus,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom de l\'abonnement',
+                        prefixIcon: Icon(Icons.edit_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () => _requestFocus(_typeFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Focus(
-                    focusNode: _segmentedButtonFocus,
+
+                  // 2. TYPE XTREAM / M3U (EN HAUT - toggle TV-friendly)
+                  TvFocus(
+                    focusNode: _typeFocus,
                     onKeyEvent: (node, event) {
                       if (event is KeyDownEvent) {
                         if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
@@ -736,74 +748,158 @@ class _SubscriptionFormDialogState
                           _requestFocus(_nameFocus);
                           return KeyEventResult.handled;
                         }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                          if (_type != SubscriptionType.xtream) {
+                            setState(() => _type = SubscriptionType.xtream);
+                          }
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                          if (_type != SubscriptionType.m3u) {
+                            setState(() => _type = SubscriptionType.m3u);
+                          }
+                          return KeyEventResult.handled;
+                        }
                       }
                       return KeyEventResult.ignored;
                     },
-                    child: SegmentedButton<SubscriptionType>(
-                      segments: [
-                        ButtonSegment(
-                          value: SubscriptionType.xtream,
-                          label: Text(l.xtreamCodes),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Type de source',
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
-                        ButtonSegment(
-                          value: SubscriptionType.m3u,
-                          label: Text(l.m3uPlaylist),
+                        const SizedBox(height: 8),
+                        FocusTraversalGroup(
+                          policy: OrderedTraversalPolicy(),
+                          child: Row(
+                            children: [
+                              _TypeToggleButton(
+                                value: SubscriptionType.xtream,
+                                groupValue: _type,
+                                label: l.xtreamCodes,
+                                icon: Icons.tv_outlined,
+                                onChanged: (v) => setState(() => _type = v),
+                              ),
+                              const SizedBox(width: 12),
+                              _TypeToggleButton(
+                                value: SubscriptionType.m3u,
+                                groupValue: _type,
+                                label: l.m3uPlaylist,
+                                icon: Icons.playlist_play_outlined,
+                                onChanged: (v) => setState(() => _type = v),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                      selected: {_type},
-                      onSelectionChanged: (Set<SubscriptionType> newSelection) {
-                        setState(() => _type = newSelection.first);
-                      },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // 3. CHAMPS SELON TYPE
                   if (_type == SubscriptionType.xtream) ...[
-                    _buildTvTextField(
-                      controller: _baseUrlController,
-                      focusNode: _baseUrlFocus,
-                      nextFocusNode: _usernameFocus,
-                      labelText: l.serverUrlPlaceholder,
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTvTextField(
-                      controller: _usernameController,
-                      focusNode: _usernameFocus,
-                      nextFocusNode: _passwordFocus,
-                      labelText: 'Username',
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTvTextField(
-                      controller: _passwordController,
-                      focusNode: _passwordFocus,
-                      nextFocusNode: _submitFocus,
-                      labelText: 'Password',
-                      obscureText: _obscurePassword,
-                      suffixIcon: IconButton(
-                        tooltip: _obscurePassword
-                            ? 'Afficher le mot de passe'
-                            : 'Masquer le mot de passe',
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                    TvFocus(
+                      child: TextFormField(
+                        controller: _baseUrlController,
+                        focusNode: _baseUrlFocus,
+                        decoration: InputDecoration(
+                          labelText: l.serverUrlPlaceholder,
+                          prefixIcon: const Icon(Icons.link_outlined),
+                          border: const OutlineInputBorder(),
                         ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
+                        textInputAction: TextInputAction.next,
+                        onEditingComplete: () => _requestFocus(_usernameFocus),
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                       ),
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                      isLastField: true,
+                    ),
+                    const SizedBox(height: 16),
+                    TvFocus(
+                      child: TextFormField(
+                        controller: _usernameController,
+                        focusNode: _usernameFocus,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                          prefixIcon: Icon(Icons.person_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        onEditingComplete: () => _requestFocus(_passwordFocus),
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TvFocus(
+                      focusNode: _passwordFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey == LogicalKeyboardKey.select ||
+                              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            // Toggle password visibility on OK/Enter
+                            setState(() => _obscurePassword = !_obscurePassword);
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                            _requestFocus(_submitFocus);
+                            return KeyEventResult.handled;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextFormField(
+                        controller: _passwordController,
+                        focusNode: _passwordFocus,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outlined),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            tooltip: _obscurePassword
+                                ? 'Afficher le mot de passe'
+                                : 'Masquer le mot de passe',
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                          ),
+                        ),
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      ),
                     ),
                   ] else ...[
-                    _buildTvTextField(
-                      controller: _m3uUrlController,
+                    TvFocus(
                       focusNode: _m3uFocus,
-                      nextFocusNode: _submitFocus,
-                      labelText: l.m3uPlaylistUrl,
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                      isLastField: true,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                          _requestFocus(_submitFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextFormField(
+                        controller: _m3uUrlController,
+                        focusNode: _m3uFocus,
+                        decoration: InputDecoration(
+                          labelText: l.m3uPlaylistUrl,
+                          prefixIcon: const Icon(Icons.playlist_play_outlined),
+                          border: const OutlineInputBorder(),
+                        ),
+                        textInputAction: TextInputAction.done,
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      ),
                     ),
                   ],
                 ],
@@ -813,8 +909,10 @@ class _SubscriptionFormDialogState
         ),
       ),
       actions: [
-        Focus(
+        TvFocus(
           focusNode: _submitFocus,
+          autofocus: false,
+          onActivate: _save,
           onKeyEvent: (node, event) {
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -827,6 +925,14 @@ class _SubscriptionFormDialogState
                 (event.logicalKey == LogicalKeyboardKey.escape ||
                     event.logicalKey == LogicalKeyboardKey.gameButtonB)) {
               Navigator.pop(context);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
+              final prevFocus = _type == SubscriptionType.xtream
+                  ? _passwordFocus
+                  : _m3uFocus;
+              _requestFocus(prevFocus);
               return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
@@ -910,5 +1016,92 @@ class _SubscriptionFormDialogState
         );
       }
     }
+  }
+}
+
+/// Bouton toggle TV-friendly pour choisir Xtream/M3U (remplace SegmentedButton)
+class _TypeToggleButton extends StatelessWidget {
+  const _TypeToggleButton({
+    required this.value,
+    required this.groupValue,
+    required this.label,
+    required this.icon,
+    required this.onChanged,
+  });
+
+  final SubscriptionType value;
+  final SubscriptionType groupValue;
+  final String label;
+  final IconData icon;
+  final ValueChanged<SubscriptionType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isSelected = groupValue == value;
+
+    return Expanded(
+      child: TvFocus(
+        onActivate: () => onChanged(value),
+        child: Focus(
+          onFocusChange: (hasFocus) {},
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? LinearGradient(
+                      colors: [scheme.primary, scheme.primary.withValues(alpha: 0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withValues(alpha: 0.08),
+                        Colors.white.withValues(alpha: 0.04),
+                      ],
+                    ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected
+                    ? scheme.primary
+                    : scheme.outlineVariant,
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: isSelected ? scheme.onPrimary : scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? scheme.onPrimary : scheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

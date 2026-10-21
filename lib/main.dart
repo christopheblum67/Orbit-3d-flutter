@@ -869,7 +869,6 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
   Widget build(BuildContext context) {
     final advancedSettings = ref.watch(advancedSettingsProvider);
     final prefs = ref.watch(preferencesProvider);
-    final isTvMode = ref.watch(tvModeProvider);
 
     // Locale chargée depuis les préférences (défaut 'fr'). Retombe sur la
     // locale système si la langue choisie n'est pas supportée.
@@ -899,15 +898,13 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
           highContrast: advancedSettings.highContrast,
           palette: prefs.palette,
         ),
-        // Le thème est un réglage utilisateur (PreferencesNotifier.setTheme) :
-        // il était codé en dur sur `system`, ce qui rendait le thème clair
-        // inatteignable même en le sélectionnant dans les préférences.
+        // Thème par défaut : sombre (confort TV + mobile). Respecte le choix
+        // explicite de l'utilisateur (light/dark/system si conservé).
         themeMode: switch (prefs.theme) {
           'light' => ThemeMode.light,
           'dark' => ThemeMode.dark,
-          // Sur TV, si l'utilisateur n'a pas explicitement choisi (system),
-          // on force le thème sombre : lisibilité, contraste, confort TV.
-          _ => isTvMode ? ThemeMode.dark : ThemeMode.system,
+          'system' => ThemeMode.system,
+          _ => ThemeMode.dark,
         },
         routerConfig: router,
       ),
