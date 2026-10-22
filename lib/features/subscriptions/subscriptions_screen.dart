@@ -252,10 +252,13 @@ class _NoActiveBanner extends StatelessWidget {
                   ),
             ),
           ),
-          TextButton.icon(
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Activer'),
-            onPressed: onAdd,
+          TvFocus(
+            onActivate: onAdd,
+            child: TextButton.icon(
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Activer'),
+              onPressed: onAdd,
+            ),
           ),
         ],
       ),
@@ -295,10 +298,13 @@ class _EmptyState extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l.addSubscription),
-              onPressed: onAdd,
+            TvFocus(
+              onActivate: onAdd,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.add_rounded),
+                label: Text(l.addSubscription),
+                onPressed: onAdd,
+              ),
             ),
           ],
         ),
@@ -382,17 +388,20 @@ class _SubscriptionCard extends ConsumerWidget {
                             ),
                           ),
                         if (!isActive)
-                          IconButton(
-                            tooltip: l.setAsDefaultServer,
-                            icon: const Icon(Icons.star_outline, size: 20),
-                            color: scheme.onSurfaceVariant,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                          TvFocus(
+                            onActivate: onTap,
+                            child: IconButton(
+                              tooltip: l.setAsDefaultServer,
+                              icon: const Icon(Icons.star_outline, size: 20),
+                              color: scheme.onSurfaceVariant,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                              onPressed: onTap,
                             ),
-                            onPressed: onTap,
                           ),
                       ],
                     ),
@@ -639,6 +648,8 @@ class _SubscriptionFormDialogState
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _m3uUrlController = TextEditingController();
+  
+  // FocusNodes pour le clavier virtuel (TextFormField)
   final _nameFocus = FocusNode();
   final _baseUrlFocus = FocusNode();
   final _usernameFocus = FocusNode();
@@ -646,6 +657,16 @@ class _SubscriptionFormDialogState
   final _m3uFocus = FocusNode();
   final _submitFocus = FocusNode();
   final _typeFocus = FocusNode();
+  
+  // FocusNodes DÉDIÉS pour la navigation TV (TvFocus) — séparés du clavier
+  final _nameTvFocus = FocusNode();
+  final _baseUrlTvFocus = FocusNode();
+  final _usernameTvFocus = FocusNode();
+  final _passwordTvFocus = FocusNode();
+  final _m3uTvFocus = FocusNode();
+  final _typeTvFocus = FocusNode();
+  final _submitTvFocus = FocusNode();
+
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
 
@@ -663,6 +684,7 @@ class _SubscriptionFormDialogState
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nameFocus.requestFocus();
+      _nameTvFocus.requestFocus();
     });
   }
 
@@ -680,6 +702,13 @@ class _SubscriptionFormDialogState
     _m3uFocus.dispose();
     _submitFocus.dispose();
     _typeFocus.dispose();
+    _nameTvFocus.dispose();
+    _baseUrlTvFocus.dispose();
+    _usernameTvFocus.dispose();
+    _passwordTvFocus.dispose();
+    _m3uTvFocus.dispose();
+    _typeTvFocus.dispose();
+    _submitTvFocus.dispose();
     super.dispose();
   }
 
@@ -712,7 +741,7 @@ class _SubscriptionFormDialogState
                 children: [
                   // 1. NOM
                   TvFocus(
-                    focusNode: _nameFocus,
+                    focusNode: _nameTvFocus,
                     onFocusChange: (hasFocus) {},
                     child: TextFormField(
                       controller: _nameController,
@@ -731,7 +760,7 @@ class _SubscriptionFormDialogState
 
                   // 2. TYPE XTREAM / M3U (EN HAUT - toggle TV-friendly)
                   TvFocus(
-                    focusNode: _typeFocus,
+                    focusNode: _typeTvFocus,
                     onKeyEvent: (node, event) {
                       if (event is KeyDownEvent) {
                         if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
@@ -803,6 +832,7 @@ class _SubscriptionFormDialogState
                   // 3. CHAMPS SELON TYPE
                   if (_type == SubscriptionType.xtream) ...[
                     TvFocus(
+                      focusNode: _baseUrlTvFocus,
                       child: TextFormField(
                         controller: _baseUrlController,
                         focusNode: _baseUrlFocus,
@@ -818,6 +848,7 @@ class _SubscriptionFormDialogState
                     ),
                     const SizedBox(height: 16),
                     TvFocus(
+                      focusNode: _usernameTvFocus,
                       child: TextFormField(
                         controller: _usernameController,
                         focusNode: _usernameFocus,
@@ -833,7 +864,7 @@ class _SubscriptionFormDialogState
                     ),
                     const SizedBox(height: 16),
                     TvFocus(
-                      focusNode: _passwordFocus,
+                      focusNode: _passwordTvFocus,
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent) {
                           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -878,7 +909,7 @@ class _SubscriptionFormDialogState
                     ),
                   ] else ...[
                     TvFocus(
-                      focusNode: _m3uFocus,
+                      focusNode: _m3uTvFocus,
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -910,7 +941,7 @@ class _SubscriptionFormDialogState
       ),
       actions: [
         TvFocus(
-          focusNode: _submitFocus,
+          focusNode: _submitTvFocus,
           autofocus: false,
           onActivate: _save,
           onKeyEvent: (node, event) {
@@ -930,8 +961,8 @@ class _SubscriptionFormDialogState
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
               final prevFocus = _type == SubscriptionType.xtream
-                  ? _passwordFocus
-                  : _m3uFocus;
+                  ? _passwordTvFocus
+                  : _m3uTvFocus;
               _requestFocus(prevFocus);
               return KeyEventResult.handled;
             }

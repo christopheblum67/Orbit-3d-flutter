@@ -40,24 +40,6 @@ const List<String> _genderOptions = [
   'Non spécifié',
 ];
 
-const List<String> _profileTypeOptions = [
-  'Adulte',
-  'Enfant',
-  'Expert',
-];
-
-ProfileType _profileTypeFromString(String s) {
-  switch (s) {
-    case 'Enfant':
-      return ProfileType.child;
-    case 'Expert':
-      return ProfileType.expert;
-    case 'Adulte':
-    default:
-      return ProfileType.adult;
-  }
-}
-
 String _profileTypeToString(ProfileType t) {
   switch (t) {
     case ProfileType.child:
@@ -65,7 +47,6 @@ String _profileTypeToString(ProfileType t) {
     case ProfileType.expert:
       return 'Expert';
     case ProfileType.adult:
-    default:
       return 'Adulte';
   }
 }
