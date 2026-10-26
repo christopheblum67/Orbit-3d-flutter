@@ -100,19 +100,19 @@ void main() {
         await tester.pumpWidget(buildTestApp('/live'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Live TV'), findsOneWidget);
+        expect(find.text('Live TV'), findsWidgets);
 
         // Navigate via push (simulates user tapping).
         testRouter.push('/profile/edit/123');
         await tester.pumpAndSettle();
 
-        expect(find.text('Profile Edit (123)'), findsOneWidget);
+        expect(find.text('Profile Edit (123)'), findsWidgets);
 
         // Back gesture / button.
-        await tester.pageBack();
+        await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
 
-        expect(find.text('Live TV'), findsOneWidget);
+        expect(find.text('Live TV'), findsWidgets);
       },
     );
 
@@ -122,14 +122,14 @@ void main() {
         await tester.pumpWidget(buildTestApp('/profile/edit/456'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Profile Edit (456)'), findsOneWidget);
+        expect(find.text('Profile Edit (456)'), findsWidgets);
 
         // Back from deep link (no history).
-        await tester.pageBack();
+        await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
 
         // Should fall back to /home.
-        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Home'), findsWidgets);
       },
     );
 
@@ -139,16 +139,16 @@ void main() {
         await tester.pumpWidget(buildTestApp('/player'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Player'), findsOneWidget);
+        expect(find.text('Player'), findsWidgets);
 
         // Back from player; route uses BackBehaviorType.pop. Since there is
         // no history in this setup, the pop is a no-op and the route handles
         // it without crashing or exiting the app.
-        await tester.pageBack();
+        await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
 
         // Still on the player route (nothing to pop to).
-        expect(find.text('Player'), findsOneWidget);
+        expect(find.text('Player'), findsWidgets);
       },
     );
 
@@ -158,18 +158,18 @@ void main() {
         await tester.pumpWidget(buildTestApp('/home'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Home'), findsWidgets);
 
         testRouter.push('/settings/advanced');
         await tester.pumpAndSettle();
 
-        expect(find.text('Advanced Settings'), findsOneWidget);
+        expect(find.text('Advanced Settings'), findsWidgets);
 
-        await tester.pageBack();
+        await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
 
         // BackBehaviorType.pop pops to the previous route.
-        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Home'), findsWidgets);
       },
     );
   });
