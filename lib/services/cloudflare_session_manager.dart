@@ -10,8 +10,9 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 /// (cf_clearance) et le User-Agent, et les injecte dans les headers du lecteur video.
 ///
 /// Ce service est volontairement independant de l'UI : il ne manipule aucun
-/// BuildContext. Le fallback manuel (WebView visible) est du ressort de
-/// [PlayerScreen] via `CloudflareBypassService.obtainHeaders(context, host)`.
+/// BuildContext. En cas de refus de lecture, l'ecran du lecteur peut ouvrir le
+/// site du fournisseur dans le navigateur systeme pour une verification
+/// manuelle ; la reprise reste une action explicite de l'utilisateur.
 class CloudflareSessionManager extends ChangeNotifier {
   static final CloudflareSessionManager _instance =
       CloudflareSessionManager._internal();

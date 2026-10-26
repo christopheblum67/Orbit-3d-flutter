@@ -314,6 +314,10 @@
     "tvChannels":  "TV Channels",
     "unableToBuildReplayUrl":  "Unable to build the replay URL.",
     "unlockCloudflare":  "Unlock (Cloudflare)",
+    "cloudflareCheckRequired":  "Provider verification required",
+    "cloudflareChallengeHelp":  "The provider is asking for a Cloudflare check. Open its website in your browser, complete any check yourself if shown, then return here and retry. Your browser session may not be shared with the app.",
+    "openProviderWebsite":  "Open provider website",
+    "providerWebsiteUnavailable":  "Could not open the provider website. Check the subscription address and try again.",
     "unstableConnection":  "Unstable connection",
     "updateAllData":  "Update all data",
     "aiTopicsTitle":  "AI Recommended Topics",
@@ -433,4 +437,3 @@
     "avatarCategoryBlackWhite":  "Black \u0026 White",
     "avatarCategoryPixels":  "Pixels"
 }
-

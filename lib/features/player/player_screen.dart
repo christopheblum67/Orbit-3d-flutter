@@ -735,6 +735,32 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     return '${uri.scheme}://${uri.host}';
   }
 
+  Future<void> _openProviderWebsite() async {
+    final uri = Uri.tryParse(_getPanelBaseUrl());
+    if (uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      _showProviderWebsiteError();
+      return;
+    }
+
+    final result = await safeAsync<bool>(
+      () => launchUrl(uri, mode: LaunchMode.externalApplication),
+      context: '_openProviderWebsite',
+      fallbackValue: false,
+    );
+    if (result.valueOrNull != true) _showProviderWebsiteError();
+  }
+
+  void _showProviderWebsiteError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context).providerWebsiteUnavailable),
+      ),
+    );
+  }
+
   /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
   /// est active (réglage avancé), on privilégie l'User-Agent navigateur
   /// (index 0) qui imite le trafic d'un navigateur moderne pour contourner
@@ -1612,33 +1638,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  /// `true` si on peut proposer le déblocage Cloudflare pour le flux courant.
-  bool get _canCloudflare {
-    final host = Uri.tryParse(_activeStreamUrl)?.host;
-    if (host == null || host.isEmpty) return false;
-    // Pour les abonnements Xtream, on assume Cloudflare (quasi systématique).
-    final sub = ref.read(activeSubscriptionProvider);
-    if (sub != null && sub.type == SubscriptionType.xtream) return true;
-    return !CloudflareBypassService.instance.hasCookieFor(host);
-  }
-
-  /// Ouvre un WebView de déblocage Cloudflare (cf_clearance), puis relance la
-  /// lecture.
-  Future<void> _unlockCloudflare() async {
-    if (!mounted) return;
-    final host = Uri.tryParse(_activeStreamUrl)?.host;
-    if (host == null || host.isEmpty) return;
-    _setStatus(_PlayerStatus.loading);
-    final headers =
-        await CloudflareBypassService.instance.obtainHeaders(context, host);
-    if (!mounted) return;
-    if (headers == null || headers.isEmpty) {
-      _setStatus(_PlayerStatus.error);
-      return;
-    }
-    _retry();
-  }
-
   void _showInfoBrief() {
     if (!mounted) return;
     _showFooterBar();
@@ -1816,22 +1815,22 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
             child: switch (_status) {
               _PlayerStatus.loading => const VideoLoadingState(),
               _PlayerStatus.error => VideoErrorState(
-                  title: isProviderBlock(_lastErrorDescription) ||
-                          _isCloudflareError(_lastErrorDescription)
-                      ? 'Flux verrouillé par le fournisseur'
-                      : 'Flux indisponible',
-                  message: isProviderBlock(_lastErrorDescription) ||
-                          _isCloudflareError(_lastErrorDescription)
+                  title: isProviderBlock(_lastErrorDescription)
+                      ? 'Flux temporairement bloqué par le fournisseur'
+                      : _isCloudflareError(_lastErrorDescription)
+                          ? AppLocalizations.of(context).cloudflareCheckRequired
+                          : 'Flux indisponible',
+                  message: isProviderBlock(_lastErrorDescription)
                       ? 'La lecture a été coupée par la protection anti-leech '
                           'du serveur. Patientez 3 à 5 minutes sans lecture, '
                           'puis relancez cette chaîne (sans zapper).'
-                      : 'Impossible de lancer cette chaîne. '
-                          'Vérifie ton abonnement ou réessaie.',
+                      : _isCloudflareError(_lastErrorDescription)
+                          ? AppLocalizations.of(context).cloudflareChallengeHelp
+                          : 'Impossible de lancer cette chaîne. '
+                              'Vérifie ton abonnement ou réessaie.',
                   onRetry: _retry,
-                  onCloudflare: _canCloudflare ? _unlockCloudflare : null,
-                  cloudflareMessage: _canCloudflare
-                      ? 'Le flux est protégé par un challenge Cloudflare. '
-                          'Débloque-le puis réessaie.'
+                  onProviderWebsite: _isCloudflareError(_lastErrorDescription)
+                      ? _openProviderWebsite
                       : null,
                 ),
               _PlayerStatus.ready => player != null

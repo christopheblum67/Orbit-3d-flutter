@@ -373,6 +373,10 @@
     "tvChannels":  "Cha├«nes TV",
     "unableToBuildReplayUrl":  "Impossible de construire l\u0027URL du replay.",
     "unlockCloudflare":  "D├®bloquer (Cloudflare)",
+    "cloudflareCheckRequired":  "V\u00e9rification du fournisseur requise",
+    "cloudflareChallengeHelp":  "Le fournisseur demande une v\u00e9rification Cloudflare. Ouvrez son site dans votre navigateur, effectuez vous-m\u00eame la v\u00e9rification si elle est propos\u00e9e, puis revenez ici et r\u00e9essayez. La session du navigateur peut ne pas \u00eatre partag\u00e9e avec l\u0027application.",
+    "openProviderWebsite":  "Ouvrir le site du fournisseur",
+    "providerWebsiteUnavailable":  "Impossible d\u0027ouvrir le site du fournisseur. V\u00e9rifiez l\u0027adresse de l\u0027abonnement et r\u00e9essayez.",
     "unstableConnection":  "Connexion instable",
     "updateAllData":  "Mettre ├á jour toutes les donn├®es",
     "aiTopicsTitle":  "Sujets recommand├®s par IA",
@@ -492,4 +496,3 @@
     "avatarCategoryBlackWhite":  "Noir \u0026 Blanc",
     "avatarCategoryPixels":  "Pixels"
 }
-

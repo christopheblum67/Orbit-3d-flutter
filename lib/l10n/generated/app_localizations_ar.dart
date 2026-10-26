@@ -1049,6 +1049,20 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unlockCloudflare => '┘üÏ¬Ï¡ Ïº┘ä┘é┘ü┘ä (Cloudflare)';
 
   @override
+  String get cloudflareCheckRequired => 'يلزم التحقق من مزود الخدمة';
+
+  @override
+  String get cloudflareChallengeHelp =>
+      'يطلب مزود الخدمة إجراء تحقق من Cloudflare. افتح موقعه في المتصفح وأكمل أي تحقق يظهر لك بنفسك، ثم عُد إلى هنا وأعد المحاولة. قد لا تتم مشاركة جلسة المتصفح مع التطبيق.';
+
+  @override
+  String get openProviderWebsite => 'فتح موقع مزود الخدمة';
+
+  @override
+  String get providerWebsiteUnavailable =>
+      'تعذر فتح موقع مزود الخدمة. تحقق من عنوان الاشتراك ثم أعد المحاولة.';
+
+  @override
   String get unstableConnection => 'ÏºÏ¬ÏÁÏº┘ä Ï║┘èÏ▒ ┘àÏ│Ï¬┘éÏ▒';
 
   @override

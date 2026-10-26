@@ -314,6 +314,10 @@
     "tvChannels":  "┘é┘å┘êÏºÏ¬ TV",
     "unableToBuildReplayUrl":  "Ï¬Ï╣Ï░Ï▒ Ï¿┘åÏºÏí Ï▒ÏºÏ¿ÏÀ ÏÑÏ╣ÏºÏ»Ï® Ïº┘ä┘àÏ┤Ïº┘çÏ»Ï®.",
     "unlockCloudflare":  "┘üÏ¬Ï¡ Ïº┘ä┘é┘ü┘ä (Cloudflare)",
+    "cloudflareCheckRequired":  "يلزم التحقق من مزود الخدمة",
+    "cloudflareChallengeHelp":  "يطلب مزود الخدمة إجراء تحقق من Cloudflare. افتح موقعه في المتصفح وأكمل أي تحقق يظهر لك بنفسك، ثم عُد إلى هنا وأعد المحاولة. قد لا تتم مشاركة جلسة المتصفح مع التطبيق.",
+    "openProviderWebsite":  "فتح موقع مزود الخدمة",
+    "providerWebsiteUnavailable":  "تعذر فتح موقع مزود الخدمة. تحقق من عنوان الاشتراك ثم أعد المحاولة.",
     "unstableConnection":  "ÏºÏ¬ÏÁÏº┘ä Ï║┘èÏ▒ ┘àÏ│Ï¬┘éÏ▒",
     "updateAllData":  "Ï¬Ï¡Ï»┘èÏ½ Ï¼┘à┘èÏ╣ Ïº┘äÏ¿┘èÏº┘åÏºÏ¬",
     "aiTopicsTitle":  "┘à┘êÏÂ┘êÏ╣ÏºÏ¬ ┘à┘éÏ¬Ï▒Ï¡Ï® Ï¿Ïº┘äÏ░┘âÏºÏí Ïº┘äÏºÏÁÏÀ┘åÏºÏ╣┘è",
@@ -433,4 +437,3 @@
     "avatarCategoryBlackWhite":  "ÏúÏ¿┘èÏÂ ┘êÏúÏ│┘êÏ»",
     "avatarCategoryPixels":  "Ï¿┘âÏ│┘äÏºÏ¬"
 }
-

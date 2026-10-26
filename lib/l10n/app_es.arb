@@ -314,6 +314,10 @@
     "tvChannels":  "Canales TV",
     "unableToBuildReplayUrl":  "No se pudo construir la URL del replay.",
     "unlockCloudflare":  "Desbloquear (Cloudflare)",
+    "cloudflareCheckRequired":  "Se requiere verificar el proveedor",
+    "cloudflareChallengeHelp":  "El proveedor solicita una comprobaci\u00f3n de Cloudflare. Abra su sitio web en el navegador, complete usted mismo cualquier comprobaci\u00f3n que aparezca y vuelva aqu\u00ed para reintentar. Es posible que la sesi\u00f3n del navegador no se comparta con la aplicaci\u00f3n.",
+    "openProviderWebsite":  "Abrir el sitio web del proveedor",
+    "providerWebsiteUnavailable":  "No se pudo abrir el sitio web del proveedor. Compruebe la direcci\u00f3n de la suscripci\u00f3n e int\u00e9ntelo de nuevo.",
     "unstableConnection":  "Conexi├│n inestable",
     "updateAllData":  "Actualizar todos los datos",
     "aiTopicsTitle":  "Temas recomendados por IA",
@@ -433,4 +437,3 @@
     "avatarCategoryBlackWhite":  "Negro y Blanco",
     "avatarCategoryPixels":  "Pixels"
 }
-

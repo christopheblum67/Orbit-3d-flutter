@@ -1012,6 +1012,20 @@ class AppLocalizationsIt extends AppLocalizations {
   String get unlockCloudflare => 'Sblocca (Cloudflare)';
 
   @override
+  String get cloudflareCheckRequired => 'Verifica del provider richiesta';
+
+  @override
+  String get cloudflareChallengeHelp =>
+      'Il provider richiede una verifica Cloudflare. Apri il suo sito nel browser, completa personalmente l\'eventuale verifica e poi torna qui per riprovare. La sessione del browser potrebbe non essere condivisa con l\'app.';
+
+  @override
+  String get openProviderWebsite => 'Apri il sito del provider';
+
+  @override
+  String get providerWebsiteUnavailable =>
+      'Impossibile aprire il sito del provider. Controlla l\'indirizzo dell\'abbonamento e riprova.';
+
+  @override
   String get unstableConnection => 'Connessione instabile';
 
   @override

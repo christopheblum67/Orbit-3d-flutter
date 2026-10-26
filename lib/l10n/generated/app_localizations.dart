@@ -1966,6 +1966,30 @@ abstract class AppLocalizations {
   /// **'D├®bloquer (Cloudflare)'**
   String get unlockCloudflare;
 
+  /// No description provided for @cloudflareCheckRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification du fournisseur requise'**
+  String get cloudflareCheckRequired;
+
+  /// No description provided for @cloudflareChallengeHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le fournisseur demande une vérification Cloudflare. Ouvrez son site dans votre navigateur, effectuez vous-même la vérification si elle est proposée, puis revenez ici et réessayez. La session du navigateur peut ne pas être partagée avec l\'application.'**
+  String get cloudflareChallengeHelp;
+
+  /// No description provided for @openProviderWebsite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir le site du fournisseur'**
+  String get openProviderWebsite;
+
+  /// No description provided for @providerWebsiteUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'ouvrir le site du fournisseur. Vérifiez l\'adresse de l\'abonnement et réessayez.'**
+  String get providerWebsiteUnavailable;
+
   /// No description provided for @unstableConnection.
   ///
   /// In fr, this message translates to:

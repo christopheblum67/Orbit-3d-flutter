@@ -314,6 +314,10 @@
     "tvChannels":  "TV-Sender",
     "unableToBuildReplayUrl":  "Wiedergabe-URL konnte nicht erstellt werden.",
     "unlockCloudflare":  "Entsperren (Cloudflare)",
+    "cloudflareCheckRequired":  "Anbieterbestätigung erforderlich",
+    "cloudflareChallengeHelp":  "Der Anbieter verlangt eine Cloudflare-Prüfung. Öffnen Sie seine Website im Browser, führen Sie eine angezeigte Prüfung selbst durch und kehren Sie anschließend hierher zurück, um es erneut zu versuchen. Die Browsersitzung wird möglicherweise nicht mit der App geteilt.",
+    "openProviderWebsite":  "Website des Anbieters öffnen",
+    "providerWebsiteUnavailable":  "Die Website des Anbieters konnte nicht geöffnet werden. Prüfen Sie die Abonnementadresse und versuchen Sie es erneut.",
     "unstableConnection":  "Unstabile Verbindung",
     "updateAllData":  "Alle Daten aktualisieren",
     "aiTopicsTitle":  "KI-Empfohlene Themen",
@@ -433,4 +437,3 @@
     "avatarCategoryBlackWhite":  "Schwarz \u0026 Wei├ƒ",
     "avatarCategoryPixels":  "Pixel"
 }
-
