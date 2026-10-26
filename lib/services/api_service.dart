@@ -28,6 +28,7 @@ import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
 import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
+import 'package:orbit_3d_flutter/services/xtream_url_builder.dart';
 
 class ApiService {
   /// Instance courante, utilisée par le builder global d'URLs de stream.
@@ -2362,15 +2363,7 @@ class ApiService {
   }
 
   static String _trimBaseUrl(String baseUrl) {
-    var url = baseUrl.trim();
-    while (url.endsWith('/')) {
-      url = url.substring(0, url.length - 1);
-    }
-    const suffix = '/player_api.php';
-    if (url.toLowerCase().endsWith(suffix)) {
-      url = url.substring(0, url.length - suffix.length);
-    }
-    return url;
+    return XtreamUrlBuilder.trimBaseUrl(baseUrl);
   }
 
   static String _playerApiUrl(
@@ -2395,36 +2388,16 @@ class ApiService {
     bool withExtension = false,
     Map<String, String> extra = const {},
   }) {
-    if (streamId == null || streamId.isEmpty) return '';
-    final uri = Uri.parse(_trimBaseUrl(baseUrl));
-    final mediaType = type.toLowerCase();
-    // Live et Radio : `/u/p/{id}`, redirigé vers un CDN signé.
-    // Movie/Séries : chemin Xtream standard `/movie/{u}/{p}/{id}` ou
-    // `/series/{u}/{p}/{id}` — c'est la seule forme que draap.online sert
-    // (302 → CDN) ; `/u/p/movie/{id}` renvoyait 401/406.
-    final segments = <String>[];
-    if (mediaType == 'movie' || mediaType == 'series') {
-      segments.add(mediaType);
-    }
-    segments.addAll(<String>[
-      ...uri.pathSegments.where((s) => s.isNotEmpty),
+    return XtreamUrlBuilder.buildStreamUrl(
+      baseUrl,
       username,
       password,
-    ]);
-    var mediaId = streamId;
-    // Les serveurs Xtream récents (ex. draap.online) servent le fichier
-    // /movie/{id} et /series/{id} sans extension ; forcer ".mp4" renvoie
-    // un 404. On ne l'ajoute que si l'appelant le demande explicitement
-    // (withExtension) pour les serveurs legacy qui l'exigent.
-    if ((mediaType == 'movie' || mediaType == 'series') && withExtension) {
-      final ext = _normalizeExtension(extension);
-      mediaId = '$streamId.$ext';
-    }
-    segments.add(mediaId);
-    final query = extra.isEmpty ? null : extra;
-    return uri
-        .replace(pathSegments: segments, queryParameters: query)
-        .toString();
+      streamId,
+      type: type,
+      extension: extension,
+      withExtension: withExtension,
+      extra: extra,
+    );
   }
 
   /// URL de lecture timeshift Xtream.
@@ -2453,44 +2426,15 @@ class ApiService {
     required int end,
     String? extension,
   }) {
-    final uri = Uri.parse(_trimBaseUrl(baseUrl));
-    final durationMinutes = ((end - start) / 60).ceil().clamp(1, 1 << 20);
-    final startLocal = DateTime.fromMillisecondsSinceEpoch(start * 1000);
-    String two(int v) => v.toString().padLeft(2, '0');
-    final stamp =
-        '${startLocal.year}-${two(startLocal.month)}-${two(startLocal.day)}'
-        ':${two(startLocal.hour)}-${two(startLocal.minute)}';
-    final ext = _normalizeTimeshiftExtension(extension);
-
-    final segments = <String>[
-      ...uri.pathSegments.where((s) => s.isNotEmpty),
-      'timeshift',
+    return XtreamUrlBuilder.buildTimeshiftUrl(
+      baseUrl,
       username,
       password,
-      '$durationMinutes',
-      stamp,
-      '$streamId.$ext',
-    ];
-    return uri.replace(pathSegments: segments).toString();
-  }
-
-  /// Extension de sortie du timeshift.
-  ///
-  /// `.ts` par défaut : c'est le format servi en priorité par les panels.
-  /// `.m3u8` est accepté pour les comptes dont `allowed_output_formats`
-  /// écarte le transport stream.
-  static String _normalizeTimeshiftExtension(String? extension) {
-    var ext = (extension ?? 'ts').trim().replaceFirst(RegExp(r'^\.'), '');
-    ext = ext.toLowerCase();
-    if (ext.isEmpty) return 'ts';
-    if (ext == 'mpegts' || ext == 'mpeg-ts') return 'ts';
-    if (ext == 'hls' || ext == 'm3u8') return 'm3u8';
-    return ext;
-  }
-
-  static String _normalizeExtension(String? extension) {
-    if (extension == null || extension.trim().isEmpty) return 'mp4';
-    return extension.trim().replaceFirst(RegExp(r'^\.'), '').toLowerCase();
+      streamId,
+      start: start,
+      end: end,
+      extension: extension,
+    );
   }
 
   List<Channel> parseM3u(String content) {
