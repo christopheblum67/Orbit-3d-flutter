@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
@@ -34,23 +36,57 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
   }
 
   Future<void> addSubscription(Subscription subscription) async {
-    await _ensureLoaded();
-    await _storage.saveSubscription(subscription);
-    if (!ref.mounted) return;
-    state = [...state, subscription];
-    if (subscription.type == SubscriptionType.xtream) {
-      refreshValidity(subscription.id);
+    try {
+      logDiag('[SUB_PROVIDER] addSubscription start id=${subscription.id} type=${subscription.type}');
+      LoggerService.instance.info('addSubscription: starting, id=${subscription.id}, name=${subscription.name}, type=${subscription.type}');
+      await _ensureLoaded();
+      LoggerService.instance.info('addSubscription: _ensureLoaded done');
+      await _storage.saveSubscription(subscription);
+      logDiag('[SUB_PROVIDER] saved');
+      LoggerService.instance.info('addSubscription: _storage.saveSubscription done');
+      if (!ref.mounted) {
+        LoggerService.instance.warning('addSubscription: ref not mounted, returning');
+        return;
+      }
+      state = [...state, subscription];
+      LoggerService.instance.info('addSubscription: state updated, new count=${state.length}');
+      if (subscription.type == SubscriptionType.xtream) {
+        unawaited(refreshValidity(subscription.id));
+      }
+      LoggerService.instance.info('addSubscription: completed successfully');
+      logDiag('[SUB_PROVIDER] done');
+    } catch (e, st) {
+      logDiag('[SUB_PROVIDER] ERR $e');
+      LoggerService.instance.error('addSubscription failed', error: e, stackTrace: st);
+      rethrow;
     }
   }
 
   Future<void> updateSubscription(Subscription subscription) async {
-    await _ensureLoaded();
-    await _storage.saveSubscription(subscription);
-    if (!ref.mounted) return;
-    state =
-        state.map((s) => s.id == subscription.id ? subscription : s).toList();
-    if (subscription.type == SubscriptionType.xtream) {
-      refreshValidity(subscription.id);
+    try {
+      logDiag('[SUB_PROVIDER] updateSubscription start id=${subscription.id}');
+      LoggerService.instance.info('updateSubscription: starting, id=${subscription.id}, name=${subscription.name}');
+      await _ensureLoaded();
+      LoggerService.instance.info('updateSubscription: _ensureLoaded done');
+      await _storage.saveSubscription(subscription);
+      logDiag('[SUB_PROVIDER] saved update');
+      LoggerService.instance.info('updateSubscription: _storage.saveSubscription done');
+      if (!ref.mounted) {
+        LoggerService.instance.warning('updateSubscription: ref not mounted, returning');
+        return;
+      }
+      state =
+          state.map((s) => s.id == subscription.id ? subscription : s).toList();
+      LoggerService.instance.info('updateSubscription: state updated');
+      if (subscription.type == SubscriptionType.xtream) {
+        unawaited(refreshValidity(subscription.id));
+      }
+      LoggerService.instance.info('updateSubscription: completed successfully');
+      logDiag('[SUB_PROVIDER] done update');
+    } catch (e, st) {
+      logDiag('[SUB_PROVIDER] ERR update $e');
+      LoggerService.instance.error('updateSubscription failed', error: e, stackTrace: st);
+      rethrow;
     }
   }
 
@@ -185,26 +221,37 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
   /// l'abonnement afin que `validityLabel` affiche une vraie valeur.
   /// Sans effet pour les playlists M3U (aucune validité serveur).
   Future<void> refreshValidity(String id, {ApiService? api}) async {
-    await _ensureLoaded();
-    if (!ref.mounted) return;
-    final index = state.indexWhere((s) => s.id == id);
-    if (index == -1) return;
-    final sub = state[index];
-    if (sub.type != SubscriptionType.xtream) return;
+    try {
+      await _ensureLoaded();
+      if (!ref.mounted) return;
+      final index = state.indexWhere((s) => s.id == id);
+      if (index == -1) return;
+      final sub = state[index];
+      if (sub.type != SubscriptionType.xtream) return;
 
-    final apiService = api ?? ApiService();
-    final expiry = await apiService.fetchExpiration();
-    if (!ref.mounted || expiry == null) return;
+      final apiService = api ?? ApiService();
+      final expiry = await apiService.fetchExpiration();
+      if (!ref.mounted || expiry == null) return;
 
-    final updated = sub.copyWith(validUntil: expiry);
-    await _storage.saveSubscription(updated);
-    if (!ref.mounted) return;
-    state = [
-      ...state.sublist(0, index),
-      updated,
-      ...state.sublist(index + 1),
-    ];
-    ref.invalidate(activeSubscriptionProvider);
+      final updated = sub.copyWith(validUntil: expiry);
+      await _storage.saveSubscription(updated);
+      if (!ref.mounted) return;
+      state = [
+        ...state.sublist(0, index),
+        updated,
+        ...state.sublist(index + 1),
+      ];
+      ref.invalidate(activeSubscriptionProvider);
+    } catch (e, st) {
+      // Ne doit JAMAIS remonter : `refreshValidity` est appelé en
+      // fire-and-forget depuis `addSubscription`/`updateSubscription`, et un
+      // oubli ici provoquerait une exception asynchrone non interceptée.
+      LoggerService.instance.error(
+        'refreshValidity failed (id=$id)',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> testConnection(Subscription sub, {ApiService? api}) async {

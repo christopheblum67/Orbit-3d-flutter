@@ -17,6 +17,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/duo_profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/duration_adapter.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -32,6 +33,8 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/opensubtitles_credentials_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
@@ -47,6 +50,7 @@ import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
+import 'package:orbit_3d_flutter/features/tv_setup/tv_preconfig_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
@@ -62,6 +66,7 @@ import 'package:orbit_3d_flutter/features/series/series_screen.dart';
 import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
+import 'package:orbit_3d_flutter/features/vod/m3u_vod_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/movie_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/actors/actor_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart';
@@ -94,7 +99,31 @@ void main() {
   );
 }
 
+Future<void> _loadTestSubscriptionsIfNeeded(StorageService storage) async {
+  // Ne charge les abonnements de test que si aucun abonnement n'existe déjà
+  final existing = await storage.getSubscriptions();
+  if (existing.isNotEmpty) return;
+
+  try {
+    final jsonString = await rootBundle.loadString('assets/config/test_subscriptions.json');
+    final data = json.decode(jsonString) as Map<String, dynamic>;
+    final testSubs = (data['test_subscriptions'] as List<dynamic>)
+        .map((e) => Subscription.fromMap(e as Map<String, dynamic>))
+        .toList();
+
+    for (final sub in testSubs) {
+      await storage.saveSubscription(sub);
+    }
+    LoggerService.instance.info('Test subscriptions loaded: ${testSubs.length}');
+  } catch (e) {
+    LoggerService.instance.warning('Failed to load test subscriptions', error: e);
+  }
+}
+
 Future<void> _bootstrap() async {
+  final _bootStart = DateTime.now();
+  void _bootLog(String msg) => debugPrint('[BOOT] ${DateTime.now().difference(_bootStart).inMilliseconds}ms $msg');
+  _bootLog('start');
   WidgetsFlutterBinding.ensureInitialized();
 
   // Capture globales installées le plus tôt possible (erreurs cadre + isolate).
@@ -113,7 +142,9 @@ Future<void> _bootstrap() async {
     context: 'dotenv.load',
     fallbackValue: null,
   );
+  _bootLog('Hive.initFlutter start');
   await Hive.initFlutter();
+  _bootLog('Hive.initFlutter done');
   Hive.registerAdapter<Subscription>(SubscriptionAdapter());
   Hive.registerAdapter<SubscriptionType>(SubscriptionTypeAdapter());
   Hive.registerAdapter<TestResultStatus>(TestResultStatusAdapter());
@@ -132,7 +163,9 @@ Future<void> _bootstrap() async {
     fallbackValue: null,
   );
   final storageService = StorageService();
+  _bootLog('storageService.init start');
   await storageService.init();
+  _bootLog('storageService.init done');
   final favoritesService = FavoritesService();
   await favoritesService.init();
   final historyService = HistoryService();
@@ -141,32 +174,47 @@ Future<void> _bootstrap() async {
   await recentlyWatchedService.init();
   final watchedEpisodesService = WatchedEpisodesService();
   await watchedEpisodesService.init();
+  // playbackProgressService, cloudSyncMirrorStore et mediaLibraryManager sont
+  // initialisés APRÈS runApp() pour ne pas bloquer le premier frame.
   final playbackProgressService = PlaybackProgressService();
-  await playbackProgressService.init();
   final cloudSyncMirrorStore = CloudSyncMirrorStore();
-  await cloudSyncMirrorStore.init();
   final mediaLibraryManager = MediaLibraryManager();
-  await mediaLibraryManager.init([]);
+  _bootLog('mediaLibraryManager created (init deferred)');
+  
+  // Initialise le service de résolution EPG optimisé (pré-charge le cache XMLTV global).
+  final container = ProviderContainer();
+  // Pré-chargement EPG déplacé APRÈS runApp() pour ne pas bloquer le splash natif Android.
 
-  await BetaConfig.applyIfNeeded();
-
+  // BetaConfig, migration et chargement des abonnements de test sont déplacés
+  // APRÈS runApp() pour ne pas bloquer le premier frame.
   // S'assure qu'un éventuel abonnement issu des préférences (source par défaut)
   // est présent en Hive avant de décider de la route de démarrage.
   await storageService.migrateFromSharedPreferences();
+  
+  // Charge les abonnements de test depuis le fichier de config (si aucun abonnement existant)
+  await _loadTestSubscriptionsIfNeeded(storageService);
 
   final restoredProfile = await _restoreLastProfile(storageService);
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
   final legalNoticeDone =
       storageService.getSetting(kLegalNoticeDoneKey) == true;
+
+  // Garde-fou : si onboarding terminé MAIS aucun abonnement actif,
+  // on redirige vers l'écran d'abonnements pour en créer un.
+  final hasActiveSubscription = storageService.getActiveSubscriptionSync() != null;
+
   routerInitialLocation = !onboardingDone
       // Premier lancement : le lisez-moi (usage + ayants droits) précède le
       // diagnostic. S'il a déjà été accepté, on passe directement à la
       // configuration.
       ? (legalNoticeDone ? '/onboarding' : '/legal?flow=first')
-      : '/profiles';
+      : hasActiveSubscription
+          ? '/profiles'
+          : '/subscriptions';
 
   final lastRefresh = await loadLastRefresh();
 
+  _bootLog('runApp');
   runApp(
     ProviderScope(
       overrides: [
@@ -196,6 +244,17 @@ Future<void> _bootstrap() async {
       child: const OrbitApp(),
     ),
   );
+
+  // Lancement non-bloquant APRÈS le premier frame : initialisation des services
+  // lourds déplacés ici pour ne pas bloquer le premier frame / splash natif.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _bootLog('postFrameCallback - starting deferred init');
+    unawaited(BetaConfig.applyIfNeeded());
+    unawaited(playbackProgressService.init());
+    unawaited(cloudSyncMirrorStore.init());
+    unawaited(mediaLibraryManager.init(const []));
+    unawaited(container.read(epgResolverServiceProvider).initialize(container));
+  });
 }
 
 Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
@@ -534,6 +593,21 @@ final GoRouter router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/m3u-vod/detail',
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'm3u_vod_detail',
+        child: WithBackHandling(
+          meta: const RouteMeta.pop(restorationId: 'm3u_vod_detail'),
+          child: () {
+            final channel = state.extra;
+            if (channel is Channel) return M3uVodDetailScreen(channel: channel);
+            return const Material(child: SizedBox.shrink());
+          }(),
+        ),
+      ),
+    ),
+    GoRoute(
       path: '/series/detail',
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
@@ -591,6 +665,10 @@ final GoRouter router = GoRouter(
       path: '/startup',
       builder: (context, state) => const StartupSplashScreen(),
     ),
+    GoRoute(
+      path: '/tv-preconfig',
+      builder: (context, state) => const TvPreconfigScreen(),
+    ),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
       routes: [
@@ -632,6 +710,17 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'vod'),
               child: VodScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/m3u-vod',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'm3u_vod',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'm3u_vod'),
+              child: M3uVodScreen(),
             ),
           ),
         ),
@@ -885,28 +974,39 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     }
 
     return TvModeDetector(
-      child: MaterialApp.router(
-        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-        locale: resolveLocale(),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        theme: AppTheme.lightTheme(
-          highContrast: advancedSettings.highContrast,
-          palette: prefs.palette,
-        ),
-        darkTheme: AppTheme.darkTheme(
-          highContrast: advancedSettings.highContrast,
-          palette: prefs.palette,
-        ),
-        // Thème par défaut : sombre (confort TV + mobile). Respecte le choix
-        // explicite de l'utilisateur (light/dark/system si conservé).
-        themeMode: switch (prefs.theme) {
-          'light' => ThemeMode.light,
-          'dark' => ThemeMode.dark,
-          'system' => ThemeMode.system,
-          _ => ThemeMode.dark,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final isTv = ref.watch(tvModeProvider);
+          final textScaleFactor = isTv ? 1.2 : 1.0;
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(textScaleFactor),
+            ),
+            child: MaterialApp.router(
+              onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+              locale: resolveLocale(),
+              supportedLocales: AppLocalizations.supportedLocales,
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              theme: AppTheme.lightTheme(
+                highContrast: advancedSettings.highContrast,
+                palette: prefs.palette,
+              ),
+              darkTheme: AppTheme.darkTheme(
+                highContrast: advancedSettings.highContrast,
+                palette: prefs.palette,
+              ),
+              // Thème par défaut : sombre (confort TV + mobile). Respecte le choix
+              // explicite de l'utilisateur (light/dark/system si conservé).
+              themeMode: switch (prefs.theme) {
+                'light' => ThemeMode.light,
+                'dark' => ThemeMode.dark,
+                'system' => ThemeMode.system,
+                _ => ThemeMode.dark,
+              },
+              routerConfig: router,
+            ),
+          );
         },
-        routerConfig: router,
       ),
     );
   }

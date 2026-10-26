@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0F172A</color>
+    <!-- TV/Leanback specific colors for 10ft UI -->
+    <color name="tv_background">#0A0E17</color>
+    <color name="tv_primary">#1E3A5F</color>
+    <color name="tv_primary_dark">#0D1B2E</color>
+    <color name="tv_accent">#FF6B35</color>
+    <color name="tv_card_background">#161B22</color>
+    <color name="tv_text_primary">#F0F4F8</color>
+    <color name="tv_text_secondary">#8B9CB3</color>
+    <color name="tv_focus_border">#FF6B35</color>
+    <color name="tv_focus_glow">#FF6B35</color>
+    <color name="tv_divider">#2A3F54</color>
 </resources>

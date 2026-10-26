@@ -1,28 +1,31 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
-import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
+import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 
-/// État de chargement générique : anneau animé dans une carte.
+/// État de chargement unifié avec logo animé Orbit IPTV.
+/// Même logo animé que l'écran de démarrage (pulse + IPTV séquentiel).
+/// Les paramètres message/subtitle sont conservés pour compatibilité mais non affichés.
 class LoadingState extends StatelessWidget {
   const LoadingState({
     super.key,
     this.showLogo = true,
-    this.message = 'Chargement…',
-    this.subtitle = 'Un instant…',
+    this.message,
+    this.subtitle,
   });
 
-  final String message;
-  final String subtitle;
-
-  /// Affiche le logo de l'application au-dessus de l'anneau : identité
-  /// reprise de la bannière Android TV.
+  /// Affiche le logo animé au-dessus de l'anneau.
   final bool showLogo;
+
+  /// @deprecated Conservé pour compatibilité, non affiché.
+  final String? message;
+
+  /// @deprecated Conservé pour compatibilité, non affiché.
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -32,26 +35,10 @@ class LoadingState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showLogo) ...[
-                const OrbitLogoIcon(size: 56),
+                const LoadingLogo(size: 80),
                 const SizedBox(height: 20),
               ],
               const _OrbitSpinner(),
-              const SizedBox(height: 20),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
             ],
           ),
         ),
@@ -106,7 +93,7 @@ class _OrbitSpinnerState extends State<_OrbitSpinner>
               ),
             ),
             Transform.rotate(
-              angle: value * 2 * math.pi,
+              angle: _controller.value * 2 * math.pi,
               child: CustomPaint(
                 size: const Size.square(56),
                 painter: _RingPainter(

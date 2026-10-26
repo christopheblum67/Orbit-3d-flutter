@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -25,6 +29,13 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// vous ») a été retiré : il dupliquait une sélection disponible dans
 /// l'application et détournait l'attention de la seule information utile ici,
 /// l'avancement de la mise à jour.
+///
+/// ## Première frame allégée
+///
+/// Le logo animé n'est monté qu'après le premier frame (flag [_showBranding]) :
+/// la première frame ne construit pas le sous-arbre Image + BoxShadow + Text
+/// animé, ce qui réduit le coût de rendu initial. L'animation démarre dès la
+/// frame suivante, imperceptibleément plus tard.
 class StartupSplashScreen extends ConsumerStatefulWidget {
   const StartupSplashScreen({super.key});
 
@@ -38,6 +49,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   bool _navigated = false;
   bool _cfLoading = false;
 
+  /// Le logo animé n'est monté qu'après la première frame (première frame allégée).
+  bool _showBranding = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,9 +62,13 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     );
     _controller.addListener(_onProgress);
     // Lance le préchargement après le premier frame pour ne pas muter l'état
-    // pendant la phase de build.
+    // pendant la phase de build. La première frame est allégée (pas de logo
+    // animé), le branding est activé dès la frame suivante.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _kickOff();
+      if (mounted) {
+        setState(() => _showBranding = true);
+        _kickOff();
+      }
     });
   }
 
@@ -63,7 +81,18 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   void _onProgress() {
     if (!mounted) return;
-    setState(() {});
+    try {
+      setState(() {});
+    } catch (e, st) {
+      // Capture l'erreur "Bad state: No element" qui peut provenir d'un
+      // firstWhere sans orElse dans l'arbre de widgets pendant le rebuild.
+      // On loggue et on continue pour ne pas crasher l'app.
+      LoggerService.instance.error(
+        '_onProgress setState crashed',
+        error: e,
+        stackTrace: st,
+      );
+    }
     if (_controller.isFinished && !_navigated) {
       _navigated = true;
       // Marque la mise à jour comme faite pour que le bouton d'accueil
@@ -81,9 +110,22 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   Widget build(BuildContext context) {
     // Initialise le certificate pinning depuis les réglages avancés
     ref.watch(certificatePinningInitializerProvider);
+
+    // Sur TV : redirige vers l'écran de pré-configuration TV si pas déjà fait
+    final isTv = ref.watch(tvModeProvider);
+    if (isTv) {
+      final preconfigAsync = ref.watch(tvPreconfigDoneProvider);
+      if (preconfigAsync.hasValue && preconfigAsync.value == false) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) context.go('/tv-preconfig');
+        });
+        return const SizedBox.shrink();
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
-      body: SafeArea(
+      body: TvSafeArea(
         child: Column(
           children: [
             if (_cfLoading)
@@ -101,6 +143,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 currentStep: _controller.currentStep,
                 doneSteps: _controller.doneSteps,
                 isFinished: _controller.isFinished,
+                showBranding: _showBranding,
               ),
             ),
           ],
@@ -116,6 +159,28 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // (`429`, quota déjà consommé) : `fetchExpiration` retombait sur `null` via
     // `safeAsync` et la validité n'était jamais mise à jour (« Sans limite »).
     await _refreshSubscriptionValidity();
+
+  // Micro-optimisations post-chargement (gain de temps après le splash)
+  // 1. Pré-charger les posters des premiers films visibles
+  final movies = ref.read(moviesProvider).value ?? [];
+  for (final m in movies.take(20)) {
+    if (m.posterUrl.isNotEmpty && mounted) {
+      precacheImage(NetworkImage(m.posterUrl), context);
+    }
+  }
+  // 2. Pré-résoudre l'EPG des 10 premières chaînes visibles
+  final channels = ref.read(liveChannelsProvider).value ?? [];
+  final firstChannels = channels.take(10).toList();
+  if (firstChannels.isNotEmpty) {
+    unawaited(ref.read(epgResolverServiceProvider).resolveBatch(
+      channels: firstChannels,
+      includePast: false,
+    ));
+  }
+  // 3. Pré-ouvrir les boîtes Hive fréquemment utilisées
+  unawaited(Hive.openBox('epg_cache'));
+  unawaited(Hive.openBox('favorites'));
+  unawaited(Hive.openBox('recently_watched'));
     if (!mounted) return;
     await _controller.start();
     if (!mounted) return;
@@ -133,10 +198,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               .read(cloudflareSessionProvider)
               .initialize(baseUrl: baseUrl)
               .timeout(
-            const Duration(seconds: 60),
+            const Duration(seconds: 15),
             onTimeout: () {
               debugPrint(
-                '☁️ Cloudflare init timeout (60s) during splash, proceeding anyway...',
+                '☁️ Cloudflare init timeout (15s) during splash, proceeding anyway...',
               );
             },
           );

@@ -81,6 +81,18 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               )
             : null,
         title: Text(l.epgGuideTv),
+        actions: [
+          IconButton(
+            tooltip: 'Rafraîchir EPG',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () {
+              ref.read(epgDataCacheProvider).forceRefresh(ref.read(apiServiceProvider));
+              // Invalide aussi les providers de grille pour forcer le reload
+              ref.invalidate(liveCategoriesFromM3UProvider);
+              ref.invalidate(liveChannelsProvider);
+            },
+          ),
+        ],
       ),
       body: TvSafeArea(child: _buildGrid2DTab()),
     );

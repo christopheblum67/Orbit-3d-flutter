@@ -1,0 +1,13 @@
+Voici les principaux problèmes que je peux rencontrer :
+
+1. **Compréhension des requêtes** : Parfois, je peux mal interpréter le sens d'une question, surtout si elle est ambiguë ou complexe.
+
+2. **Limites linguistiques** : Bien que je supporte plusieurs langues, certaines expressions idiomes ou tournures de langage peuvent être mal traduites ou mal contextualisées.
+
+3. **Précision des informations** : Je ne dispose pas d'accès en temps réel aux données externes, donc mes réponses peuvent être à jour à la date de ma conception (2023), ce qui peut créer un décalage avec les informations les plus récentes.
+
+4. **Gestion des contextes longs** : Si une conversation devient trop longue ou complexe, je peux perdre le fil du raisonnement ou les détails essentiels.
+
+5. **Performance et délais** : Pour les tâches nécessitant des calculs intensifs (comme l'analyse de grands textes), le temps de traitement peut être plus long que pour des requêtes simples.
+
+Ces limitations sont en cours d'amélioration grâce à des mises à jour régulières et des retours utilisateurs.

@@ -85,10 +85,10 @@ class _TvFocusState extends ConsumerState<TvFocus>
   void initState() {
     super.initState();
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
     try {
@@ -202,24 +202,18 @@ class _TvFocusState extends ConsumerState<TvFocus>
               decoration: showEffects
                   ? BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: scheme.primary, width: 3),
+                      border: Border.all(color: scheme.primary, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.95),
-                          blurRadius: 32,
-                          spreadRadius: 4,
-                          offset: const Offset(0, 0),
-                        ),
-                        BoxShadow(
                           color: scheme.primary.withValues(alpha: 0.6),
-                          blurRadius: 72,
-                          spreadRadius: 10,
+                          blurRadius: 20,
+                          spreadRadius: 2,
                           offset: const Offset(0, 0),
                         ),
                         BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          blurRadius: 16,
-                          spreadRadius: 1,
+                          color: scheme.primary.withValues(alpha: 0.3),
+                          blurRadius: 40,
+                          spreadRadius: 4,
                           offset: const Offset(0, 0),
                         ),
                       ],

@@ -39,7 +39,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameController = TextEditingController();
   final _scrollController = ScrollController();
   ProfileType _type = ProfileType.adult;
-  int _gradientIndex = 0;
   String? _remoteAvatarUrl;
   String? _pinHash;
   DateTime? _dateOfBirth;
@@ -48,11 +47,12 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   bool _saving = false;
   bool _submitted = false;
   UserProfile? _loadedTarget;
+  String _selectedDiceBearCategory = 'characters';
 
   /// Valeurs initiales du formulaire (pour la détection de modifications).
   String _baseName = '';
   ProfileType _baseType = ProfileType.adult;
-  int _baseGradientIndex = 0;
+  String _baseSelectedDiceBearCategory = 'characters';
   String? _baseRemoteAvatarUrl;
   String? _basePinHash;
   DateTime? _baseDateOfBirth;
@@ -65,7 +65,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (_isEdit && _loadedTarget == null) return false;
     return _nameController.text.trim() != _baseName ||
         _type != _baseType ||
-        _gradientIndex != _baseGradientIndex ||
+        _selectedDiceBearCategory != _baseSelectedDiceBearCategory ||
         _remoteAvatarUrl != _baseRemoteAvatarUrl ||
         _pinHash != _basePinHash ||
         _dateOfBirth != _baseDateOfBirth ||
@@ -296,19 +296,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ..addAll(profile.favoriteGenres);
     final raw = profile.avatarUrl.trim();
     final isIcon = raw.startsWith(ProfileAvatar.avatarIconPrefix);
-    final isOrbital = raw.startsWith(ProfileAvatar.orbitGradientPrefix);
-    if (!isIcon && !isOrbital && raw.isNotEmpty) {
+    if (!isIcon && raw.isNotEmpty) {
       _remoteAvatarUrl = raw;
     } else {
       _remoteAvatarUrl = null;
     }
-    final idx = isOrbital
-        ? int.tryParse(
-              raw.substring(ProfileAvatar.orbitGradientPrefix.length),
-            ) ??
-            -1
-        : -1;
-    _gradientIndex = (idx >= 0 && idx < orbitGradientOptions.length) ? idx : 0;
     _pinHash = profile.pinHash;
     _captureBaseline();
   }
@@ -316,7 +308,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   void _captureBaseline() {
     _baseName = _nameController.text.trim();
     _baseType = _type;
-    _baseGradientIndex = _gradientIndex;
+    _baseSelectedDiceBearCategory = _selectedDiceBearCategory;
     _baseRemoteAvatarUrl = _remoteAvatarUrl;
     _basePinHash = _pinHash;
     _baseDateOfBirth = _dateOfBirth;
@@ -335,8 +327,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       dateOfBirth: DateTime(2000),
       gender: 'Non spécifié',
       favoriteGenres: const [],
-      avatarUrl: _remoteAvatarUrl ??
-          '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex',
+      avatarUrl: _remoteAvatarUrl ?? '',
     );
   }
 
@@ -372,8 +363,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final result = await safeAsync(
       () async {
         final name = _nameController.text.trim();
-        final avatarUrl = _remoteAvatarUrl ??
-            '${ProfileAvatar.orbitGradientPrefix}$_gradientIndex';
+        final avatarUrl = _remoteAvatarUrl ?? '';
         final now = DateTime.now();
         if (_isEdit) {
           final target = _loadedTarget;
@@ -513,9 +503,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         const SizedBox(height: 8),
         _buildIdentityCard(),
         const SizedBox(height: 16),
-        _buildPersonalCard(key: _personalCardKey),
-        const SizedBox(height: 16),
-        _buildTypeSection(),
+        _buildPersonalAndTypeCard(key: _personalCardKey),
         if (showPin) ...[
           const SizedBox(height: 16),
           _buildPinSection(),
@@ -568,35 +556,28 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Dégradé orbital',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Choisissez la couleur de votre avatar',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                Row(
                   children: [
-                    for (var i = 0; i < orbitGradientOptions.length; i++)
-                      _GradientSwatch(
-                        gradient: orbitGradientOptions[i],
-                        selected: _gradientIndex == i,
-                        onTap: () => setState(() {
-                          _remoteAvatarUrl = null;
-                          _gradientIndex = i;
-                        }),
+                    Text(
+                      'Thème d\'avatar',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Choisissez un style, puis un avatar dans la grille',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
                       ),
+                    ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _buildThemeSelector(),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -621,7 +602,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Choisissez un avatar parmi ${orbit3DAvatars.length} modèles',
+            'Thème actuel : ${avatarCategoryLabel(AppLocalizations.of(context), _selectedDiceBearCategory)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -632,9 +613,31 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             onAvatarSelected: (url) => setState(() {
               _remoteAvatarUrl = url;
             }),
+            categoryId: _selectedDiceBearCategory,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildThemeSelector() {
+    final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final themeId in ['characters', 'smileys', 'blackWhite', 'pixels'])
+          _ThemeSwatch(
+            themeId: themeId,
+            label: avatarCategoryLabel(l, themeId),
+            selected: _selectedDiceBearCategory == themeId,
+            onTap: () => setState(() {
+              _selectedDiceBearCategory = themeId;
+            }),
+          ),
+      ],
     );
   }
 
@@ -700,7 +703,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     );
   }
 
-  Widget _buildPersonalCard({Key? key}) {
+  Widget _buildPersonalAndTypeCard({Key? key}) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -711,8 +714,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Âge
           Text(
-            'Ã‚ge',
+            'Âge',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
@@ -737,25 +741,77 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          Text(
-            'Genre',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<String>(
-              segments: [
-                for (final option in _genderOptions)
-                  ButtonSegment(value: option, label: Text(option)),
-              ],
-              selected: {_gender},
-              onSelectionChanged: (selection) =>
-                  setState(() => _gender = selection.first),
-              showSelectedIcon: true,
-            ),
+          // Genre + Type de profil empilés verticalement (chaque sélection horizontale)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Genre
+              Text(
+                'Genre',
+                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<String>(
+                  segments: [
+                    for (final option in _genderOptions)
+                      ButtonSegment(value: option, label: Text(option)),
+                  ],
+                  selected: {_gender},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _gender = selection.first),
+                  showSelectedIcon: true,
+                ),
+              ),
+              const SizedBox(height: 18),
+              // Type de profil
+              Text(
+                'Type de profil',
+                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ProfileType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ProfileType.adult,
+                      label: Text('Adulte'),
+                      icon: Icon(Icons.sentiment_satisfied_alt),
+                    ),
+                    ButtonSegment(
+                      value: ProfileType.child,
+                      label: Text('Enfant'),
+                      icon: Icon(Icons.child_care),
+                    ),
+                    ButtonSegment(
+                      value: ProfileType.expert,
+                      label: Text('Expert'),
+                      icon: Icon(Icons.psychology_rounded),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (selection) =>
+                      _onTypeChanged(selection.first),
+                  showSelectedIcon: true,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _type == ProfileType.child
+                    ? 'Profil enfant · réglages par âge (gérés par PIN)'
+                    : _type == ProfileType.expert
+                        ? 'Recommandations avancées · protection par PIN'
+                        : 'Accès complet aux contenus',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
+          // Genres de films favoris
           Text(
             'Genres de films favoris',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -784,62 +840,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   }),
                 ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeSection() {
-    final scheme = Theme.of(context).colorScheme;
-    return AppCard(
-      color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Type de profil',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<ProfileType>(
-              segments: const [
-                ButtonSegment(
-                  value: ProfileType.adult,
-                  label: Text('Adulte'),
-                  icon: Icon(Icons.sentiment_satisfied_alt),
-                ),
-                ButtonSegment(
-                  value: ProfileType.child,
-                  label: Text('Enfant'),
-                  icon: Icon(Icons.child_care),
-                ),
-                ButtonSegment(
-                  value: ProfileType.expert,
-                  label: Text('Expert'),
-                  icon: Icon(Icons.psychology_rounded),
-                ),
-              ],
-              selected: {_type},
-              onSelectionChanged: (selection) =>
-                  _onTypeChanged(selection.first),
-              showSelectedIcon: true,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _type == ProfileType.child
-                ? 'Profil enfant · réglages par âge (gérés par PIN)'
-                : _type == ProfileType.expert
-                    ? 'Recommandations avancées · protection par PIN'
-                    : 'Accès complet aux contenus',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
           ),
         ],
       ),
@@ -1018,56 +1018,90 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
     );
   }
 }
-
-class _GradientSwatch extends StatelessWidget {
-  const _GradientSwatch({
-    required this.gradient,
+class _ThemeSwatch extends StatelessWidget {
+  const _ThemeSwatch({
+    required this.themeId,
+    required this.label,
     required this.selected,
     required this.onTap,
+    this.autofocus = false,
   });
 
-  final OrbitGradient gradient;
+  final String themeId;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        width: 46,
-        height: 46,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? scheme.primary : Colors.transparent,
-            width: 3,
-          ),
-        ),
-        child: DecoratedBox(
+    return Focus(
+      autofocus: autofocus,
+      onFocusChange: (hasFocus) {},
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.space ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+          onTap();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [gradient.start, gradient.end],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 2 : 1,
             ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: gradient.start.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                    ),
-                  ]
-                : null,
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _iconForTheme(themeId),
+                size: 18,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? scheme.primary : scheme.onSurface,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  IconData _iconForTheme(String themeId) {
+    switch (themeId) {
+      case 'characters':
+        return Icons.face;
+      case 'smileys':
+        return Icons.sentiment_very_satisfied;
+      case 'blackWhite':
+        return Icons.circle_outlined;
+      case 'pixels':
+        return Icons.apps;
+      default:
+        return Icons.image;
+    }
   }
 }

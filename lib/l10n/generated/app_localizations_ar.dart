@@ -1088,6 +1088,13 @@ class AppLocalizationsAr extends AppLocalizations {
   String get subtitleSection => 'Ø§Ù„ØªØ±Ø¬Ù…Ø©';
 
   @override
+  String get forceNoSubtitles => 'Ø¥Ø¬Ø¨Ø§Ø± Ø¹Ø¯Ù… Ø§Ù„ØªØ±Ø¬Ù…Ø©';
+
+  @override
+  String get forceNoSubtitlesSubtitle =>
+      'ØªØ¹Ø·ÙŠÙ„ Ø§Ù„ØªØ±Ø¬Ù…Ø© ØªÙ„Ù‚Ø§Ø¦ÙŠØ§ Ø¹Ù†Ø¯ Ø§Ù„Ø¨Ø¯Ø¡ ØÙÙ„Ù… Ø£Ùˆ Ù…Ø³Ù„Ø³Ù„Ø©';
+
+  @override
   String get audioSection => 'Ø§Ù„ØµÙˆØª';
 
   @override

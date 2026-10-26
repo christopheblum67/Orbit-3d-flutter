@@ -74,6 +74,13 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         title: Text(l.liveTv),
         actions: [
           IconButton(
+            tooltip: 'Rafraîchir EPG',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () {
+              ref.read(epgDataCacheProvider).forceRefresh(ref.read(apiServiceProvider));
+            },
+          ),
+          IconButton(
             tooltip: l.searchChannel,
             icon: const Icon(Icons.live_tv),
             onPressed: () => context.push('/search?type=live'),

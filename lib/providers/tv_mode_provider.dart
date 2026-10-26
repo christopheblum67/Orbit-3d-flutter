@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/device_info.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 /// Garde-fou centralisé pour le mode TV
 ///
@@ -104,3 +105,33 @@ final tvModeControllerProvider = Provider<TvModeController>(
 final tvModeProvider = Provider<bool>((ref) {
   return ref.watch(tvModeControllerProvider).enabled;
 });
+
+/// Provider pour tracker si la pré-config TV a été faite
+/// Stocké en persistant via StorageService
+final tvPreconfigDoneProvider = FutureProvider<bool>((ref) async {
+  final storage = ref.watch(storageServiceProvider);
+  return storage.getTvPreconfigDone();
+});
+
+/// Notifier pour marquer la pré-config TV comme faite
+final tvPreconfigDoneNotifierProvider =
+    NotifierProvider<TvPreconfigDoneNotifier, bool>(
+  TvPreconfigDoneNotifier.new,
+);
+
+class TvPreconfigDoneNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  Future<void> markDone() async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.setTvPreconfigDone(true);
+    state = true;
+  }
+
+  Future<void> reset() async {
+    final storage = ref.read(storageServiceProvider);
+    await storage.setTvPreconfigDone(false);
+    state = false;
+  }
+}

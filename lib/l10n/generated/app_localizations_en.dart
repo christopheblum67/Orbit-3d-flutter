@@ -1039,6 +1039,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subtitleSection => 'Subtitles';
 
   @override
+  String get forceNoSubtitles => 'Force no subtitles';
+
+  @override
+  String get forceNoSubtitlesSubtitle =>
+      'Automatically disable subtitles when starting a movie or series';
+
+  @override
   String get audioSection => 'Audio';
 
   @override

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Logo « Orbit 3D » affiché en interne (splash, menus, drawer).
 ///
-/// Affiche `assets/icons/logo_icon.png` avec des coins arrondis et une lueur
+/// Affiche `assets/icons/logo_icon.jpg` avec des coins arrondis et une lueur
 /// cyan (`0xFF00F2FE`) lorsqu'[glow] est activé.
 class OrbitLogoIcon extends StatelessWidget {
   const OrbitLogoIcon({super.key, this.size = 48, this.glow = true});
@@ -34,7 +34,7 @@ class OrbitLogoIcon extends StatelessWidget {
       child: ClipRRect(
         borderRadius: radius,
         child: Image.asset(
-          'assets/icons/logo_icon.png',
+          'assets/icons/logo_icon.jpg',
           width: size,
           height: size,
           fit: BoxFit.cover,

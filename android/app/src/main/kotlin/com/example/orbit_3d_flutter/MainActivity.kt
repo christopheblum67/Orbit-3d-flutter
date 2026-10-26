@@ -1,9 +1,31 @@
 package com.example.orbit_3d_flutter
 
+import android.content.pm.ConfigurationInfo
+import android.content.res.Configuration
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Detect TV mode BEFORE Flutter UI is shown, so we can set the right theme
+        if (isTvDevice()) {
+            setTheme(R.style.TVTheme)
+        } else {
+            setTheme(R.style.NormalTheme)
+        }
+        super.onCreate(savedInstanceState)
+    }
+
+    private fun isTvDevice(): Boolean {
+        val uiMode = resources.configuration.uiMode and Configuration.UI_MODE_TYPE_MASK
+        return uiMode == Configuration.UI_MODE_TYPE_TELEVISION
+            || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK))
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         AppLogChannel.register(flutterEngine, this)
@@ -12,6 +34,8 @@ class MainActivity : FlutterActivity() {
         HardwareChannel.register(flutterEngine, this)
         PipChannel.register(flutterEngine, this)
         PlaybackServiceChannel.register(flutterEngine, this)
+        RestartChannel.register(flutterEngine, this)
+        AppExitChannel.register(flutterEngine, this)
     }
 
     /**
@@ -40,6 +64,8 @@ class MainActivity : FlutterActivity() {
         HardwareChannel.detach()
         PipChannel.detach()
         PlaybackServiceChannel.detach()
+        RestartChannel.detach()
+        AppExitChannel.detach()
         super.onDestroy()
     }
 }

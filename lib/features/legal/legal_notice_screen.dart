@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -50,7 +52,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
             ? null
             : BackButton(onPressed: () => context.pop()),
       ),
-      body: SafeArea(
+      body: TvSafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -136,17 +138,25 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
               child: widget.firstLaunch
-                  ? FilledButton.icon(
-                      onPressed: _accepted ? null : _accept,
-                      icon: const Icon(Icons.verified_outlined),
-                      label: const Text(
-                        'J\'ai lu et j\'accepte · Continuer',
+                  ? TvFocus(
+                      autofocus: true,
+                      onActivate: _accepted ? null : _accept,
+                      child: FilledButton.icon(
+                        onPressed: _accepted ? null : _accept,
+                        icon: const Icon(Icons.verified_outlined),
+                        label: const Text(
+                          'J\'ai lu et j\'accepte · Continuer',
+                        ),
                       ),
                     )
-                  : FilledButton.icon(
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Retour'),
+                  : TvFocus(
+                      autofocus: true,
+                      onActivate: () => context.pop(),
+                      child: FilledButton.icon(
+                        onPressed: () => context.pop(),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Retour'),
+                      ),
                     ),
             ),
           ],

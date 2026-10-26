@@ -302,7 +302,7 @@ class _EmptyState extends StatelessWidget {
               onActivate: onAdd,
               child: FilledButton.icon(
                 icon: const Icon(Icons.add_rounded),
-                label: Text(l.addSubscription),
+                label: const Text('Ajouter'),
                 onPressed: onAdd,
               ),
             ),
@@ -344,66 +344,52 @@ class _SubscriptionCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TypeBadge(type: subscription.type),
+              // Type badge + ACTIF badge stacked vertically
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TypeBadge(type: subscription.type),
+                  if (isActive) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(AppConstants.radiusSm),
+                      ),
+                      child: Text(
+                        'ACTIF',
+                        style: TextStyle(
+                          color: scheme.onPrimary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            subscription.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    Text(
+                      subscription.name,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
-                        ),
-                        if (isActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              borderRadius:
-                                  BorderRadius.circular(AppConstants.radiusSm),
-                            ),
-                            child: Text(
-                              'ACTIF',
-                              style: TextStyle(
-                                color: scheme.onPrimary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        if (!isActive)
-                          TvFocus(
-                            onActivate: onTap,
-                            child: IconButton(
-                              tooltip: l.setAsDefaultServer,
-                              icon: const Icon(Icons.star_outline, size: 20),
-                              color: scheme.onSurfaceVariant,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                              onPressed: onTap,
-                            ),
-                          ),
-                      ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -414,31 +400,52 @@ class _SubscriptionCard extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 8),
+                    !isActive
+                        ? Align(
+                            alignment: Alignment.centerLeft,
+                            child: TvFocus(
+                              onActivate: onTap,
+                              child: IconButton(
+                                tooltip: l.setAsDefaultServer,
+                                icon: const Icon(Icons.star_outline, size: 20),
+                                color: scheme.onSurfaceVariant,
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                onPressed: onTap,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ],
                 ),
               ),
-              TvDropdown<String>(
-                value: null,
-                items: [
-                  TvDropdownItem<String>(
-                    value: 'edit',
-                    label: 'Modifier',
-                    icon: Icons.edit_outlined,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TvFocus(
+                    onActivate: onEdit,
+                    child: IconButton(
+                      tooltip: 'Modifier',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: onEdit,
+                    ),
                   ),
-                  TvDropdownItem<String>(
-                    value: 'delete',
-                    label: 'Supprimer',
-                    icon: Icons.delete_outlined,
-                    isDestructive: true,
+                  const SizedBox(width: 8),
+                  TvFocus(
+                    onActivate: onDelete,
+                    child: IconButton(
+                      tooltip: 'Supprimer',
+                      icon: const Icon(Icons.delete_outlined),
+                      color: Theme.of(context).colorScheme.error,
+                      onPressed: onDelete,
+                    ),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value == 'edit') {
-                    onEdit();
-                  } else if (value == 'delete') {
-                    onDelete();
-                  }
-                },
               ),
             ],
           ),
@@ -707,7 +714,6 @@ class _SubscriptionFormDialogState
     _usernameTvFocus.dispose();
     _passwordTvFocus.dispose();
     _m3uTvFocus.dispose();
-    _typeTvFocus.dispose();
     _submitTvFocus.dispose();
     super.dispose();
   }
@@ -806,20 +812,24 @@ class _SubscriptionFormDialogState
                           policy: OrderedTraversalPolicy(),
                           child: Row(
                             children: [
-                              _TypeToggleButton(
-                                value: SubscriptionType.xtream,
-                                groupValue: _type,
-                                label: l.xtreamCodes,
-                                icon: Icons.tv_outlined,
-                                onChanged: (v) => setState(() => _type = v),
+                              Expanded(
+                                child: _TypeToggleButton(
+                                  value: SubscriptionType.xtream,
+                                  groupValue: _type,
+                                  label: l.xtreamCodes,
+                                  icon: Icons.tv_outlined,
+                                  onChanged: (v) => setState(() => _type = v),
+                                ),
                               ),
                               const SizedBox(width: 12),
-                              _TypeToggleButton(
-                                value: SubscriptionType.m3u,
-                                groupValue: _type,
-                                label: l.m3uPlaylist,
-                                icon: Icons.playlist_play_outlined,
-                                onChanged: (v) => setState(() => _type = v),
+                              Expanded(
+                                child: _TypeToggleButton(
+                                  value: SubscriptionType.m3u,
+                                  groupValue: _type,
+                                  label: l.m3uPlaylist,
+                                  icon: Icons.playlist_play_outlined,
+                                  onChanged: (v) => setState(() => _type = v),
+                                ),
                               ),
                             ],
                           ),
@@ -911,12 +921,17 @@ class _SubscriptionFormDialogState
                     TvFocus(
                       focusNode: _m3uTvFocus,
                       onKeyEvent: (node, event) {
-                        if (event is KeyDownEvent &&
-                            (event.logicalKey == LogicalKeyboardKey.enter ||
-                                event.logicalKey == LogicalKeyboardKey.select ||
-                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                          _requestFocus(_submitFocus);
-                          return KeyEventResult.handled;
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey == LogicalKeyboardKey.select ||
+                              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            _requestFocus(_submitFocus);
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                            _requestFocus(_typeFocus);
+                            return KeyEventResult.handled;
+                          }
                         }
                         return KeyEventResult.ignored;
                       },
@@ -1076,7 +1091,10 @@ class _TypeToggleButton extends StatelessWidget {
         onActivate: () => onChanged(value),
         child: Focus(
           onFocusChange: (hasFocus) {},
-          child: AnimatedContainer(
+          child: InkWell(
+            onTap: () => onChanged(value),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -1128,11 +1146,18 @@ class _TypeToggleButton extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
+                const SizedBox(width: 8),
+                Icon(
+                  icon,
+                  size: 18,
+                  color: Colors.transparent,
+                ),
               ],
             ),
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

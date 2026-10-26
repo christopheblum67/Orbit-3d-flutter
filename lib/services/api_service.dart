@@ -26,6 +26,7 @@ import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     show StreamNetworkException;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
+import 'package:orbit_3d_flutter/core/utils/auto_category.dart';
 import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 
@@ -680,10 +681,51 @@ class ApiService {
     } else if (sub['type'] == 'm3u') {
       final url = sub['url']!;
       final response = await _get(url);
-      return parseM3u(response.data.toString());
+      final result = parseM3uWithVodSeparation(response.data.toString());
+      // Pour compatibilité, on retourne les chaînes live + VOD combinées
+      // Les écrans VOD pourront accéder aux listes séparées via un autre provider
+      return [...result.liveChannels, ...result.vodChannels, ...result.seriesChannels, ...result.movieChannels];
     } else {
       throw StreamNetworkException('Aucun abonnement configuré.');
     }
+  }
+
+  /// Récupère le résultat complet du parsing M3U avec séparation Live/VOD
+  /// Pour les abonnements M3U uniquement ; retourne null pour Xtream.
+  Future<M3uParseResult?> fetchM3uParseResult() async {
+    final sub = await _activeSub();
+    if (sub['type'] != 'm3u') return null;
+
+    final url = sub['url']!;
+    final response = await _get(url);
+    return parseM3uWithVodSeparation(response.data.toString());
+  }
+
+  /// Récupère uniquement les chaînes VOD (films + séries + VOD générique) M3U
+  Future<List<Channel>> fetchVodChannels() async {
+    final result = await fetchM3uParseResult();
+    return result?.allChannels.where((c) =>
+        c.categoryId == AutoCategory.films.name ||
+        c.categoryId == AutoCategory.series.name ||
+        c.categoryId == 'vod' ||
+        c.group.toLowerCase().contains('vod') ||
+        c.group.toLowerCase().contains('film') ||
+        c.group.toLowerCase().contains('movie') ||
+        c.group.toLowerCase().contains('série') ||
+        c.group.toLowerCase().contains('series'),
+    ).toList() ?? const <Channel>[];
+  }
+
+  /// Récupère uniquement les séries M3U
+  Future<List<Channel>> fetchSeriesChannels() async {
+    final result = await fetchM3uParseResult();
+    return result?.seriesChannels ?? const <Channel>[];
+  }
+
+  /// Récupère uniquement les films M3U
+  Future<List<Channel>> fetchMovieChannels() async {
+    final result = await fetchM3uParseResult();
+    return result?.movieChannels ?? const <Channel>[];
   }
 
   Future<Map<String, String>> _fetchLiveCategoryNames(
@@ -2831,4 +2873,148 @@ class _ApiGate {
 
   /// Nombre de refus 429 consécutifs (diagnostic).
   int get consecutiveRateLimits => _consecutive429;
+}
+
+/// Résultat du parsing M3U avec séparation Live / VOD
+class M3uParseResult {
+  final List<Channel> liveChannels;
+  final List<Channel> vodChannels;
+  final List<Channel> seriesChannels;
+  final List<Channel> movieChannels;
+
+  M3uParseResult({
+    required this.liveChannels,
+    required this.vodChannels,
+    required this.seriesChannels,
+    required this.movieChannels,
+  });
+
+  /// Tous les canaux (live + vod)
+  List<Channel> get allChannels => [
+    ...liveChannels,
+    ...vodChannels,
+    ...seriesChannels,
+    ...movieChannels,
+  ];
+}
+
+/// Parse un fichier M3U et sépare automatiquement Live / VOD (Films/Séries)
+///
+/// Détection VOD basée sur :
+/// - `#EXTGRP:VOD` ou `group-title` contenant "VOD", "Film", "Movie", "Série", "Series"
+/// - Attributs `vod="true"`, `type="vod"`, `vod="1"`
+/// - Auto-catégorisation (Films/Séries détectés par nom/groupe)
+M3uParseResult parseM3uWithVodSeparation(String content) {
+  final liveChannels = <Channel>[];
+  final vodChannels = <Channel>[];
+  final seriesChannels = <Channel>[];
+  final movieChannels = <Channel>[];
+
+  String? currentName;
+  String? currentGroup;
+  var catchupMode = '';
+  var catchupSource = '';
+  var catchupDays = 0;
+  var timeshift = 0;
+
+  // Suivi du groupe VOD actuel (via #EXTGRP)
+  String? currentExtGrp;
+
+  for (final line in content.split('\n')) {
+    final trimmed = line.trim();
+
+    // Détection #EXTGRP pour changement de groupe (ex: #EXTGRP:VOD)
+    if (trimmed.startsWith('#EXTGRP:')) {
+      currentExtGrp = trimmed.substring(8).trim();
+      continue;
+    }
+
+    if (trimmed.startsWith('#EXTINF')) {
+      final nameMatch = RegExp(r',(.+)$').firstMatch(trimmed);
+      if (nameMatch != null) {
+        currentName = nameMatch.group(1)!.trim();
+      }
+      currentGroup = ApiService._m3uAttr(trimmed, 'group-title').trim();
+      catchupMode = ApiService._m3uAttr(trimmed, 'catchup').trim().toLowerCase();
+      catchupSource = ApiService._m3uAttr(trimmed, 'catchup-source').trim();
+      catchupDays = int.tryParse(ApiService._m3uAttr(trimmed, 'catchup-days').trim()) ?? 0;
+      timeshift = int.tryParse(ApiService._m3uAttr(trimmed, 'timeshift').trim()) ?? 0;
+
+      // Détection attributs VOD explicites (unused but kept for documentation)
+      // ignore: unused_local_variable
+      final vodAttr = ApiService._m3uAttr(trimmed, 'vod').trim().toLowerCase();
+      // ignore: unused_local_variable
+      final typeAttr = ApiService._m3uAttr(trimmed, 'type').trim().toLowerCase();
+      // ignore: unused_local_variable
+      final isVodExplicit = vodAttr == 'true' || vodAttr == '1' || typeAttr == 'vod';
+
+    } else if (trimmed.isNotEmpty && !trimmed.startsWith('#')) {
+      if (currentName != null) {
+        final group = currentGroup ?? '';
+        final autoCategory = AutoCategoryDetector.detect(currentName, group);
+
+        // Détection VOD : explicite OU groupe VOD OU catégorie Films/Séries
+        final isVodGroup = group.toLowerCase().contains('vod') ||
+            group.toLowerCase().contains('film') ||
+            group.toLowerCase().contains('movie') ||
+            group.toLowerCase().contains('série') ||
+            group.toLowerCase().contains('series') ||
+            currentExtGrp?.toLowerCase() == 'vod';
+
+        final isVod = AutoCategoryDetector.detect(currentName, group) == AutoCategory.films ||
+            AutoCategoryDetector.detect(currentName, group) == AutoCategory.series ||
+            isVodGroup;
+
+        final channel = Channel(
+          id: (liveChannels.length +
+                  vodChannels.length +
+                  seriesChannels.length +
+                  movieChannels.length)
+              .toString(),
+          name: currentName,
+          logoUrl: '',
+          streamUrl: stream_helpers.requireStreamUrl(
+            line.trim(),
+            label: currentName,
+          ),
+          group: group,
+          categoryId: autoCategory.name,
+          supportsReplay:
+              (catchupMode.isNotEmpty && catchupMode != 'none') ||
+                  catchupSource.isNotEmpty ||
+                  catchupDays > 0 ||
+                  timeshift > 0,
+          timeshift: Duration(seconds: timeshift),
+          archiveDays: catchupDays,
+          catchupMode: catchupMode,
+          catchupSource: catchupSource,
+        );
+
+        if (isVod) {
+          if (autoCategory == AutoCategory.series) {
+            seriesChannels.add(channel);
+          } else if (autoCategory == AutoCategory.films) {
+            movieChannels.add(channel);
+          } else {
+            vodChannels.add(channel); // VOD générique
+          }
+        } else {
+          liveChannels.add(channel);
+        }
+
+        currentName = null;
+        currentGroup = null;
+        catchupMode = '';
+        catchupSource = '';
+        catchupDays = 0;
+        timeshift = 0;
+      }
+    }
+  }
+  return M3uParseResult(
+    liveChannels: liveChannels,
+    vodChannels: vodChannels,
+    seriesChannels: seriesChannels,
+    movieChannels: movieChannels,
+  );
 }

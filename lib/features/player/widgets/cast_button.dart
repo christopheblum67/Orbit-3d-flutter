@@ -64,7 +64,7 @@ class _CastButtonState extends ConsumerState<CastButton> {
       tooltip: l.castToChromecast,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       onPressed: () => showCastSheet(
         context,
         ref: ref,
@@ -74,7 +74,7 @@ class _CastButtonState extends ConsumerState<CastButton> {
       icon: Icon(
         connected ? Icons.cast_connected : Icons.cast,
         color: connected ? const Color(0xFFFFC107) : Colors.white,
-        size: 22,
+        size: 24,
       ),
     );
   }

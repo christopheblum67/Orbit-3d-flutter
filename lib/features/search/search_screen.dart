@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -27,8 +28,10 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
+  final _suggestionFocus = FocusNode();
   Timer? _debounceTimer;
   String _lastQuery = '';
+  int _focusedSuggestionIndex = 0;
 
   /// Controller du mode TV, lu une seule fois dans [initState]
   TvModeController? _tvModeController;
@@ -228,151 +231,164 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     SearchType filterType,
   ) {
     final scheme = Theme.of(context).colorScheme;
-    final searchController = SearchController();
 
+    // Barre de recherche TV-friendly : pas de SearchAnchor (pas de panneau
+    // flottant non navigable au D-pad). Le champ est un FocusNode géré
+    // manuellement, les suggestions/résultats s'affichent directement dessous
+    // dans une liste navigable (flèches haut/bas). Entrée/OK = sélection.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SearchAnchor(
-        searchController: searchController,
-        viewBackgroundColor: scheme.surface,
-        viewHintText:
-            'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
-        viewTrailing: query.isNotEmpty
-            ? <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: _clearQuery,
-                  tooltip: 'Effacer',
+      child: FocusScope(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Barre de saisie
+            TvFocus(
+              autofocus: _isTv,
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                // Flèche bas = descendre vers les suggestions
+                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  _suggestionFocus.requestFocus();
+                  return KeyEventResult.handled;
+                }
+                // Entrée/OK/Select = valider la recherche
+                if (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.space ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                  _focusNode.unfocus();
+                  return KeyEventResult.handled;
+                }
+                // Échap/Retour = quitter
+                if (event.logicalKey == LogicalKeyboardKey.escape ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonB) {
+                  Navigator.of(context).pop();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: SearchBar(
+                controller: _searchController,
+                focusNode: _focusNode,
+                // Sur TV, pas d'autofocus du clavier
+                autoFocus: !_isTv,
+                textInputAction: TextInputAction.search,
+                hintText:
+                    'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: 'Retour',
+                    ),
+                  ],
                 ),
-              ]
-            : null,
-        suggestionsBuilder: (context, controller) {
-          return _buildSuggestions(suggestionsAsync, historyFuture);
-        },
-        builder: (context, controller) {
-          // `TvFocus` : en mode TV le champ devient un vrai arrêt de focus
-          // (`autofocus: _isTv`) avec halo, sans ouvrir le clavier — le nœud
-          // focalisé est le wrapper, pas le champ texte, donc les flèches
-          // restent disponibles pour descendre vers les résultats (le mode TV
-          // reste « non focalisé » côté `SearchBar`, voir [initState]).
-          // Entrée/OK ouvre le panneau de suggestions, comme le tap tactile.
-          return TvFocus(
-            autofocus: _isTv,
-            onActivate: () => controller.openView(),
-            child: SearchBar(
-              controller: controller,
-              focusNode: _focusNode,
-              // Sur TV, pas d'ouverture automatique du clavier : l'utilisateur le
-              // décide lui-même (voir [initState]).
-              autoFocus: !_isTv,
-              // La télécommande Android TV affiche alors une touche « Rechercher »
-              // sur son clavier virtuel, au lieu d'une validation muette.
-              textInputAction: TextInputAction.search,
-              hintText:
-                  'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...',
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: 'Retour',
-                  ),
+                trailing: <Widget>[
+                  if (query.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: _clearQuery,
+                      tooltip: 'Effacer',
+                    ),
                 ],
+                onChanged: (value) {
+                  _searchController.text = value;
+                  _onQueryChanged(value);
+                },
+                onSubmitted: (value) {
+                  _focusNode.unfocus();
+                },
+                padding: const WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 12),
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+                ),
+                elevation: const WidgetStatePropertyAll(0),
               ),
-              trailing: <Widget>[
-                if (query.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: _clearQuery,
-                    tooltip: 'Effacer',
-                  ),
-              ],
-              onTap: () => controller.openView(),
-              onChanged: (value) {
-                _searchController.text = value;
-                _onQueryChanged(value);
-              },
-              onSubmitted: (value) {
-                _focusNode.unfocus();
-              },
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 12),
-              ),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-              ),
-              elevation: const WidgetStatePropertyAll(0),
             ),
-          );
-        },
+            // Liste des suggestions (historique + suggestions) — navigable au D-pad
+            _buildSuggestionsListView(suggestionsAsync, historyFuture, filterType),
+          ],
+        ),
       ),
     );
   }
 
-  Iterable<Widget> _buildSuggestions(
+  /// Liste des suggestions (historique + suggestions API) navigable au D-pad.
+  Widget _buildSuggestionsListView(
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
+    SearchType filterType,
   ) {
     return suggestionsAsync.when(
-      data: (suggestions) => _buildSuggestionsList(suggestions),
-      loading: () => _buildSuggestionsList([]),
-      error: (_, __) => _buildHistorySuggestions(historyFuture),
+      data: (suggestions) => _buildSuggestionsList(suggestions, historyFuture),
+      loading: () => _buildSuggestionsList([], historyFuture),
+      error: (_, __) => _buildHistorySuggestions(historyFuture, 0),
     );
   }
 
-  Iterable<Widget> _buildSuggestionsList(List<SearchSuggestion> suggestions) {
-    if (suggestions.isEmpty) return const [];
-
-    return [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child:
-            Text('Suggestions', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-      ...suggestions.map((s) => _buildSuggestionTile(s)),
-    ];
-  }
-
-  Iterable<Widget> _buildHistorySuggestions(
+  Widget _buildSuggestionsList(
+    List<SearchSuggestion> suggestions,
     Future<List<String>> historyFuture,
   ) {
-    return [
-      FutureBuilder<List<String>>(
-        future: historyFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          final history = snapshot.data!.take(5).toList();
-          final l = AppLocalizations.of(context);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  l.recentSearches,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              ...history.map(
-                (h) => _buildSuggestionTile(
-                  SearchSuggestion(text: h, isHistory: true),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    ];
+    if (suggestions.isEmpty) return _buildHistorySuggestions(historyFuture, 0);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text('Suggestions', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        ...suggestions.asMap().entries.map((e) => _buildSuggestionTile(e.value, e.key)),
+        _buildHistorySuggestions(historyFuture, suggestions.length),
+      ],
+    );
   }
 
-  Widget _buildSuggestionTile(SearchSuggestion suggestion) {
-    // `TvFocus` : les suggestions du panneau `SearchAnchor` ne sont pas
-    // atteignables à la télécommande sans cela (aucun halo, aucune activation
-    // au D-pad), alors que c'est le seul moyen de chercher vite sur TV.
+  Widget _buildHistorySuggestions(
+    Future<List<String>> historyFuture,
+    int suggestionsCount,
+  ) {
+    return FutureBuilder<List<String>>(
+      future: historyFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final history = snapshot.data!.take(5).toList();
+        final l = AppLocalizations.of(context);
+        final baseIndex = suggestionsCount; // Index de départ pour l'historique
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                l.recentSearches,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ...history.asMap().entries.map((e) =>
+              _buildSuggestionTile(SearchSuggestion(text: e.value, isHistory: true), baseIndex + e.key + 1)
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSuggestionTile(SearchSuggestion suggestion, int index) {
+    // `TvFocus` : les suggestions sont navigables au D-pad (haut/bas pour
+    // déplacer le focus, Entrée/OK pour sélectionner).
+    final scheme = Theme.of(context).colorScheme;
     void apply() {
       _searchController.text = suggestion.text;
       _searchController.selection =
@@ -380,28 +396,84 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _focusNode.unfocus();
     }
 
+    final isFocused = index == _focusedSuggestionIndex;
     return TvFocus(
+      autofocus: _isTv && index == 0,
+      focusNode: _suggestionFocus,
+      onFocusChange: (hasFocus) {
+        if (hasFocus) setState(() => _focusedSuggestionIndex = index);
+      },
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        // Navigation haut/bas dans la liste
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          if (index > 0) {
+            _focusedSuggestionIndex = index - 1;
+            _suggestionFocus.requestFocus();
+          } else {
+            // Remonter vers la barre de recherche
+            _focusNode.requestFocus();
+          }
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          // On laisse le système gérer le focus suivant dans la liste
+          return KeyEventResult.ignored;
+        }
+        // Entrée/OK = sélectionner
+        if (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.space ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+          apply();
+          return KeyEventResult.handled;
+        }
+        // Échap/Retour = revenir à la barre de recherche
+        if (event.logicalKey == LogicalKeyboardKey.escape ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonB) {
+          _focusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       onActivate: apply,
-      child: ListTile(
-        leading: Icon(
-          suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
-          size: 20,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: isFocused
+              ? scheme.primary.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: isFocused
+              ? Border.all(color: scheme.primary, width: 2)
+              : null,
         ),
-        title: Text(suggestion.text),
-        trailing: suggestion.isHistory
-            ? IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                onPressed: () async {
-                  await ref.read(searchServiceProvider).clearHistory();
-                  // Effacement disque : aucune garde, le `setState` pouvait
-                  // s'exécuter sur un State démonté.
-                  if (!mounted) return;
-                  setState(() {});
-                },
-                tooltip: 'Supprimer de l\'historique',
-              )
-            : null,
-        onTap: apply,
+        child: ListTile(
+          leading: Icon(
+            suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
+            size: 20,
+            color: isFocused ? scheme.primary : null,
+          ),
+          title: Text(
+            suggestion.text,
+            style: TextStyle(
+              fontWeight: isFocused ? FontWeight.w600 : FontWeight.normal,
+              color: isFocused ? scheme.primary : null,
+            ),
+          ),
+          trailing: suggestion.isHistory
+              ? IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () async {
+                    await ref.read(searchServiceProvider).clearHistory();
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                  tooltip: 'Supprimer de l\'historique',
+                )
+              : null,
+          onTap: apply,
+        ),
       ),
     );
   }

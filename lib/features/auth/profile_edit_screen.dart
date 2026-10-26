@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/auth/widgets/profile_avatar_selector.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -67,6 +68,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
   final _ageController = TextEditingController();
   final _nameFocus = FocusNode();
   final _ageFocus = FocusNode();
+  final _genderFocus = FocusNode();
+  final _genresFocus = FocusNode();
+  final _profileTypeFocus = FocusNode();
+  final _saveFocus = FocusNode();
   String? _gender;
   ProfileType? _profileType;
   String _avatarId = '';
@@ -97,6 +102,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     _ageController.dispose();
     _nameFocus.dispose();
     _ageFocus.dispose();
+    _genderFocus.dispose();
+    _genresFocus.dispose();
+    _profileTypeFocus.dispose();
+    _saveFocus.dispose();
     super.dispose();
   }
 
@@ -126,6 +135,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
     final parsed = int.tryParse(_ageController.text.trim());
     if (parsed == null || parsed <= 0) return null;
     return parsed > 120 ? 120 : parsed;
+  }
+
+  void _requestFocus(FocusNode focus) {
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) FocusScope.of(context).requestFocus(focus);
+      });
+    }
   }
 
   /// Enregistre le profil [loaded]. Partagé entre l'activation au D-pad
@@ -230,7 +247,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
               : null,
           title: Text(l.myProfile),
         ),
-        body: profileAsync.when(
+        body: TvSafeArea(
+          child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, _) => Center(child: Text(l.errorGeneric(err))),
           data: (profiles) {
@@ -281,7 +299,18 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                     child: Column(
                       children: [
                         ProfileAvatarSelector(
-                          avatars: const [],
+                          avatars: profileAvatarOptions
+                              .map(
+                                (a) => AvatarItem(
+                                  id: a.id,
+                                  name: a.id,
+                                  category: 'Par défaut',
+                                  assetPath: '',
+                                  icon: a.icon,
+                                  color: a.color,
+                                ),
+                              )
+                              .toList(),
                           selectedAvatarId: _avatarId,
                           onAvatarSelected: (avatar) => setState(
                             () => _avatarId =
@@ -290,13 +319,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                         ),
                         const SizedBox(height: 20),
                         const SizedBox(height: 20),
-                        Focus(
+                        TvFocus(
+                          focusNode: _nameFocus,
                           onKeyEvent: (node, event) {
-                            if (event is KeyDownEvent &&
-                                (event.logicalKey == LogicalKeyboardKey.enter ||
-                                    event.logicalKey == LogicalKeyboardKey.select ||
-                                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                              _ageFocus.requestFocus();
+                            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                                event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                              _requestFocus(_ageFocus);
                               return KeyEventResult.handled;
                             }
                             return KeyEventResult.ignored;
@@ -311,21 +342,39 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                               border: const OutlineInputBorder(),
                             ),
                             textInputAction: TextInputAction.next,
-                            onEditingComplete: () => _ageFocus.requestFocus(),
+                            onEditingComplete: () => _requestFocus(_ageFocus),
+                            onFieldSubmitted: (_) => _requestFocus(_ageFocus),
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Obligatoire'
                                 : null,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _ageController,
+                        TvFocus(
                           focusNode: _ageFocus,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(3),
-                          ],
+                          onKeyEvent: (node, event) {
+                            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              _requestFocus(_nameFocus);
+                              return KeyEventResult.handled;
+                            }
+                            if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                                event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                              _requestFocus(_genderFocus);
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextFormField(
+                            controller: _ageController,
+                            focusNode: _ageFocus,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(3),
+                            ],
                           decoration: InputDecoration(
                             labelText: l.age,
                             prefixIcon: const Icon(Icons.cake_outlined),
@@ -340,9 +389,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                           validator: (v) {
                             final parsed = int.tryParse(v?.trim() ?? '');
                             if (parsed == null || parsed <= 0) {
-                              return 'Âge obligatoire';
+                              return '${l.age} obligatoire';
                             }
-                            if (parsed > 120) return 'Âge invalide';
+                            if (parsed > 120) return '${l.age} invalide';
                             return null;
                           },
                         ),
@@ -386,19 +435,80 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _gender,
-                      decoration: const InputDecoration(
-                        labelText: 'Genre',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.transgender),
+                    child: TvFocus(
+                      focusNode: _genderFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_ageFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_genresFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _gender,
+                        decoration: const InputDecoration(
+                          labelText: 'Genre',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.transgender),
+                        ),
+                        items: _genderOptions
+                            .map(
+                                (g) => DropdownMenuItem(value: g, child: Text(g)),)
+                            .toList(),
+                        onChanged: (v) => setState(() => _gender = v),
+                        validator: (v) => v == null ? 'Obligatoire' : null,
                       ),
-                      items: _genderOptions
-                          .map(
-                              (g) => DropdownMenuItem(value: g, child: Text(g)),)
-                          .toList(),
-                      onChanged: (v) => setState(() => _gender = v),
-                      validator: (v) => v == null ? 'Obligatoire' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SettingsSectionTitle('Genres favoris'),
+                  AppCard(
+                    child: TvFocus(
+                      focusNode: _genresFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_genderFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_profileTypeFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _allGenres.map((genre) {
+                          final selected = _favoriteGenres.contains(genre);
+                          return FilterChip(
+                            label: Text(genre),
+                            selected: selected,
+                            showCheckmark: true,
+                            onSelected: (sel) {
+                              setState(() {
+                                if (sel) {
+                                  _favoriteGenres.add(genre);
+                                } else {
+                                  _favoriteGenres.remove(genre);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -408,7 +518,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       horizontal: 12,
                       vertical: 6,
                     ),
-                    child: DropdownButtonFormField<ProfileType>(
+                    child: TvFocus(
+                      focusNode: _profileTypeFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_genresFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_saveFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: DropdownButtonFormField<ProfileType>(
                       initialValue: _profileType,
                       decoration: const InputDecoration(
                         labelText: 'Type de profil',
@@ -427,42 +554,29 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       validator: (v) => v == null ? 'Obligatoire' : null,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const SettingsSectionTitle('Genres favoris'),
-                  AppCard(
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _allGenres.map((genre) {
-                        final selected = _favoriteGenres.contains(genre);
-                        return FilterChip(
-                          label: Text(genre),
-                          selected: selected,
-                          showCheckmark: true,
-                          onSelected: (sel) {
-                            setState(() {
-                              if (sel) {
-                                _favoriteGenres.add(genre);
-                              } else {
-                                _favoriteGenres.remove(genre);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
                   const SizedBox(height: 24),
-                  FocusTraversalGroup(
-                    policy: OrderedTraversalPolicy(),
-                    child: TvFocus(
-                      autofocus: true,
-                      onActivate: _saving ? null : () => _save(loaded),
-                      child: FilledButton.icon(
-                        onPressed: _saving ? null : () => _save(loaded),
-                        icon: const Icon(Icons.save_outlined),
-                        label: const Text('Enregistrer'),
-                      ),
+                  TvFocus(
+                    focusNode: _saveFocus,
+                    autofocus: true,
+                    onKeyEvent: (node, event) {
+                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        _requestFocus(_profileTypeFocus);
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.escape ||
+                          event.logicalKey == LogicalKeyboardKey.gameButtonB) {
+                        if (!context.mounted) return KeyEventResult.ignored;
+                        context.pop();
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    onActivate: _saving ? null : () => _save(loaded),
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : () => _save(loaded),
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Enregistrer'),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -472,6 +586,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
           },
         ),
       ),
+    ),
     );
   }
 }

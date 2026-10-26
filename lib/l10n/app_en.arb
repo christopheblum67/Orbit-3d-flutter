@@ -322,6 +322,8 @@
   "xtreamCodes": "Xtream Codes",
   "yourChannelsAndContent": "Your channels & content",
   "subtitleSection": "Subtitles",
+  "forceNoSubtitles": "Force no subtitles",
+  "forceNoSubtitlesSubtitle": "Automatically disable subtitles when starting a movie or series",
   "audioSection": "Audio",
   "videoSection": "Video",
   "autoQuality": "Automatic",

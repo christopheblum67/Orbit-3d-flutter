@@ -1,0 +1,22 @@
+{
+  "test_subscriptions": [
+    {
+      "id": "test-xtream-001",
+      "name": "Test Xtream Prem",
+      "type": "xtream",
+      "baseUrl": "http://1.888000.eu:80",
+      "username": "Premchrisfr25",
+      "password": "xwQt75SyX2jK",
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "test-m3u-001",
+      "name": "Test M3U TV",
+      "type": "m3u",
+      "m3uUrl": "http://hgv1c0.space/get.php?username=273797598775066&password=1593574628&type=m3u_plus&output=ts",
+      "isActive": false,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

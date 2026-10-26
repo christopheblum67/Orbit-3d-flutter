@@ -230,13 +230,13 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 0.55,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        maxCrossAxisExtent: 140,
+        childAspectRatio: 0.72,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -383,13 +383,13 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
-        childAspectRatio: 0.55,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        maxCrossAxisExtent: 140,
+        childAspectRatio: 0.72,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
       ),
       itemCount: entries.length,
       itemBuilder: (context, index) {

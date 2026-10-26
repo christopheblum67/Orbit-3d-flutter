@@ -1,0 +1,69 @@
+] else ...[
+                    TvFocus(
+                      focusNode: _m3uTvFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                          _requestFocus(_validUntilFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextFormField(
+                        controller: _m3uUrlController,
+                        focusNode: _m3uFocus,
+                        decoration: InputDecoration(
+                          labelText: l.m3uPlaylistUrl,
+                          prefixIcon: const Icon(Icons.playlist_play_outlined),
+                          border: const OutlineInputBorder(),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        onEditingComplete: () => _requestFocus(_validUntilFocus),
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Expiration date field (M3U only)
+                    TvFocus(
+                      focusNode: _validUntilTvFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.select ||
+                                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                          _pickExpirationDate();
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          _requestFocus(_submitFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextFormField(
+                        controller: _validUntilController,
+                        focusNode: _validUntilFocus,
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Date d\'expiration (optionnel)',
+                          prefixIcon: const Icon(Icons.event_outlined),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setState(() {
+                                _validUntil = null;
+                                _validUntilController.clear();
+                              });
+                            },
+                            tooltip: 'Effacer la date',
+                          ),
+                        ),
+                        onTap: _pickExpirationDate,
+                        validator: (v) => null, // Optional field
+                      ),
+                    ),
+                  ],
+                ],

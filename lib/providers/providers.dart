@@ -26,6 +26,7 @@ import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:orbit_3d_flutter/services/radio_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/short_epg_service.dart';
+import 'package:orbit_3d_flutter/services/epg_resolver_service.dart';
 import 'package:orbit_3d_flutter/services/rust_proxy_manager.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
@@ -519,6 +520,43 @@ final liveChannelsProvider = FutureProvider<List<Channel>>(
   retry: _retryUnlessRateLimited,
 );
 
+/// Provider pour les chaînes VOD M3U (films + séries + VOD générique)
+/// Filtre automatiquement les chaînes non-live via catégorie/groupe
+final vodChannelsProvider = FutureProvider<List<Channel>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null || sub.type != SubscriptionType.m3u) return const <Channel>[];
+    final api = ref.watch(apiServiceProvider);
+    return filter.visibleList(await api.fetchVodChannels());
+  },
+  retry: _retryUnlessRateLimited,
+);
+
+/// Provider pour les séries M3U (détection auto via categoryId = 'series')
+final seriesChannelsProvider = FutureProvider<List<Channel>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null || sub.type != SubscriptionType.m3u) return const <Channel>[];
+    final api = ref.watch(apiServiceProvider);
+    return filter.visibleList(await api.fetchSeriesChannels());
+  },
+  retry: _retryUnlessRateLimited,
+);
+
+/// Provider pour les films M3U (détection auto via categoryId = 'films')
+final movieChannelsProvider = FutureProvider<List<Channel>>(
+  (ref) async {
+    final filter = ref.watch(contentFilterProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null || sub.type != SubscriptionType.m3u) return const <Channel>[];
+    final api = ref.watch(apiServiceProvider);
+    return filter.visibleList(await api.fetchMovieChannels());
+  },
+  retry: _retryUnlessRateLimited,
+);
+
 /// Contexte de découverte des sous-titres pour le contenu en cours de lecture.
 ///
 /// Renseigné par la fiche film / l'épisode avant d'ouvrir le lecteur, et lu
@@ -625,11 +663,29 @@ final liveCategoriesFromM3UProvider =
   if (sub == null || sub.type != SubscriptionType.m3u) return const [];
   final channels = await api.fetchLiveChannels();
   final groups = <String>{};
+  final autoCategories = <String>{};
   for (final c in channels) {
     if (c.group.isNotEmpty) groups.add(c.group);
+    // Ajoute aussi les catégories auto-détectées
+    if (c.categoryId.isNotEmpty && c.categoryId != 'autre') {
+      autoCategories.add(c.categoryId);
+    }
   }
-  return groups.map((g) => MediaCategory(id: g, name: g)).toList()
+  final allCategories = <String>{...groups, ...autoCategories};
+  return allCategories.map((g) => MediaCategory(id: g, name: g)).toList()
     ..sort((a, b) => a.name.compareTo(b.name));
+});
+
+/// Trigger manuel pour forcer le refresh des catégories M3U
+/// Utilisé quand l'utilisateur veut rafraîchir après un changement de playlist
+final refreshM3uCategoriesProvider = Provider<void Function()>((ref) {
+  return () {
+    ref.invalidate(liveCategoriesFromM3UProvider);
+    ref.invalidate(liveChannelsProvider);
+    ref.invalidate(vodChannelsProvider);
+    ref.invalidate(seriesChannelsProvider);
+    ref.invalidate(movieChannelsProvider);
+  };
 });
 
 /// Politique de relance automatique après l'échec d'un provider.
@@ -1142,6 +1198,9 @@ final epgDataCacheProvider = Provider<EPGDataCache>((ref) => EPGDataCache());
 /// Cache des guides courts (get_short_epg) + service de précharge 7 jours (S4).
 final shortEpgCacheProvider = Provider<ShortEpgCache>((ref) => ShortEpgCache());
 
+/// Service de résolution EPG optimisé avec cache partagé et résolution parallèle.
+final epgResolverServiceProvider = Provider<EpgResolverService>((ref) => EpgResolverService.instance);
+
 /// Cache de l'EPG **complet** d'une chaîne (`get_simple_data_table`) pour le
 /// rattrapage.
 ///
@@ -1316,6 +1375,8 @@ Future<List<EPGProgram>> _resolveChannelEpg(
 }) async {
   if (epgChannelId.isEmpty) return const <EPGProgram>[];
 
+  LoggerService.instance.debug('EPG resolve: epgChannelId=$epgChannelId, includePast=$includePast, allowFallback=$allowNetworkFallback');
+
   final cache = ref.watch(shortEpgCacheProvider);
   final now = DateTime.now();
   List<EPGProgram> keep(List<EPGProgram> list) => includePast
@@ -1334,7 +1395,10 @@ Future<List<EPGProgram>> _resolveChannelEpg(
       _findShortEpgForAnyCandidate(cache, epgChannelId);
   if (cachedShort != null) {
     final kept = keep(cachedShort);
-    if (kept.isNotEmpty) return kept;
+    if (kept.isNotEmpty) {
+      LoggerService.instance.debug('EPG resolve: cache SHORT hit for $epgChannelId -> ${kept.length} programs');
+      return kept;
+    }
   }
 
   // Tout ce dont le corps a besoin est lu AVANT le premier `await` : ces
@@ -1355,6 +1419,12 @@ Future<List<EPGProgram>> _resolveChannelEpg(
       break;
     }
   }
+  if (channel != null) {
+    LoggerService.instance.debug('EPG resolve: matched channel "${channel.name}" (id=${channel.id}, epgIds=${channel.epgChannelIds})');
+  } else {
+    LoggerService.instance.debug('EPG resolve: NO channel matched for epgChannelId=$epgChannelId');
+  }
+
   // 2. Dump XMLTV global : UNE requête pour TOUTES les chaînes.
   //
   // Cet ordre est délibéré, et il a été inversé après mesure. Le dump contient
@@ -1364,7 +1434,9 @@ Future<List<EPGProgram>> _resolveChannelEpg(
   // latence unitaire. Résultat mesuré sur le S20 : toutes les chaînes
   // échouaient et la grille se remplissait de blocs de trou — des « cases »
   // sans aucun programme.
+  LoggerService.instance.debug('EPG resolve: loading global XMLTV cache...');
   await globalCache.loadFull(api);
+  LoggerService.instance.debug('EPG resolve: global cache loaded, isFresh=${globalCache.isFresh}, fetchedAt=${globalCache.fetchedAt}, totalPrograms=${globalCache._all?.length ?? 0}');
 
   // On essaie chaque identifiant candidat de la chaîne (forme simple et forme
   // préfixée) : le premier qui trouve des programmes gagne.
@@ -1376,10 +1448,17 @@ Future<List<EPGProgram>> _resolveChannelEpg(
       ..addAll(matched.epgChannelIds);
     if (matched.id.isNotEmpty) candidates.add(matched.id);
   }
+  LoggerService.instance.debug('EPG resolve: trying candidates=$candidates');
   for (final candidate in candidates) {
     final found = keep(globalCache.programsForChannel(candidate).toList());
-    if (found.isNotEmpty) return found;
+    LoggerService.instance.debug('EPG resolve: candidate=$candidate -> ${found.length} programs');
+    if (found.isNotEmpty) {
+      LoggerService.instance.debug('EPG resolve: XMLTV HIT for $epgChannelId via candidate=$candidate -> ${found.length} programs');
+      return found;
+    }
   }
+
+  LoggerService.instance.debug('EPG resolve: NO XMLTV programs found for any candidate of $epgChannelId');
 
   // 3. Repli réseau : UNIQUEMENT pour l'usage « fiche chaîne unique »
   // (barre du lecteur, zapping). La grille NE DOIT PAS déclencher de
@@ -1410,6 +1489,7 @@ Future<List<EPGProgram>> _resolveChannelEpg(
 ///
 /// Cette entrée **autorise le repli réseau** : c'est l'usage « fiche chaîne
 /// unique » pour lequel `get_short_epg` a été conçu (une chaîne, 4 entrées).
+/// **MAIS** : on essaie D'ABORD le cache XMLTV global (plus complet, sans rate-limit).
 final channelEpgProvider =
     FutureProvider.autoDispose.family<List<EPGProgram>, String>(
   (ref, epgChannelId) => _resolveChannelEpg(

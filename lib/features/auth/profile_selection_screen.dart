@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class ProfileSelectionScreen extends ConsumerStatefulWidget {
@@ -31,7 +33,8 @@ class _ProfileSelectionScreenState
               )
             : null,
       ),
-      body: profilesAsync.when(
+      body: TvSafeArea(
+        child: profilesAsync.when(
         data: (profiles) {
           if (profiles.isEmpty) {
             return EmptyState(
@@ -69,20 +72,31 @@ class _ProfileSelectionScreenState
                     child: Transform.scale(scale: value, child: child),
                   );
                 },
-                child: AppCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 16,
-                  ),
-                  onTap: () {
-                    ref
-                        .read(currentProfileProvider.notifier)
-                        .setUserProfile(profile);
-                    ref
-                        .read(storageServiceProvider)
-                        .setSetting('last_profile_id', profile.id);
-                    context.pushReplacement('/home');
-                  },
+                child: TvFocus(
+                    autofocus: index == 0,
+                    onActivate: () {
+                      ref
+                          .read(currentProfileProvider.notifier)
+                          .setUserProfile(profile);
+                      ref
+                          .read(storageServiceProvider)
+                          .setSetting('last_profile_id', profile.id);
+                      context.pushReplacement('/home');
+                    },
+                    child: AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 16,
+                      ),
+                      onTap: () {
+                        ref
+                            .read(currentProfileProvider.notifier)
+                            .setUserProfile(profile);
+                        ref
+                            .read(storageServiceProvider)
+                            .setSetting('last_profile_id', profile.id);
+                        context.pushReplacement('/home');
+                      },
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
@@ -218,10 +232,11 @@ class _ProfileSelectionScreenState
                 ),
               );
             },
-          );
+          ),
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text(l.errorGeneric(err))),
+      ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/profile/create'),

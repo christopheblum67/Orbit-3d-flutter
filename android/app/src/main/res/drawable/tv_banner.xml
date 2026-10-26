@@ -1,31 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- TV Banner for Android TV Launcher (320x180) -->
-<!-- Vector drawable scalable : net sur toutes les densités (launcher TV). -->
-<!-- Couleurs unies (pas de gradient inline via <aapt:attr>) : aapt2 rejetait -->
-<!-- « Cannot find attribute fillColor » dans ce contexte, ce qui cassait le -->
-<!-- build ; l'APK partagé au Bureau ne contenait donc jamais ce banner. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="320dp"
-    android:height="180dp"
-    android:viewportWidth="320"
-    android:viewportHeight="180">
-    <!-- Fond sombre du bandeau -->
-    <path
-        android:fillColor="#FF0E1117"
-        android:fillType="evenOdd"
-        android:pathData="M0,0h320v180h-320z" />
-    <!-- Orbital accent ring -->
-    <path
-        android:fillColor="#00FFFFFF"
-        android:strokeColor="#FF00CFE8"
-        android:strokeWidth="3"
-        android:pathData="M160,90 m-50,0 a50,50 0,1,1 100,0 a50,50 0,1,1 -100,0" />
-    <!-- Play icon inside ring -->
-    <path
-        android:fillColor="#FF00CFE8"
-        android:pathData="M148,75 l30,15 l-30,15 z" />
-    <!-- App name -->
-    <path
-        android:fillColor="#FF00CFE8"
-        android:pathData="M60,130 h200" />
-</vector>
+<!-- Utilise un vector drawable pour la compatibilité toutes densités -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fond Orbit -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#0E1117" />
+        </shape>
+    </item>
+    <!-- Logo vectoriel centré -->
+    <item android:drawable="@drawable/tv_banner_image"
+          android:gravity="center"
+          android:width="200dp"
+          android:height="200dp" />
+</layer-list>

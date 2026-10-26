@@ -469,7 +469,6 @@ class ConnectionErrorDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
@@ -642,7 +641,6 @@ class ConnectionErrorDialog extends ConsumerWidget {
         return Icons.cloud_off_outlined;
       case ConnectionErrorCategory.xtreamExpiredSubscription:
         return Icons.event_busy_outlined;
-      case ConnectionErrorCategory.xtreamAccountDisabled:
       case ConnectionErrorCategory.xtreamIpBlocked:
         return Icons.block_outlined;
       case ConnectionErrorCategory.xtreamTooManyConnections:

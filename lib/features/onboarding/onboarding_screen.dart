@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -49,8 +50,8 @@ class _OnboardingConfigScreenState
     if (!mounted) return;
     ref.invalidate(deviceProfileProvider);
 
-    // Après le profil, on lance la création d'abonnement
-    await _showSubscriptionCreation();
+    // Onboarding terminé → redémarrage propre
+    await _showRestartDialog();
   }
 
   Future<void> _showSubscriptionCreation() async {
@@ -114,7 +115,7 @@ class _OnboardingConfigScreenState
         ),
         content: Text(
           'La configuration initiale est terminée.\n\n'
-          'L\'application doit redémarrer pour appliquer tous les réglages.',
+          'L\'application va redémarrer pour appliquer tous les réglages.',
           style: const TextStyle(color: Colors.white70, fontSize: 15),
         ),
         actions: [
@@ -127,12 +128,12 @@ class _OnboardingConfigScreenState
                   autofocus: true,
                   onActivate: () {
                     Navigator.of(ctx).pop();
-                    SystemNavigator.pop();
+                    _restartApp();
                   },
                   child: FilledButton(
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      SystemNavigator.pop();
+                      _restartApp();
                     },
                     child: const Text('Redémarrer maintenant'),
                   ),
@@ -143,6 +144,15 @@ class _OnboardingConfigScreenState
         ],
       ),
     );
+  }
+
+  /// Redémarre l'application via platform channel (Android)
+  void _restartApp() {
+    const MethodChannel('orbit/restart').invokeMethod('restartApp');
+    // Fallback : si le channel échoue, on ferme simplement
+    Future.delayed(const Duration(milliseconds: 500), () {
+      SystemNavigator.pop();
+    });
   }
 
   String _profileDescription(DeviceProfile profile) {
@@ -355,7 +365,7 @@ class _OnboardingConfigScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: TvSafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -691,26 +701,7 @@ class _SubscriptionCreationDialogState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. NOM
-                  TvFocus(
-                    focusNode: _nameFocus,
-                    onFocusChange: (hasFocus) {},
-                    child: TextFormField(
-                      controller: _nameController,
-                      focusNode: _nameFocus,
-                      decoration: const InputDecoration(
-                        labelText: 'Nom de l\'abonnement',
-                        prefixIcon: Icon(Icons.edit_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () => _requestFocus(_typeFocus),
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // 2. TYPE XTREAM / M3U (EN HAUT - tabbar)
+                  // 1. TYPE XTREAM / M3U (EN PREMIER) — SegmentedButton natif (touch + D-pad)
                   TvFocus(
                     focusNode: _typeFocus,
                     onKeyEvent: (node, event) {
@@ -778,9 +769,55 @@ class _SubscriptionCreationDialogState
                   ),
                   const SizedBox(height: 20),
 
-                  // 3. CHAMPS SELON TYPE
+                  // 2. NOM
+                  TvFocus(
+                    focusNode: _nameFocus,
+                    onFocusChange: (hasFocus) {},
+                    onKeyEvent: (node, event) {
+                      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                          event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.select ||
+                          event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                        _requestFocus(_typeFocus);
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: TextFormField(
+                      controller: _nameController,
+                      focusNode: _nameFocus,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom de l\'abonnement',
+                        prefixIcon: Icon(Icons.edit_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () => _requestFocus(_typeFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 3. URL (selon type)
                   if (_type == SubscriptionType.xtream) ...[
                     TvFocus(
+                      focusNode: _baseUrlFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_usernameFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_typeFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
                       child: TextFormField(
                         controller: _baseUrlController,
                         focusNode: _baseUrlFocus,
@@ -794,15 +831,61 @@ class _SubscriptionCreationDialogState
                         validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                  ] else ...[
                     TvFocus(
+                      focusNode: _m3uFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.space ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_submitFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextFormField(
+                        controller: _m3uUrlController,
+                        focusNode: _m3uFocus,
+                        decoration: InputDecoration(
+                          labelText: 'URL Playlist M3U',
+                          prefixIcon: const Icon(Icons.playlist_play_outlined),
+                          border: const OutlineInputBorder(),
+                        ),
+                        textInputAction: TextInputAction.done,
+                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+
+                  // 4. USERNAME (Xtream seulement)
+                  if (_type == SubscriptionType.xtream) ...[
+                    TvFocus(
+                      focusNode: _usernameFocus,
+                      onKeyEvent: (node, event) {
+                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                            event.logicalKey == LogicalKeyboardKey.enter ||
+                            event.logicalKey == LogicalKeyboardKey.select ||
+                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                          _requestFocus(_passwordFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_baseUrlFocus);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
                       child: TextFormField(
                         controller: _usernameController,
                         focusNode: _usernameFocus,
                         decoration: const InputDecoration(
                           labelText: 'Username',
                           prefixIcon: const Icon(Icons.person_outlined),
-                          border: const OutlineInputBorder(),
+                          border: OutlineInputBorder(),
                         ),
                         textInputAction: TextInputAction.next,
                         onEditingComplete: () => _requestFocus(_passwordFocus),
@@ -810,6 +893,8 @@ class _SubscriptionCreationDialogState
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // 5. PASSWORD (Xtream seulement)
                     TvFocus(
                       focusNode: _passwordFocus,
                       onKeyEvent: (node, event) {
@@ -819,6 +904,10 @@ class _SubscriptionCreationDialogState
                             event.logicalKey == LogicalKeyboardKey.space ||
                             event.logicalKey == LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_submitFocus);
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          _requestFocus(_usernameFocus);
                           return KeyEventResult.handled;
                         }
                         return KeyEventResult.ignored;

@@ -684,6 +684,17 @@ class _PlayerAudioSection extends ConsumerWidget {
               icon: Icons.volume_up_outlined,
             ),
           ),
+          const SizedBox(height: 16),
+          TvFocus(
+            onActivate: () => n.setForceNoSubtitles(!s.forceNoSubtitles),
+            child: SettingsSwitchTile(
+              title: l.forceNoSubtitles,
+              subtitle: l.forceNoSubtitlesSubtitle,
+              value: s.forceNoSubtitles,
+              onChanged: n.setForceNoSubtitles,
+              icon: Icons.subtitles_off_outlined,
+            ),
+          ),
         ],
       ),
     );

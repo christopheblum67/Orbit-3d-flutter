@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Banner TV 320x180 pour Leanback Launcher - Logo Orbit vectoriel -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Fond arrondi subtil -->
+    <path
+        android:pathData="M10,10 H310 V170 H10 Z"
+        android:fillColor="#0E1117"
+        android:strokeColor="#00F2FE"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round" />
+
+    <!-- Cercle principal cyan -->
+    <group
+        android:translateX="160"
+        android:translateY="90"
+        android:scaleX="1.2"
+        android:scaleY="1.2">
+        <path
+            android:pathData="M-50,-50 L50,-50 L50,50 L-50,50 Z"
+            android:fillColor="#00F2FE" />
+    </group>
+
+    <!-- "ORBIT" en blanc - simulé par rectangles -->
+    <group android:translateX="160" android:translateY="90">
+        <!-- O -->
+        <path
+            android:pathData="M-45,-10 L-35,-10 L-35,10 L-45,10 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- R -->
+        <path
+            android:pathData="M-25,-10 L-15,-10 L-15,10 L-25,10 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- B -->
+        <path
+            android:pathData="M-5,-10 L5,-10 L5,10 L-5,10 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- I -->
+        <path
+            android:pathData="M15,-10 L25,-10 L25,10 L15,10 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- T -->
+        <path
+            android:pathData="M35,-10 L45,-10 L45,10 L35,10 Z"
+            android:fillColor="#FFFFFF" />
+    </group>
+
+    <!-- "IPTV" petit en bas -->
+    <group android:translateX="160" android:translateY="130" android:scaleX="0.6" android:scaleY="0.6">
+        <!-- I -->
+        <path
+            android:pathData="M-30,-5 L-20,-5 L-20,5 L-30,5 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- P -->
+        <path
+            android:pathData="M-10,-5 L0,-5 L0,5 L-10,5 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- T -->
+        <path
+            android:pathData="M10,-5 L20,-5 L20,5 L10,5 Z"
+            android:fillColor="#FFFFFF" />
+        <!-- V -->
+        <path
+            android:pathData="M30,-5 L40,-5 L40,5 L30,5 Z"
+            android:fillColor="#FFFFFF" />
+    </group>
+
+</vector>

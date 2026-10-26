@@ -15,4 +15,16 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@color/ic_launcher_background</item>
     </style>
+
+    <!-- TV/Leanback theme for dark mode (same as light since app is dark-themed) -->
+    <style name="TVTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:colorBackground">@color/tv_background</item>
+        <item name="android:colorPrimary">@color/tv_primary</item>
+        <item name="android:colorPrimaryDark">@color/tv_primary_dark</item>
+        <item name="android:colorAccent">@color/tv_accent</item>
+        <!-- Larger text for 10ft UI -->
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
 </resources>

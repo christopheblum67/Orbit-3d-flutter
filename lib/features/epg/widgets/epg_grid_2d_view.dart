@@ -12,7 +12,9 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_row_diagnostics.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_mini_program_bar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_scroll_gesture.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 /// Grille EPG haute performance avec CustomPainter (canvas unique).
 ///
@@ -1142,19 +1144,25 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                     const SizedBox(width: 8),
                                   ],
                                   Expanded(
-                                    child: Text(
-                                      ch,
-                                      style: TextStyle(
-                                        color: isLoading
-                                            ? Colors.white70
-                                            : isEmpty
-                                                ? Colors.white30
-                                                : Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Consumer(
+                                      builder: (context, ref, _) {
+                                        final isTv = ref.watch(tvModeProvider);
+                                        final fontSize = isTv ? 14.0 : 11.0;
+                                        return Text(
+                                          ch,
+                                          style: TextStyle(
+                                            color: isLoading
+                                                ? Colors.white70
+                                                : isEmpty
+                                                    ? Colors.white30
+                                                    : Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: fontSize,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        );
+                                      },
                                     ),
                                   ),
                                   if (!hasPrograms && !isLoading)

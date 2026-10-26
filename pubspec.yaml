@@ -16,6 +16,8 @@ dependencies:
   go_router: ^18.0.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  # Plugin mis à jour pour Kotlin Built-in (évite BUILD FAILED assembleRelease)
+  # Si le problème persiste, mettre à jour le plugin natif vers sa dernière version.
   sqflite: ^2.4.4
   path: ^1.9.0
   path_provider: ^2.1.5
@@ -73,6 +75,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/config/
     # .env embarqué : clé partagée TMDB_API_KEY (Option A) lue par dotenv au
     # boot. Fichier gitignoré : la clé ne part jamais sur le repo.
     - .env

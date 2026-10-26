@@ -14,14 +14,14 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 /// pas ses repères en passant de l'un à l'autre. Un delegate dupliqué avait
 /// dérivé ; ici il n'existe qu'en un point.
 const channelGridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
-  maxCrossAxisExtent: 200,
-  childAspectRatio: 0.55,
-  crossAxisSpacing: 12,
-  mainAxisSpacing: 12,
+  maxCrossAxisExtent: 150,
+  childAspectRatio: 0.65,
+  crossAxisSpacing: 10,
+  mainAxisSpacing: 10,
 );
 
 /// Marge de grille commune aux écrans de chaînes.
-const channelGridPadding = EdgeInsets.all(16);
+const channelGridPadding = EdgeInsets.symmetric(horizontal: 12, vertical: 16);
 
 /// Tuile de chaîne, partagée par le Live TV et le Replay.
 ///
@@ -84,7 +84,7 @@ class ChannelGridCard extends StatelessWidget {
         // Un logo de chaîne est un wordmark large : `contain` + marge évite le
         // zoom/rognage de `cover`, qui le faisait déborder de la tuile.
         posterFit: BoxFit.contain,
-        posterPadding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
+        posterPadding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
         onTap: onTap,
         topBadge: badgeNumber > 0
             ? ChannelNumBadge(number: badgeNumber)

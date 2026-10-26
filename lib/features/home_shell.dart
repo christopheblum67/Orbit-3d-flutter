@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
-import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
@@ -320,16 +320,16 @@ class _ProfileSwitchButton extends StatelessWidget {
         ),
       );
     } else {
-      avatar = ProfileAvatar(profile: profile!, size: 34);
+      avatar = Icon(Icons.person_outline, size: 34, color: scheme.onSurfaceVariant);
     }
     return Padding(
       padding: const EdgeInsets.only(left: 2, right: 10),
       child: Tooltip(
-        message: profile == null ? 'Choisir un profil' : 'Changer de profil',
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () => context.go('/profiles'),
-          child: avatar,
+        message: 'Choisir un profil',
+        child: Icon(
+          Icons.person_outline,
+          size: 20,
+          color: scheme.onSurfaceVariant,
         ),
       ),
     );

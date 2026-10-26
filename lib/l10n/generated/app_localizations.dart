@@ -2038,6 +2038,18 @@ abstract class AppLocalizations {
   /// **'Sous-titres'**
   String get subtitleSection;
 
+  /// No description provided for @forceNoSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Forcer aucun sous-titre'**
+  String get forceNoSubtitles;
+
+  /// No description provided for @forceNoSubtitlesSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactive automatiquement les sous-titres au lancement d\'un film ou d\'une série'**
+  String get forceNoSubtitlesSubtitle;
+
   /// No description provided for @audioSection.
   ///
   /// In fr, this message translates to:

@@ -319,17 +319,17 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                 policy: OrderedTraversalPolicy(),
                                 child: GridView.builder(
                                   padding: const EdgeInsets.fromLTRB(
+                                    12,
                                     16,
-                                    16,
-                                    16,
+                                    12,
                                     16,
                                   ),
                                   gridDelegate:
                                       const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 160,
-                                    childAspectRatio: 0.7,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 12,
+                                    maxCrossAxisExtent: 140,
+                                    childAspectRatio: 0.72,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
                                   ),
                                   itemCount: visibleMovies.length,
                                   itemBuilder: (context, index) {

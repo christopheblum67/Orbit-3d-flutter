@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -19,10 +21,9 @@ class StorageService {
     await Hive.openBox(_profilesBox);
     await Hive.openBox(_settingsBox);
     await Hive.openBox(_subscriptionsBox);
-    // Migration S1 : les secrets stockés EN CLAIR par les versions précédentes
-    // (PIN parental en Hive, mots de passe Xtream en Hive) rejoignent le coffre
-    // sécurisé, puis sont retirés de leur ancien emplacement.
-    await _migrateLegacySecrets();
+    // Migration S1 déplacée hors du chemin critique : elle utilise le Keystore
+    // (lent) et n'affecte pas le routage. Elle tourne en arrière-plan.
+    unawaited(_migrateLegacySecrets());
   }
 
   Future<void> _migrateLegacySecrets() async {
@@ -147,6 +148,7 @@ class StorageService {
   }
 
   Future<void> _saveSubscriptionWithSecret(Subscription subscription) async {
+    LoggerService.instance.info('_saveSubscriptionWithSecret: starting, id=${subscription.id}');
     final password = subscription.password;
     if (password != null && password.isNotEmpty) {
       // Saisie ou objet hydraté : le secret est (ré)écrit dans le coffre.
@@ -155,6 +157,7 @@ class StorageService {
         password,
       );
       _subscriptionPasswordCache[subscription.id] = password;
+      LoggerService.instance.info('_saveSubscriptionWithSecret: secret written to store');
     }
     // password absent/null : l'objet est peut-être NON hydraté (un flux qui
     // réécrit sans connaître le secret) — le coffre conserve la valeur déjà
@@ -165,6 +168,7 @@ class StorageService {
         _putSubscription(box, subscription);
       },
     );
+    LoggerService.instance.info('_saveSubscriptionWithSecret: Hive write completed');
   }
 
   /// Remplit [subscriptionPasswordCache] depuis le coffre (appelé par [init]).
@@ -203,7 +207,9 @@ class StorageService {
   }
 
   Future<void> saveSubscription(Subscription subscription) async {
+    LoggerService.instance.info('StorageService.saveSubscription: starting, id=${subscription.id}, name=${subscription.name}');
     await _saveSubscriptionWithSecret(subscription);
+    LoggerService.instance.info('StorageService.saveSubscription: completed');
   }
 
   Future<List<Subscription>> getSubscriptions() async {
@@ -334,5 +340,20 @@ class StorageService {
     if (sub != null) {
       await _saveSubscriptionWithSecret(sub);
     }
+  }
+
+  /// Clé Hive pour le flag de pré-config TV
+  static const _tvPreconfigDoneKey = 'tv_preconfig_done';
+
+  /// Récupère si la pré-config TV a été faite
+  Future<bool> getTvPreconfigDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_tvPreconfigDoneKey) ?? false;
+  }
+
+  /// Marque la pré-config TV comme faite
+  Future<void> setTvPreconfigDone(bool done) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_tvPreconfigDoneKey, done);
   }
 }

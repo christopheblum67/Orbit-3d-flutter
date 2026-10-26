@@ -16,7 +16,6 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.example.orbit_3d_flutter"
-    // AndroidX (window/fragment/activity) poussés par les plugins natifs
     // exigent compileSdk >= 35 ; on verrouille sur 36 (platform installée).
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
@@ -24,7 +23,12 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        coreLibraryDesugaringEnabled true    }
+        coreLibraryDesugaringEnabled = true
+    }
+
+    kotlin {
+        jvmTarget = '17'
+    }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).

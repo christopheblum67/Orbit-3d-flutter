@@ -8,10 +8,12 @@ import 'package:intl/intl.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_dropdown.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
+import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/services/app_exit_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,14 +25,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final PageController _pageController;
-  late final FocusNode _profileDropdownFocus;
   double _currentPage = 0.0;
   bool _autoRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _profileDropdownFocus = FocusNode();
     _pageController = PageController(
       initialPage: 0,
       viewportFraction: 0.38,
@@ -55,7 +55,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _profileDropdownFocus.dispose();
     super.dispose();
   }
 
@@ -134,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
     if (shouldExit == true && context.mounted) {
-      SystemNavigator.pop();
+      AppExitService.exitApp();
     }
   }
 
@@ -165,52 +164,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final today = DateTime.now();
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
-    final lastRefresh = ref.watch(lastRefreshTimestampProvider);
+    // Barre d'en-tête allégée : seules la date et l'heure sont affichées.
+    // Les icônes Paramètres / Mise à jour ont été retirées de l'en-tête et
+    // déplacées dans la barre inférieure, à côté de la section abonnement
+    // (bouton « Changer »).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
-              const Spacer(),
-              TvFocus(
-                onActivate: () => context.go('/settings'),
-                child: GestureDetector(
-                  onTap: () => context.go('/settings'),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.settings,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _UpdateStack(
-                tooltip: l.updateAllData,
-                onPressed: _refreshAll,
-                lastRefresh: lastRefresh,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-        ],
-      ),
+      child: _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
     );
   }
 
@@ -487,6 +450,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
     final current = ref.watch(currentProfileProvider);
     return Container(
@@ -501,55 +465,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         children: [
           const _SubStatusChip(),
+          // Paramètres & Mise à jour déplacés ici depuis l'en-tête : la barre
+          // supérieure étant allégée (horloge seule), ces actions restent
+          // accessibles et sont placées juste à côté de la section abonnement
+          // (le lien « Changer » du _SubStatusChip).
+          const SizedBox(width: 10),
+          TvFocus(
+            onActivate: () => context.go('/settings'),
+            child: GestureDetector(
+              onTap: () => context.go('/settings'),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.settings,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _UpdateButton(
+            tooltip: l.updateAllData,
+            onPressed: _refreshAll,
+          ),
           const Spacer(),
-          TvDropdown<UserProfile?>(
-            value: current,
-            focusNode: _profileDropdownFocus,
-            autofocus: false,
-            items: [
-              for (final profile in profilesAsync.value ?? const <UserProfile>[])
-                TvDropdownItem<UserProfile?>(
-                  value: profile,
-                  label: profile.firstName,
-                  icon: Icons.person_outline,
-                  iconColor: _profileColor(
-                      profilesAsync.value?.indexWhere((p) => p.id == profile.id) ?? 0),
-                ),
-              const TvDropdownItem<UserProfile?>(
-                value: null,
-                label: 'Nouveau profil',
-                icon: Icons.person_add_outlined,
-                iconColor: Color(0xFF00CFE8),
-              ),
-            ],
-            onChanged: (profile) {
-              if (profile != null) {
-                ref.read(currentProfileProvider.notifier).setUserProfile(profile);
-                ref.read(storageServiceProvider).setSetting('last_profile_id', profile.id);
-                context.go('/home');
-              } else {
-                context.push('/profile/create');
-              }
-            },
-          ),
-          const SizedBox(width: 12),
-          Row(
-            children: [
-              Text(
-                'Profil : ',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.5),
-                  fontSize: 13,
+          if (current != null) ...[
+            // Décalé vers la gauche pour place aux pseudos longs
+            const SizedBox(width: 8),
+            TvFocus(
+              onActivate: () => context.go('/profiles'),
+              child: GestureDetector(
+                onTap: () => context.go('/profiles'),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Profil : ',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildProfileAvatar(
+                      context,
+                      current,
+                      profilesAsync.value ?? const <UserProfile>[],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              _buildProfileAvatar(
-                context,
-                current,
-                profilesAsync.value ?? const <UserProfile>[],
-              ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -585,50 +561,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
-    final idx = profiles.indexWhere((p) => p.id == current.id);
-    final color = _profileColor(idx);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.4),
-            blurRadius: 12,
-            spreadRadius: 1,
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ProfileAvatar(
+          profile: current,
+          size: 28,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          current.firstName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 11,
-            backgroundColor: color.withValues(alpha: 0.3),
-            child: Text(
-              current.firstName.isNotEmpty
-                  ? current.firstName[0].toUpperCase()
-                  : '?',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            current.firstName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -972,85 +922,5 @@ class _ClockBlock extends StatelessWidget {
     );
   }
 }
-
-/// Formate un timestamp en « il y a XhYY » ou « il y a X min ».
-String _formatRelative(DateTime ts) {
-  final diff = DateTime.now().difference(ts);
-  // Un rafraîchissement vient d'avoir lieu : « il y a 0 min » se lit comme un
-  // compteur bloqué ou une donnée périmée. « à l'instant » est exact et lisible
-  // sur une TV où l'on regarde l'écran quelques secondes.
-  if (diff.inMinutes < 1) return 'À jour à l\'instant';
-  if (diff.inHours > 0) {
-    final minutes = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
-    return 'À jour il y a ${diff.inHours}h$minutes';
-  }
-  return 'À jour il y a ${diff.inMinutes} min';
-}
-
-/// Bouton de mise à jour avec la date de la dernière actualisation en dessous.
-///
-/// Stateful : [Timer.periodic] force un rebuild chaque minute, sinon le libellé
-/// « mis à jour il y a X min » resterait figé jusqu'au prochain changement de
-/// provider (donc potentiellement des heures).
-class _UpdateStack extends StatefulWidget {
-  const _UpdateStack({
-    required this.onPressed,
-    required this.tooltip,
-    required this.lastRefresh,
-  });
-
-  final VoidCallback onPressed;
-  final String tooltip;
-  final DateTime? lastRefresh;
-
-  @override
-  State<_UpdateStack> createState() => _UpdateStackState();
-}
-
-class _UpdateStackState extends State<_UpdateStack> {
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (widget.lastRefresh) {
-      null => 'Jamais mis à jour',
-      final ts => _formatRelative(ts),
-    };
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _UpdateButton(
-          tooltip: widget.tooltip,
-          onPressed: widget.onPressed,
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.35),
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-
 
 

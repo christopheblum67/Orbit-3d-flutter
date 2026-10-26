@@ -16,7 +16,9 @@ import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
@@ -389,7 +391,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // est partagé par toute l'app — sans ce reset, la piste externe choisie
     // sur le contenu précédent restait active et son texte s'affichait sur
     // le nouveau contenu.
-    ref.read(subtitleControllerProvider).resetForNewContent();
+    // Vérifier si on doit forcer l'absence de sous-titres pour ce type de contenu
+    final forceNoSubtitles = ref.read(advancedSettingsProvider).forceNoSubtitles;
+    final isVodOrSeries = widget.contentType == PlaybackContentType.vod ||
+        widget.contentType == PlaybackContentType.series;
+    if (forceNoSubtitles && isVodOrSeries) {
+      ref.read(subtitleControllerProvider).disable();
+    } else {
+      ref.read(subtitleControllerProvider).resetForNewContent();
+    }
     _initializePlayer();
     _startSaveProgressTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -1451,7 +1461,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // pas continuer de s'afficher. Le contrôleur est partagé et le player
     // (re)joue le même média sur `_retry` : le reset n'a lieu qu'ici, au vrai
     // changement de contenu.
-    ref.read(subtitleControllerProvider).resetForNewContent();
+    final forceNoSubtitles = ref.read(advancedSettingsProvider).forceNoSubtitles;
+    final isVodOrSeries = widget.contentType == PlaybackContentType.vod ||
+        widget.contentType == PlaybackContentType.series;
+    if (forceNoSubtitles && isVodOrSeries) {
+      ref.read(subtitleControllerProvider).disable();
+    } else {
+      ref.read(subtitleControllerProvider).resetForNewContent();
+    }
     // Invalidate EPG cache on zap to free memory
     ref.read(epgDataCacheProvider).invalidate();
     final forward = target > _index;
@@ -2184,15 +2201,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 }
 
 /// Conteneur commun de la footerbar unifiée : barre basse translucide
-/// arrondie, ancrée en bas (SafeArea), que l'on place en overlay du lecteur.
-class _ContentFooterBar extends StatelessWidget {
+/// arrondie, ancrée en bas (TvSafeArea), que l'on place en overlay du lecteur.
+class _ContentFooterBar extends ConsumerWidget {
   const _ContentFooterBar({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isTv = ref.watch(tvModeProvider);
+    return TvSafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -2212,18 +2230,19 @@ class _ContentFooterBar extends StatelessWidget {
 
 /// Icône compacte de la footerbar (blanche sur fond translucide).
 /// Wrappée dans [TvFocus] pour être navigable au D-pad sur TV.
+/// Respecte le minimum 48dp pour les cibles tactiles TV.
 Widget _fbIcon(
   IconData icon,
   VoidCallback? onPressed, {
   String? tooltip,
   Color color = Colors.white,
-  double size = 22,
+  double size = 24,
 }) {
   final button = IconButton(
     tooltip: tooltip,
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
     onPressed: onPressed,
     icon: Icon(icon, color: color, size: size),
   );
@@ -2233,6 +2252,7 @@ Widget _fbIcon(
 
 /// Bouton pause/lecture proéminent de la footerbar.
 /// Wrappé dans [TvFocus] pour être navigable au D-pad sur TV.
+/// Respecte le minimum 48dp pour les cibles tactiles TV.
 Widget _fbPlayPause({
   required bool isPlaying,
   required VoidCallback onPressed,
@@ -2244,13 +2264,13 @@ Widget _fbPlayPause({
       backgroundColor: Colors.white.withValues(alpha: 0.22),
     ),
     visualDensity: VisualDensity.compact,
-    padding: const EdgeInsets.all(6),
-    constraints: const BoxConstraints(minWidth: 46, minHeight: 44),
+    padding: const EdgeInsets.all(8),
+    constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
     onPressed: onPressed,
     icon: Icon(
       isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
       color: Colors.white,
-      size: 28,
+      size: 32,
     ),
   );
   return TvFocus(onActivate: onPressed, focusNode: focusNode, child: button);
@@ -2259,6 +2279,7 @@ Widget _fbPlayPause({
 /// Icône Night Focus de la footerbar : l'icône et la couleur changent selon
 /// l'état ON/OFF du maître (toggle direct, sans ouvrir de sous-menu).
 /// Wrappée dans [TvFocus] pour être navigable au D-pad sur TV.
+/// Respecte le minimum 48dp pour les cibles tactiles TV.
 Widget _fbNightFocus({
   required VoidCallback onPressed,
   required WidgetRef ref,
@@ -2270,12 +2291,12 @@ Widget _fbNightFocus({
     tooltip: enabled ? 'Night Focus (activé)' : 'Night Focus (désactivé)',
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
     onPressed: onPressed,
     icon: Icon(
       enabled ? Icons.nightlight_round : Icons.nightlight_outlined,
       color: enabled ? const Color(0xFFFFC107) : Colors.white70,
-      size: 22,
+      size: 24,
     ),
   );
   return TvFocus(onActivate: onPressed, child: button);
@@ -2717,9 +2738,9 @@ class _FooterStreamDetails extends StatelessWidget {
       tooltip: l.streamDetails,
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       onPressed: open,
-      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
+      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 24),
     );
     return TvFocus(onActivate: open, child: button);
   }

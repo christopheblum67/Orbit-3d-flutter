@@ -4,6 +4,140 @@ import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
+/// Clé globale pour préserver l'état du logo animé à travers les reconstructions.
+final GlobalKey<_LoadingLogoState> _loadingLogoKey = GlobalKey<_LoadingLogoState>();
+
+/// Logo Orbit avec animation complète :
+/// - Logo plus grand
+/// - "Orbit " fixe, "IPTV" lettres apparaissent séquentiellement
+/// - "IPTV" clignote ensuite
+/// - Animation en boucle
+class LoadingLogo extends StatefulWidget {
+  const LoadingLogo({super.key, this.size = 180});
+
+  final double size;
+
+  @override
+  State<LoadingLogo> createState() => _LoadingLogoState();
+}
+
+class _LoadingLogoState extends State<LoadingLogo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  // Phases de l'animation (durée totale ~4s) :
+  // 0.0-0.3 : scale pulse
+  // 0.3-0.55 : "I" apparaît
+  // 0.55-0.7 : "P" apparaît
+  // 0.7-0.85 : "T" apparaît
+  // 0.85-0.95 : "V" apparaît
+  // 0.95-1.0 : "IPTV" clignote 2x
+  // puis boucle
+
+  static const _totalDuration = Duration(milliseconds: 4000);
+
+  late final Animation<double> _scale;
+  late final List<Animation<double>> _letterOpacities;
+  late final Animation<double> _blink;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: _totalDuration,
+      vsync: this,
+    )..repeat();
+
+    _scale = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+
+    // 4 lettres IPTV - chaque apparition dure ~15% de la durée
+    _letterOpacities = List.generate(4, (i) {
+      final start = 0.30 + i * 0.12; // 0.30, 0.42, 0.54, 0.66
+      final end = start + 0.15;
+      return Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _ctrl,
+          curve: Interval(start, end, curve: Curves.easeOut),
+        ),
+      );
+    });
+
+    // Clignotement IPTV : 2 flashs entre 0.95 et 1.0
+    _blink = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0.95, 1.0, curve: Curves.easeInOut),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        final scale = _scale.value;
+        final iptvVisible = _blink.value > 0.5 || _ctrl.value < 0.95;
+
+        return Transform.scale(
+          scale: scale,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OrbitLogoIcon(
+                size: widget.size,
+                glow: true,
+              ),
+              const SizedBox(height: 24),
+              // "Orbit IPTV" avec animation lettres
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Orbit ',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: widget.size * 0.28,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  // I P T V - chaque lettre avec son opacité
+                  ...List.generate(4, (i) {
+                    final letters = ['I', 'P', 'T', 'V'];
+                    final opacity = iptvVisible ? _letterOpacities[i].value : 0.0;
+                    return AnimatedOpacity(
+                      opacity: opacity,
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        letters[i],
+                        style: TextStyle(
+                          color: const Color(0xFF00CFE8),
+                          fontSize: widget.size * 0.28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Écran de régénération des flux : nom de l'application, état, et progression
 /// des **sections d'abonnement** (Chaînes TV / Films & VOD / Séries / EPG).
 ///
@@ -87,25 +221,9 @@ class RefreshProgressView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showBranding) ...[
-          const OrbitLogoIcon(size: 72),
-          const SizedBox(height: 16),
-          Text(
-            l.appTitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
+          LoadingLogo(key: _loadingLogoKey, size: 180),
+          const SizedBox(height: 32),
         ],
-        Text(
-          isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent),
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
       ],
     );
   }
@@ -158,6 +276,13 @@ class RefreshProgressView extends StatelessWidget {
             valueColor:
                 const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
           ),
+        ),
+        const SizedBox(height: 16),
+        // Texte de chargement APRÈS les icônes et la barre de progression
+        Text(
+          isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
         const SizedBox(height: 8),
         Row(
