@@ -34,6 +34,7 @@ windows/flutter/generated_plugins.cmake
 # Fichiers d'environnement local (secrets)
 .env
 .env.local
+assets/config/runtime.env
 
 # Identifiants de signature release (keystore) et sauvegardes de mots de passe
 docs/secrets/
@@ -52,4 +53,3 @@ third_party/*/build/
 
 # Journaux de build locaux
 build_apk.log
-

@@ -30,13 +30,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Prepare .env
+      - name: Prepare runtime environment
         run: |
-          echo "TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}" > .env
-          echo "XTREAM_BASE_URL=https://your-provider.com" >> .env
-          echo "XTREAM_USERNAME=your_username" >> .env
-          echo "XTREAM_PASSWORD=your_password" >> .env
-          echo "M3U_URL=" >> .env
+          mkdir -p assets/config
+          echo "TMDB_API_KEY=${{ secrets.TMDB_API_KEY }}" > assets/config/runtime.env
 
       - name: Analyse statique
         run: flutter analyze --no-fatal-infos --no-fatal-warnings

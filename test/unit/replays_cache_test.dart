@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -59,5 +61,20 @@ void main() {
     final fresh = await cache.fetch(loader);
     expect(fresh.single.id, 'r2');
     expect(calls, 2);
+  });
+
+  test('une requête en vol avant invalidation ne repeuple pas le cache',
+      () async {
+    final cache = ReplaysCache();
+    final staleResponse = Completer<List<ReplayItem>>();
+    final staleRequest = cache.fetch(() => staleResponse.future);
+
+    cache.invalidate();
+    final fresh = await cache.fetch(() async => [_replay('new')]);
+    staleResponse.complete([_replay('old')]);
+    await staleRequest;
+
+    expect(fresh.single.id, 'new');
+    expect(cache.peek?.single.id, 'new');
   });
 }

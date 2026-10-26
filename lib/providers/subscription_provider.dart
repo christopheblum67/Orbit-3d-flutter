@@ -64,6 +64,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
   Future<void> setActive(String id) async {
     await _ensureLoaded();
     final previouslyActive = state.where((s) => s.isActive).firstOrNull?.id;
+    final activated = state.where((s) => s.id == id).firstOrNull;
+    if (activated == null) return;
+
     final subscriptions = state.map((s) {
       if (s.id == id) {
         return s.copyWith(isActive: true);
@@ -79,18 +82,15 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     if (!ref.mounted) return;
     state = subscriptions;
 
-    // N'invalide les données que si l'abonnement actif change réellement :
-    // chaque changement = refresh complet (même Xtream→Xtream ou M3U→M3U),
-    // ce qui outrepasse les TTL des caches (EPG 30 min, replays 5 min).
-    final actualChange = id != previouslyActive;
-    if (!actualChange) return;
+    if (id == previouslyActive) return;
+    _onActiveSubscriptionChanged(activated);
+  }
 
+  void _onActiveSubscriptionChanged(Subscription activated) {
     ref.invalidate(activeSubscriptionProvider);
-    // Le classement « URL lente » de ApiService vaut pour un serveur donne :
-    // on le purge pour ne pas penaliser le nouvel abonnement.
-    ref.read(apiServiceProvider).forgetSlowUrls();
-    // Invalide TOUS les fournisseurs de donnees pour forcer un rechargement
-    // complet au changement d'abonnement (changement de serveur/catalogue).
+
+    // Les caches globaux ne sont pas dépendants de activeSubscriptionProvider.
+    // Les vider ici garantit qu'aucune donnée ne traverse un changement de panel.
     ref.invalidate(liveChannelsProvider);
     ref.invalidate(moviesProvider);
     ref.invalidate(seriesProvider);
@@ -99,45 +99,17 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     ref.invalidate(epgProgramsProvider);
     ref.invalidate(epgDataCacheProvider);
     ref.invalidate(recentlyWatchedProvider);
-    // Cache REPLAYS : c'est un singleton GLOBAL (pas un provider) → il faut
-    // l'invalider explicitement, sinon le TTL 5 min sert les replays de
-    // l'ancien abonnement au nouveau.
     replaysCache.invalidate();
-    // Cache des replays PAR CHAÎNE (singleton global, lui aussi).
-    //
-    // Il est indexé sur l'identifiant de chaîne, or deux abonnements attribuent
-    // souvent le MÊME `stream_id` à des chaînes différentes : sans purge, le
-    // nouveau serveur se voyait servir les replays de l'ancien pour un
-    // identifiant identique. Même défaut que le cache court ci-dessous, et les
-    // deux sont invisibles tant qu'on ne change pas d'abonnement.
     channelReplaysCache.invalidate();
-    // Cache court d'EPG, également indexé sur le `stream_id`.
-    //
-    // `shortEpgCacheProvider` est un `Provider` mutable : l'invalider remplace
-    // l'instance, ce qui vide le cache. Sans cela, l'EPG d'une chaîne pouvait
-    // venir de l'abonnement précédent — symptôme : des programmes et des
-    // catégories qui ne « complètent » pas après un changement.
     ref.invalidate(shortEpgCacheProvider);
-    // Outrepasse la règle des 30 min : on marque les données comme non
-    // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
-    // re-autorisé immédiatement après un changement d'abonnement.
     ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
-    // Nouveau panel, nouveau quota. La carence du limiteur de débit porte sur
-    // l'ABONNEMENT précédent : la conserver ici laissait le nouveau compte
-    // bloqué, et l'écran de changement restait affiché à 0 % sans qu'aucune
-    // requête ne parte.
-    ref.read(apiServiceProvider).rateLimiter.onNewTarget();
-    // Rafraîchit la validité du serveur activé (Xtream) à la volée.
-    Subscription? activated;
-    for (final s in subscriptions) {
-      if (s.id == id) {
-        activated = s;
-        break;
-      }
-    }
-    if (activated != null && activated.type == SubscriptionType.xtream) {
-      refreshValidity(id);
-      // Initialize Cloudflare session early (after Xtream activation).
+
+    final api = ref.read(apiServiceProvider);
+    api.forgetSlowUrls();
+    api.rateLimiter.onNewTarget();
+
+    if (activated.type == SubscriptionType.xtream) {
+      unawaited(refreshValidity(activated.id));
       // On conserve le SCHEMA reel de l'abonnement : forcer `https` faisait
       // pointer la session sur un host qui ne correspondait pas (les panels
       // servis en `http://` n'etaient jamais proteges).

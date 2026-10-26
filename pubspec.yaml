@@ -73,9 +73,7 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    # .env embarqué : clé partagée TMDB_API_KEY (Option A) lue par dotenv au
-    # boot. Fichier gitignoré : la clé ne part jamais sur le repo.
-    - .env
+    - assets/config/
 
 # Icônes du lanceur Android + bannière Android TV (Leanback). Nécessite des
 # fichiers rectangulaires préparés :
@@ -90,4 +88,3 @@ flutter_launcher_icons:
   banner_image_path: "assets/icons/tv_banner.png"
   adaptive_icon_background: "#0F172A"
   adaptive_icon_foreground: "assets/icons/app_icon.png"
-

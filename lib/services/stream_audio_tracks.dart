@@ -1,4 +1,5 @@
 import 'package:video_player/video_player.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 
@@ -14,7 +15,8 @@ class StreamAudioTracksService {
   /// Retourne une liste de paires (codeLangue, nomAffichage) uniques.
   /// Ex: [('fr', 'Français'), ('en', 'English')]
   static Future<List<(String, String)>> fetchAudioTracks(
-      String streamUrl,) async {
+    String streamUrl,
+  ) async {
     if (!isLikelyStreamUrl(streamUrl)) return const [];
 
     final controller = VideoPlayerController.networkUrl(
@@ -23,37 +25,59 @@ class StreamAudioTracksService {
     );
 
     try {
-      final result = await safeAsync(() async {
-        await controller.initialize();
-        final tracks = await controller.getAudioTracks();
-        controller.dispose();
+      final result = await safeAsync(
+        () async {
+          await controller.initialize();
+          final tracks = await controller.getAudioTracks();
+          controller.dispose();
 
-        final languages = <String, String>{};
-        for (final track in tracks) {
-          final lang = track.language?.toLowerCase().trim();
-          final label = track.label?.trim();
-          if (lang != null && lang.isNotEmpty && lang != 'und') {
-            // Utiliser le label si dispo, sinon le code langue
-            languages[lang] =
-                (label != null && label.isNotEmpty && label != 'Audio')
-                    ? label
-                    : _languageDisplayName(lang);
+          final languages = <String, String>{};
+          for (final track in tracks) {
+            final lang = track.language?.toLowerCase().trim();
+            final label = track.label?.trim();
+            if (lang != null && lang.isNotEmpty && lang != 'und') {
+              // Utiliser le label si dispo, sinon le code langue
+              languages[lang] =
+                  (label != null && label.isNotEmpty && label != 'Audio')
+                      ? label
+                      : _languageDisplayName(lang);
+            }
           }
-        }
-        return languages.entries.map((e) => (e.key, e.value)).toList();
-      }, context: 'StreamAudioTracksService.fetchAudioTracks',);
+          return languages.entries.map((e) => (e.key, e.value)).toList();
+        },
+        context: 'StreamAudioTracksService.fetchAudioTracks',
+      );
 
       if (result.isSuccess && result.valueOrNull != null) {
         return result.valueOrNull!;
       }
+      final error = result.errorOrNull;
+      if (error != null) {
+        LoggerService.instance.warning(
+          'Impossible de lire les pistes audio du flux',
+          tag: 'audio-tracks',
+          error: error.originalError ?? error,
+        );
+      }
       return const [];
-    } catch (_) {
+    } catch (error) {
+      LoggerService.instance.warning(
+        'Échec inattendu lors de la lecture des pistes audio',
+        tag: 'audio-tracks',
+        error: error,
+      );
       return const [];
     } finally {
       // S'assurer que le controller est disposé même en cas d'erreur
       try {
         controller.dispose();
-      } catch (_) {}
+      } catch (error) {
+        LoggerService.instance.warning(
+          'Impossible de libérer le contrôleur audio temporaire',
+          tag: 'audio-tracks',
+          error: error,
+        );
+      }
     }
   }
 

@@ -147,7 +147,7 @@ final tmdbServiceProvider = Provider<TmdbService>((ref) {
 /// la résolution du genre réel d'une tuile ne peut donc plus faire attendre les
 /// appels TMDB de la fiche détail (recherche du film, similaires,
 /// recommandations), qui partageaient auparavant la même file.
-/// Si `TMDB_API_KEY_AFFINITY` est fourni dans le `.env`, le quota TMDB est en
+/// Si `TMDB_API_KEY_AFFINITY` est fourni dans le fichier runtime, le quota TMDB est en
 /// plus totalement distinct.
 final tmdbAffinityServiceProvider = Provider<TmdbService>((ref) {
   final service = TmdbService(
@@ -770,6 +770,7 @@ class ReplaysCache {
   List<ReplayItem>? _all;
   DateTime? _fetchedAt;
   Future<List<ReplayItem>>? _inFlight;
+  int _generation = 0;
 
   bool get isFresh {
     final fetched = _fetchedAt;
@@ -792,24 +793,34 @@ class ReplaysCache {
     Future<List<ReplayItem>> Function() loader,
   ) {
     if (isFresh) return Future.value(_all!);
-    return _inFlight ??= loader().then(
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+
+    final generation = _generation;
+    late final Future<List<ReplayItem>> request;
+    request = loader().then(
       (items) {
-        _all = items;
-        _fetchedAt = DateTime.now();
-        _inFlight = null;
+        if (generation == _generation) {
+          _all = items;
+          _fetchedAt = DateTime.now();
+        }
+        if (identical(_inFlight, request)) _inFlight = null;
         return items;
       },
       onError: (Object error, StackTrace stackTrace) {
-        // Un échec n'est pas mis en cache : la prochaine ouverture retenté.
-        _inFlight = null;
+        if (identical(_inFlight, request)) _inFlight = null;
         throw error;
       },
     );
+    _inFlight = request;
+    return request;
   }
 
   void invalidate() {
+    _generation++;
     _all = null;
     _fetchedAt = null;
+    _inFlight = null;
   }
 }
 

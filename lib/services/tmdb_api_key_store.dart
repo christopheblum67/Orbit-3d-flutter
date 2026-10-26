@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Origines, par ordre de priorité :
 ///  1. Override saisie par l'utilisateur (Réglages → Contenu).
-///  2. `TMDB_API_KEY` du fichier `.env` (gitignoré, embarqué dans l'APK).
+///  2. `TMDB_API_KEY` de `assets/config/runtime.env` (ignoré par Git).
 class TmdbApiKeyStore {
   TmdbApiKeyStore._();
 
@@ -20,7 +20,7 @@ class TmdbApiKeyStore {
   /// Override saisi par l'utilisateur (Réglages → Contenu → Clé API TMDB).
   String get override => _override;
 
-  /// Clé effective : override utilisateur sinon `TMDB_API_KEY` du `.env`.
+  /// Clé effective : override utilisateur sinon `TMDB_API_KEY` du fichier runtime.
   String get effectiveKey {
     final fromOverride = _override.trim();
     if (fromOverride.isNotEmpty) return fromOverride;
@@ -39,7 +39,7 @@ class TmdbApiKeyStore {
   /// Raison : la grille peut lancer une recherche TMDB par tuile visible. Si ces
   /// requêtes partageaient le quota de la clé principale, elles pourraient
   /// retarder/étouffer les appels TMDB de la fiche détail. En fournissant
-  /// `TMDB_API_KEY_AFFINITY` dans le `.env`, l'affinité dispose de son propre
+  /// `TMDB_API_KEY_AFFINITY` dans le fichier runtime, l'affinité a son propre
   /// quota. À défaut, on retombe sur la clé effective (override ou
   /// `TMDB_API_KEY`) — la file d'attente reste de toute façon séparée, car
   /// [TmdbService] est instancié dédié pour l'affinité.

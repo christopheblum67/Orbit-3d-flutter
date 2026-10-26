@@ -106,10 +106,8 @@ class RustProxyManager {
   bool _disposed = false;
   bool _manualStop = false;
 
-  /// Crochet Android à brancher en S4 (lancement du binaire natif via FFI /
-  /// `flutter_rust_bridge` ou `Process.start` sur le support dir). Tant qu'il
-  /// est `null`, `start()` est un no-op structuré sur Android/iOS (aucun
-  /// crash) — le desktop et les tests restent fonctionnels immédiatement.
+  /// Lanceur natif optionnel. Sans lanceur et binaire embarqué, le proxy reste
+  /// désactivé sur Android/iOS et les flux continuent directement.
   Future<Process> Function(String binaryPath)? androidProcessLauncher;
 
   static const Duration _pingTimeout = Duration(seconds: 2);
@@ -477,12 +475,10 @@ class RustProxyManager {
     }
   }
 
-  /// Plateformes supportées par le `Process.start` générique de ce sprint.
+  /// Plateformes où le lancement générique d'un exécutable est disponible.
   bool _processSupported() {
     if (kIsWeb) return false;
     if (Platform.isAndroid || Platform.isIOS) {
-      // Le process natif Android (FFI / binaire bundled) sera branché via
-      // [androidProcessLauncher] en S4 : aujourd'hui pas de support natif.
       return androidProcessLauncher != null;
     }
     return Platform.isWindows || Platform.isLinux || Platform.isMacOS;

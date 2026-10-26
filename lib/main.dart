@@ -101,12 +101,12 @@ Future<void> _bootstrap() async {
   // L'import de webview_flutter_android enregistre (dartPluginClass) la
   // plateforme Android WebView automatiquement, nécessaire au déblocage
   // Cloudflare. Ne pas supprimer cet import.
-  // Le fichier .env est optionnel : son absence ne doit pas bloquer le démarrage.
-  // isOptional=true : sans .env (asset non embarqué), dotenv reste initialisé
-  // avec une carte vide. Autrement dotenv.env lèverait NotInitializedError et
-  // ferait échouer toute construction de service d'enrichissement métadonnées.
+  // Le fichier de configuration local est ignoré par Git et facultatif.
   await safeAsync(
-    () => dotenv.load(isOptional: true),
+    () => dotenv.load(
+      fileName: 'assets/config/runtime.env',
+      isOptional: true,
+    ),
     context: 'dotenv.load',
     fallbackValue: null,
   );

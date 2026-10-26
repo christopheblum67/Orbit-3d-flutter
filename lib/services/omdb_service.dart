@@ -9,7 +9,7 @@ import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 
 /// Client OMDB (Open Movie Database) pour fallback année/runtime/rating
-/// Nécessite clé API dans .env : OMDB_API_KEY
+/// Nécessite la clé OMDB_API_KEY dans `assets/config/runtime.env`.
 class OmdbService {
   static const String _baseUrl = 'https://www.omdbapi.com';
   static const String _cacheBoxName = 'metadata_cache';

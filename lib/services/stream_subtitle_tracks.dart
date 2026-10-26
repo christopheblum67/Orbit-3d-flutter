@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
@@ -56,15 +57,34 @@ class StreamSubtitleTracksService {
       if (result.isSuccess && result.valueOrNull != null) {
         return result.valueOrNull!;
       }
+      final error = result.errorOrNull;
+      if (error != null) {
+        LoggerService.instance.warning(
+          'Impossible de lire les pistes de sous-titres intégrées',
+          tag: 'subtitle-tracks',
+          error: error.originalError ?? error,
+        );
+      }
       return const [];
-    } catch (_) {
+    } catch (error) {
+      LoggerService.instance.warning(
+        'Échec inattendu lors de la lecture des pistes de sous-titres',
+        tag: 'subtitle-tracks',
+        error: error,
+      );
       return const [];
     } finally {
       // Le contrôleur doit être libéré même en cas d'erreur : sans cela, une
       // texture média resterait allouée à chaque ouverture du sélecteur.
       try {
         controller.dispose();
-      } catch (_) {}
+      } catch (error) {
+        LoggerService.instance.warning(
+          'Impossible de libérer le contrôleur de sous-titres temporaire',
+          tag: 'subtitle-tracks',
+          error: error,
+        );
+      }
     }
   }
 
@@ -81,7 +101,11 @@ class StreamSubtitleTracksService {
       try {
         final tracks = await bridge.getTracks();
         if (tracks.isNotEmpty) return tracks;
-      } catch (_) {
+      } catch (error) {
+        LoggerService.instance.debug(
+          'Le pont natif des sous-titres intégrés n’est pas disponible: $error',
+          tag: 'subtitle-tracks',
+        );
         return const [];
       }
       if (elapsed >= _deadline) return const [];

@@ -1064,7 +1064,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                     title: l.noRankings,
                     message: 'Les tendances TMDB ne sont pas disponibles. '
                         'Ajoutez une clé API TMDB dans Réglages '
-                        '(ou TMDB_API_KEY dans .env).',
+                        '(ou TMDB_API_KEY dans assets/config/runtime.env).',
                   )
                 : GridView.builder(
                     scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

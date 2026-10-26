@@ -4,7 +4,7 @@ import 'package:orbit_3d_flutter/services/tmdb_api_key_store.dart';
 /// Override de la clé API TMDB (Réglages → Classements TMDB).
 ///
 /// L'état est une chaîne vide tant que l'utilisateur n'a pas saisi sa propre
-/// clé : dans ce cas l'app retombe sur la clé partagée (`.env` / build).
+/// clé : dans ce cas l'app retombe sur la clé partagée (configuration de build).
 final tmdbApiKeyOverrideProvider =
     NotifierProvider<TmdbApiKeyOverrideNotifier, String>(
   TmdbApiKeyOverrideNotifier.new,

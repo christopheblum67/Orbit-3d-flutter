@@ -6,6 +6,24 @@ Application de streaming IP-TV 3D (Flutter).
 
 ---
 
+### Configuration locale
+
+Les clés optionnelles utilisées pour l’enrichissement des métadonnées sont
+chargées depuis `assets/config/runtime.env`. Ce fichier local est ignoré par
+Git ; `assets/config/default.env` permet de construire l’application sans
+configuration. Pour un environnement local, copiez `.env.example` vers
+`assets/config/runtime.env` puis renseignez les clés nécessaires. La CI crée
+ce fichier à partir des secrets GitHub. Les clés embarquées dans une
+application distribuée restent extractibles et ne doivent pas être considérées
+comme des secrets.
+
+### Proxy de flux
+
+Le proxy Rust local n’est pas actuellement embarqué ni lancé sur Android/iOS.
+Sur ces plateformes, l’application lit donc directement le fournisseur ; le
+relai Rust est disponible uniquement lorsqu’un binaire et un lanceur natif sont
+fournis explicitement. L’absence du proxy ne bloque pas la lecture normale.
+
 ## 🧪 Phase de test bêta — Guide pour les testeurs
 
 Merci de faire partie du programme de test ! Votre retour est essentiel pour améliorer Orbit 3D.
