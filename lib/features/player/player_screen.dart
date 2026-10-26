@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/provider_verification_dialog.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -736,20 +737,33 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _openProviderWebsite() async {
-    final uri = Uri.tryParse(_getPanelBaseUrl());
-    if (uri == null ||
-        uri.host.isEmpty ||
-        (uri.scheme != 'http' && uri.scheme != 'https')) {
+    final baseUrl = ref.read(activeSubscriptionProvider)?.baseUrl;
+    final providerUri = baseUrl == null ? null : Uri.tryParse(baseUrl);
+    if (providerUri == null ||
+        providerUri.host.isEmpty ||
+        (providerUri.scheme != 'http' && providerUri.scheme != 'https')) {
       _showProviderWebsiteError();
       return;
     }
-
-    final result = await safeAsync<bool>(
-      () => launchUrl(uri, mode: LaunchMode.externalApplication),
-      context: '_openProviderWebsite',
-      fallbackValue: false,
+    final uri = Uri(
+      scheme: providerUri.scheme,
+      host: providerUri.host,
+      port: providerUri.hasPort ? providerUri.port : null,
     );
-    if (result.valueOrNull != true) _showProviderWebsiteError();
+
+    final l = AppLocalizations.of(context);
+    await showDialog<void>(
+      context: context,
+      useSafeArea: false,
+      builder: (_) => Dialog.fullscreen(
+        child: ProviderVerificationDialog(
+          uri: uri,
+          title: l.openProviderWebsite,
+          instructions: l.cloudflareChallengeHelp,
+          closeLabel: l.close,
+        ),
+      ),
+    );
   }
 
   void _showProviderWebsiteError() {
