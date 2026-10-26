@@ -3,6 +3,7 @@ import 'package:orbit_3d_flutter/drm/license_manager.dart';
 import 'package:orbit_3d_flutter/drm/drm_manager.dart';
 import 'package:orbit_3d_flutter/drm/license_cache.dart';
 import 'package:orbit_3d_flutter/drm/widevine/widevine_delegate.dart';
+import 'package:orbit_3d_flutter/drm/widevine_config_store.dart';
 
 export 'package:orbit_3d_flutter/drm/license_manager.dart';
 export 'package:orbit_3d_flutter/drm/drm_manager.dart';
@@ -27,8 +28,18 @@ final widevineDelegateProvider = Provider<WidevineDelegate>((ref) {
   return WidevineDelegate(licenseManager: ref.watch(licenseManagerProvider));
 });
 
-/// Provider pour la configuration Widevine (via abonnement actif).
-final widevineConfigProvider = Provider<WidevineConfig?>((ref) {
-  // Configurée via le provider d'abonnement actif
-  return null; // TODO: lire depuis activeSubscriptionProvider
-});
+/// Configuration Widevine globale, chargée au démarrage et persistée en coffre.
+final widevineConfigProvider =
+    NotifierProvider<WidevineConfigNotifier, WidevineConfig?>(
+  WidevineConfigNotifier.new,
+);
+
+class WidevineConfigNotifier extends Notifier<WidevineConfig?> {
+  @override
+  WidevineConfig? build() => null;
+
+  Future<void> setConfig(WidevineConfig? config) async {
+    await WidevineConfigStore.instance.save(config);
+    state = config;
+  }
+}

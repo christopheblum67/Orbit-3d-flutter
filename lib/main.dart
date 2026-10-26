@@ -48,6 +48,7 @@ import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
 import 'package:orbit_3d_flutter/drm/drm_provider.dart';
+import 'package:orbit_3d_flutter/drm/widevine_config_store.dart';
 import 'package:orbit_3d_flutter/features/legal/legal_notice_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
@@ -152,6 +153,7 @@ Future<void> _bootstrap() async {
   await storageService.migrateFromSharedPreferences();
 
   final restoredProfile = await _restoreLastProfile(storageService);
+  final widevineConfig = await WidevineConfigStore.instance.load();
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
   final legalNoticeDone =
       storageService.getSetting(kLegalNoticeDoneKey) == true;
@@ -188,7 +190,9 @@ Future<void> _bootstrap() async {
         widevineDelegateProvider.overrideWithValue(
           WidevineDelegate(licenseManager: LicenseManager()),
         ),
-        widevineConfigProvider.overrideWithValue(null),
+        widevineConfigProvider.overrideWithBuild(
+          (ref, notifier) => widevineConfig,
+        ),
       ],
       child: const OrbitApp(),
     ),

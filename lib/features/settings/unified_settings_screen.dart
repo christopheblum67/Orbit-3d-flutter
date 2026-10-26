@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
@@ -485,6 +486,9 @@ class _SecuritySection extends ConsumerWidget {
           subtitle: l.parentalControlSubtitle,
           onTap: () => context.go('/parental'),
         ),
+        const SizedBox(height: 16),
+        const SettingsSectionTitle('Lecture protégée'),
+        const WidevineConfigTile(),
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionResilience),
         SettingsSwitchTile(
@@ -989,5 +993,3 @@ class _AdvancedEntry extends StatelessWidget {
     }
   }
 }
-
-

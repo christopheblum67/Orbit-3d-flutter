@@ -24,6 +24,14 @@ Sur ces plateformes, l’application lit donc directement le fournisseur ; le
 relai Rust est disponible uniquement lorsqu’un binaire et un lanceur natif sont
 fournis explicitement. L’absence du proxy ne bloque pas la lecture normale.
 
+### Widevine
+
+Une configuration globale du serveur de licence (URL HTTPS, en-têtes et
+certificat facultatif) peut être enregistrée dans Réglages. Les informations
+sont conservées dans le coffre sécurisé de l’appareil. Le moteur de lecture
+actuel ne consomme pas encore cette configuration : la lecture Widevine n’est
+donc pas prise en charge à ce stade.
+
 ## 🧪 Phase de test bêta — Guide pour les testeurs
 
 Merci de faire partie du programme de test ! Votre retour est essentiel pour améliorer Orbit 3D.
