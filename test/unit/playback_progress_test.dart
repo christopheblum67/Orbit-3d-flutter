@@ -31,6 +31,25 @@ void main() {
     expect(progress.hasProgress, isTrue);
   });
 
+  test('récupère la progression après fermeture et réouverture du stockage',
+      () async {
+    final service = PlaybackProgressService();
+    await service.init();
+    await service.save('episode-42', 125000, 900000);
+
+    await Hive.close();
+    Hive.init(tempDir.path);
+
+    final restartedService = PlaybackProgressService();
+    await restartedService.init();
+    final recovered = restartedService.get('episode-42');
+
+    expect(recovered, isNotNull);
+    expect(recovered!.positionMs, 125000);
+    expect(recovered.durationMs, 900000);
+    expect(recovered.hasProgress, isTrue);
+  });
+
   test('hasProgress est faux pour une lecture terminée', () async {
     final service = PlaybackProgressService();
     await service.init();
