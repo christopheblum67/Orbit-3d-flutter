@@ -836,9 +836,9 @@ final ReplaysCache replaysCache = ReplaysCache();
 /// Cette provider n'attend QUE des données déjà chargées (EPG global, grille
 /// des chaînes, cache de sonde) : elle ne déclenche aucune requête par
 /// chaîne. C'est délibéré — la sonde porte sur 40 chaînes et, sérialisée par
-/// [_ApiGate], elle prenait une à deux minutes. Le provider attendait cette sonde
-/// avant d'afficher quoi que ce soit, donc l'écran restait en chargement
-/// indéfiniment (et chaque relance relançait la sonde).
+/// [ApiRequestGate], elle prenait une à deux minutes. Le provider attendait
+/// cette sonde avant d'afficher quoi que ce soit, donc l'écran restait en
+/// chargement indéfiniment (et chaque relance relançait la sonde).
 ///
 /// L'EPG global et la grille restent « best effort » : un 429 du panneau ne
 /// doit pas faire couler l'écran, il doit le priver d'enrichissement.

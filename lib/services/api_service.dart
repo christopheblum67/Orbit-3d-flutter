@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/services/api_rate_limiter.dart';
+import 'package:orbit_3d_flutter/services/api_request_gate.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/services/catchup_url_builder.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
@@ -235,7 +236,7 @@ class ApiService {
       // vite » : le réessayer ici multipliait la pression (3 × 2 retries
       // internes = jusqu'à 9 requêtes pour un seul appel logique) et
       // entretenait le blocage. Un 429 remonte immédiatement : c'est
-      // [_ApiGate] qui espace les appels suivants, et l'utilisateur voit un
+      // [ApiRequestGate] qui espace les appels suivants, et l'utilisateur voit un
       // état exploitable au lieu d'un chargement éternel.
       attempts: 3,
       delay: const Duration(milliseconds: 1200),
@@ -272,7 +273,7 @@ class ApiService {
   ///
   /// L'espacement est adaptatif : après un 429 il s'allonge (le panel
   /// signale une saturation durable), puis redescend progressivement.
-  static final _ApiGate _apiGate = _ApiGate();
+  static final ApiRequestGate _apiGate = ApiRequestGate();
 
   Future<Response<dynamic>> get(String url) => _get(url);
 
@@ -346,7 +347,7 @@ class ApiService {
       // saturé, et ce comportement (combiné aux retries de `_get`) multipliait
       // la pression jusqu'à 9 requêtes pour un appel logique — et c'est
       // précisément ce qui entretenait le blocage. On remonte donc l'erreur
-      // tout de suite, et [_ApiGate] espace les appels suivants.
+      // tout de suite, et [ApiRequestGate] espace les appels suivants.
       final status = e.response?.statusCode;
       final isRateLimited = status == 429;
       final retriable = !isRateLimited &&
@@ -1415,7 +1416,7 @@ class ApiService {
   /// de temps de la sonde est marginal (l'EPG global alimente le replay
   /// multi-jours) ; le coût d'un catalogue bloqué, lui, est total.
   ///
-  /// Le portillon [_ApiGate] limite par ailleurs l'ensemble des appels
+  /// Le portillon [ApiRequestGate] limite par ailleurs l'ensemble des appels
   /// concurrents à 3 : ce réglage ne gouverne que la sonde.
   static const int _probeConcurrency = 2;
 
@@ -2622,88 +2623,4 @@ class ApiService {
     );
     return result.getOrElse(UnifiedSearchResult.empty());
   }
-}
-
-/// Portillon d'appels au panel : espacement minimal entre deux requêtes et
-/// plafond d'appels simultanés.
-///
-/// Le rate-limit du panel est GLOBAL : une rafale (sonde Replay sur 40 chaînes,
-/// chargement VOD + séries + EPG en parallèle) le fait répondre 429 à tout le
-/// monde, y compris aux requêtes sans rapport avec la rafale. Sérialiser évite
-/// de déclencher la saturation au lieu de la subir.
-///
-/// L'espacement est adaptatif : un 429 l'allonge, et il redescend
-/// progressivement vers [_minGap] quand les appels réussissent, pour ne pas
-/// imposer un rythme lent sans raison après un incident isolé.
-class _ApiGate {
-  /// Espacement de base entre deux appels.
-  static const Duration _minGap = Duration(milliseconds: 120);
-
-  /// Espacement maximum, atteint après plusieurs refus consécutifs.
-  static const Duration _maxGap = Duration(seconds: 2);
-
-  /// Appels simultanés maximum.
-  static const int _maxConcurrent = 3;
-
-  /// Attente entre deux vérifications de disponibilité d'un créneau.
-  static const Duration _poll = Duration(milliseconds: 25);
-
-  DateTime _nextAllowedAt = DateTime.fromMillisecondsSinceEpoch(0);
-  Duration _gap = _minGap;
-  int _inFlight = 0;
-  int _consecutive429 = 0;
-
-  /// Acquiert un ticket d'appel : attend, au besoin, que l'espacement soit
-  /// respecté et qu'un créneau soit libre.
-  ///
-  /// Le bloc de décision est synchrone et sans `await` : aucune préemption
-  /// n'est possible entre la lecture et la mise à jour de l'état, la boucle
-  /// d'attente ne peut donc pas laisser deux appels obtenir le même créneau.
-  Future<void> acquire() async {
-    while (true) {
-      var wait = Duration.zero;
-      var admitted = false;
-      final now = DateTime.now();
-      if (_inFlight >= _maxConcurrent) {
-        wait = _poll;
-      } else if (now.isBefore(_nextAllowedAt)) {
-        wait = _nextAllowedAt.difference(now);
-      } else {
-        _inFlight++;
-        _nextAllowedAt = now.add(_gap);
-        admitted = true;
-      }
-      if (admitted) return;
-      await Future<void>.delayed(wait);
-    }
-  }
-
-  /// Signale un refus 429 : l'espacement croît, comme le compteur de refus
-  /// consécutifs.
-  void onRateLimited() {
-    _consecutive429++;
-    final scaled = _minGap.inMilliseconds * (_consecutive429 + 1);
-    _gap = Duration(
-      milliseconds:
-          scaled > _maxGap.inMilliseconds ? _maxGap.inMilliseconds : scaled,
-    );
-    _nextAllowedAt = DateTime.now().add(_gap);
-  }
-
-  /// Signale un appel réussi : le compteur de refus redescend d'un cran et
-  /// l'espacement se rapproche du minimum.
-  void onSuccess() {
-    if (_consecutive429 > 0) _consecutive429--;
-    final halved = _gap.inMilliseconds ~/ 2;
-    final floor = _minGap.inMilliseconds;
-    _gap = Duration(milliseconds: halved < floor ? floor : halved);
-  }
-
-  /// Libère le créneau occupé par un appel terminé.
-  void release() {
-    if (_inFlight > 0) _inFlight--;
-  }
-
-  /// Nombre de refus 429 consécutifs (diagnostic).
-  int get consecutiveRateLimits => _consecutive429;
 }
