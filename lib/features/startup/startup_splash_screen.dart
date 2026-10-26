@@ -37,6 +37,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
   bool _navigated = false;
   bool _cfLoading = false;
+  bool _showBranding = false;
 
   @override
   void initState() {
@@ -48,9 +49,13 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     );
     _controller.addListener(_onProgress);
     // Lance le préchargement après le premier frame pour ne pas muter l'état
-    // pendant la phase de build.
+    // pendant la phase de build. Le branding est monté à partir de la frame
+    // suivante pour alléger le rendu initial.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _kickOff();
+      if (mounted) {
+        setState(() => _showBranding = true);
+        _kickOff();
+      }
     });
   }
 
@@ -101,6 +106,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 currentStep: _controller.currentStep,
                 doneSteps: _controller.doneSteps,
                 isFinished: _controller.isFinished,
+                showBranding: _showBranding,
               ),
             ),
           ],
@@ -121,7 +127,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (!mounted) return;
     // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
     // Récupère l'URL de base du fournisseur IPTV actif.
-    // ATTENDRE la fin de l'initialisation (max 30s) pour éviter "flux indisponible" au 1er play.
+    // Attend l'initialisation sans bloquer indéfiniment le démarrage.
     setState(() => _cfLoading = true);
     await safeAsync(
       () async {
@@ -133,10 +139,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               .read(cloudflareSessionProvider)
               .initialize(baseUrl: baseUrl)
               .timeout(
-            const Duration(seconds: 60),
+            const Duration(seconds: 15),
             onTimeout: () {
               debugPrint(
-                '☁️ Cloudflare init timeout (60s) during splash, proceeding anyway...',
+                '☁️ Cloudflare init timeout (15s) during splash, proceeding anyway...',
               );
             },
           );

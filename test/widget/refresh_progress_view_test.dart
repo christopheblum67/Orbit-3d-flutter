@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations_fr.dart';
 
 /// Écran de régénération des flux (démarrage **et** « Mettre à jour »).
 ///
@@ -20,6 +21,7 @@ void main() {
     StartupStep? currentStep,
     Set<StartupStep> doneSteps = const {},
     bool isFinished = false,
+    bool showBranding = true,
     Size size = const Size(400, 800),
   }) async {
     tester.view.physicalSize = size;
@@ -38,6 +40,7 @@ void main() {
             currentStep: currentStep,
             doneSteps: doneSteps,
             isFinished: isFinished,
+            showBranding: showBranding,
           ),
         ),
       ),
@@ -50,7 +53,7 @@ void main() {
 
     expect(find.text('Orbit IPTV'), findsOneWidget);
     expect(
-      find.textContaining('Mise à jour du contenu multimédia'),
+      find.textContaining(AppLocalizationsFr().updatingMediaContent),
       findsOneWidget,
     );
     expect(find.text('40 %'), findsOneWidget);
@@ -62,11 +65,19 @@ void main() {
     expect(find.textContaining('Sélection du jour'), findsNothing);
   });
 
+  testWidgets('peut différer le branding sans masquer la progression',
+      (tester) async {
+    await pump(tester, showBranding: false);
+
+    expect(find.text('Orbit IPTV'), findsNothing);
+    expect(find.text('40 %'), findsOneWidget);
+  });
+
   testWidgets('affiche les 4 sections d\'abonnement', (tester) async {
     await pump(tester);
     expect(find.text('Chaînes TV'), findsOneWidget);
     expect(find.text('Films & VOD'), findsOneWidget);
-    expect(find.text('Séries'), findsOneWidget);
+    expect(find.text(AppLocalizationsFr().series), findsOneWidget);
     expect(find.text('EPG'), findsOneWidget);
   });
 
