@@ -152,7 +152,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _checkAutoResume() async {
-    final progress = ref.read(playbackProgressProvider('last_session'));
+    final progress =
+        ref.read(playbackProgressServiceProvider).get('last_session');
     if (progress != null &&
         progress.positionMs > 60000 &&
         progress.hasProgress) {

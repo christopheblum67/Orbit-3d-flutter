@@ -76,7 +76,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final progress = ref.watch(playbackProgressProvider(_progressId));
+    final progress =
+        ref.watch(playbackProgressServiceProvider).get(_progressId);
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
 

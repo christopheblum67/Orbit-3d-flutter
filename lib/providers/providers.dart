@@ -102,7 +102,9 @@ final watchedEpisodesServiceProvider =
     Provider<WatchedEpisodesService>((ref) => WatchedEpisodesService());
 final radioServiceProvider = Provider<RadioService>((ref) => RadioService());
 final playbackProgressServiceProvider =
-    Provider<PlaybackProgressService>((ref) => PlaybackProgressService());
+    ChangeNotifierProvider<PlaybackProgressService>(
+  (ref) => PlaybackProgressService(),
+);
 final mediaLibraryManagerProvider =
     Provider<MediaLibraryManager>((ref) => MediaLibraryManager());
 
@@ -488,11 +490,6 @@ final cloudflareSessionProvider = Provider<CloudflareSessionManager>((ref) {
   final manager = CloudflareSessionManager();
   ref.onDispose(manager.dispose);
   return manager;
-});
-
-final playbackProgressProvider =
-    Provider.family<PlaybackProgress?, String>((ref, id) {
-  return ref.watch(playbackProgressServiceProvider).get(id);
 });
 
 final currentProfileProvider =

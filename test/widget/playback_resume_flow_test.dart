@@ -85,7 +85,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          playbackProgressServiceProvider.overrideWithValue(progressService),
+          playbackProgressServiceProvider
+              .overrideWith((ref) => progressService),
           downloadTasksStreamProvider.overrideWith(
             (ref) => const Stream.empty(),
           ),
@@ -100,12 +101,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Repris à 2 min'), findsOneWidget);
+    await tester.runAsync(
+      () => progressService.save('episode-episode-42', 250000, 900000),
+    );
+    await tester.pump();
+    expect(find.text('Repris à 4 min'), findsOneWidget);
+
     await tester.tap(find.text('Reprendre'));
     await tester.pumpAndSettle();
 
     expect(
       find.text(
-        'https://media.example.test/episode.m3u8|episode-episode-42|125000',
+        'https://media.example.test/episode.m3u8|episode-episode-42|250000',
       ),
       findsOneWidget,
     );

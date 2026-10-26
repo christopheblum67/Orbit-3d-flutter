@@ -237,10 +237,9 @@ class _SeriesDetailContent extends ConsumerWidget {
   /// inférieure au seuil de 80 % (au-delÃ , l'épisode est considéré Â« vu Â»).
   List<Episode> _resumeEpisodesFor(WidgetRef ref) {
     final result = <Episode>[];
+    final progressService = ref.watch(playbackProgressServiceProvider);
     for (final episode in baseSeries.episodes) {
-      final progress = ref.watch(
-        playbackProgressProvider('episode-${episode.id}'),
-      );
+      final progress = progressService.get('episode-${episode.id}');
       if (progress != null &&
           progress.hasProgress &&
           progress.fraction > 0 &&
@@ -254,6 +253,7 @@ class _SeriesDetailContent extends ConsumerWidget {
   int _seenCountFor(WidgetRef ref, List<Episode> episodes) {
     final profile = ref.read(currentProfileProvider);
     if (episodes.isEmpty) return 0;
+    final progressService = ref.watch(playbackProgressServiceProvider);
     var seen = 0;
     for (final episode in episodes) {
       final isVu = ref.read(watchedEpisodesProvider).containsKey(
@@ -269,9 +269,7 @@ class _SeriesDetailContent extends ConsumerWidget {
         seen++;
         continue;
       }
-      final progress = ref.watch(
-        playbackProgressProvider('episode-${episode.id}'),
-      );
+      final progress = progressService.get('episode-${episode.id}');
       if (progress != null && progress.fraction >= _autoWatchedThreshold) {
         seen++;
       }
@@ -750,7 +748,7 @@ class _EpisodeTile extends ConsumerWidget {
           ),
         );
     final progress =
-        ref.watch(playbackProgressProvider('episode-${episode.id}'));
+        ref.watch(playbackProgressServiceProvider).get('episode-${episode.id}');
     final progressFraction = progress?.fraction ?? 0;
     // Ã‰pisode auto-vu (>= 80 % regardés) : Â« Vu Â», mais toujours reprenable.
     final autoWatched = progress?.hasProgress == true &&
@@ -855,8 +853,7 @@ class _EpisodeTile extends ConsumerWidget {
       }
       if (hasProgress) {
         final progressId = 'episode-${episode.id}';
-        ref.read(playbackProgressServiceProvider).clear(progressId);
-        ref.invalidate(playbackProgressProvider(progressId));
+        await ref.read(playbackProgressServiceProvider).clear(progressId);
       }
     }
 
@@ -1346,12 +1343,3 @@ class _SeriesSubtitleLanguageSelectorState
     );
   }
 }
-
-
-
-
-
-
-
-
-

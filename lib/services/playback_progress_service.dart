@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 
@@ -24,7 +25,7 @@ class PlaybackProgress {
 
 /// Sauvegarde persistée (Hive) de la position de lecture par identifiant de
 /// média. Permet au bouton « Reprendre » de relancer au point de lecture.
-class PlaybackProgressService {
+class PlaybackProgressService extends ChangeNotifier {
   static const String _boxName = 'playback_progress';
 
   Future<void> init() async {
@@ -39,8 +40,9 @@ class PlaybackProgressService {
     await HiveSync.writeAsync(_boxName, (box) async {
       final value =
           '$positionMs|$durationMs|${DateTime.now().millisecondsSinceEpoch}';
-      box.put(id, value);
+      await box.put(id, value);
     });
+    notifyListeners();
   }
 
   PlaybackProgress? get(String id) {
@@ -60,6 +62,9 @@ class PlaybackProgressService {
   }
 
   Future<void> clear(String id) async {
-    await HiveSync.writeAsync(_boxName, (box) => box.delete(id));
+    await HiveSync.writeAsync(_boxName, (box) async {
+      await box.delete(id);
+    });
+    notifyListeners();
   }
 }

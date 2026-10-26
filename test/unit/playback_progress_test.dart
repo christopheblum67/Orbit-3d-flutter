@@ -72,6 +72,22 @@ void main() {
     expect(service.get('movie-1'), isNull);
   });
 
+  test('notifie les consommateurs après sauvegarde et effacement', () async {
+    final service = PlaybackProgressService();
+    await service.init();
+    var notifications = 0;
+    service.addListener(() => notifications++);
+    addTearDown(service.dispose);
+
+    await service.save('movie-1', 45000, 600000);
+    expect(service.get('movie-1')?.positionMs, 45000);
+    expect(notifications, 1);
+
+    await service.clear('movie-1');
+    expect(service.get('movie-1'), isNull);
+    expect(notifications, 2);
+  });
+
   test('fraction borne la progression entre 0 et 1', () async {
     final service = PlaybackProgressService();
     await service.init();

@@ -176,7 +176,7 @@ Future<void> _bootstrap() async {
         watchedEpisodesServiceProvider
             .overrideWithValue(watchedEpisodesService),
         playbackProgressServiceProvider
-            .overrideWithValue(playbackProgressService),
+            .overrideWith((ref) => playbackProgressService),
         mediaLibraryManagerProvider.overrideWithValue(mediaLibraryManager),
         currentProfileProvider
             .overrideWithBuild((ref, notifier) => restoredProfile),
