@@ -77,6 +77,7 @@ import 'package:orbit_3d_flutter/features/multivideo/multivideo_screen.dart';
 import 'package:orbit_3d_flutter/features/library/library_screen.dart';
 import 'package:orbit_3d_flutter/features/history/history_screen.dart';
 import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
+import 'package:orbit_3d_flutter/core/navigation/initial_route.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -157,12 +158,10 @@ Future<void> _bootstrap() async {
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
   final legalNoticeDone =
       storageService.getSetting(kLegalNoticeDoneKey) == true;
-  routerInitialLocation = !onboardingDone
-      // Premier lancement : le lisez-moi (usage + ayants droits) précède le
-      // diagnostic. S'il a déjà été accepté, on passe directement à la
-      // configuration.
-      ? (legalNoticeDone ? '/onboarding' : '/legal?flow=first')
-      : '/profiles';
+  routerInitialLocation = initialRouteFor(
+    onboardingDone: onboardingDone,
+    legalNoticeDone: legalNoticeDone,
+  );
 
   final lastRefresh = await loadLastRefresh();
 
