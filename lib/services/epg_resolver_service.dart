@@ -42,6 +42,20 @@ class EpgResolverService {
     LoggerService.instance.info('EPG Resolver: global cache pre-loaded');
   }
 
+  /// Télécharge le dump XMLTV complet depuis le fournisseur si nécessaire.
+  Future<void> downloadXmltvIfNeeded({required String baseUrl}) async {
+    try {
+      final url = '$baseUrl/xmltv.xml';
+      final resp = await _api.get(url);
+      if (resp.statusCode == 200) {
+        await _epgCache!.saveFull(resp.data);
+        LoggerService.instance.info('XMLTV téléchargé: $url');
+      }
+    } catch (e) {
+      LoggerService.instance.warn('XMLTV download skipped: $e');
+    }
+  }
+
   /// Résout l'EPG pour une liste de chaînes en parallèle.
   ///
   /// Retourne un Map epgChannelId -> List<EPGProgram>.

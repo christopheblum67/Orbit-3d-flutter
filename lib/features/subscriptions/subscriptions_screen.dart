@@ -21,6 +21,34 @@ class SubscriptionsScreen extends ConsumerStatefulWidget {
       _SubscriptionsScreenState();
 }
 
+/// Message d'information : réglages de filtres disponibles dans paramètres > abonnement.
+class _FilterInfoBanner extends StatelessWidget {
+  const _FilterInfoBanner();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.amber, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Réglages de filtres disponibles dans Paramètres > Abonnement.',
+              style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   @override
   Widget build(BuildContext context) {

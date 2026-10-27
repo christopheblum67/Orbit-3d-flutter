@@ -54,7 +54,7 @@ EPGProgram? epgNextProgram(List<EPGProgram> programs, DateTime now) {
 /// 7 : la soirée entière reste lisible sans noyer l'aperçu. L'ancienne limite
 /// de 5 coupait la grille trop tôt sur les chaînes au rythme de programmes
 /// court (journaux, magazines) ; +2 lignes couvrent ces cas (demande produit).
-const int kEpgPreviewMaxPrograms = 7;
+const int kEpgPreviewMaxPrograms = 6;
 
 /// Sélectionne les programmes EPG à afficher dans l'aperçu de chaîne.
 ///
