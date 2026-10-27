@@ -19,8 +19,6 @@ pluginManagement {
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
     id "com.android.application" version "9.0.1" apply false
-    // Kotlin rolled back: compatible version for Flutter 3.x
-    // Built-in Kotlin: plugin natif intégré par Flutter 3.x — supprimé
     id "com.google.gms.google-services" version "4.4.2" apply false
 }
 
