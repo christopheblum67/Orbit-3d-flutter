@@ -5,15 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import 'package:orbit_3d_flutter/core/widgets/tv_dropdown.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
-import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
-import 'package:orbit_3d_flutter/services/app_exit_service.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -61,8 +57,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _confirmExit(BuildContext context) async {
     final shouldExit = await showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
         title: const Row(
           children: [
             Icon(
@@ -82,58 +78,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           style: TextStyle(color: Colors.white70, fontSize: 15),
         ),
         backgroundColor: const Color(0xFF16181E),
-        // Navigation D-pad TV : halos + Enter sur chaque bouton, autofocus
-        // sur « Non » (action sûre par défaut).
         actions: [
-          FocusTraversalGroup(
-            policy: OrderedTraversalPolicy(),
-            child: Row(
-              children: [
-                TvFocus(
-                  autofocus: true,
-                  onActivate: () => Navigator.of(dialogContext).pop(false),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text(
-                      'Non',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'Non',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6B6B),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Oui',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
                 ),
-                TvFocus(
-                  onActivate: () => Navigator.of(dialogContext).pop(true),
-                  child: TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF6B6B),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'Oui',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
     if (shouldExit == true && context.mounted) {
-      AppExitService.exitApp();
+      SystemNavigator.pop();
     }
   }
 
@@ -150,7 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0E1117),
-        body: TvSafeArea(
+        body: SafeArea(
           child: Column(
             children: [
               _buildTopBar(context),
@@ -164,13 +141,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTopBar(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final today = DateTime.now();
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
+    final lastRefresh = ref.watch(lastRefreshTimestampProvider);
     // Barre d'en-tête allégée : seules la date et l'heure sont affichées.
     // Les icônes Paramètres / Mise à jour ont été retirées de l'en-tête et
-    // déplacées dans la barre inférieure, à côté de la section abonnement
-    // (bouton « Changer »).
+    // déplacées dans la barre inférieure, à côté de la section abonnement.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
@@ -239,68 +217,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
-    // En mode TV, les flèches gauche/droite du D-pad font défiler le
-    // carrousel : le Focus intercepte les touches et pilote le PageController.
-    // Touche OK/Enter/Select/GamepadA : active directement l'élément centré
-    // (évite que le focus ne "perde" la tuile sur certaines télécommandes).
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-          _pageController.nextPage(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-          _pageController.previousPage(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.select ||
-            event.logicalKey == LogicalKeyboardKey.space ||
-            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-          final page = _pageController.page ?? 0.0;
-          final index = page.round().clamp(0, items.length - 1);
-          if (index >= 0 && index < items.length) {
-            _openItem(context, items[index]);
-          }
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: PageView.builder(
-        controller: _pageController,
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final rel = index - _currentPage;
-          final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
-          final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
-          final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
-          final transform = Matrix4.identity()
-            ..setEntry(3, 2, 0.0018)
-            ..rotateY(rotationY)
-            ..scaleByDouble(scale, scale, scale, 1.0);
-          final focused = rel.abs() < 0.4;
-          final item = items[index];
-          return Transform(
-            transform: transform,
-            alignment: Alignment.center,
-            child: Opacity(
-              opacity: opacity,
-              child: TvFocus(
-                autofocus: index == 0,
-                onActivate: () => _openItem(context, item),
-                child: _buildCard(item, focused),
-              ),
+    return PageView.builder(
+      controller: _pageController,
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final rel = index - _currentPage;
+        final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
+        final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
+        final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
+        final transform = Matrix4.identity()
+          ..setEntry(3, 2, 0.0018)
+          ..rotateY(rotationY)
+          ..scaleByDouble(scale, scale, scale, 1.0);
+        final focused = rel.abs() < 0.4;
+        final item = items[index];
+        return Transform(
+          transform: transform,
+          alignment: Alignment.center,
+          child: Opacity(
+            opacity: opacity,
+            child: TvFocus(
+              onActivate: () => _openItem(context, item),
+              child: _buildCard(item, focused),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -450,7 +392,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
     final current = ref.watch(currentProfileProvider);
     return Container(
@@ -465,10 +406,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         children: [
           const _SubStatusChip(),
-          // Paramètres & Mise à jour déplacés ici depuis l'en-tête : la barre
-          // supérieure étant allégée (horloge seule), ces actions restent
-          // accessibles et sont placées juste à côté de la section abonnement
-          // (le lien « Changer » du _SubStatusChip).
+          // Paramètres & Mise à jour déplacés ici depuis l'en-tête : à côté de la section abonnement
           const SizedBox(width: 10),
           TvFocus(
             onActivate: () => context.go('/settings'),
@@ -498,34 +436,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: _refreshAll,
           ),
           const Spacer(),
-          if (current != null) ...[
-            // Décalé vers la gauche pour place aux pseudos longs
-            const SizedBox(width: 8),
-            TvFocus(
-              onActivate: () => context.go('/profiles'),
-              child: GestureDetector(
-                onTap: () => context.go('/profiles'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Profil : ',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _buildProfileAvatar(
-                      context,
-                      current,
-                      profilesAsync.value ?? const <UserProfile>[],
-                    ),
-                  ],
+          GestureDetector(
+            onTap: () => context.go('/profiles'),
+            child: Row(
+              children: [
+                Text(
+                  'Profil : ',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 13,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                _buildProfileAvatar(
+                  context,
+                  current,
+                  profilesAsync.value ?? const <UserProfile>[],
+                ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -561,24 +491,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ProfileAvatar(
-          profile: current,
-          size: 28,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          current.firstName,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
+    final idx = profiles.indexWhere((p) => p.id == current.id);
+    final color = _profileColor(idx);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 12,
+            spreadRadius: 1,
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 11,
+            backgroundColor: color.withValues(alpha: 0.3),
+            child: Text(
+              current.firstName.isNotEmpty
+                  ? current.firstName[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            current.firstName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -648,31 +604,24 @@ class _SubStatusChip extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 10),
-        TvFocus(
-          onActivate: () => context.go('/subscriptions'),
-          child: InkWell(
-            onTap: () => context.go('/subscriptions'),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
-                ),
+        InkWell(
+          onTap: () => context.go('/subscriptions'),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
               ),
-              child: Semantics(
-                label: "Changer d'abonnement",
-                button: true,
-                child: Text(
-                  'Changer',
-                  style: TextStyle(
-                    color: Color(0xFF00CFE8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            ),
+            child: const Text(
+              'Changer',
+              style: TextStyle(
+                color: Color(0xFF00CFE8),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -717,31 +666,24 @@ class _NoSubscriptionChip extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        TvFocus(
-          onActivate: () => context.go('/subscriptions'),
-          child: InkWell(
-            onTap: () => context.go('/subscriptions'),
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
-                ),
+        InkWell(
+          onTap: () => context.go('/subscriptions'),
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
               ),
-              child: Semantics(
-                label: "Changer d'abonnement",
-                button: true,
-                child: Text(
-                  'Changer',
-                  style: TextStyle(
-                    color: Color(0xFF00CFE8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            ),
+            child: const Text(
+              'Changer',
+              style: TextStyle(
+                color: Color(0xFF00CFE8),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -923,4 +865,80 @@ class _ClockBlock extends StatelessWidget {
   }
 }
 
+/// Formate un timestamp en « il y a XhYY » ou « il y a X min ».
+String _formatRelative(DateTime ts) {
+  final diff = DateTime.now().difference(ts);
+  // Un rafraîchissement vient d'avoir lieu : « il y a 0 min » se lit comme un
+  // compteur bloqué ou une donnée périmée. « à l'instant » est exact et lisible
+  // sur une TV où l'on regarde l'écran quelques secondes.
+  if (diff.inMinutes < 1) return 'À jour à l\'instant';
+  if (diff.inHours > 0) {
+    final minutes = diff.inMinutes.remainder(60).toString().padLeft(2, '0');
+    return 'À jour il y a ${diff.inHours}h$minutes';
+  }
+  return 'À jour il y a ${diff.inMinutes} min';
+}
 
+/// Bouton de mise à jour avec la date de la dernière actualisation en dessous.
+///
+/// Stateful : [Timer.periodic] force un rebuild chaque minute, sinon le libellé
+/// « mis à jour il y a X min » resterait figé jusqu'au prochain changement de
+/// provider (donc potentiellement des heures).
+class _UpdateStack extends StatefulWidget {
+  const _UpdateStack({
+    required this.onPressed,
+    required this.tooltip,
+    required this.lastRefresh,
+  });
+
+  final VoidCallback onPressed;
+  final String tooltip;
+  final DateTime? lastRefresh;
+
+  @override
+  State<_UpdateStack> createState() => _UpdateStackState();
+}
+
+class _UpdateStackState extends State<_UpdateStack> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (widget.lastRefresh) {
+      null => 'Jamais mis à jour',
+      final ts => _formatRelative(ts),
+    };
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _UpdateButton(
+          tooltip: widget.tooltip,
+          onPressed: widget.onPressed,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.35),
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}

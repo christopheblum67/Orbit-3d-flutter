@@ -16,8 +16,6 @@ dependencies:
   go_router: ^18.0.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  # Plugin mis à jour pour Kotlin Built-in (évite BUILD FAILED assembleRelease)
-  # Si le problème persiste, mettre à jour le plugin natif vers sa dernière version.
   sqflite: ^2.4.4
   path: ^1.9.0
   path_provider: ^2.1.5
@@ -34,7 +32,7 @@ dependencies:
   firebase_analytics: ^12.5.0
   webview_flutter: ^4.10.0
   webview_flutter_android: ^4.14.1
-  device_info_plus: ^13.1.0
+  device_info_plus: ^10.0.0
   connectivity_plus: ^7.3.1
   vector_math: ^2.1.4
   home_widget: ^0.9.4
@@ -75,27 +73,21 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/config/
     # .env embarqué : clé partagée TMDB_API_KEY (Option A) lue par dotenv au
     # boot. Fichier gitignoré : la clé ne part jamais sur le repo.
     - .env
 
-# Icônes du lanceur Android + bannière Android TV (Leanback).
-# Masters committés sous `assets/icons/` :
-#   - app_icon.png            (1024x1024, icône pleine, fond #0F172A opaque)
-#   - app_icon_foreground.png (1024x1024, motif seul, fond transparent)
-# La bannière TV reste écrite à la main dans `android/app/src/main/res/`.
+# Icônes du lanceur Android + bannière Android TV (Leanback). Nécessite des
+# fichiers rectangulaires préparés :
+#   - assets/icons/app_icon.png  (1024x1024, symbole centré, fond transparent)
+#   - assets/icons/tv_banner.png (320x180, bandeau Leanback)
+# Génération : `dart run flutter_launcher_icons`.
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/icons/app_icon.png"
   min_sdk_android: 21
+  banner_image_path: "assets/icons/tv_banner.png"
   adaptive_icon_background: "#0F172A"
-  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
-  # `banner_image_path` est volontairement absent : la bannière TV est écrite à
-  # la main (`res/drawable/tv_banner.xml` + `res/drawable-nodpi/tv_banner.png`).
-  # Laisser le plugin générer `res/drawable/tv_banner.png` entrerait en
-  # collision de ressource avec le XML et casserait le build.
-  # Les mipmaps/foregrounds committés sous `android/app/src/main/res/` sont ceux
-  # générés depuis ces deux masters (plugin non requis au build).
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
 
