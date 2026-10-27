@@ -146,12 +146,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
     final lastRefresh = ref.watch(lastRefreshTimestampProvider);
-    // Barre d'en-tête allégée : seules la date et l'heure sont affichées.
-    // Les icônes Paramètres / Mise à jour ont été retirées de l'en-tête et
-    // déplacées dans la barre inférieure, à côté de la section abonnement.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
+              const Spacer(),
+              TvFocus(
+                onActivate: () => context.go('/settings'),
+                child: GestureDetector(
+                  onTap: () => context.go('/settings'),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.settings,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _UpdateStack(
+                tooltip: l.updateAllData,
+                onPressed: _refreshAll,
+                lastRefresh: lastRefresh,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+      ),
     );
   }
 
@@ -406,35 +441,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         children: [
           const _SubStatusChip(),
-          // Paramètres & Mise à jour déplacés ici depuis l'en-tête : à côté de la section abonnement
-          const SizedBox(width: 10),
-          TvFocus(
-            onActivate: () => context.go('/settings'),
-            child: GestureDetector(
-              onTap: () => context.go('/settings'),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.settings,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _UpdateButton(
-            tooltip: l.updateAllData,
-            onPressed: _refreshAll,
-          ),
           const Spacer(),
           GestureDetector(
             onTap: () => context.go('/profiles'),

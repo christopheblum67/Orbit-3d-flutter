@@ -35,8 +35,8 @@ class StartupSplashScreen extends ConsumerStatefulWidget {
 
 class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
-  /// Le logo animé n'est monté qu'après la première frame (première frame allégée).
-  bool _showBranding = false;
+  bool _navigated = false;
+  bool _cfLoading = false;
 
   @override
   void initState() {
