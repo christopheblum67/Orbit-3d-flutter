@@ -517,6 +517,26 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return '';
   }
 
+  double _ratingOf(dynamic item) {
+    if (item is MovieCompact) return item.rating;
+    if (item is SeriesCompact) return item.rating;
+    if (item is Series) return item.rating;
+    if (item is Movie) return item.rating;
+    return 0.0;
+  }
+
+  String _pegiLabelOf(dynamic item) {
+    if (item is Series) return item.pegiLabel ?? '';
+    if (item is Movie) return item.pegiLabel ?? '';
+    return '';
+  }
+
+  bool _isNewOf(dynamic item) {
+    if (item is Series) return item.isNew;
+    if (item is Movie) return item.isNew;
+    return false;
+  }
+
   /// Affinité en pourcentage d'un élément de grille, quel que soit le modèle
   /// (complet ou compact). `null` si aucun profil n'est actif.
   int? _affinityPercentFor(dynamic item, bool isSeries) {
@@ -603,15 +623,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         );
     }
 
-    final cardTitle = isSeries ? (item as Series).title : (item as Movie).title;
-    final poster =
-        isSeries ? (item as Series).coverUrl : (item as Movie).posterUrl;
-    final year = isSeries ? (item as Series).year : (item as Movie).year;
-    final genre = isSeries ? (item as Series).genre : (item as Movie).genre;
-    final rating = isSeries ? (item as Series).rating : (item as Movie).rating;
-    final ageLabel =
-        isSeries ? (item as Series).pegiLabel : (item as Movie).pegiLabel;
-    final isNew = isSeries ? (item as Series).isNew : (item as Movie).isNew;
+    final cardTitle = _titleOf(item);
+    final poster = _posterOf(item);
+    final year = _yearOf(item);
+    final genre = _genreOf(item);
+    final rating = _ratingOf(item);
+    final ageLabel = _pegiLabelOf(item);
+    final isNew = _isNewOf(item);
 
     return TvFocus(
       onActivate: onOpen,

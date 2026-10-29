@@ -88,7 +88,9 @@ class _TvFocusState extends ConsumerState<TvFocus>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+    // Agrandissement ~20 % au focus pour signaler clairement la section
+    // courante (icône) tout en réduisant le halo lumineux autour.
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.20).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
     try {
@@ -205,15 +207,15 @@ class _TvFocusState extends ConsumerState<TvFocus>
                       border: Border.all(color: scheme.primary, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.6),
-                          blurRadius: 20,
-                          spreadRadius: 2,
+                          color: scheme.primary.withValues(alpha: 0.45),
+                          blurRadius: 12,
+                          spreadRadius: 1,
                           offset: const Offset(0, 0),
                         ),
                         BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 40,
-                          spreadRadius: 4,
+                          color: scheme.primary.withValues(alpha: 0.18),
+                          blurRadius: 24,
+                          spreadRadius: 2,
                           offset: const Offset(0, 0),
                         ),
                       ],

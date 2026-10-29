@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Home mockup</title>
+<style>
+  body { background:#0E1117; color:#fff; font-family:Arial,sans-serif; margin:0; padding:0; }
+  .phone { width:1080px; height:2400px; margin:0 auto; border:1px solid #333; position:relative; overflow:hidden; }
+  .topbar { padding:10px 16px 8px; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .toprow { display:flex; align-items:center; }
+  .hamburger { width:40px; height:40px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .title { flex:1; text-align:center; font-size:20px; font-weight:800; }
+  .clock { text-align:right; font-size:13px; line-height:1.2; }
+  .clock .date { color:rgba(255,255,255,0.5); }
+  .clock .time { font-weight:700; font-size:16px; }
+  .carousel { flex:1; display:flex; align-items:center; justify-content:center; padding:40px; }
+  .card { width:320px; height:420px; background:#1a1d26; border-radius:16px; border:2px solid #00CFE8; display:flex; align-items:center; justify-content:center; font-size:18px; margin:0 12px; box-shadow:0 0 20px rgba(0,207,232,0.4); }
+  .bottombar { height:72px; padding:0 16px; border-top:1px solid rgba(255,255,255,0.08); background:#12151E; display:flex; align-items:center; }
+  .chip { padding:4px 10px; background:rgba(255,255,255,0.08); border-radius:20px; font-size:12px; }
+  .update { width:40px; height:40px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:10px; display:flex; align-items:center; justify-content:center; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <div class="toprow">
+      <div class="hamburger">☰</div>
+      <div class="title">Orbit IPTV</div>
+      <div class="clock"><div class="date">mer. 28 oct.</div><div class="time">14:32</div></div>
+    </div>
+  </div>
+  <div class="carousel">
+    <div class="card">Chaînes TV</div>
+    <div class="card">Films</div>
+    <div class="card">Séries</div>
+  </div>
+  <div class="bottombar">
+    <div class="chip">Abonnement: actif</div>
+    <div style="flex:1"></div>
+    <div class="update">⟳</div>
+  </div>
+</div>
+</body>
+</html>

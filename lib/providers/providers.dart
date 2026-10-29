@@ -499,6 +499,8 @@ class CurrentProfileNotifier extends Notifier<UserProfile?> {
 }
 
 final sourceTypeProvider = FutureProvider<String?>((ref) async {
+  // Re-évalue aussi quand l'abonnement actif change (évite un type périmé).
+  ref.watch(activeSubscriptionProvider);
   final sub =
       await ref.watch(subscriptionManagerProvider).getActiveSubscription();
   return sub['type'];
@@ -546,6 +548,14 @@ final seriesChannelsProvider = FutureProvider<List<Channel>>(
 );
 
 /// Provider pour les films M3U (détection auto via categoryId = 'films')
+/// Résultat parsé du M3U, mis en cache tant que le provider est écouté
+/// (évite de re-parser à chaque ouverture de page).
+final m3uParseResultProvider = FutureProvider.autoDispose<M3uParseResult?>((ref) async {
+  ref.keepAlive();
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchM3uParseResult();
+});
+
 final movieChannelsProvider = FutureProvider<List<Channel>>(
   (ref) async {
     final filter = ref.watch(contentFilterProvider);
@@ -556,6 +566,24 @@ final movieChannelsProvider = FutureProvider<List<Channel>>(
   },
   retry: _retryUnlessRateLimited,
 );
+
+/// Séries M3U groupées en objets [Series] (SxxExx → série), au même format
+/// que le traitement Xtream Codes.
+final m3uSeriesProvider = FutureProvider<List<Series>>((ref) async {
+  final sub = ref.watch(activeSubscriptionProvider);
+  if (sub == null || sub.type != SubscriptionType.m3u) return const <Series>[];
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchM3uSeries();
+});
+
+/// Films M3U transformés en objets [Movie] (extraction automatique de l'année
+/// depuis le titre, ex : `Avatar 2 (2022)`).
+final m3uMoviesProvider = FutureProvider<List<Movie>>((ref) async {
+  final sub = ref.watch(activeSubscriptionProvider);
+  if (sub == null || sub.type != SubscriptionType.m3u) return const <Movie>[];
+  final api = ref.watch(apiServiceProvider);
+  return api.fetchM3uMovies();
+});
 
 /// Contexte de découverte des sous-titres pour le contenu en cours de lecture.
 ///
@@ -623,6 +651,7 @@ final moviesProvider = FutureProvider<List<Movie>>(
     final filter = ref.watch(contentFilterProvider);
     final sub = ref.watch(activeSubscriptionProvider);
     if (sub == null) return const <Movie>[];
+    if (sub.type == SubscriptionType.m3u) return const <Movie>[]; // M3U pur : films via movieChannelsProvider
     final api = ref.watch(apiServiceProvider);
     // Journalisation explicite des deux étapes : « erreur de chargement » dans
     // la section Films pouvait venir soit du réseau, soit du parsing
@@ -685,6 +714,8 @@ final refreshM3uCategoriesProvider = Provider<void Function()>((ref) {
     ref.invalidate(vodChannelsProvider);
     ref.invalidate(seriesChannelsProvider);
     ref.invalidate(movieChannelsProvider);
+    ref.invalidate(m3uSeriesProvider);
+    ref.invalidate(m3uMoviesProvider);
   };
 });
 
@@ -731,6 +762,8 @@ final seriesCategoriesProvider = FutureProvider<List<MediaCategory>>(
   (ref) async {
     final api = ref.watch(apiServiceProvider);
     ref.watch(activeSubscriptionProvider);
+    final sub = ref.read(activeSubscriptionProvider);
+    if (sub != null && sub.type == SubscriptionType.m3u) return const [];
     return api.fetchSeriesCategories();
   },
   retry: _retryUnlessRateLimited,
@@ -741,6 +774,7 @@ final seriesProvider = FutureProvider<List<Series>>(
     final filter = ref.watch(contentFilterProvider);
     final sub = ref.watch(activeSubscriptionProvider);
     if (sub == null) return const <Series>[];
+    if (sub.type == SubscriptionType.m3u) return const <Series>[]; // M3U pur : séries via seriesChannelsProvider
     final api = ref.watch(apiServiceProvider);
     return filter.visibleList(await api.fetchSeries());
   },

@@ -587,7 +587,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildResults(
-    AsyncValue<SearchResult> searchAsync,
+    AsyncValue<UnifiedSearchResult> searchAsync,
     String query,
     SearchType filterType,
   ) {

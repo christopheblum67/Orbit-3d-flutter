@@ -32,7 +32,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   /// Duree de vie prudente d'un cookie cf_clearance avant renouvellement.
   static const Duration _cookieLifetime = Duration(hours: 2);
 
-  final String _userAgent = _defaultUserAgent;
+  String _userAgent = _defaultUserAgent;
 
   String _cookies = '';
   String _baseUrl = '';
@@ -235,10 +235,57 @@ class CloudflareSessionManager extends ChangeNotifier {
     final cookieManager = WebViewCookieManager();
     final completer = Completer<void>();
 
+    // Cloudflare résout son challenge JavaScript APRÈS le chargement de la
+    // page. On poll les cookies jusqu'à capturer cf_clearance, OU jusqu'à
+    // confirmer que la page n'est pas un challenge Cloudflare.
     Future<void> onPageFinished(String url) async {
       if (completer.isCompleted) return;
-      await _extractCookies(cookieManager, url);
-      if (!completer.isCompleted) completer.complete();
+      for (var i = 0; i < 12; i++) {
+        if (completer.isCompleted) return;
+        await Future<void>.delayed(const Duration(seconds: 1));
+        if (completer.isCompleted) return;
+        // Capture l'User-Agent réellement utilisé par le WebView (peut différer
+        // de la valeur forcée) pour que cf_clearance reste valide.
+        if (i == 0) {
+          try {
+            final ua = await controller.runJavaScriptReturningResult(
+              'navigator.userAgent',
+            );
+            final uaStr = ua.toString().replaceAll('"', '').trim();
+            if (uaStr.isNotEmpty && uaStr != 'null') {
+              _userAgent = uaStr;
+            }
+          } catch (_) {}
+        }
+        await _extractCookies(controller, cookieManager, url);
+        if (_cookiesValid) {
+          if (!completer.isCompleted) completer.complete();
+          return;
+        }
+        // Vérifie si la page est un challenge Cloudflare non résolu.
+        try {
+          final title = await controller.runJavaScriptReturningResult(
+            'document.title',
+          );
+          final t = title.toString().toLowerCase();
+          final isChallenge = t.contains('just a moment') ||
+              t.contains('checking your browser') ||
+              t.contains('attention required') ||
+              t.contains('cloudflare');
+          if (!isChallenge) {
+            // Page normale : pas de challenge requis.
+            _noChallengeRequired = true;
+            if (!completer.isCompleted) completer.complete();
+            return;
+          }
+        } catch (_) {}
+      }
+      // Toujours en challenge après 12s : échec.
+      if (!completer.isCompleted) {
+        completer.completeError(
+          StateError('Cloudflare challenge not solved within 12s'),
+        );
+      }
     }
 
     void onHttpError(HttpResponseError error) {
@@ -267,33 +314,48 @@ class CloudflareSessionManager extends ChangeNotifier {
     );
   }
 
-  /// Extrait les cookies Cloudflare apres le challenge.
+  /// Extrait les cookies Cloudflare apres le challenge via `document.cookie`
+  /// (polling JS), qui est plus fiable que le gestionnaire natif de la WebView
+  /// dont le stockage est souvent isole/inaccessible depuis Dart.
   /// Les valeurs ne sont jamais journalisees.
   Future<void> _extractCookies(
+    WebViewController controller,
     WebViewCookieManager cookieManager,
     String url,
   ) async {
-    final uri = Uri.parse(url);
-    final cookies = await cookieManager.getCookies(domain: uri);
-    if (cookies.isEmpty) {
+    String raw = '';
+    try {
+      final result = await controller.runJavaScriptReturningResult('document.cookie');
+      raw = result.toString().replaceAll('"', '');
+    } catch (_) {
+      // Fallback sur le gestionnaire natif si le JS echoue.
+      try {
+        final uri = Uri.parse(url);
+        final cookies = await cookieManager.getCookies(domain: uri);
+        raw = cookies.map((c) => '${c.name}=${c.value}').join('; ');
+      } catch (_) {}
+    }
+
+    if (raw.isEmpty) {
       debugPrint('☁️ [CF] no cookies returned for $url');
       return;
     }
 
-    final relevant = cookies.where((c) {
-      final n = c.name.toLowerCase();
-      return n.startsWith('cf_') ||
-          n.contains('session') ||
-          n.contains('auth') ||
-          n.contains('token');
+    final entries = raw.split(';').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+    // On conserve cf_clearance + autres cookies Cloudflare/sessions.
+    final relevant = entries.where((c) {
+      final name = c.split('=').first.toLowerCase();
+      return name.startsWith('cf_') ||
+          name.contains('session') ||
+          name.contains('auth') ||
+          name.contains('token');
     }).toList();
 
-    final kept = relevant.isNotEmpty ? relevant : cookies;
-    _cookies = kept.map((c) => '${c.name}=${c.value}').join('; ');
+    final kept = relevant.isNotEmpty ? relevant : entries;
+    _cookies = kept.join('; ');
     _cookieExpiry = DateTime.now().add(_cookieLifetime);
 
-    final hasClearance =
-        kept.any((c) => c.name.toLowerCase() == 'cf_clearance');
+    final hasClearance = kept.any((c) => c.toLowerCase().startsWith('cf_clearance='));
     debugPrint('☁️ [CF] cookies captured: ${kept.length} entries, '
         '${_cookies.length} chars, cf_clearance=$hasClearance');
   }

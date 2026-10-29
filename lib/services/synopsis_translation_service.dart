@@ -23,7 +23,7 @@ extension on SynopsisSource {
   String? get label => switch (this) {
         SynopsisSource.original => null,
         SynopsisSource.tmdb => 'Synopsis TMDB',
-        SynopsisSource.googleTranslate => 'Traduit automatiquement (Google)',
+        SynopsisSource.googleTranslate => 'Traduit par Google',
         SynopsisSource.none => null,
       };
 }

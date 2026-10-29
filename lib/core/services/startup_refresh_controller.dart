@@ -32,7 +32,6 @@ class StartupRefreshController extends RefreshStepsController {
                 StartupStep.series,
                 StartupStep.radio,
                 StartupStep.replay,
-                StartupStep.epg,
                 StartupStep.ai,
               },
         );

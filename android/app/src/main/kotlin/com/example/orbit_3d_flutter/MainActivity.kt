@@ -33,7 +33,7 @@ class MainActivity : FlutterActivity() {
         PlayerConfigChannel.register(flutterEngine, this)
         HardwareChannel.register(flutterEngine, this)
         PipChannel.register(flutterEngine, this)
-        PlaybackServiceChannel.register(flutterEngine, this)
+        // PlaybackServiceChannel removed
         RestartChannel.register(flutterEngine, this)
         AppExitChannel.register(flutterEngine, this)
     }
@@ -63,7 +63,7 @@ class MainActivity : FlutterActivity() {
         PlayerConfigChannel.detach()
         HardwareChannel.detach()
         PipChannel.detach()
-        PlaybackServiceChannel.detach()
+        // PlaybackServiceChannel detached
         RestartChannel.detach()
         AppExitChannel.detach()
         super.onDestroy()

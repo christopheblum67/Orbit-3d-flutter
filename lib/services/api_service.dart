@@ -1,9 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:isolate';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
+import 'package:orbit_3d_flutter/core/utils/stream_url_helper.dart';
+import 'package:orbit_3d_flutter/core/utils/m3u_movie_transformer.dart';
+import 'package:orbit_3d_flutter/core/utils/m3u_series_grouper.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -679,12 +682,9 @@ class ApiService {
         return channel;
       }).toList();
     } else if (sub['type'] == 'm3u') {
-      final url = sub['url']!;
-      final response = await _get(url);
-      final result = parseM3uWithVodSeparation(response.data.toString());
-      // Pour compatibilité, on retourne les chaînes live + VOD combinées
-      // Les écrans VOD pourront accéder aux listes séparées via un autre provider
-      return [...result.liveChannels, ...result.vodChannels, ...result.seriesChannels, ...result.movieChannels];
+      final result = await fetchM3uParseResult();
+      if (result == null) return const <Channel>[];
+      return result.liveChannels;
     } else {
       throw StreamNetworkException('Aucun abonnement configuré.');
     }
@@ -692,13 +692,46 @@ class ApiService {
 
   /// Récupère le résultat complet du parsing M3U avec séparation Live/VOD
   /// Pour les abonnements M3U uniquement ; retourne null pour Xtream.
+  // Cache mémoire du dernier résultat M3U parsé (évite de re-télécharger
+  // et re-parser le fichier à chaque appel — startup appelle live/movies/
+  // series/radio qui partagent le même fichier).
+  static M3uParseResult? _m3uCache;
+  static String? _m3uCacheUrl;
+
   Future<M3uParseResult?> fetchM3uParseResult() async {
     final sub = await _activeSub();
     if (sub['type'] != 'm3u') return null;
 
     final url = sub['url']!;
+    // Réutilise le cache si l'URL n'a pas changé.
+    if (_m3uCache != null && _m3uCacheUrl == url) {
+      return _m3uCache;
+    }
+
     final response = await _get(url);
-    return parseM3uWithVodSeparation(response.data.toString());
+    // Passe directement l'objet brut (String ou List<int>) à l'isolat
+    // pour éviter un pic mémoire sur le thread principal (playlist > 20 Mo).
+    final rawData = response.data;
+    M3uParseResult parsed;
+    try {
+      final result = await Isolate.run(() {
+        final content = rawData is String
+            ? rawData
+            : utf8.decode(List<int>.from(rawData as List<dynamic>));
+        return parseM3uWithVodSeparation(content);
+      });
+      parsed = result;
+    } catch (e, st) {
+      print('M3U DEBUG ISOLATE ERROR: $e\n$st');
+      parsed = M3uParseResult(liveChannels: [], vodChannels: [], seriesChannels: [], movieChannels: [], radioChannels: []);
+    }
+    final contentPreview = rawData is String ? rawData : utf8.decode(List<int>.from(rawData as List<dynamic>));
+    final preview = contentPreview.length > 500 ? contentPreview.substring(0, 500) : contentPreview;
+    print('M3U DEBUG RAW CONTENT (first 500 chars): $preview');
+    print('M3U DEBUG PARSED: live=${parsed.liveChannels.length}, vod=${parsed.vodChannels.length}, series=${parsed.seriesChannels.length}, movie=${parsed.movieChannels.length}, radio=${parsed.radioChannels.length}');
+    _m3uCache = parsed;
+    _m3uCacheUrl = url;
+    return parsed;
   }
 
   /// Récupère uniquement les chaînes VOD (films + séries + VOD générique) M3U
@@ -726,6 +759,22 @@ class ApiService {
   Future<List<Channel>> fetchMovieChannels() async {
     final result = await fetchM3uParseResult();
     return result?.movieChannels ?? const <Channel>[];
+  }
+
+  /// Regroupe les chaînes M3U de séries en objets [Series] (SxxExx → série),
+  /// à la manière du traitement Xtream Codes.
+  Future<List<Series>> fetchM3uSeries() async {
+    final result = await fetchM3uParseResult();
+    if (result == null) return const <Series>[];
+    return M3uSeriesGrouper.groupChannelsIntoSeries(result.seriesChannels);
+  }
+
+  /// Transforme les chaînes M3U « films » en objets [Movie], avec extraction
+  /// automatique de l'année depuis le titre (ex : `Avatar 2 (2022)`).
+  Future<List<Movie>> fetchM3uMovies() async {
+    final result = await fetchM3uParseResult();
+    if (result == null) return const <Movie>[];
+    return M3uMovieTransformer.transformChannelsToMovies(result.movieChannels);
   }
 
   Future<Map<String, String>> _fetchLiveCategoryNames(
@@ -820,6 +869,26 @@ class ApiService {
 
   Future<List<Movie>> _fetchMovies() async {
     final sub = await _activeSub();
+    if (sub['type'] == 'm3u') {
+      final m3uResult = await fetchM3uParseResult();
+      if (m3uResult == null) return const [];
+      return m3uResult.movieChannels.map((channel) {
+        return Movie(
+          id: channel.id,
+          title: channel.name,
+          posterUrl: channel.logoUrl,
+          description: '',
+          year: 0,
+          genre: channel.group,
+          director: '',
+          rating: 0.0,
+          pegi: '',
+          streamId: channel.id,
+          containerExtension: 'mp4',
+          categoryId: channel.categoryId,
+        );
+      }).toList();
+    }
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
@@ -1043,6 +1112,25 @@ class ApiService {
 
   Future<List<Series>> _fetchSeries() async {
     final sub = await _activeSub();
+    if (sub['type'] == 'm3u') {
+      final m3uResult = await fetchM3uParseResult();
+      if (m3uResult == null) return const [];
+      return m3uResult.seriesChannels.map((channel) {
+        return Series(
+          id: channel.id,
+          title: channel.name,
+          description: '',
+          coverUrl: channel.logoUrl,
+          year: 0,
+          genre: channel.group,
+          director: '',
+          rating: 0.0,
+          pegi: '',
+          episodes: const [],
+          categoryId: channel.categoryId,
+        );
+      }).toList();
+    }
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
@@ -1408,6 +1496,9 @@ class ApiService {
         );
         return Channel.fromMap(map).copyWith(streamUrl: streamUrl);
       }).toList();
+    } else if (sub['type'] == 'm3u') {
+      final result = await fetchM3uParseResult();
+      return result?.radioChannels ?? const <Channel>[];
     }
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',
@@ -2727,8 +2818,23 @@ class ApiService {
 
   /// Lit un attribut `clé="valeur"` dans une ligne M3U (#EXTINF).
   static String _m3uAttr(String line, String key) {
-    final match = RegExp('$key="([^"]*)"').firstMatch(line);
-    return match?.group(1) ?? '';
+    // Supporte key="valeur avec espaces", key='valeur' et key=valeur (sans
+    // guillemets, jusqu'au prochain espace).
+    //
+    // L'ancienne version utilisait `[^"'\s]+` pour TOUS les cas : une valeur
+    // entre guillemets était donc tronquée au premier espace
+    // (`group-title="FR | FILMS"` → `FR`), ce qui empêchait la détection
+    // Films / Séries / VOD par le groupe et laissait tout en « Chaînes ».
+    //
+    // Le préfixe `(?:^|\s)` évite aussi qu'une clé en rencontre une autre :
+    // `type` ne lit plus `tvg-type`, `tvg-id` ne lit plus `epg-tvg-id`.
+    final match = RegExp(
+      '(?:^|\\s)${RegExp.escape(key)}\\s*=\\s*'
+      '(?:"([^"]*)"|\'([^\']*)\'|([^"\'\\s]+))',
+      caseSensitive: false,
+    ).firstMatch(line);
+    if (match == null) return '';
+    return (match.group(1) ?? match.group(2) ?? match.group(3) ?? '').trim();
   }
 
   // ---------- Parseur XMLTV basique (mono-passe, sans DOM) ----------
@@ -2881,20 +2987,23 @@ class M3uParseResult {
   final List<Channel> vodChannels;
   final List<Channel> seriesChannels;
   final List<Channel> movieChannels;
+  final List<Channel> radioChannels;
 
   M3uParseResult({
     required this.liveChannels,
     required this.vodChannels,
     required this.seriesChannels,
     required this.movieChannels,
+    this.radioChannels = const <Channel>[],
   });
 
-  /// Tous les canaux (live + vod)
+  /// Tous les canaux (live + vod + radio)
   List<Channel> get allChannels => [
     ...liveChannels,
     ...vodChannels,
     ...seriesChannels,
     ...movieChannels,
+    ...radioChannels,
   ];
 }
 
@@ -2909,8 +3018,14 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
   final vodChannels = <Channel>[];
   final seriesChannels = <Channel>[];
   final movieChannels = <Channel>[];
+  final radioChannels = <Channel>[];
 
   String? currentName;
+  String? currentTvgName;
+  String? currentLogoUrl;
+  String? currentTvgId;
+  String? currentRadio;
+  String? currentTvgType;
   String? currentGroup;
   var catchupMode = '';
   var catchupSource = '';
@@ -2919,8 +3034,12 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
 
   // Suivi du groupe VOD actuel (via #EXTGRP)
   String? currentExtGrp;
+  var entryIndex = 0;
 
-  for (final line in content.split('\n')) {
+  // Normalisation CRLF + suppression des espaces fantômes (ghost spaces)
+  final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  for (final rawLine in normalized.split('\n')) {
+    final line = rawLine.trim();
     final trimmed = line.trim();
 
     // Détection #EXTGRP pour changement de groupe (ex: #EXTGRP:VOD)
@@ -2930,10 +3049,17 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
     }
 
     if (trimmed.startsWith('#EXTINF')) {
-      final nameMatch = RegExp(r',(.+)$').firstMatch(trimmed);
-      if (nameMatch != null) {
-        currentName = nameMatch.group(1)!.trim();
-      }
+      // Extraction robuste du nom : dernière virgule de la ligne EXTINF
+      final commaIndex = trimmed.lastIndexOf(',');
+      final rawName = (commaIndex >= 0 && commaIndex < trimmed.length - 1)
+          ? trimmed.substring(commaIndex + 1).trim()
+          : '';
+      currentTvgName = ApiService._m3uAttr(trimmed, 'tvg-name').trim();
+      currentName = rawName.isNotEmpty ? rawName : currentTvgName;
+      currentLogoUrl = ApiService._m3uAttr(trimmed, 'tvg-logo').trim();
+      currentTvgId = ApiService._m3uAttr(trimmed, 'tvg-id').trim();
+      currentRadio = ApiService._m3uAttr(trimmed, 'radio').trim();
+      currentTvgType = ApiService._m3uAttr(trimmed, 'tvg-type').trim();
       currentGroup = ApiService._m3uAttr(trimmed, 'group-title').trim();
       catchupMode = ApiService._m3uAttr(trimmed, 'catchup').trim().toLowerCase();
       catchupSource = ApiService._m3uAttr(trimmed, 'catchup-source').trim();
@@ -2949,36 +3075,70 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
       final isVodExplicit = vodAttr == 'true' || vodAttr == '1' || typeAttr == 'vod';
 
     } else if (trimmed.isNotEmpty && !trimmed.startsWith('#')) {
-      if (currentName != null) {
+      if (currentName != null && currentName.isNotEmpty) {
+        try {
         final group = currentGroup ?? '';
         final autoCategory = AutoCategoryDetector.detect(currentName, group);
 
-        // Détection VOD : explicite OU groupe VOD OU catégorie Films/Séries
-        final isVodGroup = group.toLowerCase().contains('vod') ||
+        // Détection radio : groupe/nom contenant "radio" ou extension audio
+        final lowerUrl = line.trim().toLowerCase();
+        final isRadio = group.toLowerCase().contains('radio') ||
+            currentName.toLowerCase().contains('radio') ||
+            (currentRadio?.toLowerCase() == 'true') ||
+            (currentTvgType?.toLowerCase() == 'radio') ||
+            lowerUrl.endsWith('.mp3') ||
+            lowerUrl.endsWith('.aac') ||
+            lowerUrl.endsWith('.ogg') ||
+            lowerUrl.contains('/radio/');
+
+        // Signaux URL (approche multi-étapes comme iptv-m3u-playlist-parser) :
+        // les URLs Xtream contiennent /movie/, /series/, /live/, /radio/.
+        final isMovieUrl = !isRadio &&
+            (lowerUrl.contains('/movie/') || lowerUrl.contains('/movies/') ||
+                lowerUrl.contains('/vod/'));
+        final isSeriesUrl = !isRadio &&
+            (lowerUrl.contains('/series/') || lowerUrl.contains('/shows/') ||
+                lowerUrl.contains('/season/'));
+        // Détection HLS conservatrice : .m3u8 = live SAUF si signal VOD fort.
+        final isSeriesOrMoviePattern = isSeriesUrl || isMovieUrl ||
+            RegExp(r's\d{1,2}e\d{1,2}|\b\d{4}\b', caseSensitive: false)
+                .hasMatch(currentName);
+        final isHls = lowerUrl.endsWith('.m3u8');
+        final isLiveUrl = !isRadio && (lowerUrl.contains('/live/') ||
+            (isHls && !isSeriesOrMoviePattern) ||
+            lowerUrl.contains('/live?'));
+
+        // Détection VOD : explicite OU groupe VOD OU catégorie Films/Séries OU signal URL
+        final isVodGroup = !isRadio && !isLiveUrl && (group.toLowerCase().contains('vod') ||
             group.toLowerCase().contains('film') ||
             group.toLowerCase().contains('movie') ||
             group.toLowerCase().contains('série') ||
             group.toLowerCase().contains('series') ||
-            currentExtGrp?.toLowerCase() == 'vod';
+            currentExtGrp?.toLowerCase() == 'vod');
 
-        final isVod = AutoCategoryDetector.detect(currentName, group) == AutoCategory.films ||
-            AutoCategoryDetector.detect(currentName, group) == AutoCategory.series ||
-            isVodGroup;
+        final detectedCategory = AutoCategoryDetector.detect(currentName, group);
+        final isVod = !isRadio && !isLiveUrl && (isMovieUrl || isSeriesUrl ||
+            detectedCategory == AutoCategory.films ||
+            detectedCategory == AutoCategory.series ||
+            isVodGroup);
+
+        final baseId = (currentTvgId != null && currentTvgId.isNotEmpty)
+            ? currentTvgId
+            : 'ch_${liveChannels.length + vodChannels.length + seriesChannels.length + movieChannels.length + radioChannels.length}';
+        final channelId = '${baseId}-${entryIndex++}';
 
         final channel = Channel(
-          id: (liveChannels.length +
-                  vodChannels.length +
-                  seriesChannels.length +
-                  movieChannels.length)
-              .toString(),
+          id: channelId,
           name: currentName,
-          logoUrl: '',
+          logoUrl: currentLogoUrl ?? '',
           streamUrl: stream_helpers.requireStreamUrl(
-            line.trim(),
+            // Pipe stripping + extraction des en-têtes optionnels
+            StreamUrlHelper.parse(line.trim()).url,
             label: currentName,
           ),
           group: group,
-          categoryId: autoCategory.name,
+           categoryId: autoCategory.name,
+           epgChannelId: currentTvgId ?? '',
           supportsReplay:
               (catchupMode.isNotEmpty && catchupMode != 'none') ||
                   catchupSource.isNotEmpty ||
@@ -2990,10 +3150,12 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
           catchupSource: catchupSource,
         );
 
-        if (isVod) {
-          if (autoCategory == AutoCategory.series) {
+        if (isRadio) {
+          radioChannels.add(channel);
+        } else if (isVod) {
+          if (isSeriesUrl || autoCategory == AutoCategory.series) {
             seriesChannels.add(channel);
-          } else if (autoCategory == AutoCategory.films) {
+          } else if (isMovieUrl || autoCategory == AutoCategory.films) {
             movieChannels.add(channel);
           } else {
             vodChannels.add(channel); // VOD générique
@@ -3001,9 +3163,18 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
         } else {
           liveChannels.add(channel);
         }
+        } catch (_) {
+          // Entrée malformée : on l'ignore plutôt que de faire planter tout le parsing.
+        }
 
         currentName = null;
+        currentTvgName = null;
+        currentLogoUrl = null;
+        currentTvgId = null;
+        currentRadio = null;
+        currentTvgType = null;
         currentGroup = null;
+        currentExtGrp = null; // Réinitialise le groupe VOD après chaque entrée
         catchupMode = '';
         catchupSource = '';
         catchupDays = 0;
@@ -3016,5 +3187,6 @@ M3uParseResult parseM3uWithVodSeparation(String content) {
     vodChannels: vodChannels,
     seriesChannels: seriesChannels,
     movieChannels: movieChannels,
+    radioChannels: radioChannels,
   );
 }

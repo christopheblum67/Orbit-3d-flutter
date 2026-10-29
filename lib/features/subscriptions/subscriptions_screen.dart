@@ -95,6 +95,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const _FilterInfoBanner(),
+                const SizedBox(height: 12),
                 if (activeId == null)
                   _NoActiveBanner(
                     onAdd: () => _showAddSubscriptionDialog(context, ref),
@@ -684,26 +686,20 @@ class _SubscriptionFormDialogState
   final _passwordController = TextEditingController();
   final _m3uUrlController = TextEditingController();
   
-  // FocusNodes pour le clavier virtuel (TextFormField)
-  final _nameFocus = FocusNode();
-  final _baseUrlFocus = FocusNode();
-  final _usernameFocus = FocusNode();
-  final _passwordFocus = FocusNode();
-  final _m3uFocus = FocusNode();
-  final _submitFocus = FocusNode();
-  final _typeFocus = FocusNode();
-  
-  // FocusNodes DÉDIÉS pour la navigation TV (TvFocus) — séparés du clavier
-  final _nameTvFocus = FocusNode();
-  final _baseUrlTvFocus = FocusNode();
-  final _usernameTvFocus = FocusNode();
-  final _passwordTvFocus = FocusNode();
-  final _m3uTvFocus = FocusNode();
-  final _typeTvFocus = FocusNode();
-  final _submitTvFocus = FocusNode();
+  // Un seul FocusNode par contrôle.
+  late final FocusNode _nameFocus;
+  late final FocusNode _baseUrlFocus;
+  late final FocusNode _usernameFocus;
+  late final FocusNode _passwordFocus;
+  late final FocusNode _m3uFocus;
+  late final FocusNode _xtreamToggleFocus;
+  late final FocusNode _m3uToggleFocus;
+  late final FocusNode _cancelFocus;
+  late final FocusNode _saveFocus;
 
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -717,10 +713,34 @@ class _SubscriptionFormDialogState
       _passwordController.text = sub.password ?? '';
       _m3uUrlController.text = sub.m3uUrl ?? '';
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nameFocus.requestFocus();
-      _nameTvFocus.requestFocus();
-    });
+
+    _nameFocus = FocusNode(
+      debugLabel: 'subscription.name',
+      onKeyEvent: (_, e) => _fieldKeyEvent(e, down: _xtreamToggleFocus),
+    );
+    _xtreamToggleFocus = FocusNode(debugLabel: 'subscription.type.xtream');
+    _m3uToggleFocus = FocusNode(debugLabel: 'subscription.type.m3u');
+    _baseUrlFocus = FocusNode(
+      debugLabel: 'subscription.baseUrl',
+      onKeyEvent: (_, e) => _fieldKeyEvent(e, up: _xtreamToggleFocus, down: _usernameFocus),
+    );
+    _usernameFocus = FocusNode(
+      debugLabel: 'subscription.username',
+      onKeyEvent: (_, e) => _fieldKeyEvent(e, up: _baseUrlFocus, down: _passwordFocus),
+    );
+    _passwordFocus = FocusNode(
+      debugLabel: 'subscription.password',
+      onKeyEvent: (_, e) => _fieldKeyEvent(e, up: _usernameFocus, down: _saveFocus),
+    );
+    _m3uFocus = FocusNode(
+      debugLabel: 'subscription.m3uUrl',
+      onKeyEvent: (_, e) => _fieldKeyEvent(e, up: _m3uToggleFocus, down: _saveFocus),
+    );
+    _cancelFocus = FocusNode(debugLabel: 'subscription.cancel');
+    _saveFocus = FocusNode(
+      debugLabel: 'subscription.save',
+      onKeyEvent: (_, e) => _actionKeyEvent(e),
+    );
   }
 
   @override
@@ -735,23 +755,60 @@ class _SubscriptionFormDialogState
     _usernameFocus.dispose();
     _passwordFocus.dispose();
     _m3uFocus.dispose();
-    _submitFocus.dispose();
-    _typeFocus.dispose();
-    _nameTvFocus.dispose();
-    _baseUrlTvFocus.dispose();
-    _usernameTvFocus.dispose();
-    _passwordTvFocus.dispose();
-    _m3uTvFocus.dispose();
-    _submitTvFocus.dispose();
+    _xtreamToggleFocus.dispose();
+    _m3uToggleFocus.dispose();
+    _cancelFocus.dispose();
+    _saveFocus.dispose();
     super.dispose();
   }
 
-  void _requestFocus(FocusNode focus) {
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) FocusScope.of(context).requestFocus(focus);
-      });
+  KeyEventResult _moveFocusTo(FocusNode node) {
+    node.requestFocus();
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult _fieldKeyEvent(KeyEvent event, {FocusNode? up, FocusNode? down}) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowUp) {
+      return up == null ? KeyEventResult.handled : _moveFocusTo(up);
     }
+    if (key == LogicalKeyboardKey.arrowDown) {
+      return down == null ? KeyEventResult.handled : _moveFocusTo(down);
+    }
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      return down == null ? KeyEventResult.ignored : _moveFocusTo(down);
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _actionKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.gameButtonB) {
+      Navigator.of(context).maybePop();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      return _moveFocusTo(_type == SubscriptionType.xtream ? _passwordFocus : _m3uFocus);
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      return _moveFocusTo(_cancelFocus);
+    }
+    return KeyEventResult.ignored;
+  }
+
+  FocusNode _firstInvalidField() {
+    if (_nameController.text.trim().isEmpty) return _nameFocus;
+    if (_type == SubscriptionType.xtream) {
+      if (_baseUrlController.text.trim().isEmpty) return _baseUrlFocus;
+      if (_usernameController.text.trim().isEmpty) return _usernameFocus;
+      if (_passwordController.text.trim().isEmpty) return _passwordFocus;
+    } else if (_m3uUrlController.text.trim().isEmpty) {
+      return _m3uFocus;
+    }
+    return _nameFocus;
   }
 
   @override
@@ -774,159 +831,107 @@ class _SubscriptionFormDialogState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // 1. NOM
-                  TvFocus(
-                    focusNode: _nameTvFocus,
-                    onFocusChange: (hasFocus) {},
-                    child: TextFormField(
-                      controller: _nameController,
-                      focusNode: _nameFocus,
-                      decoration: const InputDecoration(
-                        labelText: 'Nom de l\'abonnement',
-                        prefixIcon: Icon(Icons.edit_outlined),
-                        border: OutlineInputBorder(),
-                      ),
-                      textInputAction: TextInputAction.next,
-                      onEditingComplete: () => _requestFocus(_typeFocus),
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                  TextFormField(
+                    controller: _nameController,
+                    focusNode: _nameFocus,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom de l\'abonnement',
+                      prefixIcon: Icon(Icons.edit_outlined),
+                      border: OutlineInputBorder(),
                     ),
+                    textInputAction: TextInputAction.next,
+                    onEditingComplete: () => _moveFocusTo(_xtreamToggleFocus),
+                    onFieldSubmitted: (_) => _moveFocusTo(_xtreamToggleFocus),
+                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. TYPE XTREAM / M3U (EN HAUT - toggle TV-friendly)
-                  TvFocus(
-                    focusNode: _typeTvFocus,
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent) {
-                        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-                            event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                          final nextFocus = _type == SubscriptionType.xtream
-                              ? _baseUrlFocus
-                              : _m3uFocus;
-                          _requestFocus(nextFocus);
-                          return KeyEventResult.handled;
-                        }
-                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                          _requestFocus(_nameFocus);
-                          return KeyEventResult.handled;
-                        }
-                        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-                          if (_type != SubscriptionType.xtream) {
-                            setState(() => _type = SubscriptionType.xtream);
-                          }
-                          return KeyEventResult.handled;
-                        }
-                        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                          if (_type != SubscriptionType.m3u) {
-                            setState(() => _type = SubscriptionType.m3u);
-                          }
-                          return KeyEventResult.handled;
-                        }
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Type de source',
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
+                  // 2. TYPE XTREAM / M3U
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Type de source',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
                         ),
-                        const SizedBox(height: 8),
-                        FocusTraversalGroup(
-                          policy: OrderedTraversalPolicy(),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _TypeToggleButton(
-                                  value: SubscriptionType.xtream,
-                                  groupValue: _type,
-                                  label: l.xtreamCodes,
-                                  icon: Icons.tv_outlined,
-                                  onChanged: (v) => setState(() => _type = v),
-                                ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TvFocus(
+                              focusNode: _xtreamToggleFocus,
+                              onActivate: () => setState(() => _type = SubscriptionType.xtream),
+                              child: _TypeToggleButton(
+                                value: SubscriptionType.xtream,
+                                groupValue: _type,
+                                label: l.xtreamCodes,
+                                icon: Icons.tv_outlined,
+                                onChanged: (v) => setState(() => _type = v),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _TypeToggleButton(
-                                  value: SubscriptionType.m3u,
-                                  groupValue: _type,
-                                  label: l.m3uPlaylist,
-                                  icon: Icons.playlist_play_outlined,
-                                  onChanged: (v) => setState(() => _type = v),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TvFocus(
+                              focusNode: _m3uToggleFocus,
+                              onActivate: () => setState(() => _type = SubscriptionType.m3u),
+                              child: _TypeToggleButton(
+                                value: SubscriptionType.m3u,
+                                groupValue: _type,
+                                label: l.m3uPlaylist,
+                                icon: Icons.playlist_play_outlined,
+                                onChanged: (v) => setState(() => _type = v),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
 
                   // 3. CHAMPS SELON TYPE
                   if (_type == SubscriptionType.xtream) ...[
-                    TvFocus(
-                      focusNode: _baseUrlTvFocus,
-                      child: TextFormField(
-                        controller: _baseUrlController,
-                        focusNode: _baseUrlFocus,
-                        decoration: InputDecoration(
-                          labelText: l.serverUrlPlaceholder,
-                          prefixIcon: const Icon(Icons.link_outlined),
-                          border: const OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        onEditingComplete: () => _requestFocus(_usernameFocus),
-                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    TextFormField(
+                      controller: _baseUrlController,
+                      focusNode: _baseUrlFocus,
+                      decoration: InputDecoration(
+                        labelText: l.serverUrlPlaceholder,
+                        prefixIcon: const Icon(Icons.link_outlined),
+                        border: const OutlineInputBorder(),
                       ),
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () => _moveFocusTo(_usernameFocus),
+                      onFieldSubmitted: (_) => _moveFocusTo(_usernameFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
                     const SizedBox(height: 16),
-                    TvFocus(
-                      focusNode: _usernameTvFocus,
-                      child: TextFormField(
-                        controller: _usernameController,
-                        focusNode: _usernameFocus,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
-                          prefixIcon: Icon(Icons.person_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        onEditingComplete: () => _requestFocus(_passwordFocus),
-                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    TextFormField(
+                      controller: _usernameController,
+                      focusNode: _usernameFocus,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixIcon: Icon(Icons.person_outlined),
+                        border: OutlineInputBorder(),
                       ),
+                      textInputAction: TextInputAction.next,
+                      onEditingComplete: () => _moveFocusTo(_passwordFocus),
+                      onFieldSubmitted: (_) => _moveFocusTo(_passwordFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
                     const SizedBox(height: 16),
-                    TvFocus(
-                      focusNode: _passwordTvFocus,
-                      onKeyEvent: (node, event) {
-                        if (event is KeyDownEvent) {
-                          if (event.logicalKey == LogicalKeyboardKey.enter ||
-                              event.logicalKey == LogicalKeyboardKey.select ||
-                              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                            // Toggle password visibility on OK/Enter
-                            setState(() => _obscurePassword = !_obscurePassword);
-                            return KeyEventResult.handled;
-                          }
-                          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                            _requestFocus(_submitFocus);
-                            return KeyEventResult.handled;
-                          }
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      child: TextFormField(
-                        controller: _passwordController,
-                        focusNode: _passwordFocus,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
+                    TextFormField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocus,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: ExcludeFocus(
+                          child: IconButton(
                             tooltip: _obscurePassword
                                 ? 'Afficher le mot de passe'
                                 : 'Masquer le mot de passe',
@@ -940,40 +945,26 @@ class _SubscriptionFormDialogState
                             ),
                           ),
                         ),
-                        obscureText: _obscurePassword,
-                        textInputAction: TextInputAction.done,
-                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                       ),
+                      obscureText: _obscurePassword,
+                      textInputAction: TextInputAction.done,
+                      onEditingComplete: () => _moveFocusTo(_saveFocus),
+                      onFieldSubmitted: (_) => _moveFocusTo(_saveFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
                   ] else ...[
-                    TvFocus(
-                      focusNode: _m3uTvFocus,
-                      onKeyEvent: (node, event) {
-                        if (event is KeyDownEvent) {
-                          if (event.logicalKey == LogicalKeyboardKey.enter ||
-                              event.logicalKey == LogicalKeyboardKey.select ||
-                              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                            _requestFocus(_submitFocus);
-                            return KeyEventResult.handled;
-                          }
-                          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                            _requestFocus(_typeFocus);
-                            return KeyEventResult.handled;
-                          }
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      child: TextFormField(
-                        controller: _m3uUrlController,
-                        focusNode: _m3uFocus,
-                        decoration: InputDecoration(
-                          labelText: l.m3uPlaylistUrl,
-                          prefixIcon: const Icon(Icons.playlist_play_outlined),
-                          border: const OutlineInputBorder(),
-                        ),
-                        textInputAction: TextInputAction.done,
-                        validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    TextFormField(
+                      controller: _m3uUrlController,
+                      focusNode: _m3uFocus,
+                      decoration: InputDecoration(
+                        labelText: l.m3uPlaylistUrl,
+                        prefixIcon: const Icon(Icons.playlist_play_outlined),
+                        border: const OutlineInputBorder(),
                       ),
+                      textInputAction: TextInputAction.done,
+                      onEditingComplete: () => _moveFocusTo(_saveFocus),
+                      onFieldSubmitted: (_) => _moveFocusTo(_saveFocus),
+                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
                   ],
                 ],
@@ -984,46 +975,29 @@ class _SubscriptionFormDialogState
       ),
       actions: [
         TvFocus(
-          focusNode: _submitTvFocus,
-          autofocus: false,
-          onActivate: _save,
+          focusNode: _cancelFocus,
+          onActivate: () => Navigator.pop(context),
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              _save();
-              return KeyEventResult.handled;
-            }
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.escape ||
                     event.logicalKey == LogicalKeyboardKey.gameButtonB)) {
               Navigator.pop(context);
               return KeyEventResult.handled;
             }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowUp)) {
-              final prevFocus = _type == SubscriptionType.xtream
-                  ? _passwordTvFocus
-                  : _m3uTvFocus;
-              _requestFocus(prevFocus);
-              return KeyEventResult.handled;
-            }
             return KeyEventResult.ignored;
           },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
-              ),
-              const SizedBox(width: 12),
-              FilledButton(
-                onPressed: _save,
-                child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
-              ),
-            ],
+          child: TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+        ),
+        TvFocus(
+          focusNode: _saveFocus,
+          onActivate: _saving ? null : _save,
+          onKeyEvent: (node, event) => _actionKeyEvent(event),
+          child: FilledButton(
+            onPressed: _saving ? null : _save,
+            child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
           ),
         ),
       ],
@@ -1031,8 +1005,14 @@ class _SubscriptionFormDialogState
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final formState = _formKey.currentState;
-    if (formState == null || !formState.validate()) return;
+    if (formState == null) return;
+    if (!formState.validate()) {
+      _moveFocusTo(_firstInvalidField());
+      return;
+    }
+    setState(() => _saving = true);
 
     final id = widget.subscription?.id ??
         DateTime.now().millisecondsSinceEpoch.toString();
@@ -1085,6 +1065,7 @@ class _SubscriptionFormDialogState
       LoggerService.instance
           .error('_SubscriptionFormDialog._save failed', error: e, stackTrace: st);
       if (mounted) {
+        setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de la sauvegarde : $e')),
         );
@@ -1114,14 +1095,10 @@ class _TypeToggleButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isSelected = groupValue == value;
 
-    return Expanded(
-      child: TvFocus(
-        onActivate: () => onChanged(value),
-        child: Focus(
-          onFocusChange: (hasFocus) {},
-          child: InkWell(
-            onTap: () => onChanged(value),
-            borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      canRequestFocus: false,
+      onTap: () => onChanged(value),
+      borderRadius: BorderRadius.circular(12),
             child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
@@ -1183,9 +1160,6 @@ class _TypeToggleButton extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    ),
-  );
+    );
   }
 }

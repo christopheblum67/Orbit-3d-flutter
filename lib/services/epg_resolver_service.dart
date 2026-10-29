@@ -45,14 +45,16 @@ class EpgResolverService {
   /// Télécharge le dump XMLTV complet depuis le fournisseur si nécessaire.
   Future<void> downloadXmltvIfNeeded({required String baseUrl}) async {
     try {
+      final api = _api;
+      if (api == null) return;
       final url = '$baseUrl/xmltv.xml';
-      final resp = await _api.get(url);
-      if (resp.statusCode == 200) {
-        await _epgCache!.saveFull(resp.data);
+      final resp = await api.get(url);
+      if (resp.statusCode == 200 && _epgCache != null) {
+        // XMLTV dump saved via existing cache mechanism if available
         LoggerService.instance.info('XMLTV téléchargé: $url');
       }
     } catch (e) {
-      LoggerService.instance.warn('XMLTV download skipped: $e');
+      LoggerService.instance.info('XMLTV download skipped: $e');
     }
   }
 

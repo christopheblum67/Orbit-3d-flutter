@@ -141,47 +141,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    final l = AppLocalizations.of(context);
     final today = DateTime.now();
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
-    final lastRefresh = ref.watch(lastRefreshTimestampProvider);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Column(
         children: [
           Row(
             children: [
-              _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
-              const Spacer(),
               TvFocus(
                 onActivate: () => context.go('/settings'),
-                child: GestureDetector(
-                  onTap: () => context.go('/settings'),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.settings,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
+                child: IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                  tooltip: 'Menu',
+                  onPressed: () => context.go('/settings'),
                 ),
               ),
-              const SizedBox(width: 10),
-              _UpdateStack(
-                tooltip: l.updateAllData,
-                onPressed: _refreshAll,
-                lastRefresh: lastRefresh,
+              const Spacer(),
+              const Text(
+                'Orbit IPTV',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              const Spacer(),
+              _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
             ],
           ),
           const SizedBox(height: 10),
@@ -427,8 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    final profilesAsync = ref.watch(profilesProvider);
-    final current = ref.watch(currentProfileProvider);
+    final l = AppLocalizations.of(context);
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -442,25 +428,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           const _SubStatusChip(),
           const Spacer(),
-          GestureDetector(
-            onTap: () => context.go('/profiles'),
-            child: Row(
-              children: [
-                Text(
-                  'Profil : ',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildProfileAvatar(
-                  context,
-                  current,
-                  profilesAsync.value ?? const <UserProfile>[],
-                ),
-              ],
-            ),
+          Consumer(
+            builder: (context, ref, _) {
+              final current = ref.watch(currentProfileProvider);
+              final profiles = ref.watch(profilesProvider).value ?? const <UserProfile>[];
+              return InkWell(
+                onTap: () => context.go('/profiles'),
+                borderRadius: BorderRadius.circular(20),
+                child: _buildProfileAvatar(context, current, profiles),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          _UpdateStack(
+            tooltip: l.updateAllData,
+            onPressed: _refreshAll,
+            lastRefresh: ref.watch(lastRefreshTimestampProvider),
           ),
         ],
       ),

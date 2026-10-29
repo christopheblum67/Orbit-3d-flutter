@@ -510,9 +510,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                 onTap: widget.onEdit,
                 child: GestureDetector(
                   onTap: widget.onEdit,
-                  child: OrbitAvatar(
+                  child: ProfileAvatar(
                     profile: profile,
-                    enlarged: _focused || isActive,
+                    size: _focused || isActive ? 88 : 80,
                   ),
                 ),
               ),

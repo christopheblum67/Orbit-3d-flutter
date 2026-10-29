@@ -38,6 +38,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _scrollController = ScrollController();
+  late final FocusNode _nameFocus;
+  late final FocusNode _nextButtonFocus;
   ProfileType _type = ProfileType.adult;
   String? _remoteAvatarUrl;
   String? _pinHash;
@@ -112,6 +114,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         ),
         actions: [
           Focus(
+            autofocus: true,
             focusNode: cancelFocus,
             onKeyEvent: (node, event) {
               if (event is KeyDownEvent &&
@@ -255,6 +258,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   void _scrollToNextSection() {
     if (_nameController.text.trim().isEmpty) {
       setState(() => _submitted = true);
+      _nameFocus.requestFocus();
       return;
     }
     // Attend la fin de la frame pour que le layout soit à jour.
@@ -270,13 +274,36 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+      _nextButtonFocus.requestFocus();
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _nameFocus = FocusNode(
+      debugLabel: 'profile.name',
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+            event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+          _nextButtonFocus.requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
+    _nextButtonFocus = FocusNode(debugLabel: 'profile.next');
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _scrollController.dispose();
+    _nameFocus.dispose();
+    _nextButtonFocus.dispose();
     super.dispose();
   }
 
@@ -483,7 +510,15 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                   ),
                 );
               }
-              _fillFromProfile(target);
+              if (_loadedTarget != target) {
+                _loadedTarget = target;
+                if (target != null) {
+                  final profile = target!;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _fillFromProfile(profile);
+                  });
+                }
+              }
               return _buildBody();
             },
           ),
@@ -650,6 +685,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         children: [
           TextFormField(
             controller: _nameController,
+            focusNode: _nameFocus,
             maxLength: AppConstants.maxNameLength,
             autofocus: !_isEdit,
             textCapitalization: TextCapitalization.words,
@@ -670,10 +706,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             onChanged: (_) {
               if (_submitted) setState(() {});
             },
-            onFieldSubmitted: (_) {
-              // Sur TV : Entrée/OK = valider le pseudo et passer à la suite
-              _scrollToNextSection();
-            },
+            onEditingComplete: _scrollToNextSection,
+            onFieldSubmitted: (_) => _scrollToNextSection(),
           ),
           const SizedBox(height: 12),
           // Bouton "Suivant" visible pour TV (D-pad) : évite de devoir scroller
@@ -683,6 +717,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             child: FocusTraversalGroup(
               policy: OrderedTraversalPolicy(),
               child: TvFocus(
+                focusNode: _nextButtonFocus,
                 onActivate: _scrollToNextSection,
                 child: OutlinedButton.icon(
                   onPressed: _scrollToNextSection,
@@ -879,36 +914,30 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       child: Row(
         children: [
           Expanded(
-            child: FocusTraversalGroup(
-              policy: OrderedTraversalPolicy(),
-              child: TvFocus(
-                onActivate: _saving ? null : handleBack,
-                child: OutlinedButton.icon(
-                  onPressed: _saving ? null : handleBack,
-                  icon: const Icon(Icons.close_rounded),
-                  label: const Text('Annuler'),
-                ),
+            child: TvFocus(
+              onActivate: _saving ? null : handleBack,
+              child: OutlinedButton.icon(
+                onPressed: _saving ? null : handleBack,
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Annuler'),
               ),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: FocusTraversalGroup(
-              policy: OrderedTraversalPolicy(),
-              child: TvFocus(
-                autofocus: true,
-                onActivate: _saving ? null : _save,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: Text(_isEdit ? 'Enregistrer' : 'Créer le profil'),
-                ),
+            child: TvFocus(
+              autofocus: false,
+              onActivate: _saving ? null : _save,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _save,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(_isEdit ? 'Enregistrer' : 'Créer le profil'),
               ),
             ),
           ),
