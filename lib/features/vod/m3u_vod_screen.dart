@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -38,8 +40,8 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
     }
 
     final vodAsync = ref.watch(vodChannelsProvider);
-    final seriesAsync = ref.watch(seriesChannelsProvider);
-    final moviesAsync = ref.watch(movieChannelsProvider);
+    final moviesAsync = ref.watch(m3uMoviesProvider);
+    final seriesAsync = ref.watch(m3uSeriesProvider);
 
     // Filtre local par recherche
     List<Channel> filterList(List<Channel> source) {
@@ -48,9 +50,21 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
       return source.where((c) => c.name.toLowerCase().contains(q)).toList();
     }
 
+    List<Movie> filterMovies(List<Movie> source) {
+      if (_query.isEmpty) return source;
+      final q = _query.toLowerCase();
+      return source.where((m) => m.title.toLowerCase().contains(q)).toList();
+    }
+
+    List<Series> filterSeries(List<Series> source) {
+      if (_query.isEmpty) return source;
+      final q = _query.toLowerCase();
+      return source.where((s) => s.title.toLowerCase().contains(q)).toList();
+    }
+
     final vodList = filterList(vodAsync.value ?? const <Channel>[]);
-    final seriesList = filterList(seriesAsync.value ?? const <Channel>[]);
-    final moviesList = filterList(moviesAsync.value ?? const <Channel>[]);
+    final moviesList = filterMovies(moviesAsync.value ?? const <Movie>[]);
+    final seriesList = filterSeries(seriesAsync.value ?? const <Series>[]);
 
     final currentList = switch (_selectedTab) {
       'films' => moviesList,
@@ -141,23 +155,11 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
               ),
               // Grille de contenu
               Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 6,
-                    childAspectRatio: 0.65,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: currentList.length,
-                  itemBuilder: (context, index) {
-                    final channel = currentList[index];
-                    return _M3uVodTile(
-                      channel: channel,
-                      onTap: () => _openDetail(channel),
-                    );
-                  },
-                ),
+                child: switch (_selectedTab) {
+                  'films' => _buildMovieGrid(moviesList),
+                  'series' => _buildSeriesGrid(seriesList),
+                  _ => _buildChannelGrid(vodList),
+                },
               ),
             ],
           );
@@ -168,6 +170,99 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
 
   void _openDetail(Channel channel) {
     context.push('/m3u-vod/detail', extra: channel);
+  }
+
+  void _openMovieDetail(Movie movie) {
+    context.push('/vod/detail', extra: movie);
+  }
+
+  void _openSeries(Series series) {
+    final firstEpisode = series.episodes.isNotEmpty ? series.episodes.first : null;
+    final channel = Channel(
+      id: series.id,
+      name: series.title,
+      streamUrl: firstEpisode?.streamUrl ?? '',
+      logoUrl: series.coverUrl,
+      group: series.genre,
+      categoryId: 'series',
+    );
+    _openDetail(channel);
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.video_library_outlined, size: 64, color: Colors.white38),
+          const SizedBox(height: 16),
+          Text(
+            _query.isEmpty ? 'Aucun contenu VOD détecté' : 'Aucun résultat pour "$_query"',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChannelGrid(List<Channel> channels) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 5,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: channels.length,
+      itemBuilder: (context, index) {
+        final channel = channels[index];
+        return _M3uVodTile(
+          channel: channel,
+          onTap: () => _openDetail(channel),
+        );
+      },
+    );
+  }
+
+  Widget _buildMovieGrid(List<Movie> movies) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 5,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: movies.length,
+      itemBuilder: (context, index) {
+        final movie = movies[index];
+        return _M3uMovieTile(
+          movie: movie,
+          onTap: () => _openMovieDetail(movie),
+        );
+      },
+    );
+  }
+
+  Widget _buildSeriesGrid(List<Series> seriesList) {
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 5,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: seriesList.length,
+      itemBuilder: (context, index) {
+        final series = seriesList[index];
+        return _M3uSeriesTile(
+          series: series,
+          onTap: () => _openSeries(series),
+        );
+      },
+    );
   }
 }
 
@@ -434,6 +529,170 @@ class _InfoChip extends StatelessWidget {
                 ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tuile film M3U
+class _M3uMovieTile extends StatelessWidget {
+  const _M3uMovieTile({required this.movie, required this.onTap});
+
+  final Movie movie;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TvFocus(
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: scheme.surfaceContainerHighest,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: movie.posterUrl.isNotEmpty
+                      ? Image.network(
+                          movie.posterUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, __, ___) => _moviePlaceholder(context),
+                        )
+                      : _moviePlaceholder(context),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              movie.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'FILM',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _moviePlaceholder(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          Icons.movie_outlined,
+          size: 48,
+          color: Colors.white38,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tuile série M3U
+class _M3uSeriesTile extends StatelessWidget {
+  const _M3uSeriesTile({required this.series, required this.onTap});
+
+  final Series series;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return TvFocus(
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: scheme.surfaceContainerHighest,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: series.coverUrl.isNotEmpty
+                      ? Image.network(
+                          series.coverUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, __, ___) => _seriesPlaceholder(context),
+                        )
+                      : _seriesPlaceholder(context),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              series.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'SÉRIE',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _seriesPlaceholder(BuildContext context) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Icon(
+          Icons.tv_outlined,
+          size: 48,
+          color: Colors.white38,
+        ),
       ),
     );
   }

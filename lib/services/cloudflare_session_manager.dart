@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -47,6 +48,49 @@ class CloudflareSessionManager extends ChangeNotifier {
   /// d'un renouvellement a chaque appel) alors que la lecture fonctionne.
   bool _noChallengeRequired = false;
   Timer? _renewalTimer;
+
+  /// Persistance locale du cookie Cloudflare (froid : survit au redémarrage).
+  static const String _prefsKeyCookies = 'cf_cookies';
+  static const String _prefsKeyUserAgent = 'cf_user_agent';
+  static const String _prefsKeyBaseUrl = 'cf_base_url';
+  static const String _prefsKeyExpiry = 'cf_cookie_expiry';
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cookies = prefs.getString(_prefsKeyCookies);
+      final ua = prefs.getString(_prefsKeyUserAgent);
+      final base = prefs.getString(_prefsKeyBaseUrl);
+      final expiryMs = prefs.getInt(_prefsKeyExpiry);
+      if (cookies != null && ua != null && base != null && expiryMs != null) {
+        final expiry = DateTime.fromMillisecondsSinceEpoch(expiryMs);
+        if (expiry.isAfter(DateTime.now())) {
+          _cookies = cookies;
+          _userAgent = ua;
+          _baseUrl = base;
+          _cookieExpiry = expiry;
+          _isInitialized = true;
+          _noChallengeRequired = cookies.isNotEmpty;
+          _startRenewalTimer();
+          debugPrint('☁️ [CF] session restaurée depuis le stockage local');
+        }
+      }
+    } catch (_) {
+      // Non bloquant : on repart sur un challenge frais.
+    }
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKeyCookies, _cookies);
+      await prefs.setString(_prefsKeyUserAgent, _userAgent);
+      await prefs.setString(_prefsKeyBaseUrl, _baseUrl);
+      await prefs.setInt(_prefsKeyExpiry, _cookieExpiry?.millisecondsSinceEpoch ?? 0);
+    } catch (_) {
+      // Non bloquant.
+    }
+  }
 
   /// Chaine de serialisation des challenges. Un simpleFuture se terminant
   /// toujours sans erreur evite les deadlocks du type "s'auto-verrouiller".
@@ -99,8 +143,8 @@ class CloudflareSessionManager extends ChangeNotifier {
   /// Idempotent : si une session valide existe deja, ne relance rien.
   Future<void> initialize({required String baseUrl}) {
     return _synchronized(() async {
-      // Le singleton est partage : on peut avoir ete dispose par un provider.
       _disposed = false;
+      await _loadFromPrefs();
       if (isReady && _cookiesValid) return;
 
       // Un changement d'hote peut reintroduire un challenge : on repart de zero.
@@ -354,6 +398,7 @@ class CloudflareSessionManager extends ChangeNotifier {
     final kept = relevant.isNotEmpty ? relevant : entries;
     _cookies = kept.join('; ');
     _cookieExpiry = DateTime.now().add(_cookieLifetime);
+    await _saveToPrefs();
 
     final hasClearance = kept.any((c) => c.toLowerCase().startsWith('cf_clearance='));
     debugPrint('☁️ [CF] cookies captured: ${kept.length} entries, '

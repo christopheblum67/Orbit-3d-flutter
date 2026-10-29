@@ -427,6 +427,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         children: [
           const _SubStatusChip(),
+          const SizedBox(width: 8),
+          _UpdateStack(
+            tooltip: l.updateAllData,
+            onPressed: _refreshAll,
+            lastRefresh: ref.watch(lastRefreshTimestampProvider),
+          ),
           const Spacer(),
           Consumer(
             builder: (context, ref, _) {
@@ -438,12 +444,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildProfileAvatar(context, current, profiles),
               );
             },
-          ),
-          const SizedBox(width: 8),
-          _UpdateStack(
-            tooltip: l.updateAllData,
-            onPressed: _refreshAll,
-            lastRefresh: ref.watch(lastRefreshTimestampProvider),
           ),
         ],
       ),
