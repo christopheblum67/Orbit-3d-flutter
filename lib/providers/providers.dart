@@ -502,6 +502,26 @@ class CurrentProfileNotifier extends Notifier<UserProfile?> {
   UserProfile? build() => null;
 
   void setUserProfile(UserProfile? profile) => state = profile;
+final m3uPlaylistProvider = FutureProvider<M3uPlaylist>(
+  (ref) async {
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null || sub.type != SubscriptionType.m3u) {
+      return const M3uPlaylist(
+        channels: <Channel>[],
+        radios: <Channel>[],
+        movies: <Movie>[],
+        series: <Series>[],
+      );
+    }
+    final url = sub.m3uUrl;
+    if (url == null || url.isEmpty) {
+      throw StateError('L’URL de la playlist M3U est manquante.');
+    }
+    return ref.watch(apiServiceProvider).fetchM3uPlaylist(url);
+  },
+  retry: _retryUnlessRateLimited,
+);
+
 }
 
 final sourceTypeProvider = FutureProvider<String?>((ref) async {
@@ -532,6 +552,10 @@ final liveChannelsProvider = FutureProvider<List<Channel>>(
 /// par la feuille des sous-titres pour interroger `get_vod_info` ou
 /// `get_series_info`. `null` pour un flux live : les panels ne publient pas de
 /// sous-titres par chaîne, et la feuille retombe alors sur la saisie manuelle.
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return filter.visibleList(playlist.channels);
+    }
 class SubtitleContext {
   const SubtitleContext({
     required this.contentId,
@@ -608,6 +632,10 @@ final moviesProvider = FutureProvider<List<Movie>>(
         error: result.errorOrNull,
       );
       throw result.errorOrNull!;
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return filter.visibleList(playlist.movies);
+    }
     }
     final movies = result.valueOrNull ?? const <Movie>[];
     try {
@@ -630,13 +658,8 @@ final liveCategoriesFromM3UProvider =
   final api = ref.watch(apiServiceProvider);
   final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null || sub.type != SubscriptionType.m3u) return const [];
-  final channels = await api.fetchLiveChannels();
-  final groups = <String>{};
-  for (final c in channels) {
-    if (c.group.isNotEmpty) groups.add(c.group);
-  }
-  return groups.map((g) => MediaCategory(id: g, name: g)).toList()
-    ..sort((a, b) => a.name.compareTo(b.name));
+  final playlist = await ref.watch(m3uPlaylistProvider.future);
+  return _m3uCategories(playlist.channels.map((item) => item.categoryId));
 });
 
 /// Politique de relance automatique après l'échec d'un provider.
@@ -672,7 +695,11 @@ final vodCategoriesProvider = FutureProvider<List<MediaCategory>>(
     final api = ref.watch(apiServiceProvider);
     // Dépend de l'abonnement actif pour recharger les catégories VOD
     final sub = ref.watch(activeSubscriptionProvider);
-    if (sub == null || sub.type != SubscriptionType.xtream) return const [];
+    if (sub == null) return const [];
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return _m3uCategories(playlist.movies.map((item) => item.categoryId));
+    }
     return api.fetchVodCategories();
   },
   retry: _retryUnlessRateLimited,
@@ -681,7 +708,12 @@ final vodCategoriesProvider = FutureProvider<List<MediaCategory>>(
 final seriesCategoriesProvider = FutureProvider<List<MediaCategory>>(
   (ref) async {
     final api = ref.watch(apiServiceProvider);
-    ref.watch(activeSubscriptionProvider);
+    final sub = ref.watch(activeSubscriptionProvider);
+    if (sub == null) return const [];
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return _m3uCategories(playlist.series.map((item) => item.categoryId));
+    }
     return api.fetchSeriesCategories();
   },
   retry: _retryUnlessRateLimited,
@@ -715,6 +747,10 @@ final seriesInfoProvider =
 /// Films projetés en modèle compact pour la navigation.
 final moviesCompactProvider = FutureProvider<List<MovieCompact>>((ref) async {
   final movies = await ref.watch(moviesProvider.future);
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return filter.visibleList(playlist.series);
+    }
   return movies.map(MovieCompact.fromMovie).toList(growable: false);
 });
 
@@ -727,6 +763,15 @@ final seriesCompactProvider = FutureProvider<List<SeriesCompact>>((ref) async {
 // ==================== DÉTAILS ENRICHIS (MovieDetail, SeriesDetail) ====================
 
 /// Film enrichi avec métadonnées TMDB/TVmaze/OMDB/IA
+  final sub = ref.watch(activeSubscriptionProvider);
+  if (sub?.type == SubscriptionType.m3u) {
+    final playlist = await ref.watch(m3uPlaylistProvider.future);
+    final series = playlist.series;
+    for (final item in series) {
+      if (item.id == seriesId) return item;
+    }
+    throw StateError('Série M3U introuvable dans la playlist.');
+  }
 ///
 /// Volontairement NON `autoDispose`, contrairement aux `.family` TMDB voisins :
 /// la clé est l'objet `Movie` ENTIER. Un film sans `tmdbId` garde une identité
@@ -779,12 +824,34 @@ class ReplaysCache {
   /// Valeur déjà en cache, SANS déclencher de chargement.
   ///
   /// `replaysProvider` s'en sert pour s'afficher tout de suite avec ce qui a
+  if (ref.watch(activeSubscriptionProvider)?.type == SubscriptionType.m3u) {
+    return SeriesDetail.fromSeries(series, dataSource: 'm3u');
+  }
   /// déjà été sondé, pendant que la sonde tourne en tâche de fond. Appeler
   /// [fetch] ici déclencherait le chargement et rebloquerait l'écran pendant
   /// toute la sonde (jusqu'à 40 chaînes).
   List<ReplayItem>? get peek => isFresh ? _all : null;
 
   /// Renvoie la valeur en cache si fraîche, sinon charge via [loader] (un
+List<MediaCategory> _m3uCategories(Iterable<String> categoryIds) {
+  final counts = <String, int>{};
+  for (final id in categoryIds) {
+    if (id.isNotEmpty) {
+      counts.update(id, (count) => count + 1, ifAbsent: () => 1);
+    }
+  }
+  return counts.entries
+      .map(
+        (entry) => MediaCategory(
+          id: entry.key,
+          name: entry.key,
+          count: entry.value,
+        ),
+      )
+      .toList()
+    ..sort((a, b) => a.name.compareTo(b.name));
+}
+
   /// seul chargement à la fois, partagé entre tous les appelants).
   Future<List<ReplayItem>> fetch(
     Future<List<ReplayItem>> Function() loader,
@@ -808,6 +875,10 @@ class ReplaysCache {
         if (identical(_inFlight, request)) _inFlight = null;
         throw error;
       },
+    if (sub.type == SubscriptionType.m3u) {
+      final playlist = await ref.watch(m3uPlaylistProvider.future);
+      return playlist.radios;
+    }
     );
     _inFlight = request;
     return request;

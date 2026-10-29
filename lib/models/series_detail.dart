@@ -84,7 +84,7 @@ class SeriesDetail {
       numberOfSeasons: series.episodes.map((e) => e.season).toSet().length,
       numberOfEpisodes: series.episodes.length,
       cast: const [],
-      dataSource: 'xtream',
+      dataSource: dataSource,
     );
   }
 

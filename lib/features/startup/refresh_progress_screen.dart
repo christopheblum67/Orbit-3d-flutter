@@ -81,6 +81,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     ref.invalidate(radioChannelsProvider);
     ref.invalidate(replaysProvider);
     ref.invalidate(epgProgramsProvider);
+    ref.invalidate(m3uPlaylistProvider);
 
     await _controller.run((step) async {
       final List<dynamic> list = switch (step) {

@@ -2440,75 +2440,28 @@ class ApiService {
   }
 
   List<Channel> parseM3u(String content) {
-    final lines = content.split('\n');
-    final channels = <Channel>[];
-    String? currentName;
-    String? currentGroup;
-    // Attributs catch-up de la ligne #EXTINF en cours.
-    //
-    // Ils étaient lus sur la ligne d'URL qui suit, où ils n'existent pas :
-    // `catchup`, `catchup-days` et `timeshift` revenaient donc VIDES, et
-    // `supportsReplay` valait toujours `false` en M3U — le replay était mort
-    // avant même d'être cherché. Les attributs sont déclarés sur #EXTINF, il
-    // faut donc les lire là, au moment où on la parse.
-    var catchupMode = '';
-    var catchupSource = '';
-    var catchupDays = 0;
-    var timeshift = 0;
-    for (final line in lines) {
-      if (line.startsWith('#EXTINF')) {
-        final nameMatch = RegExp(r',(.+)$').firstMatch(line);
-        if (nameMatch != null) {
-          currentName = nameMatch.group(1)!.trim();
-        }
-        currentGroup = _m3uAttr(line, 'group-title').trim();
-        catchupMode = _m3uAttr(line, 'catchup').trim().toLowerCase();
-        catchupSource = _m3uAttr(line, 'catchup-source').trim();
-        catchupDays = int.tryParse(_m3uAttr(line, 'catchup-days').trim()) ?? 0;
-        timeshift = int.tryParse(_m3uAttr(line, 'timeshift').trim()) ?? 0;
-      } else if (line.isNotEmpty && !line.startsWith('#')) {
-        if (currentName != null) {
-          channels.add(
-            Channel(
-              id: channels.length.toString(),
-              name: currentName,
-              logoUrl: '',
-              streamUrl: stream_helpers.requireStreamUrl(
-                line.trim(),
-                label: currentName,
-              ),
-              group: currentGroup ?? '',
-              // `catchup="none"` est la valeur d'absence explicite : elle ne
-              // doit pas compter comme un mode de substitution.
-              supportsReplay:
-                  (catchupMode.isNotEmpty && catchupMode != 'none') ||
-                      catchupSource.isNotEmpty ||
-                      catchupDays > 0 ||
-                      timeshift > 0,
-              timeshift: Duration(seconds: timeshift),
-              // `catchup-days` EST la fenêtre de l'abonnement. C'est elle qui
-              // remplace le 48 h deviné : 48 h, 7 j ou 14 j selon le compte.
-              archiveDays: catchupDays,
-              catchupMode: catchupMode,
-              catchupSource: catchupSource,
-            ),
-          );
-          currentName = null;
-          currentGroup = null;
-          catchupMode = '';
-          catchupSource = '';
-          catchupDays = 0;
-          timeshift = 0;
-        }
-      }
-    }
-    return channels;
+    return M3uPlaylistParser.parse(content).channels;
   }
 
-  /// Lit un attribut `clé="valeur"` dans une ligne M3U (#EXTINF).
-  static String _m3uAttr(String line, String key) {
-    final match = RegExp('$key="([^"]*)"').firstMatch(line);
-    return match?.group(1) ?? '';
+  Future<M3uPlaylist> fetchM3uPlaylist(String url) async {
+    final stopwatch = Stopwatch()..start();
+    logDiag('M3U playlist=fetch-start');
+    final response = await _get(url);
+    final content = response.data.toString();
+    logDiag(
+      'M3U playlist=downloaded chars=${content.length} '
+      'durationMs=${stopwatch.elapsedMilliseconds}',
+    );
+    final parseStopwatch = Stopwatch()..start();
+    final playlist = M3uPlaylistParser.parse(content);
+    logDiag(
+      'M3U playlist=parsed channels=${playlist.channels.length} '
+      'radios=${playlist.radios.length} '
+      'movies=${playlist.movies.length} series=${playlist.series.length} '
+      'durationMs=${parseStopwatch.elapsedMilliseconds} '
+      'totalMs=${stopwatch.elapsedMilliseconds}',
+    );
+    return playlist;
   }
 
   // ---------- Parseur XMLTV basique (mono-passe, sans DOM) ----------

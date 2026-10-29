@@ -44,6 +44,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     super.initState();
     final api = ref.read(apiServiceProvider);
     _controller = StartupRefreshController(
+      loadLiveChannels: () => ref.read(liveChannelsProvider.future),
+      loadMovies: () => ref.read(moviesProvider.future),
+      loadSeries: () => ref.read(seriesProvider.future),
+      loadRadioChannels: () => ref.read(radioChannelsProvider.future),
       api,
       epgCache: ref.read(epgDataCacheProvider),
     );

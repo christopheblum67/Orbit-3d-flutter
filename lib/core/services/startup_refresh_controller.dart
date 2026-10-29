@@ -22,6 +22,10 @@ class StartupRefreshController extends RefreshStepsController {
   StartupRefreshController(
     this._api, {
     Set<StartupStep>? steps,
+    required Future<List<Channel>> Function() loadLiveChannels,
+    required Future<List<Movie>> Function() loadMovies,
+    required Future<List<Series>> Function() loadSeries,
+    required Future<List<Channel>> Function() loadRadioChannels,
     EPGDataCache? epgCache,
   })  : _epgCache = epgCache,
         super(
@@ -29,6 +33,10 @@ class StartupRefreshController extends RefreshStepsController {
               {
                 StartupStep.live,
                 StartupStep.movies,
+        _loadLiveChannels = loadLiveChannels,
+        _loadMovies = loadMovies,
+        _loadSeries = loadSeries,
+        _loadRadioChannels = loadRadioChannels,
                 StartupStep.series,
                 StartupStep.radio,
                 StartupStep.replay,
@@ -48,18 +56,22 @@ class StartupRefreshController extends RefreshStepsController {
     // s'exécutent une à une. En lançant tout en parallèle (catalogues + EPG +
     // sondages replay), on fait saturer le rate-limit (429) du panel et
     // l'ENSEMBLE échoue (catégories/flux indisponibles à l'arrivée).
+  final Future<List<Channel>> Function() _loadLiveChannels;
+  final Future<List<Movie>> Function() _loadMovies;
+  final Future<List<Series>> Function() _loadSeries;
+  final Future<List<Channel>> Function() _loadRadioChannels;
     return run((step) async {
       switch (step) {
         case StartupStep.live:
-          await _api.fetchLiveChannels();
+          await _loadLiveChannels();
         case StartupStep.movies:
-          final list = await _api.fetchMovies();
+          final list = await _loadMovies();
           movies = list;
         case StartupStep.series:
-          final list = await _api.fetchSeries();
+          final list = await _loadSeries();
           series = list;
         case StartupStep.radio:
-          await _api.fetchRadioChannels();
+          await _loadRadioChannels();
         case StartupStep.replay:
           // Aucun appel. Le Replay se charge chaîne par chaîne, à la demande,
           // quand l'utilisateur ouvre une chaîne (voir `channelReplaysProvider`).
