@@ -1041,6 +1041,29 @@ class ApiService {
           movie.posterUrl,
         ]).toString();
 
+        final castRaw = info['cast'];
+        final crewRaw = info['crew'];
+        List<Actor> parseCastList() {
+          if (castRaw is! List) return movie.cast;
+          final out = <Actor>[];
+          for (final e in castRaw) {
+            if (e is Map) {
+              try { out.add(Actor.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+            }
+          }
+          return out.isNotEmpty ? out : movie.cast;
+        }
+        List<CrewMember> parseCrewList() {
+          if (crewRaw is! List) return movie.crew;
+          final out = <CrewMember>[];
+          for (final e in crewRaw) {
+            if (e is Map) {
+              try { out.add(CrewMember.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+            }
+          }
+          return out.isNotEmpty ? out : movie.crew;
+        }
+
         return Movie(
           id: movie.id,
           title: movie.title,
@@ -1066,6 +1089,8 @@ class ApiService {
           streamId: movie.streamId,
           containerExtension: movie.containerExtension,
           categoryId: movie.categoryId,
+          cast: parseCastList(),
+          crew: parseCrewList(),
         );
       },
       context: 'ApiService.fetchMovieDetail',
