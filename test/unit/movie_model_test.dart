@@ -17,6 +17,7 @@ void main() {
       expect(movie.title, 'Infinite');
       expect(movie.posterUrl, 'https://cdn.example.com/poster.jpg');
       expect(movie.rating, 7.2);
+      expect(movie.containerExtension, 'mp4');
     });
 
     test('falls back to title key when the list-style name is absent', () {

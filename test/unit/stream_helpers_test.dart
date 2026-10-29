@@ -47,25 +47,52 @@ void main() {
         'https://host/movie/15548815/l3khgnaaa3mh/12345',
       );
       expect(
-          variants, contains('https://host/movie/15548815/l3khgnaaa3mh/12345'),);
-      expect(variants,
-          contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mp4'),);
-      expect(variants,
-          contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mkv'),);
+        variants,
+        contains('https://host/movie/15548815/l3khgnaaa3mh/12345'),
+      );
+      expect(
+        variants,
+        contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mp4'),
+      );
+      expect(
+        variants,
+        contains('https://host/movie/15548815/l3khgnaaa3mh/12345.mkv'),
+      );
       expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345'));
+    });
+
+    test('keeps a panel-provided VOD extension as the first candidate', () {
+      const url = 'https://host/movie/user/pass/12345.mkv';
+      final variants = streamUrlVariants(url);
+
+      expect(variants.first, url);
+      expect(
+        variants,
+        contains('https://host/movie/user/pass/12345'),
+      );
+      expect(
+        variants,
+        contains('https://host/user/pass/12345.mkv'),
+      );
     });
 
     test('standard Xtream /series/{u}/{p}/{id}.ext drops the extension', () {
       final variants = streamUrlVariants(
         'https://host/series/15548815/l3khgnaaa3mh/14190.mkv',
       );
-      expect(variants,
-          contains('https://host/series/15548815/l3khgnaaa3mh/14190.mkv'),);
-      expect(variants,
-          contains('https://host/series/15548815/l3khgnaaa3mh/14190'),);
+      expect(
+        variants,
+        contains('https://host/series/15548815/l3khgnaaa3mh/14190.mkv'),
+      );
+      expect(
+        variants,
+        contains('https://host/series/15548815/l3khgnaaa3mh/14190'),
+      );
       expect(variants, contains('https://host/15548815/l3khgnaaa3mh/14190'));
       expect(
-          variants, contains('https://host/15548815/l3khgnaaa3mh/14190.mkv'),);
+        variants,
+        contains('https://host/15548815/l3khgnaaa3mh/14190.mkv'),
+      );
     });
 
     test('live-style /u/p/id proposes only the original url', () {

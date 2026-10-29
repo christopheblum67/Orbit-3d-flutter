@@ -141,6 +141,8 @@ class ApiService {
       streamId,
       type: type,
       extension: containerExtension,
+      withExtension: type.toLowerCase() == 'movie' &&
+          containerExtension?.trim().isNotEmpty == true,
     );
     return url.isEmpty ? null : url;
   }
