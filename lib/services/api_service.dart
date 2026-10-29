@@ -1044,24 +1044,33 @@ class ApiService {
         final castRaw = info['cast'];
         final crewRaw = info['crew'];
         List<Actor> parseCastList() {
-          if (castRaw is! List) return movie.cast;
-          final out = <Actor>[];
-          for (final e in castRaw) {
-            if (e is Map) {
-              try { out.add(Actor.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+          if (castRaw is List) {
+            final out = <Actor>[];
+            for (final e in castRaw) {
+              if (e is Map) {
+                try { out.add(Actor.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+              }
             }
+            return out.isNotEmpty ? out : movie.cast;
           }
-          return out.isNotEmpty ? out : movie.cast;
+          if (castRaw is String && castRaw.toString().trim().isNotEmpty) {
+            final rawStr = castRaw.toString().trim();
+            final names = rawStr.split(',').map((n) => n.trim()).where((n) => n.isNotEmpty).toList();
+            return names.map((name) => Actor(id: name.hashCode.toString(), name: name, character: '', profilePath: '')).toList();
+          }
+          return movie.cast;
         }
         List<CrewMember> parseCrewList() {
-          if (crewRaw is! List) return movie.crew;
-          final out = <CrewMember>[];
-          for (final e in crewRaw) {
-            if (e is Map) {
-              try { out.add(CrewMember.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+          if (crewRaw is List) {
+            final out = <CrewMember>[];
+            for (final e in crewRaw) {
+              if (e is Map) {
+                try { out.add(CrewMember.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
+              }
             }
+            return out.isNotEmpty ? out : movie.crew;
           }
-          return out.isNotEmpty ? out : movie.crew;
+          return movie.crew;
         }
 
         return Movie(
