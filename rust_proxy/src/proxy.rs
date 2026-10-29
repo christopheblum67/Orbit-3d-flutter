@@ -81,6 +81,7 @@ pub struct PurgeResponse {
 }
 
 const FORWARDED_HEADERS: &[&str] = &[
+    "cookie",
     "range",
     "accept",
     "accept-language",
