@@ -159,6 +159,9 @@ async fn fetch_upstream_bytes(
     }
 
     let partial = matches!(range, Some(r) if !r.trim().is_empty() && r.trim() != "bytes=0-");
+    if partial {
+        tracing::debug!("[CF-DEBUG] Range demandée: {:?}", range);
+    }
     let mut last_blocked: Option<(StatusCode, String)> = None;
 
     for (idx, (client, mode)) in attempts.iter().enumerate() {
@@ -180,6 +183,7 @@ async fn fetch_upstream_bytes(
 
         if is_waf_block(status) {
             state.metrics.increment_waf_blocks();
+            tracing::warn!("[CF-DEBUG] WAF block détecté: {} (mode: {}) pour URL: {}", status.as_u16(), mode, url);
             if idx + 1 < attempts.len() {
                 // Bloqué par le WAF : on réessaie avec l'autre empreinte TLS.
                 state.metrics.increment_upstream_fallback_retries();
@@ -418,6 +422,7 @@ pub async fn stream_proxy(
 
         if is_waf_block(status) {
             state.metrics.increment_waf_blocks();
+            tracing::warn!("[CF-DEBUG] WAF block détecté: {} (mode: {}) pour URL: {}", status.as_u16(), mode, url);
             if idx + 1 < attempts.len() {
                 // Bloqué par le WAF : réessai avec l'autre empreinte TLS.
                 state.metrics.increment_upstream_fallback_retries();

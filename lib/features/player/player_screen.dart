@@ -829,6 +829,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       variants = variants
           .map((u) => maybeRebaseThroughProxy(u, proxyReady: true))
           .toList();
+      debugPrint('[CF-DEBUG] VOD variants relayées via proxy: $variants');
+    } else {
+      debugPrint('[CF-DEBUG] VOD variants directes (proxy non prêt): $variants');
     }
     return variants;
   }
