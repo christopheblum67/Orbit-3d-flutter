@@ -183,6 +183,10 @@ class CloudflareSessionManager extends ChangeNotifier {
     if (!_cookiesValid && !_noChallengeRequired) {
       unawaited(renewSession());
     }
+    // Rafraîchissement proactif : si le cookie expire dans moins de 15 min, renouveler.
+    if (_cookieExpiry != null && DateTime.now().add(const Duration(minutes: 15)).isAfter(_cookieExpiry!) && !_noChallengeRequired) {
+      unawaited(renewSession());
+    }
     return videoHeaders;
   }
 
@@ -190,7 +194,7 @@ class CloudflareSessionManager extends ChangeNotifier {
   void _startRenewalTimer() {
     _renewalTimer?.cancel();
     if (_noChallengeRequired) return;
-    _renewalTimer = Timer.periodic(const Duration(hours: 1), (_) {
+    _renewalTimer = Timer.periodic(const Duration(minutes: 90), (_) {
       if (!_cookiesValid) {
         unawaited(renewSession());
       }
