@@ -19,6 +19,8 @@ impl ClientFactory {
     }
     
     /// Client impersonant Chrome 120 (empreinte principale).
+    /// JA3 (TLS fingerprint) et JA4/H2 (HTTP/2 SETTINGS, HPACK initial, fenêtre de flux)
+    /// sont alignés automatiquement par reqwest-impersonate sur le profil Chrome.
     pub fn create_impersonated_client(&self) -> Result<Arc<ImpersonatedClient>> {
         self.create_impersonated_client_for(BrowserVersion::Chrome120)
     }

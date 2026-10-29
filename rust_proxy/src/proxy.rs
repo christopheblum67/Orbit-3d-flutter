@@ -194,6 +194,8 @@ async fn fetch_upstream_bytes(
                     status,
                     format!("Upstream blocked by WAF ({} {})", status.as_u16(), mode),
                 ));
+                // Backoff exponentiel (point 4) : délai croissant avant retry fallback.
+                tokio::time::sleep(Duration::from_millis(200 * (idx as u64 + 1))).await;
                 continue;
             }
             // Plus d'empreinte disponible : session invalide, on signale un
