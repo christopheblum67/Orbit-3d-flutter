@@ -280,6 +280,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                             : FocusTraversalGroup(
                                 policy: ReadingOrderTraversalPolicy(),
                                 child: CustomScrollView(
+                                  cacheExtent: 250.0,
                                 slivers: [
                                   SliverToBoxAdapter(
                                     child: SectionHeader(
@@ -531,3 +532,4 @@ class _SeriesSearchField extends StatelessWidget {
     );
   }
 }
+

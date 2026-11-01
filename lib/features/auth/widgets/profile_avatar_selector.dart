@@ -184,7 +184,7 @@ class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
             child: Focus(
               onKeyEvent: (node, event) => _handleKeyEvent(node, event),
               child: FocusTraversalGroup(
-                policy: OrderedTraversalPolicy(),
+                policy: ReadingOrderTraversalPolicy(),
                 child: widget.avatars.isEmpty
                     ? Center(
                         child: Text(

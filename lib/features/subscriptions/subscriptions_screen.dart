@@ -371,7 +371,9 @@ class _SubscriptionCard extends ConsumerWidget {
       onTap: onTap,
       padding: const EdgeInsets.all(16),
       color: isActive ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
-      child: Column(
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -460,6 +462,7 @@ class _SubscriptionCard extends ConsumerWidget {
                 children: [
                   TvFocus(
                     onActivate: onEdit,
+                    autofocus: true,
                     child: IconButton(
                       tooltip: 'Modifier',
                       icon: const Icon(Icons.edit_outlined),
@@ -487,6 +490,7 @@ class _SubscriptionCard extends ConsumerWidget {
             onTest: onTest,
           ),
         ],
+      ),
       ),
     );
   }

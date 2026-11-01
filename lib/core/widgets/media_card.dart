@@ -139,6 +139,7 @@ class MediaCard extends ConsumerWidget {
                             imageUrl: posterUrl,
                             fit: posterFit,
                             memCacheWidth: posterDecodeWidth,
+                            memCacheHeight: (posterDecodeWidth / 0.72).round(),
                             placeholder: (context, url) => _PosterFallback(
                               scheme: scheme,
                               icon: fallbackIcon,

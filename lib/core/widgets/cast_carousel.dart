@@ -62,21 +62,25 @@ class CastCarousel extends StatelessWidget {
         const SizedBox(height: 12),
         SizedBox(
           height: imageSize + (showCharacter ? 64 : 40),
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: visibleActors.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final actor = visibleActors[index];
-              return _ActorCard(
-                actor: actor,
-                showCharacter: showCharacter,
-                imageSize: imageSize,
-                itemWidth: itemWidth,
-                onTap: () => onActorTap?.call(actor),
-              );
-            },
+          child: FocusTraversalGroup(
+            policy: ReadingOrderTraversalPolicy(),
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: visibleActors.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final actor = visibleActors[index];
+                return _ActorCard(
+                  actor: actor,
+                  showCharacter: showCharacter,
+                  imageSize: imageSize,
+                  itemWidth: itemWidth,
+                  autofocus: index == 0,
+                  onTap: () => onActorTap?.call(actor),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -90,6 +94,7 @@ class _ActorCard extends StatelessWidget {
   final double imageSize;
   final double itemWidth;
   final VoidCallback? onTap;
+  final bool autofocus;
 
   const _ActorCard({
     required this.actor,
@@ -97,6 +102,7 @@ class _ActorCard extends StatelessWidget {
     required this.imageSize,
     required this.itemWidth,
     this.onTap,
+    this.autofocus = false,
   });
 
   String get _accessibilityLabel {
@@ -116,6 +122,7 @@ class _ActorCard extends StatelessWidget {
       label: _accessibilityLabel,
       button: onTap != null,
       child: TvFocus(
+        autofocus: autofocus,
         onActivate: onTap,
         child: GestureDetector(
           onTap: onTap,
