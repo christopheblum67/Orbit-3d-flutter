@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_key_handler_wrapper.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -134,13 +135,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0E1117),
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(context),
-              Expanded(child: _buildOrbitCarousel(items)),
-              _buildBottomBar(context),
-            ],
+        body: TvKeyHandlerWrapper(
+          onPlayPause: () {
+            if (items.isNotEmpty && _focusedIndex < items.length) {
+              _openItem(context, items[_focusedIndex]);
+            }
+          },
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildTopBar(context),
+                Expanded(child: _buildOrbitCarousel(items)),
+                _buildBottomBar(context),
+              ],
+            ),
           ),
         ),
       ),
