@@ -48,3 +48,13 @@
 - Flutter Ã  utiliser : FVM 3.47.2 (`$env:USERPROFILE\fvm\versions\3.47.2\bin\flutter.bat`) ; le Flutter global 3.50.0-0.2.pre (beta) casse le build.
 - Diagnostic autonome : `logcat -c` â†’ `am force-stop orbit.app` â†’ `am start -n â€¦` â†’ `Start-Sleep` â†’ `logcat -d > fichier` (le streaming `logcat` bloque et dÃ©passe le timeout). Les logs applicatifs apparaissent sous `I OrbitDiag:` et `I flutter : Orbit3D [INFO]`.
 - Dernier commit avant cette session : `67a4338`.
+
+## Mise à jour responsive TV (session en cours)
+- [x] Grilles responsive : VOD, Séries, Live TV, Replay, Browse (6 cols TV)
+- [x] Padding responsive : VOD, Séries, Live TV, Browse, Favorites
+- [x] Typographie responsive : Home (titre + carrousel)
+- [x] 16 KB page sizes (NDK r28 + extractNativeLibs=false)
+- [ ] Appliquer screenPadding à Home
+- [ ] Appliquer titleMedium/bodyMedium aux titres de section (VOD, Séries, Live TV, Settings)
+- [ ] Intégrer TvKeyHandlerWrapper dans PlayerScreen
+- [ ] Baseline Profiles (démarrage -30%)
