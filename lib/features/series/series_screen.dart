@@ -277,7 +277,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             'recherche.',
                               )
                             : FocusTraversalGroup(
-                                policy: OrderedTraversalPolicy(),
+                                policy: ReadingOrderTraversalPolicy(),
                                 child: CustomScrollView(
                                 slivers: [
                                   SliverToBoxAdapter(

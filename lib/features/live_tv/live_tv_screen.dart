@@ -218,7 +218,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                   : 'Ce groupe ne contient aucune chaîne.',
                         )
                       : FocusTraversalGroup(
-                          policy: OrderedTraversalPolicy(),
+                          policy: ReadingOrderTraversalPolicy(),
                           child: GridView.builder(
                             padding: channelGridPadding,
                             // Delegate partagé avec le Replay : même tuile, même

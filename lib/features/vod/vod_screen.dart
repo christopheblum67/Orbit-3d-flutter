@@ -316,7 +316,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                             : 'Aucun film ne correspond à cette catégorie.',
                               )
                             : FocusTraversalGroup(
-                                policy: OrderedTraversalPolicy(),
+                                policy: ReadingOrderTraversalPolicy(),
                                 child: GridView.builder(
                                   padding: const EdgeInsets.fromLTRB(
                                     12,

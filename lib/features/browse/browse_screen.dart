@@ -772,7 +772,7 @@ class _BrowseTabBar extends StatelessWidget {
       color: colors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: FocusTraversalGroup(
-        policy: OrderedTraversalPolicy(),
+        policy: ReadingOrderTraversalPolicy(),
         child: Row(
           children: [
             for (final tab in tabs) ...[
@@ -1089,7 +1089,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         '(ou TMDB_API_KEY dans .env).',
                   )
                 : FocusTraversalGroup(
-                    policy: OrderedTraversalPolicy(),
+                    policy: ReadingOrderTraversalPolicy(),
                     child: GridView.builder(
                       scrollCacheExtent: const ScrollCacheExtent.pixels(500),
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
