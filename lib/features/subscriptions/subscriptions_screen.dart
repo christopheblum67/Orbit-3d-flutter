@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/config/startup_config.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -133,7 +134,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   // via l'écran de démarrage, comme au lancement de l'app :
                   // après la bascule on arrive sur l'accueil avec les données
                   // du nouvel abonnement.
-                  context.go('/startup');
+                  context.go(kCacheFirstStartup ? '/profiles' : '/startup');
                 }
               },
               onTest: () =>

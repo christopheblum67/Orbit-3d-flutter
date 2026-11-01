@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/config/startup_config.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
@@ -38,7 +39,9 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
     await storage.setSetting(kLegalNoticeDoneKey, true);
     if (!mounted) return;
     final onboardingDone = storage.getSetting('onboarding_done') == true;
-    context.go(onboardingDone ? '/startup' : '/onboarding');
+    context.go(onboardingDone
+        ? (kCacheFirstStartup ? '/profiles' : '/startup')
+        : '/onboarding',);
   }
 
   @override
