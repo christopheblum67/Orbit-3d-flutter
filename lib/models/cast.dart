@@ -78,6 +78,78 @@ class Actor {
     return 'https://image.tmdb.org/t/p/w185$profilePath';
   }
 
+  /// Découpe une liste de noms fournie par un panel sous forme de chaîne.
+  ///
+  /// Les panels Xtream « fusionnent » parfois plusieurs acteurs dans une seule
+  /// valeur (`"Nom A, Nom B"`, `"Nom A / Nom B"`, `"Nom A et Nom B"` ou avec
+  /// des retours à la ligne). Sans ce découpage, le carrousel n'affichait
+  /// qu'un seul acteur dont le nom contenait tout le casting.
+  static List<String> splitNames(String raw) {
+    final normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    return normalized
+        .split(RegExp(r'\s*(?:,|;|\||/|\n|\s+et\s+)\s*', caseSensitive: false))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
+  /// Construit une liste d'[Actor] depuis une valeur panel (`List` de `Map`
+  /// ou chaîne fusionnée). Retourne le contenu de [fallback] si rien
+  /// d'exploitable.
+  ///
+  /// La liste renvoyée est TOUJOURS modifiable (growable) : les appelants
+  /// trient le casting avec `List.sort`, qui lève `UnsupportedError` sur une
+  /// liste `const`/non modifiable. Le repli par défaut était `const []`, ce qui
+  /// faisait échouer la construction de CHAQUE entrée de `get_vod_streams`
+  /// (cast absent → repli const → `sort` → exception → catalogue vide).
+  /// Ne jamais retourner directement [fallback] : il peut être `const`.
+  static List<Actor> listFromDynamic(dynamic raw, {List<Actor> fallback = const []}) {
+    if (raw is List) {
+      final out = <Actor>[];
+      for (final e in raw) {
+        if (e is Map) {
+          try {
+            final actor = Actor.fromMap(Map<String, dynamic>.from(e));
+            // Un seul élément dont le nom est une liste fusionnée : on éclate.
+            if (out.isEmpty && raw.length == 1 && actor.name.contains(',')) {
+              final names = splitNames(actor.name);
+              if (names.length > 1) {
+                return names
+                    .map(
+                      (n) => actor.copyWith(
+                        id: n.hashCode.toString(),
+                        name: n,
+                        character: '',
+                        profilePath: '',
+                      ),
+                    )
+                    .toList();
+              }
+            }
+            out.add(actor);
+          } catch (_) {
+            // entrée invalide ignorée
+          }
+        }
+      }
+      return out.isNotEmpty ? out : List<Actor>.of(fallback);
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      final names = splitNames(raw);
+      return names
+          .map(
+            (name) => Actor(
+              id: name.hashCode.toString(),
+              name: name,
+              character: '',
+              profilePath: '',
+            ),
+          )
+          .toList();
+    }
+    return List<Actor>.of(fallback);
+  }
+
   bool get hasProfile => profilePath.isNotEmpty;
 
   Actor copyWith({

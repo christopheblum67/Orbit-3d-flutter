@@ -57,6 +57,19 @@ class Movie {
   final List<Actor> cast;
   final List<CrewMember> crew;
 
+  // Champs enrichis propres à MovieDetail (légers, propagation depuis
+  // get_vod_info / M3U). Ajoutés ici pour que [MovieDetail.fromMovie] les
+  // intègre sans casser le catalogue existant.
+  final List<String> keywords;
+  final int runtime; // minutes
+  final int budget; // USD
+  final int revenue; // USD
+  final List<String> productionCompanies;
+  final String trailerUrl;
+  final String backdropUrl;
+  final int tmdbId;
+  final String imdbId;
+
   // Date d'ajout (Xtream: `added` en secondes Unix)
   final DateTime? addedDate;
 
@@ -75,6 +88,15 @@ class Movie {
     this.categoryId = '',
     this.cast = const [],
     this.crew = const [],
+    this.keywords = const <String>[],
+    this.runtime = 0,
+    this.budget = 0,
+    this.revenue = 0,
+    this.productionCompanies = const <String>[],
+    this.trailerUrl = '',
+    this.backdropUrl = '',
+    this.tmdbId = 0,
+    this.imdbId = '',
     this.addedDate,
   })  : _streamId = streamId,
         _containerExtension = containerExtension;
@@ -123,21 +145,9 @@ class Movie {
     // silencieusement ce qui n'est pas exploitable plutot que de faire echouer
     // tout le catalogue.
     List<Actor> parseCast() {
-      final raw = map['cast'];
-      // Liste extensible obligatoire : `const []` est immuable et le `.sort()`
-      // plus bas echouerait. `get_vod_streams` ne renvoie pas `cast`.
-      if (raw is! List) return <Actor>[];
-      final out = <Actor>[];
-      for (final e in raw) {
-        if (e is Map) {
-          try {
-            out.add(Actor.fromMap(Map<String, dynamic>.from(e)));
-          } catch (_) {
-            // entree invalide ignoree
-          }
-        }
-      }
-      return out;
+      // `get_vod_streams` ne renvoie pas `cast`, mais certains panels l'ajoutent
+      // en chaîne fusionnée : `Actor.listFromDynamic` gère les deux formats.
+      return Actor.listFromDynamic(map['cast']);
     }
 
     List<CrewMember> parseCrew() {
@@ -158,12 +168,83 @@ class Movie {
 
     final castList = parseCast();
     final crewList = parseCrew();
-    castList.sort((a, b) => a.order.compareTo(b.order));
-    crewList.sort((a, b) {
-      final deptCompare = a.department.compareTo(b.department);
-      if (deptCompare != 0) return deptCompare;
-      return a.order.compareTo(b.order);
-    });
+    // `sort` exige une liste modifiable : `parseCast()` garantit une liste
+    // growable (cf. `Actor.listFromDynamic`). On saute l'appel sous 2 éléments,
+    // un tri n'y change rien — c'est le cas de 100 % des entrées de
+    // `get_vod_streams`, qui ne portent ni cast ni crew.
+    if (castList.length > 1) {
+      castList.sort((a, b) => a.order.compareTo(b.order));
+    }
+    if (crewList.length > 1) {
+      crewList.sort((a, b) {
+        final deptCompare = a.department.compareTo(b.department);
+        if (deptCompare != 0) return deptCompare;
+        return a.order.compareTo(b.order);
+      });
+    }
+
+    // Champs enrichis : keywords (chaine sparsee), runtime/budget/revenue
+    // (chaines numeriques), productionCompanies (chaines ou listes).
+    List<String> parseSimpleList(dynamic v) {
+      if (v == null) return const <String>[];
+      if (v is List) {
+        return v
+            .map((e) => e is Map ? (e['name'] ?? e['tag'] ?? '').toString() : e.toString())
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+      if (v is String && v.trim().isNotEmpty) {
+        // Chaine "a, b, c" ou "a|b" : on decoupe pour un vrai rendu par puce.
+        final parts = v
+            .split(RegExp(r'[,|]'))
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        return parts.isEmpty ? const <String>[] : parts;
+      }
+      return const <String>[];
+    }
+
+    final List<String> keywordsRaw = parseSimpleList(map['keywords']);
+    final List<String> companiesRaw = parseSimpleList(map['production_companies']);
+    final String trailerRaw = (map['trailer'] ?? map['trailer_url']) != null
+        ? ((map['trailer'] ?? map['trailer_url']) as dynamic).toString().trim()
+        : '';
+    final dynamic backdropDyn = map['backdrop_path'] ?? map['backdrop'];
+    final String backdropRaw = backdropDyn is List
+        ? (backdropDyn.isNotEmpty ? backdropDyn.first.toString().trim() : '')
+        : (backdropDyn?.toString().trim() ?? '');
+    final int tmdbRaw = int.tryParse('${map['tmdb_id'] ?? ''}') ?? 0;
+    final String imdbRaw = (map['imdb_id'] ?? map['imdb'] ?? '').toString().trim();
+    // Xtream renvoie `duration` au format "HH:MM:SS" (souvent "00:00:00").
+    // `runtime` peut etre un nombre de minutes.
+    int parseRuntime(dynamic v) {
+      if (v == null) return 0;
+      if (v is num) return v.toInt();
+      final s = v.toString().trim();
+      if (s.isEmpty) return 0;
+      final hms = RegExp(r'^(\d+):(\d{1,2}):(\d{1,2})').firstMatch(s);
+      if (hms != null) {
+        final h = int.tryParse(hms.group(1)!) ?? 0;
+        final m = int.tryParse(hms.group(2)!) ?? 0;
+        return h * 60 + m;
+      }
+      return int.tryParse(s) ?? 0;
+    }
+
+    var runtimeRaw = parseRuntime(map['duration']);
+    if (runtimeRaw == 0) runtimeRaw = parseRuntime(map['runtime']);
+    var budgetRaw = 0;
+    if (map['budget'] is String) {
+      final parsed = int.tryParse(map['budget']);
+      if (parsed != null && parsed > 0) budgetRaw = parsed;
+    }
+    var revenueRaw = 0;
+    if (map['revenue'] is String) {
+      final parsed = int.tryParse(map['revenue']);
+      if (parsed != null && parsed > 0) revenueRaw = parsed;
+    }
 
     DateTime? parseAdded(dynamic value) {
       if (value == null) return null;
@@ -228,6 +309,15 @@ class Movie {
       categoryId: map['category_id']?.toString() ?? '',
       cast: castList,
       crew: crewList,
+      keywords: keywordsRaw.isEmpty ? const <String>[] : keywordsRaw,
+      runtime: runtimeRaw > 0 ? runtimeRaw : 0,
+      budget: budgetRaw > 0 ? budgetRaw : 0,
+      revenue: revenueRaw > 0 ? revenueRaw : 0,
+      productionCompanies: companiesRaw.isEmpty ? const <String>[] : companiesRaw,
+      trailerUrl: trailerRaw.isEmpty ? '' : trailerRaw,
+      backdropUrl: backdropRaw.isEmpty ? '' : backdropRaw,
+      tmdbId: tmdbRaw > 0 ? tmdbRaw : 0,
+      imdbId: imdbRaw,
       addedDate: parseAdded(map['added']),
     );
   }
@@ -247,6 +337,15 @@ class Movie {
     String? categoryId,
     List<Actor>? cast,
     List<CrewMember>? crew,
+    List<String>? keywords,
+    int? runtime,
+    int? budget,
+    int? revenue,
+    List<String>? productionCompanies,
+    String? trailerUrl,
+    String? backdropUrl,
+    int? tmdbId,
+    String? imdbId,
     DateTime? addedDate,
   }) {
     return Movie(
@@ -264,6 +363,15 @@ class Movie {
       categoryId: categoryId ?? this.categoryId,
       cast: cast ?? this.cast,
       crew: crew ?? this.crew,
+      keywords: keywords ?? this.keywords,
+      runtime: runtime ?? this.runtime,
+      budget: budget ?? this.budget,
+      revenue: revenue ?? this.revenue,
+      productionCompanies: productionCompanies ?? this.productionCompanies,
+      trailerUrl: trailerUrl ?? this.trailerUrl,
+      backdropUrl: backdropUrl ?? this.backdropUrl,
+      tmdbId: tmdbId ?? this.tmdbId,
+      imdbId: imdbId ?? this.imdbId,
       addedDate: addedDate ?? this.addedDate,
     );
   }

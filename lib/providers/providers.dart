@@ -348,6 +348,43 @@ final tmdbTvRecommendationsProvider =
   },
 );
 
+/// Repli local pour la section « Films similaires » quand aucun identifiant
+/// TMDB n'est disponible (panel Xtream sans `tmdb_id`, ou clé TMDB absente).
+///
+/// Justification performance : le catalogue peut contenir ~99 000 films. Le
+/// filtrage n'est exécuté qu'une fois par couple (film exclu, genre) grâce à
+/// `family` + `autoDispose`, et non à chaque rebuild de la fiche. On borne en
+/// plus la collecte à 60 candidats pour éviter de matérialiser une liste
+/// inutilement longue.
+final localSimilarMoviesProvider = FutureProvider.autoDispose
+    .family<List<Movie>, ({String excludeId, String genre})>((ref, args) async {
+  final genres = args.genre
+      .toLowerCase()
+      .split(RegExp(r'[,|/]'))
+      .map((g) => g.trim())
+      .where((g) => g.isNotEmpty)
+      .toSet();
+  if (genres.isEmpty) return const <Movie>[];
+
+  final movies = await ref.watch(moviesProvider.future);
+  final out = <Movie>[];
+  for (final m in movies) {
+    if (m.id == args.excludeId) continue;
+    final mg = m.genre.toLowerCase();
+    if (mg.isEmpty) continue;
+    var match = false;
+    for (final g in genres) {
+      if (mg.contains(g)) {
+        match = true;
+        break;
+      }
+    }
+    if (match) out.add(m);
+    if (out.length >= 60) break;
+  }
+  return out;
+});
+
 /// Détail d'une personne TMDB (bio + filmographie) pour l'écran acteur
 final tmdbPersonDetailProvider =
     FutureProvider.autoDispose.family<PersonDetail?, int>((ref, personId) {

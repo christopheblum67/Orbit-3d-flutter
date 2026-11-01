@@ -195,46 +195,64 @@ class _SeriesDetailContent extends ConsumerWidget {
       );
     }
 
-    // Plusieurs saisons : TabBar horizontale pour alléger la liste, une seule
-    // saison visible à la fois (au lieu de les empiler verticalement).
+    // Plusieurs saisons : TabBar horizontale placée SOUS les sections
+    // « langue audio » / « langue des sous-titres » (fin du header), et non
+    // plus au-dessus de toute la fiche. Un seul CustomScrollView conserve le
+    // défilement continu ; l'IndexedStack d'origine (TabBarView) est remplacé
+    // par un rendu des slivers de la saison sélectionnée, piloté par le
+    // TabController (toujours en « tabulation »).
     return DefaultTabController(
       length: seasons.length,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: scheme.surface,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                for (final season in seasons) Tab(text: 'Saison $season'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                for (final season in seasons)
-                  CustomScrollView(
-                    slivers: [
-                      header,
-                      resumeSliver,
-                      ..._seasonSlivers(
-                        context,
-                        ref: ref,
-                        season: season,
-                        episodes: episodesBySeason[season]!,
-                        total: episodesBySeason[season]!.length,
-                        compact: true,
-                        l: l,
+      child: Builder(
+        builder: (context) {
+          final tabController = DefaultTabController.of(context);
+          return AnimatedBuilder(
+            animation: tabController,
+            builder: (context, _) {
+              final index =
+                  tabController.index.clamp(0, seasons.length - 1);
+              final season = seasons[index];
+              return CustomScrollView(
+                slivers: [
+                  header,
+                  resumeSliver,
+                  SliverToBoxAdapter(
+                    child: Material(
+                      color: scheme.surface,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: TabBar(
+                          controller: tabController,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          // Couleurs issues du thème (respecte les réglages
+                          // d'accent clair/sombre choisis par l'utilisateur).
+                          labelColor: scheme.primary,
+                          unselectedLabelColor: scheme.onSurfaceVariant,
+                          indicatorColor: scheme.primary,
+                          dividerColor: scheme.outlineVariant,
+                          tabs: [
+                            for (final s in seasons)
+                              Tab(text: 'Saison $s'),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
-              ],
-            ),
-          ),
-        ],
+                  ..._seasonSlivers(
+                    context,
+                    ref: ref,
+                    season: season,
+                    episodes: episodesBySeason[season]!,
+                    total: episodesBySeason[season]!.length,
+                    compact: true,
+                    l: l,
+                  ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }

@@ -26,7 +26,7 @@ import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
-    show StreamNetworkException;
+    show StreamNetworkException, StreamUrlEmptyException;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
 import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
 import 'package:orbit_3d_flutter/core/utils/auto_category.dart';
@@ -702,7 +702,7 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] != 'm3u') return null;
 
-    final url = sub['url']!;
+    final url = sub['m3uUrl']!;
     // Réutilise le cache si l'URL n'a pas changé.
     if (_m3uCache != null && _m3uCacheUrl == url) {
       return _m3uCache;
@@ -931,10 +931,18 @@ class ApiService {
           final map = Map<String, dynamic>.from(e);
           _enrichMovieListMap(map, categoryNames);
           final movie = Movie.fromMap(map);
-          movie.requireStreamUrl();
+          try {
+            movie.requireStreamUrl();
+          } on StreamUrlEmptyException catch (e) {
+            // `stream_id` vide : le film est valide mais le stream manque.
+            // On le conserve dans le catalogue (le détail le reconstruit).
+            if (ignores < 5) {
+              logDiag('VOD stream vide #$i (stream_id="${movie.streamId}"): $e');
+            }
+          }
           out.add(movie);
         } catch (err) {
-          // Une entree malformee ne doit pas faire echouer les 99 568 autres.
+          // Erreur de parsing (`Movie.fromMap`) : entrée ignorée.
           if (ignores < 5) {
             logDiag('VOD entree ignoree #$i: ${err.runtimeType} -> $err');
           }
@@ -942,6 +950,8 @@ class ApiService {
         }
       }
       if (ignores > 0) logDiag('VOD entrees ignorees=$ignores');
+      final firstMovie = out.isNotEmpty ? out.first : null;
+      logDiag('VOD catalogue: ${out.length} films, ignores=$ignores, premier_stream_id=${firstMovie?.streamId ?? 'AUCUN'}, premier_titre=${firstMovie?.title ?? 'AUCUN'}');
       return out;
     }
     throw StreamNetworkException(
@@ -1041,25 +1051,87 @@ class ApiService {
           movie.posterUrl,
         ]).toString();
 
+        // Backdrop dédié (parfois tableau dans les panels Xtream).
+        final dynamic backdropRawDyn = info['backdrop_path'] ?? info['backdrop'];
+        String backdropUrl = '';
+        if (backdropRawDyn is List && backdropRawDyn.isNotEmpty) {
+          backdropUrl = backdropRawDyn.first.toString().trim();
+        } else if (backdropRawDyn != null) {
+          backdropUrl = backdropRawDyn.toString().trim();
+        }
+        if (backdropUrl.isEmpty) backdropUrl = movie.backdropUrl;
+
+        // Identifiants externes : permettent d'éviter une recherche TMDB et
+        // d'afficher les sections « similaires / recommandations ».
+        final int tmdbId = int.tryParse(
+              '${info['tmdb_id'] ?? info['tmdbId'] ?? ''}',
+            ) ??
+            movie.tmdbId;
+        final String imdbId =
+            (info['imdb_id'] ?? info['imdbId'] ?? movie.imdbId).toString().trim();
+
+        // Bande-annonce (YouTube) éventuellement fournie par le panel.
+        final String trailerUrl = (info['youtube_trailer'] ??
+                info['trailer'] ??
+                info['trailer_url'] ??
+                movie.trailerUrl)
+            .toString()
+            .trim();
+
+        // Durée : "01:35:00" chez Xtream → minutes.
+        int parseRuntimeMinutes(dynamic v) {
+          if (v == null) return 0;
+          if (v is num) return v.toInt();
+          final s = v.toString().trim();
+          if (s.isEmpty) return 0;
+          final hms = RegExp(r'^(\d+):(\d{1,2}):(\d{1,2})').firstMatch(s);
+          if (hms != null) {
+            final h = int.tryParse(hms.group(1)!) ?? 0;
+            final m = int.tryParse(hms.group(2)!) ?? 0;
+            return h * 60 + m;
+          }
+          return int.tryParse(s) ?? 0;
+        }
+
+        var runtime = parseRuntimeMinutes(info['duration']);
+        if (runtime == 0) runtime = parseRuntimeMinutes(info['runtime']);
+        if (runtime == 0) runtime = movie.runtime;
+
+        // Mots-clés / sociétés de production : chaîne séparée par virgules,
+        // liste, ou liste d'objets {id,name} selon les panels.
+        List<String> parseNames(dynamic v) {
+          if (v == null) return const <String>[];
+          if (v is List) {
+            return v
+                .map(
+                  (e) =>
+                      e is Map ? (e['name'] ?? '').toString() : e.toString(),
+                )
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+          final s = v.toString().trim();
+          if (s.isEmpty) return const <String>[];
+          return s
+              .split(RegExp(r'[,|]'))
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+
+        final keywords = parseNames(info['keywords']);
+        final productionCompanies =
+            parseNames(info['production_companies'] ?? info['productionCompanies']);
+        final int budget =
+            int.tryParse('${info['budget'] ?? ''}') ?? movie.budget;
+        final int revenue =
+            int.tryParse('${info['revenue'] ?? ''}') ?? movie.revenue;
+
         final castRaw = info['cast'];
         final crewRaw = info['crew'];
-        List<Actor> parseCastList() {
-          if (castRaw is List) {
-            final out = <Actor>[];
-            for (final e in castRaw) {
-              if (e is Map) {
-                try { out.add(Actor.fromMap(Map<String, dynamic>.from(e))); } catch (_) {}
-              }
-            }
-            return out.isNotEmpty ? out : movie.cast;
-          }
-          if (castRaw is String && castRaw.toString().trim().isNotEmpty) {
-            final rawStr = castRaw.toString().trim();
-            final names = rawStr.split(',').map((n) => n.trim()).where((n) => n.isNotEmpty).toList();
-            return names.map((name) => Actor(id: name.hashCode.toString(), name: name, character: '', profilePath: '')).toList();
-          }
-          return movie.cast;
-        }
+        List<Actor> parseCastList() =>
+            Actor.listFromDynamic(castRaw, fallback: movie.cast);
         List<CrewMember> parseCrewList() {
           if (crewRaw is List) {
             final out = <CrewMember>[];
@@ -1100,6 +1172,17 @@ class ApiService {
           categoryId: movie.categoryId,
           cast: parseCastList(),
           crew: parseCrewList(),
+          keywords: keywords.isEmpty ? movie.keywords : keywords,
+          runtime: runtime,
+          budget: budget,
+          revenue: revenue,
+          productionCompanies: productionCompanies.isEmpty
+              ? movie.productionCompanies
+              : productionCompanies,
+          trailerUrl: trailerUrl,
+          backdropUrl: backdropUrl,
+          tmdbId: tmdbId,
+          imdbId: imdbId,
         );
       },
       context: 'ApiService.fetchMovieDetail',

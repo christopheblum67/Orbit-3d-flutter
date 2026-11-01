@@ -59,12 +59,16 @@ class MetadataEnrichmentService {
       );
     }
 
-    // 1. TMDB PRIMAIRE (recherche par titre + année si pas d'ID connu)
+    // 1. TMDB PRIMAIRE (ID fourni par le panel, sinon recherche par titre)
     if (_tmdb.hasApiKey) {
       await safeAsync<void>(() async {
-        int? tmdbId;
+        // `get_vod_info` expose souvent `tmdb_id` : on l'utilise directement
+        // pour éviter une recherche approximative (et les faux positifs sur
+        // les remakes) ainsi qu'un appel réseau superflu.
+        int? tmdbId =
+            xtreamMovie.tmdbId > 0 ? xtreamMovie.tmdbId : null;
 
-        tmdbId = await _tmdb.searchMovieId(
+        tmdbId ??= await _tmdb.searchMovieId(
           movie.title,
           year: movie.year > 0 ? movie.year : null,
         );

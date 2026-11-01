@@ -179,11 +179,31 @@ class _TvFocusState extends ConsumerState<TvFocus>
     final tvMode = _isTvMode && widget.enableTvEffects;
     final scheme = Theme.of(context).colorScheme;
 
+    // Un `onKeyEvent` custom ne doit pas désactiver l'activation Enter/OK.
+    // Avant, fournir `onKeyEvent` (dialogues abonnement, profil, formulaires)
+    // remplaçait entièrement `_handleKeyEvent` : la touche OK n'appelait plus
+    // `onActivate`, donc les boutons « Ajouter / Annuler » devenaient inertes
+    // au D-pad. On chaîne désormais : handler custom d'abord, puis activation.
+    //
+    // Important : le repli n'est fait que si ce `TvFocus` déclare un
+    // `onActivate`. Sinon on avalerait Espace/Entrée destinés à un champ de
+    // saisie enfant (les TvFocus qui enveloppent les TextFormField n'ont pas
+    // d'`onActivate` et ne doivent rien consommer).
+    final customHandler = widget.onKeyEvent;
+    KeyEventResult handleKey(FocusNode node, KeyEvent event) {
+      if (customHandler != null) {
+        final result = customHandler(node, event);
+        if (result != KeyEventResult.ignored) return result;
+      }
+      if (widget.onActivate == null) return KeyEventResult.ignored;
+      return _handleKeyEvent(node, event);
+    }
+
     return Focus(
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onFocusChange: _handleFocusChange,
-      onKeyEvent: widget.onKeyEvent ?? _handleKeyEvent,
+      onKeyEvent: handleKey,
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {

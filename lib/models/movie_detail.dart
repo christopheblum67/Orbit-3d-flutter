@@ -117,6 +117,15 @@ class MovieDetail {
       categoryId: movie.categoryId,
       cast: movie.cast,
       crew: movie.crew,
+      keywords: movie.keywords,
+      runtime: movie.runtime,
+      budget: movie.budget,
+      revenue: movie.revenue,
+      productionCompanies: movie.productionCompanies,
+      trailerUrl: movie.trailerUrl.isNotEmpty ? movie.trailerUrl : null,
+      backdropUrl: movie.backdropUrl.isNotEmpty ? movie.backdropUrl : null,
+      tmdbId: movie.tmdbId,
+      imdbId: movie.imdbId,
       dataSource: 'xtream',
     );
   }

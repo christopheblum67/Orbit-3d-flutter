@@ -496,9 +496,32 @@ class _SubscriptionCard extends ConsumerWidget {
 
   String _subtitle(Subscription sub) {
     if (sub.type == SubscriptionType.xtream) {
-      return sub.baseUrl ?? 'Configuration incomplète';
+      return _redactCredentials(sub.baseUrl ?? 'Configuration incomplète');
     }
-    return sub.m3uUrl ?? 'Configuration incomplète';
+    return _redactCredentials(sub.m3uUrl ?? 'Configuration incomplète');
+  }
+
+  /// Masque identifiants / mot de passe avant tout affichage.
+  ///
+  /// L'URL M3U d'un abonnement contient `?username=…&password=…` : l'afficher
+  /// brute en sous-titre révélait le mot de passe « par défaut ». On conserve
+  /// l'hôte et le chemin pour rester identifiable, sans les secrets.
+  static String _redactCredentials(String input) {
+    if (input.isEmpty) return input;
+    var out = input;
+    // user:pass@host (URL avec authentification intégrée)
+    out = out.replaceAllMapped(
+      RegExp(r'//([^:/@\s]+):([^@/\s]+)@'),
+      (m) => '//${m.group(1)}:***@',
+    );
+    // Query string : username=… / password=… (insensible à la casse)
+    for (final key in ['username', 'password', 'pass', 'user', 'login']) {
+      out = out.replaceAllMapped(
+        RegExp('([?&]$key=)([^&\\s]*)', caseSensitive: false),
+        (m) => '${m.group(1)}***',
+      );
+    }
+    return out;
   }
 }
 
@@ -578,7 +601,7 @@ class _TestResultRow extends ConsumerWidget {
                 child: Text(
                   status == TestResultStatus.success
                       ? 'Test OK — ${latency != null ? '$latency ms' : '—'}'
-                      : 'Échec : ${error ?? 'Erreur inconnue'}',
+                      : 'Échec : ${_SubscriptionCard._redactCredentials(error ?? 'Erreur inconnue')}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success
                             ? Colors.green
