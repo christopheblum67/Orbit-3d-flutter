@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -230,7 +231,7 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: EdgeInsets.fromLTRB(context.screenPadding, 16, context.screenPadding, 16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 140,
@@ -383,7 +384,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: EdgeInsets.fromLTRB(context.screenPadding, 16, context.screenPadding, 16),
       addAutomaticKeepAlives: false,
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 140,
@@ -518,3 +519,4 @@ class FavoritesReplaySection extends ConsumerWidget {
     );
   }
 }
+
