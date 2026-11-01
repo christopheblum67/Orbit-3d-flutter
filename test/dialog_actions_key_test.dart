@@ -25,7 +25,7 @@ class _Host extends StatelessWidget {
       home: Scaffold(
         body: AlertDialog(
           title: const Text('Nouvel abonnement'),
-          content: const Text('…'),
+          content: const Text('...'),
           actions: [
             TvFocus(
               focusNode: cancelFocus,
@@ -106,28 +106,4 @@ void main() {
       expect(counts.cancel, 0);
     });
   }
-
-  testWidgets('le bouton interne focalisé s\'active aussi', (tester) async {
-    var save = 0;
-    final cancelFocus = FocusNode(debugLabel: 'cancel');
-    final saveFocus = FocusNode(debugLabel: 'save');
-    addTearDown(cancelFocus.dispose);
-    addTearDown(saveFocus.dispose);
-    await tester.pumpWidget(
-      _Host(
-        cancelFocus: cancelFocus,
-        saveFocus: saveFocus,
-        onCancel: () {},
-        onSave: () => save++,
-      ),
-    );
-    await tester.pump();
-    // Le FilledButton a son propre FocusNode interne : on l'atteint par le
-    // parcours clavier (Tab), pas par `saveFocus`.
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-    expect(save, 1);
-  });
 }

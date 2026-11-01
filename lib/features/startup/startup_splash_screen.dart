@@ -71,7 +71,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       ref
           .read(lastRefreshTimestampProvider.notifier)
           .setTimestamp(DateTime.now());
-      Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (mounted) context.go('/profiles');
       });
     }
@@ -133,7 +133,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               .read(cloudflareSessionProvider)
               .initialize(baseUrl: baseUrl)
               .timeout(
-            const Duration(seconds: 60),
+            const Duration(seconds: 20),
             onTimeout: () {
               debugPrint(
                 '☁️ Cloudflare init timeout (60s) during splash, proceeding anyway...',

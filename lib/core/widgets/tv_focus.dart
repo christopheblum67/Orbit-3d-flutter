@@ -156,6 +156,7 @@ class _TvFocusState extends ConsumerState<TvFocus>
 
     // Enter / Select / Space / Gamepad A = activer
     if (logicalKey == LogicalKeyboardKey.enter ||
+        logicalKey == LogicalKeyboardKey.numpadEnter ||
         logicalKey == LogicalKeyboardKey.select ||
         logicalKey == LogicalKeyboardKey.space ||
         logicalKey == LogicalKeyboardKey.gameButtonA) {
