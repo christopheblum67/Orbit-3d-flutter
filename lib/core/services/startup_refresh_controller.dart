@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -71,11 +72,18 @@ class StartupRefreshController extends RefreshStepsController {
         case StartupStep.epg:
           // Précharge le guide dans le cache partagé, une seule fois : la grille
           // EPG l'utilise ensuite sans re-télécharger le XMLTV.
+          // Timeout pour éviter un blocage infini si le panel est lent (cache-first).
           final cache = _epgCache;
           if (cache != null) {
-            await cache.loadFull(_api);
+            await cache.loadFull(_api).timeout(
+              const Duration(seconds: 30),
+              onTimeout: () => <EPGProgram>[],
+            );
           } else {
-            await _api.fetchEpg();
+            await _api.fetchEpg().timeout(
+              const Duration(seconds: 30),
+              onTimeout: () => <EPGProgram>[],
+            );
           }
         case StartupStep.ai:
           // Étape purement indicative : marquée instantanément comme faite pour
