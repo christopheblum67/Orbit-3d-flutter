@@ -319,10 +319,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                             : FocusTraversalGroup(
                                 policy: ReadingOrderTraversalPolicy(),
                                 child: GridView.builder(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    12,
+                                  padding: EdgeInsets.fromLTRB(
+                                    context.screenPadding,
                                     16,
-                                    12,
+                                    context.screenPadding,
                                     16,
                                   ),
                                   gridDelegate: context.isTv
