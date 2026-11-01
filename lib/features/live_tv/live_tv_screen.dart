@@ -221,7 +221,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                       : FocusTraversalGroup(
                           policy: ReadingOrderTraversalPolicy(),
                           child: GridView.builder(
-                            padding: channelGridPadding,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.screenPadding,
+                              vertical: 16,
+                            ),
                             // Delegate partagé avec le Replay : même tuile, même
                             // taille sur les deux écrans.
                             gridDelegate: channelGridDelegate(isTv: context.isTv),
