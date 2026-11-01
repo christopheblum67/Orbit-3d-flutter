@@ -201,11 +201,11 @@ class _AccountSection extends ConsumerWidget {
     final syncState = ref.watch(cloudSyncProvider);
     final syncNotifier = ref.read(cloudSyncProvider.notifier);
 
-    // `FocusTraversalGroup` + `OrderedTraversalPolicy` : ordre de parcours
+    // `FocusTraversalGroup` + `ReadingOrderTraversalPolicy` : ordre de parcours
     // D-pad explicite (haut → bas) dans l'onglet, et le groupe agit comme
     // frontière de traversal — on ne sort de la liste que par le haut (onglets).
     return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
+      policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -398,7 +398,7 @@ class _NetworkSecuritySection extends ConsumerWidget {
       }
     }
     return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
+      policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -570,7 +570,7 @@ class _PlayerAudioSection extends ConsumerWidget {
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
     return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
+      policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -866,7 +866,7 @@ class _AdvancedSection extends ConsumerWidget {
     final adv = ref.watch(advancedSettingsProvider);
     final advNotifier = ref.read(advancedSettingsProvider.notifier);
     return FocusTraversalGroup(
-      policy: OrderedTraversalPolicy(),
+      policy: ReadingOrderTraversalPolicy(),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [

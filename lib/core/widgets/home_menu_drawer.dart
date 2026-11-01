@@ -116,7 +116,7 @@ _MenuSection(
       // retrait est nul : rien ne bouge.
       child: TvSafeArea(
         child: FocusTraversalGroup(
-          policy: OrderedTraversalPolicy(),
+          policy: ReadingOrderTraversalPolicy(),
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
