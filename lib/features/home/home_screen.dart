@@ -22,6 +22,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final PageController _pageController;
   double _currentPage = 0.0;
+  int _focusedIndex = 0;
   bool _autoRefreshing = false;
 
   @override
@@ -35,6 +36,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (mounted) {
         setState(() {
           _currentPage = _pageController.page ?? 0.0;
+          // Synchronise l'index focalisé avec le swipe tactile.
+          final rounded = _currentPage.round();
+          if (rounded >= 0 && rounded < 12 && rounded != _focusedIndex) {
+            _focusedIndex = rounded;
+          }
         });
       }
     });
@@ -239,32 +245,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildOrbitCarousel(List<_OrbitItem> items) {
-    return PageView.builder(
-      controller: _pageController,
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final rel = index - _currentPage;
-        final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
-        final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
-        final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
-        final transform = Matrix4.identity()
-          ..setEntry(3, 2, 0.0018)
-          ..rotateY(rotationY)
-          ..scaleByDouble(scale, scale, scale, 1.0);
-        final focused = rel.abs() < 0.4;
-        final item = items[index];
-        return Transform(
-          transform: transform,
-          alignment: Alignment.center,
-          child: Opacity(
-            opacity: opacity,
-            child: TvFocus(
-              onActivate: () => _openItem(context, item),
+    // Garde l'index focalisé dans les bornes si la liste change (ex. bascule M3U).
+    if (_focusedIndex >= items.length) _focusedIndex = 0;
+    return TvFocus(
+      autofocus: true,
+      onActivate: () => _openItem(context, items[_focusedIndex]),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        final key = event.logicalKey;
+        if (key == LogicalKeyboardKey.arrowLeft) {
+          _moveCarousel(items, -1);
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.arrowRight) {
+          _moveCarousel(items, 1);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: PageView.builder(
+        controller: _pageController,
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final rel = index - _currentPage;
+          final scale = (1 - (rel.abs() * 0.22)).clamp(0.68, 1.0);
+          final opacity = (1 - (rel.abs() * 0.35)).clamp(0.25, 1.0);
+          final rotationY = (rel * 0.45).clamp(-0.7, 0.7);
+          final transform = Matrix4.identity()
+            ..setEntry(3, 2, 0.0018)
+            ..rotateY(rotationY)
+            ..scaleByDouble(scale, scale, scale, 1.0);
+          final focused = index == _focusedIndex;
+          final item = items[index];
+          return Transform(
+            transform: transform,
+            alignment: Alignment.center,
+            child: Opacity(
+              opacity: opacity,
               child: _buildCard(item, focused),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+
+  void _moveCarousel(List<_OrbitItem> items, int delta) {
+    final next = (_focusedIndex + delta).clamp(0, items.length - 1);
+    if (next == _focusedIndex) return;
+    setState(() => _focusedIndex = next);
+    _pageController.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
     );
   }
 
