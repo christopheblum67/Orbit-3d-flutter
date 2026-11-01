@@ -301,8 +301,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                           ? const SliverGridDelegateWithFixedCrossAxisCount(
                                               crossAxisCount: 6,
                                               childAspectRatio: 0.70,
-                                              crossAxisSpacing: 24,
-                                              mainAxisSpacing: 24,
+                                              crossAxisSpacing: 30,
+                                              mainAxisSpacing: 30,
                                             )
                                           : const SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: 140,

@@ -90,7 +90,7 @@ class _TvFocusState extends ConsumerState<TvFocus>
     );
     // Agrandissement ~20 % au focus pour signaler clairement la section
     // courante (icône) tout en réduisant le halo lumineux autour.
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.20).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.10).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
     try {

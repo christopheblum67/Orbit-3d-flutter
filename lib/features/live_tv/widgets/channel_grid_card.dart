@@ -18,8 +18,8 @@ SliverGridDelegate channelGridDelegate({bool isTv = false}) => isTv
     ? const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 6,
         childAspectRatio: 0.65,
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 24,
+        crossAxisSpacing: 30,
+        mainAxisSpacing: 30,
       )
     : const SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 150,
