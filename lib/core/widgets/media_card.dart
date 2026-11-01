@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
-import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/secure_cached_image.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 /// Carte média (film / série) : poster, badge d'âge, note, méta.
@@ -135,18 +135,9 @@ class MediaCard extends ConsumerWidget {
                   Padding(
                     padding: posterPadding,
                     child: posterUrl.isNotEmpty
-                        ? OrbitCachedImage(
+                        ? SecureCachedImage(
                             imageUrl: posterUrl,
                             fit: posterFit,
-                            // Décodage mémoire borné à la taille réelle.
-                            //
-                            // `maxWidthDiskCache: 800` ne limitait que le
-                            // FICHIER disque ; sans `memCacheWidth`, Flutter
-                            // décodait l'affiche en pleine résolution. Une
-                            // image TMDB `original` (2000×3000) = ~24 Mo en
-                            // cache mémoire, et quelques dizaines de tuiles
-                            // visibles suffisaient à dépasser les centaines
-                            // de Mo sur TV.
                             memCacheWidth: posterDecodeWidth,
                             placeholder: (context, url) => _PosterFallback(
                               scheme: scheme,
