@@ -397,7 +397,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                             ),
                           ),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            padding: EdgeInsets.fromLTRB(context.screenPadding, 8, context.screenPadding, 16),
                             sliver: SliverGrid(
                               gridDelegate:
                                   context.isTv ? const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, childAspectRatio: 0.55, crossAxisSpacing: 24, mainAxisSpacing: 24) : const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, childAspectRatio: 0.55, crossAxisSpacing: 12, mainAxisSpacing: 12),
