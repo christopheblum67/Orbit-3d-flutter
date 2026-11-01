@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -165,11 +166,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              const Text(
+              Text(
                 'Orbit IPTV',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
+                style: context.headlineLarge.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -344,8 +343,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     item.title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
+                    style: context.titleMedium.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
