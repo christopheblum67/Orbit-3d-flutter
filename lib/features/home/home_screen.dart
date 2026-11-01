@@ -160,7 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(today);
     final timeLabel = DateFormat('HH:mm', 'fr_FR').format(today);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      padding: EdgeInsets.fromLTRB(context.screenPadding, 10, context.screenPadding, 8),
       child: Column(
         children: [
           Row(
