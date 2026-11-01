@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/core/services/affinity_sorter.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/sort_options_dialog.dart';
@@ -324,13 +325,19 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                     12,
                                     16,
                                   ),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 140,
-                                    childAspectRatio: 0.72,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                  ),
+                                  gridDelegate: context.isTv
+                                      ? const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 6,
+                                          childAspectRatio: 0.70,
+                                          crossAxisSpacing: 24,
+                                          mainAxisSpacing: 24,
+                                        )
+                                      : const SliverGridDelegateWithMaxCrossAxisExtent(
+                                          maxCrossAxisExtent: 140,
+                                          childAspectRatio: 0.72,
+                                          crossAxisSpacing: 10,
+                                          mainAxisSpacing: 10,
+                                        ),
                                   itemCount: visibleMovies.length,
                                   itemBuilder: (context, index) {
                                     final movie = visibleMovies[index];
