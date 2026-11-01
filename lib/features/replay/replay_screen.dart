@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -217,7 +218,7 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
                     padding: channelGridPadding,
                     // Même tuile que le Live TV : le Replay montre des chaînes,
                     // il doit les montrer comme le Live TV.
-                    gridDelegate: channelGridDelegate,
+                    gridDelegate: channelGridDelegate(isTv: context.isTv),
                     itemCount: visible.length,
                     itemBuilder: (context, index) {
                       final channel = visible[index];

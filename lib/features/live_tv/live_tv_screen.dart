@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
@@ -223,7 +224,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                             padding: channelGridPadding,
                             // Delegate partagé avec le Replay : même tuile, même
                             // taille sur les deux écrans.
-                            gridDelegate: channelGridDelegate,
+                            gridDelegate: channelGridDelegate(isTv: context.isTv),
                             itemCount: visibleChannels.length,
                             itemBuilder: (context, index) {
                               final channel = visibleChannels[index];

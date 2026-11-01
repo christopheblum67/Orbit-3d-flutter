@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter/rendering.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -399,12 +400,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                             sliver: SliverGrid(
                               gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 200,
-                                childAspectRatio: 0.55,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
+                                  context.isTv ? const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, childAspectRatio: 0.55, crossAxisSpacing: 24, mainAxisSpacing: 24) : const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, childAspectRatio: 0.55, crossAxisSpacing: 12, mainAxisSpacing: 12),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) =>
                                     _buildCard(visible[index], isSeries),
@@ -1095,12 +1091,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       addAutomaticKeepAlives: false,
                       gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 200,
-                        childAspectRatio: 0.55,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
+                          context.isTv ? const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 6, childAspectRatio: 0.55, crossAxisSpacing: 24, mainAxisSpacing: 24) : const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, childAspectRatio: 0.55, crossAxisSpacing: 12, mainAxisSpacing: 12),
                       itemCount: entries.length,
                       itemBuilder: (context, index) {
                         final entry = entries[index];
@@ -1524,3 +1515,5 @@ class _BrowseSearchField extends StatelessWidget {
     );
   }
 }
+
+

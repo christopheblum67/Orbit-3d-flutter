@@ -13,12 +13,20 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 /// TV : les deux écrans ne se ressemblaient pas, et l'utilisateur ne retrouvait
 /// pas ses repères en passant de l'un à l'autre. Un delegate dupliqué avait
 /// dérivé ; ici il n'existe qu'en un point.
-const channelGridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
-  maxCrossAxisExtent: 150,
-  childAspectRatio: 0.65,
-  crossAxisSpacing: 10,
-  mainAxisSpacing: 10,
-);
+/// Grille de chaînes : dense sur mobile, espacée sur TV.
+SliverGridDelegate channelGridDelegate({bool isTv = false}) => isTv
+    ? const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 6,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 24,
+      )
+    : const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      );
 
 /// Marge de grille commune aux écrans de chaînes.
 const channelGridPadding = EdgeInsets.symmetric(horizontal: 12, vertical: 16);
