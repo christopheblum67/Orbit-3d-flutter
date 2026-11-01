@@ -58,3 +58,13 @@
 - [ ] Appliquer titleMedium/bodyMedium aux titres de section (VOD, Séries, Live TV, Settings)
 - [ ] Intégrer TvKeyHandlerWrapper dans PlayerScreen
 - [ ] Baseline Profiles (démarrage -30%)
+
+## Mise à jour responsive TV (suite)
+- [x] Padding responsive : VOD, Séries, Live TV, Browse, Favorites, Home
+- [x] Typographie responsive : Home (titre + carrousel)
+- [x] TvKeyHandlerWrapper intégré dans Home (play/pause ? item focalisé)
+- [x] 16 KB page sizes (NDK r28)
+- [ ] Appliquer titleMedium/bodyMedium aux titres de section (VOD, Séries, Live TV, Settings)
+- [ ] Intégrer TvKeyHandlerWrapper dans PlayerScreen (optionnel, player gère déjà les touches média)
+- [ ] Baseline Profiles (démarrage -30%) — à générer
+- [ ] Vérifications device (reconnecter S20)
