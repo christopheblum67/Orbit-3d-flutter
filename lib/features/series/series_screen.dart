@@ -290,7 +290,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   ),
                                   SliverPadding(
                                     padding:
-                                        const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                                        EdgeInsets.fromLTRB(
+                                          context.screenPadding,
+                                          8,
+                                          context.screenPadding,
+                                          16,
+                                        ),
                                     sliver: SliverGrid(
                                       gridDelegate: context.isTv
                                           ? const SliverGridDelegateWithFixedCrossAxisCount(
