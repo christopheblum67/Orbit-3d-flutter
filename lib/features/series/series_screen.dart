@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
@@ -291,8 +292,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     padding:
                                         const EdgeInsets.fromLTRB(12, 8, 12, 16),
                                     sliver: SliverGrid(
-                                      gridDelegate:
-                                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                                      gridDelegate: context.isTv
+                                          ? const SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: 6,
+                                              childAspectRatio: 0.70,
+                                              crossAxisSpacing: 24,
+                                              mainAxisSpacing: 24,
+                                            )
+                                          : const SliverGridDelegateWithMaxCrossAxisExtent(
                                         maxCrossAxisExtent: 140,
                                         childAspectRatio: 0.72,
                                         crossAxisSpacing: 10,
