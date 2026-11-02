@@ -166,28 +166,10 @@ class _MovieDetailContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Backdrop (si dispo)
-          if (detail.backdropUrl != null && detail.backdropUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: OrbitCachedImage(
-                imageUrl: detail.backdropUrl!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  height: 180,
-                  color: scheme.primaryContainer,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           // Header: Poster + Titre + Métadonnées
+          // (Le backdrop hero en tête a été retiré : affichage redondant qui
+          //  ne servait qu'à « répéter » le film et gonflait inutilement le scroll
+          //  vertical de la fiche.)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

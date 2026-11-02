@@ -72,7 +72,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                     onPressed: () => context.pop(),
                   )
                 : null,
-        title: Text(l.liveTv),
+        title: Text(
+          l.liveTv,
+          style: context.titleMedium.copyWith(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             tooltip: 'Rafraîchir EPG',

@@ -120,32 +120,11 @@ _MenuSection(
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              DrawerHeader(
-              decoration: BoxDecoration(color: scheme.primaryContainer),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const OrbitLogoIcon(size: 40),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppConstants.appName,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  Text(
-                    'Sélectionnez un sous-menu',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              scheme.onPrimaryContainer.withValues(alpha: 0.8),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            for (final section in sections) ...[
+              // Header supprimé : le titre « Orbit IPTV » est déplacé dans le
+              // rail (CategoriesRail) pour éviter que le focus D-pad reste
+              // bloqué sur le texte non interactif du DrawerHeader au lieu du
+              // premier élément navigable (Accueil).
+              for (final section in sections) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
                 child: Text(

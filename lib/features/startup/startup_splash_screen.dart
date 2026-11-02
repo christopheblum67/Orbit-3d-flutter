@@ -64,16 +64,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void _onProgress() {
     if (!mounted) return;
     setState(() {});
-    if (_controller.isFinished && !_navigated) {
+    if (!_navigated) {
       _navigated = true;
       // Marque la mise à jour comme faite pour que le bouton d'accueil
       // affiche l'horodatage au lieu de « Jamais mis à jour ».
       ref
           .read(lastRefreshTimestampProvider.notifier)
           .setTimestamp(DateTime.now());
-      Future<void>.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) context.go('/profiles');
-      });
+      if (mounted) context.go('/profiles');
     }
   }
 
@@ -117,9 +115,18 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // `safeAsync` et la validité n'était jamais mise à jour (« Sans limite »).
     await _refreshSubscriptionValidity();
     if (!mounted) return;
-    await _controller.start();
-    if (!mounted) return;
-    // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
+    // Navigation immédiate vers le profil (ordre : abonnement → profil)
+    // sans attendre la fin du rafraîchissement du catalogue.
+    // Entre l'abonnement et le profil : données intermédiaires (session + baseUrl).
+    // Navigation immédiate vers le profil (ordre : abonnement → profil)
+    // sans attendre la fin du rafraîchissement du catalogue.
+    // Entre l'abonnement et le profil : données intermédiaires (session + baseUrl).
+    _navigated = true;
+    if (mounted) context.go('/profiles');
+    // Données intermédiaires : initialise la session Cloudflare (cookies + UA)
+    // et récupère l'URL de base du fournisseur IPTV actif.
+    setState(() => _cfLoading = true);
+    await safeAsync(
     // Récupère l'URL de base du fournisseur IPTV actif.
     // ATTENDRE la fin de l'initialisation (max 30s) pour éviter "flux indisponible" au 1er play.
     setState(() => _cfLoading = true);
@@ -145,6 +152,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       context: 'StartupSplashScreen Cloudflare session init',
     );
     if (mounted) setState(() => _cfLoading = false);
+    // Rafraîchissement du catalogue lancé APRÈS la session (données intermédiaires)
+    // et la navigation vers le profil.
+    _controller.start();
     // Auto-resume: check for last session playback progress
     if (mounted) {
       await _checkAutoResume();

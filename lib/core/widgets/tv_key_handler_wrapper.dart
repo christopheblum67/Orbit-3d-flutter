@@ -24,8 +24,10 @@ class TvKeyHandlerWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // PAS d'autofocus ici : un autofocus sur ce Focus (ancêtre) capterait le
+    // focus TV avant le TvFocus interne du carrousel et ferait ignorer les
+    // flèches/Entrée (le TvFocus étant un descendant, il n'est plus consulté).
     return Focus(
-      autofocus: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           switch (event.logicalKey) {

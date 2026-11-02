@@ -202,7 +202,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
-      appBar: AppBar(
+      appBar: null,
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
@@ -210,7 +210,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: Text(l.filmsVod),
+        title: const SizedBox.shrink(),
         actions: [
           IconButton(
             tooltip: l.searchMovie,
@@ -285,6 +285,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                   selectedId: _selectedCategoryId,
                   onSelected: (id) => setState(() => _selectedCategoryId = id),
                 ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -297,6 +298,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                           onChanged: (value) => setState(() => _query = value),
                         ),
                       ),
+                      const SizedBox(height: 8),
                       Expanded(
                         child: visibleMovies.isEmpty
                             ? EmptyState(
@@ -328,7 +330,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                   ),
                                   gridDelegate: context.isTv
                                       ? const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 6,
+                                          crossAxisCount: 5,
                                           childAspectRatio: 0.70,
                                           crossAxisSpacing: 30,
                                           mainAxisSpacing: 30,

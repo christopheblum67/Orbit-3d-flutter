@@ -69,7 +69,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: Text(l.series),
+        title: Text(
+          l.series,
+          style: context.titleMedium.copyWith(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             tooltip: l.searchSeries,
@@ -300,7 +303,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                     sliver: SliverGrid(
                                       gridDelegate: context.isTv
                                           ? const SliverGridDelegateWithFixedCrossAxisCount(
-                                              crossAxisCount: 6,
+                                              crossAxisCount: 5,
                                               childAspectRatio: 0.70,
                                               crossAxisSpacing: 30,
                                               mainAxisSpacing: 30,

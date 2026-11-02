@@ -16,7 +16,7 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 /// Grille de chaînes : dense sur mobile, espacée sur TV.
 SliverGridDelegate channelGridDelegate({bool isTv = false}) => isTv
     ? const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 6,
+        crossAxisCount: 5,
         childAspectRatio: 0.65,
         crossAxisSpacing: 30,
         mainAxisSpacing: 30,
