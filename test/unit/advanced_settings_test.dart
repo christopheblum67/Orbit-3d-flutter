@@ -22,6 +22,10 @@ void main() {
     expect(notifier.state.nightFocusBassKiller, isTrue);
     expect(notifier.state.nightFocusVocalGainDb, 3.0);
     expect(notifier.state.nightFocusAudioShiftMs, 0);
+    expect(
+      notifier.state.vodSubtitleMode,
+      VodSubtitleMode.defaultSelection,
+    );
   });
 
   test('modifications persistées et relues', () async {
@@ -41,6 +45,7 @@ void main() {
     await notifier.setNightFocus(true);
     await notifier.setNightFocusDialogueBoost(false);
     await notifier.setNightFocusVocalGainDb(6.0);
+    await notifier.setVodSubtitleMode(VodSubtitleMode.forcedOnly);
 
     expect(notifier.state.useTlsImpersonation, isFalse);
     expect(notifier.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
@@ -48,14 +53,21 @@ void main() {
     expect(notifier.state.nightFocusEnabled, isTrue);
     expect(notifier.state.nightFocusDialogueBoost, isFalse);
     expect(notifier.state.nightFocusVocalGainDb, 6.0);
+    expect(notifier.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(AdvancedSettings.kTlsImpersonation), isFalse);
     expect(
-        prefs.getString(AdvancedSettings.kDnsProvider), '9.9.9.9 (Quad9 DoH)',);
+      prefs.getString(AdvancedSettings.kDnsProvider),
+      '9.9.9.9 (Quad9 DoH)',
+    );
     expect(prefs.getBool(AdvancedSettings.kZeroLagPrefetch), isFalse);
     expect(prefs.getBool(AdvancedSettings.kNightFocus), isTrue);
     expect(prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb), 6.0);
+    expect(
+      prefs.getString(AdvancedSettings.kVodSubtitleMode),
+      VodSubtitleMode.forcedOnly.name,
+    );
 
     final reloadedContainer = ProviderContainer();
     addTearDown(reloadedContainer.dispose);
@@ -67,5 +79,6 @@ void main() {
     expect(reloaded.state.zeroLagPrefetch, isFalse);
     expect(reloaded.state.nightFocusEnabled, isTrue);
     expect(reloaded.state.nightFocusVocalGainDb, 6.0);
+    expect(reloaded.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
   });
 }

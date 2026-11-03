@@ -88,6 +88,24 @@ void main() {
     ctrl.dispose();
   });
 
+  testWidgets('les applications automatiques ne masquent pas un choix manuel',
+      (tester) async {
+    final ctrl = SubtitleController();
+    expect(ctrl.manualSelectionRevision, 0);
+
+    ctrl.setEmbeddedContext(playerId: 7, tracks: [forcedTrack(), fullTrack()]);
+    await ctrl.selectEmbeddedTrack('4_0', userInitiated: false);
+    ctrl.disable(userInitiated: false);
+    expect(ctrl.manualSelectionRevision, 0);
+
+    await ctrl.selectEmbeddedTrack('3_0');
+    expect(ctrl.manualSelectionRevision, 1);
+    ctrl.resetForNewContent();
+    expect(ctrl.manualSelectionRevision, 0);
+
+    ctrl.dispose();
+  });
+
   testWidgets('setEmbeddedContext rejoué ne vole pas la piste choisie',
       (tester) async {
     // Régression : la découverte est rejouée pendant que les pistes texte

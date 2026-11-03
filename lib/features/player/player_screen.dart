@@ -241,6 +241,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// été appliquée (`-1` = jamais). Évite de rejouer la sélection à chaque
   /// vague de découverte — et donc de reprendre la main sur un choix manuel.
   int _appliedSeriesSubtitleGeneration = -1;
+  int _appliedVodSubtitleModeGeneration = -1;
+  int _vodManualSelectionRevisionAtScan = 0;
 
   /// Balayage des sous-titres intégrés.
   ///
@@ -1074,7 +1076,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
     if (track == null) return;
 
-    await ctrl.selectEmbeddedTrack(track.id);
+    await ctrl.selectEmbeddedTrack(track.id, userInitiated: false);
     if (!mounted || generation != _generation) return;
     _appliedSeriesSubtitleGeneration = generation;
   }
@@ -1094,6 +1096,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // sonde à conclure « ce contenu n'a pas de piste intégrée » — décision
     // légitime ici, illegitimate plus tard (cf. [_discoverEmbeddedSubtitles]).
     _embeddedSig = kEmbeddedSigUnset;
+    _appliedVodSubtitleModeGeneration = -1;
+    _vodManualSelectionRevisionAtScan =
+        ref.read(subtitleControllerProvider).manualSelectionRevision;
     const period = Duration(seconds: 1);
     const deadline = Duration(seconds: 60);
     var elapsed = Duration.zero;
@@ -1178,11 +1183,55 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // Applique la langue de sous-titres choisie pour la série (une fois par
       // contenu). Les vagues suivantes peuvent l'apporter après coup : tant
       // qu'aucune piste ne correspond, la préférence reste « non appliquée ».
+      await _applyVodSubtitleMode(ctrl, tracks, probeGeneration);
       await _applySeriesSubtitlePreference(ctrl, probeGeneration);
     } catch (_) {
       // Canal natif indisponible (lecture RTSP, plugin tiers…) : on ignore.
     } finally {
       _embeddedScanRunning = false;
+    }
+  }
+
+  Future<void> _applyVodSubtitleMode(
+    SubtitleController ctrl,
+    List<EmbeddedSubtitleTrack> tracks,
+    int generation,
+  ) async {
+    if (widget.contentType != PlaybackContentType.vod ||
+        _appliedVodSubtitleModeGeneration == generation) {
+      return;
+    }
+
+    if (ctrl.manualSelectionRevision != _vodManualSelectionRevisionAtScan) {
+      _appliedVodSubtitleModeGeneration = generation;
+      return;
+    }
+
+    final mode = ref.read(advancedSettingsProvider).vodSubtitleMode;
+    if (mode == VodSubtitleMode.defaultSelection) {
+      _appliedVodSubtitleModeGeneration = generation;
+      return;
+    }
+
+    if (mode == VodSubtitleMode.disabled) {
+      ctrl.disable(userInitiated: false);
+      return;
+    }
+
+    final forcedTrack = tracks.firstWhereOrNull((track) => track.isForced);
+    if (forcedTrack == null) {
+      // Ne pas laisser media3 sélectionner une piste de dialogue complète
+      // quand l'utilisateur a demandé uniquement les sous-titres forcés.
+      ctrl.disableEmbedded(userInitiated: false);
+      return;
+    }
+
+    await ctrl.selectEmbeddedTrack(
+      forcedTrack.id,
+      userInitiated: false,
+    );
+    if (mounted && generation == _generation) {
+      _appliedVodSubtitleModeGeneration = generation;
     }
   }
 

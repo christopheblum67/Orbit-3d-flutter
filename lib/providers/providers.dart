@@ -771,6 +771,7 @@ final seriesCompactProvider = FutureProvider<List<SeriesCompact>>((ref) async {
 /// chaque visite. Gardé en mémoire, le résultat est réutilisé.
 final movieDetailProvider =
     FutureProvider.family<MovieDetail, Movie>((ref, movie) async {
+  ref.watch(tmdbApiKeyOverrideProvider);
   return ref.watch(enrichmentServiceProvider).enrichMovie(movie);
 });
 

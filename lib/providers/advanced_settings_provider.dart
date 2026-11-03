@@ -36,6 +36,8 @@ extension PlaybackContentTypeX on PlaybackContentType {
       };
 }
 
+enum VodSubtitleMode { defaultSelection, disabled, forcedOnly }
+
 /// Configuration d'un lecteur pour un type de contenu : un moteur principal
 /// (par défaut) et un moteur de secours (fallback) en cas d'échec.
 class PlayerPerTypeConfig {
@@ -80,6 +82,7 @@ class AdvancedSettings {
   final PlayerPerTypeConfig playerVod;
   final PlayerPerTypeConfig playerSeries;
   final PlayerPerTypeConfig playerReplay;
+  final VodSubtitleMode vodSubtitleMode;
 
   // Audio & Night Focus
   final bool nightFocusEnabled;
@@ -118,6 +121,7 @@ class AdvancedSettings {
       primary: PlayerEngine.exoPlayer,
       fallback: PlayerEngine.vlc,
     ),
+    this.vodSubtitleMode = VodSubtitleMode.defaultSelection,
     this.nightFocusEnabled = false,
     this.nightFocusDialogueBoost = true,
     this.nightFocusBassKiller = true,
@@ -139,6 +143,7 @@ class AdvancedSettings {
     PlayerPerTypeConfig? playerVod,
     PlayerPerTypeConfig? playerSeries,
     PlayerPerTypeConfig? playerReplay,
+    VodSubtitleMode? vodSubtitleMode,
     bool? nightFocusEnabled,
     bool? nightFocusDialogueBoost,
     bool? nightFocusBassKiller,
@@ -159,6 +164,7 @@ class AdvancedSettings {
       playerVod: playerVod ?? this.playerVod,
       playerSeries: playerSeries ?? this.playerSeries,
       playerReplay: playerReplay ?? this.playerReplay,
+      vodSubtitleMode: vodSubtitleMode ?? this.vodSubtitleMode,
       nightFocusEnabled: nightFocusEnabled ?? this.nightFocusEnabled,
       nightFocusDialogueBoost:
           nightFocusDialogueBoost ?? this.nightFocusDialogueBoost,
@@ -194,6 +200,7 @@ class AdvancedSettings {
 
   // Clés de persistance des lecteurs par type de contenu (moteur par index).
   static const kPlayerEngine = 'player_engine';
+  static const kVodSubtitleMode = 'vod_subtitle_mode';
   static const _kPrimary = 'primary';
   static const _kFallback = 'fallback';
 
@@ -239,6 +246,7 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       playerVod: _readPlayerConfig(prefs, PlaybackContentType.vod),
       playerSeries: _readPlayerConfig(prefs, PlaybackContentType.series),
       playerReplay: _readPlayerConfig(prefs, PlaybackContentType.replay),
+      vodSubtitleMode: _readVodSubtitleMode(prefs),
       nightFocusEnabled: prefs.getBool(AdvancedSettings.kNightFocus) ?? false,
       nightFocusDialogueBoost: prefs.getBool(
             AdvancedSettings.kNightFocusDialogueBoost,
@@ -259,7 +267,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       certificatePinningEnabled:
           prefs.getBool(AdvancedSettings.kCertificatePinningEnabled) ?? false,
       certificatePinningFingerprints: prefs.getStringList(
-              AdvancedSettings.kCertificatePinningFingerprints,) ??
+            AdvancedSettings.kCertificatePinningFingerprints,
+          ) ??
           const <String>[],
     );
   }
@@ -344,6 +353,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     );
   }
 
+  Future<void> setVodSubtitleMode(VodSubtitleMode mode) async {
+    state = state.copyWith(vodSubtitleMode: mode);
+    await _persistString(AdvancedSettings.kVodSubtitleMode, mode.name);
+  }
+
   Future<void> setZeroLagPrefetch(bool value) async {
     state = state.copyWith(zeroLagPrefetch: value);
     await _persistBool(AdvancedSettings.kZeroLagPrefetch, value);
@@ -403,7 +417,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   }
 
   Future<void> setCertificatePinningFingerprints(
-      List<String> fingerprints,) async {
+    List<String> fingerprints,
+  ) async {
     state = state.copyWith(certificatePinningFingerprints: fingerprints);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(
@@ -415,55 +430,87 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   Future<void> importFromJson(AdvancedSettings imported) async {
     state = imported;
     await _persistBool(
-        AdvancedSettings.kTlsImpersonation, imported.useTlsImpersonation,);
+      AdvancedSettings.kTlsImpersonation,
+      imported.useTlsImpersonation,
+    );
     await _persistString(AdvancedSettings.kDnsProvider, imported.dnsProvider);
     await _persistBool(
-        AdvancedSettings.kZeroLagPrefetch, imported.zeroLagPrefetch,);
+      AdvancedSettings.kZeroLagPrefetch,
+      imported.zeroLagPrefetch,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerPrimary(PlaybackContentType.live),
-        imported.playerLive.primary.name,);
+      AdvancedSettings.kPlayerPrimary(PlaybackContentType.live),
+      imported.playerLive.primary.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerFallback(PlaybackContentType.live),
-        imported.playerLive.fallback.name,);
+      AdvancedSettings.kPlayerFallback(PlaybackContentType.live),
+      imported.playerLive.fallback.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod),
-        imported.playerVod.primary.name,);
+      AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod),
+      imported.playerVod.primary.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerFallback(PlaybackContentType.vod),
-        imported.playerVod.fallback.name,);
+      AdvancedSettings.kPlayerFallback(PlaybackContentType.vod),
+      imported.playerVod.fallback.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerPrimary(PlaybackContentType.series),
-        imported.playerSeries.primary.name,);
+      AdvancedSettings.kPlayerPrimary(PlaybackContentType.series),
+      imported.playerSeries.primary.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerFallback(PlaybackContentType.series),
-        imported.playerSeries.fallback.name,);
+      AdvancedSettings.kPlayerFallback(PlaybackContentType.series),
+      imported.playerSeries.fallback.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerPrimary(PlaybackContentType.replay),
-        imported.playerReplay.primary.name,);
+      AdvancedSettings.kPlayerPrimary(PlaybackContentType.replay),
+      imported.playerReplay.primary.name,
+    );
     await _persistString(
-        AdvancedSettings.kPlayerFallback(PlaybackContentType.replay),
-        imported.playerReplay.fallback.name,);
+      AdvancedSettings.kPlayerFallback(PlaybackContentType.replay),
+      imported.playerReplay.fallback.name,
+    );
+    await _persistString(
+      AdvancedSettings.kVodSubtitleMode,
+      imported.vodSubtitleMode.name,
+    );
     await _persistBool(
-        AdvancedSettings.kNightFocus, imported.nightFocusEnabled,);
-    await _persistBool(AdvancedSettings.kNightFocusDialogueBoost,
-        imported.nightFocusDialogueBoost,);
+      AdvancedSettings.kNightFocus,
+      imported.nightFocusEnabled,
+    );
     await _persistBool(
-        AdvancedSettings.kNightFocusBassKiller, imported.nightFocusBassKiller,);
-    await _persistDouble(AdvancedSettings.kNightFocusVocalGainDb,
-        imported.nightFocusVocalGainDb,);
-    await _persistInt(AdvancedSettings.kNightFocusAudioShiftMs,
-        imported.nightFocusAudioShiftMs,);
+      AdvancedSettings.kNightFocusDialogueBoost,
+      imported.nightFocusDialogueBoost,
+    );
+    await _persistBool(
+      AdvancedSettings.kNightFocusBassKiller,
+      imported.nightFocusBassKiller,
+    );
+    await _persistDouble(
+      AdvancedSettings.kNightFocusVocalGainDb,
+      imported.nightFocusVocalGainDb,
+    );
+    await _persistInt(
+      AdvancedSettings.kNightFocusAudioShiftMs,
+      imported.nightFocusAudioShiftMs,
+    );
     await _persistBool(
       AdvancedSettings.kNightFocusVolumeNormalization,
       imported.nightFocusVolumeNormalization,
     );
     await _persistBool(AdvancedSettings.kHighContrast, imported.highContrast);
     await _persistBool(
-        AdvancedSettings.kDpadNavigation, imported.dpadNavigation,);
+      AdvancedSettings.kDpadNavigation,
+      imported.dpadNavigation,
+    );
     await _persistDouble(
-        AdvancedSettings.kFontSizeScale, imported.fontSizeScale,);
-    await _persistBool(AdvancedSettings.kCertificatePinningEnabled,
-        imported.certificatePinningEnabled,);
+      AdvancedSettings.kFontSizeScale,
+      imported.fontSizeScale,
+    );
+    await _persistBool(
+      AdvancedSettings.kCertificatePinningEnabled,
+      imported.certificatePinningEnabled,
+    );
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(
       AdvancedSettings.kCertificatePinningFingerprints,
@@ -488,5 +535,13 @@ PlayerPerTypeConfig _readPlayerConfig(
     fallback: PlayerEngineX.fromLabel(
       prefs.getString(AdvancedSettings.kPlayerFallback(type)),
     ),
+  );
+}
+
+VodSubtitleMode _readVodSubtitleMode(SharedPreferences prefs) {
+  final value = prefs.getString(AdvancedSettings.kVodSubtitleMode);
+  return VodSubtitleMode.values.firstWhere(
+    (mode) => mode.name == value,
+    orElse: () => VodSubtitleMode.defaultSelection,
   );
 }

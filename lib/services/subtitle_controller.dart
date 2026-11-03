@@ -108,6 +108,7 @@ class SubtitleController extends ChangeNotifier {
         _externalPlayerId = _embeddedBridge?.playerId;
         _activeTrack = track;
         _activeTrackUrl = url;
+        _manualSelectionRevision++;
         notifyListeners();
       },
       context: 'SubtitleController.loadAndSetTrack',
@@ -314,6 +315,7 @@ class SubtitleController extends ChangeNotifier {
     _adoptedTracks[label] = track;
     _activeTrack = track;
     _activeTrackUrl = label;
+    _manualSelectionRevision++;
     notifyListeners();
   }
 
@@ -324,14 +326,16 @@ class SubtitleController extends ChangeNotifier {
     _externalPlayerId = _embeddedBridge?.playerId;
     _activeTrack = track;
     _activeTrackUrl = url;
+    _manualSelectionRevision++;
     notifyListeners();
   }
 
-  void disable() {
+  void disable({bool userInitiated = true}) {
     _cancelEmbeddedForExternal();
     _externalPlayerId = null;
     _activeTrack = null;
     _activeTrackUrl = null;
+    if (userInitiated) _manualSelectionRevision++;
     notifyListeners();
   }
 
@@ -373,6 +377,7 @@ class SubtitleController extends ChangeNotifier {
     _embeddedTracks = const [];
     _embeddedPollTimer?.cancel();
     _embeddedPollTimer = null;
+    _manualSelectionRevision = 0;
     notifyListeners();
   }
 
@@ -381,6 +386,7 @@ class SubtitleController extends ChangeNotifier {
   EmbeddedSubtitleBridge? _embeddedBridge;
   List<EmbeddedSubtitleTrack> _embeddedTracks = const [];
   String? _activeEmbeddedTrackId;
+  int _manualSelectionRevision = 0;
   EmbeddedSubtitleCues? _liveEmbeddedCues;
   Timer? _embeddedPollTimer;
   bool _embeddedPollBusy = false;
@@ -395,6 +401,8 @@ class SubtitleController extends ChangeNotifier {
 
   /// Id de la piste intégrée active, si une piste intégrée est affichée.
   String? get activeEmbeddedTrackId => _activeEmbeddedTrackId;
+
+  int get manualSelectionRevision => _manualSelectionRevision;
 
   /// Dernier groupe de cues rendu par le pipeline (asservi au contenu, pas à
   /// la position du lecteur).
@@ -451,7 +459,10 @@ class SubtitleController extends ChangeNotifier {
   }
 
   /// Active une piste intégrée. Exclusivité : toute piste externe est coupée.
-  Future<void> selectEmbeddedTrack(String trackId) async {
+  Future<void> selectEmbeddedTrack(
+    String trackId, {
+    bool userInitiated = true,
+  }) async {
     final bridge = _embeddedBridge;
     if (bridge == null || !_embeddedTracks.any((t) => t.id == trackId)) return;
     try {
@@ -465,13 +476,15 @@ class SubtitleController extends ChangeNotifier {
     _externalPlayerId = null;
     _activeTrack = null;
     _activeTrackUrl = null;
+    if (userInitiated) _manualSelectionRevision++;
     _refreshEmbeddedPolling();
     notifyListeners();
   }
 
   /// Éteint les sous-titres intégrés (y compris côté natif).
-  void disableEmbedded() {
+  void disableEmbedded({bool userInitiated = true}) {
     _cancelEmbeddedForExternal();
+    if (userInitiated) _manualSelectionRevision++;
     notifyListeners();
   }
 

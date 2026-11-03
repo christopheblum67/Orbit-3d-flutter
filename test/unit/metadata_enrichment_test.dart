@@ -154,6 +154,7 @@ void main() {
       expect(result.description, tmdbDetail.description);
       expect(result.dataSource, 'tmdb');
       expect(result.streamUrl, baseMovie.streamUrl);
+      expect(result.cast.map((actor) => actor.name), ['Test Actor']);
     });
   });
 

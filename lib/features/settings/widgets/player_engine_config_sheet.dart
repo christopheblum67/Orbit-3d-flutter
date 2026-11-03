@@ -39,14 +39,18 @@ class _PlayerEngineConfigSheetState
   final _closeFocus = FocusNode();
   final _cancelFocus = FocusNode();
   final _saveFocus = FocusNode();
+  final _vodSubtitleFocus = FocusNode();
   final Map<PlaybackContentType, FocusNode> _primaryFocusNodes = {};
   final Map<PlaybackContentType, FocusNode> _fallbackFocusNodes = {};
+
+  late VodSubtitleMode _vodSubtitleModeDraft;
 
   @override
   void dispose() {
     _closeFocus.dispose();
     _cancelFocus.dispose();
     _saveFocus.dispose();
+    _vodSubtitleFocus.dispose();
     for (final node in _primaryFocusNodes.values) {
       node.dispose();
     }
@@ -63,6 +67,7 @@ class _PlayerEngineConfigSheetState
     _draft = {
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
+    _vodSubtitleModeDraft = s.vodSubtitleMode;
     // Initialize focus nodes for each content type
     for (final type in PlaybackContentType.values) {
       _primaryFocusNodes[type] = FocusNode();
@@ -82,12 +87,17 @@ class _PlayerEngineConfigSheetState
     });
   }
 
+  void _setVodSubtitleMode(VodSubtitleMode mode) {
+    setState(() => _vodSubtitleModeDraft = mode);
+  }
+
   Future<void> _save() async {
     final n = ref.read(advancedSettingsProvider.notifier);
     for (final entry in _draft.entries) {
       await n.setPlayerPrimary(entry.key, entry.value.primary);
       await n.setPlayerFallback(entry.key, entry.value.fallback);
     }
+    await n.setVodSubtitleMode(_vodSubtitleModeDraft);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -146,6 +156,51 @@ class _PlayerEngineConfigSheetState
     );
   }
 
+  Widget _buildTvSubtitleDropdownButton({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required VodSubtitleMode value,
+    required ValueChanged<VodSubtitleMode> onChanged,
+    required List<DropdownMenuItem<VodSubtitleMode>> items,
+  }) {
+    return Focus(
+      focusNode: focusNode,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.select ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+              event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            _requestFocus(nextFocusNode);
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            _requestFocus(prevFocusNode);
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<VodSubtitleMode>(
+          value: value,
+          isDense: true,
+          focusNode: focusNode,
+          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+          items: items,
+          onChanged: (mode) {
+            if (mode != null) onChanged(mode);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -173,7 +228,6 @@ class _PlayerEngineConfigSheetState
           ),
         ),
     ];
-
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -223,7 +277,8 @@ class _PlayerEngineConfigSheetState
                           if (_primaryFocusNodes[PlaybackContentType.live] !=
                               null) {
                             _requestFocus(
-                                _primaryFocusNodes[PlaybackContentType.live]!,);
+                              _primaryFocusNodes[PlaybackContentType.live]!,
+                            );
                           }
                           return KeyEventResult.handled;
                         }
@@ -265,6 +320,18 @@ class _PlayerEngineConfigSheetState
                         fallbackFocusNode: _fallbackFocusNodes[type]!,
                         dropdownItems: dropdownItems,
                         buildTvDropdown: _buildTvDropdownButton,
+                        vodSubtitleMode: type == PlaybackContentType.vod
+                            ? _vodSubtitleModeDraft
+                            : null,
+                        onVodSubtitleMode: type == PlaybackContentType.vod
+                            ? _setVodSubtitleMode
+                            : null,
+                        vodSubtitleFocusNode: _vodSubtitleFocus,
+                        buildTvSubtitleDropdown: _buildTvSubtitleDropdownButton,
+                        getNextVodSubtitleFocus: () =>
+                            _primaryFocusNodes[PlaybackContentType.series]!,
+                        getPrevVodSubtitleFocus: () =>
+                            _fallbackFocusNodes[PlaybackContentType.vod]!,
                         getNextPrimaryFocus: (currentType) {
                           final types = PlaybackContentType.values;
                           final idx = types.indexOf(currentType);
@@ -274,6 +341,9 @@ class _PlayerEngineConfigSheetState
                           return _cancelFocus; // After last primary, go to cancel
                         },
                         getPrevPrimaryFocus: (currentType) {
+                          if (currentType == PlaybackContentType.series) {
+                            return _vodSubtitleFocus;
+                          }
                           final types = PlaybackContentType.values;
                           final idx = types.indexOf(currentType);
                           if (idx > 0) {
@@ -282,6 +352,9 @@ class _PlayerEngineConfigSheetState
                           return _closeFocus; // Before first primary, go to close
                         },
                         getNextFallbackFocus: (currentType) {
+                          if (currentType == PlaybackContentType.vod) {
+                            return _vodSubtitleFocus;
+                          }
                           final types = PlaybackContentType.values;
                           final idx = types.indexOf(currentType);
                           if (idx + 1 < types.length) {
@@ -324,8 +397,9 @@ class _PlayerEngineConfigSheetState
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
                             // Go to last fallback (Replay)
-                            _requestFocus(_fallbackFocusNodes[
-                                PlaybackContentType.replay]!,);
+                            _requestFocus(
+                              _fallbackFocusNodes[PlaybackContentType.replay]!,
+                            );
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
@@ -366,8 +440,9 @@ class _PlayerEngineConfigSheetState
                           if (event is KeyDownEvent &&
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
-                            _requestFocus(_fallbackFocusNodes[
-                                PlaybackContentType.replay]!,);
+                            _requestFocus(
+                              _fallbackFocusNodes[PlaybackContentType.replay]!,
+                            );
                             return KeyEventResult.handled;
                           }
                           return KeyEventResult.ignored;
@@ -404,6 +479,12 @@ class _TypeSection extends StatelessWidget {
     required this.getPrevPrimaryFocus,
     required this.getNextFallbackFocus,
     required this.getPrevFallbackFocus,
+    required this.vodSubtitleMode,
+    required this.onVodSubtitleMode,
+    required this.vodSubtitleFocusNode,
+    required this.buildTvSubtitleDropdown,
+    required this.getNextVodSubtitleFocus,
+    required this.getPrevVodSubtitleFocus,
   });
 
   final PlaybackContentType type;
@@ -425,6 +506,33 @@ class _TypeSection extends StatelessWidget {
   final FocusNode Function(PlaybackContentType) getPrevPrimaryFocus;
   final FocusNode Function(PlaybackContentType) getNextFallbackFocus;
   final FocusNode Function(PlaybackContentType) getPrevFallbackFocus;
+  final VodSubtitleMode? vodSubtitleMode;
+  final ValueChanged<VodSubtitleMode>? onVodSubtitleMode;
+  final FocusNode vodSubtitleFocusNode;
+  final Widget Function({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required VodSubtitleMode value,
+    required ValueChanged<VodSubtitleMode> onChanged,
+    required List<DropdownMenuItem<VodSubtitleMode>> items,
+  }) buildTvSubtitleDropdown;
+  final FocusNode Function() getNextVodSubtitleFocus;
+  final FocusNode Function() getPrevVodSubtitleFocus;
+  static const _subtitleModeItems = <DropdownMenuItem<VodSubtitleMode>>[
+    DropdownMenuItem(
+      value: VodSubtitleMode.defaultSelection,
+      child: Text('Par défaut'),
+    ),
+    DropdownMenuItem(
+      value: VodSubtitleMode.disabled,
+      child: Text('Sans sous-titres'),
+    ),
+    DropdownMenuItem(
+      value: VodSubtitleMode.forcedOnly,
+      child: Text('Sous-titres forcés'),
+    ),
+  ];
 
   IconData get _icon => switch (type) {
         PlaybackContentType.live => Icons.live_tv,
@@ -481,6 +589,18 @@ class _TypeSection extends StatelessWidget {
               dropdownItems: dropdownItems,
               buildTvDropdown: buildTvDropdown,
             ),
+            if (type == PlaybackContentType.vod &&
+                vodSubtitleMode != null &&
+                onVodSubtitleMode != null)
+              _SubtitleModeRow(
+                focusNode: vodSubtitleFocusNode,
+                nextFocusNode: getNextVodSubtitleFocus(),
+                prevFocusNode: getPrevVodSubtitleFocus(),
+                value: vodSubtitleMode!,
+                onChanged: onVodSubtitleMode!,
+                items: _subtitleModeItems,
+                buildTvDropdown: buildTvSubtitleDropdown,
+              ),
           ],
         ),
       ),
@@ -541,4 +661,57 @@ class _EngineRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SubtitleModeRow extends StatelessWidget {
+  const _SubtitleModeRow({
+    required this.focusNode,
+    required this.nextFocusNode,
+    required this.prevFocusNode,
+    required this.value,
+    required this.onChanged,
+    required this.items,
+    required this.buildTvDropdown,
+  });
+
+  final FocusNode focusNode;
+  final FocusNode nextFocusNode;
+  final FocusNode prevFocusNode;
+  final VodSubtitleMode value;
+  final ValueChanged<VodSubtitleMode> onChanged;
+  final List<DropdownMenuItem<VodSubtitleMode>> items;
+  final Widget Function({
+    required FocusNode focusNode,
+    required FocusNode nextFocusNode,
+    required FocusNode prevFocusNode,
+    required VodSubtitleMode value,
+    required ValueChanged<VodSubtitleMode> onChanged,
+    required List<DropdownMenuItem<VodSubtitleMode>> items,
+  }) buildTvDropdown;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(
+              Icons.subtitles_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('Sous-titres VOD', style: TextStyle(fontSize: 13)),
+            ),
+            buildTvDropdown(
+              focusNode: focusNode,
+              nextFocusNode: nextFocusNode,
+              prevFocusNode: prevFocusNode,
+              value: value,
+              onChanged: onChanged,
+              items: items,
+            ),
+          ],
+        ),
+      );
 }

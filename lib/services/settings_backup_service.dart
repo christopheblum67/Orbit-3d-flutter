@@ -35,6 +35,7 @@ class SettingsBackupService {
       'playerVod': _playerConfigToJson(s.playerVod),
       'playerSeries': _playerConfigToJson(s.playerSeries),
       'playerReplay': _playerConfigToJson(s.playerReplay),
+      'vodSubtitleMode': s.vodSubtitleMode.name,
       'nightFocusEnabled': s.nightFocusEnabled,
       'nightFocusDialogueBoost': s.nightFocusDialogueBoost,
       'nightFocusBassKiller': s.nightFocusBassKiller,
@@ -72,12 +73,14 @@ class SettingsBackupService {
 
         if (map['app'] != _appName) {
           return SettingsBackupResult.failure(
-              'Fichier invalide : application non reconnue',);
+            'Fichier invalide : application non reconnue',
+          );
         }
         final version = map['version'] as int?;
         if (version == null || version > _version) {
           return SettingsBackupResult.failure(
-              'Version de backup non supportée ($version)',);
+            'Version de backup non supportée ($version)',
+          );
         }
 
         final advJson = map['advancedSettings'] as Map<String, dynamic>?;
@@ -117,6 +120,10 @@ class SettingsBackupService {
       playerVod: _playerConfigFromJson(map['playerVod']),
       playerSeries: _playerConfigFromJson(map['playerSeries']),
       playerReplay: _playerConfigFromJson(map['playerReplay']),
+      vodSubtitleMode: VodSubtitleMode.values.firstWhere(
+        (mode) => mode.name == map['vodSubtitleMode'],
+        orElse: () => VodSubtitleMode.defaultSelection,
+      ),
       nightFocusEnabled: map['nightFocusEnabled'] ?? false,
       nightFocusDialogueBoost: map['nightFocusDialogueBoost'] ?? true,
       nightFocusBassKiller: map['nightFocusBassKiller'] ?? true,

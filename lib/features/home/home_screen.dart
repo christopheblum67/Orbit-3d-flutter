@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -483,6 +484,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: _refreshAll,
           ),
           const Spacer(),
+          const _ProfileShortcut(),
+          const SizedBox(width: 8),
+          _SettingsShortcut(
+            onPressed: () => context.go('/settings'),
+          ),
         ],
       ),
     );
@@ -645,6 +651,96 @@ class _NoSubscriptionChip extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ProfileShortcut extends ConsumerWidget {
+  const _ProfileShortcut();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(currentProfileProvider);
+    final label = profile?.firstName.trim();
+    final displayName = label == null || label.isEmpty ? 'Profil' : label;
+    return TvFocus(
+      onActivate: () => context.go('/profiles'),
+      child: Semantics(
+        button: true,
+        label: label == null || label.isEmpty
+            ? 'Choisir un profil'
+            : 'Profil $label',
+        child: GestureDetector(
+          onTap: () => context.go('/profiles'),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E222D),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (profile != null)
+                  ProfileAvatar(profile: profile, size: 30)
+                else
+                  const Icon(
+                    Icons.person_outline,
+                    color: Color(0xFF00CFE8),
+                    size: 30,
+                  ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsShortcut extends StatelessWidget {
+  const _SettingsShortcut({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => TvFocus(
+        onActivate: onPressed,
+        child: GestureDetector(
+          onTap: onPressed,
+          child: Tooltip(
+            message: 'Réglages',
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00CFE8).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
+                ),
+              ),
+              child: const Icon(
+                Icons.settings_outlined,
+                size: 20,
+                color: Color(0xFF00CFE8),
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// Catégories rafraîchissables depuis l'accueil.

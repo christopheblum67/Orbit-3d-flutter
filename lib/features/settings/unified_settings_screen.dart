@@ -83,6 +83,13 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
               )
             : null,
         title: Text(AppLocalizations.of(context).settingsTitle),
+        actions: [
+          IconButton(
+            tooltip: 'Moteurs de lecture',
+            onPressed: () => showPlayerEngineConfigSheet(context),
+            icon: const Icon(Icons.settings_input_component),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
