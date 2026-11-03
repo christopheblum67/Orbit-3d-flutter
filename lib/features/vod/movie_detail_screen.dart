@@ -473,6 +473,7 @@ class _MovieDetailContent extends ConsumerWidget {
             TranslatedSynopsisView(
               title: detail.title,
               rawSynopsis: detail.description,
+              originalLanguageCode: detail.originalLanguage,
             ),
           // Mots-clés
           if (detail.keywords.isNotEmpty) ...[

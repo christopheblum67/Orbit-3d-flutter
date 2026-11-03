@@ -19,6 +19,7 @@ class DrawerMenuButton extends StatelessWidget {
     this.end = false,
     this.tooltip = 'Menu',
     this.autofocus = false,
+    this.focusNode,
   });
 
   /// Ouvre le tiroir de **droite** (`Scaffold.endDrawer`) au lieu de celui de
@@ -29,6 +30,7 @@ class DrawerMenuButton extends StatelessWidget {
   final String tooltip;
 
   final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,7 @@ class DrawerMenuButton extends StatelessWidget {
         icon: const Icon(Icons.menu_rounded),
         tooltip: tooltip,
         autofocus: autofocus,
+        focusNode: focusNode,
         onPressed: () {
           final scaffold = Scaffold.of(context);
           if (end) {

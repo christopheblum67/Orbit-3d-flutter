@@ -46,7 +46,7 @@ class _OnboardingConfigScreenState
 // `ref.invalidate` était appelé une ligne AVANT la garde.
     if (!mounted) return;
     ref.invalidate(deviceProfileProvider);
-    context.go('/profiles');
+    context.go('/startup');
   }
 
   String _profileDescription(DeviceProfile profile) {

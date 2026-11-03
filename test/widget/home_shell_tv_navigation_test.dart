@@ -10,6 +10,60 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
+  testWidgets('mobile bottom navigation includes profile and settings',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (context, state) => const HomeShell(
+            child: Focus(
+              autofocus: true,
+              child: Text('HOME_CONTENT'),
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sourceTypeProvider.overrideWith((ref) async => 'xtream'),
+        ],
+        child: MaterialApp.router(
+          builder: (context, child) => TvModeDetector(
+            child: child ?? const SizedBox.shrink(),
+          ),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
+    expect(find.byIcon(Icons.settings), findsOneWidget);
+    expect(
+      tester.getRect(find.byIcon(Icons.person_outline)).left,
+      greaterThanOrEqualTo(0),
+    );
+    expect(
+      tester.getRect(find.byIcon(Icons.settings)).right,
+      lessThanOrEqualTo(360),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'wide TV mode hides the rail and D-pad navigates from the drawer',
     (tester) async {
@@ -23,8 +77,12 @@ void main() {
         routes: [
           GoRoute(
             path: '/home',
-            builder: (context, state) =>
-                const HomeShell(child: Text('HOME_CONTENT')),
+            builder: (context, state) => const HomeShell(
+              child: Focus(
+                autofocus: true,
+                child: Text('HOME_CONTENT'),
+              ),
+            ),
           ),
           GoRoute(
             path: '/live',
@@ -45,6 +103,9 @@ void main() {
             sourceTypeProvider.overrideWith((ref) async => 'xtream'),
           ],
           child: MaterialApp.router(
+            builder: (context, child) => TvModeDetector(
+              child: child ?? const SizedBox.shrink(),
+            ),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             routerConfig: router,
@@ -58,15 +119,22 @@ void main() {
       expect(find.byIcon(Icons.person_outline), findsNothing);
       expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
 
-      ProviderScope.containerOf(tester.element(find.byType(HomeShell)))
-          .read(tvModeNotifierProvider)
-          .enable();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+      expect(
+        FocusManager.instance.primaryFocus,
+        isNotNull,
+      );
+      expect(
+        FocusManager.instance.primaryFocus!.debugLabel,
+        'Home menu button',
+      );
 
       expect(find.byType(NavigationRail), findsNothing);
       expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.menu_rounded));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(find.byType(HomeMenuDrawer), findsOneWidget);
 

@@ -26,7 +26,9 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// l'application et détournait l'attention de la seule information utile ici,
 /// l'avancement de la mise à jour.
 class StartupSplashScreen extends ConsumerStatefulWidget {
-  const StartupSplashScreen({super.key});
+  const StartupSplashScreen({super.key, this.remainingPhase = false});
+
+  final bool remainingPhase;
 
   @override
   ConsumerState<StartupSplashScreen> createState() =>
@@ -49,6 +51,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       loadSeries: () => ref.read(seriesProvider.future),
       loadRadioChannels: () => ref.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
+      steps: widget.remainingPhase
+          ? StartupRefreshController.remainingSteps
+          : StartupRefreshController.initialSteps,
     );
     _controller.addListener(_onProgress);
     // Lance le préchargement après le premier frame pour ne pas muter l'état
@@ -74,15 +79,28 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     setState(() {});
     if (_controller.isFinished && !_navigated) {
       _navigated = true;
-      // Marque la mise à jour comme faite pour que le bouton d'accueil
-      // affiche l'horodatage au lieu de « Jamais mis à jour ».
-      ref
-          .read(lastRefreshTimestampProvider.notifier)
-          .setTimestamp(DateTime.now());
-      Future<void>.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) context.go('/profiles');
-      });
+      if (widget.remainingPhase) {
+        _finishRemainingPhase();
+      } else {
+        _finishInitialPhase();
+      }
     }
+  }
+
+  Future<void> _finishInitialPhase() async {
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (mounted) context.go('/profiles?startup=true');
+  }
+
+  Future<void> _finishRemainingPhase() async {
+    ref
+        .read(lastRefreshTimestampProvider.notifier)
+        .setTimestamp(DateTime.now());
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (!mounted) return;
+    final resumed = await _checkAutoResume();
+    if (!mounted || resumed) return;
+    context.go('/home');
   }
 
   @override
@@ -100,6 +118,12 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 currentStep: _controller.currentStep,
                 doneSteps: _controller.doneSteps,
                 isFinished: _controller.isFinished,
+                title: widget.remainingPhase
+                    ? 'Chargement des radios et replays'
+                    : 'Chargement du direct, des films, séries et du guide TV',
+                visibleSteps: widget.remainingPhase
+                    ? StartupRefreshController.remainingSteps.toList()
+                    : StartupRefreshController.initialSteps.toList(),
                 showBranding: _showBranding,
               ),
             ),
@@ -110,22 +134,15 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _kickOff() async {
-    // GARDE-FOU ABONNEMENT — interrogé EN PREMIER, avant le raz-de-marée de
-    // requêtes catalogue déclenché par `_controller.start()`. Placé après, le
-    // `get_user_info` partait en DERNIER et se faisait refuser par le panel
-    // (`429`, quota déjà consommé) : `fetchExpiration` retombait sur `null` via
-    // `safeAsync` et la validité n'était jamais mise à jour (« Sans limite »).
-    await _refreshSubscriptionValidity();
+    if (!widget.remainingPhase) {
+      // Check subscription validity before starting the catalog requests.
+      await _refreshSubscriptionValidity();
+    }
     if (!mounted) return;
     await _controller.start();
-    if (!mounted) return;
-    // Auto-resume: check for last session playback progress
-    if (mounted) {
-      await _checkAutoResume();
-    }
   }
 
-  Future<void> _checkAutoResume() async {
+  Future<bool> _checkAutoResume() async {
     final progress =
         ref.read(playbackProgressServiceProvider).get('last_session');
     if (progress != null &&
@@ -230,8 +247,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
             progressId: 'last_session',
           ),
         );
+        return true;
       }
     }
+    return false;
   }
 
   String _getResumeTitle(PlaybackProgress progress) {

@@ -23,7 +23,7 @@ extension on SynopsisSource {
   String? get label => switch (this) {
         SynopsisSource.original => null,
         SynopsisSource.tmdb => 'Synopsis TMDB',
-        SynopsisSource.googleTranslate => 'Traduit automatiquement (Google)',
+        SynopsisSource.googleTranslate => 'Traduit par Google',
         SynopsisSource.none => null,
       };
 }
@@ -50,12 +50,8 @@ class TranslatedSynopsis {
   String? get attribution => source.label;
 }
 
-/// Résout le synopsis à afficher : TMDB en priorité si un résumé français
-/// existe, sinon traduction automatique via l'endpoint unofficial Google.
-///
-/// L'ordre de préférence est dicté par l'ergonomie : un synopsis écrit par
-/// TMDB est de bien meilleure qualité qu'une traduction automatique, donc on
-/// ne traduit que lorsqu'il n'y a rien de meilleur.
+/// Résout le synopsis à afficher : conserve la langue cible, privilégie un
+/// synopsis TMDB localisé, puis utilise Google Translate en dernier recours.
 class SynopsisTranslationService {
   SynopsisTranslationService({Dio? dio}) : _dio = dio ?? Dio();
 
@@ -66,6 +62,49 @@ class SynopsisTranslationService {
 
   /// Langues que l'on considère comme « déjà dans la bonne langue ».
   static const _targetLanguage = 'fr';
+  static const _languageMarkers = <String, List<String>>{
+    'en': [
+      ' the ',
+      ' and ',
+      ' of ',
+      ' to ',
+      ' is ',
+      ' in ',
+      ' with ',
+      ' from ',
+    ],
+    'es': [
+      ' que ',
+      ' y ',
+      ' una ',
+      ' para ',
+      ' por ',
+      ' está ',
+      ' del ',
+      ' los ',
+      ' las ',
+    ],
+    'de': [
+      ' der ',
+      ' die ',
+      ' das ',
+      ' und ',
+      ' von ',
+      ' zu ',
+      ' mit ',
+      ' ein ',
+    ],
+    'it': [
+      ' che ',
+      ' una ',
+      ' con ',
+      ' sono ',
+      ' per ',
+      ' degli ',
+      ' nella ',
+      ' nel ',
+    ],
+  };
 
   /// Heuristique : caractères accentués / mots très français.
   static const _frenchMarkers = <String>[
@@ -89,27 +128,14 @@ class SynopsisTranslationService {
   ];
 
   /// Décide quoi afficher pour [rawSynopsis].
-  ///
-  /// [tmdbFrenchSynopsis] est le résumé que TMDB renvoie pour la langue
-  /// fr-FR (souvent vide si le film n'a pas été traduit).
   Future<TranslatedSynopsis> resolve({
     required String rawSynopsis,
-    String? tmdbFrenchSynopsis,
+    String? tmdbLocalizedSynopsis,
     String? originalLanguageCode,
+    String targetLanguage = _targetLanguage,
   }) async {
     final raw = rawSynopsis.trim();
-    final tmdbFr = (tmdbFrenchSynopsis ?? '').trim();
-
-    // 1. TMDB a bien un synopsis français : c'est la meilleure source, on
-    //    n traduit pas.
-    if (tmdbFr.isNotEmpty) {
-      return TranslatedSynopsis(
-        text: tmdbFr,
-        source: SynopsisSource.tmdb,
-        detectedLanguage: _targetLanguage,
-      );
-    }
-
+    final target = _languageCode(targetLanguage);
     if (raw.isEmpty) {
       return const TranslatedSynopsis(
         text: '',
@@ -117,9 +143,8 @@ class SynopsisTranslationService {
       );
     }
 
-    // 2. Le synopsis est déjà en français : on ne fait rien.
     final detected = _detectLanguage(raw, originalLanguageCode);
-    if (detected == _targetLanguage) {
+    if (detected == target || isInLanguage(raw, target)) {
       return TranslatedSynopsis(
         text: raw,
         source: SynopsisSource.original,
@@ -127,8 +152,16 @@ class SynopsisTranslationService {
       );
     }
 
-    // 3. Traduction automatique.
-    final translated = await _googleTranslate(raw, detected ?? 'auto');
+    final tmdbText = (tmdbLocalizedSynopsis ?? '').trim();
+    if (tmdbText.isNotEmpty && isInLanguage(tmdbText, target)) {
+      return TranslatedSynopsis(
+        text: tmdbText,
+        source: SynopsisSource.tmdb,
+        detectedLanguage: target,
+      );
+    }
+
+    final translated = await _googleTranslate(raw, detected ?? 'auto', target);
     if (translated == null || translated.trim().isEmpty) {
       return TranslatedSynopsis(
         text: raw,
@@ -157,13 +190,33 @@ class SynopsisTranslationService {
     return hits >= 3;
   }
 
+  /// Best-effort language check used to reject TMDB's untranslated fallback.
+  bool isInLanguage(String text, String languageCode) {
+    final language = _languageCode(languageCode);
+    if (language == 'fr') return isFrench(text);
+    if (language == 'ar') {
+      return RegExp(r'[\u0600-\u06FF]').hasMatch(text);
+    }
+    final markers = _languageMarkers[language];
+    if (markers == null) return false;
+    final lower = ' ${text.toLowerCase()} ';
+    return markers.where(lower.contains).length >= 2;
+  }
+
+  String _languageCode(String language) =>
+      language.toLowerCase().split(RegExp('[-_]')).first;
+
   /// Détection inexpensive : on se fie au code de langue fourni par l'API si
   /// présent, sinon à l'heuristique [isFrench].
   String? _detectLanguage(String text, String? originalLanguageCode) {
     if (originalLanguageCode != null && originalLanguageCode.isNotEmpty) {
       return originalLanguageCode.toLowerCase();
     }
-    return isFrench(text) ? _targetLanguage : null;
+    if (isFrench(text)) return 'fr';
+    for (final language in _languageMarkers.keys) {
+      if (isInLanguage(text, language)) return language;
+    }
+    return null;
   }
 
   /// Appel à l'endpoint unofficial Google Translate.
@@ -171,14 +224,18 @@ class SynopsisTranslationService {
   /// L'API n'est pas publique : elle peut être limitée ou changer de forme.
   /// D'où un timeout court, et un repli silencieux sur le texte d'origine en
   /// cas d'échec (l'utilisateur voit le synopsis, pas une erreur).
-  Future<String?> _googleTranslate(String text, String sourceLang) async {
+  Future<String?> _googleTranslate(
+    String text,
+    String sourceLang,
+    String targetLanguage,
+  ) async {
     try {
       final response = await _dio.get(
         _endpoint,
         queryParameters: {
           'client': 'gtx',
           'sl': sourceLang,
-          'tl': _targetLanguage,
+          'tl': targetLanguage,
           'dt': 't',
           'q': text,
         },
@@ -189,15 +246,7 @@ class SynopsisTranslationService {
         ),
       );
       if (response.statusCode != 200) return null;
-      final data = response.data;
-      if (data is String) {
-        // Certains TLS/proxies renvoient du texte brut déjà décodé.
-        return _extractFromJsonString(data);
-      }
-      if (data is Map) {
-        return _extractFromShape(data);
-      }
-      return null;
+      return _extractFromPayload(response.data);
     } catch (error) {
       LoggerService.instance.info('SynopsisTranslate indisponible: $error');
       return null;
@@ -205,18 +254,20 @@ class SynopsisTranslationService {
   }
 
   /// Google Translate renvoie `[[["traduit","source",null,null,10]],null,...]`.
-  String? _extractFromShape(Map<dynamic, dynamic> data) {
+  String? _extractFromPayload(Object? data) {
     try {
-      final first = data[0];
+      final decoded = data is String ? jsonDecode(data) : data;
+      if (decoded is Map) return _extractFromShape(decoded);
+      if (decoded is! List || decoded.isEmpty) return null;
+      final first = decoded[0];
       if (first is List && first.isNotEmpty) {
-        final chunks = first[0];
-        if (chunks is List) {
-          final buffer = StringBuffer();
-          for (final chunk in chunks) {
-            if (chunk is List && chunk.isNotEmpty) buffer.write(chunk[0]);
+        final buffer = StringBuffer();
+        for (final chunk in first) {
+          if (chunk is List && chunk.isNotEmpty && chunk[0] is String) {
+            buffer.write(chunk[0]);
           }
-          return buffer.toString();
         }
+        return buffer.toString();
       }
     } catch (_) {
       return null;
@@ -224,13 +275,15 @@ class SynopsisTranslationService {
     return null;
   }
 
-  String? _extractFromJsonString(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return _extractFromShape(decoded);
-    } catch (_) {
-      return null;
+  String? _extractFromShape(Map<dynamic, dynamic> data) {
+    final first = data[0];
+    if (first is! List || first.isEmpty) return null;
+    final buffer = StringBuffer();
+    for (final chunk in first) {
+      if (chunk is List && chunk.isNotEmpty && chunk[0] is String) {
+        buffer.write(chunk[0]);
+      }
     }
-    return null;
+    return buffer.toString();
   }
 }

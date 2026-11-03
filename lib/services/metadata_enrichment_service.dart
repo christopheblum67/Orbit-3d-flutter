@@ -45,11 +45,13 @@ class MetadataEnrichmentService {
     // On retombe alors sur la donnée de grille : une fiche partielle vaut
     // toujours mieux qu'un écran d'erreur.
     final xtreamMovie =
-        (await safeAsync<Movie>(() => _api.fetchMovieDetail(movie))).valueOrNull ??
+        (await safeAsync<Movie>(() => _api.fetchMovieDetail(movie)))
+                .valueOrNull ??
             movie;
     var detail = MovieDetail.fromMovie(xtreamMovie);
     final credits = (await safeAsync<MovieCredits?>(
-            () => _api.fetchMovieCredits(xtreamMovie.id),))
+      () => _api.fetchMovieCredits(xtreamMovie.id),
+    ))
         .valueOrNull;
     if (credits != null &&
         (credits.cast.isNotEmpty || credits.crew.isNotEmpty)) {
@@ -198,8 +200,14 @@ class MetadataEnrichmentService {
     return base.copyWith(
       // Métadonnées TMDB/OMDB/TVmaze prennent le dessus si base manquante
       title: base.title.isNotEmpty ? base.title : incoming.title,
+      // TMDB supplies the localized synopsis requested for the detail page;
+      // prefer it to a non-localized Xtream overview when it is available.
       description:
-          base.description.isNotEmpty ? base.description : incoming.description,
+          incoming.dataSource == 'tmdb' && incoming.description.isNotEmpty
+              ? incoming.description
+              : base.description.isNotEmpty
+                  ? base.description
+                  : incoming.description,
       posterUrl:
           base.posterUrl.isNotEmpty ? base.posterUrl : incoming.posterUrl,
       year: base.year > 0 ? base.year : incoming.year,

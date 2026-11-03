@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -14,6 +15,35 @@ class _ThrowingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     throw Exception('no network in tests');
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+class _GoogleTranslationAdapter implements HttpClientAdapter {
+  RequestOptions? request;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    request = options;
+    return ResponseBody.fromString(
+      jsonEncode([
+        [
+          ['Bonjour, monde.', 'Hello, world.', null, null, 1],
+        ],
+        null,
+        'en',
+      ]),
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
   }
 
   @override
@@ -43,27 +73,45 @@ void main() {
         isFalse,
       );
     });
+
+    test('distinguishes Spanish from French', () {
+      expect(
+        service.isInLanguage(
+          'Une famille qui voyage dans le sud de la France.',
+          'es',
+        ),
+        isFalse,
+      );
+      expect(
+        service.isInLanguage(
+          'Una familia viaja por el mundo y descubre nuevas culturas.',
+          'es',
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('resolve', () {
-    final service = SynopsisTranslationService();
-
-    test(
-        'ordre : un synopsis TMDB français est prioritaire (qualité éditoriale)',
+    test('TMDB localisé est prioritaire sur la traduction automatique',
         () async {
-      final result = await service.resolve(
+      final result = await SynopsisTranslationService().resolve(
         rawSynopsis: 'An English summary that must never be used.',
-        tmdbFrenchSynopsis: 'Un synopsis de bien meilleure qualité.',
+        tmdbLocalizedSynopsis:
+            'Un héros qui aime le cinéma et raconte la vie dans un village.',
       );
-      expect(result.text, 'Un synopsis de bien meilleure qualité.');
+      expect(
+        result.text,
+        'Un héros qui aime le cinéma et raconte la vie dans un village.',
+      );
       expect(result.source, SynopsisSource.tmdb);
       expect(result.isTranslated, isTrue);
     });
 
     test('synopsis déjà en français → inchangé, pas de traduction', () async {
-      final result = await service.resolve(
+      final result = await SynopsisTranslationService().resolve(
         rawSynopsis: 'Un héros qui aime et admire tout ce qui l\'entoure.',
-        tmdbFrenchSynopsis: '',
+        tmdbLocalizedSynopsis: '',
       );
       expect(
         result.text,
@@ -82,12 +130,40 @@ void main() {
       final result = await service.resolve(
         rawSynopsis:
             'The quick brown fox jumps over the lazy dog and keeps running.',
-        tmdbFrenchSynopsis: '',
+        tmdbLocalizedSynopsis: '',
       );
       expect(
         result.text,
         'The quick brown fox jumps over the lazy dog and keeps running.',
       );
+      expect(result.source, SynopsisSource.original);
+    });
+
+    test('Google array response is decoded and target language is applied',
+        () async {
+      final adapter = _GoogleTranslationAdapter();
+      final service = SynopsisTranslationService(
+        dio: Dio()..httpClientAdapter = adapter,
+      );
+      final result = await service.resolve(
+        rawSynopsis: 'A story about a family and their journey.',
+        originalLanguageCode: 'en',
+        targetLanguage: 'fr',
+      );
+
+      expect(result.text, 'Bonjour, monde.');
+      expect(result.source, SynopsisSource.googleTranslate);
+      expect(result.attribution, 'Traduit par Google');
+      expect(adapter.request?.queryParameters['tl'], 'fr');
+    });
+
+    test('summary already in selected target language is not translated',
+        () async {
+      final result = await SynopsisTranslationService().resolve(
+        rawSynopsis: 'The hero is in the city and fights for justice.',
+        targetLanguage: 'en',
+      );
+
       expect(result.source, SynopsisSource.original);
     });
   });

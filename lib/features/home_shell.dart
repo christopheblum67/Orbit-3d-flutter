@@ -20,6 +20,36 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey<HomeMenuDrawerState> _drawerKey =
       GlobalKey<HomeMenuDrawerState>();
+  final FocusNode _menuFocusNode = FocusNode(debugLabel: 'Home menu button');
+  late final TvModeNotifier _tvMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _tvMode = ref.read(tvModeNotifierProvider);
+    _tvMode.addListener(_onTvModeChanged);
+    if (_tvMode.enabled) _focusMenuButton();
+  }
+
+  void _onTvModeChanged() {
+    if (_tvMode.enabled) _focusMenuButton();
+  }
+
+  void _focusMenuButton() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_tvMode.enabled) return;
+      if (GoRouterState.of(context).uri.path == '/home') {
+        _menuFocusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tvMode.removeListener(_onTvModeChanged);
+    _menuFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +82,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               ? AppBar(
                   leading: showNavigationRail
                       ? null
-                      : DrawerMenuButton(autofocus: tvMode.enabled),
+                      : DrawerMenuButton(
+                          focusNode: _menuFocusNode,
+                          autofocus: tvMode.enabled,
+                        ),
                   title: Text(_titleForPath(context, location)),
                 )
               : null,
@@ -127,6 +160,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     child: SizedBox(
                       height: 64,
                       child: NavigationBar(
+                        labelBehavior:
+                            NavigationDestinationLabelBehavior.onlyShowSelected,
                         selectedIndex: selectedIndex,
                         onDestinationSelected: (index) {
                           context.go(entries[index].route);
@@ -147,6 +182,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                           for (final e in entries)
                             NavigationDestination(
                               icon: Icon(e.icon),
+                              tooltip: e.label,
                               // Libellé court : `NavigationDestination` ne propose ni
                               // maxLines ni overflow dans cette version, et n'accepte
                               // qu'UNE ligne — un '\n' dans le texte est donc ignoré et
@@ -166,7 +202,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   /// Entrées de la barre inférieure (navigation mobile).
-  /// Ordre non-M3U : Accueil, Chaînes TV, Films, Séries, Matchmaking, Réglages.
+  /// La barre mobile inclut l'accès au profil et aux réglages.
   /// En mode M3U (pas de VOD/Séries dédiées) : Contenus à la place.
   static List<_NavEntry> _navEntries(bool isM3u, AppLocalizations l) => [
         const _NavEntry(
@@ -210,6 +246,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             shortLabel: 'Match',
             route: '/matchmaking',
           ),
+        const _NavEntry(
+          icon: Icons.person_outline,
+          label: 'Profil',
+          shortLabel: 'Profil',
+          route: '/profiles',
+        ),
         _NavEntry(
           icon: Icons.settings,
           label: l.settings,
@@ -231,7 +273,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   /// Entrées du rail (navigation large) : même base que la barre inférieure,
   /// avec l'accès EPG inséré après « Chaînes TV ».
   static List<_NavEntry> _railEntries(bool isM3u, AppLocalizations l) {
-    final base = _navEntries(isM3u, l);
+    final base = _navEntries(isM3u, l)
+        .where((entry) => entry.route != '/profiles')
+        .toList();
     return [
       ...base.take(2),
       const _NavEntry(

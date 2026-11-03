@@ -277,7 +277,9 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profiles',
-      builder: (context, state) => const ProfileSelectionScreen(),
+      builder: (context, state) => ProfileSelectionScreen(
+        startupFlow: state.uri.queryParameters['startup'] == 'true',
+      ),
     ),
     GoRoute(
       path: '/profile/create',
@@ -571,7 +573,9 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/startup',
-      builder: (context, state) => const StartupSplashScreen(),
+      builder: (context, state) => StartupSplashScreen(
+        remainingPhase: state.uri.queryParameters['phase'] == 'remaining',
+      ),
     ),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
@@ -826,25 +830,26 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
       return null;
     }
 
-    return TvModeDetector(
-      child: MaterialApp.router(
-        onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
-        locale: resolveLocale(),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
-        darkTheme:
-            AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
-        // Le thème est un réglage utilisateur (PreferencesNotifier.setTheme) :
-        // il était codé en dur sur `system`, ce qui rendait le thème clair
-        // inatteignable même en le sélectionnant dans les préférences.
-        themeMode: switch (prefs.theme) {
-          'light' => ThemeMode.light,
-          'dark' => ThemeMode.dark,
-          _ => ThemeMode.system,
-        },
-        routerConfig: router,
+    return MaterialApp.router(
+      builder: (context, child) => TvModeDetector(
+        child: child ?? const SizedBox.shrink(),
       ),
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+      locale: resolveLocale(),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      theme: AppTheme.lightTheme(highContrast: advancedSettings.highContrast),
+      darkTheme:
+          AppTheme.darkTheme(highContrast: advancedSettings.highContrast),
+      // Le thème est un réglage utilisateur (PreferencesNotifier.setTheme) :
+      // il était codé en dur sur `system`, ce qui rendait le thème clair
+      // inatteignable même en le sélectionnant dans les préférences.
+      themeMode: switch (prefs.theme) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      },
+      routerConfig: router,
     );
   }
 }

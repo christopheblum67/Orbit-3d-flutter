@@ -22,6 +22,7 @@ void main() {
     Set<StartupStep> doneSteps = const {},
     bool isFinished = false,
     bool showBranding = true,
+    List<StartupStep>? visibleSteps,
     Size size = const Size(400, 800),
   }) async {
     tester.view.physicalSize = size;
@@ -40,6 +41,7 @@ void main() {
             currentStep: currentStep,
             doneSteps: doneSteps,
             isFinished: isFinished,
+            visibleSteps: visibleSteps,
             showBranding: showBranding,
           ),
         ),
@@ -79,6 +81,26 @@ void main() {
     expect(find.text('Films & VOD'), findsOneWidget);
     expect(find.text(AppLocalizationsFr().series), findsOneWidget);
     expect(find.text('EPG'), findsOneWidget);
+  });
+
+  testWidgets('affiche uniquement les sections de la phase de démarrage',
+      (tester) async {
+    await pump(
+      tester,
+      visibleSteps: const [
+        StartupStep.radio,
+        StartupStep.replay,
+        StartupStep.epg,
+        StartupStep.ai,
+      ],
+    );
+
+    expect(find.text('Radios'), findsOneWidget);
+    expect(find.text('Replay'), findsOneWidget);
+    expect(find.text('EPG'), findsOneWidget);
+    expect(find.text('Recommandations'), findsOneWidget);
+    expect(find.text('Chaînes TV'), findsNothing);
+    expect(find.text('Films & VOD'), findsNothing);
   });
 
   testWidgets('affiche « Prêt ! » une fois la mise à jour terminée',

@@ -12,14 +12,26 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 export 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart'
     show StartupStep;
 
-/// Contrôleur de l'écran de démarrage : régénère tous les flux en parallèle
-/// et expose une progression en %, ainsi que les contenus récupérés qui
-/// serviront aux recommandations personnalisées.
+/// Contrôleur des phases de chargement au démarrage. Les étapes sont exécutées
+/// séquentiellement et peuvent être séparées autour de la sélection du profil.
 ///
 /// La mécanique de progression (%, étape courante, étapes faites) est héritée
 /// de [RefreshStepsController] : l'écran de démarrage et le rafraîchissement à
 /// la demande partagent donc exactement le même affichage.
 class StartupRefreshController extends RefreshStepsController {
+  static const initialSteps = {
+    StartupStep.live,
+    StartupStep.movies,
+    StartupStep.series,
+    StartupStep.epg,
+  };
+
+  static const remainingSteps = {
+    StartupStep.radio,
+    StartupStep.replay,
+    StartupStep.ai,
+  };
+
   StartupRefreshController(
     this._api, {
     required Future<List<Channel>> Function() loadLiveChannels,

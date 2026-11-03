@@ -25,6 +25,7 @@ class RefreshProgressView extends StatelessWidget {
     required this.doneSteps,
     required this.isFinished,
     this.title,
+    this.visibleSteps,
     this.showBranding = true,
   });
 
@@ -36,6 +37,9 @@ class RefreshProgressView extends StatelessWidget {
   /// Remplace le texte d'état par défaut (« Mise à jour du contenu multimédia
   /// en cours… »). Ignoré quand [isFinished].
   final String? title;
+
+  /// Sections displayed in this phase; defaults to the standard catalog set.
+  final List<StartupStep>? visibleSteps;
 
   /// Affiche le logo + le nom de l'application au-dessus de la progression.
   final bool showBranding;
@@ -111,33 +115,30 @@ class RefreshProgressView extends StatelessWidget {
   }
 
   Widget _buildProgress(AppLocalizations l) {
-    // Mini-icônes thématiques des sections d'abonnement : Live / Films / Séries / EPG
-    final sections = [
-      _ProgressIcon(
-        icon: Icons.live_tv,
-        label: 'Chaînes TV',
-        done: doneSteps.contains(StartupStep.live),
-        active: currentStep == StartupStep.live,
-      ),
-      _ProgressIcon(
-        icon: Icons.movie_outlined,
-        label: 'Films & VOD',
-        done: doneSteps.contains(StartupStep.movies),
-        active: currentStep == StartupStep.movies,
-      ),
-      _ProgressIcon(
-        icon: Icons.video_library_outlined,
-        label: l.series,
-        done: doneSteps.contains(StartupStep.series),
-        active: currentStep == StartupStep.series,
-      ),
-      _ProgressIcon(
-        icon: Icons.receipt_long_outlined,
-        label: 'EPG',
-        done: doneSteps.contains(StartupStep.epg),
-        active: currentStep == StartupStep.epg,
-      ),
-    ];
+    final visibleSteps = this.visibleSteps ??
+        const [
+          StartupStep.live,
+          StartupStep.movies,
+          StartupStep.series,
+          StartupStep.epg,
+        ];
+    final sections = visibleSteps.map((step) {
+      final (icon, label) = switch (step) {
+        StartupStep.live => (Icons.live_tv, 'Chaînes TV'),
+        StartupStep.movies => (Icons.movie_outlined, 'Films & VOD'),
+        StartupStep.series => (Icons.video_library_outlined, l.series),
+        StartupStep.radio => (Icons.radio, 'Radios'),
+        StartupStep.replay => (Icons.replay_circle_filled, 'Replay'),
+        StartupStep.epg => (Icons.receipt_long_outlined, 'EPG'),
+        StartupStep.ai => (Icons.recommend, 'Recommandations'),
+      };
+      return _ProgressIcon(
+        icon: icon,
+        label: label,
+        done: doneSteps.contains(step),
+        active: currentStep == step,
+      );
+    }).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -155,8 +156,7 @@ class RefreshProgressView extends StatelessWidget {
             value: percent / 100,
             minHeight: 10,
             backgroundColor: Colors.white12,
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
           ),
         ),
         const SizedBox(height: 8),

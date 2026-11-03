@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/synopsis_translation_service.dart';
 
@@ -18,34 +19,40 @@ final synopsisTranslationServiceProvider = Provider<SynopsisTranslationService>(
 /// film. Sans lui, `searchMovieId`/`getMovieDetail` ne trouvaient rien pour
 /// une série (« Avatar : Seven Havens »…) et toute la résolution retombait
 /// brutale sur la traduction automatique, d'où des synopsis restés en anglais.
-final translatedSynopsisProvider = FutureProvider.family<TranslatedSynopsis,
-    ({String title, String raw, bool isSeries})>((ref, arg) async {
+final translatedSynopsisProvider = FutureProvider.family<
+    TranslatedSynopsis,
+    ({
+      String title,
+      String raw,
+      bool isSeries,
+      String? originalLanguageCode,
+    })>((ref, arg) async {
   final service = ref.watch(synopsisTranslationServiceProvider);
   final tmdb = ref.watch(tmdbServiceProvider);
+  final appLanguage = ref.watch(preferencesProvider.select((p) => p.language));
+  final tmdbLanguage = _tmdbLanguageFor(appLanguage);
 
-  // Cherche un synopsis TMDB en français. TMDB sert fr-FR par défaut (Dio
-  // baseOptions) mais retombe sur la langue d'origine quand la traduction fr
-  // n'existe pas : le garde `isFrench` évite de présenter de l'anglais comme
-  // une traduction TMDB.
-  String? tmdbFrench;
+  String? tmdbLocalized;
   if (tmdb.hasApiKey && arg.title.trim().isNotEmpty) {
     try {
       String overview = '';
       if (arg.isSeries) {
-        final id = await tmdb.searchTvId(arg.title);
+        final id = await tmdb.searchTvId(arg.title, language: tmdbLanguage);
         if (id != null) {
-          final detail = await tmdb.getTvDetail(id);
+          final detail = await tmdb.getTvDetail(id, language: tmdbLanguage);
           overview = detail?.description ?? '';
         }
       } else {
-        final id = await tmdb.searchMovieId(arg.title);
+        final id = await tmdb.searchMovieId(arg.title, language: tmdbLanguage);
         if (id != null) {
-          final detail = await tmdb.getMovieDetail(id);
+          final detail = await tmdb.getMovieDetail(id, language: tmdbLanguage);
           overview = detail?.description ?? '';
         }
       }
-      if (overview.trim().isNotEmpty && service.isFrench(overview.trim())) {
-        tmdbFrench = overview;
+      if (overview.trim().isNotEmpty &&
+          overview.trim() != arg.raw.trim() &&
+          service.isInLanguage(overview, appLanguage)) {
+        tmdbLocalized = overview;
       }
     } catch (_) {
       // Non bloquant : on continue sans synopsis TMDB.
@@ -54,8 +61,19 @@ final translatedSynopsisProvider = FutureProvider.family<TranslatedSynopsis,
 
   final result = await service.resolve(
     rawSynopsis: arg.raw,
-    tmdbFrenchSynopsis: tmdbFrench,
+    tmdbLocalizedSynopsis: tmdbLocalized,
+    originalLanguageCode: arg.originalLanguageCode,
+    targetLanguage: appLanguage,
   );
 
   return result;
 });
+
+String _tmdbLanguageFor(String language) => switch (language.toLowerCase()) {
+      'en' => 'en-US',
+      'es' => 'es-ES',
+      'de' => 'de-DE',
+      'it' => 'it-IT',
+      'ar' => 'ar-SA',
+      _ => 'fr-FR',
+    };

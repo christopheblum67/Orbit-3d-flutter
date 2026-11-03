@@ -14,6 +14,7 @@ class TranslatedSynopsisView extends ConsumerWidget {
     required this.title,
     required this.rawSynopsis,
     this.isSeries = false,
+    this.originalLanguageCode,
   });
 
   final String title;
@@ -22,6 +23,7 @@ class TranslatedSynopsisView extends ConsumerWidget {
   /// Vrai si le contenu est une série : la résolution TMDB passe alors par
   /// `/search/tv` + `/tv/{id}` (overview fr-FR) au lieu du chemin film.
   final bool isSeries;
+  final String? originalLanguageCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +31,12 @@ class TranslatedSynopsisView extends ConsumerWidget {
 
     final async = ref.watch(
       translatedSynopsisProvider(
-        (title: title, raw: rawSynopsis, isSeries: isSeries),
+        (
+          title: title,
+          raw: rawSynopsis,
+          isSeries: isSeries,
+          originalLanguageCode: originalLanguageCode,
+        ),
       ),
     );
 
@@ -39,12 +46,24 @@ class TranslatedSynopsisView extends ConsumerWidget {
       error: (_, __) => _body(context, rawSynopsis, null),
       data: (resolved) {
         if (resolved.text.trim().isEmpty) return const SizedBox.shrink();
-        return _body(context, resolved.text, resolved.attribution);
+        return _body(
+          context,
+          resolved.text,
+          resolved.attribution,
+          isTranslated: resolved.isTranslated,
+        );
       },
     );
   }
 
-  Widget _body(BuildContext context, String text, String? attribution) {
+  static const Color translatedTextColor = Colors.redAccent;
+
+  Widget _body(
+    BuildContext context,
+    String text,
+    String? attribution, {
+    bool isTranslated = false,
+  }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return Column(
@@ -59,8 +78,10 @@ class TranslatedSynopsisView extends ConsumerWidget {
         const SizedBox(height: 8),
         Text(
           text,
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant, height: 1.4),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isTranslated ? translatedTextColor : scheme.onSurfaceVariant,
+            height: 1.4,
+          ),
         ),
         if (attribution != null) ...[
           const SizedBox(height: 6),

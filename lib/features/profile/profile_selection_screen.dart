@@ -19,7 +19,9 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// (initiale + anneau orbital), animation d'entrée en cascade, et carte
 /// "+" vers la création de profil (finalisée en S3).
 class ProfileSelectionScreen extends ConsumerStatefulWidget {
-  const ProfileSelectionScreen({super.key});
+  const ProfileSelectionScreen({super.key, this.startupFlow = false});
+
+  final bool startupFlow;
 
   @override
   ConsumerState<ProfileSelectionScreen> createState() =>
@@ -65,20 +67,21 @@ class _ProfileSelectionScreenState
     await Future.delayed(const Duration(milliseconds: 50));
     if (!mounted) return;
 
-    // Rafraîchir la validité de l'abonnement actif (Xtream) pour invalider
-    // les 4 sections : Live, VOD, Séries, EPG/Replay/Radio.
-    // Cela se fait APRÈS la sélection du profil (comme avant).
-    final activeSub = ref.read(activeSubscriptionProvider);
-    if (activeSub != null && activeSub.type == SubscriptionType.xtream) {
-      // `refreshValidity` est du réseau : une nouvelle suspension après le
-      // `ref.read`, il fallait donc une seconde garde.
-      final api = ref.read(apiServiceProvider);
-      if (!mounted) return;
-      await ref.read(subscriptionsProvider.notifier).refreshValidity(
-            activeSub.id,
-            api: api,
-          );
-      if (!mounted) return;
+    if (widget.startupFlow) {
+      context.go('/startup?phase=remaining');
+      return;
+    } else {
+      // Refresh validity for normal profile switches outside the startup flow.
+      final activeSub = ref.read(activeSubscriptionProvider);
+      if (activeSub != null && activeSub.type == SubscriptionType.xtream) {
+        final api = ref.read(apiServiceProvider);
+        if (!mounted) return;
+        await ref.read(subscriptionsProvider.notifier).refreshValidity(
+              activeSub.id,
+              api: api,
+            );
+        if (!mounted) return;
+      }
     }
 
     // `go` (et non pushReplacement) : réinitialise proprement la pile vers le

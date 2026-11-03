@@ -293,7 +293,11 @@ class TmdbService {
   }
 
   /// Recherche un film par titre + année (pour mapper Xtream ID → TMDB ID)
-  Future<int?> searchMovieId(String title, {int? year}) async {
+  Future<int?> searchMovieId(
+    String title, {
+    int? year,
+    String? language,
+  }) async {
     if (!hasApiKey) return null;
     await _waitForRateLimit();
 
@@ -303,6 +307,7 @@ class TmdbService {
           'query': normalizeSearchTitle(title),
           'include_adult': 'false',
         };
+        if (language != null) queryParams['language'] = language;
         if (year != null && year > 0) {
           queryParams['year'] = year.toString();
         }
@@ -396,10 +401,16 @@ class TmdbService {
   }
 
   /// Détails complets d'un film
-  Future<MovieDetail?> getMovieDetail(int tmdbId) async {
+  Future<MovieDetail?> getMovieDetail(
+    int tmdbId, {
+    String? language,
+  }) async {
     if (!hasApiKey) return null;
 
-    final cacheKey = _cacheKey('movie', tmdbId.toString());
+    final cacheKey = _cacheKey(
+      'movie',
+      language == null ? tmdbId.toString() : '$tmdbId:$language',
+    );
     final cached = _getCached(cacheKey, (d) => _parseMovieDetail(d, tmdbId));
     if (cached != null) return cached;
 
@@ -415,6 +426,7 @@ class TmdbService {
               queryParameters: {
                 'append_to_response':
                     'credits,images,videos,external_ids,keywords,release_dates',
+                if (language != null) 'language': language,
               },
             ),
           ],
@@ -611,7 +623,11 @@ class TmdbService {
   // ==================== SÉRIES (TMDB TV) ====================
 
   /// Recherche une série par titre + année
-  Future<int?> searchTvId(String title, {int? year}) async {
+  Future<int?> searchTvId(
+    String title, {
+    int? year,
+    String? language,
+  }) async {
     if (!hasApiKey) return null;
     await _waitForRateLimit();
 
@@ -621,6 +637,7 @@ class TmdbService {
           'query': normalizeSearchTitle(title),
           'include_adult': 'false',
         };
+        if (language != null) queryParams['language'] = language;
         if (year != null && year > 0) {
           queryParams['first_air_date_year'] = year.toString();
         }
@@ -685,10 +702,16 @@ class TmdbService {
   }
 
   /// Détails d'une série TV
-  Future<SeriesDetail?> getTvDetail(int tmdbId) async {
+  Future<SeriesDetail?> getTvDetail(
+    int tmdbId, {
+    String? language,
+  }) async {
     if (!hasApiKey) return null;
 
-    final cacheKey = _cacheKey('tv', tmdbId.toString());
+    final cacheKey = _cacheKey(
+      'tv',
+      language == null ? tmdbId.toString() : '$tmdbId:$language',
+    );
     final cached = _getCached(cacheKey, (d) => _parseTvDetail(d, tmdbId));
     if (cached != null) return cached;
 
@@ -701,6 +724,7 @@ class TmdbService {
           queryParameters: {
             'append_to_response':
                 'aggregate_credits,external_ids,keywords,videos',
+            if (language != null) 'language': language,
           },
         );
 

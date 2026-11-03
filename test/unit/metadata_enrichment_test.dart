@@ -1,4 +1,11 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/services/omdb_service.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
+import 'package:orbit_3d_flutter/services/tvmaze_service.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
@@ -6,11 +13,50 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
 
+class _MetadataTestApi extends ApiService {
+  @override
+  Future<Movie> fetchMovieDetail(Movie movie) async => movie;
+
+  @override
+  Future<MovieCredits?> fetchMovieCredits(String movieId) async => null;
+}
+
+class _MetadataTestTmdb extends TmdbService {
+  _MetadataTestTmdb(this.detail);
+
+  final MovieDetail detail;
+
+  @override
+  bool get hasApiKey => true;
+
+  @override
+  Future<int?> searchMovieId(
+    String title, {
+    int? year,
+    String? language,
+  }) async =>
+      detail.tmdbId;
+
+  @override
+  Future<MovieDetail?> getMovieDetail(
+    int tmdbId, {
+    String? language,
+  }) async =>
+      detail;
+}
+
 void main() {
+  late Directory hiveDirectory;
+
   setUpAll(() async {
-    // Initialize Hive for testing (use initFlutter from hive_flutter)
-    // In pure Dart tests, we can skip Hive init or use a temporary directory
-    // For now, we just test the model logic without Hive-dependent services
+    hiveDirectory =
+        await Directory.systemTemp.createTemp('metadata_enrichment_test');
+    Hive.init(hiveDirectory.path);
+  });
+
+  tearDownAll(() async {
+    await Hive.close();
+    await hiveDirectory.delete(recursive: true);
   });
 
   group('MovieDetail', () {
@@ -68,6 +114,47 @@ void main() {
       final detail = MovieDetail.fromMovie(minimalMovie);
       expect(detail.needsEnrichment, true);
     });
+
+    test('TMDB localized synopsis replaces Xtream synopsis on the detail page',
+        () async {
+      final tmdbDetail = MovieDetail(
+        id: '550',
+        title: 'Test Movie',
+        description: 'Synopsis français fourni par TMDB.',
+        posterUrl: '',
+        year: 2023,
+        genre: 'Action',
+        director: 'John Director',
+        rating: 7.5,
+        pegi: '',
+        streamId: '',
+        tmdbId: 550,
+        imdbId: 'tt0000550',
+        runtime: 120,
+        cast: [
+          Actor(
+            id: '1',
+            name: 'Test Actor',
+            character: 'Hero',
+            profilePath: '',
+          ),
+        ],
+        originalLanguage: 'en',
+        dataSource: 'tmdb',
+      );
+      final service = MetadataEnrichmentService(
+        api: _MetadataTestApi(),
+        tmdb: _MetadataTestTmdb(tmdbDetail),
+        tvmaze: TvmazeService(),
+        omdb: OmdbService(),
+      );
+
+      final result = await service.enrichMovie(baseMovie);
+
+      expect(result.description, tmdbDetail.description);
+      expect(result.dataSource, 'tmdb');
+      expect(result.streamUrl, baseMovie.streamUrl);
+    });
   });
 
   group('SeriesDetail', () {
@@ -83,23 +170,26 @@ void main() {
       pegi: '16',
       episodes: [
         Episode(
-            id: '1',
-            title: 'Ep 1',
-            season: 1,
-            episodeNumber: 1,
-            streamId: 'url1',),
+          id: '1',
+          title: 'Ep 1',
+          season: 1,
+          episodeNumber: 1,
+          streamId: 'url1',
+        ),
         Episode(
-            id: '2',
-            title: 'Ep 2',
-            season: 1,
-            episodeNumber: 2,
-            streamId: 'url2',),
+          id: '2',
+          title: 'Ep 2',
+          season: 1,
+          episodeNumber: 2,
+          streamId: 'url2',
+        ),
         Episode(
-            id: '3',
-            title: 'Ep 3',
-            season: 2,
-            episodeNumber: 1,
-            streamId: 'url3',),
+          id: '3',
+          title: 'Ep 3',
+          season: 2,
+          episodeNumber: 1,
+          streamId: 'url3',
+        ),
       ],
     );
 
@@ -227,4 +317,3 @@ void main() {
     });
   });
 }
-

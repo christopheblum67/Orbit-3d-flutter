@@ -523,6 +523,7 @@ class _SeriesHeader extends ConsumerWidget {
               title: series.title,
               rawSynopsis: series.description,
               isSeries: true,
+              originalLanguageCode: series.originalLanguage,
             ),
           // Cast principal (compact)
           const SizedBox(height: 12),
