@@ -8,7 +8,7 @@ plugins {
 // Identifiants de signature release (android/key.properties, gitignoré).
 // Sans ce fichier, le build sort en clé DEBUG : installable mais refusé par le
 // Play Store, et non re-signable en production.
-def keystorePropertiesFile = rootProject.file("key.properties")
+def keystorePropertiesFile = rootProject.file("android/key.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
