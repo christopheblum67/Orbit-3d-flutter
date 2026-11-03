@@ -26,6 +26,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double _currentPage = 0.0;
   int _focusedIndex = 0;
   bool _autoRefreshing = false;
+  bool _isDrawerOpen = false;
+  final FocusNode _drawerFirstItemFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -54,6 +56,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _autoRefreshIfStale();
     });
+  }
+
+  void _toggleDrawer(bool open) {
+    setState(() => _isDrawerOpen = open);
+    if (open) {
+      _drawerFirstItemFocusNode.requestFocus();
+    }
   }
 
   @override
@@ -473,94 +482,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             lastRefresh: ref.watch(lastRefreshTimestampProvider),
           ),
           const Spacer(),
-          Consumer(
-            builder: (context, ref, _) {
-              final current = ref.watch(currentProfileProvider);
-              final profiles = ref.watch(profilesProvider).value ?? const <UserProfile>[];
-              return InkWell(
-                onTap: () => context.go('/profiles'),
-                borderRadius: BorderRadius.circular(20),
-                child: _buildProfileAvatar(context, current, profiles),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileAvatar(
-    BuildContext context,
-    UserProfile? current,
-    List<UserProfile> profiles,
-  ) {
-    final scheme = Theme.of(context).colorScheme;
-    if (current == null || profiles.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.person_outline, size: 18, color: scheme.primary),
-            const SizedBox(width: 6),
-            const Text(
-              'Choisir',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    final idx = profiles.indexWhere((p) => p.id == current.id);
-    final color = _profileColor(idx);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.4),
-            blurRadius: 12,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 11,
-            backgroundColor: color.withValues(alpha: 0.3),
-            child: Text(
-              current.firstName.isNotEmpty
-                  ? current.firstName[0].toUpperCase()
-                  : '?',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            current.firstName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
         ],
       ),
     );
