@@ -5,22 +5,22 @@ import 'dart:io';
 /// Replay : quelles chaînes exposent `tv_archive` / `radio_tv=dvr` /
 /// `timeshift`, et ce que `get_short_epg` renvoie réellement.
 ///
-/// Usage : dart run tool/probe_replay.dart <baseUrl> <user> <pass>
+/// Usage : `dart run tool/probe_replay.dart <baseUrl> <user> <pass>`.
 ///
 /// Les identifiants sont lus depuis les variables d'environnement
 /// ORBIT_BASE_URL / ORBIT_USER / ORBIT_PASS pour ne pas les laisser dans
 /// l'historique du shell.
 Future<void> main(List<String> args) async {
-  final base = args.isNotEmpty
-      ? args[0]
-      : Platform.environment['ORBIT_BASE_URL'] ?? '';
+  final base =
+      args.isNotEmpty ? args[0] : Platform.environment['ORBIT_BASE_URL'] ?? '';
   final user =
       args.length > 1 ? args[1] : Platform.environment['ORBIT_USER'] ?? '';
   final pass =
       args.length > 2 ? args[2] : Platform.environment['ORBIT_PASS'] ?? '';
   if (base.isEmpty || user.isEmpty || pass.isEmpty) {
     stderr.writeln(
-        'usage: dart run tool/probe_replay.dart <baseUrl> <user> <pass>',);
+      'usage: dart run tool/probe_replay.dart <baseUrl> <user> <pass>',
+    );
     exitCode = 2;
     return;
   }
@@ -30,11 +30,13 @@ Future<void> main(List<String> args) async {
 
   final client = HttpClient();
   Future<dynamic> call(Map<String, String> params) async {
-    final uri = Uri.parse(api).replace(queryParameters: {
-      'username': user,
-      'password': pass,
-      ...params,
-    },);
+    final uri = Uri.parse(api).replace(
+      queryParameters: {
+        'username': user,
+        'password': pass,
+        ...params,
+      },
+    );
     final req = await client.getUrl(uri);
     req.headers.set(HttpHeaders.userAgentHeader, 'OrbitIPTV/1.0');
     final res = await req.close();

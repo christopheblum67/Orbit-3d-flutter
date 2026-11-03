@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,9 +23,8 @@ import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
-import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 
-/// Configuration unifiée (style XCIPTV) â€” fusionne SettingsScreen + AdvancedSettingsScreen.
+/// Configuration unifiée (style XCIPTV) — fusionne SettingsScreen + AdvancedSettingsScreen.
 /// Organisé en sections logiques avec icônes explicites, navigation au D-pad/TV.
 class UnifiedSettingsScreen extends ConsumerStatefulWidget {
   const UnifiedSettingsScreen({super.key});
@@ -112,7 +111,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
   }
 }
 
-/// â”€â”€â”€ Tuile de navigation réutilisable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── Tuile de navigation réutilisable ────────────────────────────
 class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.icon,
@@ -152,7 +151,7 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-/// â”€â”€â”€ COMPTE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── COMPTE ──────────────────────────────────────────────────────
 class _AccountSection extends ConsumerWidget {
   const _AccountSection();
 
@@ -179,7 +178,7 @@ class _AccountSection extends ConsumerWidget {
           title: l.accountSubscriptions,
           subtitle: sub == null
               ? l.accountNoSubscription
-              : '${sub.name} Â· ${sub.validityLabel}',
+              : '${sub.name} · ${sub.validityLabel}',
           onTap: () => context.go('/subscriptions'),
         ),
         _NavTile(
@@ -251,7 +250,9 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _exportSettings(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     final s = ref.read(advancedSettingsProvider);
     final prefs = ref.read(preferencesProvider);
@@ -272,7 +273,9 @@ class _AccountSection extends ConsumerWidget {
   }
 
   static Future<void> _importSettings(
-      BuildContext context, WidgetRef ref,) async {
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final l = AppLocalizations.of(context);
     final backup =
         ref.read(storageServiceProvider).getSetting('settings_backup');
@@ -312,7 +315,7 @@ class _AccountSection extends ConsumerWidget {
   }
 }
 
-/// â”€â”€â”€ RÃ‰SEAU â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── RÉSEAU ──────────────────────────────────────────────────────
 class _NetworkSection extends ConsumerWidget {
   const _NetworkSection();
 
@@ -341,7 +344,6 @@ class _NetworkSection extends ConsumerWidget {
           icon: Icons.restore_outlined,
           onTap: () async {
             n.setTlsImpersonation(false);
-            CloudflareBypassService.instance.invalidate('draap.online');
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -408,7 +410,7 @@ class _DnsProviderTile extends ConsumerWidget {
   }
 }
 
-/// â”€â”€â”€ LECTEUR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── LECTEUR ─────────────────────────────────────────────────────
 class _PlayerSection extends ConsumerWidget {
   const _PlayerSection();
 
@@ -466,7 +468,7 @@ class _PlayerEngineTile extends ConsumerWidget {
   }
 }
 
-/// â”€â”€â”€ SÃ‰CURITÃ‰ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── SÉCURITÉ ────────────────────────────────────────────────────
 class _SecuritySection extends ConsumerWidget {
   const _SecuritySection();
 
@@ -511,7 +513,7 @@ class _SecuritySection extends ConsumerWidget {
   }
 }
 
-/// â”€â”€â”€ AUDIO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── AUDIO ───────────────────────────────────────────────────────
 class _AudioSection extends ConsumerWidget {
   const _AudioSection();
 
@@ -702,7 +704,7 @@ class _AudioSection extends ConsumerWidget {
   }
 }
 
-/// â”€â”€â”€ AVANCÃ‰ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// ─── AVANCÉ ──────────────────────────────────────────────────────
 class _AdvancedSection extends ConsumerWidget {
   const _AdvancedSection();
 
@@ -797,7 +799,7 @@ class _AdvancedSection extends ConsumerWidget {
     // flutter_cache_manager (pochettes/stickers) + images vivantes.
     PaintingBinding.instance.imageCache.clearLiveImages();
     PaintingBinding.instance.imageCache.clear();
-    // Vide aussi le cache disque en arrière-plan â†’ le snack reflète la réalité.
+    // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
     await DefaultCacheManager().emptyCache();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -911,9 +913,9 @@ class _AdvancedSection extends ConsumerWidget {
     for (final name in boxNames) {
       await safeAsync(
         () async {
-          // Si la box est déjÃ  ouverte (typage posé Ã  l'initialisation par un
+          // Si la box est déjà ouverte (typage posé à l'initialisation par un
           // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
-          // type levait Â« already open and of type Box<...> Â». On réutilise donc
+          // type levait « already open and of type Box<...> ». On réutilise donc
           // l'instance existante, puis on la ferme pour purger le cache Hive.
           final box = Hive.isBoxOpen(name)
               ? Hive.box<dynamic>(name)
@@ -975,7 +977,7 @@ class _AdvancedEntry extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 18),
           child: Center(
             child: Text(
-              'Â· Â· Â·',
+              '· · ·',
               style: TextStyle(
                 color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
                 letterSpacing: 4,

@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -21,22 +22,22 @@ export 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart'
 class StartupRefreshController extends RefreshStepsController {
   StartupRefreshController(
     this._api, {
-    Set<StartupStep>? steps,
     required Future<List<Channel>> Function() loadLiveChannels,
     required Future<List<Movie>> Function() loadMovies,
     required Future<List<Series>> Function() loadSeries,
     required Future<List<Channel>> Function() loadRadioChannels,
+    Set<StartupStep>? steps,
     EPGDataCache? epgCache,
   })  : _epgCache = epgCache,
+        _loadLiveChannels = loadLiveChannels,
+        _loadMovies = loadMovies,
+        _loadSeries = loadSeries,
+        _loadRadioChannels = loadRadioChannels,
         super(
           steps: steps ??
               {
                 StartupStep.live,
                 StartupStep.movies,
-        _loadLiveChannels = loadLiveChannels,
-        _loadMovies = loadMovies,
-        _loadSeries = loadSeries,
-        _loadRadioChannels = loadRadioChannels,
                 StartupStep.series,
                 StartupStep.radio,
                 StartupStep.replay,
@@ -47,6 +48,10 @@ class StartupRefreshController extends RefreshStepsController {
 
   final ApiService _api;
   final EPGDataCache? _epgCache;
+  final Future<List<Channel>> Function() _loadLiveChannels;
+  final Future<List<Movie>> Function() _loadMovies;
+  final Future<List<Series>> Function() _loadSeries;
+  final Future<List<Channel>> Function() _loadRadioChannels;
 
   List<Movie> movies = const [];
   List<Series> series = const [];
@@ -56,10 +61,6 @@ class StartupRefreshController extends RefreshStepsController {
     // s'exécutent une à une. En lançant tout en parallèle (catalogues + EPG +
     // sondages replay), on fait saturer le rate-limit (429) du panel et
     // l'ENSEMBLE échoue (catégories/flux indisponibles à l'arrivée).
-  final Future<List<Channel>> Function() _loadLiveChannels;
-  final Future<List<Movie>> Function() _loadMovies;
-  final Future<List<Series>> Function() _loadSeries;
-  final Future<List<Channel>> Function() _loadRadioChannels;
     return run((step) async {
       switch (step) {
         case StartupStep.live:

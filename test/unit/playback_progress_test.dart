@@ -98,4 +98,63 @@ void main() {
     await service.save('movie-2', 900000, 600000);
     expect((service.get('movie-2'))!.fraction, 1.0);
   });
+
+  test('isole et synchronise la progression par profil', () async {
+    final service = PlaybackProgressService();
+    await service.init();
+    final firstProfileId =
+        PlaybackProgressService.idForProfile('profile-1', 'movie-1');
+    final secondProfileId =
+        PlaybackProgressService.idForProfile('profile-2', 'movie-1');
+
+    await service.save(firstProfileId, 45000, 600000);
+    await service.save(secondProfileId, 125000, 600000);
+
+    final firstProfile = await service.loadForProfile('profile-1');
+    expect(firstProfile.keys, {'movie-1'});
+    expect(firstProfile['movie-1']?.positionMs, 45000);
+
+    await service.applySyncedProfile(
+      'profile-1',
+      entries: {
+        'episode-7': PlaybackProgress(
+          positionMs: 90000,
+          durationMs: 900000,
+          updatedAt: DateTime.now().millisecondsSinceEpoch,
+        ),
+      },
+      removes: {'movie-1'},
+    );
+
+    expect(service.get(firstProfileId), isNull);
+    expect(service.get(secondProfileId)?.positionMs, 125000);
+    expect(
+      service
+          .get(
+            PlaybackProgressService.idForProfile('profile-1', 'episode-7'),
+          )
+          ?.positionMs,
+      90000,
+    );
+  });
+
+  test('migre les anciennes progressions vers le profil actif', () async {
+    final service = PlaybackProgressService();
+    await service.init();
+    await service.save('movie-legacy', 45000, 600000);
+    await service.save('last_session', 60000, 900000);
+
+    await service.migrateLegacyForProfile('profile-1');
+
+    expect(service.get('movie-legacy'), isNull);
+    expect(
+      service
+          .get(
+            PlaybackProgressService.idForProfile('profile-1', 'movie-legacy'),
+          )
+          ?.positionMs,
+      45000,
+    );
+    expect(service.get('last_session')?.positionMs, 60000);
+  });
 }

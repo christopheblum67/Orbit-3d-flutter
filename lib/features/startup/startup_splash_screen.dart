@@ -36,7 +36,6 @@ class StartupSplashScreen extends ConsumerStatefulWidget {
 class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
   bool _navigated = false;
-  bool _cfLoading = false;
   bool _showBranding = false;
 
   @override
@@ -44,11 +43,11 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     super.initState();
     final api = ref.read(apiServiceProvider);
     _controller = StartupRefreshController(
+      api,
       loadLiveChannels: () => ref.read(liveChannelsProvider.future),
       loadMovies: () => ref.read(moviesProvider.future),
       loadSeries: () => ref.read(seriesProvider.future),
       loadRadioChannels: () => ref.read(radioChannelsProvider.future),
-      api,
       epgCache: ref.read(epgDataCacheProvider),
     );
     _controller.addListener(_onProgress);
@@ -95,15 +94,6 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_cfLoading)
-              Container(
-                height: 4,
-                color: Colors.cyanAccent,
-                child: const LinearProgressIndicator(
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation(Colors.cyanAccent),
-                ),
-              ),
             Expanded(
               child: RefreshProgressView(
                 percent: _controller.percent,
@@ -129,32 +119,6 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (!mounted) return;
     await _controller.start();
     if (!mounted) return;
-    // Initialise la session Cloudflare pour le zapping (cookies cf_clearance + UA).
-    // Récupère l'URL de base du fournisseur IPTV actif.
-    // Attend l'initialisation sans bloquer indéfiniment le démarrage.
-    setState(() => _cfLoading = true);
-    await safeAsync(
-      () async {
-        final sub =
-            await ref.read(subscriptionManagerProvider).getActiveSubscription();
-        if (sub['type'] == 'xtream') {
-          final baseUrl = 'https://${Uri.parse(sub['baseUrl']!).host}';
-          await ref
-              .read(cloudflareSessionProvider)
-              .initialize(baseUrl: baseUrl)
-              .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              debugPrint(
-                '☁️ Cloudflare init timeout (15s) during splash, proceeding anyway...',
-              );
-            },
-          );
-        }
-      },
-      context: 'StartupSplashScreen Cloudflare session init',
-    );
-    if (mounted) setState(() => _cfLoading = false);
     // Auto-resume: check for last session playback progress
     if (mounted) {
       await _checkAutoResume();

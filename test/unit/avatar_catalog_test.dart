@@ -139,8 +139,11 @@ void main() {
           labels.add(label);
         }
         // Aucun doublon : chaque catégorie doit rester distinguable.
-        expect(labels.toSet().length, labels.length,
-            reason: '$code : libellés identiques');
+        expect(
+          labels.toSet().length,
+          labels.length,
+          reason: '$code : libellés identiques',
+        );
       }
     });
 

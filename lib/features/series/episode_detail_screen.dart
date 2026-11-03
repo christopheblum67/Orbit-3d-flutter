@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
 /// et « Reprendre » (si une progression de lecture existe pour l'épisode).
@@ -23,7 +24,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
   final Series series;
   final Episode episode;
 
-  String get _progressId => 'episode-${episode.id}';
+  String _progressId(String profileId) =>
+      PlaybackProgressService.idForProfile(profileId, 'episode-${episode.id}');
 
   String get _label {
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
@@ -47,7 +49,12 @@ class EpisodeDetailScreen extends ConsumerWidget {
         streamUrl: episode.streamUrl,
       );
 
-  void _openPlayer(BuildContext context, WidgetRef ref, {int? positionMs}) {
+  void _openPlayer(
+    BuildContext context,
+    WidgetRef ref, {
+    required String progressId,
+    int? positionMs,
+  }) {
     if (episode.streamUrl.isEmpty) return;
     // Le statut « vu » est décidé par la progression : il n'est posé qu'à
     // 80 % regardés (voir `_saveProgress` du player). Rien à enregistrer ici.
@@ -56,7 +63,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
       extra: PlayerRouteData(
         streamUrl: episode.streamUrl,
         title: _label,
-        progressId: _progressId,
+        progressId: progressId,
         initialPositionMs: positionMs,
         contentType: PlaybackContentType.series,
         posterUrl: series.coverUrl,
@@ -76,8 +83,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final progress =
-        ref.watch(playbackProgressServiceProvider).get(_progressId);
+    final progressId = _progressId(ref.watch(currentProfileProvider)?.id ?? '');
+    final progress = ref.watch(playbackProgressServiceProvider).get(progressId);
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
 
@@ -170,7 +177,11 @@ class EpisodeDetailScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () => _openPlayer(context, ref),
+                    onPressed: () => _openPlayer(
+                      context,
+                      ref,
+                      progressId: progressId,
+                    ),
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: Text(l.start),
                     style: FilledButton.styleFrom(
@@ -185,6 +196,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                         ? () => _openPlayer(
                               context,
                               ref,
+                              progressId: progressId,
                               positionMs: progress!.positionMs,
                             )
                         : null,

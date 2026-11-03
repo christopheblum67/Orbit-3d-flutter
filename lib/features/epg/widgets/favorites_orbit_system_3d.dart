@@ -92,7 +92,9 @@ class _FavoritesOrbitSystem3DState extends State<FavoritesOrbitSystem3D>
             widget.onZoomOutToCategories();
             return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.enter) {
+              event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+              event.logicalKey == LogicalKeyboardKey.space) {
             if (orbitFavorites.isNotEmpty) {
               widget.onSelectChannel(orbitFavorites[_focusedIndex]);
             }

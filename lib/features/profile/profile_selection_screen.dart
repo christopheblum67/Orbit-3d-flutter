@@ -125,6 +125,7 @@ class _ProfileSelectionScreenState
         ),
         actions: [
           TextButton(
+            autofocus: true,
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Annuler'),
           ),
@@ -597,7 +598,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
             _activate();
             return KeyEventResult.handled;
           }
@@ -764,7 +767,9 @@ class _AddProfileCardState extends State<_AddProfileCard>
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
             _activate();
             return KeyEventResult.handled;
           }
@@ -864,7 +869,9 @@ class _CardActionButtonState extends State<_CardActionButton> {
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
             _activate();
             return KeyEventResult.handled;
           }

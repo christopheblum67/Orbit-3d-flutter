@@ -132,11 +132,10 @@ class _EpgTimelinePainter extends CustomPainter {
         );
       }
 
-      final isNowHour = false; // Affiché toutes les 2h, pas l'heure courante
       final tp = TextPainter(
         text: TextSpan(
           text: '${win.hour.toString().padLeft(2, '0')}:00',
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white54,
             fontSize: 10,
             fontWeight: FontWeight.w500,

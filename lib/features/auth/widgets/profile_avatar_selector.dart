@@ -152,7 +152,9 @@ class _CategoryChipTVState extends State<CategoryChipTV> {
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter)) {
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
             widget.onPressed();
             return KeyEventResult.handled;
           }
@@ -240,7 +242,9 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
           widget.onSelect();
           return KeyEventResult.handled;
         }

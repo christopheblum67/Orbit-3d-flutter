@@ -20,7 +20,6 @@ import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overl
 import 'package:orbit_3d_flutter/features/player/widgets/provider_verification_dialog.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
-import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/time_progress_bar.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -34,7 +33,6 @@ import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/services/pip_service.dart';
 import 'package:orbit_3d_flutter/services/background_playback_service.dart';
-import 'package:orbit_3d_flutter/services/cloudflare_bypass_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
@@ -571,29 +569,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     await _awaitRateLimitCooldown();
     if (!mounted || gen != _generation) return;
 
-    // Attendre que la session Cloudflare soit prete (Xtream) AVANT la 1ere
-    // tentative. Pas de cap externe : CloudflareSessionManager borne lui-meme
-    // chaque tentative (20/30/45s). Un cap externe plus court abandonnait le
-    // challenge en cours puis demarrait la lecture sans cookies, ce qui
-    // produisait systematiquement le 403 "flux indisponible" au premier
-    // chargement. safeAsync absorbe l'echec pour ne pas bloquer la lecture.
-    final sub = ref.read(activeSubscriptionProvider);
-    if (sub != null && sub.type == SubscriptionType.xtream) {
-      final cf = ref.read(cloudflareSessionProvider);
-      if (!cf.isReady) {
-        debugPrint('☁️ Waiting for Cloudflare session before first play...');
-        if (mounted) _setStatus(_PlayerStatus.loading);
-        await safeAsync(
-          () => cf.initialize(baseUrl: _getPanelBaseUrl()),
-          context: '_startAttempt cloudflareSession.initialize',
-        );
-        if (!cf.isReady) {
-          debugPrint('☁️ Cloudflare session unavailable; manual unlock will '
-              'be offered by the error screen.');
-        }
-      }
-    }
-
     // Connectivite au demarrage. ConnectivityMonitor demarre a
     // ConnectivityResult.none et resout son etat initial de facon asynchrone :
     // un refus immediat affichait "flux indisponible" alors que le reseau
@@ -727,15 +702,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     return result.valueOrNull ?? false;
   }
 
-  /// Retourne l'URL de base du panel IPTV (pour headers Referer/Cloudflare).
-  String _getPanelBaseUrl() {
-    final sub = ref.read(activeSubscriptionProvider);
-    if (sub == null || sub.baseUrl == null) return 'https://example.com';
-    final uri = Uri.tryParse(sub.baseUrl!);
-    if (uri == null) return 'https://example.com';
-    return '${uri.scheme}://${uri.host}';
-  }
-
   Future<void> _openProviderWebsite() async {
     final baseUrl = ref.read(activeSubscriptionProvider)?.baseUrl;
     final providerUri = baseUrl == null ? null : Uri.tryParse(baseUrl);
@@ -777,8 +743,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Ordre des User-Agents à tenter à la lecture. Quand l'impersonation TLS
   /// est active (réglage avancé), on privilégie l'User-Agent navigateur
-  /// (index 0) qui imite le trafic d'un navigateur moderne pour contourner
-  /// Cloudflare ; sinon on tente d'abord l'Agent natif ExoPlayer.
+  /// (index 0) ; sinon on tente d'abord l'Agent natif ExoPlayer.
   List<int> _userAgentOrder() {
     return playbackUserAgentOrder(
       tlsImpersonation: ref.read(advancedSettingsProvider).useTlsImpersonation,
@@ -807,10 +772,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     return variants;
   }
 
-  /// Construit les en-têtes HTTP pour une URL de flux, en fusionnant :
-  /// 1. Les headers de base (User-Agent rotation, etc.)
-  /// 2. Les cookies Cloudflare globaux (session unique pour tout le fournisseur)
-  /// 3. Les cookies Cloudflare spécifiques à l'hôte (CloudflareBypassService)
+  /// Construit les en-têtes HTTP standards du lecteur pour une URL de flux.
   Map<String, String> _resolvedHeaders(String url, int agentIndex) {
     // Get panel URL from active subscription for Xtream Referer
     final activeSub = ref.read(activeSubscriptionProvider);
@@ -818,22 +780,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
     final base =
         streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
-
-    // 1. Session Cloudflare globale (init au démarrage, unique pour tout le fournisseur)
-    final globalCf = ref.read(cloudflareSessionProvider);
-    if (globalCf.isReady) {
-      // Arme le renouvellement préventif si les cookies sont périmés
-      // (fire-and-forget : le vrai blocage est géré dans _handleActiveError).
-      globalCf.getFreshHeaders();
-      base.addAll(globalCf.videoHeaders);
-    }
-
-    // 2. Cookies Cloudflare spécifiques à l'hôte (obtention à la demande via WebView)
-    final host = Uri.tryParse(url)?.host;
-    if (host != null) {
-      final cf = CloudflareBypassService.instance.headersForHost(host);
-      if (cf != null) base.addAll(cf);
-    }
 
     return base;
   }
@@ -931,18 +877,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         _setStatus(_PlayerStatus.error);
       }
       return false;
-    }
-
-    // Attendre que la session Cloudflare soit prete (cookie cf_clearance) avant
-    // la premiere tentative. Meme rationale que dans _startAttempt : aucun cap
-    // externe, le manager borne lui-meme ses tentatives.
-    final cf = ref.read(cloudflareSessionProvider);
-    if (!cf.isReady) {
-      debugPrint('☁️ Waiting for Cloudflare session before first play...');
-      await safeAsync(
-        () => cf.initialize(baseUrl: _getPanelBaseUrl()),
-        context: '_tryPlay cloudflareSession.initialize',
-      );
     }
 
     final userAgentOrder = _userAgentOrder();
@@ -1298,26 +1232,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       ref.read(hostCircuitBreakerProvider).recordFailure(host);
     }
 
+    if (_isCloudflareError(errorDesc)) {
+      _handlingError = false;
+      _setStatus(_PlayerStatus.error);
+      return;
+    }
+
     if (!_autorecovered) {
       _autorecovered = true;
       _handlingError = false;
-      // Première tentative de récupération : si c'est une erreur Cloudflare,
-      // on ATTEND la fin du challenge avant de retenter (sinon le 2e essai
-      // repart avec des cookies vides et échoue aussi — « ça marche au 2e
-      // chargement »). Borné en durée : on ne bloque jamais la lecture.
-      if (_isCloudflareError(errorDesc)) {
-        debugPrint(
-          '☁️ Cloudflare error detected, refreshing session before retry...',
-        );
-        final cf = ref.read(cloudflareSessionProvider);
-        await safeAsync(
-          () => cf.renewSession(),
-          context: '_handleActiveError cloudflareSession.renewSession',
-        );
-        // Challenge en échec : on retente quand même avec les cookies
-        // éventuellement présents ; l'UI proposera le bouton de relance
-        // explicite si le flux reste bloqué.
-      }
       if (!mounted || gen != _generation) return;
       _startAttempt();
       return;
@@ -1608,8 +1531,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _stallDetector = null;
   }
 
-  /// Relance la lecture. Regarde l'etat Cloudflare avant de rejouer afin de ne
-  /// pas repartir avec des cookies vides.
+  /// Relance explicitement la lecture après l'action de l'utilisateur.
   Future<void> _retry() async {
     final now = DateTime.now();
     if (_retrying ||
@@ -1627,22 +1549,6 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _autorecovered = false;
       _disposeCachedNext();
       _disposeCachedPrev();
-
-      // Leaving a subscription open: the cookie can be expired. We wait for the
-      // headless challenge to finish instead of capping it, otherwise the
-      // playback restarts without cookies and fails again.
-      final sub = ref.read(activeSubscriptionProvider);
-      if (sub != null && sub.type == SubscriptionType.xtream) {
-        final cf = ref.read(cloudflareSessionProvider);
-        if (!cf.isReady) {
-          debugPrint('☁️ Waiting for Cloudflare session before retry...');
-          if (mounted) _setStatus(_PlayerStatus.loading);
-          await safeAsync(
-            () => cf.initialize(baseUrl: _getPanelBaseUrl()),
-            context: '_retry cloudflareSession.initialize',
-          );
-        }
-      }
 
       _startAttempt();
       _startPreload();

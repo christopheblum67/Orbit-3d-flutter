@@ -21,16 +21,34 @@ class PlaybackProgress {
     if (durationMs <= 0) return 0;
     return (positionMs / durationMs).clamp(0.0, 1.0);
   }
+
+  Map<String, int> toJson() => {
+        'positionMs': positionMs,
+        'durationMs': durationMs,
+        'updatedAt': updatedAt,
+      };
+
+  factory PlaybackProgress.fromJson(Map<String, dynamic> json) {
+    return PlaybackProgress(
+      positionMs: (json['positionMs'] as num?)?.toInt() ?? 0,
+      durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      updatedAt: (json['updatedAt'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 /// Sauvegarde persistée (Hive) de la position de lecture par identifiant de
 /// média. Permet au bouton « Reprendre » de relancer au point de lecture.
 class PlaybackProgressService extends ChangeNotifier {
   static const String _boxName = 'playback_progress';
+  static const String _profileKeyPrefix = 'profile:';
 
   Future<void> init() async {
     await Hive.openBox(_boxName);
   }
+
+  static String idForProfile(String profileId, String mediaId) =>
+      profileId.isEmpty ? mediaId : '$_profileKeyPrefix$profileId:$mediaId';
 
   Future<void> save(
     String id,
@@ -41,30 +59,99 @@ class PlaybackProgressService extends ChangeNotifier {
       final value =
           '$positionMs|$durationMs|${DateTime.now().millisecondsSinceEpoch}';
       await box.put(id, value);
+      final legacyId = _legacyIdFor(id);
+      if (legacyId != null) await box.delete(legacyId);
     });
     notifyListeners();
   }
 
   PlaybackProgress? get(String id) {
     final box = Hive.box<dynamic>(_boxName);
-    final raw = box.get(id);
-    if (raw == null) return null;
-    final parts = raw.split('|');
-    if (parts.length < 3) return null;
-    final position = int.tryParse(parts[0]) ?? 0;
-    final duration = int.tryParse(parts[1]) ?? 0;
-    final updated = int.tryParse(parts[2]) ?? 0;
-    return PlaybackProgress(
-      positionMs: position,
-      durationMs: duration,
-      updatedAt: updated,
-    );
+    return _parse(box.get(id) ?? _legacyValueFor(box, id));
   }
 
   Future<void> clear(String id) async {
     await HiveSync.writeAsync(_boxName, (box) async {
       await box.delete(id);
+      final legacyId = _legacyIdFor(id);
+      if (legacyId != null) await box.delete(legacyId);
     });
     notifyListeners();
+  }
+
+  Future<Map<String, PlaybackProgress>> loadForProfile(String profileId) {
+    final prefix = '$_profileKeyPrefix$profileId:';
+    return HiveSync.read(_boxName, (box) {
+      final progress = <String, PlaybackProgress>{};
+      for (final key in box.keys) {
+        if (key is! String || !key.startsWith(prefix)) continue;
+        final mediaId = key.substring(prefix.length);
+        final value = _parse(box.get(key));
+        if (mediaId.isNotEmpty && value != null) progress[mediaId] = value;
+      }
+      return progress;
+    });
+  }
+
+  Future<void> migrateLegacyForProfile(String profileId) async {
+    final prefix = '$_profileKeyPrefix$profileId:';
+    await HiveSync.writeAsync(_boxName, (box) async {
+      for (final key in box.keys) {
+        if (key is! String ||
+            (!key.startsWith('movie-') && !key.startsWith('episode-'))) {
+          continue;
+        }
+        final progress = _parse(box.get(key));
+        if (progress == null) continue;
+        await box.put(
+          '$prefix$key',
+          '${progress.positionMs}|${progress.durationMs}|${progress.updatedAt}',
+        );
+        await box.delete(key);
+      }
+    });
+    notifyListeners();
+  }
+
+  Future<void> applySyncedProfile(
+    String profileId, {
+    required Map<String, PlaybackProgress> entries,
+    required Set<String> removes,
+  }) async {
+    final prefix = '$_profileKeyPrefix$profileId:';
+    await HiveSync.writeAsync(_boxName, (box) async {
+      for (final mediaId in removes) {
+        await box.delete('$prefix$mediaId');
+      }
+      for (final entry in entries.entries) {
+        final value =
+            '${entry.value.positionMs}|${entry.value.durationMs}|${entry.value.updatedAt}';
+        await box.put('$prefix${entry.key}', value);
+      }
+    });
+    notifyListeners();
+  }
+
+  static String? _legacyIdFor(String id) {
+    if (!id.startsWith(_profileKeyPrefix)) return null;
+    final separator = id.indexOf(':', _profileKeyPrefix.length);
+    if (separator < 0 || separator == id.length - 1) return null;
+    return id.substring(separator + 1);
+  }
+
+  static dynamic _legacyValueFor(Box<dynamic> box, String id) {
+    final legacyId = _legacyIdFor(id);
+    return legacyId == null ? null : box.get(legacyId);
+  }
+
+  static PlaybackProgress? _parse(dynamic raw) {
+    if (raw is! String) return null;
+    final parts = raw.split('|');
+    if (parts.length < 3) return null;
+    return PlaybackProgress(
+      positionMs: int.tryParse(parts[0]) ?? 0,
+      durationMs: int.tryParse(parts[1]) ?? 0,
+      updatedAt: int.tryParse(parts[2]) ?? 0,
+    );
   }
 }

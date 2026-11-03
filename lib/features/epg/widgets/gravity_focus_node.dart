@@ -98,7 +98,9 @@ class _FocusableGravityNodeState extends State<FocusableGravityNode> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
           widget.onTap?.call();
           return KeyEventResult.handled;
         }

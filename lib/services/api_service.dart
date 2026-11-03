@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
+import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
@@ -620,13 +621,16 @@ class ApiService {
     // sortirait de `_singleFlight` au lieu d'arriver par le Future, et surtout
     // l'entrée resterait en vol — cette clé échouerait alors définitivement.
     // C'est un bug trouvé par un test, pas une précaution théorique.
-    Future<T>.sync(body).then((value) {
-      _inFlight.remove(key);
-      completer.complete(value);
-    }, onError: (Object error, StackTrace stack) {
-      _inFlight.remove(key);
-      completer.completeError(error, stack);
-    },);
+    Future<T>.sync(body).then(
+      (value) {
+        _inFlight.remove(key);
+        completer.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        _inFlight.remove(key);
+        completer.completeError(error, stack);
+      },
+    );
     return completer.future;
   }
 
@@ -680,13 +684,10 @@ class ApiService {
         channel.requireStreamUrl();
         return channel;
       }).toList();
-    } else if (sub['type'] == 'm3u') {
-      final url = sub['url']!;
-      final response = await _get(url);
-      return parseM3u(response.data.toString());
-    } else {
-      throw StreamNetworkException('Aucun abonnement configuré.');
     }
+    throw StreamNetworkException(
+      'Le chargement Live M3U doit passer par le fournisseur de playlist M3U.',
+    );
   }
 
   Future<Map<String, String>> _fetchLiveCategoryNames(
@@ -1331,6 +1332,7 @@ class ApiService {
   // ---------- Radios ----------
   Future<List<Channel>> fetchRadioChannels() async {
     final sub = await _activeSub();
+    logDiag('RADIO fetch=start source=${sub['type'] ?? 'unknown'}');
     if (sub['type'] == 'xtream') {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
@@ -1345,14 +1347,28 @@ class ApiService {
         username,
         password,
       );
+      logDiag(
+        'RADIO categories=resolved count=${radioCategoryIds.length} '
+        'filter=${radioCategoryIds.isEmpty ? 'disabled' : 'enabled'}',
+      );
 
       final url = _playerApiUrl(baseUrl, 'player_api.php', {
         'username': username,
         'password': password,
         'action': 'get_live_streams',
       });
+      final stopwatch = Stopwatch()..start();
+      logDiag('RADIO streams=request start');
       final response = await _get(url);
-      return (response.data as List)
+      final rawStreams = response.data;
+      if (rawStreams is! List) {
+        logDiag(
+          'RADIO streams=invalid-response '
+          'type=${rawStreams.runtimeType} durationMs=${stopwatch.elapsedMilliseconds}',
+        );
+        throw const FormatException('Réponse de flux Radio invalide.');
+      }
+      final channels = rawStreams
           .whereType<Map>()
           .where(
             (e) =>
@@ -1369,7 +1385,15 @@ class ApiService {
         );
         return Channel.fromMap(map).copyWith(streamUrl: streamUrl);
       }).toList();
+      logDiag(
+        'RADIO streams=complete received=${rawStreams.length} '
+        'matched=${channels.length} durationMs=${stopwatch.elapsedMilliseconds}',
+      );
+      return channels;
     }
+    logDiag(
+      'RADIO fetch=unsupported-source source=${sub['type'] ?? 'unknown'}',
+    );
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',
     );
@@ -1380,6 +1404,8 @@ class ApiService {
     String username,
     String password,
   ) async {
+    final stopwatch = Stopwatch()..start();
+    logDiag('RADIO categories=request start');
     final result = await safeAsync<Set<String>>(
       () async {
         final url = _playerApiUrl(baseUrl, 'player_api.php', {
@@ -1405,7 +1431,13 @@ class ApiService {
       context: 'ApiService._fetchRadioCategoryIds',
       fallbackValue: const <String>{},
     );
-    return result.getOrElse(const <String>{});
+    final categoryIds = result.getOrElse(const <String>{});
+    logDiag(
+      'RADIO categories=${result.isSuccess ? 'complete' : 'failed'} '
+      'matched=${categoryIds.length} durationMs=${stopwatch.elapsedMilliseconds}'
+      '${result.isFailure ? ' fallback=unfiltered' : ''}',
+    );
+    return categoryIds;
   }
 
   // ---------- Replays ----------

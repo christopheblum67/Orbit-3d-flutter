@@ -20,6 +20,7 @@
 // Le résultat est vérifié : le fichier réécrit ne doit plus contenir U+FFFD.
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 bool _isContinuation(int b) => b >= 0x80 && b <= 0xBF;
 

@@ -10,6 +10,7 @@
 // Usage : dart run tool/fix_mojibake.dart [--dry-run] <fichiers...>
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 bool _looksCorrupted(String text) =>
     text.contains('�') || text.contains('�') || text.contains('�€');
@@ -18,7 +19,9 @@ void main(List<String> args) {
   final dryRun = args.contains('--dry-run');
   final files = args.where((a) => a != '--dry-run').toList();
   if (files.isEmpty) {
-    stderr.writeln('usage: dart run tool/fix_mojibake.dart [--dry-run] <files...>');
+    stderr.writeln(
+      'usage: dart run tool/fix_mojibake.dart [--dry-run] <files...>',
+    );
     exitCode = 64;
     return;
   }
@@ -50,8 +53,7 @@ void main(List<String> args) {
         bytes.add(utf8.encode(String.fromCharCode(rune)));
       }
     }
-    final repaired =
-        utf8.decode(bytes.takeBytes(), allowMalformed: true);
+    final repaired = utf8.decode(bytes.takeBytes(), allowMalformed: true);
 
     if (repaired == original) {
       stdout.writeln('ok (inchang�) $path');

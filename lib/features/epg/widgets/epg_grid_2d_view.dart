@@ -602,7 +602,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
 
   /// Contrôleur partagé — pour les tests.
   @visibleForTesting
-  EpgTimelineController get debugTimelineControllerForTest => _timelineController;
+  EpgTimelineController get debugTimelineControllerForTest =>
+      _timelineController;
 
   /// Positionne la grille à [value] px — pour les tests.
   @visibleForTesting
@@ -771,7 +772,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                         itemBuilder: (context, index) {
                           final ch = widget.channels[index];
                           final isLoading = widget.loadingChannels.contains(ch);
-                          final hasPrograms = (widget.epgData[ch]?.isNotEmpty ?? false);
+                          final hasPrograms =
+                              (widget.epgData[ch]?.isNotEmpty ?? false);
                           final isEmpty = !hasPrograms && !isLoading;
                           return Container(
                             height: rowHeight,
@@ -793,13 +795,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                               child: Row(
                                 children: [
                                   if (isLoading) ...[
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 14,
                                       height: 14,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          const Color(0xFF8B5CF6),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                          Color(0xFF8B5CF6),
                                         ),
                                       ),
                                     ),
@@ -822,7 +825,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                     ),
                                   ),
                                   if (!hasPrograms && !isLoading)
-                                    Icon(
+                                    const Icon(
                                       Icons.info_outline,
                                       size: 12,
                                       color: Colors.white30,
@@ -859,96 +862,98 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                             // reprojette pour rester dans la journée.
                             _setHorizontalOffset(_horizontalOffset.value);
                           }
-                            return HorizontalDragLayer(
-                              offset: _horizontalOffset,
-                              maxOffset: _maxHorizontalOffset,
-                              onOffsetChanged: _setHorizontalOffset,
-                              child: Listener(
-                            // Pinch : le geste naturel du zoom sur un
-                            // téléphone. On ancre sur la position donnée par
-                            // l'événement, sinon la minute visée dérive pendant
-                            // le geste.
-                            onPointerSignal: (event) {
-                              if (event is! PointerScaleEvent) return;
-                              _zoomBy(event.scale, event.localPosition.dx);
-                            },
-                            onPointerDown: (event) {
-                              _tapDownPos = event.localPosition;
-                              _tapDownTime = DateTime.now();
-                              _pointerX = event.localPosition.dx;
-                              _hoverPosition.value = null;
-                            },
-                            onPointerMove: (event) {
-                              // Le déplacement horizontal est conduit par
-                              // `HorizontalDragLayer`, qui participe à l'arène
-                              // de gestes et gagne franchement sur un
-                              // mouvement horizontal. Ici on ne fait plus que
-                              // suivre le doigt, pour le survol et pour
-                              // distinguer un glissement d'un appui.
-                              //
-                              // Déplacer la grille ici était le bug d'origine :
-                              // un `Listener` ne réclame rien dans l'arène, donc
-                              // il bougeait dès le premier pixel alors que le
-                              // `ListView` vertical croyait encore tenir le
-                              // geste — les deux se disputaient le pointeur.
-                              _pointerX = event.localPosition.dx;
-                              _hoverPosition.value = event.localPosition;
-                            },
-                            onPointerUp: (event) {
-                              _hoverPosition.value = null;
-                              // Un glissement n'est pas un appui : sans cette
-                              // distinction, un simple balayage sélectionnait un
-                              // programme au hasard.
-                              //
-                              // `onPointerDown` a pu être annulé par le système
-                              // (centré de dialogue) : dans ce cas aucune
-                              // sélection ne doit partir, et surtout le `!`
-                              // planterait la zone.
-                              final down = _tapDownPos;
-                              _tapDownPos = null;
-                              if (down == null) return;
-                              final moved = (_pointerX - down.dx).abs() > 8;
-                              if (!moved) _consumeGridTap(event.localPosition);
-                            },
-                            onPointerCancel: (_) {
-                              _hoverPosition.value = null;
-                              _tapDownPos = null;
-                            },
-                            child: ClipRect(
-                              child: ListView.builder(
-                                controller: _verticalController,
-                                itemExtent: kRowStride,
-                                itemCount: widget.channels.length,
-                                itemBuilder: (context, index) =>
-                                    RepaintBoundary(
-                                  child: CustomPaint(
-                                    size: Size(viewportWidth, kRowStride),
-                                    painter: _EpgGridPainter(
-                                      channels: widget.channels,
-                                      renderCacheOf: () => _renderCache,
-                                      gridStartTime: _gridStartTime,
-                                      pixelsPerMinute: _pixelsPerMinute,
-                                      rowHeight: rowHeight,
-                                      channelWidth: channelWidth,
-                                      viewportWidth: viewportWidth,
-                                      channelIndex: index,
-                                      horizontalOffset: _horizontalOffset,
-                                      touchPosition: _hoverPosition,
-                                      dataRevision: _dataRevision,
-                                      repaint: Listenable.merge([
-                                        _hoverPosition,
-                                        _timelineController.now,
-                                        _horizontalOffset,
-                                        _dataRevision,
-                                      ]),
+                          return HorizontalDragLayer(
+                            offset: _horizontalOffset,
+                            maxOffset: _maxHorizontalOffset,
+                            onOffsetChanged: _setHorizontalOffset,
+                            child: Listener(
+                              // Pinch : le geste naturel du zoom sur un
+                              // téléphone. On ancre sur la position donnée par
+                              // l'événement, sinon la minute visée dérive pendant
+                              // le geste.
+                              onPointerSignal: (event) {
+                                if (event is! PointerScaleEvent) return;
+                                _zoomBy(event.scale, event.localPosition.dx);
+                              },
+                              onPointerDown: (event) {
+                                _tapDownPos = event.localPosition;
+                                _tapDownTime = DateTime.now();
+                                _pointerX = event.localPosition.dx;
+                                _hoverPosition.value = null;
+                              },
+                              onPointerMove: (event) {
+                                // Le déplacement horizontal est conduit par
+                                // `HorizontalDragLayer`, qui participe à l'arène
+                                // de gestes et gagne franchement sur un
+                                // mouvement horizontal. Ici on ne fait plus que
+                                // suivre le doigt, pour le survol et pour
+                                // distinguer un glissement d'un appui.
+                                //
+                                // Déplacer la grille ici était le bug d'origine :
+                                // un `Listener` ne réclame rien dans l'arène, donc
+                                // il bougeait dès le premier pixel alors que le
+                                // `ListView` vertical croyait encore tenir le
+                                // geste — les deux se disputaient le pointeur.
+                                _pointerX = event.localPosition.dx;
+                                _hoverPosition.value = event.localPosition;
+                              },
+                              onPointerUp: (event) {
+                                _hoverPosition.value = null;
+                                // Un glissement n'est pas un appui : sans cette
+                                // distinction, un simple balayage sélectionnait un
+                                // programme au hasard.
+                                //
+                                // `onPointerDown` a pu être annulé par le système
+                                // (centré de dialogue) : dans ce cas aucune
+                                // sélection ne doit partir, et surtout le `!`
+                                // planterait la zone.
+                                final down = _tapDownPos;
+                                _tapDownPos = null;
+                                if (down == null) return;
+                                final moved = (_pointerX - down.dx).abs() > 8;
+                                if (!moved) {
+                                  _consumeGridTap(event.localPosition);
+                                }
+                              },
+                              onPointerCancel: (_) {
+                                _hoverPosition.value = null;
+                                _tapDownPos = null;
+                              },
+                              child: ClipRect(
+                                child: ListView.builder(
+                                  controller: _verticalController,
+                                  itemExtent: kRowStride,
+                                  itemCount: widget.channels.length,
+                                  itemBuilder: (context, index) =>
+                                      RepaintBoundary(
+                                    child: CustomPaint(
+                                      size: Size(viewportWidth, kRowStride),
+                                      painter: _EpgGridPainter(
+                                        channels: widget.channels,
+                                        renderCacheOf: () => _renderCache,
+                                        gridStartTime: _gridStartTime,
+                                        pixelsPerMinute: _pixelsPerMinute,
+                                        rowHeight: rowHeight,
+                                        channelWidth: channelWidth,
+                                        viewportWidth: viewportWidth,
+                                        channelIndex: index,
+                                        horizontalOffset: _horizontalOffset,
+                                        touchPosition: _hoverPosition,
+                                        dataRevision: _dataRevision,
+                                        repaint: Listenable.merge([
+                                          _hoverPosition,
+                                          _timelineController.now,
+                                          _horizontalOffset,
+                                          _dataRevision,
+                                        ]),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -1452,7 +1457,9 @@ class _EpgGridPainter extends CustomPainter {
         )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
         if (cullMin <= 8 && emptyPainter.width > 0) {
           emptyPainter.paint(
-              canvas, Offset(8, y + (h - emptyPainter.height) / 2),);
+            canvas,
+            Offset(8, y + (h - emptyPainter.height) / 2),
+          );
         }
       }
     }

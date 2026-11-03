@@ -8,8 +8,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
 // L'import ci-dessous (webview_flutter_android) charge et enregistre la
-// plateforme Android WebView au démarrage (dartPluginClass), requis par le
-// déblocage Cloudflare (cf_clearance). Ne pas retirer l'import.
+// plateforme Android WebView au démarrage (dartPluginClass), requis pour la
+// vérification manuelle du fournisseur. Ne pas retirer l'import.
 // ignore: unused_import
 import 'package:webview_flutter/webview_flutter.dart';
 // ignore: unused_import

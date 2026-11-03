@@ -123,12 +123,18 @@ void main() {
         'https://host/15548815/l3khgnaaa3mh/12345.mkv',
       );
       expect(
-          variants, contains('https://host/15548815/l3khgnaaa3mh/12345.mkv'),);
+        variants,
+        contains('https://host/15548815/l3khgnaaa3mh/12345.mkv'),
+      );
       expect(variants, contains('https://host/15548815/l3khgnaaa3mh/12345'));
-      expect(variants,
-          isNot(contains('https://host/movie/15548815/l3khgnaaa3mh/12345')),);
-      expect(variants,
-          isNot(contains('https://host/series/15548815/l3khgnaaa3mh/12345')),);
+      expect(
+        variants,
+        isNot(contains('https://host/movie/15548815/l3khgnaaa3mh/12345')),
+      );
+      expect(
+        variants,
+        isNot(contains('https://host/series/15548815/l3khgnaaa3mh/12345')),
+      );
     });
 
     test('handles empty / invalid urls gracefully', () {

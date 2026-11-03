@@ -6,7 +6,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
-import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
@@ -356,7 +355,7 @@ class DownloadManager extends ChangeNotifier {
     notifyListeners();
   }
 
-/// Instantané trié des tâches, la plus récente d'abord.
+  /// Instantané trié des tâches, la plus récente d'abord.
   List<DownloadTask> _snapshotTasks() {
     final box = _box;
     if (box == null) return const [];
@@ -711,15 +710,12 @@ class DownloadManager extends ChangeNotifier {
     return '${dir.path}/$taskId.mp4';
   }
 
-  /// Récupère les headers frais (incluant cookies Cloudflare) pour un téléchargement.
+  /// Récupère les en-têtes fournis avec la tâche de téléchargement.
   Map<String, String> _getFreshHeaders(DownloadTask task) {
     final headers = <String, String>{};
     if (task.headers != null) {
       headers.addAll(task.headers!);
     }
-    // Ajouter les headers Cloudflare (cookies + User-Agent) via le singleton
-    final cfHeaders = CloudflareSessionManager().getFreshHeaders();
-    headers.addAll(cfHeaders);
     return headers;
   }
 

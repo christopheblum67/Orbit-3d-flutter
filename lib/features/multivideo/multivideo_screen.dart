@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -221,7 +222,8 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(liveChannelsProvider),
         ),
-        data: (channels) => _buildBody(context, channels, maxStreams, deviceProfile),
+        data: (channels) =>
+            _buildBody(context, channels, maxStreams, deviceProfile),
       ),
     );
   }
@@ -238,9 +240,8 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
       return _EmptyMultiView(
         message: l.noChannelSelected,
         actionLabel: l.addChannel,
-        onAdd: channels.isEmpty
-            ? null
-            : () => _openPicker(channels, maxStreams),
+        onAdd:
+            channels.isEmpty ? null : () => _openPicker(channels, maxStreams),
       );
     }
 
@@ -395,10 +396,13 @@ class _ChannelPickerSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  tooltip: closeLabel,
-                  onPressed: () => Navigator.of(context).pop(),
+                TvFocus(
+                  onActivate: () => Navigator.of(context).pop(),
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: closeLabel,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ),
               ],
             ),
@@ -423,33 +427,35 @@ class _ChannelPickerSheet extends StatelessWidget {
               itemBuilder: (context, index) {
                 final channel = channels[index];
                 final selected = isSelected(channel);
-                return ListTile(
-                  selected: selected,
-                  leading: Icon(
-                    Icons.live_tv_outlined,
-                    color: selected ? scheme.primary : null,
+                return TvFocus(
+                  autofocus: index == 0,
+                  onActivate: () => onToggle(channel),
+                  child: ListTile(
+                    selected: selected,
+                    leading: Icon(
+                      Icons.live_tv_outlined,
+                      color: selected ? scheme.primary : null,
+                    ),
+                    title: Text(
+                      channel.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: channel.groupLabel.isEmpty
+                        ? null
+                        : Text(
+                            channel.groupLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                    trailing: Icon(
+                      selected ? Icons.check_circle : Icons.add_circle_outline,
+                      color: selected
+                          ? scheme.primary
+                          : (canAddMore ? null : Colors.white24),
+                    ),
+                    onTap: () => onToggle(channel),
                   ),
-                  title: Text(
-                    channel.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: channel.groupLabel.isEmpty
-                      ? null
-                      : Text(
-                          channel.groupLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                  trailing: Icon(
-                    selected
-                        ? Icons.check_circle
-                        : Icons.add_circle_outline,
-                    color: selected
-                        ? scheme.primary
-                        : (canAddMore ? null : Colors.white24),
-                  ),
-                  onTap: () => onToggle(channel),
                 );
               },
             ),
@@ -510,6 +516,7 @@ class _VideoTileState extends State<VideoTile> {
     }
   }
 
+  /// Applique le volume instantanément sans recharger le flux vidéo.
   void _applyVolume() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
@@ -523,16 +530,19 @@ class _VideoTileState extends State<VideoTile> {
     _controller = null;
     if (old != null) {
       old.removeListener(_onControllerUpdate);
-      old.dispose();
+      await old.dispose();
     }
     if (!mounted) return;
-    // La config media3 est lue à la CONSTRUCTION de l'ExoPlayer : sans ce
-    // `push` avant la création, chaque tuile conservait les seuils par défaut
-    // d'ExoPlayer (tampons de 50 s) et ne bénéficiait pas du plafond de
-    // résolution du profil — en multi-vue, c'est précisément là que le
-    // décodage déborde.
-    await PlayerProfileService.pushForDevice(widget.profile);
+
+    // Protection : configuration unique et sécurisée du profil média
+    try {
+      await PlayerProfileService.pushForDevice(widget.profile);
+    } catch (e) {
+      debugPrint('Orbit3D multivideo config error: $e');
+    }
+
     if (!mounted || gen != _generation) return;
+
     final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _controller = controller;
     controller.addListener(_onControllerUpdate);
@@ -540,27 +550,27 @@ class _VideoTileState extends State<VideoTile> {
       () => controller.initialize(),
       context: 'MultiVideoScreen._VideoTileState.load',
     );
-    if (result.isFailure) {
-      final error = result.errorOrNull!.originalError ?? result.errorOrNull!;
-      debugPrint('Orbit3D multivideo error: $error');
-      if (!mounted || gen != _generation) return;
+    if (result.isFailure || !mounted || gen != _generation) {
       if (_controller == controller) {
         _controller = null;
         controller.removeListener(_onControllerUpdate);
-        controller.dispose();
+        await controller.dispose();
       }
-      setState(() => _failed = true);
+      if (mounted) setState(() => _failed = true);
       return;
     }
-    if (!mounted || gen != _generation || _controller != controller) return;
+
     if (controller.value.hasError) {
-      setState(() => _failed = true);
+      if (mounted) setState(() => _failed = true);
       return;
     }
-    // Toutes les tuiles jouent en continu ; le son suit la tuile active.
-    controller.setVolume(widget.active ? 1.0 : 0.0);
-    controller.play();
-    setState(() {});
+
+    // Règle métier principale : Lecture vidéo active en permanence sur tous les flux,
+    // mais le son dépend de l'état `active`.
+    await controller.setVolume(widget.active ? 1.0 : 0.0);
+    await controller.play();
+
+    if (mounted) setState(() {});
   }
 
   void _onControllerUpdate() {

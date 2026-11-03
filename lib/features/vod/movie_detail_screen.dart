@@ -19,6 +19,7 @@ import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/crew_section.dart';
 import 'package:orbit_3d_flutter/features/widgets/translated_synopsis_view.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 /// Page intermédiaire d'un film VOD : toutes les infos enrichies (TMDB/TVmaze/OMDB/IA)
 /// + bouton « Démarrer » et bouton « Reprendre » (si progression existe).
@@ -91,16 +92,21 @@ class _MovieDetailContent extends ConsumerWidget {
   final MovieDetail detail;
   final Movie movie;
 
-  String get _progressId => 'movie-${movie.id}';
+  String _progressId(String profileId) =>
+      PlaybackProgressService.idForProfile(profileId, 'movie-${movie.id}');
 
-  void _openPlayer(BuildContext context, {int? positionMs}) {
+  void _openPlayer(
+    BuildContext context, {
+    required String progressId,
+    int? positionMs,
+  }) {
     final rating = detail.rating > 0 ? detail.rating : movie.rating;
     context.push(
       '/player',
       extra: PlayerRouteData(
         streamUrl: movie.streamUrl,
         title: movie.title,
-        progressId: _progressId,
+        progressId: progressId,
         initialPositionMs: positionMs,
         contentType: PlaybackContentType.vod,
         // Identifiant du film : permet au lecteur d'interroger le panel pour
@@ -129,8 +135,8 @@ class _MovieDetailContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final progress =
-        ref.watch(playbackProgressServiceProvider).get(_progressId);
+    final progressId = _progressId(ref.watch(currentProfileProvider)?.id ?? '');
+    final progress = ref.watch(playbackProgressServiceProvider).get(progressId);
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -408,22 +414,30 @@ class _MovieDetailContent extends ConsumerWidget {
             alignment: WrapAlignment.center,
             children: [
               FilledButton.icon(
-                onPressed: () => _openPlayer(context),
+                onPressed: () => _openPlayer(
+                  context,
+                  progressId: progressId,
+                ),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(l.start),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: hasProgress
-                    ? () =>
-                        _openPlayer(context, positionMs: progress!.positionMs)
+                    ? () => _openPlayer(
+                          context,
+                          progressId: progressId,
+                          positionMs: progress!.positionMs,
+                        )
                     : null,
                 icon: const Icon(Icons.replay_rounded),
                 label: const Text('Reprendre'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
                 ),
               ),
             ],
@@ -437,7 +451,8 @@ class _MovieDetailContent extends ConsumerWidget {
                 icon: const Icon(Icons.play_circle_outline),
                 label: const Text('Bande-annonce'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                   foregroundColor: Colors.redAccent,
                 ),
               ),

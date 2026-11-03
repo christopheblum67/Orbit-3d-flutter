@@ -4,6 +4,8 @@
 // (99 569 entrees) : `plot`, `director`, `genre` et `year` sont ABSENTS, et
 // `name`/`stream_icon`/`rating`/`category_id` mesurent 26/46/2.6/4 caracteres.
 // On ne suppose pas : on reproduit les longueurs mesurees.
+// ignore_for_file: avoid_print
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -84,35 +86,39 @@ void main() {
   // 2. Movie complet
   final movies = <Movie>[];
   for (final m in decoded) {
-    movies.add(Movie(
-      id: m['stream_id'].toString(),
-      title: m['name'].toString(),
-      description: '',
-      posterUrl: m['stream_icon'].toString(),
-      year: 0,
-      genre: 'Action / Aventure / Drame',
-      director: '',
-      rating: double.tryParse(m['rating'].toString()) ?? 0,
-      pegi: '',
-      streamUrl:
-          'http://1.888000.eu/player_api.php?username=Premchrisfr25&password=xwQt75SyX2jK&action=stream&type=movie&stream_id=${m['stream_id']}&extension=mkv',
-      categoryId: m['category_id'].toString(),
-    ),);
+    movies.add(
+      Movie(
+        id: m['stream_id'].toString(),
+        title: m['name'].toString(),
+        description: '',
+        posterUrl: m['stream_icon'].toString(),
+        year: 0,
+        genre: 'Action / Aventure / Drame',
+        director: '',
+        rating: double.tryParse(m['rating'].toString()) ?? 0,
+        pegi: '',
+        streamUrl:
+            'http://1.888000.eu/player_api.php?username=Premchrisfr25&password=xwQt75SyX2jK&action=stream&type=movie&stream_id=${m['stream_id']}&extension=mkv',
+        categoryId: m['category_id'].toString(),
+      ),
+    );
   }
   final rss2 = ProcessInfo.currentRss;
 
   // 3. Version compacte
   final compact = <Compact>[];
   for (final m in decoded) {
-    compact.add(Compact(
-      id: m['stream_id'].toString(),
-      title: m['name'].toString(),
-      posterUrl: m['stream_icon'].toString(),
-      year: 0,
-      genre: 'Action / Aventure / Drame',
-      rating: double.tryParse(m['rating'].toString()) ?? 0,
-      categoryId: m['category_id'].toString(),
-    ),);
+    compact.add(
+      Compact(
+        id: m['stream_id'].toString(),
+        title: m['name'].toString(),
+        posterUrl: m['stream_icon'].toString(),
+        year: 0,
+        genre: 'Action / Aventure / Drame',
+        rating: double.tryParse(m['rating'].toString()) ?? 0,
+        categoryId: m['category_id'].toString(),
+      ),
+    );
   }
   final rss3 = ProcessInfo.currentRss;
 
@@ -128,9 +134,15 @@ void main() {
   final scale = 99569.0 / n;
   print('');
   print('=== projection catalogue reel (99 569 films) ===');
-  print('Maps transitoire : ${mb((rss1 - rss0) * scale).toStringAsFixed(0)} Mo');
-  print('Movie complet    : ${mb((rss2 - rss1) * scale).toStringAsFixed(0)} Mo');
-  print('Compact grille   : ${mb((rss3 - rss2) * scale).toStringAsFixed(0)} Mo');
+  print(
+    'Maps transitoire : ${mb((rss1 - rss0) * scale).toStringAsFixed(0)} Mo',
+  );
+  print(
+    'Movie complet    : ${mb((rss2 - rss1) * scale).toStringAsFixed(0)} Mo',
+  );
+  print(
+    'Compact grille   : ${mb((rss3 - rss2) * scale).toStringAsFixed(0)} Mo',
+  );
   final gain = (rss2 - rss1) - (rss3 - rss2);
   print('gain si compact  : ${mb(gain * scale).toStringAsFixed(0)} Mo'
       ' (${(gain * 100.0 / (rss2 - rss1)).toStringAsFixed(0)} %)');
@@ -138,18 +150,19 @@ void main() {
   // Poids du streamUrl, le plus gros chaine du modele
   final urlChars = movies.fold<int>(0, (a, m) => a + m.streamUrl.length);
   final totalChars = movies.fold<int>(
-      0,
-      (a, m) =>
-          a +
-          m.id.length +
-          m.title.length +
-          m.description.length +
-          m.posterUrl.length +
-          m.genre.length +
-          m.director.length +
-          m.pegi.length +
-          m.streamUrl.length +
-          m.categoryId.length,);
+    0,
+    (a, m) =>
+        a +
+        m.id.length +
+        m.title.length +
+        m.description.length +
+        m.posterUrl.length +
+        m.genre.length +
+        m.director.length +
+        m.pegi.length +
+        m.streamUrl.length +
+        m.categoryId.length,
+  );
   print('');
   print('=== poids des chaines (projection 99 569) ===');
   print('streamUrl        : ${mb(urlChars * scale).toStringAsFixed(0)} Mo'

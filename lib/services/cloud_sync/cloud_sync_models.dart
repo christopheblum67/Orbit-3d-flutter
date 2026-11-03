@@ -2,7 +2,7 @@
 ///
 /// Un "scope" correspond à un type de données local : favoris, épisodes vus,
 /// récemment regardés. Chaque scope est synchronisé indépendamment par profil.
-enum CloudSyncScope { favorites, watched, recents }
+enum CloudSyncScope { favorites, watched, recents, playback }
 
 /// Une entrée du snapshot cloud : le JSON brut de l'objet métier + l'horodatage
 /// de sa dernière modification (source du Last-Write-Wins par entrée).

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
@@ -75,13 +76,14 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     // Force un vrai rechargement réseau : les providers sont NON `autoDispose`,
     // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
     // cache sans aucun appel réseau (rafraîchissement factice).
+    logDiag('REFRESH mode=manual providers=invalidate start');
     ref.invalidate(liveChannelsProvider);
     ref.invalidate(moviesProvider);
     ref.invalidate(seriesProvider);
     ref.invalidate(radioChannelsProvider);
+    ref.invalidate(m3uPlaylistProvider);
     ref.invalidate(replaysProvider);
     ref.invalidate(epgProgramsProvider);
-    ref.invalidate(m3uPlaylistProvider);
 
     await _controller.run((step) async {
       final List<dynamic> list = switch (step) {
@@ -93,6 +95,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
         StartupStep.epg => await ref.read(epgProgramsProvider.future),
         StartupStep.ai => const [],
       };
+      logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
       if (list.isNotEmpty) _responded++;
     });
 
@@ -106,6 +109,10 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
           .read(lastRefreshTimestampProvider.notifier)
           .setTimestamp(DateTime.now());
     }
+    logDiag(
+      'REFRESH mode=manual complete responded=$_responded '
+      'timestampUpdated=${_responded > 0}',
+    );
     Navigator.of(context).pop(_responded > 0);
   }
 

@@ -14,7 +14,10 @@ List<EPGProgram> fillForTest({
   required DateTime end,
 }) =>
     gap.EpgGapFiller.fill(
-        programs: programs, windowStart: start, windowEnd: end,);
+      programs: programs,
+      windowStart: start,
+      windowEnd: end,
+    );
 
 /// Programme d'une heure, dans la fenêtre de la journée.
 EPGProgram prog(String title, int startHour) {
@@ -116,11 +119,13 @@ void main() {
       final state =
           tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
 
-      await tester.pumpWidget(harness(channels, {
-        'TF1 HD': [prog('LE JT', 10), prog('LE 19H', 19)],
-        'FRANCE 2 HD': [prog('LE 13H', 13)],
-        // M6 reste vide : elle doit remonter comme « sans programme ».
-      }),);
+      await tester.pumpWidget(
+        harness(channels, {
+          'TF1 HD': [prog('LE JT', 10), prog('LE 19H', 19)],
+          'FRANCE 2 HD': [prog('LE 13H', 13)],
+          // M6 reste vide : elle doit remonter comme « sans programme ».
+        }),
+      );
       await tester.pump();
 
       expect(state.debugProgramCount('TF1 HD'), 2);
@@ -213,14 +218,17 @@ void main() {
     /// `−` et `+` affichent le même facteur, donc chercher par texte ne
     /// distinguerait pas lequel a été pressé.
     String zoomOutLabel(WidgetTester tester) {
-      final button = tester.widget<IconButton>(find.ancestor(
-        of: find.byIcon(Icons.zoom_out),
-        matching: find.byType(IconButton),
-      ),);
+      final button = tester.widget<IconButton>(
+        find.ancestor(
+          of: find.byIcon(Icons.zoom_out),
+          matching: find.byType(IconButton),
+        ),
+      );
       return button.tooltip ?? '';
     }
 
-    testWidgets('trois clics sur dézoomer atteignent le palier 1,0', (tester) async {
+    testWidgets('trois clics sur dézoomer atteignent le palier 1,0',
+        (tester) async {
       await tester.pumpWidget(harness(['TF1'], const {}));
       await tester.pump();
 
@@ -263,14 +271,16 @@ void main() {
       // vertical du `ListView` ne vaut pas `kRowStride`, la seconde ligne est
       // peinte plus haut ou plus bas que sa place et le décalage devient
       // visible dans le canvas.
-      await tester.pumpWidget(harness(
-        ['AAAA', 'BBBB', 'CCCC'],
-        {
-          'AAAA': [prog('P1', 0)],
-          'BBBB': [prog('P2', 0)],
-          'CCCC': [prog('P3', 0)],
-        },
-      ),);
+      await tester.pumpWidget(
+        harness(
+          ['AAAA', 'BBBB', 'CCCC'],
+          {
+            'AAAA': [prog('P1', 0)],
+            'BBBB': [prog('P2', 0)],
+            'CCCC': [prog('P3', 0)],
+          },
+        ),
+      );
       await tester.pump();
       expect(tester.takeException(), isNull);
 
@@ -354,8 +364,7 @@ void main() {
   });
 
   group('EpgGrid2DView — le tap vise le programme affiché', () {
-    testWidgets('défiler puis toucher ouvre le bon programme',
-        (tester) async {
+    testWidgets('défiler puis toucher ouvre le bon programme', (tester) async {
       // Régression : `localPosition.dx` est relatif au canvas (qui montre la
       // tranche visible de la journée), alors que `rp.left` est absolu depuis
       // minuit. Sans conversion, le programme retourné était décalé de tout le
@@ -371,38 +380,39 @@ void main() {
             end: start.add(Duration(hours: hour + 1)),
           );
 
-      EPGProgram? tapped;
-      await tester.pumpWidget(MaterialApp(
-        locale: const Locale('fr'),
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 500,
-              height: 700,
-              child: EpgGrid2DView(
-                channels: const ['AAAA'],
-                epgData: {
-                  'AAAA': [
-                    for (var h = 0; h < 24; h++) at(h, 'P$h'),
-                  ],
-                },
-                onProgramTap: (p, _) => tapped = p,
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 500,
+                height: 700,
+                child: EpgGrid2DView(
+                  channels: const ['AAAA'],
+                  epgData: {
+                    'AAAA': [
+                      for (var h = 0; h < 24; h++) at(h, 'P$h'),
+                    ],
+                  },
+                ),
               ),
             ),
           ),
         ),
-      ),);
+      );
       await tester.pump();
       expect(tester.takeException(), isNull);
 
-      final state = tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
       final controller = state.debugTimelineControllerForTest;
 
       // À 4 px/min, 1 h = 240 px. On choisit une heure bien dans la journée,
@@ -418,18 +428,24 @@ void main() {
 
       // L'écran 300 doit donc tomber dans P14 (absolu 3360 → 3600 px).
       expect(controller.pixelsPerMinuteValue, ppm);
-      expect(state.debugProgramTitleAt(300, 'AAAA'), 'P14',
-          reason: 'l\'abscisse écran doit être rendue absolue avant la '
-              'comparaison',);
+      expect(
+        state.debugProgramTitleAt(300, 'AAAA'),
+        'P14',
+        reason: 'l\'abscisse écran doit être rendue absolue avant la '
+            'comparaison',
+      );
 
       // Un décalage écran nul ne doit PAS tomato à P14 : sans conversion,
       // 0 px écran serait comparé aux positions absolues et tomberait sur P0.
-      expect(state.debugProgramTitleAt(0, 'AAAA'), isNot('P14'),
-          reason: 'le bord gauche de l\'écran est ailleurs dans la journée',);
+      expect(
+        state.debugProgramTitleAt(0, 'AAAA'),
+        isNot('P14'),
+        reason: 'le bord gauche de l\'écran est ailleurs dans la journée',
+      );
     });
   });
 
-group('EpgGapFiller — la grille est continue', () {
+  group('EpgGapFiller — la grille est continue', () {
     test('une journée entière est couverte sans trou', () {
       final now = DateTime.now();
       final day = DateTime(now.year, now.month, now.day);
@@ -463,25 +479,31 @@ group('EpgGapFiller — la grille est continue', () {
     testWidgets('un glissement horizontal déplace la grille', (tester) async {
       final day = DateTime.now();
       final start = DateTime(day.year, day.month, day.day);
-      await tester.pumpWidget(harness(['TF1 HD'], {
-        'c1': fillForTest(
-          programs: [
-            EPGProgram(
-              channelId: 'c1',
-              title: 'Programme 1',
-              description: '',
+      await tester.pumpWidget(
+        harness(
+          ['TF1 HD'],
+          {
+            'c1': fillForTest(
+              programs: [
+                EPGProgram(
+                  channelId: 'c1',
+                  title: 'Programme 1',
+                  description: '',
+                  start: start,
+                  end: start.add(const Duration(hours: 2)),
+                ),
+              ],
               start: start,
-              end: start.add(const Duration(hours: 2)),
+              end: start.add(const Duration(days: 1)),
             ),
-          ],
-          start: start,
-          end: start.add(const Duration(days: 1)),
+          },
         ),
-      }),);
+      );
       await tester.pump();
 
       final state = tester.state<EpgGrid2DViewState>(
-          find.byType(EpgGrid2DView),);
+        find.byType(EpgGrid2DView),
+      );
       final before = state.debugHorizontalOffsetForTest;
 
       // Un glissement horizontal franchement vers la gauche doit entraîner la
@@ -518,17 +540,19 @@ group('EpgGapFiller — la grille est continue', () {
       // adversaire — le test ne prouverait rien.
       final channels = List.generate(40, (i) => 'CH$i');
       final data = {
-        for (final c in channels) c: fillForTest(
-          programs: [program],
-          start: start,
-          end: start.add(const Duration(days: 1)),
-        ),
+        for (final c in channels)
+          c: fillForTest(
+            programs: [program],
+            start: start,
+            end: start.add(const Duration(days: 1)),
+          ),
       };
       await tester.pumpWidget(harness(channels, data));
       await tester.pump();
 
       final state = tester.state<EpgGrid2DViewState>(
-          find.byType(EpgGrid2DView),);
+        find.byType(EpgGrid2DView),
+      );
       final before = state.debugHorizontalOffsetForTest;
 
       // Geste franchement vertical (avec la petite dérive horizontale d'un
@@ -542,8 +566,11 @@ group('EpgGapFiller — la grille est continue', () {
       await tester.pump();
 
       final after = state.debugHorizontalOffsetForTest;
-      expect(after, closeTo(before, 1.0),
-          reason: 'un geste vertical ne doit pas entraîner la journée',);
+      expect(
+        after,
+        closeTo(before, 1.0),
+        reason: 'un geste vertical ne doit pas entraîner la journée',
+      );
       expect(tester.takeException(), isNull);
     });
   });

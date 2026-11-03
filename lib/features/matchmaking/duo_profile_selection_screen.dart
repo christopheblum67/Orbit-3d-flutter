@@ -430,7 +430,9 @@ class _DuoProfileCardState extends ConsumerState<_DuoProfileCard>
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
           if (widget.disabled) return KeyEventResult.ignored;
           _activate();
           return KeyEventResult.handled;

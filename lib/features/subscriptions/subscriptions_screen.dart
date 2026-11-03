@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
@@ -27,28 +28,20 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: 'Retour',
-                    onPressed: () => context.pop(),
-                  ),
-                  IconButton(
-                    tooltip: l.addSubscription,
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: () => _showAddSubscriptionDialog(context, ref),
-                  ),
-                ],
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Retour',
+                onPressed: () => context.pop(),
               )
-            : IconButton(
-                tooltip: l.addSubscription,
-                icon: const Icon(Icons.add_rounded),
-                onPressed: () => _showAddSubscriptionDialog(context, ref),
-              ),
+            : null,
         title: const Text('Abonnements'),
-        actions: [],
+        actions: [
+          IconButton(
+            tooltip: l.addSubscription,
+            icon: const Icon(Icons.add_rounded),
+            onPressed: () => _showAddSubscriptionDialog(context, ref),
+          ),
+        ],
       ),
       body: subs.isEmpty
           ? _EmptyState(
@@ -131,7 +124,10 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, Subscription sub,) async {
+    BuildContext context,
+    WidgetRef ref,
+    Subscription sub,
+  ) async {
     final cancelFocus = FocusNode();
     final confirmFocus = FocusNode();
 
@@ -151,6 +147,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         actions: [
           Focus(
             focusNode: cancelFocus,
+            autofocus: true,
             onKeyEvent: (node, event) {
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -332,121 +329,113 @@ class _SubscriptionCard extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final isTesting = _isTesting(ref, subscription.id);
 
-    return AppCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      color: isActive ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _TypeBadge(type: subscription.type),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+    return TvFocus(
+      onActivate: onTap,
+      child: AppCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(16),
+        color: isActive ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            subscription.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isActive)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.primary,
-                              borderRadius:
-                                  BorderRadius.circular(AppConstants.radiusSm),
-                            ),
+                    _TypeBadge(type: subscription.type),
+                    if (isActive) ...[
+                      const SizedBox(height: 6),
+                      const _ActiveBadge(),
+                    ],
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              'ACTIF',
-                              style: TextStyle(
-                                color: scheme.onPrimary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
+                              subscription.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (!isActive)
+                            IconButton(
+                              tooltip: l.setAsDefaultServer,
+                              icon: const Icon(Icons.star_outline, size: 20),
+                              color: scheme.onSurfaceVariant,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
                               ),
+                              onPressed: onTap,
                             ),
-                          ),
-                        if (!isActive)
-                          IconButton(
-                            tooltip: l.setAsDefaultServer,
-                            icon: const Icon(Icons.star_outline, size: 20),
-                            color: scheme.onSurfaceVariant,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _subtitle(subscription),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
                             ),
-                            onPressed: onTap,
-                          ),
-                      ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        onEdit();
+                        break;
+                      case 'delete':
+                        onDelete();
+                        break;
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit),
+                        title: Text('Modifier'),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _subtitle(subscription),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete),
+                        title: Text('Supprimer'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit':
-                      onEdit();
-                      break;
-                    case 'delete':
-                      onDelete();
-                      break;
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit),
-                      title: Text('Modifier'),
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading: Icon(Icons.delete),
-                      title: Text('Supprimer'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _TestResultRow(
-            subscription: subscription,
-            isTesting: isTesting,
-            onTest: onTest,
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            _TestResultRow(
+              subscription: subscription,
+              isTesting: isTesting,
+              onTest: onTest,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -494,6 +483,31 @@ class _TypeBadge extends StatelessWidget {
   }
 }
 
+class _ActiveBadge extends StatelessWidget {
+  const _ActiveBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(AppConstants.radiusSm),
+      ),
+      child: Text(
+        'ACTIF',
+        style: TextStyle(
+          color: scheme.onPrimary,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
 class _TestResultRow extends ConsumerWidget {
   final Subscription subscription;
   final bool isTesting;
@@ -535,7 +549,7 @@ class _TestResultRow extends ConsumerWidget {
               Expanded(
                 child: Text(
                   status == TestResultStatus.success
-                      ? 'Test OK ï¿½ ${latency != null ? '$latency ms' : 'ï¿½'}'
+                      ? 'Test OK • ${latency != null ? '$latency ms' : '—'}'
                       : 'Échec : ${error ?? 'Erreur inconnue'}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success
@@ -609,7 +623,6 @@ class _SubscriptionFormDialogState
   final _passwordFocus = FocusNode();
   final _m3uFocus = FocusNode();
   final _submitFocus = FocusNode();
-  final _segmentedButtonFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = true;
 
@@ -643,7 +656,6 @@ class _SubscriptionFormDialogState
     _passwordFocus.dispose();
     _m3uFocus.dispose();
     _submitFocus.dispose();
-    _segmentedButtonFocus.dispose();
     super.dispose();
   }
 
@@ -786,6 +798,7 @@ class _SubscriptionFormDialogState
           child: const Text('Annuler'),
         ),
         FilledButton(
+          focusNode: _submitFocus,
           onPressed: _save,
           child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
         ),
@@ -845,8 +858,11 @@ class _SubscriptionFormDialogState
       widget.onSaved();
       if (mounted) Navigator.pop(context);
     } catch (e, st) {
-      LoggerService.instance
-          .error('_SubscriptionFormDialog._save failed', error: e, stackTrace: st);
+      LoggerService.instance.error(
+        '_SubscriptionFormDialog._save failed',
+        error: e,
+        stackTrace: st,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de la sauvegarde : $e')),

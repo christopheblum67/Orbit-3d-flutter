@@ -87,7 +87,12 @@ class CloudSyncService {
       final remoteTs = remoteEntry?.updatedAt ?? _epoch;
 
       final remotePresent = remoteEntry != null;
-      final remoteWon = remotePresent && remoteTs.isAfter(localTs);
+      final localDeletedUnchangedEntry = localJson == null &&
+          mirrorEntry != null &&
+          (remoteEntry == null || remoteEntry.json == mirrorEntry.json);
+      final remoteWon = remotePresent &&
+          !localDeletedUnchangedEntry &&
+          remoteTs.isAfter(localTs);
 
       if (remotePresent) {
         if (remoteWon) {

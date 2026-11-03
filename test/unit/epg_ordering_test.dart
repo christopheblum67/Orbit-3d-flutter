@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 
 /// Les consommateurs de l'EPG (`epgCurrentProgram`, `epgNextProgram`, la
@@ -13,16 +12,6 @@ import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
 ///  - `get_short_epg` renvoie fréquemment la journée courante mêlée à la
 ///    précédente, sans ordre.
 void main() {
-  EPGProgram program(String channelId, DateTime start, {int hours = 1}) {
-    return EPGProgram(
-      channelId: channelId,
-      title: 'Programme $start',
-      description: '',
-      start: start,
-      end: start.add(Duration(hours: hours)),
-    );
-  }
-
   group('EpgStreamParser ordering', () {
     // Panneaux qui livrent le XMLTV dans le désordre : la liste doit être
     // remise en ordre, sinon la recherche dichotomique est faussée.

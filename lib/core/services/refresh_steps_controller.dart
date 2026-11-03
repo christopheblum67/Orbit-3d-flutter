@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Étapes de la régénération des flux (catalogue, EPG, replays).
@@ -109,6 +110,8 @@ class RefreshStepsController extends ChangeNotifier {
   Future<void> _run(StartupStep step, Future<void> Function() action) async {
     _current = step;
     _notify();
+    final stopwatch = Stopwatch()..start();
+    logDiag('REFRESH step=start name=${step.name}');
     final result = await safeAsync<void>(
       () => action(),
       context: 'RefreshStepsController._run(${step.name})',
@@ -116,6 +119,16 @@ class RefreshStepsController extends ChangeNotifier {
     if (result.isFailure) {
       _error = result.errorOrNull?.originalError ?? result.errorOrNull;
       if (step == StartupStep.epg) _skippedEpg = true;
+      logDiag(
+        'REFRESH step=failed name=${step.name} '
+        'durationMs=${stopwatch.elapsedMilliseconds} '
+        'errorType=${_error?.runtimeType ?? 'unknown'}',
+      );
+    } else {
+      logDiag(
+        'REFRESH step=complete name=${step.name} '
+        'durationMs=${stopwatch.elapsedMilliseconds}',
+      );
     }
     _done.add(step);
     _notify();

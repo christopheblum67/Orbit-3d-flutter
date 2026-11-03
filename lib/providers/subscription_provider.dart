@@ -110,17 +110,6 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
 
     if (activated.type == SubscriptionType.xtream) {
       unawaited(refreshValidity(activated.id));
-      // On conserve le SCHEMA reel de l'abonnement : forcer `https` faisait
-      // pointer la session sur un host qui ne correspondait pas (les panels
-      // servis en `http://` n'etaient jamais proteges).
-      final raw = activated.baseUrl;
-      if (raw != null && raw.isNotEmpty) {
-        unawaited(
-          ref
-              .read(cloudflareSessionProvider)
-              .initialize(baseUrl: Uri.parse(raw).origin),
-        );
-      }
     }
   }
 

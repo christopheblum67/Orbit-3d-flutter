@@ -61,8 +61,11 @@ void main() {
     // Le consommateur futur fait un cast profond sur la map imbriquée.
     final settings = reloaded.first.settings;
     final subtree = settings['subtree'] as Map<String, dynamic>?;
-    expect(subtree, isNotNull,
-        reason: 'le round-trip Hive ne doit pas laisser de maps non retypées');
+    expect(
+      subtree,
+      isNotNull,
+      reason: 'le round-trip Hive ne doit pas laisser de maps non retypées',
+    );
     expect(subtree!['k'], 'v');
   });
 }

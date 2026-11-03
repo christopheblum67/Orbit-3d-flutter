@@ -226,6 +226,34 @@ void main() {
       expect(result.merged.entries, isEmpty);
     });
 
+    test('local supprime une entrée inchangée depuis le dernier miroir', () {
+      const json = '{"positionMs":45000,"durationMs":600000}';
+      final remote = CloudSyncSnapshot(
+        scope: CloudSyncScope.playback,
+        profileId: 'p1',
+        entries: {
+          'movie-1': CloudSyncEntry(
+            json: json,
+            updatedAt: baseTime,
+          ),
+        },
+        updatedAt: baseTime,
+        version: 1,
+      );
+      final mirror = remote;
+      final result = svc.merge(
+        scope: CloudSyncScope.playback,
+        profileId: 'p1',
+        local: const {},
+        remote: remote,
+        mirror: mirror,
+      );
+
+      expect(result.remoteWins, isFalse);
+      expect(result.pushRequired, isTrue);
+      expect(result.merged.entries, isEmpty);
+    });
+
     test('remote supprime une entrée MODIFIÉE localement → local gagne', () {
       final local = {
         'p1:live:1': '{"type":"live","id":"1","title":"modifié"}',
@@ -314,7 +342,9 @@ void main() {
         mirror: null,
       );
       expect(
-          result.merged.entries.keys, containsAll(['p1:live:1', 'p1:vod:2']),);
+        result.merged.entries.keys,
+        containsAll(['p1:live:1', 'p1:vod:2']),
+      );
       expect(result.localWrites, containsPair('p1:vod:2', isA<String>()));
     });
 

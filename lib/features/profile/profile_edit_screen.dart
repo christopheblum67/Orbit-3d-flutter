@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -128,6 +129,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               return KeyEventResult.ignored;
             },
             child: TextButton(
+              autofocus: true,
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Annuler'),
             ),
@@ -555,6 +557,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       _GradientSwatch(
                         gradient: orbitGradientOptions[i],
                         selected: _gradientIndex == i,
+                        autofocus: _isEdit && i == 0,
                         onTap: () => setState(() {
                           _remoteAvatarUrl = null;
                           _gradientIndex = i;
@@ -645,7 +648,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Ã‚ge',
+            'Âge',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
@@ -873,7 +876,9 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter)) {
+                event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                event.logicalKey == LogicalKeyboardKey.space)) {
           _activate();
           return KeyEventResult.handled;
         }
@@ -941,48 +946,54 @@ class _GradientSwatch extends StatelessWidget {
   const _GradientSwatch({
     required this.gradient,
     required this.selected,
+    required this.autofocus,
     required this.onTap,
   });
 
   final OrbitGradient gradient;
   final bool selected;
+  final bool autofocus;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        width: 46,
-        height: 46,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? scheme.primary : Colors.transparent,
-            width: 3,
-          ),
-        ),
-        child: DecoratedBox(
+    return TvFocus(
+      autofocus: autofocus,
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 46,
+          height: 46,
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [gradient.start, gradient.end],
+            border: Border.all(
+              color: selected ? scheme.primary : Colors.transparent,
+              width: 3,
             ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: gradient.start.withValues(alpha: 0.5),
-                      blurRadius: 12,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [gradient.start, gradient.end],
+              ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: gradient.start.withValues(alpha: 0.5),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
           ),
         ),
       ),

@@ -16,6 +16,7 @@ import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_mirror_store.dar
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_models.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_service.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/firestore_cloud_sync_gateway.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 /// État global de la synchronisation cloud (S2).
 class CloudSyncState {
@@ -66,8 +67,10 @@ final cloudSyncProvider =
 class CloudSyncNotifier extends Notifier<CloudSyncState> {
   static const String _prefKey = 'cloud_sync_enabled';
   static const Duration _pushDebounce = Duration(seconds: 3);
+  static const Duration _playbackPushInterval = Duration(seconds: 30);
 
   Timer? _debounce;
+  Timer? _playbackPushTimer;
   bool _applyingRemote = false;
 
   @override
@@ -78,8 +81,16 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
     ref.listen(favoritesProvider, (_, __) => _schedulePush());
     ref.listen(recentlyWatchedProvider, (_, __) => _schedulePush());
     ref.listen(watchedEpisodesProvider, (_, __) => _schedulePush());
+    ref.listen(
+      playbackProgressServiceProvider,
+      (_, __) => _schedulePlaybackPush(),
+    );
+    ref.listen(currentProfileProvider, (_, __) => _schedulePush());
 
-    ref.onDispose(() => _debounce?.cancel());
+    ref.onDispose(() {
+      _debounce?.cancel();
+      _playbackPushTimer?.cancel();
+    });
 
     state = CloudSyncState(enabled: enabled);
     if (enabled) Future.microtask(syncNow);
@@ -112,6 +123,14 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
     final result = await safeAsync<void>(
       () async {
         await _ensureSignedIn();
+        _applyingRemote = true;
+        try {
+          await ref
+              .read(playbackProgressServiceProvider)
+              .migrateLegacyForProfile(profile.id);
+        } finally {
+          _applyingRemote = false;
+        }
         for (final scope in CloudSyncScope.values) {
           await _syncScope(scope, profile.id);
         }
@@ -157,6 +176,16 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
       final profile = ref.read(currentProfileProvider);
       if (profile == null || !state.enabled) return;
       syncNow();
+    });
+  }
+
+  void _schedulePlaybackPush() {
+    if (_applyingRemote || !state.enabled || _playbackPushTimer != null) {
+      return;
+    }
+    _playbackPushTimer = Timer(_playbackPushInterval, () {
+      _playbackPushTimer = null;
+      _schedulePush();
     });
   }
 
@@ -212,6 +241,13 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
             .loadForProfile(profileId);
         return {
           for (final e in entries) e.key: jsonEncode(e.toJson()),
+        };
+      case CloudSyncScope.playback:
+        final entries = await ref
+            .read(playbackProgressServiceProvider)
+            .loadForProfile(profileId);
+        return {
+          for (final e in entries.entries) e.key: jsonEncode(e.value.toJson()),
         };
     }
   }
@@ -279,6 +315,26 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
           await ref
               .read(recentlyWatchedProvider.notifier)
               .applySyncedProfile(entries, removes: result.localRemoves);
+        case CloudSyncScope.playback:
+          final entries = <String, PlaybackProgress>{};
+          for (final entry in result.localWrites.entries) {
+            final progress = safeSync<PlaybackProgress?>(
+              () {
+                final decoded = jsonDecode(entry.value);
+                if (decoded is Map<String, dynamic>) {
+                  return PlaybackProgress.fromJson(decoded);
+                }
+                return null;
+              },
+              context: 'CloudSyncNotifier._applyRemote playback decode',
+            ).valueOrNull;
+            if (progress != null) entries[entry.key] = progress;
+          }
+          await ref.read(playbackProgressServiceProvider).applySyncedProfile(
+                profileId,
+                entries: entries,
+                removes: result.localRemoves,
+              );
       }
     } finally {
       _applyingRemote = false;

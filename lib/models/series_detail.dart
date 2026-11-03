@@ -67,8 +67,11 @@ class SeriesDetail {
     this.dataSource = 'xtream',
   });
 
-  /// Crée un SeriesDetail à partir d'un Series (données Xtream de base)
-  factory SeriesDetail.fromSeries(Series series) {
+  /// Crée un SeriesDetail à partir d'une série (données de base)
+  factory SeriesDetail.fromSeries(
+    Series series, {
+    String dataSource = 'xtream',
+  }) {
     return SeriesDetail(
       id: series.id,
       title: series.title,

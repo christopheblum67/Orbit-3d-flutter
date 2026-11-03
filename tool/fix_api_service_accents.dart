@@ -8,8 +8,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-const _replacement = '\uFFFD';
-
 const dictionary = <String, String>{
   'utilis\uFFFDe': 'utilisée',
   'm\uFFFDmoris\uFFFDs': 'mémorisés',
@@ -132,8 +130,7 @@ const dictionary = <String, String>{
 };
 
 void main(List<String> args) {
-  final path =
-      args.isNotEmpty ? args.first : 'lib/services/api_service.dart';
+  final path = args.isNotEmpty ? args.first : 'lib/services/api_service.dart';
   final text = utf8.decode(File(path).readAsBytesSync(), allowMalformed: true);
 
   // Longest first : « téléchargé » avant « tél ».
@@ -163,8 +160,6 @@ void main(List<String> args) {
 
   // Liste les « ? » isolés restants, à corriger manuellement.
   final lone = <String>[];
-  for (final m in RegExp(patternPlaceholder).allMatches(output)) {}
-
   for (final mm in RegExp('\uFFFD').allMatches(output)) {
     final s = mm.start > 20 ? mm.start - 20 : 0;
     final end = (mm.start + 20) < output.length ? mm.start + 20 : output.length;
@@ -175,5 +170,3 @@ void main(List<String> args) {
     stdout.writeln('   $l');
   }
 }
-
-const patternPlaceholder = '__none__';

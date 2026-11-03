@@ -131,10 +131,11 @@ class _TvFocusState extends ConsumerState<TvFocus>
     }
 
     // Enter / Select / Space / Gamepad A = activer
-    if (logicalKey == LogicalKeyboardKey.enter ||
-        logicalKey == LogicalKeyboardKey.select ||
-        logicalKey == LogicalKeyboardKey.space ||
-        logicalKey == LogicalKeyboardKey.gameButtonA) {
+    if ((logicalKey == LogicalKeyboardKey.enter ||
+            logicalKey == LogicalKeyboardKey.select ||
+            logicalKey == LogicalKeyboardKey.space ||
+            logicalKey == LogicalKeyboardKey.gameButtonA) &&
+        widget.onActivate != null) {
       HapticFeedback.heavyImpact();
       widget.onActivate?.call();
       return KeyEventResult.handled;
@@ -207,14 +208,17 @@ class TvModeDetector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          ref.read(tvModeNotifierProvider).enable();
-        }
-        return KeyEventResult.ignored;
-      },
-      child: child,
+    return Listener(
+      onPointerDown: (_) => ref.read(tvModeNotifierProvider).disable(),
+      child: Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            ref.read(tvModeNotifierProvider).enable();
+          }
+          return KeyEventResult.ignored;
+        },
+        child: child,
+      ),
     );
   }
 }
