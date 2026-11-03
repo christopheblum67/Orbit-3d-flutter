@@ -121,7 +121,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     await _refreshSubscriptionValidity();
     if (!mounted) return;
 
-    // 2. DONNÉES INTERMÉDIAIRES — session Cloudflare + URL base fournisseur.
+    // 2. DONNÉES INTERMÉDIAIRES (partie A — avant profil) : session + baseUrl
+    // nécessaire pour que le profil s'ouvre avec la bonne URL/fournisseur.
     setState(() => _cfLoading = true);
     await safeAsync(
       () async {
@@ -149,14 +150,13 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     );
     if (mounted) setState(() => _cfLoading = false);
 
-    // 3. PROFIL — navigation immédiate après données intermédiaires,
-    // sans attendre la fin du rafraîchissement du catalogue.
+    // 3. PROFIL — navigation après données partiellement injectées.
     _navigated = true;
     if (mounted) context.go('/profiles');
-    // Note : le timestamp de rafraîchissement est posé par _onProgress
-    // quand le catalogue se termine, pas ici.
 
-    // 4. CATALOGUE — lancé après la session et la navigation.
+    // 4. DONNÉES INTERMÉDIAIRES (partie B — après profil) + CATALOGUE + AUTO-RESUME
+    // le reste du chargement (catalogue, EPG, résumés) se fait en arrière-plan.
+    _controller.start();
     _controller.start();
 
     // 5. AUTO-RESUME — vérification du dernier playback, après tout le reste.
