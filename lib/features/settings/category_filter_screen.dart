@@ -237,11 +237,14 @@ class _CategorySection extends StatelessWidget {
           (category) {
             final hidden = isHidden(category.id);
             return TvFocus(
-              onActivate: () => onToggle(category.id, hidden),
-              child: SwitchListTile.adaptive(
+              onActivate: () => onToggle(category.id, !hidden),
+              child: ListTile(
                 dense: true,
-                value: !hidden,
-                onChanged: (visible) => onToggle(category.id, visible),
+                leading: Checkbox(
+                  value: !hidden,
+                  onChanged: (visible) => onToggle(category.id, visible ?? true),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 title: Text(
                   category.name,
                   style: TextStyle(
@@ -253,6 +256,12 @@ class _CategorySection extends StatelessWidget {
                 subtitle: category.count > 0
                     ? Text(l.categoryTitlesCount(category.count))
                     : null,
+                trailing: Icon(
+                  hidden ? Icons.visibility_off : Icons.visibility,
+                  color: hidden ? theme.colorScheme.onSurfaceVariant : theme.colorScheme.primary,
+                  size: 20,
+                ),
+                onTap: () => onToggle(category.id, !hidden),
               ),
             );
           },
