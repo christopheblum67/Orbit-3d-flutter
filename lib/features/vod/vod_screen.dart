@@ -201,32 +201,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
-      appBar: AppBar(
-        leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
-              )
-            : null,
-        title: Text(l.filmsVod),
-        actions: [
-          IconButton(
-            tooltip: l.searchMovie,
-            icon: const Icon(Icons.movie_outlined),
-            onPressed: () => context.push('/search?type=vod'),
-          ),
-          SortToolbarButtons(
-            mode: _selectedSortMode,
-            onChanged: (mode) => setState(() => _selectedSortMode = mode),
-          ),
-          IconButton(
-            tooltip: 'Trier',
-            icon: const Icon(Icons.sort),
-            onPressed: _openSortDialog,
-          ),
-        ],
-      ),
       body: moviesAsync.when(
         data: (movies) {
           if (movies.isEmpty) {
@@ -287,6 +261,29 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            tooltip: l.searchMovie,
+                            icon: const Icon(Icons.movie_outlined),
+                            onPressed: () => context.push('/search?type=vod'),
+                          ),
+                          SortToolbarButtons(
+                            mode: _selectedSortMode,
+                            onChanged: (mode) =>
+                                setState(() => _selectedSortMode = mode),
+                          ),
+                          IconButton(
+                            tooltip: 'Trier',
+                            icon: const Icon(Icons.sort),
+                            onPressed: _openSortDialog,
+                          ),
+                        ],
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: _SearchField(

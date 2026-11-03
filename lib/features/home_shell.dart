@@ -5,8 +5,6 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
-import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
-import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -28,7 +26,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
-    final profile = ref.watch(currentProfileProvider);
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
     final tvMode = ref.watch(tvModeNotifierProvider);
@@ -71,15 +68,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   leading: Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 4),
                     child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
-                  ),
-                  trailing: Expanded(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _ProfileSwitchButton(profile: profile),
-                      ),
-                    ),
                   ),
                   backgroundColor: scheme.surfaceContainerLow,
                   indicatorColor: scheme.primaryContainer,
@@ -304,45 +292,4 @@ class _NavEntry {
   final String? shortLabel;
 
   final String route;
-}
-
-class _ProfileSwitchButton extends StatelessWidget {
-  const _ProfileSwitchButton({required this.profile});
-
-  final UserProfile? profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final Widget avatar;
-    if (profile == null) {
-      avatar = Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: scheme.surfaceContainerHighest,
-          border: Border.all(color: scheme.outlineVariant),
-        ),
-        child: Icon(
-          Icons.person_outline,
-          size: 20,
-          color: scheme.onSurfaceVariant,
-        ),
-      );
-    } else {
-      avatar = ProfileAvatar(profile: profile!, size: 34);
-    }
-    return Padding(
-      padding: const EdgeInsets.only(left: 2, right: 10),
-      child: Tooltip(
-        message: profile == null ? 'Choisir un profil' : 'Changer de profil',
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () => context.go('/profiles'),
-          child: avatar,
-        ),
-      ),
-    );
-  }
 }

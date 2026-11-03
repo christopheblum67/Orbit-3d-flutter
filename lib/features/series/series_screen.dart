@@ -60,32 +60,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final hiddenCategories =
         ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
     return Scaffold(
-      appBar: AppBar(
-        leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
-              )
-            : null,
-        title: Text(l.series),
-        actions: [
-          IconButton(
-            tooltip: l.searchSeries,
-            icon: const Icon(Icons.tv),
-            onPressed: () => context.push('/search?type=series'),
-          ),
-          SortToolbarButtons(
-            mode: _selectedSortMode,
-            onChanged: (mode) => setState(() => _selectedSortMode = mode),
-          ),
-          IconButton(
-            tooltip: 'Trier',
-            icon: const Icon(Icons.sort),
-            onPressed: _openSortDialog,
-          ),
-        ],
-      ),
       body: seriesAsync.when(
         data: (seriesList) {
           if (seriesList.isEmpty) {
@@ -195,7 +169,10 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 descending: descending,
                 score: (s) {
                   final realGenre = tmdb
-                          .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+                          .peekTvLight(
+                            s.title,
+                            year: s.year > 0 ? s.year : null,
+                          )
                           ?.genreNames ??
                       '';
                   final scoring =
@@ -250,6 +227,30 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            tooltip: l.searchSeries,
+                            icon: const Icon(Icons.tv),
+                            onPressed: () =>
+                                context.push('/search?type=series'),
+                          ),
+                          SortToolbarButtons(
+                            mode: _selectedSortMode,
+                            onChanged: (mode) =>
+                                setState(() => _selectedSortMode = mode),
+                          ),
+                          IconButton(
+                            tooltip: 'Trier',
+                            icon: const Icon(Icons.sort),
+                            onPressed: _openSortDialog,
+                          ),
+                        ],
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: _SeriesSearchField(

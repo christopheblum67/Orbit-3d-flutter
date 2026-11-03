@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -68,18 +67,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(
-        leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
-                onPressed: () => context.pop(),
-              )
-            : null,
-        title: Text(l.epgGuideTv),
-      ),
       body: _buildGrid2DTab(),
     );
   }

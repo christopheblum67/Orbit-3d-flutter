@@ -67,33 +67,6 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
     final selected = _selected;
 
     return Scaffold(
-      appBar: AppBar(
-        // Le retour remonte d'un cran : du niveau 2 vers la grille des
-        // chaînes, et de la grille vers l'écran précédent.
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Retour',
-          onPressed: () {
-            if (selected != null) {
-              _close();
-            } else {
-              context.canPop() ? context.pop() : context.go('/home');
-            }
-          },
-        ),
-        title: Text(selected?.name ?? 'Replay'),
-        actions: [
-          if (selected != null)
-            IconButton(
-              tooltip: 'Rafraîchir',
-              icon: const Icon(Icons.refresh),
-              // On recharge CETTE chaîne, pas tout le catalogue : c'est le
-              // seul appel que l'écran est autorisé à faire.
-              onPressed: () =>
-                  ref.invalidate(channelReplaysProvider(selected.id)),
-            ),
-        ],
-      ),
       body: channelsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text(userFriendlyError(err))),
@@ -109,7 +82,18 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
             }
             return _ChannelGrid(channels: replayable, onOpen: _open);
           }
-          return _ChannelReplaysView(channel: open);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ChannelBand(
+                channel: open,
+                onBack: _close,
+                onRefresh: () =>
+                    ref.invalidate(channelReplaysProvider(open.id)),
+              ),
+              Expanded(child: _ChannelReplaysView(channel: open)),
+            ],
+          );
         },
       ),
     );
@@ -340,14 +324,17 @@ class _ChannelReplaysView extends ConsumerWidget {
   }
 }
 
-/// Bandeau de chaîne : numéro et nom brut, comme sur la maquette.
-///
-/// L'AppBar porte le même nom, mais le bandeau identifie la ligne dans le flux
-/// du programme et reste visible quand la liste défile.
+/// Bandeau de chaîne et commandes du détail replay.
 class _ChannelBand extends StatelessWidget {
-  const _ChannelBand({required this.channel});
+  const _ChannelBand({
+    required this.channel,
+    required this.onBack,
+    required this.onRefresh,
+  });
 
   final Channel channel;
+  final VoidCallback onBack;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -356,9 +343,14 @@ class _ChannelBand extends StatelessWidget {
     final l = AppLocalizations.of(context);
     return Container(
       color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
       child: Row(
         children: [
+          IconButton(
+            tooltip: 'Retour',
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: onBack,
+          ),
           if (channel.orderNum > 0) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -399,6 +391,11 @@ class _ChannelBand extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Rafraîchir',
+            icon: const Icon(Icons.refresh),
+            onPressed: onRefresh,
           ),
         ],
       ),
@@ -485,8 +482,6 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ChannelBand(channel: widget.channel),
-          const Divider(height: 1),
           Expanded(child: _noProgram(theme, scheme)),
         ],
       );
@@ -505,9 +500,6 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── Bandeau de chaîne ──────────────────────────────────────────────
-        _ChannelBand(channel: widget.channel),
-        const Divider(height: 1),
         // ── Onglets de jours ─────────────────────────────────────────────
         SizedBox(
           height: 48,

@@ -55,6 +55,7 @@ void main() {
 
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byIcon(Icons.menu_rounded), findsNothing);
+      expect(find.byIcon(Icons.person_outline), findsNothing);
       expect(tester.widget<AppBar>(find.byType(AppBar)).actions, isNull);
 
       ProviderScope.containerOf(tester.element(find.byType(HomeShell)))
