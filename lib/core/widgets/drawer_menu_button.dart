@@ -14,7 +14,12 @@ import 'package:flutter/material.dart';
 /// la coquille principale (`HomeShell`, tiroir de gauche) et la sélection de
 /// profils en mode Duo (tiroir de droite).
 class DrawerMenuButton extends StatelessWidget {
-  const DrawerMenuButton({super.key, this.end = false, this.tooltip = 'Menu'});
+  const DrawerMenuButton({
+    super.key,
+    this.end = false,
+    this.tooltip = 'Menu',
+    this.autofocus = false,
+  });
 
   /// Ouvre le tiroir de **droite** (`Scaffold.endDrawer`) au lieu de celui de
   /// gauche (`Scaffold.drawer`).
@@ -23,12 +28,15 @@ class DrawerMenuButton extends StatelessWidget {
   /// Info-bulle affichée au survol / à l'appui long.
   final String tooltip;
 
+  final bool autofocus;
+
   @override
   Widget build(BuildContext context) {
     return Builder(
       builder: (context) => IconButton(
         icon: const Icon(Icons.menu_rounded),
         tooltip: tooltip,
+        autofocus: autofocus,
         onPressed: () {
           final scaffold = Scaffold.of(context);
           if (end) {

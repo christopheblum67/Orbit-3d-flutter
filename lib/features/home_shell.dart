@@ -4,151 +4,176 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-class HomeShell extends ConsumerWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<HomeShell> {
+  final GlobalKey<HomeMenuDrawerState> _drawerKey =
+      GlobalKey<HomeMenuDrawerState>();
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final profile = ref.watch(currentProfileProvider);
     final location = GoRouterState.of(context).uri.path;
     final isWide = MediaQuery.sizeOf(context).width > 720;
+    final tvMode = ref.watch(tvModeNotifierProvider);
 
     final entries = _navEntries(isM3u, l);
     final railEntries = _railEntries(isM3u, l);
     final selectedIndex = _indexFor(location, entries);
     final railIndex = _indexFor(location, railEntries);
 
-    return Scaffold(
-      drawer: isWide ? null : const HomeMenuDrawer(),
-      appBar: AppBar(
-        leading: isWide ? null : const DrawerMenuButton(),
-        title: Text(_titleForPath(context, location)),
-        actions: [
-          _ProfileSwitchButton(profile: profile),
-        ],
-      ),
-      body: Row(
-        children: [
-          if (isWide)
-            NavigationRail(
-              selectedIndex: railIndex,
-              onDestinationSelected: (index) {
-                context.go(railEntries[index].route);
-              },
-              labelType: NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
-              ),
-              trailing: Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _ProfileSwitchButton(profile: profile),
+    return ListenableBuilder(
+      listenable: tvMode,
+      builder: (context, _) {
+        final showNavigationRail = isWide && !tvMode.enabled;
+        return Scaffold(
+          drawer: showNavigationRail ? null : HomeMenuDrawer(key: _drawerKey),
+          onDrawerChanged: (isOpened) {
+            if (isOpened) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _drawerKey.currentState?.requestInitialFocus();
+              });
+            }
+          },
+          appBar: location == '/home'
+              ? AppBar(
+                  leading: showNavigationRail
+                      ? null
+                      : DrawerMenuButton(autofocus: tvMode.enabled),
+                  title: Text(_titleForPath(context, location)),
+                )
+              : null,
+          body: Row(
+            children: [
+              if (showNavigationRail)
+                NavigationRail(
+                  selectedIndex: railIndex,
+                  onDestinationSelected: (index) {
+                    context.go(railEntries[index].route);
+                  },
+                  labelType: NavigationRailLabelType.all,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Icon(Icons.live_tv, size: 28, color: scheme.primary),
                   ),
-                ),
-              ),
-              backgroundColor: scheme.surfaceContainerLow,
-              indicatorColor: scheme.primaryContainer,
-              selectedIconTheme:
-                  IconThemeData(color: scheme.onPrimaryContainer),
-              unselectedIconTheme:
-                  IconThemeData(color: scheme.onSurfaceVariant),
-              selectedLabelTextStyle: TextStyle(
-                color: scheme.onPrimaryContainer,
-                fontWeight: FontWeight.w700,
-                fontSize: 11,
-              ),
-              unselectedLabelTextStyle: TextStyle(
-                color: scheme.onSurfaceVariant,
-                fontSize: 11,
-              ),
-              destinations: [
-                for (final e in railEntries)
-                  NavigationRailDestination(
-                    icon: Icon(e.icon),
-                    label: Text(e.label),
-                  ),
-              ],
-            ),
-          if (isWide)
-            VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: scheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-          Expanded(child: child),
-        ],
-      ),
-      bottomNavigationBar: isWide
-          ? null
-          : DecoratedBox(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainer,
-                border: Border(
-                  top: BorderSide(
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 16,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                // Hauteur fixe : sans contrainte, `NavigationBar` calcule sa
-                // hauteur d'apres le contenu et se replie sur deux lignes quand
-                // les libelles sont longs (live_tv_channels, etc.).
-                child: SizedBox(
-                  height: 64,
-                  child: NavigationBar(
-                    selectedIndex: selectedIndex,
-                    onDestinationSelected: (index) {
-                      context.go(entries[index].route);
-                    },
-                    labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>(
-                      (states) => TextStyle(
-                        fontSize: 11,
-                        fontWeight: states.contains(WidgetState.selected)
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: states.contains(WidgetState.selected)
-                            ? scheme.primary
-                            : scheme.onSurfaceVariant,
+                  trailing: Expanded(
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _ProfileSwitchButton(profile: profile),
                       ),
                     ),
-                    destinations: [
-                      for (final e in entries)
-                        NavigationDestination(
-                          icon: Icon(e.icon),
-                          // Libellé court : `NavigationDestination` ne propose ni
-                          // maxLines ni overflow dans cette version, et n'accepte
-                          // qu'UNE ligne — un '\n' dans le texte est donc ignoré et
-                          // le titre se retrouve tronqué par la règle ci-dessous.
-                          // D'où des libellés réellement courts, pas des titles
-                          // qu'on découpe au hasard.
-                          label: _shortLabel(e),
-                        ),
+                  ),
+                  backgroundColor: scheme.surfaceContainerLow,
+                  indicatorColor: scheme.primaryContainer,
+                  selectedIconTheme:
+                      IconThemeData(color: scheme.onPrimaryContainer),
+                  unselectedIconTheme:
+                      IconThemeData(color: scheme.onSurfaceVariant),
+                  selectedLabelTextStyle: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                  unselectedLabelTextStyle: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                  destinations: [
+                    for (final e in railEntries)
+                      NavigationRailDestination(
+                        icon: Icon(e.icon),
+                        label: Text(e.label),
+                      ),
+                  ],
+                ),
+              if (showNavigationRail)
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: scheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+              Expanded(child: widget.child),
+            ],
+          ),
+          bottomNavigationBar: isWide
+              ? null
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainer,
+                    border: Border(
+                      top: BorderSide(
+                        color: scheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 16,
+                        offset: const Offset(0, -4),
+                      ),
                     ],
                   ),
+                  child: SafeArea(
+                    top: false,
+                    // Hauteur fixe : sans contrainte, `NavigationBar` calcule sa
+                    // hauteur d'apres le contenu et se replie sur deux lignes quand
+                    // les libelles sont longs (live_tv_channels, etc.).
+                    child: SizedBox(
+                      height: 64,
+                      child: NavigationBar(
+                        selectedIndex: selectedIndex,
+                        onDestinationSelected: (index) {
+                          context.go(entries[index].route);
+                        },
+                        labelTextStyle:
+                            WidgetStateProperty.resolveWith<TextStyle>(
+                          (states) => TextStyle(
+                            fontSize: 11,
+                            fontWeight: states.contains(WidgetState.selected)
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: states.contains(WidgetState.selected)
+                                ? scheme.primary
+                                : scheme.onSurfaceVariant,
+                          ),
+                        ),
+                        destinations: [
+                          for (final e in entries)
+                            NavigationDestination(
+                              icon: Icon(e.icon),
+                              // Libellé court : `NavigationDestination` ne propose ni
+                              // maxLines ni overflow dans cette version, et n'accepte
+                              // qu'UNE ligne — un '\n' dans le texte est donc ignoré et
+                              // le titre se retrouve tronqué par la règle ci-dessous.
+                              // D'où des libellés réellement courts, pas des titles
+                              // qu'on découpe au hasard.
+                              label: _shortLabel(e),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+        );
+      },
     );
   }
 

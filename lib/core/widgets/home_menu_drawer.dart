@@ -10,11 +10,29 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 /// organisé en sections Continuer / Découvrir / Mes contenus / Configuration.
 ///
 /// Présent sur toutes les pages applicatives (hormis les médias de diffusion).
-class HomeMenuDrawer extends ConsumerWidget {
+class HomeMenuDrawer extends ConsumerStatefulWidget {
   const HomeMenuDrawer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  HomeMenuDrawerState createState() => HomeMenuDrawerState();
+}
+
+class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
+  final FocusNode _initialFocusNode =
+      FocusNode(debugLabel: 'Home menu first destination');
+
+  void requestInitialFocus() {
+    if (mounted) _initialFocusNode.requestFocus();
+  }
+
+  @override
+  void dispose() {
+    _initialFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
@@ -65,7 +83,7 @@ class HomeMenuDrawer extends ConsumerWidget {
           ),
         ],
       ),
-_MenuSection(
+      _MenuSection(
         header: l.myContent,
         items: [
           // Une seule entrée pour les deux listes. Elles sont sur le même
@@ -108,51 +126,59 @@ _MenuSection(
     ];
 
     return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(color: scheme.primaryContainer),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const OrbitLogoIcon(size: 40),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppConstants.appName,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                  Text(
-                    'Sélectionnez un sous-menu',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              scheme.onPrimaryContainer.withValues(alpha: 0.8),
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            for (final section in sections) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-                child: Text(
-                  section.header,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                      ),
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: SafeArea(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: BoxDecoration(color: scheme.primaryContainer),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const OrbitLogoIcon(size: 40),
+                    const SizedBox(height: 8),
+                    Text(
+                      AppConstants.appName,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: scheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w800,
+                              ),
+                    ),
+                    Text(
+                      'Sélectionnez un sous-menu',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onPrimaryContainer
+                                .withValues(alpha: 0.8),
+                          ),
+                    ),
+                  ],
                 ),
               ),
-              for (final item in section.items) _MenuTile(item: item),
+              for (final section in sections) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                  child: Text(
+                    section.header,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                  ),
+                ),
+                for (final item in section.items)
+                  _MenuTile(
+                    item: item,
+                    focusNode: item.route == '/home' ? _initialFocusNode : null,
+                  ),
+              ],
+              const SizedBox(height: 16),
             ],
-            const SizedBox(height: 16),
-          ],
+          ),
         ),
       ),
     );
@@ -181,9 +207,10 @@ class _MenuEntry {
 }
 
 class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.item});
+  const _MenuTile({required this.item, this.focusNode});
 
   final _MenuEntry item;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +218,7 @@ class _MenuTile extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     final selected = location.startsWith(item.route);
     return ListTile(
+      focusNode: focusNode,
       leading: Icon(item.icon, color: item.color ?? scheme.primary),
       title: Text(
         item.label,
