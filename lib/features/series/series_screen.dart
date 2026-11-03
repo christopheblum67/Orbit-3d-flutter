@@ -79,6 +79,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             icon: const Icon(Icons.tv),
             onPressed: () => context.push('/search?type=series'),
           ),
+          ..._filterChips(context),
           SortToolbarButtons(
             mode: _selectedSortMode,
             onChanged: (mode) => setState(() => _selectedSortMode = mode),
@@ -390,6 +391,29 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _filterChips(BuildContext context) {
+    final currentId = _selectedCategoryId;
+    const cats = <(String id, String label, IconData icon)>[
+      ('', 'Tous', Icons.filter_list),
+      ('fav', 'Favoris', Icons.favorite),
+      ('recent', 'Récents', Icons.history),
+    ];
+    return cats.map((c) {
+      final sel = currentId == c.$1;
+      return Tooltip(
+        message: c.$2,
+        child: IconButton(
+          icon: Icon(c.$3, color: sel ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface, size: 22),
+          onPressed: () => setState(() => _selectedCategoryId = c.$1),
+          style: IconButton.styleFrom(
+            foregroundColor: sel ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+            backgroundColor: sel ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+          ),
+        ),
+      );
+    }).toList();
   }
 
   static List<MediaCategory> _withRealCounts(

@@ -84,6 +84,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               ref.read(epgDataCacheProvider).forceRefresh(ref.read(apiServiceProvider));
             },
           ),
+          ..._filterChips(context),
+        ],
+          ),
           IconButton(
             tooltip: l.searchChannel,
             icon: const Icon(Icons.live_tv),
@@ -291,6 +294,29 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   }
 
   /// Ferme la vue de navigation et revient à la grille.
+  List<Widget> _filterChips(BuildContext context) {
+    final current = _selectedGroup;
+    const groups = <(String id, String label, IconData icon)>[
+      ('', 'Tous', Icons.filter_list),
+      ('live', 'Direct', Icons.live_tv),
+      ('epg', 'EPG', Icons.schedule),
+    ];
+    return groups.map((g) {
+      final sel = current == g.$1;
+      return Tooltip(
+        message: g.$2,
+        child: IconButton(
+          icon: Icon(g.$3, color: sel ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface, size: 22),
+          onPressed: () => setState(() => _selectedGroup = g.$1),
+          style: IconButton.styleFrom(
+            foregroundColor: sel ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface,
+            backgroundColor: sel ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   void _closeBrowse() {
     setState(() {
       _browsingChannel = null;
