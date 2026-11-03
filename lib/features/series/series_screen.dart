@@ -69,9 +69,23 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: Text(
-          l.series,
-          style: context.titleMedium.copyWith(fontWeight: FontWeight.bold),
+        title: SizedBox(
+          height: 28,
+          child: TextField(
+            controller: _searchController ?? TextEditingController(),
+            onChanged: (v) => setState(() => _query = v),
+            decoration: InputDecoration(
+              hintText: 'Rechercher…',
+              hintStyle: const TextStyle(fontSize: 13),
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
         ),
         actions: [
           IconButton(

@@ -210,13 +210,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const SizedBox.shrink(),
+        title: SizedBox(
+          height: 28,
+          child: _SearchField(
+            controller: _searchController,
+            hint: 'Rechercher un film ou un genre…',
+            onChanged: (value) => setState(() => _query = value),
+            compact: true,
+          ),
+        ),
         actions: [
           IconButton(
             tooltip: l.searchMovie,
             icon: const Icon(Icons.movie_outlined),
             onPressed: () => context.push('/search?type=vod'),
           ),
+          // FILTRES REGROUPÉS EN HAUT — gagne l'espace vertical du rail
+          // (CategoriesRail passé en actions compactes : Tous / Favoris / Recents)
+          ..._filterChips(context, ref),
           SortToolbarButtons(
             mode: _selectedSortMode,
             onChanged: (mode) => setState(() => _selectedSortMode = mode),
@@ -290,14 +301,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: _SearchField(
-                          controller: _searchController,
-                          hint: 'Rechercher un film ou un genre…',
-                          onChanged: (value) => setState(() => _query = value),
-                        ),
-                      ),
                       const SizedBox(height: 8),
                       Expanded(
                         child: visibleMovies.isEmpty
