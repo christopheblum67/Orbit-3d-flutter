@@ -65,6 +65,13 @@ dependency_overrides:
     path: third_party/video_player_android
   cast:
     path: third_party/cast
+  # Copies locales : les build.gradle du cache Pub ciblent AGP 9.0.1 en DSL
+  # Kotlin, ce qui casse le build du projet (Gradle 9.3.1 / AGP 9.1.1, ancien
+  # DSL). Les copies embarquent un build.gradle Groovy aligné sur le projet.
+  just_audio:
+    path: third_party/just_audio
+  audio_session:
+    path: third_party/audio_session
 
 flutter:
   uses-material-design: true

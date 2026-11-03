@@ -1,0 +1,30 @@
+group = "com.ryanheise.just_audio"
+version "1.0"
+
+// Copie locale de just_audio 0.10.6 (sources Java uniquement).
+// Le build.gradle.kts du cache Pub cible AGP 9.0.1 ; on s'appuie sur l'AGP
+// déclaré dans android/settings.gradle (9.1.1) et sur l'ancien DSL
+// (`android.newDsl=false`), conformément au template Flutter 3.47.x.
+apply plugin: "com.android.library"
+
+android {
+    namespace "com.ryanheise.just_audio"
+    compileSdk 36
+
+    defaultConfig {
+        minSdkVersion 21
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    def exoplayer_version = "1.4.1"
+    implementation "androidx.media3:media3-exoplayer:${exoplayer_version}"
+    implementation "androidx.media3:media3-exoplayer-dash:${exoplayer_version}"
+    implementation "androidx.media3:media3-exoplayer-hls:${exoplayer_version}"
+    implementation "androidx.media3:media3-exoplayer-smoothstreaming:${exoplayer_version}"
+}

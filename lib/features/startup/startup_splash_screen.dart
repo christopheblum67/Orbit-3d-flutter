@@ -126,10 +126,8 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // Données intermédiaires : initialise la session Cloudflare (cookies + UA)
     // et récupère l'URL de base du fournisseur IPTV actif.
     setState(() => _cfLoading = true);
-    await safeAsync(
     // Récupère l'URL de base du fournisseur IPTV actif.
     // ATTENDRE la fin de l'initialisation (max 30s) pour éviter "flux indisponible" au 1er play.
-    setState(() => _cfLoading = true);
     await safeAsync(
       () async {
         final sub =

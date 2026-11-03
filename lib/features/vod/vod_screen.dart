@@ -202,7 +202,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     return Scaffold(
-      appBar: null,
+      appBar: AppBar(
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
