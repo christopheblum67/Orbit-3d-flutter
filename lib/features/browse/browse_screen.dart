@@ -398,12 +398,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                           SliverPadding(
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                             sliver: SliverGrid(
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 200,
+                              gridDelegate: mediaCardGridDelegate(
+                                context,
                                 childAspectRatio: 0.55,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
                               ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) =>
@@ -1066,15 +1063,12 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         'Ajoutez une clé API TMDB dans Réglages '
                         '(ou TMDB_API_KEY dans assets/config/runtime.env).',
                   )
-                : GridView.builder(
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  : GridView.builder(
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     addAutomaticKeepAlives: false,
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 200,
+                    gridDelegate: mediaCardGridDelegate(
+                      context,
                       childAspectRatio: 0.55,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
                     ),
                     itemCount: entries.length,
                     itemBuilder: (context, index) {

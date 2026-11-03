@@ -289,12 +289,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   padding:
                                       const EdgeInsets.fromLTRB(16, 8, 16, 16),
                                   sliver: SliverGrid(
-                                    gridDelegate:
-                                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 200,
+                                    gridDelegate: mediaCardGridDelegate(
+                                      context,
                                       childAspectRatio: 0.62,
-                                      crossAxisSpacing: 12,
-                                      mainAxisSpacing: 12,
                                     ),
                                     delegate: SliverChildBuilderDelegate(
                                       (context, index) {

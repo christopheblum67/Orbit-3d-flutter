@@ -262,11 +262,9 @@ class FavoritesVodSection extends ConsumerWidget {
     return GridView.builder(
       scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
+      gridDelegate: mediaCardGridDelegate(
+        context,
         childAspectRatio: 0.55,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -415,11 +413,9 @@ class FavoritesSeriesSection extends ConsumerWidget {
     return GridView.builder(
       scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
+      gridDelegate: mediaCardGridDelegate(
+        context,
         childAspectRatio: 0.55,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
       ),
       itemCount: entries.length,
       itemBuilder: (context, index) {

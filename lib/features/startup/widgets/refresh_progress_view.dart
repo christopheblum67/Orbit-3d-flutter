@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
-import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Écran de régénération des flux : nom de l'application, état, et progression
@@ -91,17 +90,12 @@ class RefreshProgressView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showBranding) ...[
-          const OrbitLogoIcon(size: 72),
-          const SizedBox(height: 16),
-          Text(
-            l.appTitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+          Image.asset(
+            'assets/icons/orbit_loading_banner.jpg',
+            width: 270,
+            height: 90,
+            fit: BoxFit.contain,
+            semanticLabel: l.appTitle,
           ),
           const SizedBox(height: 8),
         ],

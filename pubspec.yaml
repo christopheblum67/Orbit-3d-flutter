@@ -75,16 +75,14 @@ flutter:
     - assets/icons/
     - assets/config/
 
-# Icônes du lanceur Android + bannière Android TV (Leanback). Nécessite des
-# fichiers rectangulaires préparés :
-#   - assets/icons/app_icon.png  (1024x1024, symbole centré, fond transparent)
-#   - assets/icons/tv_banner.png (320x180, bandeau Leanback)
+# Icônes Android/iOS.
 # Génération : `dart run flutter_launcher_icons`.
+# La bannière Leanback est synchronisée séparément depuis
+# `assets/icons/orbit_tv_banner.jpg` vers `drawable-nodpi/tv_banner.png`.
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icons/app_icon.png"
+  image_path: "assets/icons/orbit_icon_dark.jpg"
   min_sdk_android: 21
-  banner_image_path: "assets/icons/tv_banner.png"
   adaptive_icon_background: "#0F172A"
-  adaptive_icon_foreground: "assets/icons/app_icon.png"
+  adaptive_icon_foreground: "assets/icons/orbit_icon_dark.jpg"

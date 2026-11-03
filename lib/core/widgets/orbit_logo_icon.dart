@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Logo « Orbit 3D » affiché en interne (splash, menus, drawer).
+/// Logo Orbit IPTV affiché en interne (splash, menus, drawer).
 ///
-/// Affiche `assets/icons/logo_icon.png` avec des coins arrondis et une lueur
-/// cyan (`0xFF00F2FE`) lorsqu'[glow] est activé.
+/// Choisit la variante claire ou sombre selon le thème et ajoute des coins
+/// arrondis avec une lueur cyan (`0xFF00F2FE`) lorsque [glow] est activé.
 class OrbitLogoIcon extends StatelessWidget {
   const OrbitLogoIcon({super.key, this.size = 48, this.glow = true});
 
@@ -16,6 +16,9 @@ class OrbitLogoIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(size * 0.22);
+    final iconPath = Theme.of(context).brightness == Brightness.dark
+        ? 'assets/icons/orbit_icon_dark.jpg'
+        : 'assets/icons/orbit_icon_light.jpg';
     return Container(
       width: size,
       height: size,
@@ -34,7 +37,7 @@ class OrbitLogoIcon extends StatelessWidget {
       child: ClipRRect(
         borderRadius: radius,
         child: Image.asset(
-          'assets/icons/logo_icon.png',
+          iconPath,
           width: size,
           height: size,
           fit: BoxFit.cover,

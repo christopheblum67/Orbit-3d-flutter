@@ -380,11 +380,9 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
+      gridDelegate: mediaCardGridDelegate(
+        context,
         childAspectRatio: 0.62,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
       ),
       itemCount: totalShown + (hasMore ? 1 : 0),
       itemBuilder: (context, index) {
@@ -417,11 +415,9 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     return GridView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200,
+      gridDelegate: mediaCardGridDelegate(
+        context,
         childAspectRatio: 0.62,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
       ),
       itemCount: totalShown + (hasMore ? 1 : 0),
       itemBuilder: (context, index) {

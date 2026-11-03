@@ -314,12 +314,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                           : GridView.builder(
                               padding:
                                   const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                              gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 200,
+                              gridDelegate: mediaCardGridDelegate(
+                                context,
                                 childAspectRatio: 0.55,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
                               ),
                               itemCount: visibleMovies.length,
                               itemBuilder: (context, index) {

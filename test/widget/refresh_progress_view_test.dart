@@ -53,7 +53,12 @@ void main() {
       (tester) async {
     await pump(tester, percent: 40, currentStep: StartupStep.movies);
 
-    expect(find.text('Orbit IPTV'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+      ),
+      findsOneWidget,
+    );
     expect(
       find.textContaining(AppLocalizationsFr().updatingMediaContent),
       findsOneWidget,
@@ -71,7 +76,12 @@ void main() {
       (tester) async {
     await pump(tester, showBranding: false);
 
-    expect(find.text('Orbit IPTV'), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+      ),
+      findsNothing,
+    );
     expect(find.text('40 %'), findsOneWidget);
   });
 
@@ -117,7 +127,12 @@ void main() {
       currentStep: StartupStep.live,
       size: const Size(1000, 480),
     );
-    expect(find.text('Orbit IPTV'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Chaînes TV'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

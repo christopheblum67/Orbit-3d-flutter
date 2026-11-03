@@ -4,6 +4,20 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
+bool isTvMediaLayout(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= 900;
+
+SliverGridDelegateWithMaxCrossAxisExtent mediaCardGridDelegate(
+  BuildContext context, {
+  required double childAspectRatio,
+}) =>
+    SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: isTvMediaLayout(context) ? 160 : 200,
+      childAspectRatio: childAspectRatio,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+    );
+
 /// Carte média (film / série) : poster, badge d'âge, note, méta.
 class MediaCard extends ConsumerWidget {
   const MediaCard({
@@ -108,13 +122,15 @@ class MediaCard extends ConsumerWidget {
     // reconstruisait toutes les tuiles visibles de toutes les grilles, pour
     // un unique `double`.
     final fontScale = ref.watch(preferencesProvider.select((p) => p.fontScale));
+    final compactLayout = isTvMediaLayout(context);
     // Largeur de decode en pixels physiques, arrondie à un multiple de 64 pour
     // éviter un redimensionnement par contrainte non entière.
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final posterDecodeWidth = (200 * dpr / 64).ceil() * 64;
+    final posterDecodeWidth =
+        ((compactLayout ? 160 : 200) * dpr / 64).ceil() * 64;
     final metaStyle = TextStyle(
       color: scheme.onSurfaceVariant,
-      fontSize: 12 * fontScale,
+      fontSize: (compactLayout ? 10 : 12) * fontScale,
     );
     return Semantics(
       container: true,
@@ -271,10 +287,10 @@ class MediaCard extends ConsumerWidget {
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: compactLayout ? 13 : 15,
+                        ),
                   ),
                   const SizedBox(height: 4),
                   if (year > 0 || genre.isNotEmpty || _voteCountLabel != null)
@@ -297,7 +313,7 @@ class MediaCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
-                            fontSize: 11 * fontScale,
+                            fontSize: (compactLayout ? 9 : 11) * fontScale,
                           ),
                     ),
                   ],
