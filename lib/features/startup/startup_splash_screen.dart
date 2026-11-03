@@ -108,52 +108,58 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _kickOff() async {
-    // GARDE-FOU ABONNEMENT — interrogé EN PREMIER, avant le raz-de-marée de
-    // requêtes catalogue déclenché par `_controller.start()`. Placé après, le
-    // `get_user_info` partait en DERNIER et se faisait refuser par le panel
-    // (`429`, quota déjà consommé) : `fetchExpiration` retombait sur `null` via
-    // `safeAsync` et la validité n'était jamais mise à jour (« Sans limite »).
+    // ORDRE LOGIQUE (pas de navigation avant que l'abonnement soit validé)
+    // 1. Abonnement → 2. Session intermédiaire (Cloudflare + baseUrl) →
+    // 3. Profil → 4. Catalogue → 5. Auto-resume.
+    //
+    // L'abonnement est placé AVANT le profil car le panel refuse
+    // `get_user_info` si le quota est déjà consommé par le catalogue.
+    // Les données intermédiaires sont réunies AVANT la navigation
+    // pour éviter un profil « vide de session » au 1er lancement.
+
+    // 1. ABONNEMENT — interrogé en premier (garde-fou quota 429).
     await _refreshSubscriptionValidity();
     if (!mounted) return;
-    // Navigation immédiate vers le profil (ordre : abonnement → profil)
-    // sans attendre la fin du rafraîchissement du catalogue.
-    // Entre l'abonnement et le profil : données intermédiaires (session + baseUrl).
-    // Navigation immédiate vers le profil (ordre : abonnement → profil)
-    // sans attendre la fin du rafraîchissement du catalogue.
-    // Entre l'abonnement et le profil : données intermédiaires (session + baseUrl).
-    _navigated = true;
-    if (mounted) context.go('/profiles');
-    // Données intermédiaires : initialise la session Cloudflare (cookies + UA)
-    // et récupère l'URL de base du fournisseur IPTV actif.
+
+    // 2. DONNÉES INTERMÉDIAIRES — session Cloudflare + URL base fournisseur.
     setState(() => _cfLoading = true);
-    // Récupère l'URL de base du fournisseur IPTV actif.
-    // ATTENDRE la fin de l'initialisation (max 30s) pour éviter "flux indisponible" au 1er play.
     await safeAsync(
       () async {
-        final sub =
-            await ref.read(subscriptionManagerProvider).getActiveSubscription();
+        final sub = await ref
+            .read(subscriptionManagerProvider)
+            .getActiveSubscription();
         if (sub['type'] == 'xtream') {
-          final baseUrl = 'https://${Uri.parse(sub['baseUrl']!).host}';
+          final baseUrl =
+              'https://${Uri.parse(sub['baseUrl']!).host}';
           await ref
               .read(cloudflareSessionProvider)
               .initialize(baseUrl: baseUrl)
               .timeout(
-            const Duration(seconds: 20),
-            onTimeout: () {
-              debugPrint(
-                '☁️ Cloudflare init timeout (60s) during splash, proceeding anyway...',
+                const Duration(seconds: 20),
+                onTimeout: () {
+                  debugPrint(
+                    '☁️ Cloudflare init timeout (60s) during splash, '
+                    'proceeding anyway...',
+                  );
+                },
               );
-            },
-          );
         }
       },
       context: 'StartupSplashScreen Cloudflare session init',
     );
     if (mounted) setState(() => _cfLoading = false);
-    // Rafraîchissement du catalogue lancé APRÈS la session (données intermédiaires)
-    // et la navigation vers le profil.
+
+    // 3. PROFIL — navigation immédiate après données intermédiaires,
+    // sans attendre la fin du rafraîchissement du catalogue.
+    _navigated = true;
+    if (mounted) context.go('/profiles');
+    // Note : le timestamp de rafraîchissement est posé par _onProgress
+    // quand le catalogue se termine, pas ici.
+
+    // 4. CATALOGUE — lancé après la session et la navigation.
     _controller.start();
-    // Auto-resume: check for last session playback progress
+
+    // 5. AUTO-RESUME — vérification du dernier playback, après tout le reste.
     if (mounted) {
       await _checkAutoResume();
     }
