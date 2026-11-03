@@ -117,7 +117,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // Les données intermédiaires sont réunies AVANT la navigation
     // pour éviter un profil « vide de session » au 1er lancement.
 
-    // 1. ABONNEMENT — interrogé en premier (garde-fou quota 429).
+    // 1. ABONNEMENT — Garde-fou quota 429 : interrogé EN PREMIER.
+    // Placé après le catalogue, le get_user_info partait en DERNIER
+    // et se faisait refuser par le panel (quota déjà consommé).
+    await _refreshSubscriptionValidity();
     await _refreshSubscriptionValidity();
     if (!mounted) return;
 
