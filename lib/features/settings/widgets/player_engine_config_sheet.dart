@@ -351,7 +351,15 @@ class _EngineRowState extends State<_EngineRow> {
           Icon(widget.icon, size: 18, color: Theme.of(context).colorScheme.tertiary),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(widget.label, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              '${widget.label} • ${widget.value.label}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           TvFocus(
             focusNode: _focusNode,

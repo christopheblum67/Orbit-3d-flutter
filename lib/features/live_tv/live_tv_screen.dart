@@ -33,6 +33,7 @@ class LiveTvScreen extends ConsumerStatefulWidget {
 
 class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   String _selectedGroup = '';
+  final TextEditingController _searchController = TextEditingController();
 
   /// Chaîne ouverte dans la vue de navigation (aperçu live + EPG), ou `null`
   /// quand on est sur la grille.

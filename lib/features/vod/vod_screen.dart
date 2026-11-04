@@ -216,7 +216,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             controller: _searchController,
             hint: 'Rechercher un film ou un genre…',
             onChanged: (value) => setState(() => _query = value),
-            compact: true,
           ),
         ),
         actions: [
@@ -333,7 +332,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                   ),
                                   gridDelegate: context.isTv
                                       ? const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 5,
+                                          crossAxisCount: 4,
                                           childAspectRatio: 0.70,
                                           crossAxisSpacing: 30,
                                           mainAxisSpacing: 30,
