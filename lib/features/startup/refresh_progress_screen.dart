@@ -1,19 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
-/// Ouvre l'écran de mise à jour (4 icônes + avancement) et rend `true` si au
-/// moins une source a réellement répondu.
+/// Ouvre l'écran de mise à jour et rend `true` si une source a répondu, `false`
+/// si aucune n'a répondu ou `null` si l'utilisateur l'a quitté prématurément.
 ///
 /// À utiliser par l'accueil : au lancement quand les données ont plus de 30 min
 /// ([HomeScreen] → `_autoRefreshIfStale`), et sur le bouton « Mettre à jour ».
 /// On pousse sur le Navigator racine pour couvrir toute la coquille
 /// (`HomeShell`) sans perturber la navigation du routeur.
-Future<bool> showRefreshProgress(BuildContext context) async {
+Future<bool?> showRefreshProgress(BuildContext context) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final result = await navigator.push<bool>(
     MaterialPageRoute<bool>(
@@ -21,7 +24,7 @@ Future<bool> showRefreshProgress(BuildContext context) async {
       builder: (_) => const RefreshProgressScreen(),
     ),
   );
-  return result ?? false;
+  return result;
 }
 
 /// Écran plein écran de régénération des flux.
@@ -42,6 +45,8 @@ class RefreshProgressScreen extends ConsumerStatefulWidget {
 class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
   late final RefreshStepsController _controller;
   int _responded = 0;
+  Timer? _stallTimer;
+  bool _refreshStalled = false;
 
   @override
   void initState() {
@@ -56,6 +61,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
         StartupStep.epg,
       },
     )..addListener(_onProgress);
+    _armStallTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _run();
     });
@@ -63,13 +69,33 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
 
   @override
   void dispose() {
+    _stallTimer?.cancel();
     _controller.removeListener(_onProgress);
     _controller.dispose();
     super.dispose();
   }
 
   void _onProgress() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _stallTimer?.cancel();
+    setState(() => _refreshStalled = false);
+    _armStallTimer();
+  }
+
+  void _armStallTimer() {
+    _stallTimer?.cancel();
+    if (_controller.isFinished) return;
+    _stallTimer = Timer(kRefreshStallTimeout, () {
+      if (mounted && !_controller.isFinished) {
+        setState(() => _refreshStalled = true);
+      }
+    });
+  }
+
+  void _openSubscriptions() {
+    final router = GoRouter.of(context);
+    Navigator.of(context, rootNavigator: true).pop<bool?>();
+    router.go('/subscriptions');
   }
 
   Future<void> _run() async {
@@ -129,10 +155,21 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
               currentStep: _controller.currentStep,
               doneSteps: _controller.doneSteps,
               isFinished: _controller.isFinished,
+              failureMessage: _refreshStalled
+                  ? _stalledMessage(_controller.currentStep?.label)
+                  : null,
+              onOpenSubscriptions: _refreshStalled ? _openSubscriptions : null,
             ),
           ),
         ),
       ),
     );
+  }
+
+  String _stalledMessage(String? step) {
+    final label = step == null ? 'la mise à jour' : '« $step »';
+    return '$label ne signale aucune progression depuis '
+        '${kRefreshStallTimeout.inSeconds} secondes. Le serveur peut être '
+        'lent ou indisponible ; vous pouvez vérifier l’abonnement.';
   }
 }

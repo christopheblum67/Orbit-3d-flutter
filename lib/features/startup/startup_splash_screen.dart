@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -37,8 +38,10 @@ class StartupSplashScreen extends ConsumerStatefulWidget {
 
 class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
+  Timer? _stallTimer;
   bool _navigated = false;
   bool _showBranding = false;
+  bool _refreshStalled = false;
 
   @override
   void initState() {
@@ -56,6 +59,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           : StartupRefreshController.initialSteps,
     );
     _controller.addListener(_onProgress);
+    _armStallTimer();
     // Lance le préchargement après le premier frame pour ne pas muter l'état
     // pendant la phase de build. Le branding est monté à partir de la frame
     // suivante pour alléger le rendu initial.
@@ -69,6 +73,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   @override
   void dispose() {
+    _stallTimer?.cancel();
     _controller.removeListener(_onProgress);
     _controller.dispose();
     super.dispose();
@@ -76,7 +81,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   void _onProgress() {
     if (!mounted) return;
-    setState(() {});
+    _stallTimer?.cancel();
+    setState(() => _refreshStalled = false);
+    _armStallTimer();
     if (_controller.isFinished && !_navigated) {
       _navigated = true;
       if (widget.remainingPhase) {
@@ -85,6 +92,16 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         _finishInitialPhase();
       }
     }
+  }
+
+  void _armStallTimer() {
+    _stallTimer?.cancel();
+    if (_controller.isFinished) return;
+    _stallTimer = Timer(kRefreshStallTimeout, () {
+      if (mounted && !_controller.isFinished) {
+        setState(() => _refreshStalled = true);
+      }
+    });
   }
 
   Future<void> _finishInitialPhase() async {
@@ -125,6 +142,11 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                     ? StartupRefreshController.remainingSteps.toList()
                     : StartupRefreshController.initialSteps.toList(),
                 showBranding: _showBranding,
+                failureMessage: _refreshStalled
+                    ? _stalledMessage(_controller.currentStep?.label)
+                    : null,
+                onOpenSubscriptions:
+                    _refreshStalled ? () => context.go('/subscriptions') : null,
               ),
             ),
           ],
@@ -282,5 +304,13 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       context: '_refreshSubscriptionValidity',
     );
     // Non bloquant : l'affichage retombera sur « Sans limite ».
+  }
+
+  String _stalledMessage(String? step) {
+    final label =
+        step == null ? 'la vérification de l’abonnement' : '« $step »';
+    return '$label ne signale aucune progression depuis '
+        '${kRefreshStallTimeout.inSeconds} secondes. Le serveur peut être '
+        'lent ou indisponible ; vous pouvez vérifier l’abonnement.';
   }
 }

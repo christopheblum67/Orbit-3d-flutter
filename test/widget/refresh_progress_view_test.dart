@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
@@ -23,6 +24,8 @@ void main() {
     bool isFinished = false,
     bool showBranding = true,
     List<StartupStep>? visibleSteps,
+    String? failureMessage,
+    VoidCallback? onOpenSubscriptions,
     Size size = const Size(400, 800),
   }) async {
     tester.view.physicalSize = size;
@@ -30,19 +33,23 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('fr'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          backgroundColor: Colors.black,
-          body: RefreshProgressView(
-            percent: percent,
-            currentStep: currentStep,
-            doneSteps: doneSteps,
-            isFinished: isFinished,
-            visibleSteps: visibleSteps,
-            showBranding: showBranding,
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            backgroundColor: Colors.black,
+            body: RefreshProgressView(
+              percent: percent,
+              currentStep: currentStep,
+              doneSteps: doneSteps,
+              isFinished: isFinished,
+              visibleSteps: visibleSteps,
+              showBranding: showBranding,
+              failureMessage: failureMessage,
+              onOpenSubscriptions: onOpenSubscriptions,
+            ),
           ),
         ),
       ),
@@ -102,6 +109,25 @@ void main() {
       find.textContaining(AppLocalizationsFr().updatingMediaContent),
     );
     expect(messageRect.top, greaterThan(iconsRect.bottom));
+  });
+
+  testWidgets('propose les abonnements si le rafraîchissement est bloqué',
+      (tester) async {
+    var openedSubscriptions = false;
+    await pump(
+      tester,
+      percent: 0,
+      currentStep: StartupStep.live,
+      failureMessage: 'Le chargement du direct est inhabituellement long.',
+      onOpenSubscriptions: () => openedSubscriptions = true,
+    );
+
+    expect(
+      find.text('Le chargement du direct est inhabituellement long.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Vérifier l’abonnement'));
+    expect(openedSubscriptions, isTrue);
   });
 
   testWidgets('affiche uniquement les sections de la phase de démarrage',

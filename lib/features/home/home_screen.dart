@@ -237,6 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // sources, puis horodate la mise à jour. Plus de rechargement « caché ».
     final ok = await showRefreshProgress(context);
     if (!mounted) return;
+    if (ok == null) return;
     if (!ok) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()

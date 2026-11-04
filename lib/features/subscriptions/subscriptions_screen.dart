@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
@@ -50,6 +51,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const _CategoryFilterInfoBanner(),
+                const SizedBox(height: 12),
                 if (activeId == null)
                   _NoActiveBanner(
                     onAdd: () => _showAddSubscriptionDialog(context, ref),
@@ -306,11 +309,41 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+class _CategoryFilterInfoBanner extends StatelessWidget {
+  const _CategoryFilterInfoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scheme.secondary.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: scheme.secondary, size: 18),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Les catégories à masquer se règlent dans Paramètres > Filtres de catégories.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SubscriptionCard extends ConsumerWidget {
   final Subscription subscription;
   final bool isActive;
   final VoidCallback onTap;
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -511,7 +544,7 @@ class _ActiveBadge extends StatelessWidget {
 class _TestResultRow extends ConsumerWidget {
   final Subscription subscription;
   final bool isTesting;
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
 
   const _TestResultRow({
     required this.subscription,
@@ -524,7 +557,10 @@ class _TestResultRow extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
 
     if (subscription.lastTestResult == TestResultStatus.untested) {
-      return _TestButton(onTest: onTest, isTesting: isTesting);
+      return _TestButton(
+        onTest: () => _testWithErrorDialog(context, ref),
+        isTesting: isTesting,
+      );
     }
 
     final status = subscription.lastTestResult;
@@ -550,7 +586,7 @@ class _TestResultRow extends ConsumerWidget {
                 child: Text(
                   status == TestResultStatus.success
                       ? 'Test OK • ${latency != null ? '$latency ms' : '—'}'
-                      : 'Échec : ${error ?? 'Erreur inconnue'}',
+                      : 'Échec : ${redactConnectionError(error ?? 'Erreur inconnue')}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: status == TestResultStatus.success
                             ? Colors.green
@@ -565,14 +601,40 @@ class _TestResultRow extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _TestButton(onTest: onTest, isTesting: isTesting),
+        _TestButton(
+          onTest: () => _testWithErrorDialog(context, ref),
+          isTesting: isTesting,
+        ),
       ],
+    );
+  }
+
+  Future<void> _testWithErrorDialog(BuildContext context, WidgetRef ref) async {
+    await onTest();
+    if (!context.mounted) return;
+
+    final matches = ref
+        .read(subscriptionsProvider)
+        .where((item) => item.id == subscription.id);
+    final updatedSubscription = matches.isEmpty ? null : matches.first;
+    final error = updatedSubscription?.lastTestError;
+    if (updatedSubscription?.lastTestResult != TestResultStatus.error ||
+        error == null ||
+        error.isEmpty) {
+      return;
+    }
+
+    await showConnectionErrorDialog(
+      context,
+      error,
+      type: subscription.type,
+      onRetry: () => _testWithErrorDialog(context, ref),
     );
   }
 }
 
 class _TestButton extends StatelessWidget {
-  final VoidCallback onTest;
+  final Future<void> Function() onTest;
   final bool isTesting;
 
   const _TestButton({required this.onTest, required this.isTesting});
@@ -588,7 +650,7 @@ class _TestButton extends StatelessWidget {
             )
           : const Icon(Icons.wifi_find, size: 18),
       label: Text(isTesting ? 'Test…' : 'Tester'),
-      onPressed: isTesting ? null : onTest,
+      onPressed: isTesting ? null : () => onTest(),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         minimumSize: Size.zero,

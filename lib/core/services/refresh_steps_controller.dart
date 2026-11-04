@@ -39,6 +39,8 @@ const Map<StartupStep, double> kRefreshStepWeights = {
   StartupStep.ai: 0.08,
 };
 
+const Duration kRefreshStallTimeout = Duration(seconds: 60);
+
 /// Comptabilité d'une séquence d'étapes de régénération des flux.
 ///
 /// **Purement observationnelle** : ne connaît ni Riverpod ni le réseau.

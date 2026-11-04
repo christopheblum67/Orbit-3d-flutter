@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Écran de régénération des flux : nom de l'application, état, et progression
@@ -26,6 +27,8 @@ class RefreshProgressView extends StatelessWidget {
     this.title,
     this.visibleSteps,
     this.showBranding = true,
+    this.failureMessage,
+    this.onOpenSubscriptions,
   });
 
   final int percent;
@@ -42,6 +45,10 @@ class RefreshProgressView extends StatelessWidget {
 
   /// Affiche le logo + le nom de l'application au-dessus de la progression.
   final bool showBranding;
+
+  /// Explains why progress appears stalled and offers a route back to subscriptions.
+  final String? failureMessage;
+  final VoidCallback? onOpenSubscriptions;
 
   @override
   Widget build(BuildContext context) {
@@ -139,10 +146,27 @@ class RefreshProgressView extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent),
+          failureMessage ??
+              (isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent)),
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(
+            color:
+                failureMessage == null ? Colors.white70 : Colors.orangeAccent,
+            fontSize: 14,
+          ),
         ),
+        if (failureMessage != null && onOpenSubscriptions != null) ...[
+          const SizedBox(height: 16),
+          TvFocus(
+            autofocus: true,
+            onActivate: onOpenSubscriptions,
+            child: OutlinedButton.icon(
+              onPressed: onOpenSubscriptions,
+              icon: const Icon(Icons.settings_ethernet),
+              label: const Text('Vérifier l’abonnement'),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
