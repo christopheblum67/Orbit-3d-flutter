@@ -16,7 +16,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 2 — Sélecteur de profil :
 /// grille de cartes navigable au d-pad (Focus system), avatar généré
-/// (initiale + anneau orbital), animation d'entrée en cascade, et carte
+/// (initiale ou image), animation d'entrée en cascade, et carte
 /// "+" vers la création de profil (finalisée en S3).
 class ProfileSelectionScreen extends ConsumerStatefulWidget {
   const ProfileSelectionScreen({super.key, this.startupFlow = false});
@@ -493,9 +493,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                 onTap: widget.onEdit,
                 child: GestureDetector(
                   onTap: widget.onEdit,
-                  child: OrbitAvatar(
+                  child: ProfileAvatar(
                     profile: profile,
-                    enlarged: _focused || isActive,
+                    size: _focused || isActive ? 88 : 80,
                   ),
                 ),
               ),

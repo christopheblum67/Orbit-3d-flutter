@@ -53,7 +53,7 @@ class RefreshProgressView extends StatelessWidget {
         // En dessous de 720 px de large, deux colonnes tasseraient le texte.
         final wide = constraints.maxWidth >= 720 &&
             constraints.maxWidth > constraints.maxHeight;
-        final branding = _buildBranding(l);
+        final branding = _buildBranding();
         final progress = _buildProgress(l);
 
         return Center(
@@ -85,7 +85,7 @@ class RefreshProgressView extends StatelessWidget {
     );
   }
 
-  Widget _buildBranding(AppLocalizations l) {
+  Widget _buildBranding() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -95,15 +95,9 @@ class RefreshProgressView extends StatelessWidget {
             width: 270,
             height: 90,
             fit: BoxFit.contain,
-            semanticLabel: l.appTitle,
+            semanticLabel: 'ORBIT IPTV',
           ),
-          const SizedBox(height: 8),
         ],
-        Text(
-          isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent),
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
       ],
     );
   }
@@ -143,7 +137,13 @@ class RefreshProgressView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: sections.map(_buildMiniIcon).toList(),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
+        Text(
+          isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+        const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: LinearProgressIndicator(

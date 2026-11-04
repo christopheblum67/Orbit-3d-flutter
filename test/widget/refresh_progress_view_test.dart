@@ -55,7 +55,7 @@ void main() {
 
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+        (widget) => widget is Image && widget.semanticLabel == 'ORBIT IPTV',
       ),
       findsOneWidget,
     );
@@ -78,7 +78,7 @@ void main() {
 
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+        (widget) => widget is Image && widget.semanticLabel == 'ORBIT IPTV',
       ),
       findsNothing,
     );
@@ -91,6 +91,17 @@ void main() {
     expect(find.text('Films & VOD'), findsOneWidget);
     expect(find.text(AppLocalizationsFr().series), findsOneWidget);
     expect(find.text('EPG'), findsOneWidget);
+  });
+
+  testWidgets('place le message de chargement sous les icônes de progression',
+      (tester) async {
+    await pump(tester, currentStep: StartupStep.live);
+
+    final iconsRect = tester.getRect(find.byIcon(Icons.live_tv));
+    final messageRect = tester.getRect(
+      find.textContaining(AppLocalizationsFr().updatingMediaContent),
+    );
+    expect(messageRect.top, greaterThan(iconsRect.bottom));
   });
 
   testWidgets('affiche uniquement les sections de la phase de démarrage',
@@ -129,7 +140,7 @@ void main() {
     );
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is Image && widget.semanticLabel == 'Orbit IPTV',
+        (widget) => widget is Image && widget.semanticLabel == 'ORBIT IPTV',
       ),
       findsOneWidget,
     );

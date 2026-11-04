@@ -624,7 +624,7 @@ class _SubscriptionFormDialogState
   final _m3uFocus = FocusNode();
   final _submitFocus = FocusNode();
   SubscriptionType _type = SubscriptionType.xtream;
-  bool _obscurePassword = true;
+  bool _obscurePassword = false;
 
   @override
   void initState() {
