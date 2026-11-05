@@ -107,8 +107,8 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
                   setState(() {
                     dragValue = ratio;
                     position = Duration(
-                        milliseconds:
-                            (duration.inMilliseconds * ratio).round(),);
+                      milliseconds: (duration.inMilliseconds * ratio).round(),
+                    );
                   });
                 }
               : null,

@@ -173,10 +173,12 @@ extension SafeAsyncExtension<T> on Future<T> {
     bool reportToCrashlytics = true,
     T? fallbackValue,
   }) async {
-    return safeAsync(() => this,
-        context: context,
-        reportToCrashlytics: true,
-        fallbackValue: fallbackValue,);
+    return safeAsync(
+      () => this,
+      context: context,
+      reportToCrashlytics: true,
+      fallbackValue: fallbackValue,
+    );
   }
 }
 
@@ -220,9 +222,9 @@ Future<AsyncResult<T>> retryAsync<T>(
     if (!shouldRetryAgain || attempt == maxAttempts - 1) break;
 
     final delay = Duration(
-        milliseconds:
-            (baseDelay.inMilliseconds * math.pow(backoffFactor, attempt))
-                .round(),);
+      milliseconds:
+          (baseDelay.inMilliseconds * math.pow(backoffFactor, attempt)).round(),
+    );
     await Future.delayed(delay);
   }
 
@@ -238,53 +240,77 @@ Future<AsyncResult<T>> retryAsync<T>(
 
 /// Helper pour créer des erreurs typées selon le contexte.
 class AppErrors {
-  static AppError networkError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError networkError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'NETWORK_ERROR',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'NETWORK_ERROR',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 
-  static AppError timeoutError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError timeoutError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'TIMEOUT',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'TIMEOUT',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 
-  static AppError authError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError authError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'AUTH_ERROR',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'AUTH_ERROR',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 
-  static AppError notFoundError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError notFoundError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'NOT_FOUND',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'NOT_FOUND',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 
-  static AppError validationError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError validationError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'VALIDATION_ERROR',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'VALIDATION_ERROR',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 
-  static AppError unknownError(String message,
-          {Object? originalError, StackTrace? stackTrace,}) =>
+  static AppError unknownError(
+    String message, {
+    Object? originalError,
+    StackTrace? stackTrace,
+  }) =>
       AppError(
-          message: message,
-          code: 'UNKNOWN_ERROR',
-          originalError: originalError,
-          stackTrace: stackTrace,);
+        message: message,
+        code: 'UNKNOWN_ERROR',
+        originalError: originalError,
+        stackTrace: stackTrace,
+      );
 }
 
 /// Extension pour faciliter l'utilisation de [AsyncResult] dans l'UI.
@@ -316,8 +342,11 @@ class _DefaultErrorWidget extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline,
-              size: 48, color: Theme.of(context).colorScheme.error,),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Theme.of(context).colorScheme.error,
+          ),
           const SizedBox(height: 16),
           Text(
             error.code != null

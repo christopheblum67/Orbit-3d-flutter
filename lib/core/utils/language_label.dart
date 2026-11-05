@@ -33,9 +33,11 @@ class LanguageLabel {
     // Anglais
     'en': 'Anglais', 'eng': 'Anglais', 'english': 'Anglais',
     // Espagnol — `sp` n'est pas normalisé, mais des panels l'emploient.
-    'es': 'Espagnol', 'spa': 'Espagnol', 'sp': 'Espagnol', 'spanish': 'Espagnol',
+    'es': 'Espagnol', 'spa': 'Espagnol', 'sp': 'Espagnol',
+    'spanish': 'Espagnol',
     // Allemand
-    'de': 'Allemand', 'ger': 'Allemand', 'deu': 'Allemand', 'german': 'Allemand',
+    'de': 'Allemand', 'ger': 'Allemand', 'deu': 'Allemand',
+    'german': 'Allemand',
     // Italien
     'it': 'Italien', 'ita': 'Italien', 'italian': 'Italien',
     // Portugais
@@ -75,33 +77,80 @@ class LanguageLabel {
 
   /// Noms en anglais, pour une interface en anglais.
   static const Map<String, String> _namesEn = {
-    'fr': 'French', 'fre': 'French', 'fra': 'French',
-    'french': 'French', 'vf': 'French', 'vff': 'French',
-    'en': 'English', 'eng': 'English', 'english': 'English',
-    'es': 'Spanish', 'spa': 'Spanish', 'sp': 'Spanish', 'spanish': 'Spanish',
-    'de': 'German', 'ger': 'German', 'deu': 'German', 'german': 'German',
-    'it': 'Italian', 'ita': 'Italian', 'italian': 'Italian',
-    'pt': 'Portuguese', 'por': 'Portuguese', 'prt': 'Portuguese',
-    'nl': 'Dutch', 'dut': 'Dutch', 'nld': 'Dutch', 'dutch': 'Dutch',
-    'ar': 'Arabic', 'ara': 'Arabic', 'arabic': 'Arabic',
-    'ru': 'Russian', 'rus': 'Russian', 'russian': 'Russian',
-    'tr': 'Turkish', 'tur': 'Turkish', 'turkish': 'Turkish',
-    'pl': 'Polish', 'pol': 'Polish',
-    'cs': 'Czech', 'cze': 'Czech', 'ces': 'Czech',
-    'sv': 'Swedish', 'swe': 'Swedish',
-    'no': 'Norwegian', 'nob': 'Norwegian', 'nor': 'Norwegian',
-    'da': 'Danish', 'dan': 'Danish',
-    'fi': 'Finnish', 'fin': 'Finnish',
-    'el': 'Greek', 'gre': 'Greek', 'ell': 'Greek',
-    'ro': 'Romanian', 'rum': 'Romanian', 'ron': 'Romanian',
-    'hu': 'Hungarian', 'hun': 'Hungarian',
-    'uk': 'Ukrainian', 'ukr': 'Ukrainian',
-    'bg': 'Bulgarian', 'bul': 'Bulgarian',
-    'zh': 'Chinese', 'chi': 'Chinese', 'zho': 'Chinese', 'chinese': 'Chinese',
-    'ca': 'Catalan', 'cat': 'Catalan',
-    'eu': 'Basque', 'baq': 'Basque',
-    'gl': 'Galician', 'glg': 'Galician',
-    'und': 'Unknown', 'unknown': 'Unknown',
+    'fr': 'French',
+    'fre': 'French',
+    'fra': 'French',
+    'french': 'French',
+    'vf': 'French',
+    'vff': 'French',
+    'en': 'English',
+    'eng': 'English',
+    'english': 'English',
+    'es': 'Spanish',
+    'spa': 'Spanish',
+    'sp': 'Spanish',
+    'spanish': 'Spanish',
+    'de': 'German',
+    'ger': 'German',
+    'deu': 'German',
+    'german': 'German',
+    'it': 'Italian',
+    'ita': 'Italian',
+    'italian': 'Italian',
+    'pt': 'Portuguese',
+    'por': 'Portuguese',
+    'prt': 'Portuguese',
+    'nl': 'Dutch',
+    'dut': 'Dutch',
+    'nld': 'Dutch',
+    'dutch': 'Dutch',
+    'ar': 'Arabic',
+    'ara': 'Arabic',
+    'arabic': 'Arabic',
+    'ru': 'Russian',
+    'rus': 'Russian',
+    'russian': 'Russian',
+    'tr': 'Turkish',
+    'tur': 'Turkish',
+    'turkish': 'Turkish',
+    'pl': 'Polish',
+    'pol': 'Polish',
+    'cs': 'Czech',
+    'cze': 'Czech',
+    'ces': 'Czech',
+    'sv': 'Swedish',
+    'swe': 'Swedish',
+    'no': 'Norwegian',
+    'nob': 'Norwegian',
+    'nor': 'Norwegian',
+    'da': 'Danish',
+    'dan': 'Danish',
+    'fi': 'Finnish',
+    'fin': 'Finnish',
+    'el': 'Greek',
+    'gre': 'Greek',
+    'ell': 'Greek',
+    'ro': 'Romanian',
+    'rum': 'Romanian',
+    'ron': 'Romanian',
+    'hu': 'Hungarian',
+    'hun': 'Hungarian',
+    'uk': 'Ukrainian',
+    'ukr': 'Ukrainian',
+    'bg': 'Bulgarian',
+    'bul': 'Bulgarian',
+    'zh': 'Chinese',
+    'chi': 'Chinese',
+    'zho': 'Chinese',
+    'chinese': 'Chinese',
+    'ca': 'Catalan',
+    'cat': 'Catalan',
+    'eu': 'Basque',
+    'baq': 'Basque',
+    'gl': 'Galician',
+    'glg': 'Galician',
+    'und': 'Unknown',
+    'unknown': 'Unknown',
   };
 
   static Map<String, String> _tableFor(String? localeCode) =>
@@ -158,7 +207,10 @@ class LanguageLabel {
       _matches(code, _sdhTokens, const {'sdh'});
 
   static bool _matches(
-      String? code, Set<String> tokens, Set<String> fragments,) {
+    String? code,
+    Set<String> tokens,
+    Set<String> fragments,
+  ) {
     if (code == null || code.isEmpty) return false;
     final lower =
         code.toLowerCase().replaceAll(RegExp(r'\.(srt|vtt|sub|ass|ssa)$'), '');
@@ -201,11 +253,13 @@ class LanguageLabel {
     final stripped = lower
         .replaceAll(RegExp(r'\.(srt|vtt|sub|ass|ssa)$'), '')
         .split(RegExp(r'[-_.\s+]+'))
-        .where((part) =>
-            part.isNotEmpty &&
-            !_qualifiers.containsKey(part) &&
-            !_forcedTokens.contains(part) &&
-            !_sdhTokens.contains(part),)
+        .where(
+          (part) =>
+              part.isNotEmpty &&
+              !_qualifiers.containsKey(part) &&
+              !_forcedTokens.contains(part) &&
+              !_sdhTokens.contains(part),
+        )
         .toList();
 
     // Un libellé déjà rédigé (« Français ») n'est pas un code : on le garde tel

@@ -8,6 +8,8 @@ import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 /// 429 du panel ne doit pas laisser la barre bloquée), et la progression est
 /// pondérée par `kRefreshStepWeights`.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('RefreshStepsController — progression', () {
     test('état initial : 0 %, aucune étape faite, non terminé', () {
       final c = RefreshStepsController(
@@ -30,8 +32,10 @@ void main() {
 
       await c.run((_) async {}, gap: Duration.zero);
 
-      expect(c.doneSteps,
-          containsAll(const {StartupStep.live, StartupStep.movies}),);
+      expect(
+        c.doneSteps,
+        containsAll(const {StartupStep.live, StartupStep.movies}),
+      );
       expect(c.progress, 1.0);
       expect(c.percent, 100);
       expect(c.isFinished, isTrue);

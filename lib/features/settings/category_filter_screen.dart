@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 
 /// Réglages d'affichage des catégories Films / Séries.
 ///
@@ -74,7 +73,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
         ),
         title: const Text('Catégories'),
         actions: [
@@ -148,7 +148,8 @@ class _SubscriptionHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.dns_rounded, size: 18, color: theme.colorScheme.primary),
+              Icon(Icons.dns_rounded,
+                  size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -232,22 +233,18 @@ class _CategorySection extends StatelessWidget {
         ...sorted.map(
           (category) {
             final hidden = isHidden(category.id);
-            return TvFocus(
-              onActivate: () => onToggle(category.id, hidden),
-              child: SwitchListTile.adaptive(
-                dense: true,
-                value: !hidden,
-                onChanged: (visible) => onToggle(category.id, visible),
-                title: Text(
-                  category.name,
-                  style: TextStyle(
-                    color: hidden
-                        ? theme.colorScheme.onSurfaceVariant
-                        : null,
-                  ),
+            return SwitchListTile.adaptive(
+              dense: true,
+              value: !hidden,
+              onChanged: (visible) => onToggle(category.id, visible),
+              title: Text(
+                category.name,
+                style: TextStyle(
+                  color: hidden ? theme.colorScheme.onSurfaceVariant : null,
                 ),
-                subtitle: category.count > 0 ? Text('${category.count} titres') : null,
               ),
+              subtitle:
+                  category.count > 0 ? Text('${category.count} titres') : null,
             );
           },
         ),

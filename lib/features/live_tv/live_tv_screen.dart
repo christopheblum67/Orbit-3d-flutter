@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
@@ -45,6 +46,10 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// Chaîne sélectionnée dans la vue de navigation, pour le cas où la chaîne
   /// ouverte quitte le groupe courant (changement de catégorie).
   Channel? _browsingSelected;
+
+  /// Vrai tant que le lecteur plein écran recouvre cette route : l'aperçu live
+  /// reste monté dessous et doublerait sinon le flux (et le son).
+  bool _playerOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -93,158 +98,165 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
           if (!didPop) _closeBrowse();
         },
         child: channelsAsync.when(
-        data: (channels) {
-          if (channels.isEmpty) {
-            return EmptyState(
-              icon: Icons.live_tv_outlined,
-              title: l.noChannelsAvailable,
-              message: 'Ajoute une source de chaînes dans les réglages.',
+          data: (channels) {
+            if (channels.isEmpty) {
+              return EmptyState(
+                icon: Icons.live_tv_outlined,
+                title: l.noChannelsAvailable,
+                message: 'Ajoute une source de chaînes dans les réglages.',
+              );
+            }
+            final groups = buildLiveChannelGroups(channels);
+            final grouped = groups.length > 1 || groups.first.name.isNotEmpty;
+            final favIds = favoriteEntries.values
+                .where((e) => e.type == ContentType.live)
+                .map((e) => e.id)
+                .toSet();
+            final liveRecentIds = recentEntries.values
+                .where((e) => e.type == ContentType.live)
+                .map((e) => e.id)
+                .toSet();
+            final categoryGroups = _groupToCategories(
+              groups,
+              totalCount: channels.length,
+              favCount: channels.where((c) => favIds.contains(c.id)).length,
+              recentCount:
+                  channels.where((c) => liveRecentIds.contains(c.id)).length,
             );
-          }
-          final groups = buildLiveChannelGroups(channels);
-          final grouped = groups.length > 1 || groups.first.name.isNotEmpty;
-          final favIds = favoriteEntries.values
-              .where((e) => e.type == ContentType.live)
-              .map((e) => e.id)
-              .toSet();
-          final liveRecentIds = recentEntries.values
-              .where((e) => e.type == ContentType.live)
-              .map((e) => e.id)
-              .toSet();
-          final categoryGroups = _groupToCategories(
-            groups,
-            totalCount: channels.length,
-            favCount: channels.where((c) => favIds.contains(c.id)).length,
-            recentCount:
-                channels.where((c) => liveRecentIds.contains(c.id)).length,
-          );
 
-          final List<Channel> visibleChannels;
-          // Résolution du contenu d'une catégorie. Extraite en fonction parce
-          // que les flèches de la vue de navigation en ont besoin aussi :
-          // changing de catégorie sans repasser par la grille doit charger la
-          // même liste que la grille.
-          List<Channel> channelsFor(String group) {
-            if (group == 'fav') {
-              return channels.where((c) => favIds.contains(c.id)).toList();
+            final List<Channel> visibleChannels;
+            // Résolution du contenu d'une catégorie. Extraite en fonction parce
+            // que les flèches de la vue de navigation en ont besoin aussi :
+            // changing de catégorie sans repasser par la grille doit charger la
+            // même liste que la grille.
+            List<Channel> channelsFor(String group) {
+              if (group == 'fav') {
+                return channels.where((c) => favIds.contains(c.id)).toList();
+              }
+              if (group == 'recent') {
+                return channels
+                    .where((c) => liveRecentIds.contains(c.id))
+                    .toList();
+              }
+              if (!grouped) return groups.first.channels;
+              if (group.isEmpty) {
+                return [for (final g in groups) ...g.channels];
+              }
+              if (group.startsWith('g')) {
+                final index = int.tryParse(group.substring(1));
+                return (index != null && index >= 0 && index < groups.length)
+                    ? groups[index].channels
+                    : const <Channel>[];
+              }
+              return const <Channel>[];
             }
-            if (group == 'recent') {
-              return channels.where((c) => liveRecentIds.contains(c.id)).toList();
-            }
-            if (!grouped) return groups.first.channels;
-            if (group.isEmpty) {
-              return [for (final g in groups) ...g.channels];
-            }
-            if (group.startsWith('g')) {
-              final index = int.tryParse(group.substring(1));
-              return (index != null && index >= 0 && index < groups.length)
-                  ? groups[index].channels
-                  : const <Channel>[];
-            }
-            return const <Channel>[];
-          }
 
-          visibleChannels = channelsFor(_selectedGroup);
+            visibleChannels = channelsFor(_selectedGroup);
 
-          // Vue de navigation : elle prime sur la grille, et se referme au
-          // retour arrière.
-          final browsing = _browsingChannel;
-          if (browsing != null && visibleChannels.isNotEmpty) {
-            final selected = _browsingSelected ?? browsing;
-            final previousCategory =
-                _stepCategory(categoryGroups, _selectedGroup, -1);
-            final nextCategory = _stepCategory(categoryGroups, _selectedGroup, 1);
-            final currentCategory = categoryGroups
-                .firstWhere(
-                  (c) => c.id == _selectedGroup,
-                  orElse: () => categoryGroups.first,
-                )
-                .name;
-            return ChannelBrowseView(
-              channels: visibleChannels,
-              selected: visibleChannels.any((c) => c.id == selected.id)
-                  ? selected
-                  : visibleChannels.first,
-              onSelect: (c) => setState(() => _browsingSelected = c),
-              onWatch: () => _openPlayer(groups, selected),
-              onBack: _closeBrowse,
-              categoryName: currentCategory,
-              onPreviousCategory: previousCategory == null
-                  ? null
-                  : () => _goToCategory(previousCategory, channelsFor),
-              onNextCategory: nextCategory == null
-                  ? null
-                  : () => _goToCategory(nextCategory, channelsFor),
-            );
-          }
+            // Vue de navigation : elle prime sur la grille, et se referme au
+            // retour arrière.
+            final browsing = _browsingChannel;
+            if (browsing != null && visibleChannels.isNotEmpty) {
+              final selected = _browsingSelected ?? browsing;
+              final previousCategory =
+                  _stepCategory(categoryGroups, _selectedGroup, -1);
+              final nextCategory =
+                  _stepCategory(categoryGroups, _selectedGroup, 1);
+              final currentCategory = categoryGroups
+                  .firstWhere(
+                    (c) => c.id == _selectedGroup,
+                    orElse: () => categoryGroups.first,
+                  )
+                  .name;
+              return ChannelBrowseView(
+                channels: visibleChannels,
+                selected: visibleChannels.any((c) => c.id == selected.id)
+                    ? selected
+                    : visibleChannels.first,
+                onSelect: (c) => setState(() => _browsingSelected = c),
+                onWatch: () => _openPlayer(visibleChannels, groups, selected),
+                onBack: _closeBrowse,
+                categoryName: currentCategory,
+                previewActive: !_playerOpen,
+                onPreviousCategory: previousCategory == null
+                    ? null
+                    : () => _goToCategory(previousCategory, channelsFor),
+                onNextCategory: nextCategory == null
+                    ? null
+                    : () => _goToCategory(nextCategory, channelsFor),
+              );
+            }
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (grouped && categoryGroups.isNotEmpty)
-                CategoriesRail(
-                  categories: categoryGroups,
-                  selectedId: _selectedGroup,
-                  onSelected: (id) => setState(() {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (grouped && categoryGroups.isNotEmpty)
+                  CategoriesRail(
+                    categories: categoryGroups,
+                    selectedId: _selectedGroup,
+                    onSelected: (id) => setState(() {
                       _selectedGroup = id;
                       // Changer de catégorie referme la vue de navigation :
                       // celle-ci est attachée à une catégorie, pas au catalogue.
                       _browsingChannel = null;
                       _browsingSelected = null;
                     }),
+                  ),
+                Expanded(
+                  child: visibleChannels.isEmpty
+                      ? EmptyState(
+                          icon: Icons.live_tv_outlined,
+                          title: _selectedGroup == 'fav'
+                              ? 'Aucune chaîne favorite'
+                              : _selectedGroup == 'recent'
+                                  ? 'Aucune chaîne récente'
+                                  : 'Aucune chaîne dans ce groupe',
+                          message: _selectedGroup == 'fav'
+                              ? 'Appuie sur le cœur d\'une chaîne pour la '
+                                  'retrouver ici.'
+                              : _selectedGroup == 'recent'
+                                  ? 'Les chaînes regardées s\'afficheront ici.'
+                                  : 'Ce groupe ne contient aucune chaîne.',
+                        )
+                      : GridView.builder(
+                          padding: channelGridPadding,
+                          // Delegate partagé avec le Replay : même tuile, même
+                          // taille sur les deux écrans.
+                          gridDelegate: channelGridDelegate,
+                          itemCount: visibleChannels.length,
+                          itemBuilder: (context, index) {
+                            final channel = visibleChannels[index];
+                            return ChannelGridCard(
+                              name: channel.name,
+                              logoUrl: channel.logoUrl,
+                              badgeNumber: channel.orderNum,
+                              favoriteEntry: FavoriteEntry(
+                                type: ContentType.live,
+                                id: channel.id,
+                                title: channel.name,
+                                posterUrl: channel.logoUrl,
+                                subtitle: channel.groupLabel,
+                                streamUrl: channel.streamUrl,
+                              ),
+                              onTap: () => _openChannel(channel),
+                              onFocus: () => unawaited(_prewarm(channel)),
+                            );
+                          },
+                        ),
                 ),
-              Expanded(
-                child: visibleChannels.isEmpty
-                    ? EmptyState(
-                        icon: Icons.live_tv_outlined,
-                        title: _selectedGroup == 'fav'
-                            ? 'Aucune chaîne favorite'
-                            : _selectedGroup == 'recent'
-                                ? 'Aucune chaîne récente'
-                                : 'Aucune chaîne dans ce groupe',
-                        message: _selectedGroup == 'fav'
-                            ? 'Appuie sur le cœur d\'une chaîne pour la '
-                                'retrouver ici.'
-                            : _selectedGroup == 'recent'
-                                ? 'Les chaînes regardées s\'afficheront ici.'
-                                : 'Ce groupe ne contient aucune chaîne.',
-                      )
-                    : GridView.builder(
-                        padding: channelGridPadding,
-                        // Delegate partagé avec le Replay : même tuile, même
-                        // taille sur les deux écrans.
-                        gridDelegate: channelGridDelegate,
-                        itemCount: visibleChannels.length,
-                        itemBuilder: (context, index) {
-                          final channel = visibleChannels[index];
-                          return ChannelGridCard(
-                            name: channel.name,
-                            logoUrl: channel.logoUrl,
-                            badgeNumber: channel.orderNum,
-                            favoriteEntry: FavoriteEntry(
-                              type: ContentType.live,
-                              id: channel.id,
-                              title: channel.name,
-                              posterUrl: channel.logoUrl,
-                              subtitle: channel.groupLabel,
-                              streamUrl: channel.streamUrl,
-                            ),
-                            onTap: () => _openChannel(channel),
-                            onFocus: () => unawaited(_prewarm(channel)),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
-        loading: () => const LoadingState(message: 'Chargement…'),
-        error: (err, _) => ErrorState(
-          icon: Icons.live_tv_outlined,
-          title: l.channelsUnavailable,
-          message: userFriendlyError(err),
-          onRetry: () => ref.invalidate(liveChannelsProvider),
-        ),
+              ],
+            );
+          },
+          loading: () => const LoadingState(
+            message: 'Chargement des chaînes en cours…\n'
+                'Merci de patienter avant de lancer un flux.',
+          ),
+          error: (err, _) => ErrorState(
+            icon: Icons.live_tv_outlined,
+            title: l.channelsUnavailable,
+            message: userFriendlyError(err),
+            onRetry: () => ref.invalidate(liveChannelsProvider),
+          ),
         ),
       ),
     );
@@ -325,7 +337,15 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// la première chaîne regardée après un démarrage d'application ignorait le
   /// profil de l'appareil.
   Future<void> _prewarm(Channel channel) async {
-    await PlayerProfileService.pushForDevice(ref.read(deviceProfileProvider));
+    try {
+      await PlayerProfileService.pushForDevice(
+        ref.read(deviceProfileProvider),
+      );
+    } catch (error) {
+      LoggerService.instance.warning(
+        'Live channel prewarm profile unavailable (${error.runtimeType})',
+      );
+    }
     if (!mounted) return;
     StreamPrewarmService.instance.prewarm(
       channel.streamUrl,
@@ -350,18 +370,27 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     });
   }
 
-  void _openPlayer(List<ChannelGroup> groups, Channel channel) {
-    var groupIndex = -1;
-    for (var i = 0; i < groups.length; i++) {
-      if (groups[i].channels.contains(channel)) {
-        groupIndex = i;
-        break;
+  Future<void> _openPlayer(
+    List<Channel> visible,
+    List<ChannelGroup> groups,
+    Channel channel,
+  ) async {
+    // La liste de zapping est celle que l'utilisateur parcourt (favoris,
+    // récents, catégorie), pas le groupe d'origine de la chaîne.
+    var list = visible;
+    if (!list.contains(channel)) {
+      var groupIndex = -1;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].channels.contains(channel)) {
+          groupIndex = i;
+          break;
+        }
       }
+      list = groupIndex >= 0 ? groups[groupIndex].channels : <Channel>[channel];
     }
-    final list =
-        groupIndex >= 0 ? groups[groupIndex].channels : <Channel>[channel];
     final index = list.indexOf(channel);
-    context.push(
+    setState(() => _playerOpen = true);
+    await context.push(
       '/player',
       extra: PlayerRouteData(
         streamUrl: channel.streamUrl,
@@ -379,5 +408,6 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         ),
       ),
     );
+    if (mounted) setState(() => _playerOpen = false);
   }
 }

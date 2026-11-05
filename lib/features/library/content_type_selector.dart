@@ -111,7 +111,8 @@ class DownloadsSection extends ConsumerWidget {
       return Column(
         children: [
           Expanded(
-            child: _Empty(icon: Icons.download_outlined, message: l.noDownloads),
+            child:
+                _Empty(icon: Icons.download_outlined, message: l.noDownloads),
           ),
           const _DownloadsLocation(),
         ],

@@ -27,6 +27,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
 public final class NightFocusRenderersFactory extends DefaultRenderersFactory {
   public NightFocusRenderersFactory(@NonNull Context context) {
     super(context);
+    // Si le décodeur matériel échoue à l'init (ex. OMX.realtek sur du H.264
+    // level 5.0), bascule sur le décodeur suivant au lieu d'échouer.
+    setEnableDecoderFallback(true);
   }
 
   @Override

@@ -116,24 +116,28 @@ class OmdbService {
 
     await _waitForRateLimit();
 
-    final result = await safeAsync<Map<String, dynamic>?>(() async {
-      final response = await _dio.get(
-        '/',
-        queryParameters: {
-          'i': imdbId,
-          'plot': 'full',
-          'apikey': _apiKey,
-        },
-      );
+    final result = await safeAsync<Map<String, dynamic>?>(
+      () async {
+        final response = await _dio.get(
+          '/',
+          queryParameters: {
+            'i': imdbId,
+            'plot': 'full',
+            'apikey': _apiKey,
+          },
+        );
 
-      if (response.data['Response'] == 'True') {
-        await _setCache(cacheKey, response.data);
-        return response.data;
-      } else {
-        _logger.warning('OMDB error: ${response.data['Error']}');
-        return null;
-      }
-    }, context: 'getByImdbId', fallbackValue: null,);
+        if (response.data['Response'] == 'True') {
+          await _setCache(cacheKey, response.data);
+          return response.data;
+        } else {
+          _logger.warning('OMDB error: ${response.data['Error']}');
+          return null;
+        }
+      },
+      context: 'getByImdbId',
+      fallbackValue: null,
+    );
     return result.valueOrNull;
   }
 
@@ -147,26 +151,30 @@ class OmdbService {
 
     await _waitForRateLimit();
 
-    final result = await safeAsync<Map<String, dynamic>?>(() async {
-      final params = <String, String>{
-        't': title,
-        'plot': 'full',
-        'apikey': _apiKey,
-      };
-      if (year != null && year > 0) {
-        params['y'] = year.toString();
-      }
+    final result = await safeAsync<Map<String, dynamic>?>(
+      () async {
+        final params = <String, String>{
+          't': title,
+          'plot': 'full',
+          'apikey': _apiKey,
+        };
+        if (year != null && year > 0) {
+          params['y'] = year.toString();
+        }
 
-      final response = await _dio.get('/', queryParameters: params);
+        final response = await _dio.get('/', queryParameters: params);
 
-      if (response.data['Response'] == 'True') {
-        await _setCache(cacheKey, response.data);
-        return response.data;
-      } else {
-        _logger.warning('OMDB search error: ${response.data['Error']}');
-        return null;
-      }
-    }, context: 'searchByTitle', fallbackValue: null,);
+        if (response.data['Response'] == 'True') {
+          await _setCache(cacheKey, response.data);
+          return response.data;
+        } else {
+          _logger.warning('OMDB search error: ${response.data['Error']}');
+          return null;
+        }
+      },
+      context: 'searchByTitle',
+      fallbackValue: null,
+    );
     return result.valueOrNull;
   }
 

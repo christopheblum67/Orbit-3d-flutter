@@ -112,24 +112,35 @@ class _ExitConfirmDialogState extends State<_ExitConfirmDialog> {
           },
           child: TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Non',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ListenableBuilder(
+              listenable: _cancelFocus,
+              builder: (context, _) {
+                final focused = _cancelFocus.hasFocus;
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: focused
+                        ? Border.all(color: Colors.white, width: 3)
+                        : null,
+                  ),
+                  child: const Text(
+                    'Non',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
         Focus(
           focusNode: _confirmFocus,
+          autofocus: true,
           onKeyEvent: (node, event) {
             if (event is KeyDownEvent &&
                 (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -148,19 +159,29 @@ class _ExitConfirmDialogState extends State<_ExitConfirmDialog> {
           },
           child: TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'Oui',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            child: ListenableBuilder(
+              listenable: _confirmFocus,
+              builder: (context, _) {
+                final focused = _confirmFocus.hasFocus;
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF6B6B),
+                    borderRadius: BorderRadius.circular(8),
+                    border: focused
+                        ? Border.all(color: Colors.white, width: 3)
+                        : null,
+                  ),
+                  child: const Text(
+                    'Oui',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),

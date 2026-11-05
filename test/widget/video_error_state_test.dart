@@ -26,7 +26,7 @@ void main() {
     );
 
     expect(find.text(l.openProviderWebsite), findsOneWidget);
-    expect(find.textContaining('La session du navigateur'), findsOneWidget);
+    expect(find.text(l.cloudflareChallengeHelp), findsOneWidget);
     expect(opened, isFalse);
 
     await tester.tap(find.text(l.openProviderWebsite));

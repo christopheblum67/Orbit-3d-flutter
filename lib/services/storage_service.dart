@@ -35,13 +35,16 @@ class StorageService {
         await HiveSync.read(_settingsBox, (box) => box.get(_parentalPinKey));
     if (legacy is String && legacy.isNotEmpty) {
       await secretStore.write(_parentalPinKey, legacy);
-      await HiveSync.writeAsync(_settingsBox, (box) => box.delete(_parentalPinKey));
+      await HiveSync.writeAsync(
+          _settingsBox, (box) => box.delete(_parentalPinKey));
     }
   }
 
   Future<void> saveProfile(UserProfile profile) async {
     await HiveSync.writeAsync(
-        _profilesBox, (box) => box.put(profile.id, profile.toMap()),);
+      _profilesBox,
+      (box) => box.put(profile.id, profile.toMap()),
+    );
   }
 
   Future<List<UserProfile>> getProfiles() async {
@@ -79,7 +82,9 @@ class StorageService {
 
   Future<void> savePreferences(UserPreferences prefs) async {
     await HiveSync.writeAsync(
-        _settingsBox, (box) => box.put(_prefsKey, prefs.toMap()),);
+      _settingsBox,
+      (box) => box.put(_prefsKey, prefs.toMap()),
+    );
   }
 
   Future<UserPreferences> getPreferences() async {
@@ -103,7 +108,8 @@ class StorageService {
     final legacy =
         await HiveSync.read(_settingsBox, (box) => box.get(_parentalPinKey));
     if (legacy != null) {
-      await HiveSync.writeAsync(_settingsBox, (box) => box.delete(_parentalPinKey));
+      await HiveSync.writeAsync(
+          _settingsBox, (box) => box.delete(_parentalPinKey));
     }
   }
 
@@ -115,7 +121,9 @@ class StorageService {
   Future<void> clearParentalPin() async {
     await secretStore.delete(_parentalPinKey);
     await HiveSync.writeAsync(
-        _settingsBox, (box) => box.delete(_parentalPinKey),);
+      _settingsBox,
+      (box) => box.delete(_parentalPinKey),
+    );
   }
 
   Future<void> setSetting(String key, dynamic value) async {
@@ -208,7 +216,9 @@ class StorageService {
 
   Future<List<Subscription>> getSubscriptions() async {
     final subs = await HiveSync.read(
-        _subscriptionsBox, (box) => box.values.cast<Subscription>().toList(),);
+      _subscriptionsBox,
+      (box) => box.values.cast<Subscription>().toList(),
+    );
     // Hydrate le mot de passe depuis le coffre pour chaque abonnement (le
     // cache mémoire évite les lectures disques répétées).
     for (final sub in subs) {

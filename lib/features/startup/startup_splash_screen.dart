@@ -39,6 +39,8 @@ class StartupSplashScreen extends ConsumerStatefulWidget {
 class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
   Timer? _stallTimer;
+  Timer? _slowTimer;
+  bool _providerSlow = false;
   bool _navigated = false;
   bool _showBranding = false;
   bool _refreshStalled = false;
@@ -47,11 +49,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void initState() {
     super.initState();
     final api = ref.read(apiServiceProvider);
+    // Le container survit au splash : le préchargement différé des catalogues
+    // continue après la navigation vers l'accueil.
+    final container = ProviderScope.containerOf(context, listen: false);
     _controller = StartupRefreshController(
       api,
       loadLiveChannels: () => ref.read(liveChannelsProvider.future),
-      loadMovies: () => ref.read(moviesProvider.future),
-      loadSeries: () => ref.read(seriesProvider.future),
+      loadMovies: () => container.read(moviesProvider.future),
+      loadSeries: () => container.read(seriesProvider.future),
       loadRadioChannels: () => ref.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
       steps: widget.remainingPhase
@@ -64,16 +69,23 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // pendant la phase de build. Le branding est monté à partir de la frame
     // suivante pour alléger le rendu initial.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _showBranding = true);
-        _kickOff();
+      if (!mounted) return;
+      if (widget.remainingPhase) {
+        // Tout est déjà chargé : plus de second écran de chargement après le
+        // choix du profil.
+        _navigated = true;
+        _finishRemainingPhase();
+        return;
       }
+      setState(() => _showBranding = true);
+      _kickOff();
     });
   }
 
   @override
   void dispose() {
     _stallTimer?.cancel();
+    _slowTimer?.cancel();
     _controller.removeListener(_onProgress);
     _controller.dispose();
     super.dispose();
@@ -82,7 +94,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void _onProgress() {
     if (!mounted) return;
     _stallTimer?.cancel();
-    setState(() => _refreshStalled = false);
+    setState(() {
+      _refreshStalled = false;
+      _providerSlow = false;
+    });
     _armStallTimer();
     if (_controller.isFinished && !_navigated) {
       _navigated = true;
@@ -96,7 +111,15 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   void _armStallTimer() {
     _stallTimer?.cancel();
+    _slowTimer?.cancel();
     if (_controller.isFinished) return;
+    // Signal précoce : un fournisseur derrière Cloudflare peut mettre du temps
+    // à répondre ; on le dit bien avant l'alerte de blocage.
+    _slowTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && !_controller.isFinished) {
+        setState(() => _providerSlow = true);
+      }
+    });
     _stallTimer = Timer(kRefreshStallTimeout, () {
       if (mounted && !_controller.isFinished) {
         setState(() => _refreshStalled = true);
@@ -105,15 +128,16 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _finishInitialPhase() async {
+    // Le catalogue vient d'être chargé : horodater tout de suite évite qu'un
+    // rafraîchissement « périmé » ne relance un second chargement complet.
+    ref
+        .read(lastRefreshTimestampProvider.notifier)
+        .setTimestamp(DateTime.now());
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     if (mounted) context.go('/profiles?startup=true');
   }
 
   Future<void> _finishRemainingPhase() async {
-    ref
-        .read(lastRefreshTimestampProvider.notifier)
-        .setTimestamp(DateTime.now());
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     final resumed = await _checkAutoResume();
     if (!mounted || resumed) return;
@@ -135,7 +159,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 currentStep: _controller.currentStep,
                 doneSteps: _controller.doneSteps,
                 isFinished: _controller.isFinished,
-                title: widget.remainingPhase
+                title: _providerSlow && _controller.percent < 100
+                    ? 'Le fournisseur répond lentement (vérification de '
+                        'sécurité possible). Merci de patienter…'
+                    : widget.remainingPhase
                     ? 'Chargement des radios et replays'
                     : 'Chargement du direct, des films, séries et du guide TV',
                 visibleSteps: widget.remainingPhase

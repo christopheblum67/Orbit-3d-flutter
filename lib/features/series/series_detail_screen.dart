@@ -157,6 +157,7 @@ class _SeriesDetailContent extends ConsumerWidget {
 
     if (seasons.isEmpty) {
       return CustomScrollView(
+        scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
         slivers: [
           header,
           resumeSliver,
@@ -174,6 +175,7 @@ class _SeriesDetailContent extends ConsumerWidget {
     if (seasons.length == 1) {
       final season = seasons.first;
       return CustomScrollView(
+        scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
         slivers: [
           header,
           resumeSliver,
@@ -212,6 +214,7 @@ class _SeriesDetailContent extends ConsumerWidget {
               children: [
                 for (final season in seasons)
                   CustomScrollView(
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
                     slivers: [
                       header,
                       resumeSliver,
@@ -875,9 +878,19 @@ class _EpisodeTile extends ConsumerWidget {
     return TvFocus(
       onActivate: onOpen,
       onLongPress: onLongPress,
+      onFocusChange: (focused) {
+        if (!focused) return;
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.4,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: AppCard(
+          focusable: false,
           onTap: canPlay ? onOpen : null,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -956,14 +969,16 @@ class _EpisodeTile extends ConsumerWidget {
                 ),
               ],
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
-                onPressed: () => ref
-                    .read(watchedEpisodesProvider.notifier)
-                    .toggle(series, episode),
-                icon: Icon(
-                  isVu ? Icons.check_circle : Icons.check_circle_outline,
-                  color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
+              ExcludeFocus(
+                child: IconButton(
+                  tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
+                  onPressed: () => ref
+                      .read(watchedEpisodesProvider.notifier)
+                      .toggle(series, episode),
+                  icon: Icon(
+                    isVu ? Icons.check_circle : Icons.check_circle_outline,
+                    color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -362,113 +361,112 @@ class _SubscriptionCard extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final isTesting = _isTesting(ref, subscription.id);
 
-    return TvFocus(
-      onActivate: onTap,
-      child: AppCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(16),
-        color: isActive ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+    return AppCard(
+      onTap: onTap,
+      focusable: false,
+      padding: const EdgeInsets.all(16),
+      color: isActive ? scheme.primaryContainer.withValues(alpha: 0.3) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _TypeBadge(type: subscription.type),
+                  if (isActive) ...[
+                    const SizedBox(height: 6),
+                    const _ActiveBadge(),
+                  ],
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _TypeBadge(type: subscription.type),
-                    if (isActive) ...[
-                      const SizedBox(height: 6),
-                      const _ActiveBadge(),
-                    ],
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              subscription.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            subscription.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          if (!isActive)
-                            IconButton(
-                              tooltip: l.setAsDefaultServer,
-                              icon: const Icon(Icons.star_outline, size: 20),
-                              color: scheme.onSurfaceVariant,
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                              onPressed: onTap,
+                        ),
+                        if (!isActive)
+                          IconButton(
+                            tooltip: l.setAsDefaultServer,
+                            icon: const Icon(Icons.star_outline, size: 20),
+                            color: scheme.onSurfaceVariant,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _subtitle(subscription),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        onEdit();
-                        break;
-                      case 'delete':
-                        onDelete();
-                        break;
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit),
-                        title: Text('Modifier'),
-                      ),
+                            onPressed: onTap,
+                          ),
+                      ],
                     ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete),
-                        title: Text('Supprimer'),
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _subtitle(subscription),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _TestResultRow(
-              subscription: subscription,
-              isTesting: isTesting,
-              onTest: onTest,
-            ),
-          ],
-        ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Modifier ou supprimer',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      onEdit();
+                      break;
+                    case 'delete':
+                      onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit),
+                      title: Text('Modifier'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete),
+                      title: Text('Supprimer'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _TestResultRow(
+            subscription: subscription,
+            isTesting: isTesting,
+            onTest: onTest,
+          ),
+        ],
       ),
     );
   }

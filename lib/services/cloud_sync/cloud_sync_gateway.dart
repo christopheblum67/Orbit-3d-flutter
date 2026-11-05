@@ -7,7 +7,9 @@ import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_models.dart';
 /// implémentation en mémoire sert aux tests.
 abstract interface class CloudSyncGateway {
   Future<CloudSyncSnapshot?> fetchSnapshot(
-      CloudSyncScope scope, String profileId,);
+    CloudSyncScope scope,
+    String profileId,
+  );
 
   Future<void> pushSnapshot(CloudSyncSnapshot snapshot);
 }

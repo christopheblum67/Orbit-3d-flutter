@@ -58,6 +58,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   _MatchSort _sort = _MatchSort.affinityDesc;
   final Set<String> _selectedProfileIds = {}; // 2-4 profils
   int _visibleCount = kMatchmakingPageSize;
+
   /// Longueur totale de la liste courante. Champ simple (pas de setState) :
   /// il ne sert qu'a borner l'incrementation au scroll.
   int _totalCount = 0;
@@ -305,13 +306,17 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.affinityAsc:
         return [...list]..sort((a, b) => a.affinity.compareTo(b.affinity));
       case _MatchSort.titleAsc:
-        return [...list]
-          ..sort((a, b) =>
-              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()),);
+        return [...list]..sort(
+            (a, b) => a.reco.title
+                .toLowerCase()
+                .compareTo(b.reco.title.toLowerCase()),
+          );
       case _MatchSort.titleDesc:
-        return [...list]
-          ..sort((a, b) =>
-              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()),);
+        return [...list]..sort(
+            (a, b) => b.reco.title
+                .toLowerCase()
+                .compareTo(a.reco.title.toLowerCase()),
+          );
     }
   }
 
@@ -323,13 +328,17 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       case _MatchSort.affinityAsc:
         return [...list]..sort((a, b) => a.combined.compareTo(b.combined));
       case _MatchSort.titleAsc:
-        return [...list]
-          ..sort((a, b) =>
-              a.reco.title.toLowerCase().compareTo(b.reco.title.toLowerCase()),);
+        return [...list]..sort(
+            (a, b) => a.reco.title
+                .toLowerCase()
+                .compareTo(b.reco.title.toLowerCase()),
+          );
       case _MatchSort.titleDesc:
-        return [...list]
-          ..sort((a, b) =>
-              b.reco.title.toLowerCase().compareTo(a.reco.title.toLowerCase()),);
+        return [...list]..sort(
+            (a, b) => b.reco.title
+                .toLowerCase()
+                .compareTo(a.reco.title.toLowerCase()),
+          );
     }
   }
 
@@ -343,7 +352,8 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       return Center(
         child: Text(
           l.selectAtLeastOneProfile(_selectedProfileIds.length + 1),
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          style:
+              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       );
     }
@@ -510,7 +520,8 @@ class _SortMenu extends StatelessWidget {
                 Icon(
                   sort == value ? Icons.check_rounded : Icons.sort,
                   size: 18,
-                  color: sort == value ? scheme.primary : scheme.onSurfaceVariant,
+                  color:
+                      sort == value ? scheme.primary : scheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
                 Text(sort.label),

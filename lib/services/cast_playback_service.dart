@@ -140,13 +140,14 @@ class CastPlaybackService {
     // Attend un bref instant pour le statut du récepteur après le LAUNCH.
     await Future<void>.delayed(const Duration(milliseconds: 1200));
     session.sendMessage(
-        CastSession.kNamespaceMedia,
-        buildLoadPayload(
-          contentId: url,
-          contentType: contentType,
-          sessionId: _receiverSessionId!,
-          streamType: isLive ? 'live' : null,
-        ),);
+      CastSession.kNamespaceMedia,
+      buildLoadPayload(
+        contentId: url,
+        contentType: contentType,
+        sessionId: _receiverSessionId!,
+        streamType: isLive ? 'live' : null,
+      ),
+    );
     return true;
   }
 

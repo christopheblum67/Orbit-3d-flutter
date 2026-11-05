@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
@@ -26,14 +27,25 @@ import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 /// ExoPlayer à chaque changement de focus ouvrirait une requête HTTP par
 /// chaîne parcourue — exactement ce qui déclenche l'anti-leech du panneau. On
 /// attend que la sélection se stabilise avant d'émettre.
+///
+/// Nœud de focus du bouton « Regarder » : la liste de chaînes y envoie le
+/// focus sur la flèche droite, car la recherche directionnelle seule ne
+/// l'atteignait pas depuis les chaînes du haut de la liste.
+final FocusNode liveWatchFocusNode = FocusNode(debugLabel: 'LiveWatchButton');
+
 class LiveChannelVideo extends ConsumerStatefulWidget {
   const LiveChannelVideo({
     super.key,
     required this.channel,
     this.onWatch,
+    this.active = true,
   });
 
   final Channel channel;
+
+  /// `false` quand un autre écran (lecteur plein écran) recouvre l'aperçu : le
+  /// flux est alors fermé pour ne pas jouer deux fois la même diffusion.
+  final bool active;
 
   /// Action de lecture plein écran (superposée sur le cadre).
   final VoidCallback? onWatch;
@@ -58,6 +70,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
   Timer? _startTimer;
   int _generation = 0;
   bool _failed = false;
+  bool _decoderUnsupported = false;
 
   /// L'aperçu était auparavant non surveillé : un gel y restait muet, alors
   /// que le lecteur principal, lui, remontait un message. Même traitement
@@ -81,7 +94,10 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
   @override
   void didUpdateWidget(LiveChannelVideo oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.channel.streamUrl != widget.channel.streamUrl) {
+    if (!widget.active) {
+      if (oldWidget.active) _suspend();
+    } else if (!oldWidget.active ||
+        oldWidget.channel.streamUrl != widget.channel.streamUrl) {
       _scheduleStart();
     }
   }
@@ -104,12 +120,21 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     c?.dispose();
   }
 
+  void _suspend() {
+    _startTimer?.cancel();
+    _generation++;
+    _disposeController();
+    setState(() => _failed = false);
+  }
+
   void _scheduleStart() {
     _startTimer?.cancel();
     _disposeController();
     _failed = false;
+    _decoderUnsupported = false;
     final gen = ++_generation;
     if (mounted) setState(() {});
+    if (!widget.active) return;
     _startTimer = Timer(_startDelay, () => _start(gen));
   }
 
@@ -120,9 +145,15 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     // Le profil media3 est lu à la CONSTRUCTION de l'ExoPlayer : le push
     // précède la création, sans quoi l'aperçu tournerait avec les seuils par
     // défaut (tampons de 50 s) et sans plafond de résolution.
-    await PlayerProfileService.pushForDevice(
-      ref.read(deviceProfileProvider),
-    );
+    try {
+      await PlayerProfileService.pushForDevice(
+        ref.read(deviceProfileProvider),
+      );
+    } catch (error) {
+      LoggerService.instance.warning(
+        'Live preview profile unavailable (${error.runtimeType})',
+      );
+    }
     if (gen != _generation || !mounted) return;
 
     final controller = VideoPlayerController.networkUrl(
@@ -144,8 +175,17 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
       return;
     }
     if (result.isFailure || controller.value.hasError) {
+      final detail =
+          '${result.errorOrNull} ${controller.value.errorDescription}';
       controller.dispose();
-      if (mounted) setState(() => _failed = true);
+      if (mounted) {
+        setState(() {
+          _failed = true;
+          _decoderUnsupported = detail.contains('MediaCodecVideoRenderer') ||
+              detail.contains('Decoder init failed') ||
+              detail.contains('Decoder failed');
+        });
+      }
       return;
     }
 
@@ -156,8 +196,17 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     // le D-pad n'émet aucun son, seule la chaîne sur laquelle on s'arrête
     // joue. `mixWithOthers: false` empêche par ailleurs de superposer cette
     // diffusion à une autre application.
-    await controller.setVolume(_previewVolume);
-    await controller.play();
+    try {
+      await controller.setVolume(_previewVolume);
+      await controller.play();
+    } catch (error) {
+      LoggerService.instance.warning(
+        'Live preview playback failed (${error.runtimeType})',
+      );
+      controller.dispose();
+      if (gen == _generation && mounted) setState(() => _failed = true);
+      return;
+    }
     if (gen != _generation || !mounted) {
       controller.dispose();
       return;
@@ -188,20 +237,15 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
           ),
           // Gel constaté : on le dit, et on propose de relancer. Sans cela
           // l'aperçu restait figé sans aucune explication.
-          if (_stallDetector.isStalling)
-            _StaleOverlay(onRetry: _scheduleStart),
-          if (widget.onWatch != null)
-            Positioned(
-              right: 10,
-              bottom: 10,
-              child: _WatchButton(onPressed: widget.onWatch!),
-            ),
+          if (_stallDetector.isStalling) _StaleOverlay(onRetry: _scheduleStart),
         ],
       );
     } else if (_failed) {
       content = _Message(
         icon: Icons.tv_off_rounded,
-        text: 'Flux indisponible',
+        text: _decoderUnsupported
+            ? 'Format vidéo (4K / HEVC) non pris en charge par ce téléviseur'
+            : 'Flux indisponible',
         color: scheme.onSurfaceVariant,
       );
     } else {
@@ -236,7 +280,18 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: content,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(child: content),
+          if (widget.onWatch != null)
+            Positioned(
+              right: 10,
+              bottom: 10,
+              child: _WatchButton(onPressed: widget.onWatch!),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -256,11 +311,18 @@ class _StaleOverlay extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.pause_circle_outline, color: Colors.white, size: 34),
+            const Icon(
+              Icons.pause_circle_outline,
+              color: Colors.white,
+              size: 34,
+            ),
             const SizedBox(height: 8),
             const Text(
               'Aperçu figé',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
@@ -287,16 +349,54 @@ class _WatchButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return FilledButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.play_arrow_rounded, size: 20),
-      label: const Text('Regarder'),
-      style: FilledButton.styleFrom(
-        backgroundColor: scheme.primary,
-        foregroundColor: scheme.onPrimary,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        visualDensity: VisualDensity.compact,
-      ),
+    return ListenableBuilder(
+      listenable: liveWatchFocusNode,
+      builder: (context, _) {
+        final focused = liveWatchFocusNode.hasFocus;
+        return AnimatedScale(
+          scale: focused ? 1.3 : 1.0,
+          duration: const Duration(milliseconds: 140),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: focused
+                  ? const [
+                      BoxShadow(
+                        color: Color(0xFFFFC107),
+                        blurRadius: 22,
+                        spreadRadius: 5,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: FilledButton.icon(
+              focusNode: liveWatchFocusNode,
+              onPressed: onPressed,
+              icon: Icon(Icons.play_arrow_rounded, size: focused ? 34 : 24),
+              label: Text(
+                focused ? 'REGARDER' : 'Regarder',
+                style: TextStyle(
+                  fontWeight: focused ? FontWeight.w900 : FontWeight.w600,
+                  letterSpacing: focused ? 1.2 : 0,
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                    focused ? const Color(0xFFFFC107) : scheme.primary,
+                foregroundColor: focused ? Colors.black : scheme.onPrimary,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                visualDensity: VisualDensity.compact,
+              ).copyWith(
+                side: WidgetStateProperty.resolveWith(
+                  (states) => states.contains(WidgetState.focused)
+                      ? const BorderSide(color: Colors.white, width: 4)
+                      : null,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

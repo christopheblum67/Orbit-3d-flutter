@@ -82,6 +82,7 @@ class StreamNetworkException implements Exception {
   @override
   String toString() => message;
 }
+
 class StreamUrlEmptyException implements Exception {
   StreamUrlEmptyException(this.message);
 

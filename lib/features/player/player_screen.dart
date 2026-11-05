@@ -273,6 +273,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool _hasAppliedInitialPosition = false;
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
+  final FocusScopeNode _footerScope = FocusScopeNode(debugLabel: 'PlayerFooter');
 
   // Picture-in-Picture & lecture en arrière-plan
   final _pipService = PipService();
@@ -383,7 +384,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _bgService.stop();
     _saveProgress();
     _focusNode.dispose();
-    _generation++;
+    _footerScope.dispose();
     _disposeActive();
     _disposeCachedNext();
     _disposeCachedPrev();
@@ -436,13 +437,25 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _footerTimer?.cancel();
     final firstShow = !_footerVisible;
     _footerVisible = true;
-    if (mounted && firstShow) setState(() {});
+    if (mounted && firstShow) {
+      setState(() {});
+      // L'autofocus d'un FocusScope est ignoré quand le lecteur a déjà le
+      // focus : on le donne explicitement au premier bouton de la barre.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_footerVisible) return;
+        if (_footerScope.hasFocus) return;
+        final targets = _footerScope.traversalDescendants
+            .where((n) => n.canRequestFocus && !n.skipTraversal);
+        if (targets.isNotEmpty) targets.first.requestFocus();
+      });
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _footerTimer = Timer(duration, () {
       if (!mounted) return;
       _footerVisible = false;
       _footerTimer = null;
       setState(() {});
+      _focusNode.requestFocus();
       _syncImmersive(); // repasse en immersive si lecture en cours
     });
   }
@@ -453,6 +466,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _footerTimer = null;
     if (!_footerVisible) return;
     _footerVisible = false;
+    _focusNode.requestFocus();
     if (mounted) setState(() {});
     _syncImmersive();
   }
@@ -560,6 +574,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         return;
       }
     }
+  }
+
+  /// Échec du décodeur matériel (MediaCodec) : ce n'est PAS un blocage du
+  /// serveur, donc il ne doit pas armer le circuit breaker de l'hôte (sinon
+  /// toutes les chaînes de ce serveur deviennent « indisponibles » 90 s).
+  bool _isDecoderError(Object? error) {
+    final s = '$error';
+    return s.contains('MediaCodecVideoRenderer') ||
+        s.contains('DecoderInitializationException') ||
+        s.contains('Decoder init failed');
   }
 
   Future<void> _startAttempt() async {
@@ -910,7 +934,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       );
       if (initResult.isFailure) {
         debugPrint('Orbit3D video error ($url): ${initResult.errorOrNull}');
-        if (host.isNotEmpty) {
+        if (host.isNotEmpty && !_isDecoderError(initResult.errorOrNull)) {
           circuitBreaker.recordFailure(host);
         }
         if (_controller == controller) {
@@ -933,7 +957,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       if (controller.value.hasError) {
         debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
-        if (host.isNotEmpty) {
+        if (host.isNotEmpty &&
+            !_isDecoderError(controller.value.errorDescription)) {
           circuitBreaker.recordFailure(host);
         }
         _disposeController(controller);
@@ -1197,7 +1222,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     List<EmbeddedSubtitleTrack> tracks,
     int generation,
   ) async {
-    if (widget.contentType != PlaybackContentType.vod ||
+    if (widget.contentType != PlaybackContentType.vod &&
+            widget.contentType != PlaybackContentType.series ||
         _appliedVodSubtitleModeGeneration == generation) {
       return;
     }
@@ -1744,6 +1770,25 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
+    if (_footerVisible) _showFooterBar();
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      // Barre visible : OK active le bouton focalisé (géré par le bouton).
+      if (_footerVisible) return KeyEventResult.ignored;
+      _showFooterBar();
+      return KeyEventResult.handled;
+    }
+    final arrow = key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown;
+    if (_footerVisible && arrow) return KeyEventResult.ignored;
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      _showFooterBar();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.pageUp) {
       _goPrevious();
       return KeyEventResult.handled;
@@ -1753,8 +1798,50 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _goNext();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.space) {
+    if (key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.mediaPlayPause) {
       _togglePlayPause();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.mediaPause) {
+      final playing = _controller?.value.isPlaying ?? false;
+      if ((key == LogicalKeyboardKey.mediaPlay) != playing) _togglePlayPause();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.contextMenu ||
+        key == LogicalKeyboardKey.info ||
+        key == LogicalKeyboardKey.settings) {
+      final player = _controller;
+      if (player != null) {
+        _footerTimer?.cancel();
+        showStreamDetailsSheet(
+          context,
+          player,
+          widget.progressId ?? widget.streamUrl,
+        ).whenComplete(() {
+          if (mounted) _showFooterBar();
+        });
+      }
+      return KeyEventResult.handled;
+    }
+    final seekable = widget.contentType != PlaybackContentType.live;
+    if (seekable && key == LogicalKeyboardKey.mediaFastForward) {
+      _seekBy(const Duration(seconds: 30));
+      _showFooterBar();
+      return KeyEventResult.handled;
+    }
+    if (seekable && key == LogicalKeyboardKey.mediaRewind) {
+      _seekBy(const Duration(seconds: -30));
+      _showFooterBar();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      _goNext();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      _goPrevious();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.escape) {
@@ -1807,7 +1894,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                       fit: StackFit.expand,
                       children: [
                         Focus(
-                          autofocus: true,
+                          canRequestFocus: false,
+                          skipTraversal: true,
                           onKeyEvent: (_, event) {
                             if (event is KeyDownEvent &&
                                 (event.logicalKey ==
@@ -1858,8 +1946,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            child: _ContentFooterBar(
-                              child: _buildFooterContent(player),
+                            child: FocusScope(
+                              node: _footerScope,
+                              onKeyEvent: (_, event) {
+                                if (event is KeyDownEvent) _showFooterBar();
+                                return KeyEventResult.ignored;
+                              },
+                              child: _ContentFooterBar(
+                                child: _buildFooterContent(player),
+                              ),
                             ),
                           ),
                       ],
@@ -1987,8 +2082,28 @@ Widget _fbIcon(
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
     constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    style: _fbFocusStyle(color),
     onPressed: onPressed,
-    icon: Icon(icon, color: color, size: size),
+    icon: Icon(icon, size: size),
+  );
+}
+
+/// Style D-pad des icônes de la footerbar : fond ambre, icône noire et bordure
+/// blanche quand le bouton a le focus, pour qu'on voie où l'on se trouve.
+ButtonStyle _fbFocusStyle(Color normal) {
+  return ButtonStyle(
+    iconColor: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.focused) ? Colors.black : normal,
+    ),
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (s) =>
+          s.contains(WidgetState.focused) ? const Color(0xFFFFC107) : null,
+    ),
+    side: WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.focused)
+          ? const BorderSide(color: Colors.white, width: 2)
+          : null,
+    ),
   );
 }
 
@@ -2001,14 +2116,13 @@ Widget _fbPlayPause({
     tooltip: isPlaying ? 'Pause' : 'Lecture',
     style: IconButton.styleFrom(
       backgroundColor: Colors.white.withValues(alpha: 0.22),
-    ),
+    ).merge(_fbFocusStyle(Colors.white)),
     visualDensity: VisualDensity.compact,
     padding: const EdgeInsets.all(6),
     constraints: const BoxConstraints(minWidth: 46, minHeight: 44),
     onPressed: onPressed,
     icon: Icon(
       isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-      color: Colors.white,
       size: 28,
     ),
   );
@@ -2028,10 +2142,10 @@ Widget _fbNightFocus({
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
     constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+    style: _fbFocusStyle(enabled ? const Color(0xFFFFC107) : Colors.white70),
     onPressed: onPressed,
     icon: Icon(
       enabled ? Icons.nightlight_round : Icons.nightlight_outlined,
-      color: enabled ? const Color(0xFFFFC107) : Colors.white70,
       size: 22,
     ),
   );
@@ -2450,12 +2564,13 @@ class _FooterStreamDetails extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      style: _fbFocusStyle(Colors.white),
       onPressed: () async {
         onOpened();
         await showStreamDetailsSheet(context, controller, mediaKey ?? '');
         if (context.mounted) onClosed();
       },
-      icon: const Icon(Icons.settings_rounded, color: Colors.white, size: 22),
+      icon: const Icon(Icons.settings_rounded, size: 22),
     );
   }
 }

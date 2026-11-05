@@ -6,12 +6,13 @@ import 'package:orbit_3d_flutter/services/opensubtitles_credentials_store.dart';
 /// Le compte est OPTIONNEL : sans lui, les recherches restent anonymes et
 /// `/download` répond 503 (« compte requis »). Voir
 /// [OpenSubtitlesCredentialsStore] pour le stockage.
-final openSubtitlesCredentialsProvider =
-    NotifierProvider<OpenSubtitlesCredentialsNotifier, OpenSubtitlesCredentials>(
+final openSubtitlesCredentialsProvider = NotifierProvider<
+    OpenSubtitlesCredentialsNotifier, OpenSubtitlesCredentials>(
   OpenSubtitlesCredentialsNotifier.new,
 );
 
-class OpenSubtitlesCredentialsNotifier extends Notifier<OpenSubtitlesCredentials> {
+class OpenSubtitlesCredentialsNotifier
+    extends Notifier<OpenSubtitlesCredentials> {
   /// Incrémenté à chaque écriture VOLONTAIRE des identifiants.
   ///
   /// Même garde-fou que la clé API : `load()` est lancé en `unawaited` au

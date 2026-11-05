@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
+import 'package:orbit_3d_flutter/services/catalog_db.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
@@ -776,6 +778,40 @@ class ApiService {
         .toList();
   }
 
+  /// Quand `true`, le prochain chargement des catalogues ignore le cache
+  /// disque (rafraîchissement manuel) puis le réécrit.
+  static bool bypassCatalogCache = false;
+
+  /// Octets bruts d'un catalogue : cache disque s'il est frais, sinon réseau
+  /// (puis écriture du cache).
+  Future<Uint8List> _catalogBytes(
+    String name,
+    String cacheKey,
+    String url,
+  ) async {
+    final cache = CatalogDiskCache.instance;
+    if (!bypassCatalogCache) {
+      final cached = await cache.read(name, cacheKey);
+      if (cached != null && cached.isNotEmpty) {
+        logDiag('Catalogue $name: cache disque (${cached.length} o)');
+        return cached;
+      }
+    }
+    final response = await _get(
+      url,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final data = response.data;
+    final bytes = data is Uint8List
+        ? data
+        : Uint8List.fromList(data is List<int> ? data : const <int>[]);
+    if (bytes.isEmpty) {
+      throw StreamNetworkException('Réponse $name vide.');
+    }
+    await cache.write(name, cacheKey, bytes);
+    return bytes;
+  }
+
   Future<List<Movie>> fetchMovies() {
     return _singleFlight('vod_streams', () => _fetchMovies());
   }
@@ -791,51 +827,33 @@ class ApiService {
         'password': password,
         'action': 'get_vod_streams',
       });
-      final response = await _get(url);
+      final cacheKey = '$baseUrl|$username';
+      final bytes = await _catalogBytes('vod', cacheKey, url);
 
       // `get_vod_streams` ne renvoie ni `genre` ni `category_name` (seulement
       // `category_id`). On enrichit le genre depuis les catégories VOD pour que
       // le matchmaking puisse scorer les films par genre.
       final categoryNames = await _vodCategoryNames();
 
-      final raw = response.data;
-      if (raw is! List) {
-        throw StreamNetworkException(
-          'Réponse VOD illisible (type ${raw.runtimeType}).',
-        );
+      // Décodage JSON + construction des ~100 000 modèles dans un isolate :
+      // sur le thread UI cela figeait l'app ~22 s sur la TV.
+      final parsed = await parseMoviesInBackground(
+        MoviesParseInput(bytes, categoryNames),
+      );
+      if (parsed.ignored > 0) {
+        logDiag('VOD entrees ignorees=${parsed.ignored} '
+            '(${parsed.firstError ?? ''})');
       }
-      // On ne trace QUE les elements reellement ignores : c'est un signal de
-      // panel non standard, utile a diagnostiquer, unlike un compteur sur
-      // 100 000 elements qui ne signale rien.
-
-      // Construction directe sans `.map().toList()` : un `map` intermédiaire
-      // materialiserait 100 000 `Map<String, dynamic>` (~500 o chacun) avant la
-      // conversion, soit plusieurs centaines de Mo de pointe sur mobile. On
-      // transforme element par element et on libere la source au fil de l'eau.
-      final out = <Movie>[];
-      var ignores = 0;
-      for (var i = 0; i < raw.length; i++) {
-        final e = raw[i];
-        if (e is! Map) {
-          ignores++;
-          continue;
-        }
-        try {
-          final map = Map<String, dynamic>.from(e);
-          _enrichMovieListMap(map, categoryNames);
-          final movie = Movie.fromMap(map);
-          movie.requireStreamUrl();
-          out.add(movie);
-        } catch (err) {
-          // Une entree malformee ne doit pas faire echouer les 99 568 autres.
-          if (ignores < 5) {
-            logDiag('VOD entree ignoree #$i: ${err.runtimeType} -> $err');
-          }
-          ignores++;
-        }
-      }
-      if (ignores > 0) logDiag('VOD entrees ignorees=$ignores');
-      return out;
+      logDiag(
+          'Catalogue parse decode=${parsed.decodeMs}ms build=${parsed.buildMs}ms n=${parsed.items.length}');
+      unawaited(
+        CatalogDb.instance.syncMovies(
+          cacheKey,
+          CatalogDb.signatureOf(bytes, parsed.items.length),
+          parsed.items,
+        ),
+      );
+      return parsed.items;
     }
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',
@@ -856,30 +874,6 @@ class ApiService {
       fallbackValue: const <String, String>{},
     );
     return result.getOrElse(const <String, String>{});
-  }
-
-  /// Enrichit une entrée de liste VOD : genre manquant ← nom de catégorie,
-  /// et année manquante ← timestamp `added` (en secondes Unix).
-  void _enrichMovieListMap(
-    Map<String, dynamic> map,
-    Map<String, String> categoryNames,
-  ) {
-    final genre = (map['genre']?.toString() ?? '').trim();
-    if (genre.isEmpty) {
-      final catId = map['category_id']?.toString() ?? '';
-      final catName = categoryNames[catId];
-      if (catName != null && catName.trim().isNotEmpty) {
-        map['genre'] = catName.trim();
-      }
-    }
-    final year = map['year'];
-    if ((year == null || year == 0 || '$year' == '0') && map['added'] != null) {
-      final added = map['added'];
-      if (added is num) {
-        map['year'] =
-            DateTime.fromMillisecondsSinceEpoch(added.toInt() * 1000).year;
-      }
-    }
   }
 
   /// Enrichit un film avec les métadonnées détaillées du serveur grâce à
@@ -1014,34 +1008,23 @@ class ApiService {
         'password': password,
         'action': 'get_series',
       });
-      final response = await _get(url);
-      final raw = response.data;
-      if (raw is! List) {
-        throw StreamNetworkException(
-          'Réponse séries illisible (type ${raw.runtimeType}).',
-        );
+      final seriesKey = '$baseUrl|$username';
+      final bytes = await _catalogBytes('series', seriesKey, url);
+      final parsed = await parseSeriesInBackground(bytes);
+      if (parsed.ignored > 0) {
+        logDiag('SERIES entrees ignorees=${parsed.ignored} '
+            '(${parsed.firstError ?? ''})');
       }
-      // Pas de `.map().toList()` : sur 30 000 séries cela materialisait une
-      // liste intermediaire de Maps sans raison. `Series.fromMap` lit deja la
-      // Map directement.
-      final out = <Series>[];
-      var ignores = 0;
-      for (final e in raw) {
-        if (e is! Map) {
-          ignores++;
-          continue;
-        }
-        try {
-          out.add(Series.fromMap(Map<String, dynamic>.from(e)));
-        } catch (err) {
-          if (ignores < 5) {
-            logDiag('SERIES entree ignoree: ${err.runtimeType} -> $err');
-          }
-          ignores++;
-        }
-      }
-      if (ignores > 0) logDiag('SERIES entrees ignorees=$ignores');
-      return out;
+      logDiag(
+          'Catalogue parse decode=${parsed.decodeMs}ms build=${parsed.buildMs}ms n=${parsed.items.length}');
+      unawaited(
+        CatalogDb.instance.syncSeries(
+          seriesKey,
+          CatalogDb.signatureOf(bytes, parsed.items.length),
+          parsed.items,
+        ),
+      );
+      return parsed.items;
     }
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',

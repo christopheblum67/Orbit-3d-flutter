@@ -146,7 +146,8 @@ class WatchedEpisodesNotifier
     }
     final next = Map<String, WatchedEpisodeEntry>.from(state)
       ..removeWhere(
-          (_, e) => e.seriesId == seriesId && e.profileId == profile.id,);
+        (_, e) => e.seriesId == seriesId && e.profileId == profile.id,
+      );
     state = next;
   }
 

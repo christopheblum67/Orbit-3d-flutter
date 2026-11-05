@@ -19,7 +19,9 @@ class FavoritesService {
 
   Future<void> save(FavoriteEntry entry) async {
     await HiveSync.writeAsync(
-        _boxName, (box) => box.put(entry.key, jsonEncode(entry.toJson())),);
+      _boxName,
+      (box) => box.put(entry.key, jsonEncode(entry.toJson())),
+    );
   }
 
   Future<void> remove(String key) async {

@@ -38,6 +38,7 @@ class ChannelBrowseView extends ConsumerWidget {
     required this.onWatch,
     required this.onBack,
     required this.categoryName,
+    this.previewActive = true,
     this.onPreviousCategory,
     this.onNextCategory,
   });
@@ -58,6 +59,9 @@ class ChannelBrowseView extends ConsumerWidget {
 
   /// Nom de la catégorie affichée, entre les deux flèches.
   final String categoryName;
+
+  /// `false` pendant que le lecteur plein écran recouvre cette vue.
+  final bool previewActive;
 
   /// Catégorie précédente, ou `null` s'il n'y en a pas d'autre qui ait du
   /// contenu — la flèche disparaît alors plutôt que d'être inerte.
@@ -124,6 +128,7 @@ class ChannelBrowseView extends ConsumerWidget {
             channels: channels,
             selected: selected,
             onSelect: onSelect,
+            onWatch: onWatch,
           ),
         ),
         const VerticalDivider(width: 1),
@@ -144,6 +149,7 @@ class ChannelBrowseView extends ConsumerWidget {
                       child: LiveChannelVideo(
                         channel: selected,
                         onWatch: onWatch,
+                        active: previewActive,
                       ),
                     ),
                   ),
@@ -186,7 +192,11 @@ class ChannelBrowseView extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
           child: SizedBox(
             height: videoHeight,
-            child: LiveChannelVideo(channel: selected, onWatch: onWatch),
+            child: LiveChannelVideo(
+              channel: selected,
+              onWatch: onWatch,
+              active: previewActive,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -322,11 +332,13 @@ class _ChannelList extends StatelessWidget {
     required this.channels,
     required this.selected,
     required this.onSelect,
+    required this.onWatch,
   });
 
   final List<Channel> channels;
   final Channel selected;
   final ValueChanged<Channel> onSelect;
+  final VoidCallback onWatch;
 
   @override
   Widget build(BuildContext context) {
@@ -338,62 +350,80 @@ class _ChannelList extends StatelessWidget {
       itemBuilder: (context, index) {
         final channel = channels[index];
         final isSelected = channel.id == selected.id;
-        return TvFocus(
-          onActivate: () => onSelect(channel),
-          onFocusChange: (focused) {
-            // Le focus suit le mouvement D-pad : l'aperçu et l'EPG suivent la
-            // chaîne survolée, sans geste de validation pour explorer.
-            if (focused && !isSelected) onSelect(channel);
+        return Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onKeyEvent: (_, event) {
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.arrowRight &&
+                liveWatchFocusNode.canRequestFocus &&
+                liveWatchFocusNode.context != null) {
+              liveWatchFocusNode.requestFocus();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
           },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Material(
-              color: isSelected ? scheme.primaryContainer : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              // Geste tactile : sans lui, la seule façon de changer de chaîne
-              // était la télécommande.
-              child: InkWell(
+          child: TvFocus(
+            key: ValueKey(channel.id),
+            onActivate: () => isSelected ? onWatch() : onSelect(channel),
+            onFocusChange: (focused) {
+              // Le focus suit le mouvement D-pad : l'aperçu et l'EPG suivent la
+              // chaîne survolée, sans geste de validation pour explorer.
+              if (focused && !isSelected) onSelect(channel);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Material(
+                color:
+                    isSelected ? scheme.primaryContainer : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => onSelect(channel),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 52,
-                        height: 32,
-                        child: CachedImage(
-                          // 52x32 logiques : borné à ~112 px physiques, donc
-                          // pas de décodage d'un logo de 1024 px en mémoire
-                          // (une image `original` 2000×3000 = ~24 Mo).
-                          // Passe aussi par le cache disque partagé
-                          // (5000 objets, TTL 30 j) au lieu de le contourner.
-                          imageUrl: channel.logoUrl,
+                // Geste tactile : sans lui, la seule façon de changer de chaîne
+                // était la télécommande.
+                child: InkWell(
+                  canRequestFocus: false,
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => isSelected ? onWatch() : onSelect(channel),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(
                           width: 52,
                           height: 32,
-                          memCacheWidth: 112,
-                          fit: BoxFit.contain,
-                          errorWidget: (_, __, ___) => Icon(
-                            Icons.tv_rounded,
-                            size: 20,
-                            color: scheme.onSurfaceVariant,
+                          child: CachedImage(
+                            // 52x32 logiques : borné à ~112 px physiques, donc
+                            // pas de décodage d'un logo de 1024 px en mémoire
+                            // (une image `original` 2000×3000 = ~24 Mo).
+                            // Passe aussi par le cache disque partagé
+                            // (5000 objets, TTL 30 j) au lieu de le contourner.
+                            imageUrl: channel.logoUrl,
+                            width: 52,
+                            height: 32,
+                            memCacheWidth: 112,
+                            fit: BoxFit.contain,
+                            errorWidget: (_, __, ___) => Icon(
+                              Icons.tv_rounded,
+                              size: 20,
+                              color: scheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          channel.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w400,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            channel.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -50,8 +50,7 @@ class EpgRowDiagnostics {
   int get rowsWithData => withRealPrograms + onlyGapBlocks;
 
   @override
-  String toString() =>
-      'lignes=$rows, avec vrais programmes=$withRealPrograms, '
+  String toString() => 'lignes=$rows, avec vrais programmes=$withRealPrograms, '
       'comblées seules=$onlyGapBlocks, vides=$empty';
 }
 

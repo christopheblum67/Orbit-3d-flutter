@@ -513,7 +513,14 @@ final recommendationTitlesProvider = Provider<Set<String>>((ref) {
 /// top-K : la liste ne dépasse jamais `limit + 1` éléments, le tri ne porte que
 /// sur ce tas, et le rejet rapide évite le scorage des éléments déjà trop
 /// mauvais (l'affinité est calculée avant, mais rien n'est stocké).
-List<ScoredReco> _rankByAffinity({
+/// Rend la main à la boucle d'événements toutes les [kYieldEvery] itérations :
+/// le scoring de ~100 000 titres d'un seul bloc gelait le thread UI plus de
+/// 10 s sur la TV (ANR, application tuée).
+const int _kYieldEvery = 1500;
+
+Future<void> _yieldToUi() => Future<void>.delayed(Duration.zero);
+
+Future<List<ScoredReco>> _rankByAffinity({
   required Iterable<Recommendation> recos,
   required List<String> favoriteGenres,
   required Set<String> favoriteIds,
@@ -522,7 +529,7 @@ List<ScoredReco> _rankByAffinity({
   Set<String> sessionFilters = const {},
   Set<String> hiddenCategories = const {},
   required int limit,
-}) {
+}) async {
   int byAffinity(ScoredReco a, ScoredReco b) {
     final c = b.affinity.compareTo(a.affinity);
     if (c != 0) return c;
@@ -530,7 +537,9 @@ List<ScoredReco> _rankByAffinity({
   }
 
   final top = <ScoredReco>[];
+  var visited = 0;
   for (final r in recos) {
+    if (++visited % _kYieldEvery == 0) await _yieldToUi();
     // Catégories masquées par l'utilisateur (préférences) : on ne propose pas
     // de contenu qui ne doit pas être visible, quel que soit son score.
     if (hiddenCategories.isNotEmpty &&
@@ -880,10 +889,10 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     if (!useRealGenre) {
       return Recommendation(kind: RecommendationKind.movie, movie: m);
     }
-    final real =
-        affinityTmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
-                ?.genreNames ??
-            '';
+    final real = affinityTmdb
+            .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+            ?.genreNames ??
+        '';
     return recommendationWithRealGenre(
       Recommendation(kind: RecommendationKind.movie, movie: m),
       real,
@@ -894,17 +903,17 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     if (!useRealGenre) {
       return Recommendation(kind: RecommendationKind.series, series: s);
     }
-    final real =
-        affinityTmdb.peekTvLight(s.title, year: s.year > 0 ? s.year : null)
-                ?.genreNames ??
-            '';
+    final real = affinityTmdb
+            .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+            ?.genreNames ??
+        '';
     return recommendationWithRealGenre(
       Recommendation(kind: RecommendationKind.series, series: s),
       real,
     );
   }
 
-  final scoredMovies = _rankByAffinity(
+  final scoredMovies = await _rankByAffinity(
     // Iterable paresseux : pas de liste de 99 569 `Recommendation` en mémoire.
     recos: movies.map(movieReco),
     favoriteGenres: favoriteGenres,
@@ -916,7 +925,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     limit: kMatchmakingTabLimit,
   );
 
-  final scoredSeries = _rankByAffinity(
+  final scoredSeries = await _rankByAffinity(
     recos: series.map(seriesReco),
     favoriteGenres: favoriteGenres,
     favoriteIds: _favoriteIdsOf(ref, ContentType.series),
@@ -963,13 +972,13 @@ class _GroupScoreContext {
 /// Les films et séries sont séparés pendant le parcours : la liste rendue ne
 /// dépasse jamais `limit` éléments par type, au lieu de deux `.where().toList()`
 /// sur 100 000 éléments.
-({List<GroupReco> movies, List<GroupReco> series}) _computeGroupTab(
+Future<({List<GroupReco> movies, List<GroupReco> series})> _computeGroupTab(
   ProfileGroup group,
   List<Movie> movies,
   List<Series> series,
   _GroupScoreContext ctx, {
   required int limit,
-}) {
+}) async {
   int byCombined(GroupReco a, GroupReco b) {
     final c = b.combined.compareTo(a.combined);
     if (c != 0) return c;
@@ -1018,10 +1027,13 @@ class _GroupScoreContext {
     }
   }
 
+  var visited = 0;
   for (final m in movies) {
+    if (++visited % _kYieldEvery == 0) await _yieldToUi();
     consider(Recommendation(kind: RecommendationKind.movie, movie: m));
   }
   for (final s in series) {
+    if (++visited % _kYieldEvery == 0) await _yieldToUi();
     consider(Recommendation(kind: RecommendationKind.series, series: s));
   }
 
@@ -1106,35 +1118,40 @@ final matchmakingGroupTabProvider = FutureProvider.autoDispose
   // Alignement du vrai genre TMDB (cache partagé, sans réseau) avant le scoring
   // groupe, pour rester cohérent avec l'onglet simple et les grilles.
   final alignGenres = ctx.favoritesPerProfile.any((g) => g.isNotEmpty);
-  final moviesAligned = alignGenres
-      ? [
-          for (final m in movies)
-            movieWithRealGenre(
-              m,
-              affinityTmdb
-                      .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
-                      ?.genreNames ??
-                  '',
-            ),
-        ]
-      : movies;
-  final seriesAligned = alignGenres
-      ? [
-          for (final s in series)
-            seriesWithRealGenre(
-              s,
-              affinityTmdb
-                      .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
-                      ?.genreNames ??
-                  '',
-            ),
-        ]
-      : series;
+  final moviesAligned = <Movie>[];
+  final seriesAligned = <Series>[];
+  if (alignGenres) {
+    var n = 0;
+    for (final m in movies) {
+      if (++n % _kYieldEvery == 0) await _yieldToUi();
+      moviesAligned.add(
+        movieWithRealGenre(
+          m,
+          affinityTmdb
+                  .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+                  ?.genreNames ??
+              '',
+        ),
+      );
+    }
+    for (final s in series) {
+      if (++n % _kYieldEvery == 0) await _yieldToUi();
+      seriesAligned.add(
+        seriesWithRealGenre(
+          s,
+          affinityTmdb
+                  .peekTvLight(s.title, year: s.year > 0 ? s.year : null)
+                  ?.genreNames ??
+              '',
+        ),
+      );
+    }
+  }
 
   return _computeGroupTab(
     key,
-    moviesAligned,
-    seriesAligned,
+    alignGenres ? moviesAligned : movies,
+    alignGenres ? seriesAligned : series,
     ctx,
     limit: kMatchmakingTabLimit,
   );

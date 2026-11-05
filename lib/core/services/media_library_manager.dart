@@ -83,7 +83,9 @@ extension SortModeDirection on SortMode {
         SortMode.recentlyAdded ||
         SortMode.recentlyAddedAsc =>
           SortMode.recentlyAdded,
-        SortMode.durationShort || SortMode.durationLong => SortMode.durationShort,
+        SortMode.durationShort ||
+        SortMode.durationLong =>
+          SortMode.durationShort,
         SortMode.affinity || SortMode.affinityAsc => SortMode.affinity,
         SortMode.resumeFirst => SortMode.resumeFirst,
       };
@@ -246,9 +248,11 @@ class MediaLibraryManager extends ChangeNotifier {
       final keyed = [
         for (final item in inputList) (item, item.title.toLowerCase()),
       ];
-      keyed.sort(mode == SortMode.nameAsc
-          ? (a, b) => a.$2.compareTo(b.$2)
-          : (a, b) => b.$2.compareTo(a.$2),);
+      keyed.sort(
+        mode == SortMode.nameAsc
+            ? (a, b) => a.$2.compareTo(b.$2)
+            : (a, b) => b.$2.compareTo(a.$2),
+      );
       return [for (final e in keyed) e.$1];
     }
 

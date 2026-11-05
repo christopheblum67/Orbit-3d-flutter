@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -355,8 +356,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: _BrowseSearchField(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: DpadSearchField(
                   controller: _searchController,
                   hint: isSeries
                       ? 'Rechercher une série ou un genre…'
@@ -589,12 +590,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           subtitle: year > 0 ? '$year' : genre,
         ),
       );
-      if (wasFavorite) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(l.addedToFavorites(title)),
+            content: Text(
+              wasFavorite
+                  ? '« $title » retiré des favoris'
+                  : l.addedToFavorites(title),
+            ),
             duration: const Duration(milliseconds: 1500),
           ),
         );
@@ -613,6 +617,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
+        focusable: false,
         title: cardTitle,
         posterUrl: poster,
         year: year,
@@ -698,12 +703,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
   }
 
   static List<MediaCategory> _categoriesFromMoviesCompact(
-      List<MovieCompact> movies,) {
+    List<MovieCompact> movies,
+  ) {
     return _categoriesFrom(movies.map((m) => (m.categoryId, m.genre)));
   }
 
   static List<MediaCategory> _categoriesFromSeriesCompact(
-      List<SeriesCompact> seriesList,) {
+    List<SeriesCompact> seriesList,
+  ) {
     return _categoriesFrom(seriesList.map((s) => (s.categoryId, s.genre)));
   }
 
@@ -1063,8 +1070,9 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         'Ajoutez une clé API TMDB dans Réglages '
                         '(ou TMDB_API_KEY dans assets/config/runtime.env).',
                   )
-                  : GridView.builder(
-                      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                : GridView.builder(
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     addAutomaticKeepAlives: false,
                     gridDelegate: mediaCardGridDelegate(
                       context,
@@ -1170,6 +1178,7 @@ class _RankCard extends StatelessWidget {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
+        focusable: false,
         title: entry.title,
         posterUrl: entry.posterUrl,
         year: entry.year,
@@ -1450,41 +1459,3 @@ class _UniversalCategoryRail extends StatelessWidget {
 }
 
 /// Champ de recherche large, avec police lisible pour la TV.
-class _BrowseSearchField extends StatelessWidget {
-  const _BrowseSearchField({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: scheme.onSurfaceVariant,
-          fontSize: 16,
-        ),
-        prefixIcon: const Icon(Icons.search, size: 24),
-        isDense: true,
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    );
-  }
-}

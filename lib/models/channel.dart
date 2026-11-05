@@ -114,7 +114,8 @@ class Channel {
     final catchupMode = map['catchup']?.toString().trim().toLowerCase() ?? '';
     final catchupSource = map['catchup_source']?.toString().trim() ?? '';
     final catchupDays = int.tryParse('${map['catchup_days'] ?? ''}') ?? 0;
-    final archiveDaysField = int.tryParse('${map['tv_archive_duration'] ?? ''}') ?? 0;
+    final archiveDaysField =
+        int.tryParse('${map['tv_archive_duration'] ?? ''}') ?? 0;
     final streamId = firstNonEmpty([map['stream_id'], map['id']]);
     final channelNum = map['num']?.toString() ?? '';
     // Xtream ne renvoie AUCUN champ `epg_channel_id` : la liaison vers le

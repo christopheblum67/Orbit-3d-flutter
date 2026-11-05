@@ -15,6 +15,7 @@ class AppCard extends StatelessWidget {
     this.onLongPress,
     this.color,
     this.borderRadius,
+    this.focusable = true,
   });
 
   final Widget child;
@@ -23,6 +24,11 @@ class AppCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final Color? color;
   final BorderRadius? borderRadius;
+
+  /// Faux quand la carte contient elle-même des boutons : un nœud de focus
+  /// parent dont le rectangle englobe ses enfants les rend inatteignables au
+  /// D-pad (le parcours directionnel ne les voit pas « au-delà » du parent).
+  final bool focusable;
 
   // Couleur de fond par défaut : rouge sombre désaturé. Assez sombre pour ne
   // pas éblouir ni concurrencer les logos, assez rouge pour être perceptible.
@@ -53,6 +59,7 @@ class AppCard extends StatelessWidget {
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
+          canRequestFocus: focusable,
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(padding: padding, child: child),

@@ -47,7 +47,9 @@ class HiveSync {
 
   /// Exécute une opération d'écriture async thread-safe.
   static Future<T> writeAsync<T>(
-      String boxName, Future<T> Function(Box) operation,) async {
+    String boxName,
+    Future<T> Function(Box) operation,
+  ) async {
     await _acquire(boxName);
     try {
       final box = Hive.box<dynamic>(boxName);
@@ -59,7 +61,9 @@ class HiveSync {
 
   /// Exécute une opération thread-safe sur une boîte typée (lecture).
   static Future<T> readBox<V, T>(
-      String boxName, T Function(Box<V>) operation,) async {
+    String boxName,
+    T Function(Box<V>) operation,
+  ) async {
     await _acquire(boxName);
     try {
       final box = Hive.box<V>(boxName);
@@ -71,7 +75,9 @@ class HiveSync {
 
   /// Exécute une opération d'écriture async thread-safe sur une boîte typée.
   static Future<T> writeBoxAsync<V, T>(
-      String boxName, Future<T> Function(Box<V>) operation,) async {
+    String boxName,
+    Future<T> Function(Box<V>) operation,
+  ) async {
     await _acquire(boxName);
     try {
       final box = Hive.box<V>(boxName);

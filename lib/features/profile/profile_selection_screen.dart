@@ -383,6 +383,13 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
   late final Animation<double> _scale;
   bool _focused = false;
 
+  // La carte et ses boutons Modifier/Supprimer sont imbriqués : le parcours
+  // directionnel ne descend pas dans un nœud dont le rectangle englobe déjà
+  // ses enfants. On pilote donc le focus entre eux explicitement.
+  final FocusNode _cardNode = FocusNode(debugLabel: 'Profile card');
+  final FocusNode _editNode = FocusNode(debugLabel: 'Profile edit');
+  final FocusNode _deleteNode = FocusNode(debugLabel: 'Profile delete');
+
   @override
   void initState() {
     super.initState();
@@ -403,12 +410,47 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
   @override
   void dispose() {
     _entrance.dispose();
+    _cardNode.dispose();
+    _editNode.dispose();
+    _deleteNode.dispose();
     super.dispose();
   }
 
   void _activate() {
     HapticFeedback.heavyImpact();
     widget.onSelect();
+  }
+
+  KeyEventResult _handleCardNavigation(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (_cardNode.hasPrimaryFocus) {
+      if (key == LogicalKeyboardKey.arrowRight) {
+        _editNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (_editNode.hasFocus) {
+      if (key == LogicalKeyboardKey.arrowDown) {
+        _deleteNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        _cardNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (_deleteNode.hasFocus) {
+      if (key == LogicalKeyboardKey.arrowUp) {
+        _editNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        _cardNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   String get _profileTypeLabel => switch (widget.profile.profileType) {
@@ -560,12 +602,14 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _CardActionButton(
+                    focusNode: _editNode,
                     icon: Icons.edit_rounded,
                     tooltip: 'Modifier',
                     onPressed: widget.onEdit,
                   ),
                   const SizedBox(height: 8),
                   _CardActionButton(
+                    focusNode: _deleteNode,
                     icon: Icons.delete_outline_rounded,
                     tooltip: 'Supprimer',
                     onPressed: widget.onDelete,
@@ -593,12 +637,15 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
       label: 'Profil ${widget.profile.firstName} ($_profileTypeLabel)'
           '${isActive ? ', actif' : ''}',
       child: Focus(
+        focusNode: _cardNode,
         autofocus: widget.autofocus,
         onFocusChange: (hasFocus) {
           if (hasFocus) HapticFeedback.selectionClick();
           setState(() => _focused = hasFocus);
         },
         onKeyEvent: (node, event) {
+          final nav = _handleCardNavigation(event);
+          if (nav == KeyEventResult.handled) return nav;
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
                   event.logicalKey == LogicalKeyboardKey.enter ||
@@ -839,11 +886,13 @@ class _CardActionButton extends StatefulWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    this.focusNode,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final FocusNode? focusNode;
 
   @override
   State<_CardActionButton> createState() => _CardActionButtonState();
@@ -865,6 +914,7 @@ class _CardActionButtonState extends State<_CardActionButton> {
       label: widget.tooltip,
       onTap: _activate,
       child: Focus(
+        focusNode: widget.focusNode,
         onFocusChange: (hasFocus) {
           if (hasFocus) HapticFeedback.selectionClick();
           setState(() => _focused = hasFocus);

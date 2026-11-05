@@ -86,10 +86,12 @@ class Movie {
     // URL déjà complète (M3U, timeshift) : on ne la reconstruit pas.
     if (_streamId.startsWith('http')) return _streamId;
     return buildStreamUrlGlobal(
-      streamId: _streamId,
-      containerExtension: _containerExtension.isNotEmpty ? _containerExtension : null,
-      type: 'movie',
-    ) ?? '';
+          streamId: _streamId,
+          containerExtension:
+              _containerExtension.isNotEmpty ? _containerExtension : null,
+          type: 'movie',
+        ) ??
+        '';
   }
 
   /// Fiche minimale destinée à la navigation depuis un modèle compact : elle
@@ -173,8 +175,10 @@ class Movie {
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed * 1000,
-              isUtc: true,);
+          return DateTime.fromMillisecondsSinceEpoch(
+            parsed * 1000,
+            isUtc: true,
+          );
         }
       }
       return null;

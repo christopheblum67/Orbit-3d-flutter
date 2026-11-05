@@ -68,6 +68,8 @@ class _PlayerEngineConfigSheetState
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
     _vodSubtitleModeDraft = s.vodSubtitleMode;
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _requestFocus(_closeFocus));
     // Initialize focus nodes for each content type
     for (final type in PlaybackContentType.values) {
       _primaryFocusNodes[type] = FocusNode();
@@ -116,7 +118,8 @@ class _PlayerEngineConfigSheetState
     required List<DropdownMenuItem<PlayerEngine>> items,
   }) {
     return Focus(
-      focusNode: focusNode,
+      canRequestFocus: false,
+      skipTraversal: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -165,7 +168,8 @@ class _PlayerEngineConfigSheetState
     required List<DropdownMenuItem<VodSubtitleMode>> items,
   }) {
     return Focus(
-      focusNode: focusNode,
+      canRequestFocus: false,
+      skipTraversal: true,
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -205,13 +209,6 @@ class _PlayerEngineConfigSheetState
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-
-    // Request initial focus on close button
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _requestFocus(_closeFocus);
-      }
-    });
 
     // Build dropdown items once
     final dropdownItems = [

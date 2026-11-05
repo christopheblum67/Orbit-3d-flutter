@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -14,6 +17,8 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
+import 'package:orbit_3d_flutter/services/catalog_db.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -34,6 +39,154 @@ class _VodScreenState extends ConsumerState<VodScreen> {
   SortMode _selectedSortMode = SortMode.recentlyAdded;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+
+  CatalogPager<Movie>? _pager;
+  final ScrollController _dbScroll = ScrollController();
+  String _dbSignature = '';
+  String _dbCountsSignature = '';
+  Map<String, int> _dbCounts = const {};
+  int _dbTotal = 0;
+  int _dbFavCount = 0;
+  int _dbRecentCount = 0;
+  Timer? _queryDebounce;
+  String _dbQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _dbScroll.addListener(() {
+      final p = _pager;
+      if (p == null || !_dbScroll.hasClients) return;
+      if (_dbScroll.position.extentAfter < 1200) p.loadMore();
+    });
+  }
+
+  @override
+  void dispose() {
+    _queryDebounce?.cancel();
+    _pager?.invalidate();
+    _dbScroll.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Tri SQL équivalent, ou `null` quand le mode exige le chemin mémoire
+  /// (affinité, reprise, durée).
+  static CatalogSort? _dbSortFor(SortMode m) {
+    switch (m) {
+      case SortMode.nameAsc:
+        return CatalogSort.title;
+      case SortMode.nameDesc:
+        return CatalogSort.titleDesc;
+      case SortMode.ratingDesc:
+        return CatalogSort.rating;
+      case SortMode.ratingAsc:
+        return CatalogSort.ratingAsc;
+      case SortMode.yearDesc:
+        return CatalogSort.year;
+      case SortMode.yearAsc:
+        return CatalogSort.yearAsc;
+      case SortMode.recentlyAdded:
+        return CatalogSort.recentlyAdded;
+      case SortMode.recentlyAddedAsc:
+        return CatalogSort.recentlyAddedAsc;
+      default:
+        return null;
+    }
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() => _query = value);
+    _queryDebounce?.cancel();
+    _queryDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _dbQuery = _query);
+    });
+  }
+
+  CatalogFilter _dbFilter(
+    Set<String> hidden,
+    Set<String> favIds,
+    Set<String> recentIds,
+  ) {
+    return CatalogFilter(
+      categoryId: (_selectedCategoryId == 'fav' ||
+              _selectedCategoryId == 'recent')
+          ? ''
+          : _selectedCategoryId,
+      hiddenCategories: hidden,
+      onlyIds: _selectedCategoryId == 'fav'
+          ? favIds
+          : _selectedCategoryId == 'recent'
+              ? recentIds
+              : null,
+      query: _dbQuery,
+    );
+  }
+
+  /// Prépare pager et compteurs pour l'état courant ; ne fait rien si la
+  /// signature (abonnement, filtre, tri, révision) n'a pas changé.
+  void _syncDb(
+    String subKey,
+    CatalogSort sort,
+    CatalogFilter filter,
+    Set<String> hidden,
+    Set<String> favIds,
+    Set<String> recentIds,
+    int revision,
+  ) {
+    final signature = '$subKey|$revision|${sort.name}|${filter.categoryId}|'
+        '${filter.query}|${filter.onlyIds?.length}|${hidden.length}';
+    if (signature != _dbSignature) {
+      _dbSignature = signature;
+      _pager?.invalidate();
+      final pager = CatalogPager<Movie>(
+        fetch: (limit, offset) => CatalogDb.instance.queryMovies(
+          subKey,
+          filter: filter,
+          sort: sort,
+          limit: limit,
+          offset: offset,
+        ),
+        onChange: () {
+          if (mounted) setState(() {});
+        },
+      );
+      _pager = pager;
+      if (_dbScroll.hasClients) _dbScroll.jumpTo(0);
+      Future.microtask(pager.reset);
+    }
+    final countsSignature =
+        '$subKey|$revision|${hidden.length}|${favIds.length}|${recentIds.length}';
+    if (countsSignature != _dbCountsSignature) {
+      _dbCountsSignature = countsSignature;
+      unawaited(() async {
+        final db = CatalogDb.instance;
+        final counts = await db.categoryCounts(
+          CatalogKind.vod,
+          subKey,
+          hiddenCategories: hidden,
+        );
+        final total = counts.values.fold<int>(0, (a, b) => a + b);
+        final fav = await db.count(
+          CatalogKind.vod,
+          subKey,
+          filter: CatalogFilter(hiddenCategories: hidden, onlyIds: favIds),
+        );
+        final recent = await db.count(
+          CatalogKind.vod,
+          subKey,
+          filter: CatalogFilter(hiddenCategories: hidden, onlyIds: recentIds),
+        );
+        if (!mounted || countsSignature != _dbCountsSignature) return;
+        setState(() {
+          _dbCounts = counts;
+          _dbTotal = total;
+          _dbFavCount = fav;
+          _dbRecentCount = recent;
+        });
+      }());
+    }
+  }
 
   /// Pipeline catalogue mémoïsé.
   ///
@@ -143,7 +296,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     Movie m,
     Map<String, TmdbRankEntry> enrichments,
   ) {
-    final peek = tmdb.peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
+    final peek = tmdb
+            .peekMovieLight(m.title, year: m.year > 0 ? m.year : null)
             ?.genreNames ??
         '';
     if (peek.isNotEmpty) return peek;
@@ -200,6 +354,51 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     final hiddenCategories =
         ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
+    final dbSort = _dbSortFor(_selectedSortMode);
+    final dbKey = ref.watch(catalogDbKeyProvider(CatalogKind.vod)).value;
+    if (dbKey != null && dbSort != null) {
+      final vodFavIds = favoriteEntries.values
+          .where((e) => e.type == ContentType.vod)
+          .map((e) => e.id)
+          .toSet();
+      final vodRecentIds = recentEntries.values
+          .where((e) => e.type == ContentType.vod)
+          .map((e) => e.id)
+          .toSet();
+      _syncDb(
+        dbKey,
+        dbSort,
+        _dbFilter(hiddenCategories, vodFavIds, vodRecentIds),
+        hiddenCategories,
+        vodFavIds,
+        vodRecentIds,
+        ref.watch(catalogDbRevisionProvider),
+      );
+      final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+          .where((c) => !hiddenCategories.contains(c.id))
+          .toList(growable: false);
+      final rail = <MediaCategory>[
+        MediaCategory(id: '', name: 'Tous', count: _dbTotal),
+        MediaCategory(id: 'fav', name: 'Favoris', count: _dbFavCount),
+        MediaCategory(id: 'recent', name: 'Récemment', count: _dbRecentCount),
+        ..._withRealCounts(serverCategories, _dbCounts),
+      ];
+      return Scaffold(
+        body: _layout(
+          context,
+          l,
+          rail,
+          List<Movie>.unmodifiable(_pager?.items ?? const <Movie>[]),
+          enrichments,
+          affinity,
+          scrollController: _dbScroll,
+        ),
+      );
+    }
+    _pager?.invalidate();
+    _pager = null;
+    _dbSignature = '';
+    _dbCountsSignature = '';
     return Scaffold(
       body: moviesAsync.when(
         data: (movies) {
@@ -243,99 +442,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           final railCategories = <MediaCategory>[
             MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
             MediaCategory(
-                id: 'fav', name: 'Favoris', count: catalog.favoriteCount,),
+              id: 'fav',
+              name: 'Favoris',
+              count: catalog.favoriteCount,
+            ),
             MediaCategory(
-                id: 'recent', name: 'Récemment', count: catalog.recentCount,),
+              id: 'recent',
+              name: 'Récemment',
+              count: catalog.recentCount,
+            ),
             ...categories,
           ];
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CategoriesRail(
-                categories: railCategories,
-                selectedId: _selectedCategoryId,
-                onSelected: (id) => setState(() => _selectedCategoryId = id),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          IconButton(
-                            tooltip: l.searchMovie,
-                            icon: const Icon(Icons.movie_outlined),
-                            onPressed: () => context.push('/search?type=vod'),
-                          ),
-                          SortToolbarButtons(
-                            mode: _selectedSortMode,
-                            onChanged: (mode) =>
-                                setState(() => _selectedSortMode = mode),
-                          ),
-                          IconButton(
-                            tooltip: 'Trier',
-                            icon: const Icon(Icons.sort),
-                            onPressed: _openSortDialog,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: _SearchField(
-                        controller: _searchController,
-                        hint: 'Rechercher un film ou un genre…',
-                        onChanged: (value) => setState(() => _query = value),
-                      ),
-                    ),
-                    Expanded(
-                      child: visibleMovies.isEmpty
-                          ? EmptyState(
-                              icon: Icons.movie_outlined,
-                              title: _selectedCategoryId == 'fav'
-                                  ? l.noFavoriteMovies
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Aucun film récent'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun résultat'
-                                          : 'Aucun film dans cette catégorie',
-                              message: _selectedCategoryId == 'fav'
-                                  ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Les films regardés s\'afficheront ici.'
-                                      : _selectedCategoryId.isEmpty
-                                          ? 'Aucun film ne correspond à cette recherche.'
-                                          : 'Aucun film ne correspond à cette catégorie.',
-                            )
-                          : GridView.builder(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                              gridDelegate: mediaCardGridDelegate(
-                                context,
-                                childAspectRatio: 0.55,
-                              ),
-                              itemCount: visibleMovies.length,
-                              itemBuilder: (context, index) {
-                                final movie = visibleMovies[index];
-                                return _VodTile(
-                                  movie: movie,
-                                  enrichment: enrichments[movie.id],
-                                  affinity: affinity,
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+          return _layout(context, l, railCategories, visibleMovies, enrichments, affinity);
         },
-        loading: () => const LoadingState(message: 'Chargement…'),
+        loading: () => const LoadingState(
+          message:
+              'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+        ),
         error: (err, _) => ErrorState(
           icon: Icons.movie_outlined,
           title: l.moviesUnavailable,
@@ -343,6 +467,102 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           onRetry: () => ref.invalidate(moviesProvider),
         ),
       ),
+    );
+  }
+
+  Widget _layout(
+    BuildContext context,
+    AppLocalizations l,
+    List<MediaCategory> railCategories,
+    List<Movie> visibleMovies,
+    Map<String, TmdbRankEntry> enrichments,
+    ProfileAffinityScorer? affinity, {
+    ScrollController? scrollController,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CategoriesRail(
+          categories: railCategories,
+          selectedId: _selectedCategoryId,
+          onSelected: (id) => setState(() => _selectedCategoryId = id),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DpadSearchField(
+                        controller: _searchController,
+                        hint: 'Rechercher un film ou un genre…',
+                        onChanged: _onQueryChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: l.searchMovie,
+                      icon: const Icon(Icons.movie_outlined),
+                      onPressed: () => context.push('/search?type=vod'),
+                    ),
+                    SortToolbarButtons(
+                      mode: _selectedSortMode,
+                      onChanged: (mode) =>
+                          setState(() => _selectedSortMode = mode),
+                    ),
+                    IconButton(
+                      tooltip: 'Trier',
+                      icon: const Icon(Icons.sort),
+                      onPressed: _openSortDialog,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: visibleMovies.isEmpty
+                    ? EmptyState(
+                        icon: Icons.movie_outlined,
+                        title: _selectedCategoryId == 'fav'
+                            ? l.noFavoriteMovies
+                            : _selectedCategoryId == 'recent'
+                                ? 'Aucun film récent'
+                                : _selectedCategoryId.isEmpty
+                                    ? 'Aucun résultat'
+                                    : 'Aucun film dans cette catégorie',
+                        message: _selectedCategoryId == 'fav'
+                            ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
+                            : _selectedCategoryId == 'recent'
+                                ? 'Les films regardés s\'afficheront ici.'
+                                : _selectedCategoryId.isEmpty
+                                    ? 'Aucun film ne correspond à cette recherche.'
+                                    : 'Aucun film ne correspond à cette catégorie.',
+                      )
+                    : GridView.builder(
+                        controller: scrollController,
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        gridDelegate: mediaCardGridDelegate(
+                          context,
+                          childAspectRatio: 0.55,
+                        ),
+                        itemCount: visibleMovies.length,
+                        itemBuilder: (context, index) {
+                          final movie = visibleMovies[index];
+                          return _VodTile(
+                            movie: movie,
+                            enrichment: enrichments[movie.id],
+                            affinity: affinity,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -409,12 +629,15 @@ class _VodTile extends ConsumerWidget {
           streamUrl: movie.streamUrl,
         ),
       );
-      if (wasFavorite) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text('« ${movie.title} » ajouté aux favoris'),
+            content: Text(
+              wasFavorite
+                  ? '« ${movie.title} » retiré des favoris'
+                  : '« ${movie.title} » ajouté aux favoris',
+            ),
             duration: const Duration(milliseconds: 1500),
           ),
         );
@@ -451,6 +674,9 @@ class _VodTile extends ConsumerWidget {
             streamUrl: movie.streamUrl,
           ),
         ),
+        focusable: false,
+        showYear: false,
+        titleFontSize: 11,
         onTap: onOpen,
         onLongPress: onLongPress,
         isNew: movie.isNew,
@@ -460,41 +686,3 @@ class _VodTile extends ConsumerWidget {
 }
 
 /// Champ de recherche large, avec police lisible pour la TV.
-class _SearchField extends StatelessWidget {
-  const _SearchField({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: scheme.onSurfaceVariant,
-          fontSize: 16,
-        ),
-        prefixIcon: const Icon(Icons.search, size: 24),
-        isDense: true,
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    );
-  }
-}

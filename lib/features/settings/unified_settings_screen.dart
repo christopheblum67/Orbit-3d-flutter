@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
@@ -432,6 +433,9 @@ class _PlayerSection extends ConsumerWidget {
         SettingsSectionTitle(l.sectionEngines),
         const _PlayerEngineTile(),
         const SizedBox(height: 8),
+        const SettingsSectionTitle('Sous-titres'),
+        const _SubtitleModeTile(),
+        const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionAudioNight),
         SettingsNavTile(
           icon: Icons.nightlight_outlined,
@@ -452,6 +456,53 @@ class _PlayerSection extends ConsumerWidget {
         SettingsSectionTitle(l.sectionMemory),
         const MemorySettingsPanel(),
       ],
+    );
+  }
+}
+
+class _SubtitleModeTile extends ConsumerWidget {
+  const _SubtitleModeTile();
+
+  static const _labels = <VodSubtitleMode, String>{
+    VodSubtitleMode.defaultSelection: 'Sous-titrage par défaut',
+    VodSubtitleMode.forcedOnly: 'Sous-titrage forcé',
+    VodSubtitleMode.disabled: 'Sans sous-titrage',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(advancedSettingsProvider).vodSubtitleMode;
+    return SettingsNavTile(
+      icon: Icons.subtitles_outlined,
+      title: 'Sous-titres des films et séries',
+      subtitle: _labels[mode] ?? '',
+      onTap: () async {
+        final picked = await showDialog<VodSubtitleMode>(
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('Sous-titres'),
+            children: [
+              for (final entry in _labels.entries)
+                ListTile(
+                  autofocus: entry.key == mode,
+                  selected: entry.key == mode,
+                  leading: Icon(
+                    entry.key == mode
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text(entry.value),
+                  onTap: () => Navigator.of(ctx).pop(entry.key),
+                ),
+            ],
+          ),
+        );
+        if (picked != null) {
+          await ref
+              .read(advancedSettingsProvider.notifier)
+              .setVodSubtitleMode(picked);
+        }
+      },
     );
   }
 }
@@ -976,18 +1027,22 @@ class _AdvancedEntry extends StatelessWidget {
     return Semantics(
       button: true,
       label: l.advancedHiddenHint,
-      child: InkWell(
+      child: TvFocus(
         onLongPress: () => _open(context),
-        onTap: () {},
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Center(
-            child: Text(
-              '· · ·',
-              style: TextStyle(
-                color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
-                letterSpacing: 4,
+        child: InkWell(
+          canRequestFocus: false,
+          onLongPress: () => _open(context),
+          onTap: () {},
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Center(
+              child: Text(
+                '· · ·',
+                style: TextStyle(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.35),
+                  letterSpacing: 4,
+                ),
               ),
             ),
           ),

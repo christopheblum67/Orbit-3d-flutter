@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
@@ -26,15 +25,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double _currentPage = 0.0;
   String? _focusedCarouselRoute;
   bool _autoRefreshing = false;
-  DateTime _now = DateTime.now();
-  Timer? _clockTimer;
-
   @override
   void initState() {
     super.initState();
-    _clockTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
-    });
     _pageController = PageController(
       initialPage: 0,
       viewportFraction: 0.38,
@@ -58,7 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
-    _clockTimer?.cancel();
     _pageController.dispose();
     for (final focusNode in _carouselFocusNodes.values) {
       focusNode.dispose();
@@ -152,6 +144,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           TextButton(
+            autofocus: true,
+            style: ButtonStyle(
+              side: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.focused)
+                    ? const BorderSide(color: Colors.white, width: 3)
+                    : null,
+              ),
+            ),
             onPressed: () => Navigator.of(context).pop(true),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -192,24 +192,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              _buildTopBar(context),
               Expanded(child: _buildOrbitCarousel(items)),
               _buildBottomBar(context),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(BuildContext context) {
-    final dateLabel = DateFormat('EEE d MMM', 'fr_FR').format(_now);
-    final timeLabel = DateFormat('HH:mm', 'fr_FR').format(_now);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: _ClockBlock(date: _capitalize(dateLabel), time: timeLabel),
       ),
     );
   }
@@ -493,11 +480,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
-  }
-
-  String _capitalize(String s) {
-    if (s.isEmpty) return s;
-    return s[0].toUpperCase() + s.substring(1);
   }
 }
 
@@ -871,49 +853,6 @@ class _UpdateButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Horloge affichée en haut à droite de l'accueil.
-class _ClockBlock extends StatelessWidget {
-  const _ClockBlock({required this.date, required this.time});
-
-  final String date;
-  final String time;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.schedule_rounded, size: 18, color: Color(0xFF00CFE8)),
-        const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              time,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                height: 1.0,
-              ),
-            ),
-            Text(
-              date,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

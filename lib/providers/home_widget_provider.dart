@@ -24,18 +24,22 @@ class HomeWidgetSync {
     _ref.listen<Map<String, FavoriteEntry>>(favoritesProvider, (_, favorites) {
       final profile = _ref.read(currentProfileProvider);
       // ignore: avoid_slow_async_io
-      unawaited(HomeWidgetService.instance.updateWidgetData(
-        profileName: profile?.firstName,
-        favoritesCount: favorites.length,
-      ),);
+      unawaited(
+        HomeWidgetService.instance.updateWidgetData(
+          profileName: profile?.firstName,
+          favoritesCount: favorites.length,
+        ),
+      );
     });
     _ref.listen(currentProfileProvider, (_, profile) {
       final favorites = _ref.read(favoritesProvider);
       // ignore: avoid_slow_async_io
-      unawaited(HomeWidgetService.instance.updateWidgetData(
-        profileName: profile?.firstName,
-        favoritesCount: favorites.length,
-      ),);
+      unawaited(
+        HomeWidgetService.instance.updateWidgetData(
+          profileName: profile?.firstName,
+          favoritesCount: favorites.length,
+        ),
+      );
     });
   }
 

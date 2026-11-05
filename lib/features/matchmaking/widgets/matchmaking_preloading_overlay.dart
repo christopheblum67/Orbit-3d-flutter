@@ -158,8 +158,7 @@ class MatchmakingPreloadingOverlay extends ConsumerWidget {
 
 /// Définition des clés de localisation utilisées par l'overlay.
 extension MatchmakingPreloadLocalization on AppLocalizations {
-  String get matchmakingInitialising =>
-      'Initialisation du matchmaking…';
+  String get matchmakingInitialising => 'Initialisation du matchmaking…';
   String get matchmakingLoading => 'Chargement des recommandations…';
   String get matchmakingReady => 'Prêt';
   String get matchmakingError => 'Erreur de chargement';

@@ -94,10 +94,12 @@ class MovieDetail {
     // URL déjà complète (M3U, timeshift) : on ne la reconstruit pas.
     if (_streamId.startsWith('http')) return _streamId;
     return buildStreamUrlGlobal(
-      streamId: _streamId,
-      containerExtension: _containerExtension.isNotEmpty ? _containerExtension : null,
-      type: 'movie',
-    ) ?? '';
+          streamId: _streamId,
+          containerExtension:
+              _containerExtension.isNotEmpty ? _containerExtension : null,
+          type: 'movie',
+        ) ??
+        '';
   }
 
   /// Crée un MovieDetail à partir d'un Movie (données Xtream de base)

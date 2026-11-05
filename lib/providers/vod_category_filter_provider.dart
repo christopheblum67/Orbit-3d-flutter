@@ -87,9 +87,10 @@ class VodCategoryFilter {
 
   List<MediaCategory> visibleSeriesCategories(
     Iterable<MediaCategory> source,
-  ) => source
-      .where((c) => !hiddenSeriesCategoryIds.contains(c.id))
-      .toList(growable: false);
+  ) =>
+      source
+          .where((c) => !hiddenSeriesCategoryIds.contains(c.id))
+          .toList(growable: false);
 
   VodCategoryFilter copyWith({
     String? subscriptionId,
@@ -102,7 +103,8 @@ class VodCategoryFilter {
     return VodCategoryFilter(
       subscriptionId: subscriptionId ?? this.subscriptionId,
       knownVodCategories: knownVodCategories ?? this.knownVodCategories,
-      knownSeriesCategories: knownSeriesCategories ?? this.knownSeriesCategories,
+      knownSeriesCategories:
+          knownSeriesCategories ?? this.knownSeriesCategories,
       hiddenVodCategoryIds: hiddenVodCategoryIds ?? this.hiddenVodCategoryIds,
       hiddenSeriesCategoryIds:
           hiddenSeriesCategoryIds ?? this.hiddenSeriesCategoryIds,
@@ -283,8 +285,8 @@ class VodCategoryFilterNotifier extends Notifier<VodCategoryFilter> {
 
 final vodCategoryFilterProvider =
     NotifierProvider<VodCategoryFilterNotifier, VodCategoryFilter>(
-      VodCategoryFilterNotifier.new,
-    );
+  VodCategoryFilterNotifier.new,
+);
 
 /// Scan automatique au premier lancement de chaque abonnement.
 ///
@@ -316,7 +318,8 @@ final initialCategoryScanProvider = FutureProvider<bool>((ref) async {
 ///
 /// Ce provider est donc keyé sur l'identifiant de l'abonnement actif et
 /// rescanne à chaque changement, indépendamment du drapeau `hasScanned`.
-final categoryScanOnSubscriptionChangeProvider = FutureProvider<bool>((ref) async {
+final categoryScanOnSubscriptionChangeProvider =
+    FutureProvider<bool>((ref) async {
   final filter = ref.watch(vodCategoryFilterProvider);
   final subId = filter.subscriptionId;
   if (subId.isEmpty) return false;

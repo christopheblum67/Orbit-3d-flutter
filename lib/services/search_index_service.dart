@@ -104,8 +104,12 @@ class SearchIndexService {
       if (hits.length >= limit) break;
       final entry = _byKey[e.key];
       if (entry == null) continue;
-      hits.add(SearchIndexHit(
-          entry: entry, rank: _clamp01(e.value / (tokens.length * 2)),),);
+      hits.add(
+        SearchIndexHit(
+          entry: entry,
+          rank: _clamp01(e.value / (tokens.length * 2)),
+        ),
+      );
     }
     return hits;
   }

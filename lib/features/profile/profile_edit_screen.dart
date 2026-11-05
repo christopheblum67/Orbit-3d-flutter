@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -251,6 +252,10 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   bool get _isEdit => widget.profileId != null;
 
+  bool _nameEditing = false;
+
+  bool get _dpadMode => ref.read(tvModeNotifierProvider).enabled;
+
   @override
   void initState() {
     super.initState();
@@ -258,16 +263,34 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       debugLabel: 'profile.name',
       onKeyEvent: (node, event) {
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
-            event.logicalKey == LogicalKeyboardKey.enter ||
-            event.logicalKey == LogicalKeyboardKey.select ||
-            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+        final key = event.logicalKey;
+        final isSelect = key == LogicalKeyboardKey.enter ||
+            key == LogicalKeyboardKey.select ||
+            key == LogicalKeyboardKey.gameButtonA;
+        // Au D-pad, le champ reste en lecture seule tant que l'utilisateur n'a
+        // pas validé dessus : sinon le clavier à l'écran s'ouvre dès l'arrivée
+        // du focus et capte les flèches, ce qui bloque l'accès aux avatars.
+        if (_dpadMode && !_nameEditing && isSelect) {
+          setState(() => _nameEditing = true);
+          return KeyEventResult.handled;
+        }
+        if (key == LogicalKeyboardKey.arrowUp && (_dpadMode || !_nameEditing)) {
+          if (node.focusInDirection(TraversalDirection.up)) {
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        }
+        if (key == LogicalKeyboardKey.arrowDown || isSelect) {
           _nextButtonFocus.requestFocus();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
       },
-    );
+    )..addListener(() {
+        if (!_nameFocus.hasFocus && _nameEditing && mounted) {
+          setState(() => _nameEditing = false);
+        }
+      });
     _nextButtonFocus = FocusNode(
       debugLabel: 'profile.next',
       onKeyEvent: (node, event) {
@@ -680,35 +703,46 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   Widget _buildIdentityCard() {
     final l = AppLocalizations.of(context);
+    final wideLayout = MediaQuery.sizeOf(context).width >= 900;
     return AppCard(
       key: _identityCardKey,
       color: Colors.transparent,
       child: Column(
         children: [
-          TextFormField(
-            controller: _nameController,
-            focusNode: _nameFocus,
-            maxLength: AppConstants.maxNameLength,
-            autofocus: !_isEdit,
-            textCapitalization: TextCapitalization.words,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(
-                RegExp("[a-zA-Z\\u00C0-\\u017F' -]"),
+          ListenableBuilder(
+            listenable: ref.read(tvModeNotifierProvider),
+            builder: (context, _) => TextFormField(
+              controller: _nameController,
+              focusNode: _nameFocus,
+              maxLength: AppConstants.maxNameLength,
+              autofocus: !_isEdit && !wideLayout,
+              readOnly: _dpadMode && !_nameEditing,
+              onTap: () {
+                if (!_nameEditing) setState(() => _nameEditing = true);
+              },
+              textCapitalization: TextCapitalization.words,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp("[a-zA-Z\\u00C0-\\u017F' -]"),
+                ),
+                LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
+              ],
+              decoration: InputDecoration(
+                labelText: l.nameOrNickname,
+                prefixIcon: const Icon(Icons.badge_outlined),
+                border: const OutlineInputBorder(),
+                errorText: _submitted && _nameController.text.trim().isEmpty
+                    ? 'Obligatoire'
+                    : null,
               ),
-              LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
-            ],
-            decoration: InputDecoration(
-              labelText: l.nameOrNickname,
-              prefixIcon: const Icon(Icons.badge_outlined),
-              border: const OutlineInputBorder(),
-              errorText: _submitted && _nameController.text.trim().isEmpty
-                  ? 'Obligatoire'
-                  : null,
+              onChanged: (_) {
+                if (_submitted) setState(() {});
+              },
+              onEditingComplete: () {
+                setState(() => _nameEditing = false);
+                _scrollToNextSection();
+              },
             ),
-            onChanged: (_) {
-              if (_submitted) setState(() {});
-            },
-            onEditingComplete: _scrollToNextSection,
           ),
           const SizedBox(height: 12),
           Align(

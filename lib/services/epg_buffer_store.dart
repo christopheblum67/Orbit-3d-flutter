@@ -224,7 +224,9 @@ class EpgBufferStore {
       () async {
         final dir = await _dir();
         for (final file in dir.listSync()) {
-          if (file is File && file.path.contains('epg_') && file.path.endsWith('.json')) {
+          if (file is File &&
+              file.path.contains('epg_') &&
+              file.path.endsWith('.json')) {
             file.deleteSync();
           }
         }

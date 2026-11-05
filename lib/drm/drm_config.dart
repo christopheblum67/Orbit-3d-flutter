@@ -1,4 +1,3 @@
-
 /// Configuration d'une clé DRM (Widevine/PlayReady).
 class DrmKeyConfig {
   final String keyId; // base64

@@ -327,7 +327,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
             EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.8,),
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -506,8 +507,10 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                             : '${track.language.toUpperCase()} · ${track.cues!.length} cues',
                       ),
                       trailing: isActive
-                          ? Icon(Icons.check,
-                              color: Theme.of(context).colorScheme.primary,)
+                          ? Icon(
+                              Icons.check,
+                              color: Theme.of(context).colorScheme.primary,
+                            )
                           : null,
                       onTap: () => _selectTrack(track),
                       tileColor: tileColor,
@@ -581,22 +584,37 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                         value: _selectedLanguage,
                         items: [
                           DropdownMenuItem(
-                              value: 'fr', child: Text(l.langFrench),),
+                            value: 'fr',
+                            child: Text(l.langFrench),
+                          ),
                           const DropdownMenuItem(
-                              value: 'en', child: Text('English'),),
+                            value: 'en',
+                            child: Text('English'),
+                          ),
                           DropdownMenuItem(
-                              value: 'es', child: Text(l.langSpanish),),
+                            value: 'es',
+                            child: Text(l.langSpanish),
+                          ),
                           const DropdownMenuItem(
-                              value: 'de', child: Text('Deutsch'),),
+                            value: 'de',
+                            child: Text('Deutsch'),
+                          ),
                           const DropdownMenuItem(
-                              value: 'it', child: Text('Italiano'),),
+                            value: 'it',
+                            child: Text('Italiano'),
+                          ),
                           DropdownMenuItem(
-                              value: 'pt', child: Text(l.langPortuguese),),
+                            value: 'pt',
+                            child: Text(l.langPortuguese),
+                          ),
                           DropdownMenuItem(
-                              value: 'ar', child: Text(l.langArabic),),
+                            value: 'ar',
+                            child: Text(l.langArabic),
+                          ),
                           DropdownMenuItem(
-                              value: 'und',
-                              child: Text(l.languageUndetermined),),
+                            value: 'und',
+                            child: Text(l.languageUndetermined),
+                          ),
                         ],
                         onChanged: (v) =>
                             setState(() => _selectedLanguage = v ?? 'fr'),

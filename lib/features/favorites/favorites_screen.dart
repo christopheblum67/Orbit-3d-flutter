@@ -18,7 +18,6 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-
 Future<void> confirmClearAllFavorites(
   BuildContext context,
   WidgetRef ref,
@@ -128,7 +127,8 @@ class FavoritesLiveSection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
@@ -260,7 +260,8 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
         context,
@@ -272,6 +273,7 @@ class FavoritesVodSection extends ConsumerWidget {
         return TvFocus(
           onActivate: () => _open(context, item),
           child: MediaCard(
+            focusable: false,
             title: item.title,
             posterUrl: item.posterUrl,
             year: item.year,
@@ -284,7 +286,8 @@ class FavoritesVodSection extends ConsumerWidget {
                 : FavoriteToggle.overlay(entry: item.entry!),
             onTap: () => _open(context, item),
             isNew: item.isNew,
-            topBadge: item.isDownloaded ? _downloadedBadge(context) : null,          ),
+            topBadge: item.isDownloaded ? _downloadedBadge(context) : null,
+          ),
         );
       },
     );
@@ -365,8 +368,7 @@ class _VodFavoriteItem {
 
   bool get isDownloaded => task != null;
 
-  String get title =>
-      movie?.title ?? (task?.title ?? entry?.title ?? '');
+  String get title => movie?.title ?? (task?.title ?? entry?.title ?? '');
 
   String get posterUrl {
     final fromMovie = movie?.posterUrl;
@@ -411,7 +413,8 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
         context,
@@ -424,6 +427,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
         return TvFocus(
           onActivate: () => _openSeries(context, entry, series),
           child: MediaCard(
+            focusable: false,
             title: series?.title ?? entry.title,
             posterUrl: series?.coverUrl ?? entry.posterUrl,
             year: series?.year ?? 0,
@@ -488,7 +492,8 @@ class FavoritesReplaySection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500), addAutomaticKeepAlives: false,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {
         final entry = entries[index];

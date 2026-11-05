@@ -181,11 +181,11 @@ class StallDetector extends ChangeNotifier {
     _elapsed = Duration.zero;
     _lastProgressElapsed = Duration.zero;
     _stallStartedElapsed = Duration.zero;
-      _stallChecks = 0;
-      _bufferingChecks = 0;
-      _isStalling = false;
-      _stallKind = StallKind.none;
-      _isRunning = true;
+    _stallChecks = 0;
+    _bufferingChecks = 0;
+    _isStalling = false;
+    _stallKind = StallKind.none;
+    _isRunning = true;
 
     _timer = Timer.periodic(checkInterval, _check);
     final v = controller.value;
@@ -205,11 +205,11 @@ class StallDetector extends ChangeNotifier {
     _isRunning = false;
     // Journalisé AVANT la remise à zéro : sans cela, le log affichait
     // toujours `stalling=false`.
-      LoggerService.instance
-          .debug('StallDetector: stop (stalling=$_isStalling)', tag: 'stall');
-      _isStalling = false;
-      _stallKind = StallKind.none;
-    }
+    LoggerService.instance
+        .debug('StallDetector: stop (stalling=$_isStalling)', tag: 'stall');
+    _isStalling = false;
+    _stallKind = StallKind.none;
+  }
 
   void _check(Timer timer) {
     final controller = _controller;
@@ -275,8 +275,8 @@ class StallDetector extends ChangeNotifier {
         LoggerService.instance.info(
           'StallDetector: stall récupéré, pos=$currentPosition '
           'après ${(_elapsed - _stallStartedElapsed).inSeconds}s',
-            tag: 'stall',
-          );
+          tag: 'stall',
+        );
         _isStalling = false;
         _stallKind = StallKind.none;
         notifyListeners();

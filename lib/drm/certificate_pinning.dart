@@ -26,7 +26,8 @@ class CertificatePinning {
     }
 
     _logger.error(
-        'Certificate pinning FAILED for $host. Expected: $expectedPins, got: $fingerprint',);
+      'Certificate pinning FAILED for $host. Expected: $expectedPins, got: $fingerprint',
+    );
     return false;
   }
 

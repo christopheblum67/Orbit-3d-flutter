@@ -441,7 +441,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// sans comparer des listes entières : suffixée par le zoom et l'origine
   /// temporelle car ils affectent le rendu.
   int _computeSignature() {
-    var hash = _gridStartTime.minute * 100003;
+    var hash = _gridStartTime.millisecondsSinceEpoch & 0x7fffffff;
     hash = (hash * 31 + (_pixelsPerMinute * 1000).round()) & 0x7fffffff;
     hash = (hash * 31 + widget.channels.length) & 0x7fffffff;
     for (final ch in widget.channels) {
@@ -580,10 +580,12 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// Appui court (peu de déplacement, < 400 ms) sur la grille : ouvre le
   /// programme sous le doigt. Un appui hors programme sélectionne la chaîne
   /// de la ligne (comme un appui sur la colonne des noms).
-  void _consumeGridTap(Offset pos) {
-    final down = _tapDownPos;
-    final downTime = _tapDownTime;
-    if (down == null || downTime == null) return;
+  void _consumeGridTap(
+    Offset pos,
+    Offset down,
+    DateTime? downTime,
+  ) {
+    if (downTime == null) return;
     if ((pos - down).distance > 12) return; // c'est un scroll, pas un tap
     if (DateTime.now().difference(downTime).inMilliseconds >= 400) return;
 
@@ -634,7 +636,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   _RenderProgram? _programAt(double dx, String channelName) {
     final absolute = dx + _horizontalOffset.value;
     for (final rp in _renderCache[channelName] ?? const <_RenderProgram>[]) {
-      if (absolute >= rp.left && absolute <= rp.left + rp.width) return rp;
+      if (absolute >= rp.left && absolute < rp.left + rp.width) return rp;
     }
     return null;
   }
@@ -908,16 +910,23 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                 // sélection ne doit partir, et surtout le `!`
                                 // planterait la zone.
                                 final down = _tapDownPos;
+                                final downTime = _tapDownTime;
                                 _tapDownPos = null;
+                                _tapDownTime = null;
                                 if (down == null) return;
                                 final moved = (_pointerX - down.dx).abs() > 8;
                                 if (!moved) {
-                                  _consumeGridTap(event.localPosition);
+                                  _consumeGridTap(
+                                    event.localPosition,
+                                    down,
+                                    downTime,
+                                  );
                                 }
                               },
                               onPointerCancel: (_) {
                                 _hoverPosition.value = null;
                                 _tapDownPos = null;
+                                _tapDownTime = null;
                               },
                               child: ClipRect(
                                 child: ListView.builder(
@@ -1379,7 +1388,9 @@ class _EpgGridPainter extends CustomPainter {
         // `width > 26` produisait deux défauts opposés — du texte broyé entre
         // 26 et 38 px, et un bloc totalement vide en dessous, ce qui se lisait
         // comme une description disparue au défilement.
-        final textMaxWidth = rp.width - kTitlePaddingH * 2;
+        final blockLeft = rp.left + shift;
+        final textX = (blockLeft < 0 ? 0.0 : blockLeft) + kTitlePaddingH;
+        final textMaxWidth = blockLeft + rp.width - textX - kTitlePaddingH;
         if (textMaxWidth >= kTitleMinReadableWidth) {
           final textPainter = TextPainter(
             text: TextSpan(
@@ -1397,7 +1408,7 @@ class _EpgGridPainter extends CustomPainter {
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(rp.left + kTitlePaddingH, y + (h - textPainter.height) / 2),
+            Offset(textX, y + (h - textPainter.height) / 2),
           );
         }
 
@@ -1429,7 +1440,7 @@ class _EpgGridPainter extends CustomPainter {
           replayPainter.paint(
             canvas,
             Offset(
-              rp.left + rp.width - replayPainter.width - 6,
+              blockLeft + rp.width - replayPainter.width - 6,
               y + h - 14,
             ),
           );

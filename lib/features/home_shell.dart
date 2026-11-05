@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/drawer_menu_button.dart';
+import 'package:orbit_3d_flutter/core/widgets/home_clock.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -20,6 +22,7 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   final GlobalKey<HomeMenuDrawerState> _drawerKey =
       GlobalKey<HomeMenuDrawerState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final FocusNode _menuFocusNode = FocusNode(debugLabel: 'Home menu button');
   late final TvModeNotifier _tvMode;
 
@@ -69,7 +72,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       listenable: tvMode,
       builder: (context, _) {
         final showNavigationRail = isWide && !tvMode.enabled;
-        return Scaffold(
+        // En mode télécommande, seule l'accueil a une app-bar avec « ☰ » : sur
+        // les autres pages, une bande étroite garde le menu atteignable (D-pad
+        // gauche) sans dupliquer les app-bars des sections.
+        final showTvMenuStrip =
+            tvMode.enabled && !showNavigationRail && location != '/home';
+        final scaffold = Scaffold(
+          key: _scaffoldKey,
           drawer: showNavigationRail ? null : HomeMenuDrawer(key: _drawerKey),
           onDrawerChanged: (isOpened) {
             if (isOpened) {
@@ -87,10 +96,24 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                           autofocus: tvMode.enabled,
                         ),
                   title: Text(_titleForPath(context, location)),
+                  actions: const [
+                    Padding(
+                      padding: EdgeInsets.only(right: 16),
+                      child: Center(child: HomeClock()),
+                    ),
+                  ],
                 )
               : null,
           body: Row(
             children: [
+              if (showTvMenuStrip)
+                Container(
+                  width: 56,
+                  color: scheme.surfaceContainerLow,
+                  alignment: Alignment.topCenter,
+                  padding: const EdgeInsets.only(top: 8),
+                  child: const DrawerMenuButton(),
+                ),
               if (showNavigationRail)
                 NavigationRail(
                   selectedIndex: railIndex,
@@ -196,6 +219,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                     ),
                   ),
                 ),
+        );
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.contextMenu): () {
+              final state = _scaffoldKey.currentState;
+              if (state == null || state.widget.drawer == null) return;
+              if (state.isDrawerOpen) {
+                state.closeDrawer();
+              } else {
+                state.openDrawer();
+              }
+            },
+          },
+          child: scaffold,
         );
       },
     );

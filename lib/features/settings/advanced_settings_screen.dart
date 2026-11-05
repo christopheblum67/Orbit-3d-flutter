@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/services/opensubtitles_credentials_store.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_key_store.dart';
 import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart' show tmdbServiceProvider;
 
 /// Code d'accès à l'écran des réglages sensibles.
 ///
@@ -117,7 +118,8 @@ class _AdvancedSettingsScreenState
         ),
         title: Text(l.advancedSettingsTitle),
       ),
-      body: ListView(
+      body: _DpadScope(
+          child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
@@ -148,6 +150,78 @@ class _AdvancedSettingsScreenState
             active: osKey.isNotEmpty,
           ),
         ],
+      )),
+    );
+  }
+}
+
+/// Rend les champs de saisie quittables à la télécommande et rend visible le
+/// bouton ciblé (fond ambre, texte noir, bordure blanche).
+class _DpadScope extends StatelessWidget {
+  const _DpadScope({required this.child});
+
+  final Widget child;
+
+  static const _amber = Color(0xFFFFC107);
+
+  KeyEventResult _onKey(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final focus = FocusManager.instance.primaryFocus;
+    final editable =
+        focus?.context?.findAncestorStateOfType<EditableTextState>();
+    if (focus == null || editable == null) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    final selection = editable.widget.controller.selection;
+    final length = editable.widget.controller.text.length;
+    final direction = switch (key) {
+      LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+      LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+      LogicalKeyboardKey.arrowRight
+          when !selection.isValid ||
+              (selection.isCollapsed && selection.extentOffset >= length) =>
+        TraversalDirection.right,
+      LogicalKeyboardKey.arrowLeft
+          when !selection.isValid ||
+              (selection.isCollapsed && selection.extentOffset <= 0) =>
+        TraversalDirection.left,
+      _ => null,
+    };
+    if (direction == null) return KeyEventResult.ignored;
+    focus.focusInDirection(direction);
+    return KeyEventResult.handled;
+  }
+
+  static ButtonStyle _style(ButtonStyle? base) => ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.focused) ? _amber : null,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.focused) ? Colors.black : null,
+        ),
+        iconColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.focused) ? Colors.black : null,
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.focused)
+              ? const BorderSide(color: Colors.white, width: 3)
+              : null,
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        filledButtonTheme: FilledButtonThemeData(style: _style(null)),
+        outlinedButtonTheme: OutlinedButtonThemeData(style: _style(null)),
+        iconButtonTheme: IconButtonThemeData(style: _style(null)),
+      ),
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: _onKey,
+        child: child,
       ),
     );
   }
@@ -500,10 +574,11 @@ class OpenSubtitlesLoginTile extends ConsumerStatefulWidget {
       _OpenSubtitlesLoginTileState();
 }
 
-class _OpenSubtitlesLoginTileState extends ConsumerState<OpenSubtitlesLoginTile> {
+class _OpenSubtitlesLoginTileState
+    extends ConsumerState<OpenSubtitlesLoginTile> {
   final _username = TextEditingController();
   final _password = TextEditingController();
-  bool _obscurePassword = true;
+  bool _obscurePassword = false;
   bool _checking = false;
   OpenSubtitlesLoginCheck? _result;
 
@@ -539,9 +614,7 @@ class _OpenSubtitlesLoginTileState extends ConsumerState<OpenSubtitlesLoginTile>
       _checking = true;
       _result = null;
     });
-    await ref
-        .read(openSubtitlesCredentialsProvider.notifier)
-        .setCredentials(
+    await ref.read(openSubtitlesCredentialsProvider.notifier).setCredentials(
           OpenSubtitlesCredentials(
             username: _username.text,
             password: _password.text,
@@ -571,7 +644,7 @@ class _OpenSubtitlesLoginTileState extends ConsumerState<OpenSubtitlesLoginTile>
     if (!mounted) return;
     setState(() {
       _result = null;
-      _obscurePassword = true;
+      _obscurePassword = false;
     });
   }
 
@@ -713,7 +786,7 @@ class _ApiKeyField extends StatefulWidget {
 class _ApiKeyFieldState extends State<_ApiKeyField> {
   late final TextEditingController _controller =
       TextEditingController(text: widget.value);
-  bool _obscure = true;
+  bool _obscure = false;
 
   @override
   void didUpdateWidget(covariant _ApiKeyField oldWidget) {
@@ -728,7 +801,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
       _controller.text = widget.value;
       // Une clé qu'on venait de révéler ne doit pas rester en clair parce que
       // l'état a changé par ailleurs.
-      _obscure = true;
+      _obscure = false;
     }
   }
 
@@ -775,7 +848,7 @@ class _ApiKeyFieldState extends State<_ApiKeyField> {
 
 class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
   final _controller = TextEditingController();
-  bool _obscure = true;
+  bool _obscure = false;
 
   @override
   void initState() {
@@ -863,6 +936,21 @@ class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
         .read(tmdbApiKeyOverrideProvider.notifier)
         .setOverride(key.isEmpty ? '' : key);
     if (mounted) setState(() {});
+    if (key.isEmpty) return;
+    final valid = await ref.read(tmdbServiceProvider).validateApiKey(key);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            valid
+                ? 'Clé TMDB valide'
+                : 'Clé TMDB refusée par TMDB (ou réseau indisponible) : '
+                    'vérifiez la clé',
+          ),
+        ),
+      );
   }
 
   void _clear() async {

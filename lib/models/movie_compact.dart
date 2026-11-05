@@ -49,14 +49,16 @@ class MovieCompact {
     return MovieCompact(
       id: json['id']?.toString() ?? json['stream_id']?.toString() ?? '',
       title: json['name']?.toString() ?? '',
-      posterUrl: json['stream_icon']?.toString() ?? json['poster']?.toString() ?? '',
+      posterUrl:
+          json['stream_icon']?.toString() ?? json['poster']?.toString() ?? '',
       year: int.tryParse(json['year']?.toString() ?? '') ?? 0,
       genre: json['genre']?.toString() ?? '',
       rating: double.tryParse(json['rating']?.toString() ?? '') ?? 0.0,
       categoryId: json['category_id']?.toString() ?? '',
       pegi: json['pegi']?.toString() ?? json['age']?.toString(),
       addedDate: json['added'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(int.parse(json['added'].toString()) * 1000)
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.parse(json['added'].toString()) * 1000)
           : null,
     );
   }
@@ -75,7 +77,9 @@ class MovieCompact {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is MovieCompact && runtimeType == other.runtimeType && id == other.id;
+      other is MovieCompact &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -83,4 +87,3 @@ class MovieCompact {
   @override
   String toString() => 'MovieCompact(id: $id, title: $title)';
 }
-

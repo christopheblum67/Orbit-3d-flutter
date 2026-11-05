@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -11,6 +14,8 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
+import 'package:orbit_3d_flutter/services/catalog_db.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -32,10 +37,139 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
+  CatalogPager<Series>? _pager;
+  final ScrollController _dbScroll = ScrollController();
+  String _dbSignature = '';
+  String _dbCountsSignature = '';
+  Map<String, int> _dbCounts = const {};
+  int _dbTotal = 0;
+  int _dbFavCount = 0;
+  int _dbRecentCount = 0;
+  Timer? _queryDebounce;
+  String _dbQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _dbScroll.addListener(() {
+      final p = _pager;
+      if (p == null || !_dbScroll.hasClients) return;
+      if (_dbScroll.position.extentAfter < 1200) p.loadMore();
+    });
+  }
+
   @override
   void dispose() {
+    _queryDebounce?.cancel();
+    _pager?.invalidate();
+    _dbScroll.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  static CatalogSort? _dbSortFor(SortMode m) {
+    switch (m) {
+      case SortMode.nameAsc:
+        return CatalogSort.title;
+      case SortMode.nameDesc:
+        return CatalogSort.titleDesc;
+      case SortMode.ratingDesc:
+        return CatalogSort.rating;
+      case SortMode.ratingAsc:
+        return CatalogSort.ratingAsc;
+      case SortMode.yearDesc:
+        return CatalogSort.year;
+      case SortMode.yearAsc:
+        return CatalogSort.yearAsc;
+      case SortMode.recentlyAdded:
+        return CatalogSort.recentlyAdded;
+      case SortMode.recentlyAddedAsc:
+        return CatalogSort.recentlyAddedAsc;
+      default:
+        return null;
+    }
+  }
+
+  void _onQueryChanged(String value) {
+    setState(() => _query = value);
+    _queryDebounce?.cancel();
+    _queryDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) setState(() => _dbQuery = _query);
+    });
+  }
+
+  void _syncDb(
+    String subKey,
+    CatalogSort sort,
+    Set<String> hidden,
+    Set<String> favIds,
+    Set<String> recentIds,
+    int revision,
+  ) {
+    final special =
+        _selectedCategoryId == 'fav' || _selectedCategoryId == 'recent';
+    final filter = CatalogFilter(
+      categoryId: special ? '' : _selectedCategoryId,
+      hiddenCategories: hidden,
+      onlyIds: _selectedCategoryId == 'fav'
+          ? favIds
+          : _selectedCategoryId == 'recent'
+              ? recentIds
+              : null,
+      query: _dbQuery,
+    );
+    final signature = '$subKey|$revision|${sort.name}|${filter.categoryId}|'
+        '${filter.query}|${filter.onlyIds?.length}|${hidden.length}';
+    if (signature != _dbSignature) {
+      _dbSignature = signature;
+      _pager?.invalidate();
+      final pager = CatalogPager<Series>(
+        fetch: (limit, offset) => CatalogDb.instance.querySeries(
+          subKey,
+          filter: filter,
+          sort: sort,
+          limit: limit,
+          offset: offset,
+        ),
+        onChange: () {
+          if (mounted) setState(() {});
+        },
+      );
+      _pager = pager;
+      if (_dbScroll.hasClients) _dbScroll.jumpTo(0);
+      Future.microtask(pager.reset);
+    }
+    final countsSignature =
+        '$subKey|$revision|${hidden.length}|${favIds.length}|${recentIds.length}';
+    if (countsSignature != _dbCountsSignature) {
+      _dbCountsSignature = countsSignature;
+      unawaited(() async {
+        final db = CatalogDb.instance;
+        final counts = await db.categoryCounts(
+          CatalogKind.series,
+          subKey,
+          hiddenCategories: hidden,
+        );
+        final total = counts.values.fold<int>(0, (a, b) => a + b);
+        final fav = await db.count(
+          CatalogKind.series,
+          subKey,
+          filter: CatalogFilter(hiddenCategories: hidden, onlyIds: favIds),
+        );
+        final recent = await db.count(
+          CatalogKind.series,
+          subKey,
+          filter: CatalogFilter(hiddenCategories: hidden, onlyIds: recentIds),
+        );
+        if (!mounted || countsSignature != _dbCountsSignature) return;
+        setState(() {
+          _dbCounts = counts;
+          _dbTotal = total;
+          _dbFavCount = fav;
+          _dbRecentCount = recent;
+        });
+      }());
+    }
   }
 
   void _openSortDialog() {
@@ -59,6 +193,51 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     // Catégories masquées pour l'abonnement actif (persistées par abonnement).
     final hiddenCategories =
         ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
+    final dbSort = _dbSortFor(_selectedSortMode);
+    final dbKey = ref.watch(catalogDbKeyProvider(CatalogKind.series)).value;
+    if (dbKey != null && dbSort != null) {
+      final favIds = favoriteEntries.values
+          .where((e) => e.type == ContentType.series)
+          .map((e) => e.id)
+          .toSet();
+      final recentIds = recentEntries.values
+          .where((e) => e.type == ContentType.series)
+          .map((e) => e.id)
+          .toSet();
+      _syncDb(
+        dbKey,
+        dbSort,
+        hiddenCategories,
+        favIds,
+        recentIds,
+        ref.watch(catalogDbRevisionProvider),
+      );
+      final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
+          .where((c) => !hiddenCategories.contains(c.id))
+          .toList(growable: false);
+      final rail = <MediaCategory>[
+        MediaCategory(id: '', name: 'Tous', count: _dbTotal),
+        MediaCategory(id: 'fav', name: 'Favoris', count: _dbFavCount),
+        MediaCategory(id: 'recent', name: 'Récemment', count: _dbRecentCount),
+        ...serverCategories
+            .where((c) => c.id.isNotEmpty && (_dbCounts[c.id] ?? 0) > 0)
+            .map((c) => c.copyWith(count: _dbCounts[c.id] ?? 0)),
+      ];
+      return Scaffold(
+        body: _layout(
+          context,
+          l,
+          rail,
+          List<Series>.unmodifiable(_pager?.items ?? const <Series>[]),
+          affinity,
+          scrollController: _dbScroll,
+        ),
+      );
+    }
+    _pager?.invalidate();
+    _pager = null;
+    _dbSignature = '';
+    _dbCountsSignature = '';
     return Scaffold(
       body: seriesAsync.when(
         data: (seriesList) {
@@ -215,149 +394,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   );
             }).toList();
           }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CategoriesRail(
-                categories: railCategories,
-                selectedId: _selectedCategoryId,
-                onSelected: (id) => setState(() => _selectedCategoryId = id),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          IconButton(
-                            tooltip: l.searchSeries,
-                            icon: const Icon(Icons.tv),
-                            onPressed: () =>
-                                context.push('/search?type=series'),
-                          ),
-                          SortToolbarButtons(
-                            mode: _selectedSortMode,
-                            onChanged: (mode) =>
-                                setState(() => _selectedSortMode = mode),
-                          ),
-                          IconButton(
-                            tooltip: 'Trier',
-                            icon: const Icon(Icons.sort),
-                            onPressed: _openSortDialog,
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: _SeriesSearchField(
-                        controller: _searchController,
-                        hint: 'Rechercher une série ou un genre…',
-                        onChanged: (value) => setState(() => _query = value),
-                      ),
-                    ),
-                    Expanded(
-                      child: visibleSeries.isEmpty
-                          ? EmptyState(
-                              icon: Icons.tv,
-                              title: _selectedCategoryId == 'fav'
-                                  ? 'Aucune série favorite'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Aucune série récente'
-                                      : 'Aucun résultat',
-                              message: _selectedCategoryId == 'fav'
-                                  ? 'Appuie sur le cœur d\'une série pour la '
-                                      'retrouver ici.'
-                                  : _selectedCategoryId == 'recent'
-                                      ? 'Les séries regardées s\'afficheront ici.'
-                                      : 'Aucune série ne correspond à cette '
-                                          'recherche.',
-                            )
-                          : CustomScrollView(
-                              slivers: [
-                                SliverToBoxAdapter(
-                                  child: SectionHeader(
-                                    icon: Icons.auto_awesome,
-                                    title: l.series,
-                                    subtitle: '${visibleSeries.length} titres',
-                                  ),
-                                ),
-                                SliverPadding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                                  sliver: SliverGrid(
-                                    gridDelegate: mediaCardGridDelegate(
-                                      context,
-                                      childAspectRatio: 0.62,
-                                    ),
-                                    delegate: SliverChildBuilderDelegate(
-                                      (context, index) {
-                                        final series = visibleSeries[index];
-                                        void onOpen() {
-                                          context.push(
-                                            '/series/detail?id=${Uri.encodeComponent(series.id)}'
-                                            '&title=${Uri.encodeComponent(series.title)}',
-                                          );
-                                        }
-
-                                        void onLongPress() {
-                                          final notifier = ref
-                                              .read(favoritesProvider.notifier);
-                                          final wasFavorite =
-                                              notifier.isFavorite(
-                                            ContentType.series,
-                                            series.id,
-                                          );
-                                          notifier.toggle(
-                                            FavoriteEntry(
-                                              type: ContentType.series,
-                                              id: series.id,
-                                              title: series.title,
-                                              posterUrl: series.coverUrl,
-                                              subtitle: series.year > 0
-                                                  ? '${series.year}'
-                                                  : series.genre,
-                                            ),
-                                          );
-                                          if (wasFavorite) return;
-                                          ScaffoldMessenger.of(context)
-                                            ..hideCurrentSnackBar()
-                                            ..showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  '« ${series.title} » ajouté aux favoris',
-                                                ),
-                                                duration: const Duration(
-                                                  milliseconds: 1500,
-                                                ),
-                                              ),
-                                            );
-                                        }
-
-                                        return _SeriesTile(
-                                          series: series,
-                                          affinity: affinity,
-                                          onOpen: onOpen,
-                                          onLongPress: onLongPress,
-                                        );
-                                      },
-                                      childCount: visibleSeries.length,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+          return _layout(context, l, railCategories, visibleSeries, affinity);
         },
-        loading: () => const LoadingState(message: 'Chargement…'),
+        loading: () => const LoadingState(
+          message:
+              'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+        ),
         error: (err, _) => ErrorState(
           icon: Icons.tv,
           title: l.seriesUnavailable,
@@ -365,6 +407,158 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           onRetry: () => ref.invalidate(seriesProvider),
         ),
       ),
+    );
+  }
+
+  Widget _layout(
+    BuildContext context,
+    AppLocalizations l,
+    List<MediaCategory> railCategories,
+    List<Series> visibleSeries,
+    ProfileAffinityScorer? affinity, {
+    ScrollController? scrollController,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CategoriesRail(
+          categories: railCategories,
+          selectedId: _selectedCategoryId,
+          onSelected: (id) => setState(() => _selectedCategoryId = id),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DpadSearchField(
+                        controller: _searchController,
+                        hint: 'Rechercher une série ou un genre…',
+                        onChanged: _onQueryChanged,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: l.searchSeries,
+                      icon: const Icon(Icons.tv),
+                      onPressed: () =>
+                          context.push('/search?type=series'),
+                    ),
+                    SortToolbarButtons(
+                      mode: _selectedSortMode,
+                      onChanged: (mode) =>
+                          setState(() => _selectedSortMode = mode),
+                    ),
+                    IconButton(
+                      tooltip: 'Trier',
+                      icon: const Icon(Icons.sort),
+                      onPressed: _openSortDialog,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: visibleSeries.isEmpty
+                    ? EmptyState(
+                        icon: Icons.tv,
+                        title: _selectedCategoryId == 'fav'
+                            ? 'Aucune série favorite'
+                            : _selectedCategoryId == 'recent'
+                                ? 'Aucune série récente'
+                                : 'Aucun résultat',
+                        message: _selectedCategoryId == 'fav'
+                            ? 'Appuie sur le cœur d\'une série pour la '
+                                'retrouver ici.'
+                            : _selectedCategoryId == 'recent'
+                                ? 'Les séries regardées s\'afficheront ici.'
+                                : 'Aucune série ne correspond à cette '
+                                    'recherche.',
+                      )
+                    : CustomScrollView(
+                        controller: scrollController,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: SectionHeader(
+                              icon: Icons.auto_awesome,
+                              title: l.series,
+                              subtitle: '${visibleSeries.length} titres',
+                            ),
+                          ),
+                          SliverPadding(
+                            padding:
+                                const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            sliver: SliverGrid(
+                              gridDelegate: mediaCardGridDelegate(
+                                context,
+                                childAspectRatio: 0.62,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final series = visibleSeries[index];
+                                  void onOpen() {
+                                    context.push(
+                                      '/series/detail?id=${Uri.encodeComponent(series.id)}'
+                                      '&title=${Uri.encodeComponent(series.title)}',
+                                    );
+                                  }
+
+                                  void onLongPress() {
+                                    final notifier = ref
+                                        .read(favoritesProvider.notifier);
+                                    final wasFavorite =
+                                        notifier.isFavorite(
+                                      ContentType.series,
+                                      series.id,
+                                    );
+                                    notifier.toggle(
+                                      FavoriteEntry(
+                                        type: ContentType.series,
+                                        id: series.id,
+                                        title: series.title,
+                                        posterUrl: series.coverUrl,
+                                        subtitle: series.year > 0
+                                            ? '${series.year}'
+                                            : series.genre,
+                                      ),
+                                    );
+                                    ScaffoldMessenger.of(context)
+                                      ..hideCurrentSnackBar()
+                                      ..showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            wasFavorite
+                                                ? '« ${series.title} » retiré des favoris'
+                                                : '« ${series.title} » ajouté aux favoris',
+                                          ),
+                                          duration: const Duration(
+                                            milliseconds: 1500,
+                                          ),
+                                        ),
+                                      );
+                                  }
+
+                                  return _SeriesTile(
+                                    series: series,
+                                    affinity: affinity,
+                                    onOpen: onOpen,
+                                    onLongPress: onLongPress,
+                                  );
+                                },
+                                childCount: visibleSeries.length,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -461,6 +655,9 @@ class _SeriesTile extends ConsumerWidget {
             subtitle: series.year > 0 ? '${series.year}' : series.genre,
           ),
         ),
+        focusable: false,
+        showYear: false,
+        titleFontSize: 11,
         onTap: onOpen,
         onLongPress: onLongPress,
         isNew: series.isNew,
@@ -470,41 +667,3 @@ class _SeriesTile extends ConsumerWidget {
 }
 
 /// Champ de recherche large, avec police lisible pour la TV.
-class _SeriesSearchField extends StatelessWidget {
-  const _SeriesSearchField({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(
-          color: scheme.onSurfaceVariant,
-          fontSize: 16,
-        ),
-        prefixIcon: const Icon(Icons.search, size: 24),
-        isDense: true,
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
-    );
-  }
-}

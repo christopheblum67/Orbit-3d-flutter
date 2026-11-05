@@ -29,24 +29,28 @@ class HomeWidgetService {
     String? profileName,
     int? favoritesCount,
   }) async {
-    await safeAsync(() async {
-      await HomeWidget.saveWidgetData<String>(
-        'widget_title',
-        'Orbit IPTV',
-      );
-      final profile =
-          (profileName == null || profileName.isEmpty) ? '—' : profileName;
-      await HomeWidget.saveWidgetData<String>(
-        'widget_profile',
-        'Profil : $profile',
-      );
-      final count = favoritesCount ?? 0;
-      await HomeWidget.saveWidgetData<String>(
-        'widget_favorites',
-        '$count ${count > 1 ? 'favoris' : 'favori'}',
-      );
-      await HomeWidget.updateWidget(qualifiedAndroidName: _qualifiedWidgetName);
-    }, context: 'updateWidgetData',);
+    await safeAsync(
+      () async {
+        await HomeWidget.saveWidgetData<String>(
+          'widget_title',
+          'Orbit IPTV',
+        );
+        final profile =
+            (profileName == null || profileName.isEmpty) ? '—' : profileName;
+        await HomeWidget.saveWidgetData<String>(
+          'widget_profile',
+          'Profil : $profile',
+        );
+        final count = favoritesCount ?? 0;
+        await HomeWidget.saveWidgetData<String>(
+          'widget_favorites',
+          '$count ${count > 1 ? 'favoris' : 'favori'}',
+        );
+        await HomeWidget.updateWidget(
+            qualifiedAndroidName: _qualifiedWidgetName);
+      },
+      context: 'updateWidgetData',
+    );
   }
 
   /// Abonnement aux données de lancement via le widget (tap / action rapide).

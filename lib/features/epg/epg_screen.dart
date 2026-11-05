@@ -507,13 +507,15 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
         final epgId = channel.primaryEpgChannelId.isNotEmpty
             ? channel.primaryEpgChannelId
             : channelName;
-        tasks.add(_loadOne(
-          channelName,
-          channel,
-          epgId,
-          chunkResults,
-          missingIds,
-        ),);
+        tasks.add(
+          _loadOne(
+            channelName,
+            channel,
+            epgId,
+            chunkResults,
+            missingIds,
+          ),
+        );
       }
       await Future.wait(tasks);
       if (mounted) {

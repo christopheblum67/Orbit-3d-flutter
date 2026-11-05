@@ -35,6 +35,35 @@ final tvModeNotifierProvider = Provider<TvModeNotifier>((ref) {
   return notifier;
 });
 
+class _LongPressHolder {
+  VoidCallback? callback;
+  VoidCallback? favoriteToggle;
+}
+
+class _TvLongPressScope extends InheritedWidget {
+  const _TvLongPressScope({required this.holder, required super.child});
+
+  final _LongPressHolder holder;
+
+  @override
+  bool updateShouldNotify(_TvLongPressScope oldWidget) => false;
+}
+
+/// Permet à un descendant (ex. `MediaCard`) de déclarer son action d'appui long
+/// au [TvFocus] ancêtre, afin que la télécommande (OK maintenu) la déclenche
+/// comme le tactile, sans que chaque écran ne la passe deux fois.
+void registerTvLongPress(BuildContext context, VoidCallback? callback) {
+  final scope = context.getInheritedWidgetOfExactType<_TvLongPressScope>();
+  scope?.holder.callback = callback;
+}
+
+/// Comme [registerTvLongPress], mais prioritaire : le cœur favori d'une tuile
+/// déclare sa bascule (ajout/retrait + message) pour l'appui long OK.
+void registerTvFavoriteToggle(BuildContext context, VoidCallback? toggle) {
+  final scope = context.getInheritedWidgetOfExactType<_TvLongPressScope>();
+  scope?.holder.favoriteToggle = toggle;
+}
+
 /// Widget de focus TV amélioré avec :
 /// - Halo lumineux (glow) + scale + bordure colorée au focus
 /// - Navigation D-pad (flèches) + Enter/Select
@@ -118,10 +147,55 @@ class _TvFocusState extends ConsumerState<TvFocus>
     widget.onFocusChange?.call(focused);
   }
 
+  /// Vrai entre l'appui sur une touche de validation et son relâchement.
+  bool _selectHeld = false;
+
+  final _LongPressHolder _longPressHolder = _LongPressHolder();
+
+  /// Vrai si l'appui maintenu a déjà déclenché [TvFocus.onLongPress].
+  bool _longPressFired = false;
+
+  static bool _isSelectKey(LogicalKeyboardKey k) =>
+      k == LogicalKeyboardKey.enter ||
+      k == LogicalKeyboardKey.select ||
+      k == LogicalKeyboardKey.space ||
+      k == LogicalKeyboardKey.gameButtonA;
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    final logicalKey = event.logicalKey;
+
+    // Appui long télécommande : sans ce chemin, `onLongPress` n'était jamais
+    // appelé au D-pad (seul le tactile pouvait le déclencher).
+    final longPress = widget.onLongPress ??
+        _longPressHolder.favoriteToggle ??
+        _longPressHolder.callback;
+    if (_isSelectKey(logicalKey) && longPress != null) {
+      if (event is KeyDownEvent) {
+        _selectHeld = true;
+        _longPressFired = false;
+        return KeyEventResult.handled;
+      }
+      if (event is KeyRepeatEvent && _selectHeld) {
+        if (!_longPressFired) {
+          _longPressFired = true;
+          HapticFeedback.heavyImpact();
+          longPress();
+        }
+        return KeyEventResult.handled;
+      }
+      if (event is KeyUpEvent && _selectHeld) {
+        _selectHeld = false;
+        if (!_longPressFired && widget.onActivate != null) {
+          HapticFeedback.heavyImpact();
+          widget.onActivate?.call();
+        }
+        _longPressFired = false;
+        return KeyEventResult.handled;
+      }
+    }
+
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    final logicalKey = event.logicalKey;
     // Navigation D-pad / flèches : laisser le système gérer
     if (logicalKey == LogicalKeyboardKey.arrowUp ||
         logicalKey == LogicalKeyboardKey.arrowDown ||
@@ -131,16 +205,11 @@ class _TvFocusState extends ConsumerState<TvFocus>
     }
 
     // Enter / Select / Space / Gamepad A = activer
-    if ((logicalKey == LogicalKeyboardKey.enter ||
-            logicalKey == LogicalKeyboardKey.select ||
-            logicalKey == LogicalKeyboardKey.space ||
-            logicalKey == LogicalKeyboardKey.gameButtonA) &&
-        widget.onActivate != null) {
+    if (_isSelectKey(logicalKey) && widget.onActivate != null) {
       HapticFeedback.heavyImpact();
       widget.onActivate?.call();
       return KeyEventResult.handled;
     }
-
     // Escape / Back / Gamepad B = retour
     if (logicalKey == LogicalKeyboardKey.escape ||
         logicalKey == LogicalKeyboardKey.goBack ||
@@ -156,7 +225,9 @@ class _TvFocusState extends ConsumerState<TvFocus>
     final tvMode = _isTvMode && widget.enableTvEffects;
     final scheme = Theme.of(context).colorScheme;
 
-    return Focus(
+    return _TvLongPressScope(
+      holder: _longPressHolder,
+      child: Focus(
       focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onFocusChange: _handleFocusChange,
@@ -196,6 +267,7 @@ class _TvFocusState extends ConsumerState<TvFocus>
             ),
           );
         },
+      ),
       ),
     );
   }

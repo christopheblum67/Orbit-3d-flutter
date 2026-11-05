@@ -52,8 +52,9 @@ class PanelText {
     // liste par ailleurs correcte.
     final remainder = value.length % 4;
     if (remainder == 1) return value; // longueur impossible en base64
-    final padded =
-        remainder == 0 ? value : value.padRight(value.length + (4 - remainder), '=');
+    final padded = remainder == 0
+        ? value
+        : value.padRight(value.length + (4 - remainder), '=');
 
     final match = _alphabet.firstMatch(padded);
     if (match == null) return value;

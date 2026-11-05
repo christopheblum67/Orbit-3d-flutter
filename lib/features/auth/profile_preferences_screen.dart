@@ -221,12 +221,15 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                     child: DropdownButtonFormField<int>(
                       initialValue: ageRestriction,
                       decoration: const InputDecoration(
-                          labelText: 'Restriction d\'âge',),
+                        labelText: 'Restriction d\'âge',
+                      ),
                       items: [
                         const DropdownMenuItem(value: 0, child: Text('Aucune')),
                         for (final age in [7, 10, 12, 16, 18])
                           DropdownMenuItem(
-                              value: age, child: Text(l.plusAgeYears(age)),),
+                            value: age,
+                            child: Text(l.plusAgeYears(age)),
+                          ),
                       ],
                       onChanged: (v) => setState(() => ageRestriction = v ?? 0),
                     ),

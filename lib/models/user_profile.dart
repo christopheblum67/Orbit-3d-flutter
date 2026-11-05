@@ -101,8 +101,8 @@ class UserProfile {
     return UserProfile(
       id: map['id']?.toString() ?? '',
       firstName: map['firstName']?.toString() ?? '',
-      dateOfBirth: DateTime.tryParse('${map['dateOfBirth'] ?? ''}') ??
-          DateTime(1970),
+      dateOfBirth:
+          DateTime.tryParse('${map['dateOfBirth'] ?? ''}') ?? DateTime(1970),
       gender: map['gender']?.toString() ?? '',
       favoriteGenres: stringListOf(map['favoriteGenres']),
       avatarUrl: map['avatarUrl']?.toString() ?? '',

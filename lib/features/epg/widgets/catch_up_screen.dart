@@ -57,9 +57,10 @@ class CatchUpScreen extends ConsumerWidget {
               child: Text(
                 channel.name,
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,),
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -199,7 +200,8 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-              'Replay indisponible : non pris en charge par cet abonnement (M3U).',),
+            'Replay indisponible : non pris en charge par cet abonnement (M3U).',
+          ),
           duration: Duration(seconds: 3),
         ),
       );
@@ -360,9 +362,10 @@ class _ProgramTile extends StatelessWidget {
                 child: Text(
                   program.title,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,),
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -378,9 +381,10 @@ class _ProgramTile extends StatelessWidget {
                   child: Text(
                     program.categoryDisplayName,
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,),
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               if (replayable) ...[
@@ -395,9 +399,10 @@ class _ProgramTile extends StatelessWidget {
                   child: const Text(
                     'REPLAY',
                     style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,),
+                      color: Colors.black,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -409,8 +414,10 @@ class _ProgramTile extends StatelessWidget {
             children: [
               const Icon(Icons.access_time, size: 14, color: Colors.white54),
               const SizedBox(width: 6),
-              Text(timeStr,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),),
+              Text(
+                timeStr,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
             ],
           ),
           // Description
@@ -419,7 +426,10 @@ class _ProgramTile extends StatelessWidget {
             Text(
               program.description,
               style: const TextStyle(
-                  color: Colors.white60, fontSize: 13, height: 1.4,),
+                color: Colors.white60,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
           ],
           // Bouton Replay
@@ -435,7 +445,8 @@ class _ProgramTile extends StatelessWidget {
                   foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 onPressed: onReplayTap,
               ),

@@ -294,7 +294,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
                       ),
                       items: _genderOptions
                           .map(
-                              (g) => DropdownMenuItem(value: g, child: Text(g)),)
+                            (g) => DropdownMenuItem(value: g, child: Text(g)),
+                          )
                           .toList(),
                       onChanged: (v) => setState(() => _gender = v),
                       validator: (v) => v == null ? 'Obligatoire' : null,

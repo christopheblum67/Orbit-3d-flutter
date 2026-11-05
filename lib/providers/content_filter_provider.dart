@@ -61,6 +61,10 @@ class ContentFilter {
   final bool hideAdultContent;
   final bool hideViolentContent;
 
+  /// Aucun masquage actif : le catalogue peut être lu tel quel (base SQLite).
+  bool get isPermissive =>
+      hiddenContentIds.isEmpty && !hideAdultContent && !hideViolentContent;
+
   static const Set<String> _adultKeywords = {
     'adulte',
     'adult',

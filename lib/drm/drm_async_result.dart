@@ -31,7 +31,8 @@ sealed class DrmAsyncResult<T> {
     if (isSuccess) {
       try {
         return DrmAsyncResult.success(
-            transform((this as _DrmSuccess<T>).value),);
+          transform((this as _DrmSuccess<T>).value),
+        );
       } catch (error, stackTrace) {
         return DrmAsyncResult.failure(
           DrmError(
@@ -48,7 +49,8 @@ sealed class DrmAsyncResult<T> {
 
   /// Chaîne une autre opération asynchrone DRM
   Future<DrmAsyncResult<R>> flatMap<R>(
-      Future<DrmAsyncResult<R>> Function(T) next,) {
+    Future<DrmAsyncResult<R>> Function(T) next,
+  ) {
     if (isFailure) return Future.value(this as DrmAsyncResult<R>);
     return next((this as _DrmSuccess<T>).value);
   }

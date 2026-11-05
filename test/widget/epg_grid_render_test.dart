@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
+import 'package:orbit_3d_flutter/features/epg/widgets/epg_scroll_gesture.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -34,7 +35,12 @@ EPGProgram prog(String title, int startHour) {
 
 /// Enveloppe la grille dans une surface contrainte, pour reproduire la mise en
 /// page réelle (le `Expanded` de l'écran).
-Widget harness(List<String> channels, Map<String, List<EPGProgram>> data) {
+Widget harness(
+  List<String> channels,
+  Map<String, List<EPGProgram>> data, {
+  Function(EPGProgram, String)? onProgramTap,
+  DateTime? gridStartTime,
+}) {
   return MaterialApp(
     // Les delegates sont nécessaires : la grille lit ses libellés via
     // `AppLocalizations.of(context)`, qui renvoie null sans eux. Un test sans
@@ -52,7 +58,12 @@ Widget harness(List<String> channels, Map<String, List<EPGProgram>> data) {
         child: SizedBox(
           width: 500,
           height: 700,
-          child: EpgGrid2DView(channels: channels, epgData: data),
+          child: EpgGrid2DView(
+            channels: channels,
+            epgData: data,
+            onProgramTap: onProgramTap,
+            gridStartTime: gridStartTime,
+          ),
         ),
       ),
     ),
@@ -61,6 +72,49 @@ Widget harness(List<String> channels, Map<String, List<EPGProgram>> data) {
 
 void main() {
   group('EpgGrid2DView — les données chargées après coup sont visibles', () {
+    testWidgets('un changement de jour reconstruit les positions des blocs',
+        (tester) async {
+      final today = DateTime.now();
+      final start = DateTime(today.year, today.month, today.day);
+      final program = EPGProgram(
+        channelId: 'c1',
+        title: 'Le journal',
+        description: '',
+        start: start.add(const Duration(hours: 10)),
+        end: start.add(const Duration(hours: 11)),
+      );
+      final data = {
+        'TF1': [program],
+      };
+
+      await tester.pumpWidget(
+        harness(
+          ['TF1'],
+          data,
+          gridStartTime: start,
+        ),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugSetHorizontalOffsetForTest(0);
+      final before = state.debugDataRevision;
+      expect(state.debugProgramTitleAt(2400, 'TF1'), 'Le journal');
+
+      await tester.pumpWidget(
+        harness(
+          ['TF1'],
+          data,
+          gridStartTime: start.add(const Duration(days: 1)),
+        ),
+      );
+      await tester.pump();
+
+      expect(state.debugDataRevision, greaterThan(before));
+      expect(state.debugProgramTitleAt(2400, 'TF1'), isNull);
+    });
+
     testWidgets('une grille montée vide se remplit quand les données arrivent',
         (tester) async {
       // Régression du défaut le plus coûteux de la grille : le programme était
@@ -364,6 +418,34 @@ void main() {
   });
 
   group('EpgGrid2DView — le tap vise le programme affiché', () {
+    testWidgets('un appui ouvre le programme sous le pointeur', (tester) async {
+      final program = prog('Le journal', 0);
+      EPGProgram? selected;
+
+      await tester.pumpWidget(
+        harness(
+          ['TF1'],
+          {
+            'TF1': [program],
+          },
+          onProgramTap: (value, _) => selected = value,
+        ),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugSetHorizontalOffsetForTest(0);
+      await tester.pump();
+
+      final grid = find.byType(HorizontalDragLayer);
+      expect(grid, findsOneWidget);
+      await tester.tapAt(tester.getTopLeft(grid) + const Offset(30, 24));
+      await tester.pump();
+
+      expect(selected?.title, 'Le journal');
+    });
+
     testWidgets('défiler puis toucher ouvre le bon programme', (tester) async {
       // Régression : `localPosition.dx` est relatif au canvas (qui montre la
       // tranche visible de la journée), alors que `rp.left` est absolu depuis

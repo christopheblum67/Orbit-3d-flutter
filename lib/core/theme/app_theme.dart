@@ -156,7 +156,8 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: TextStyle(color: contrastScheme.onSurfaceVariant),
         hintStyle: TextStyle(
-            color: contrastScheme.onSurfaceVariant.withValues(alpha: 0.7),),
+          color: contrastScheme.onSurfaceVariant.withValues(alpha: 0.7),
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           borderSide: BorderSide(color: contrastScheme.outlineVariant),

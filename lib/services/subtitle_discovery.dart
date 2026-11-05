@@ -49,7 +49,10 @@ class SubtitleDiscoveryContext {
     _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'srt'),
     _SubtitleShape(separator: '.', directory: 'subtitles', extension: 'srt'),
     _SubtitleShape(
-        separator: '_', directory: 'timingsubtitles', extension: 'srt',),
+      separator: '_',
+      directory: 'timingsubtitles',
+      extension: 'srt',
+    ),
     _SubtitleShape(separator: '_', directory: 'subtitles', extension: 'vtt'),
   ];
 
@@ -479,11 +482,13 @@ class SubtitleDiscovery {
         // Variante D : une simple chaîne d'URL.
         if (node is String) {
           if (_looksLikeSubtitleUrl(node)) {
-            add(SubtitleTrackRef(
-              url: node,
-              language: _langFromUrl(node),
-              label: _labelFromLanguage(_langFromUrl(node)),
-            ),);
+            add(
+              SubtitleTrackRef(
+                url: node,
+                language: _langFromUrl(node),
+                label: _labelFromLanguage(_langFromUrl(node)),
+              ),
+            );
           }
           continue;
         }
@@ -535,14 +540,20 @@ class SubtitleDiscovery {
             // désigneraient des fichiers qu'il n'a jamais mentionnés.
             final alternates = (context == null || isFullUrl || isPath)
                 ? const <SubtitleTrackRef>[]
-                : alternateRefsFor(context, raw, _normaliseLang(lang),
-                    label: _labelFromLanguage(lang),);
-            add(SubtitleTrackRef(
-              url: url,
-              language: _normaliseLang(lang),
-              label: _labelFromLanguage(lang),
-              alternates: alternates,
-            ),);
+                : alternateRefsFor(
+                    context,
+                    raw,
+                    _normaliseLang(lang),
+                    label: _labelFromLanguage(lang),
+                  );
+            add(
+              SubtitleTrackRef(
+                url: url,
+                language: _normaliseLang(lang),
+                label: _labelFromLanguage(lang),
+                alternates: alternates,
+              ),
+            );
             continue;
           }
 
@@ -553,11 +564,13 @@ class SubtitleDiscovery {
               final lang = entry[0].toString().trim();
               final label = entry[1].toString().trim();
               if (_looksLikeSubtitleUrl(url)) {
-                add(SubtitleTrackRef(
-                  url: url,
-                  language: lang.isEmpty ? _langFromUrl(url) : lang,
-                  label: label.isEmpty ? _labelFromLanguage(lang) : label,
-                ),);
+                add(
+                  SubtitleTrackRef(
+                    url: url,
+                    language: lang.isEmpty ? _langFromUrl(url) : lang,
+                    label: label.isEmpty ? _labelFromLanguage(lang) : label,
+                  ),
+                );
               }
             }
             continue;
@@ -641,18 +654,18 @@ class SubtitleDiscovery {
   }
 
   /// L'entrée est-elle un CODE LANGUE, plutôt qu'un chemin de fichier ?
-///
-/// Sépare `fr` / `fre` / `French` — que l'on transforme en URL par
-/// convention — de `54321_fr.srt` ou `/media/sub/x.vtt`, que le panel a
-/// désignés et qu'il faut résoudre sur sa racine.
-///
-/// Le critère est lâche sur le fond (un nom de langue complet reste accepté)
-/// et strict sur la forme : un point ou une barre oblique suffit à qualifier
-/// l'entrée de chemin, car aucun code de langue n'en contient.
-static bool _looksLikeLanguageCode(String raw) {
-  if (raw.isEmpty) return false;
-  return !raw.contains('/') && !raw.contains('.');
-}
+  ///
+  /// Sépare `fr` / `fre` / `French` — que l'on transforme en URL par
+  /// convention — de `54321_fr.srt` ou `/media/sub/x.vtt`, que le panel a
+  /// désignés et qu'il faut résoudre sur sa racine.
+  ///
+  /// Le critère est lâche sur le fond (un nom de langue complet reste accepté)
+  /// et strict sur la forme : un point ou une barre oblique suffit à qualifier
+  /// l'entrée de chemin, car aucun code de langue n'en contient.
+  static bool _looksLikeLanguageCode(String raw) {
+    if (raw.isEmpty) return false;
+    return !raw.contains('/') && !raw.contains('.');
+  }
 
   /// Devine la langue depuis l'URL (`.../fre.srt` -> `fre`).
   ///

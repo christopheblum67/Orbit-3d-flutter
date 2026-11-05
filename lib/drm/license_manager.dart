@@ -265,14 +265,16 @@ class LicenseManager {
       case DioExceptionType.badCertificate:
         return DrmAsyncResult.failure(
           const DrmError(
-              code: DrmErrorCode.provisioningFailed,
-              message: 'Certificat invalide',),
+            code: DrmErrorCode.provisioningFailed,
+            message: 'Certificat invalide',
+          ),
         );
       default:
         return DrmAsyncResult.failure(
           DrmError(
-              code: DrmErrorCode.licenseRequestFailed,
-              message: 'Erreur requête: $e',),
+            code: DrmErrorCode.licenseRequestFailed,
+            message: 'Erreur requête: $e',
+          ),
         );
     }
 

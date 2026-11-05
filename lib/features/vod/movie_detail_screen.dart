@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_primary_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -413,17 +414,14 @@ class _MovieDetailContent extends ConsumerWidget {
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: [
-              FilledButton.icon(
+              TvPrimaryButton(
+                autofocus: true,
                 onPressed: () => _openPlayer(
                   context,
                   progressId: progressId,
                 ),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(l.start),
-                style: FilledButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                ),
               ),
               OutlinedButton.icon(
                 onPressed: hasProgress

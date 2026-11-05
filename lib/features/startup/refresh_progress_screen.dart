@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 
 /// Ouvre l'écran de mise à jour et rend `true` si une source a répondu, `false`
 /// si aucune n'a répondu ou `null` si l'utilisateur l'a quitté prématurément.
@@ -103,6 +104,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
     // cache sans aucun appel réseau (rafraîchissement factice).
     logDiag('REFRESH mode=manual providers=invalidate start');
+    ApiService.bypassCatalogCache = true;
     ref.invalidate(liveChannelsProvider);
     ref.invalidate(moviesProvider);
     ref.invalidate(seriesProvider);
@@ -124,6 +126,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
       logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
       if (list.isNotEmpty) _responded++;
     });
+    ApiService.bypassCatalogCache = false;
 
     if (!mounted) return;
 

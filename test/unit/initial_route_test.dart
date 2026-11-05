@@ -36,15 +36,12 @@ void main() {
         StartupStep.movies,
         StartupStep.series,
         StartupStep.epg,
+        StartupStep.radio,
       ],
     );
     expect(
       StartupRefreshController.remainingSteps.toList(),
-      [
-        StartupStep.radio,
-        StartupStep.replay,
-        StartupStep.ai,
-      ],
+      isEmpty,
     );
   });
 }

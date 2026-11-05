@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -19,18 +21,17 @@ export 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart'
 /// de [RefreshStepsController] : l'écran de démarrage et le rafraîchissement à
 /// la demande partagent donc exactement le même affichage.
 class StartupRefreshController extends RefreshStepsController {
+  static bool get bypassCatalogCache => ApiService.bypassCatalogCache;
+
   static const initialSteps = {
     StartupStep.live,
     StartupStep.movies,
     StartupStep.series,
     StartupStep.epg,
+    StartupStep.radio,
   };
 
-  static const remainingSteps = {
-    StartupStep.radio,
-    StartupStep.replay,
-    StartupStep.ai,
-  };
+  static const remainingSteps = <StartupStep>{};
 
   StartupRefreshController(
     this._api, {
@@ -68,6 +69,30 @@ class StartupRefreshController extends RefreshStepsController {
   List<Movie> movies = const [];
   List<Series> series = const [];
 
+  /// Avec un cache disque frais, aucun appel réseau n'est nécessaire : le
+  /// démarrage n'attend pas le décodage des ~130 000 titres (lourd sur TV).
+  /// Les écrans Films/Séries affichent « Chargement… » le temps que le
+  /// provider finisse en arrière-plan.
+  Future<bool> _canDeferCatalog(String kind) async {
+    if (bypassCatalogCache) return false;
+    final key = await _api.resolveSubscriptionCacheKey();
+    return key != null && await CatalogDiskCache.instance.hasFresh(kind, key);
+  }
+
+  final List<Future<Object?> Function()> _deferred = [];
+
+  void _deferInBackground(Future<Object?> Function() load) =>
+      _deferred.add(load);
+
+  /// Lance les catalogues différés une fois les étapes bloquantes terminées,
+  /// pour ne pas se disputer le CPU avec l'accueil.
+  void _startDeferred() {
+    for (final load in _deferred) {
+      unawaited(load().then((_) {}, onError: (_) {}));
+    }
+    _deferred.clear();
+  }
+
   Future<void> start() {
     // Séquencement STRICT (voir [RefreshStepsController.run]) : les étapes
     // s'exécutent une à une. En lançant tout en parallèle (catalogues + EPG +
@@ -78,13 +103,23 @@ class StartupRefreshController extends RefreshStepsController {
         case StartupStep.live:
           await _loadLiveChannels();
         case StartupStep.movies:
-          final list = await _loadMovies();
-          movies = list;
+          if (await _canDeferCatalog('vod')) {
+            _deferInBackground(_loadMovies);
+          } else {
+            movies = await _loadMovies();
+          }
         case StartupStep.series:
-          final list = await _loadSeries();
-          series = list;
+          if (await _canDeferCatalog('series')) {
+            _deferInBackground(_loadSeries);
+          } else {
+            series = await _loadSeries();
+          }
         case StartupStep.radio:
-          await _loadRadioChannels();
+          if (bypassCatalogCache) {
+            await _loadRadioChannels();
+          } else {
+            _deferInBackground(_loadRadioChannels);
+          }
         case StartupStep.replay:
           // Aucun appel. Le Replay se charge chaîne par chaîne, à la demande,
           // quand l'utilisateur ouvre une chaîne (voir `channelReplaysProvider`).
@@ -108,6 +143,6 @@ class StartupRefreshController extends RefreshStepsController {
           // que la progression reste fluide sans latence.
           break;
       }
-    });
+    }).whenComplete(_startDeferred);
   }
 }

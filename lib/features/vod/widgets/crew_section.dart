@@ -162,8 +162,11 @@ class _CrewMemberChip extends StatelessWidget {
                   ),
                   errorWidget: (context, url, error) => Container(
                     color: Colors.grey[800],
-                    child: const Icon(Icons.person,
-                        size: 12, color: Colors.white54,),
+                    child: const Icon(
+                      Icons.person,
+                      size: 12,
+                      color: Colors.white54,
+                    ),
                   ),
                 ),
               ),

@@ -32,12 +32,8 @@ class Actor {
   factory Actor.fromMap(Map<String, dynamic> map) {
     return Actor(
       id: map['id']?.toString() ?? map['cast_id']?.toString() ?? '',
-      name: map['name']?.toString() ??
-          map['original_name']?.toString() ??
-          '',
-      character: map['character']?.toString() ??
-          map['role']?.toString() ??
-          '',
+      name: map['name']?.toString() ?? map['original_name']?.toString() ?? '',
+      character: map['character']?.toString() ?? map['role']?.toString() ?? '',
       profilePath: map['profile_path']?.toString() ??
           map['profile_url']?.toString() ??
           '',
@@ -125,8 +121,9 @@ class CrewMember {
       name: map['name']?.toString() ?? '',
       job: map['job']?.toString() ?? '',
       department: map['department']?.toString() ?? '',
-      profilePath:
-          map['profile_path']?.toString() ?? map['profile_url']?.toString() ?? '',
+      profilePath: map['profile_path']?.toString() ??
+          map['profile_url']?.toString() ??
+          '',
       order: Actor._asInt(map['order'], 0),
     );
   }
@@ -241,13 +238,15 @@ class MovieCredits {
       } else if (item != null) {
         final name = '$item'.trim();
         if (name.isEmpty) continue;
-        result.add(Actor(
-          id: 'xtream-$name',
-          name: name,
-          character: '',
-          profilePath: '',
-          order: i,
-        ),);
+        result.add(
+          Actor(
+            id: 'xtream-$name',
+            name: name,
+            character: '',
+            profilePath: '',
+            order: i,
+          ),
+        );
       }
     }
     return result;
@@ -270,14 +269,16 @@ class MovieCredits {
       } else if (item != null) {
         final name = '$item'.trim();
         if (name.isEmpty) continue;
-        result.add(CrewMember(
-          id: 'xtream-$name',
-          name: name,
-          job: '',
-          department: '',
-          profilePath: '',
-          order: i,
-        ),);
+        result.add(
+          CrewMember(
+            id: 'xtream-$name',
+            name: name,
+            job: '',
+            department: '',
+            profilePath: '',
+            order: i,
+          ),
+        );
       }
     }
     return result;

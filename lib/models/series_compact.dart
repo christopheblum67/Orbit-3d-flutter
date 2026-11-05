@@ -56,7 +56,8 @@ class SeriesCompact {
       categoryId: json['category_id']?.toString() ?? '',
       pegi: json['pegi']?.toString() ?? json['age']?.toString(),
       addedDate: json['added'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(int.parse(json['added'].toString()) * 1000)
+          ? DateTime.fromMillisecondsSinceEpoch(
+              int.parse(json['added'].toString()) * 1000)
           : null,
     );
   }
@@ -75,7 +76,9 @@ class SeriesCompact {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SeriesCompact && runtimeType == other.runtimeType && id == other.id;
+      other is SeriesCompact &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;
@@ -83,4 +86,3 @@ class SeriesCompact {
   @override
   String toString() => 'SeriesCompact(id: $id, title: $title)';
 }
-

@@ -27,9 +27,8 @@ class AppLog {
     developer.log(message, name: 'OrbitDiag');
     if (kDebugMode) debugPrint(message);
     _init();
-    _channel
-        .invokeMethod<void>('log', <String, String>{'message': message})
-        .catchError((_) {});
+    _channel.invokeMethod<void>(
+        'log', <String, String>{'message': message}).catchError((_) {});
   }
 }
 

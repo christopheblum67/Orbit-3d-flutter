@@ -161,7 +161,10 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
             ],
           );
         },
-        loading: () => const LoadingState(message: 'Chargement…'),
+        loading: () => const LoadingState(
+          message:
+              'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+        ),
         error: (err, _) => ErrorState(
           icon: Icons.radio,
           title: l.stationsUnavailable,

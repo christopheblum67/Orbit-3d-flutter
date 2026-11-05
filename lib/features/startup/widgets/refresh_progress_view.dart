@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
@@ -104,6 +106,8 @@ class RefreshProgressView extends StatelessWidget {
             fit: BoxFit.contain,
             semanticLabel: 'ORBIT IPTV',
           ),
+          const SizedBox(height: 12),
+          const _AlternatingBrand(),
         ],
       ],
     );
@@ -256,4 +260,55 @@ class _ProgressIcon {
   final String label;
   final bool done;
   final bool active;
+}
+
+/// Alterne « ORBIT » / « IPTV » (cf. « Orbit IPTV Chargement.md »).
+class _AlternatingBrand extends StatefulWidget {
+  const _AlternatingBrand();
+
+  @override
+  State<_AlternatingBrand> createState() => _AlternatingBrandState();
+}
+
+class _AlternatingBrandState extends State<_AlternatingBrand> {
+  static const _words = ['ORBIT', 'IPTV'];
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+      if (mounted) setState(() => _index = (_index + 1) % _words.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final word = _words[_index];
+    return ExcludeSemantics(
+      child: SizedBox(
+        height: 44,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          child: Text(
+            word,
+            key: ValueKey(word),
+            style: const TextStyle(
+              color: Color(0xFF00CFE8),
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 10,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

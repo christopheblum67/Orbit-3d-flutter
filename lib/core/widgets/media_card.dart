@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
 bool isTvMediaLayout(BuildContext context) =>
@@ -39,7 +40,23 @@ class MediaCard extends ConsumerWidget {
     this.overview, // Synopsis (aperçu 2 lignes sous la méta, si fourni)
     this.posterFit = BoxFit.cover,
     this.posterPadding = EdgeInsets.zero,
+    this.focusable = true,
+    this.showYear = true,
+    this.titleFontSize,
   });
+
+  /// Faux quand un TvFocus parent gère déjà le focus D-pad de la tuile.
+  ///
+  /// Sinon la carte (InkWell) et le cœur favori ajoutent des nœuds de focus
+  /// imbriqués dans la tuile : le D-pad s'arrêtait dessus sans halo, voire
+  /// sautait vers le cœur au lieu de la tuile voisine.
+  final bool focusable;
+
+  /// Affiche l'année dans la ligne méta.
+  final bool showYear;
+
+  /// Taille du titre ; null = taille par défaut selon la largeur d'écran.
+  final double? titleFontSize;
 
   /// Ajustement de l'image dans la tuile.
   ///
@@ -132,11 +149,13 @@ class MediaCard extends ConsumerWidget {
       color: scheme.onSurfaceVariant,
       fontSize: (compactLayout ? 10 : 12) * fontScale,
     );
+    registerTvLongPress(context, onLongPress);
     return Semantics(
       container: true,
       label: _accessibilityLabel,
       child: AppCard(
         padding: EdgeInsets.zero,
+        focusable: focusable,
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         onLongPress: onLongPress,
@@ -273,7 +292,9 @@ class MediaCard extends ConsumerWidget {
                     Positioned(
                       right: 4,
                       bottom: 4,
-                      child: favoriteOverlay!,
+                      child: focusable
+                          ? favoriteOverlay!
+                          : ExcludeFocus(child: favoriteOverlay!),
                     ),
                 ],
               ),
@@ -289,17 +310,20 @@ class MediaCard extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
-                          fontSize: compactLayout ? 13 : 15,
+                          fontSize: titleFontSize ?? (compactLayout ? 13 : 15),
                         ),
                   ),
                   const SizedBox(height: 4),
-                  if (year > 0 || genre.isNotEmpty || _voteCountLabel != null)
+                  if ((showYear && year > 0) ||
+                      genre.isNotEmpty ||
+                      _voteCountLabel != null)
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 6,
                       runSpacing: 2,
                       children: [
-                        if (year > 0) Text('$year', style: metaStyle),
+                        if (showYear && year > 0)
+                          Text('$year', style: metaStyle),
                         if (genre.isNotEmpty) Text(genre, style: metaStyle),
                         if (_voteCountLabel != null)
                           Text(_voteCountLabel!, style: metaStyle),

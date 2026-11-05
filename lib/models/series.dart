@@ -86,8 +86,10 @@ class Series {
       if (value is String) {
         final parsed = int.tryParse(value);
         if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(parsed * 1000,
-              isUtc: true,);
+          return DateTime.fromMillisecondsSinceEpoch(
+            parsed * 1000,
+            isUtc: true,
+          );
         }
       }
       return null;
@@ -193,9 +195,10 @@ class Episode {
     // URL déjà complète (M3U, timeshift) : on ne la reconstruit pas.
     if (ref.startsWith('http')) return ref;
     return buildStreamUrlGlobal(
-      streamId: ref,
-      type: 'series',
-    ) ?? '';
+          streamId: ref,
+          type: 'series',
+        ) ??
+        '';
   }
 
   /// Identifiant de flux BRUT de l'épisode, tel que le panel le publie.
@@ -238,7 +241,16 @@ class Episode {
     if (dot > 0) {
       final ext = last.substring(dot + 1).toLowerCase();
       const mediaExtensions = {
-        'mkv', 'mp4', 'avi', 'ts', 'm3u8', 'mpg', 'mpeg', 'flv', 'mov', 'wmv',
+        'mkv',
+        'mp4',
+        'avi',
+        'ts',
+        'm3u8',
+        'mpg',
+        'mpeg',
+        'flv',
+        'mov',
+        'wmv',
       };
       if (mediaExtensions.contains(ext)) return last.substring(0, dot);
     }

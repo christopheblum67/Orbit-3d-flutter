@@ -85,7 +85,8 @@ class SearchFtsService {
   /// Nombre total d'entrées indexées.
   Future<int> get count async {
     if (!isReady) return 0;
-    final result = await _db!.rawQuery('SELECT COUNT(*) as c FROM search_index');
+    final result =
+        await _db!.rawQuery('SELECT COUNT(*) as c FROM search_index');
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
@@ -118,14 +119,18 @@ class SearchFtsService {
     }
 
     await batch.commit(noResult: true);
-    LoggerService.instance.info('SearchFtsService rebuild: ${movies.length} films, ${series.length} séries, ${channels.length} chaînes');
+    LoggerService.instance.info(
+        'SearchFtsService rebuild: ${movies.length} films, ${series.length} séries, ${channels.length} chaînes');
   }
 
   /// Insère ou met à jour une entrée unique (mise à jour incrémentale).
   Future<void> upsert(Object entry) async {
     if (!isReady) await init();
-    await _db!.insert('search_index', _toFtsRow(entry),
-        conflictAlgorithm: ConflictAlgorithm.replace,);
+    await _db!.insert(
+      'search_index',
+      _toFtsRow(entry),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Supprime une entrée par ID.
@@ -187,17 +192,21 @@ class SearchFtsService {
 
     final rows = await _db!.rawQuery(sql, whereArgs);
 
-    return rows.map((r) => SearchFtsHit(
-      id: r['id'] as String,
-      type: SearchType.values.byName(r['type'] as String),
-      source: SearchSource.values.byName(r['source'] as String),
-      title: r['title'] as String,
-      subtitle: (r['subtitle'] as String?) ?? '',
-      posterUrl: (r['poster_url'] as String?) ?? '',
-      streamUrl: (r['stream_url'] as String?) ?? '',
-      categoryId: (r['category_id'] as String?) ?? '',
-      rank: (r['rank'] as num).toDouble(),
-    ),).toList();
+    return rows
+        .map(
+          (r) => SearchFtsHit(
+            id: r['id'] as String,
+            type: SearchType.values.byName(r['type'] as String),
+            source: SearchSource.values.byName(r['source'] as String),
+            title: r['title'] as String,
+            subtitle: (r['subtitle'] as String?) ?? '',
+            posterUrl: (r['poster_url'] as String?) ?? '',
+            streamUrl: (r['stream_url'] as String?) ?? '',
+            categoryId: (r['category_id'] as String?) ?? '',
+            rank: (r['rank'] as num).toDouble(),
+          ),
+        )
+        .toList();
   }
 
   /// Suggestions d'autocomplétion (prefix match sur titres).
@@ -206,13 +215,16 @@ class SearchFtsService {
     if (prefix.trim().length < 2) return [];
 
     final term = '${prefix.trim()}*';
-    final rows = await _db!.rawQuery('''
+    final rows = await _db!.rawQuery(
+      '''
       SELECT DISTINCT title
       FROM search_index
       WHERE title MATCH ?
       ORDER BY title
       LIMIT ?
-    ''', [term, limit],);
+    ''',
+      [term, limit],
+    );
 
     return rows.map((r) => r['title'] as String).toList();
   }
@@ -328,7 +340,8 @@ class SearchFtsHit {
       posterUrl: posterUrl,
       streamUrl: streamUrl.isEmpty ? null : streamUrl,
       categoryId: categoryId.isEmpty ? null : categoryId,
-      score: 1.0 - (rank / 100).clamp(0.0, 1.0), // conversion BM25 -> score 0..1
+      score:
+          1.0 - (rank / 100).clamp(0.0, 1.0), // conversion BM25 -> score 0..1
       source: source,
       originalObject: null,
     );

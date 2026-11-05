@@ -66,7 +66,8 @@ class EpgPreloadService {
   bool get isRunning => _running;
 
   /// Précharge les [limit] premières chaînes, sans jamais dépasser [ttl].
-  Future<int> preload(ApiService api, List<Channel> channels, {int limit = 20}) async {
+  Future<int> preload(ApiService api, List<Channel> channels,
+      {int limit = 20}) async {
     if (_running) return 0;
     _running = true;
     final deadline = DateTime.now().add(ttl);

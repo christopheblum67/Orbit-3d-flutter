@@ -191,9 +191,11 @@ class SearchService {
   /// Masque un résultat dont la catégorie figure dans les catégories
   /// masquées de l'abonnement actif (les deux listes sont optionnelles pour
   /// ne pas casser les appelants existants).
-  bool _shouldHideCategory(SearchItem item,
-      List<String>? hiddenVodCategoryIds,
-      List<String>? hiddenSeriesCategoryIds,) {
+  bool _shouldHideCategory(
+    SearchItem item,
+    List<String>? hiddenVodCategoryIds,
+    List<String>? hiddenSeriesCategoryIds,
+  ) {
     if (hiddenVodCategoryIds == null && hiddenSeriesCategoryIds == null) {
       return false;
     }
@@ -223,13 +225,15 @@ class SearchService {
     return item.categoryId == categoryId;
   }
 
-  Future<UnifiedSearchResult> search(String query,
-      {int limit = 50,
-      SearchType? filterType,
-      AppLocalizations? l,
-      List<String>? hiddenVodCategoryIds,
-      List<String>? hiddenSeriesCategoryIds,
-      String? categoryId,}) async {
+  Future<UnifiedSearchResult> search(
+    String query, {
+    int limit = 50,
+    SearchType? filterType,
+    AppLocalizations? l,
+    List<String>? hiddenVodCategoryIds,
+    List<String>? hiddenSeriesCategoryIds,
+    String? categoryId,
+  }) async {
     final normalized = _normalize(query);
     if (normalized.length < 2) return UnifiedSearchResult.empty();
 
@@ -251,8 +255,8 @@ class SearchService {
     final results = await Future.wait<List<SearchItem>>([
       _searchLocal(normalized, l),
       _fts.search(query: query, type: filterType).then(
-        (hits) => hits.map((h) => h.toSearchItem()).toList(),
-      ),
+            (hits) => hits.map((h) => h.toSearchItem()).toList(),
+          ),
       if (cachedRemote != null)
         Future<List<SearchItem>>.value(cachedRemote)
       else
@@ -282,8 +286,13 @@ class SearchService {
     // Catégories masquées par abonnement : on retire ces résultats avant le
     // tri pour que les compteurs et le classement restent cohérents.
     final withoutHidden = unique
-        .where((item) => !_shouldHideCategory(
-            item, hiddenVodCategoryIds, hiddenSeriesCategoryIds,),)
+        .where(
+          (item) => !_shouldHideCategory(
+            item,
+            hiddenVodCategoryIds,
+            hiddenSeriesCategoryIds,
+          ),
+        )
         .toList();
 
     // Restriction à la catégorie sélectionnée, appliquée après le masquage :
@@ -296,8 +305,10 @@ class SearchService {
             .toList();
 
     // Scoring & tri
-    visible.sort((a, b) => _calculateScore(normalized, b)
-        .compareTo(_calculateScore(normalized, a)),);
+    visible.sort(
+      (a, b) => _calculateScore(normalized, b)
+          .compareTo(_calculateScore(normalized, a)),
+    );
 
     // Historique
     await addToHistory(normalized);
@@ -309,7 +320,9 @@ class SearchService {
   }
 
   Future<List<SearchItem>> _searchLocal(
-      String query, AppLocalizations? l,) async {
+    String query,
+    AppLocalizations? l,
+  ) async {
     final items = <SearchItem>[];
 
 // Historique de recherche - on ajoute comme suggestions textuelles
@@ -317,15 +330,17 @@ class SearchService {
       () async {
         final history = await getHistory();
         for (final h in history) {
-          items.add(SearchItem(
-            id: 'history-$h',
-            type: SearchType.vod, // type par défaut pour l'affichage
-            title: h,
-            subtitle: l?.recentSearch ?? 'Recherche récente',
-            posterUrl: '',
-            score: 0.5,
-            source: SearchSource.local,
-          ),);
+          items.add(
+            SearchItem(
+              id: 'history-$h',
+              type: SearchType.vod, // type par défaut pour l'affichage
+              title: h,
+              subtitle: l?.recentSearch ?? 'Recherche récente',
+              posterUrl: '',
+              score: 0.5,
+              source: SearchSource.local,
+            ),
+          );
         }
       },
       context: 'SearchService._searchLocal history',
@@ -378,8 +393,10 @@ class SearchService {
     return future;
   }
 
-  Future<List<SearchItem>> _searchRemote(String query,
-      {SearchType? filterType,}) async {
+  Future<List<SearchItem>> _searchRemote(
+    String query, {
+    SearchType? filterType,
+  }) async {
     final futures = <Future<List<SearchItem>>>[];
 
     // Seuil de déclenchement des sources distantes : en dessous de 3 caractères
@@ -443,8 +460,9 @@ class SearchService {
     if (_remoteCache.length >= _remoteCacheMaxEntries) {
       // Purge des entrées les plus anciennes.
       final stale = _remoteCache.entries
-          .where((e) =>
-              DateTime.now().difference(e.value.at) > _remoteCacheTtl,)
+          .where(
+            (e) => DateTime.now().difference(e.value.at) > _remoteCacheTtl,
+          )
           .map((e) => e.key)
           .toList();
       for (final key in stale) {
@@ -457,8 +475,10 @@ class SearchService {
     _remoteCache[key] = _RemoteCacheEntry(items, DateTime.now());
   }
 
-  Future<List<SearchItem>> _searchTmdb(String query,
-      {SearchType? filterType,}) async {
+  Future<List<SearchItem>> _searchTmdb(
+    String query, {
+    SearchType? filterType,
+  }) async {
     final result = await safeAsync<List<SearchItem>>(
       () async {
         final results = <SearchItem>[];
@@ -469,7 +489,8 @@ class SearchService {
             final movie = await _tmdb.getMovieDetail(movieId);
             if (movie != null) {
               results.add(
-                  SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb),);
+                SearchItem.fromMovieDetail(movie, source: SearchSource.tmdb),
+              );
             }
           }
         }
@@ -479,8 +500,12 @@ class SearchService {
           if (tvId != null) {
             final series = await _tmdb.getTvDetail(tvId);
             if (series != null) {
-              results.add(SearchItem.fromSeriesDetail(series,
-                  source: SearchSource.tmdb,),);
+              results.add(
+                SearchItem.fromSeriesDetail(
+                  series,
+                  source: SearchSource.tmdb,
+                ),
+              );
             }
           }
         }
@@ -501,7 +526,8 @@ class SearchService {
           final show = await _tvmaze.getShowDetail(showId);
           if (show != null) {
             results.add(
-                SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze),);
+              SearchItem.fromSeriesDetail(show, source: SearchSource.tvmaze),
+            );
           }
         }
         return results;
@@ -590,22 +616,24 @@ class SearchService {
       () async {
         final favorites = await loader();
         return favorites
-            .map((f) => SearchItem(
-                  id: f.id,
-                  type: switch (f.type) {
-                    ContentType.live => SearchType.live,
-                    ContentType.vod => SearchType.vod,
-                    ContentType.series => SearchType.series,
-                    ContentType.replay => SearchType.replay,
-                  },
-                  title: f.title,
-                  subtitle: f.subtitle,
-                  posterUrl: f.posterUrl,
-                  streamUrl: f.streamUrl,
-                  score: 0.6,
-                  source: SearchSource.local,
-                  originalObject: f,
-                ),)
+            .map(
+              (f) => SearchItem(
+                id: f.id,
+                type: switch (f.type) {
+                  ContentType.live => SearchType.live,
+                  ContentType.vod => SearchType.vod,
+                  ContentType.series => SearchType.series,
+                  ContentType.replay => SearchType.replay,
+                },
+                title: f.title,
+                subtitle: f.subtitle,
+                posterUrl: f.posterUrl,
+                streamUrl: f.streamUrl,
+                score: 0.6,
+                source: SearchSource.local,
+                originalObject: f,
+              ),
+            )
             .toList();
       },
       context: 'SearchService._getFavorites',
@@ -621,22 +649,24 @@ class SearchService {
       () async {
         final recents = await loader();
         return recents
-            .map((r) => SearchItem(
-                  id: r.id,
-                  type: switch (r.type) {
-                    ContentType.live => SearchType.live,
-                    ContentType.vod => SearchType.vod,
-                    ContentType.series => SearchType.series,
-                    ContentType.replay => SearchType.replay,
-                  },
-                  title: r.title,
-                  subtitle: r.subtitle,
-                  posterUrl: r.posterUrl,
-                  streamUrl: r.streamUrl,
-                  score: 0.5,
-                  source: SearchSource.local,
-                  originalObject: r,
-                ),)
+            .map(
+              (r) => SearchItem(
+                id: r.id,
+                type: switch (r.type) {
+                  ContentType.live => SearchType.live,
+                  ContentType.vod => SearchType.vod,
+                  ContentType.series => SearchType.series,
+                  ContentType.replay => SearchType.replay,
+                },
+                title: r.title,
+                subtitle: r.subtitle,
+                posterUrl: r.posterUrl,
+                streamUrl: r.streamUrl,
+                score: 0.5,
+                source: SearchSource.local,
+                originalObject: r,
+              ),
+            )
             .toList();
       },
       context: 'SearchService._getRecentlyWatched',

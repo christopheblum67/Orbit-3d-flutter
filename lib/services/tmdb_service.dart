@@ -61,7 +61,11 @@ class TmdbService {
             return handler.next(options);
           }
           final key = _keyResolver();
-          if (key.isNotEmpty) {
+          if (key.startsWith('eyJ')) {
+            // Jeton d'accès v4 (« Read Access Token ») : en-tête Bearer.
+            options.headers['Authorization'] = 'Bearer $key';
+            options.queryParameters.remove('api_key');
+          } else if (key.isNotEmpty) {
             options.queryParameters['api_key'] = key;
           } else {
             options.queryParameters.remove('api_key');
@@ -110,8 +114,15 @@ class TmdbService {
           '/configuration',
           // On désactive l'injection de la clé effective (extra `tmdb_validate`)
           // pour tester précisément la clé saisie.
-          queryParameters: {'api_key': candidate},
-          options: Options(extra: const {'tmdb_validate': true}),
+          queryParameters: {
+            if (!candidate.startsWith('eyJ')) 'api_key': candidate,
+          },
+          options: Options(
+            extra: const {'tmdb_validate': true},
+            headers: candidate.startsWith('eyJ')
+                ? {'Authorization': 'Bearer $candidate'}
+                : null,
+          ),
         );
         return response.statusCode == 200;
       },

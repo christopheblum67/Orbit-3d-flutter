@@ -69,6 +69,7 @@ class ChannelGridCard extends StatelessWidget {
         if (focused) onFocus?.call();
       },
       child: MediaCard(
+        focusable: false,
         title: name,
         posterUrl: logoUrl,
         year: 0,
@@ -81,9 +82,7 @@ class ChannelGridCard extends StatelessWidget {
         posterFit: BoxFit.contain,
         posterPadding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
         onTap: onTap,
-        topBadge: badgeNumber > 0
-            ? ChannelNumBadge(number: badgeNumber)
-            : null,
+        topBadge: badgeNumber > 0 ? ChannelNumBadge(number: badgeNumber) : null,
         favoriteOverlay: favoriteEntry == null
             ? null
             : FavoriteToggle.overlay(entry: favoriteEntry!),

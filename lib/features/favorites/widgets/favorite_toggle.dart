@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -55,21 +56,24 @@ class FavoriteToggle extends ConsumerWidget {
     }
 
     if (overlay) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
-          shape: BoxShape.circle,
-        ),
-        child: IconButton(
-          tooltip: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          icon: Icon(
-            isFavorite ? Icons.favorite : Icons.favorite_border,
-            size: 22,
-            color: isFavorite ? _favoriteActive : Colors.white,
+      registerTvFavoriteToggle(context, onToggle);
+      return ExcludeFocus(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.45),
+            shape: BoxShape.circle,
           ),
-          onPressed: onToggle,
+          child: IconButton(
+            tooltip: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              size: 22,
+              color: isFavorite ? _favoriteActive : Colors.white,
+            ),
+            onPressed: onToggle,
+          ),
         ),
       );
     }
