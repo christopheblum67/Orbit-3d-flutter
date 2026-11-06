@@ -33,6 +33,17 @@ import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/xtream_url_builder.dart';
 
+/// Décode un JSON de panel en liste (exécuté dans un isolate via `compute`).
+List<dynamic> _decodeJsonList(Uint8List bytes) {
+  Object? raw;
+  try {
+    raw = jsonDecode(utf8.decode(bytes));
+  } on FormatException {
+    raw = jsonDecode(latin1.decode(bytes));
+  }
+  return raw is List ? raw : const <dynamic>[];
+}
+
 class ApiService {
   /// Instance courante, utilisée par le builder global d'URLs de stream.
   static ApiService? _instance;
@@ -662,15 +673,20 @@ class ApiService {
       final baseUrl = sub['baseUrl']!;
       final username = sub['username']!;
       final password = sub['password']!;
-      final categoryNames =
-          await _fetchLiveCategoryNames(baseUrl, username, password);
       final url = _playerApiUrl(baseUrl, 'player_api.php', {
         'username': username,
         'password': password,
         'action': 'get_live_streams',
       });
-      final response = await _get(url);
-      return (response.data as List).map((e) {
+      // Catégories et flux en parallèle, et flux servi par le cache disque
+      // s'il est frais : le démarrage n'attend plus le panel à chaque lancement.
+      final results = await Future.wait<Object?>([
+        _fetchLiveCategoryNames(baseUrl, username, password),
+        _catalogBytes('live', '$baseUrl|$username', url),
+      ]);
+      final categoryNames = results[0]! as Map<String, String>;
+      final rawStreams = await compute(_decodeJsonList, results[1]! as Uint8List);
+      return rawStreams.map((e) {
         final map = Map<String, dynamic>.from(e);
         final categoryId = map['category_id']?.toString() ?? '';
         if (categoryNames.containsKey(categoryId)) {
@@ -704,10 +720,10 @@ class ApiService {
           'password': password,
           'action': 'get_live_categories',
         });
-        final response = await _get(url);
-        if (response.data is! List) return const {};
+        final bytes = await _catalogBytes('live_cats', '$baseUrl|$username', url);
+        final list = await compute(_decodeJsonList, bytes);
         final map = <String, String>{};
-        for (final e in response.data as List) {
+        for (final e in list) {
           final m = Map<String, dynamic>.from(e as Map);
           final id = m['category_id']?.toString();
           final name = m['category_name']?.toString() ?? '';

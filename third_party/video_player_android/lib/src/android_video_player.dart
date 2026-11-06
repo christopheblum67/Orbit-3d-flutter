@@ -4,11 +4,16 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'messages.g.dart';
+
+part 'surface_view_player.dart';
 
 /// An Android implementation of [VideoPlayerPlatform] that uses the
 /// Pigeon-generated [VideoPlayerApi].
@@ -31,6 +36,7 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Future<void> dispose(int textureId) {
+    _surfaceViewPlayers.remove(textureId);
     return _api.dispose(textureId);
   }
 
@@ -63,7 +69,25 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
       formatHint: formatHint,
     );
 
-    return _api.create(message);
+    final int? id = await _api.create(message);
+    if (id != null && await _isSurfaceView(id)) {
+      _surfaceViewPlayers.add(id);
+    }
+    return id;
+  }
+
+  final Set<int> _surfaceViewPlayers = <int>{};
+
+  Future<bool> _isSurfaceView(int id) async {
+    try {
+      return await _tracksChannel.invokeMethod<bool>(
+            'isSurfaceView',
+            <String, Object?>{'playerId': id},
+          ) ??
+          false;
+    } on PlatformException {
+      return false;
+    }
   }
 
   @override
@@ -147,6 +171,9 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Widget buildView(int textureId) {
+    if (_surfaceViewPlayers.contains(textureId)) {
+      return _SurfaceViewPlayer(playerId: textureId);
+    }
     return Texture(textureId: textureId);
   }
 

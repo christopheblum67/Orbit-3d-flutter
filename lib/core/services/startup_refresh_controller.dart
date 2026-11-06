@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
+import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -81,6 +82,12 @@ class StartupRefreshController extends RefreshStepsController {
 
   final List<Future<Object?> Function()> _deferred = [];
 
+  Future<bool> _canDeferEpg() async {
+    if (bypassCatalogCache) return false;
+    final key = await _api.resolveSubscriptionCacheKey();
+    return key != null && await EpgBufferStore.instance.hasUsable(key);
+  }
+
   void _deferInBackground(Future<Object?> Function() load) =>
       _deferred.add(load);
 
@@ -131,10 +138,15 @@ class StartupRefreshController extends RefreshStepsController {
           break;
         case StartupStep.epg:
           // Précharge le guide dans le cache partagé, une seule fois : la grille
-          // EPG l'utilise ensuite sans re-télécharger le XMLTV.
+          // EPG l'utilise ensuite sans re-télécharger le XMLTV. Avec un tampon
+          // du jour déjà sur disque, le chargement se fait en arrière-plan.
           final cache = _epgCache;
           if (cache != null) {
-            await cache.loadFull(_api);
+            if (await _canDeferEpg()) {
+              _deferInBackground(() => cache.loadFull(_api));
+            } else {
+              await cache.loadFull(_api);
+            }
           } else {
             await _api.fetchEpg();
           }

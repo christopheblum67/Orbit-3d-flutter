@@ -4,7 +4,9 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.app.UiModeManager;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 import io.flutter.FlutterInjector;
@@ -27,6 +29,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private FlutterState flutterState;
   private MethodChannel trackChannel;
   private final VideoPlayerOptions options = new VideoPlayerOptions();
+  private final java.util.Set<Long> surfaceViewPlayers = new java.util.HashSet<>();
+  private long nextSurfaceViewId = 1_000_000_000L;
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -44,6 +48,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     flutterState.startListening(this, binding.getBinaryMessenger());
     trackChannel = new MethodChannel(binding.getBinaryMessenger(), TRACK_CHANNEL);
     trackChannel.setMethodCallHandler(this::onTrackMethodCall);
+    binding
+        .getPlatformViewRegistry()
+        .registerViewFactory(
+            SurfaceViewFactory.VIEW_TYPE, new SurfaceViewFactory(videoPlayers::get));
   }
 
   @Override
@@ -65,6 +73,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
       videoPlayers.valueAt(i).dispose();
     }
     videoPlayers.clear();
+    surfaceViewPlayers.clear();
   }
 
   public void onDestroy() {
@@ -83,10 +92,16 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
 
   @Override
   public @NonNull Long create(@NonNull CreateMessage arg) {
-    TextureRegistry.SurfaceProducer handle = flutterState.textureRegistry.createSurfaceProducer();
+    final boolean surfaceViewMode = useSurfaceView();
+    final TextureRegistry.SurfaceProducer handle =
+        surfaceViewMode ? null : flutterState.textureRegistry.createSurfaceProducer();
+    final long playerId = surfaceViewMode ? nextSurfaceViewId++ : handle.id();
+    if (surfaceViewMode) {
+      surfaceViewPlayers.add(playerId);
+    }
     EventChannel eventChannel =
         new EventChannel(
-            flutterState.binaryMessenger, "flutter.io/videoPlayer/videoEvents" + handle.id());
+            flutterState.binaryMessenger, "flutter.io/videoPlayer/videoEvents" + playerId);
 
     final VideoAsset videoAsset;
     if (arg.getAsset() != null) {
@@ -119,7 +134,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
       videoAsset = VideoAsset.fromRemoteUrl(arg.getUri(), streamingFormat, arg.getHttpHeaders());
     }
     videoPlayers.put(
-        handle.id(),
+        playerId,
         VideoPlayer.create(
             flutterState.applicationContext,
             VideoPlayerEventCallbacks.bindTo(eventChannel),
@@ -127,7 +142,16 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             videoAsset,
             options));
 
-    return handle.id();
+    return playerId;
+  }
+
+  private boolean useSurfaceView() {
+    if (!OrbitPlayerConfig.useSurfaceView) {
+      return false;
+    }
+    UiModeManager uiMode =
+        (UiModeManager) flutterState.applicationContext.getSystemService(Context.UI_MODE_SERVICE);
+    return uiMode != null && uiMode.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;
   }
 
   @NonNull
@@ -151,6 +175,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     VideoPlayer player = getPlayer(textureId);
     player.dispose();
     videoPlayers.remove(textureId);
+    surfaceViewPlayers.remove(textureId);
   }
 
   @Override
@@ -211,6 +236,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         return;
       }
       long playerId = playerIdNumber.longValue();
+      if ("isSurfaceView".equals(call.method)) {
+        result.success(surfaceViewPlayers.contains(playerId));
+        return;
+      }
       switch (call.method) {
         case "getAudioTracks":
           result.success(getPlayer(playerId).getAudioTracks());

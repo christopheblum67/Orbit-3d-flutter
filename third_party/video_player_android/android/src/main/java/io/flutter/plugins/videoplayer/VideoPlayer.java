@@ -34,11 +34,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import android.view.SurfaceHolder;
 
 final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   @NonNull private final ExoPlayerProvider exoPlayerProvider;
   @NonNull private final MediaItem mediaItem;
-  @NonNull private final TextureRegistry.SurfaceProducer surfaceProducer;
+  @Nullable private final TextureRegistry.SurfaceProducer surfaceProducer;
+  @Nullable private SurfaceHolder surfaceHolder;
   @NonNull private final VideoPlayerCallbacks videoPlayerEvents;
   @NonNull private final VideoPlayerOptions options;
   @NonNull private ExoPlayer exoPlayer;
@@ -58,7 +60,7 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   static VideoPlayer create(
       @NonNull Context context,
       @NonNull VideoPlayerCallbacks events,
-      @NonNull TextureRegistry.SurfaceProducer surfaceProducer,
+      @Nullable TextureRegistry.SurfaceProducer surfaceProducer,
       @NonNull VideoAsset asset,
       @NonNull VideoPlayerOptions options) {
     return new VideoPlayer(
@@ -212,7 +214,7 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   VideoPlayer(
       @NonNull ExoPlayerProvider exoPlayerProvider,
       @NonNull VideoPlayerCallbacks events,
-      @NonNull TextureRegistry.SurfaceProducer surfaceProducer,
+      @Nullable TextureRegistry.SurfaceProducer surfaceProducer,
       @NonNull MediaItem mediaItem,
       @NonNull VideoPlayerOptions options) {
     this.exoPlayerProvider = exoPlayerProvider;
@@ -221,7 +223,9 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     this.mediaItem = mediaItem;
     this.options = options;
     this.exoPlayer = createVideoPlayer();
-    surfaceProducer.setCallback(this);
+    if (surfaceProducer != null) {
+      surfaceProducer.setCallback(this);
+    }
   }
 
   @RestrictTo(RestrictTo.Scope.LIBRARY)
@@ -248,7 +252,11 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     exoPlayer.setMediaItem(mediaItem);
     exoPlayer.prepare();
 
-    exoPlayer.setVideoSurface(surfaceProducer.getSurface());
+    if (surfaceProducer != null) {
+      exoPlayer.setVideoSurface(surfaceProducer.getSurface());
+    } else if (surfaceHolder != null) {
+      exoPlayer.setVideoSurfaceHolder(surfaceHolder);
+    }
 
     boolean wasInitialized = savedStateDuring != null;
     // Listener unique : ExoPlayerEventListener porte aussi la detection des
@@ -611,10 +619,27 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
 
   void dispose() {
     exoPlayer.release();
-    surfaceProducer.release();
+    if (surfaceProducer != null) {
+      surfaceProducer.release();
 
-    // TODO(matanlurey): Remove when embedder no longer calls-back once released.
-    // https://github.com/flutter/flutter/issues/156434.
-    surfaceProducer.setCallback(null);
+      // TODO(matanlurey): Remove when embedder no longer calls-back once released.
+      // https://github.com/flutter/flutter/issues/156434.
+      surfaceProducer.setCallback(null);
+    }
+    surfaceHolder = null;
+  }
+
+  /** Mode SurfaceView : branche la surface de la vue native sur le lecteur. */
+  void attachSurfaceHolder(@NonNull SurfaceHolder holder) {
+    surfaceHolder = holder;
+    exoPlayer.setVideoSurfaceHolder(holder);
+  }
+
+  /** Mode SurfaceView : retire la surface avant sa destruction. */
+  void detachSurfaceHolder(@NonNull SurfaceHolder holder) {
+    if (surfaceHolder == holder) {
+      surfaceHolder = null;
+      exoPlayer.clearVideoSurfaceHolder(holder);
+    }
   }
 }

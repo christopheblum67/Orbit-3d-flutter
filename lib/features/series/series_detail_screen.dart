@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_scroll_to_top.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cast_carousel.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
@@ -94,9 +95,11 @@ class SeriesDetailScreen extends ConsumerWidget {
             ],
           ),
           body: detailAsync.when(
-            data: (detail) => _SeriesDetailContent(
-              detail: detail,
-              baseSeries: baseSeries,
+            data: (detail) => TvScrollToTop(
+              child: _SeriesDetailContent(
+                detail: detail,
+                baseSeries: baseSeries,
+              ),
             ),
             loading: () =>
                 const LoadingState(message: 'Enrichissement des métadonnées…'),

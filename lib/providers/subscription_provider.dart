@@ -153,6 +153,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     final apiService = api ?? ApiService();
     final expiry = await apiService.fetchExpiration();
     if (!ref.mounted || expiry == null) return;
+    // Date inchangée : rien à persister, et surtout aucune invalidation, qui
+    // relancerait le chargement des catalogues en plein démarrage.
+    if (sub.validUntil == expiry) return;
 
     final updated = sub.copyWith(validUntil: expiry);
     await _storage.saveSubscription(updated);

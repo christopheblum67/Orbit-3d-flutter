@@ -168,7 +168,6 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildHeader(int current, int max) {
-    final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
@@ -189,8 +188,10 @@ class _ProfileSelectionScreenState
             const SizedBox(width: 4),
           ],
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 4,
               children: [
                 Text(
                   'Qui regarde ?',
@@ -199,11 +200,11 @@ class _ProfileSelectionScreenState
                     letterSpacing: -0.4,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
                   'Sélectionnez un profil pour continuer',
                   style: textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -486,7 +487,12 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
+        color: _focused
+            ? Color.alphaBlend(
+                scheme.tertiary.withValues(alpha: 0.32),
+                scheme.surfaceContainerHigh,
+              )
+            : scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         border: Border.all(
           color: _focused
@@ -550,24 +556,18 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              profile.firstName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isActive ? scheme.primary : null,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ProfileTypeBadge(profileType: profile.profileType),
-                        ],
+                      Text(
+                        profile.firstName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isActive ? scheme.primary : null,
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
+                      ProfileTypeBadge(profileType: profile.profileType),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Icon(

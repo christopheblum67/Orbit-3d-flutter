@@ -7,6 +7,10 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// Décode le tampon dans un isolate (plusieurs dizaines de Mo de JSON).
+Map<String, dynamic> _decodeBufferJson(String text) =>
+    jsonDecode(text) as Map<String, dynamic>;
+
 /// Tampon EPG local : évite de retélécharger le dump XMLTV à chaque session.
 ///
 /// ## Pourquoi
@@ -106,6 +110,27 @@ class EpgBufferStore {
           .where((p) => p.end.isAfter(windowStart) && p.end.isBefore(horizon))
           .toList();
 
+  /// Vrai si un tampon du jour, assez récent, est présent (sans le lire).
+  /// Permet au démarrage de ne pas attendre le guide.
+  Future<bool> hasUsable(
+    String cacheKey, {
+    Duration maxAgeLimit = maxAge,
+  }) async {
+    final result = await safeAsync<bool>(
+      () async {
+        final file = File('${(await _dir()).path}/${fileNameFor(cacheKey)}');
+        if (!file.existsSync()) return false;
+        final modifiedAt = file.lastModifiedSync();
+        final now = clock();
+        return now.difference(modifiedAt) <= maxAgeLimit &&
+            _sameLocalDay(modifiedAt, now);
+      },
+      context: 'EpgBufferStore.hasUsable',
+      fallbackValue: false,
+    );
+    return result.valueOrNull ?? false;
+  }
+
   /// Relit le tampon, ou `null` s'il est absent, illisible, trop vieux ou d'un
   /// format inconnu.
   ///
@@ -125,7 +150,7 @@ class EpgBufferStore {
           file.lastModifiedSync().millisecondsSinceEpoch,
         );
         if (clock().difference(modifiedAt) > maxAgeLimit) return null;
-        return jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+        return await compute(_decodeBufferJson, await file.readAsString());
       },
       context: 'EpgBufferStore.read',
       fallbackValue: null,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_primary_button.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_scroll_to_top.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -65,7 +66,9 @@ class MovieDetailScreen extends ConsumerWidget {
         ],
       ),
       body: detailAsync.when(
-        data: (detail) => _MovieDetailContent(detail: detail, movie: movie),
+        data: (detail) => TvScrollToTop(
+          child: _MovieDetailContent(detail: detail, movie: movie),
+        ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(
           child: Column(

@@ -6,6 +6,25 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 class AppTheme {
   AppTheme._();
 
+  static const Color _focusAmber = Color(0xFFFFC107);
+
+  // Même rendu que le bouton « Regarder » : fond ambre, texte noir et
+  // contour blanc quand le D-pad est dessus ; null = style par défaut.
+  static final WidgetStateProperty<Color?> _focusBackground =
+      WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.focused) ? _focusAmber : null,
+  );
+  static final WidgetStateProperty<Color?> _focusForeground =
+      WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.focused) ? Colors.black : null,
+  );
+  static final WidgetStateProperty<BorderSide?> _focusSide =
+      WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.focused)
+        ? const BorderSide(color: Colors.white, width: 3)
+        : null,
+  );
+
   static ThemeData lightTheme({bool highContrast = false}) =>
       _buildTheme(Brightness.light, highContrast);
 
@@ -116,6 +135,10 @@ class AppTheme {
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
           ),
+        ).copyWith(
+          backgroundColor: _focusBackground,
+          foregroundColor: _focusForeground,
+          side: _focusSide,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -129,6 +152,17 @@ class AppTheme {
             fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
           ),
+        ).copyWith(
+          backgroundColor: _focusBackground,
+          foregroundColor: _focusForeground,
+          side: _focusSide,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom().copyWith(
+          backgroundColor: _focusBackground,
+          foregroundColor: _focusForeground,
+          side: _focusSide,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -138,6 +172,10 @@ class AppTheme {
             borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ).copyWith(
+          backgroundColor: _focusBackground,
+          foregroundColor: _focusForeground,
+          side: _focusSide,
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(

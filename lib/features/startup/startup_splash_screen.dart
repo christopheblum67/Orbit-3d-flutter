@@ -133,7 +133,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     ref
         .read(lastRefreshTimestampProvider.notifier)
         .setTimestamp(DateTime.now());
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    await Future<void>.delayed(const Duration(milliseconds: 400));
     if (mounted) context.go('/profiles?startup=true');
   }
 
@@ -184,8 +184,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<void> _kickOff() async {
     if (!widget.remainingPhase) {
-      // Check subscription validity before starting the catalog requests.
-      await _refreshSubscriptionValidity();
+      // Vérification de validité en parallèle : elle ne doit pas retarder le
+      // chargement des chaînes quand le panel répond lentement.
+      unawaited(_refreshSubscriptionValidity());
     }
     if (!mounted) return;
     await _controller.start();
