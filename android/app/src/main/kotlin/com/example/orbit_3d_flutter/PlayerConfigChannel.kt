@@ -11,7 +11,8 @@ import io.flutter.plugins.videoplayer.OrbitPlayerConfig
  *
  * Méthodes (MethodChannel « orbit/player_config ») :
  *  - `configure` : {minBufferMs, maxBufferMs, bufferForPlaybackMs,
- *    bufferForPlaybackAfterRebufferMs, maxVideoWidth, maxVideoHeight} —
+ *    bufferForPlaybackAfterRebufferMs, maxVideoWidth, maxVideoHeight,
+ *    prioritizeTimeOverSizeThresholds} —
  *    copie dans OrbitPlayerConfig avant construction de l'ExoPlayer.
  */
 object PlayerConfigChannel {
@@ -35,6 +36,9 @@ object PlayerConfigChannel {
                         ?: OrbitPlayerConfig.maxVideoWidth
                     OrbitPlayerConfig.maxVideoHeight = (args["maxVideoHeight"] as? Number)?.toInt()
                         ?: OrbitPlayerConfig.maxVideoHeight
+                    OrbitPlayerConfig.prioritizeTimeOverSizeThresholds =
+                        args["prioritizeTimeOverSizeThresholds"] as? Boolean
+                            ?: OrbitPlayerConfig.prioritizeTimeOverSizeThresholds
                     OrbitPlayerConfig.decoderMode = (args["decoderMode"] as? Number)?.toInt()
                         ?: OrbitPlayerConfig.decoderMode
                     result.success(true)

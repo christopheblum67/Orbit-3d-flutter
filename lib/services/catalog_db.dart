@@ -33,19 +33,22 @@ enum CatalogSort {
 /// « base indisponible » : [isAvailable] devient faux et l'appelant retombe sur
 /// le chemin en mémoire. Aucune exception ne remonte.
 class CatalogDb {
-  CatalogDb._();
+  CatalogDb._() : afterBatchForTesting = null;
 
   static final CatalogDb instance = CatalogDb._();
 
   /// Constructeur de test : base et chemin injectés.
   @visibleForTesting
-  CatalogDb.forTesting(this._testPath);
+  CatalogDb.forTesting(this._testPath, {this.afterBatchForTesting});
 
   static const String _dbName = 'orbit_catalog.db';
-  static const int _schemaVersion = 1;
-  static const int _insertChunk = 2000;
+  static const int _schemaVersion = 2;
+  static const int _insertChunk = 500;
+  static int _nextGeneration = 0;
 
   String? _testPath;
+  final Future<void> Function()? afterBatchForTesting;
+  Future<void> _writeTail = Future<void>.value();
   Future<Database?>? _opening;
   bool _failed = false;
 
@@ -98,9 +101,13 @@ class CatalogDb {
   Future<Database?> _open() async {
     try {
       final path = _testPath ?? p.join(await getDatabasesPath(), _dbName);
-      return await openDatabase(
+      final db = await openDatabase(
         path,
         version: _schemaVersion,
+        onConfigure: (db) async {
+          await db.rawQuery('PRAGMA journal_mode = WAL');
+          await db.execute('PRAGMA synchronous = NORMAL');
+        },
         onCreate: (db, _) async {
           await db.execute('''
             CREATE TABLE items (
@@ -128,6 +135,9 @@ class CatalogDb {
           await db.execute(
             'CREATE INDEX idx_items_added ON items(kind, sub_key, added DESC)',
           );
+          await db.execute(
+            'CREATE INDEX idx_items_title ON items(kind, sub_key, title_key)',
+          );
           await db.execute('''
             CREATE TABLE meta (
               kind INTEGER NOT NULL,
@@ -135,11 +145,36 @@ class CatalogDb {
               signature TEXT NOT NULL,
               count INTEGER NOT NULL,
               updated_at INTEGER NOT NULL,
+              data_key TEXT,
               PRIMARY KEY (kind, sub_key)
             )
           ''');
+          await db.execute('''
+            CREATE TABLE pending_cleanup (
+              kind INTEGER NOT NULL,
+              data_key TEXT NOT NULL,
+              PRIMARY KEY (kind, data_key)
+            ) WITHOUT ROWID
+          ''');
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await db.execute('ALTER TABLE meta ADD COLUMN data_key TEXT');
+            await db.execute(
+              'CREATE INDEX idx_items_title ON items(kind, sub_key, title_key)',
+            );
+            await db.execute('''
+              CREATE TABLE pending_cleanup (
+                kind INTEGER NOT NULL,
+                data_key TEXT NOT NULL,
+                PRIMARY KEY (kind, data_key)
+              ) WITHOUT ROWID
+            ''');
+          }
         },
       );
+      unawaited(_cleanupPending(db));
+      return db;
     } catch (e) {
       _failed = true;
       LoggerService.instance.error('CatalogDb indisponible : $e', tag: 'db');
@@ -289,22 +324,32 @@ class CatalogDb {
     int total,
     Map<String, Object?> Function(int index) rowAt,
   ) async {
+    final previousWrite = _writeTail;
+    final finished = Completer<void>();
+    _writeTail = finished.future;
+    await previousWrite;
     final db = await _db();
-    if (db == null) return;
+    if (db == null) {
+      finished.complete();
+      return;
+    }
+    final stageKey =
+        'orbit-stage:${DateTime.now().microsecondsSinceEpoch}:${_nextGeneration++}';
+    var published = false;
     try {
-      await db.transaction((txn) async {
-        await txn.delete(
-          'items',
-          where: 'kind = ? AND sub_key = ?',
-          whereArgs: [kind.index, subKey],
-        );
-        var i = 0;
-        while (i < total) {
+      await db.insert('pending_cleanup', {
+        'kind': kind.index,
+        'data_key': stageKey,
+      });
+      var i = 0;
+      while (i < total) {
+        await db.transaction((txn) async {
           final end = (i + _insertChunk).clamp(0, total);
           final batch = txn.batch();
           for (; i < end; i++) {
             final row = rowAt(i);
             if ((row['id'] as String).isEmpty) continue;
+            row['sub_key'] = stageKey;
             batch.insert(
               'items',
               row,
@@ -312,11 +357,30 @@ class CatalogDb {
             );
           }
           await batch.commit(noResult: true);
+        });
+        await afterBatchForTesting?.call();
+        await Future<void>.delayed(Duration.zero);
+      }
+      String? oldKey;
+      await db.transaction((txn) async {
+        final old = await txn.query(
+          'meta',
+          columns: ['data_key'],
+          where: 'kind = ? AND sub_key = ?',
+          whereArgs: [kind.index, subKey],
+        );
+        if (old.isNotEmpty) {
+          oldKey = old.first['data_key'] as String? ?? subKey;
+          await txn.insert(
+            'pending_cleanup',
+            {'kind': kind.index, 'data_key': oldKey},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
         }
         final stored = Sqflite.firstIntValue(
               await txn.rawQuery(
                 'SELECT COUNT(*) FROM items WHERE kind = ? AND sub_key = ?',
-                [kind.index, subKey],
+                [kind.index, stageKey],
               ),
             ) ??
             0;
@@ -328,21 +392,103 @@ class CatalogDb {
             'signature': signature,
             'count': stored,
             'updated_at': DateTime.now().millisecondsSinceEpoch,
+            'data_key': stageKey,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        await txn.delete(
+          'pending_cleanup',
+          where: 'kind = ? AND data_key = ?',
+          whereArgs: [kind.index, stageKey],
+        );
       });
+      published = true;
       revision.value++;
+      if (oldKey != null && oldKey != stageKey) {
+        await _deleteRowsInBatches(db, kind, oldKey!);
+        await db.delete(
+          'pending_cleanup',
+          where: 'kind = ? AND data_key = ?',
+          whereArgs: [kind.index, oldKey],
+        );
+      }
     } catch (e) {
       _failed = true;
       LoggerService.instance.error('CatalogDb écriture : $e', tag: 'db');
+      if (!published) {
+        try {
+          await _deleteRowsInBatches(db, kind, stageKey);
+          await db.delete(
+            'pending_cleanup',
+            where: 'kind = ? AND data_key = ?',
+            whereArgs: [kind.index, stageKey],
+          );
+        } catch (cleanupError) {
+          LoggerService.instance.error(
+            'CatalogDb nettoyage : $cleanupError',
+            tag: 'db',
+          );
+        }
+      }
+    } finally {
+      finished.complete();
     }
+  }
+
+  Future<void> _cleanupPending(Database db) async {
+    final previousWrite = _writeTail;
+    final finished = Completer<void>();
+    _writeTail = finished.future;
+    await previousWrite;
+    try {
+      final pending = await db.query('pending_cleanup');
+      for (final entry in pending) {
+        final kind = CatalogKind.values[_asInt(entry['kind'])];
+        final key = entry['data_key'] as String;
+        await _deleteRowsInBatches(db, kind, key);
+        await db.delete(
+          'pending_cleanup',
+          where: 'kind = ? AND data_key = ?',
+          whereArgs: [kind.index, key],
+        );
+      }
+    } catch (error) {
+      LoggerService.instance.error(
+        'CatalogDb nettoyage différé : $error',
+        tag: 'db',
+      );
+    } finally {
+      finished.complete();
+    }
+  }
+
+  Future<void> _deleteRowsInBatches(
+    Database db,
+    CatalogKind kind,
+    String key,
+  ) async {
+    int deleted;
+    do {
+      deleted = await db.rawDelete(
+        'DELETE FROM items WHERE kind = ? AND sub_key = ? AND id IN '
+        '(SELECT id FROM items WHERE kind = ? AND sub_key = ? LIMIT ?)',
+        [kind.index, key, kind.index, key, _insertChunk],
+      );
+      await Future<void>.delayed(Duration.zero);
+    } while (deleted == _insertChunk);
   }
 
   /// Supprime le catalogue d'un abonnement (ou tout si [subKey] est nul).
   Future<void> clear({CatalogKind? kind, String? subKey}) async {
+    final previousWrite = _writeTail;
+    final finished = Completer<void>();
+    _writeTail = finished.future;
+    await previousWrite;
     final db = await _db();
-    if (db == null) return;
+    if (db == null) {
+      finished.complete();
+      return;
+    }
     try {
       final where = <String>[];
       final args = <Object>[];
@@ -355,9 +501,45 @@ class CatalogDb {
         args.add(subKey);
       }
       final clause = where.isEmpty ? null : where.join(' AND ');
-      await db.delete('items', where: clause, whereArgs: args);
-      await db.delete('meta', where: clause, whereArgs: args);
-    } catch (_) {}
+      final metadata = await db.transaction((txn) async {
+        final rows = await txn.query(
+          'meta',
+          columns: ['kind', 'sub_key', 'data_key'],
+          where: clause,
+          whereArgs: args,
+        );
+        for (final entry in rows) {
+          await txn.insert(
+            'pending_cleanup',
+            {
+              'kind': entry['kind'],
+              'data_key': entry['data_key'] ?? entry['sub_key'],
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+        await txn.delete('meta', where: clause, whereArgs: args);
+        return rows;
+      });
+      if (metadata.isNotEmpty) revision.value++;
+      for (final entry in metadata) {
+        final key = entry['data_key'] as String? ?? entry['sub_key'] as String;
+        await _deleteRowsInBatches(
+          db,
+          CatalogKind.values[_asInt(entry['kind'])],
+          key,
+        );
+        await db.delete(
+          'pending_cleanup',
+          where: 'kind = ? AND data_key = ?',
+          whereArgs: [entry['kind'], key],
+        );
+      }
+    } catch (error) {
+      LoggerService.instance.error('CatalogDb suppression : $error', tag: 'db');
+    } finally {
+      finished.complete();
+    }
   }
 
   /// Nombre d'éléments correspondant au filtre.
@@ -506,21 +688,21 @@ class CatalogDb {
   static String _orderBy(CatalogSort sort) {
     switch (sort) {
       case CatalogSort.recentlyAdded:
-        return 'added DESC, title_key ASC';
+        return 'added DESC, title_key ASC, id ASC';
       case CatalogSort.recentlyAddedAsc:
-        return 'added ASC, title_key ASC';
+        return 'added ASC, title_key ASC, id ASC';
       case CatalogSort.title:
-        return 'title_key ASC';
+        return 'title_key ASC, id ASC';
       case CatalogSort.titleDesc:
-        return 'title_key DESC';
+        return 'title_key DESC, id ASC';
       case CatalogSort.rating:
-        return 'rating DESC, title_key ASC';
+        return 'rating DESC, title_key ASC, id ASC';
       case CatalogSort.ratingAsc:
-        return 'rating ASC, title_key ASC';
+        return 'rating ASC, title_key ASC, id ASC';
       case CatalogSort.year:
-        return 'year DESC, title_key ASC';
+        return 'year DESC, title_key ASC, id ASC';
       case CatalogSort.yearAsc:
-        return 'year ASC, title_key ASC';
+        return 'year ASC, title_key ASC, id ASC';
     }
   }
 
@@ -529,8 +711,11 @@ class CatalogDb {
     String subKey,
     CatalogFilter f,
   ) {
-    final clause = StringBuffer('kind = ? AND sub_key = ?');
-    final args = <Object?>[kind.index, subKey];
+    final clause = StringBuffer(
+      'kind = ? AND sub_key = '
+      '(SELECT COALESCE(data_key, sub_key) FROM meta WHERE kind = ? AND sub_key = ?)',
+    );
+    final args = <Object?>[kind.index, kind.index, subKey];
     if (f.categoryId.isNotEmpty) {
       clause.write(' AND category_id = ?');
       args.add(f.categoryId);

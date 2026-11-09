@@ -135,7 +135,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     int revision,
   ) {
     final signature = '$subKey|$revision|${sort.name}|${filter.categoryId}|'
-        '${filter.query}|${filter.onlyIds?.length}|${hidden.length}';
+        '${filter.query}|${catalogSetSignature(filter.onlyIds)}|'
+        '${catalogSetSignature(hidden)}';
     if (signature != _dbSignature) {
       _dbSignature = signature;
       _pager?.invalidate();
@@ -157,7 +158,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       Future.microtask(pager.reset);
     }
     final countsSignature =
-        '$subKey|$revision|${hidden.length}|${favIds.length}|${recentIds.length}';
+        '$subKey|$revision|${catalogSetSignature(hidden)}|'
+        '${catalogSetSignature(favIds)}|${catalogSetSignature(recentIds)}';
     if (countsSignature != _dbCountsSignature) {
       _dbCountsSignature = countsSignature;
       unawaited(() async {
@@ -563,6 +565,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                         itemBuilder: (context, index) {
                           final movie = visibleMovies[index];
                           return _VodTile(
+                            key: scrollController == null
+                                ? null
+                                : ValueKey(movie.id),
                             movie: movie,
                             enrichment: enrichments[movie.id],
                             affinity: affinity,
@@ -598,6 +603,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
 /// hors du build du widget parent).
 class _VodTile extends ConsumerWidget {
   const _VodTile({
+    super.key,
     required this.movie,
     required this.enrichment,
     required this.affinity,

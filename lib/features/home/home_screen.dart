@@ -322,14 +322,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: TvFocus(
                 key: ValueKey(_carouselItemKey(item)),
                 focusNode: _focusNodeFor(item),
+                enableTvEffects: false,
                 autofocus: index == 0,
                 onFocusChange: (hasFocus) {
                   if (hasFocus) {
                     _focusedCarouselRoute = _carouselItemKey(item);
                   }
+                  if (mounted) setState(() {});
                 },
                 onActivate: () => _openItem(context, item),
-                child: _buildCard(item, focused),
+                child: _buildCard(item, focused, _focusNodeFor(item).hasFocus),
               ),
             ),
           );
@@ -338,7 +340,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildCard(_OrbitItem item, bool focused) {
+  Widget _buildCard(_OrbitItem item, bool focused, bool hasFocus) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest.shortestSide.clamp(0.0, 290.0);
@@ -357,7 +359,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               color: focused ? item.color : Colors.white10,
               width: focused ? 2.5 : 1,
             ),
-            boxShadow: focused
+            boxShadow: hasFocus
                 ? [
                     BoxShadow(
                       color: item.color.withValues(alpha: 0.35),

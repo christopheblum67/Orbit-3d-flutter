@@ -1,5 +1,7 @@
 ﻿{
     "@@locale":  "en",
+    "localVideoProxy": "Experimental local video proxy",
+    "localVideoProxySubtitle": "For movies and series in the internal player, with a limited disk cache.",
     "accountDeviceProfile":  "Device profile \u0026 Diagnostics",
     "accountDeviceProfileSubtitle":  "Profile {label} · player diagnostics",
     "accountNoSubscription":  "No active subscription",

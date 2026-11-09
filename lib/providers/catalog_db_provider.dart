@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -36,6 +38,11 @@ final catalogDbKeyProvider =
     return await db.hasData(kind, key) ? key : null;
   });
 });
+
+String catalogSetSignature(Set<String>? values) {
+  if (values == null) return 'null';
+  return jsonEncode(values.toList()..sort());
+}
 
 /// Liste paginée : charge [pageSize] éléments à la fois et notifie via
 /// [onChange]. Les réponses d'une génération périmée sont ignorées.

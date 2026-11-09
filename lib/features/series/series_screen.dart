@@ -119,7 +119,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       query: _dbQuery,
     );
     final signature = '$subKey|$revision|${sort.name}|${filter.categoryId}|'
-        '${filter.query}|${filter.onlyIds?.length}|${hidden.length}';
+        '${filter.query}|${catalogSetSignature(filter.onlyIds)}|'
+        '${catalogSetSignature(hidden)}';
     if (signature != _dbSignature) {
       _dbSignature = signature;
       _pager?.invalidate();
@@ -141,7 +142,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       Future.microtask(pager.reset);
     }
     final countsSignature =
-        '$subKey|$revision|${hidden.length}|${favIds.length}|${recentIds.length}';
+        '$subKey|$revision|${catalogSetSignature(hidden)}|'
+        '${catalogSetSignature(favIds)}|${catalogSetSignature(recentIds)}';
     if (countsSignature != _dbCountsSignature) {
       _dbCountsSignature = countsSignature;
       unawaited(() async {
@@ -185,7 +187,6 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final seriesAsync = ref.watch(seriesProvider);
     final categoriesAsync = ref.watch(seriesCategoriesProvider);
     final favoriteEntries = ref.watch(favoritesProvider);
     final recentEntries = ref.watch(recentlyWatchedProvider);
@@ -245,7 +246,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     _dbSignature = '';
     _dbCountsSignature = '';
     return Scaffold(
-      body: seriesAsync.when(
+      body: ref.watch(seriesProvider).when(
         data: (seriesList) {
           if (seriesList.isEmpty) {
             return EmptyState(
@@ -553,6 +554,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                   }
 
                                   return _SeriesTile(
+                                    key: scrollController == null
+                                        ? null
+                                        : ValueKey(series.id),
                                     series: series,
                                     affinity: affinity,
                                     onOpen: onOpen,
@@ -598,6 +602,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
 /// mise en cache Hive 24 h.
 class _SeriesTile extends ConsumerWidget {
   const _SeriesTile({
+    super.key,
     required this.series,
     required this.affinity,
     required this.onOpen,

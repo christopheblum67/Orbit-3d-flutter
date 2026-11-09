@@ -135,6 +135,8 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                 new DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
                         min, max, forPlayback, forPlaybackAfterRebuffer)
+                    .setPrioritizeTimeOverSizeThresholds(
+                        OrbitPlayerConfig.prioritizeTimeOverSizeThresholds)
                     .build());
           }
           if (OrbitPlayerConfig.maxVideoHeight > 0) {

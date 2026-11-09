@@ -416,6 +416,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
     try {
       await PlayerProfileService.pushForDevice(
         ref.read(deviceProfileProvider),
+        live: true,
       );
     } catch (error) {
       LoggerService.instance.warning(

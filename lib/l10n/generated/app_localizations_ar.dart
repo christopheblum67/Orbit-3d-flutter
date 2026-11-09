@@ -9,6 +9,13 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get localVideoProxy => 'وكيل فيديو محلي تجريبي';
+
+  @override
+  String get localVideoProxySubtitle =>
+      'للأفلام والمسلسلات في المشغل الداخلي، مع تخزين مؤقت محدود على القرص.';
+
+  @override
   String get accountDeviceProfile => 'ملف الجهاز والتشخيص';
 
   @override

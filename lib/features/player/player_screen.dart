@@ -50,6 +50,8 @@ import 'package:orbit_3d_flutter/services/player_crash_guard.dart';
 import 'package:orbit_3d_flutter/services/pip_service.dart';
 import 'package:orbit_3d_flutter/services/background_playback_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
+import 'package:orbit_3d_flutter/services/local_video_proxy.dart';
+import 'package:orbit_3d_flutter/services/video_cache_manager.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
@@ -159,6 +161,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
+  LocalVideoProxy? _localVideoProxy;
+  final _proxySessions = <VideoPlayerController, LocalVideoProxySession>{};
   late final _adjacentPlayers = AdjacentPlayerCache<VideoPlayerController>(
     disposePlayer: (player) => unawaited(_disposeController(player)),
   );
@@ -334,7 +338,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _nextEpisodeFocus.dispose();
     _footerScope.dispose();
     _playerErrorScope.dispose();
-    _disposeActive();
+    final disposal = _disposeActive();
+    final localProxy = _localVideoProxy;
+    if (localProxy != null) {
+      unawaited(disposal.whenComplete(localProxy.close));
+    }
     _adjacentPlayers.clear();
     _preloader.cancel();
     unawaited(PlayerCrashGuard.end());
@@ -550,7 +558,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // Applique la configuration de lecture par profil (tampon media3 + limite
     // de résolution) AVANT la création du contrôleur ExoPlayer.
     await PlayerProfileService.push(
-      Media3PlaybackProfile.forProfile(ref.read(deviceProfileProvider)),
+      Media3PlaybackProfile.forProfile(
+        ref.read(deviceProfileProvider),
+        live: widget.contentType == PlaybackContentType.live,
+      ),
       decoderModeOverride: _decoderModeOverride,
     );
     if (!mounted || gen != _generation) return;
@@ -773,6 +784,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     await PlayerProfileService.pushForDevice(
       ref.read(deviceProfileProvider),
       decoderModeOverride: _decoderModeOverride,
+      live: widget.contentType == PlaybackContentType.live,
     );
     if (!mounted || gen != _generation) return false;
     for (final agentIndex in userAgentOrder) {
@@ -782,11 +794,52 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         await Future<void>.delayed(const Duration(milliseconds: 900));
         if (!mounted || gen != _generation) return false;
       }
+      final headers = _resolvedHeaders(url, agentIndex);
+      var playbackUri = Uri.parse(url);
+      LocalVideoProxySession? proxySession;
+      final useProxy = ref.read(advancedSettingsProvider).localVideoProxy &&
+          (widget.contentType == PlaybackContentType.vod ||
+              widget.contentType == PlaybackContentType.series) &&
+          !(playbackUri.host == kRustProxyHost &&
+              playbackUri.port == kRustProxyPort) &&
+          !playbackUri.path.toLowerCase().endsWith('.mpd');
+      if (useProxy) {
+        try {
+          if (_localVideoProxy == null) {
+            try {
+              final cache = await VideoCacheManager.instance;
+              if (!mounted || gen != _generation) return false;
+              _localVideoProxy = LocalVideoProxy(
+                cache: cache,
+                onError: () => debugPrint('Erreur du relais vidéo local'),
+              );
+            } catch (_) {
+              debugPrint('Cache vidéo indisponible : relais sans cache');
+              if (!mounted || gen != _generation) return false;
+              _localVideoProxy = LocalVideoProxy(
+                onError: () => debugPrint('Erreur du relais vidéo local'),
+              );
+            }
+          }
+          final proxy = _localVideoProxy!;
+          await proxy.start();
+          if (!mounted || gen != _generation) return false;
+          proxySession = proxy.openSession(playbackUri, headers: headers);
+          playbackUri = proxySession.url;
+        } catch (_) {
+          debugPrint('Impossible de démarrer le relais vidéo local');
+          if (mounted && gen == _generation) {
+            _lastErrorDescription = 'Local video proxy unavailable';
+          }
+          return false;
+        }
+      }
       final controller = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        httpHeaders: _resolvedHeaders(url, agentIndex),
+        playbackUri,
+        httpHeaders: proxySession == null ? headers : const {},
         videoPlayerOptions: _exclusivePlayback,
       );
+      if (proxySession != null) _proxySessions[controller] = proxySession;
       if (widget.contentType != PlaybackContentType.live) {
         _checkpoint.restoring = true;
       }
@@ -1373,7 +1426,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
-  Future<void> _disposeController(VideoPlayerController controller) {
+  Future<void> _disposeController(VideoPlayerController controller) async {
     // Coupe le pont sous-titres intégrés de CE lecteur avant de libérer la
     // texture : le polling s'arrête et l'état est vidé sans toucher à un
     // éventuel autre lecteur (préchauffage).
@@ -1382,7 +1435,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // au tick suivant, mais autant le libérer tout de suite).
     _embeddedScanner.stopPlayer(controller);
     controller.removeListener(_onControllerUpdate);
-    return controller.dispose();
+    final session = _proxySessions.remove(controller);
+    try {
+      await controller.dispose();
+    } finally {
+      session?.close();
+    }
   }
 
   Future<void> _disposeActive() {

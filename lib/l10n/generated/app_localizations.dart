@@ -106,6 +106,18 @@ abstract class AppLocalizations {
     Locale('it')
   ];
 
+  /// No description provided for @localVideoProxy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Relais vidéo local expérimental'**
+  String get localVideoProxy;
+
+  /// No description provided for @localVideoProxySubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pour les films et séries du lecteur interne, avec cache disque limité.'**
+  String get localVideoProxySubtitle;
+
   /// No description provided for @accountDeviceProfile.
   ///
   /// In fr, this message translates to:

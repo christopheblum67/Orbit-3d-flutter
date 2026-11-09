@@ -9,6 +9,13 @@ class AppLocalizationsFr extends AppLocalizations {
   AppLocalizationsFr([String locale = 'fr']) : super(locale);
 
   @override
+  String get localVideoProxy => 'Relais vidéo local expérimental';
+
+  @override
+  String get localVideoProxySubtitle =>
+      'Pour les films et séries du lecteur interne, avec cache disque limité.';
+
+  @override
   String get accountDeviceProfile => 'Profil appareil & Diagnostic';
 
   @override

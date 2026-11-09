@@ -14,6 +14,7 @@ class Media3PlaybackProfile {
     required this.bufferForPlaybackAfterRebufferMs,
     this.maxVideoWidth = 0,
     this.maxVideoHeight = 0,
+    this.prioritizeTimeOverSizeThresholds = false,
   });
 
   final int minBufferMs;
@@ -24,6 +25,7 @@ class Media3PlaybackProfile {
   /// 0 = aucune contrainte de piste vidéo (résolution native autorisée).
   final int maxVideoWidth;
   final int maxVideoHeight;
+  final bool prioritizeTimeOverSizeThresholds;
 
   bool get hasLoadControl => minBufferMs > 0 && maxBufferMs > 0;
   bool get hasVideoCap => maxVideoHeight > 0;
@@ -35,7 +37,8 @@ class Media3PlaybackProfile {
     bufferForPlaybackAfterRebufferMs: 0,
   );
 
-  /// Mapping profil de l'appareil -> réglages media3.
+  /// Mapping profil de l'appareil -> réglages media3. Le live utilise des
+  /// seuils plus élevés, tout en conservant la limite vidéo de l'appareil.
   ///
   /// Media3 impose `minBufferMs >= bufferForPlaybackMs` et
   /// `minBufferMs >= bufferForPlaybackAfterRebufferMs` (sinon
@@ -54,8 +57,8 @@ class Media3PlaybackProfile {
   /// rendaient le zapping à froid inutilisable — 15 s d'attente avant la
   /// première image. On garde un minimum de 1,2 s : en dessous, un flux
   /// instable (Wi-Fi domestique, 4G) reboucle sans arrêt.
-  static Media3PlaybackProfile forProfile(DeviceProfile profile) {
-    return switch (profile) {
+  static Media3PlaybackProfile forProfile(DeviceProfile profile, {bool live = false}) {
+    final base = switch (profile) {
       DeviceProfile.eco => const Media3PlaybackProfile(
           minBufferMs: 10000,
           maxBufferMs: 60000,
@@ -84,6 +87,16 @@ class Media3PlaybackProfile {
           maxVideoHeight: 1440,
         ),
     };
+    if (!live) return base;
+    return Media3PlaybackProfile(
+      minBufferMs: 15000,
+      maxBufferMs: 50000,
+      bufferForPlaybackMs: 2500,
+      bufferForPlaybackAfterRebufferMs: 5000,
+      maxVideoWidth: base.maxVideoWidth,
+      maxVideoHeight: base.maxVideoHeight,
+      prioritizeTimeOverSizeThresholds: true,
+    );
   }
 
   Map<String, Object?> toMethodArguments() => {
@@ -93,6 +106,7 @@ class Media3PlaybackProfile {
         'bufferForPlaybackAfterRebufferMs': bufferForPlaybackAfterRebufferMs,
         'maxVideoWidth': maxVideoWidth,
         'maxVideoHeight': maxVideoHeight,
+        'prioritizeTimeOverSizeThresholds': prioritizeTimeOverSizeThresholds,
       };
 }
 
@@ -144,8 +158,8 @@ class PlayerProfileService {
   /// ensuite : sans ce `push`, la première chaîne regardée après un
   /// démarrage d'application ignorait le profil de l'appareil.
   static Future<void> pushForDevice(DeviceProfile profile,
-          {int? decoderModeOverride}) =>
-      push(Media3PlaybackProfile.forProfile(profile),
+          {int? decoderModeOverride, bool live = false}) =>
+      push(Media3PlaybackProfile.forProfile(profile, live: live),
           decoderModeOverride: decoderModeOverride);
 
   static bool _sameConfig(Map<String, Object?> a, Map<String, Object?> b) {

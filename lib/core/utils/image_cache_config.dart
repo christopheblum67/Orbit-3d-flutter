@@ -1,4 +1,13 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+
+void configureOrbitImageCache(TargetPlatform platform) {
+  if (platform != TargetPlatform.android) return;
+  final cache = PaintingBinding.instance.imageCache;
+  cache.maximumSize = 100;
+  cache.maximumSizeBytes = 40 * 1024 * 1024;
+}
 
 /// Cache disque borné des pochettes/stickers (TVmaze/OMDB/TMDB), partagé par
 /// toutes les instances [OrbitCachedImage] (y compris les flux en streaming).

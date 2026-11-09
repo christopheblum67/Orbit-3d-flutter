@@ -175,6 +175,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     try {
       await PlayerProfileService.pushForDevice(
         ref.read(deviceProfileProvider),
+        live: true,
       );
     } catch (error) {
       LoggerService.instance.warning(

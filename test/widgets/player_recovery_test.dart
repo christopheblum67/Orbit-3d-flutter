@@ -89,6 +89,7 @@ class _Recent extends RecentlyWatchedNotifier {
 class _VideoPlatform extends VideoPlayerPlatform {
   int next = 0;
   final calls = <String>[];
+  final sources = <DataSource>[];
   final streams = <int, StreamController<VideoEvent>>{};
   final positions = <int, Duration>{};
   final pauseGates = <int, Completer<void>>{};
@@ -102,6 +103,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   @override
   Future<int?> createWithOptions(VideoCreationOptions options) async {
     final id = ++next;
+    sources.add(options.dataSource);
     calls.add('create:$id');
     positions[id] = Duration.zero;
     streams[id] = StreamController<VideoEvent>(onListen: () {
@@ -173,6 +175,85 @@ class _VideoPlatform extends VideoPlayerPlatform {
 }
 
 void main() {
+  for (final config in [
+    (enabled: false, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: false),
+    (enabled: true, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: true),
+    (enabled: true, type: PlaybackContentType.series, url: 'https://example.test/video.mp4?secret=abc', proxied: true),
+    (enabled: true, type: PlaybackContentType.live, url: 'https://example.test/video.mp4?secret=abc', proxied: false),
+    (enabled: true, type: PlaybackContentType.vod, url: 'https://example.test/video.mpd', proxied: false),
+  ]) {
+    testWidgets('le lecteur respecte le relais local : $config',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({});
+      PlayerProfileService.invalidate();
+      final previousPlatform = VideoPlayerPlatform.instance;
+      final video = _VideoPlatform();
+      VideoPlayerPlatform.instance = video;
+      addTearDown(() => VideoPlayerPlatform.instance = previousPlatform);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const connectivityChannel =
+          MethodChannel('dev.fluttercommunity.plus/connectivity');
+      const connectivityStatus =
+          MethodChannel('dev.fluttercommunity.plus/connectivity_status');
+      messenger.setMockMethodCallHandler(connectivityChannel, (_) async => ['wifi']);
+      messenger.setMockMethodCallHandler(connectivityStatus, (_) async => null);
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(connectivityChannel, null);
+        messenger.setMockMethodCallHandler(connectivityStatus, null);
+      });
+      final monitor = _Online();
+      addTearDown(monitor.dispose);
+      for (final name in ['orbit/night_focus', 'orbit/player_config']) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+        addTearDown(
+          () => messenger.setMockMethodCallHandler(MethodChannel(name), null),
+        );
+      }
+      final container = ProviderContainer(overrides: [
+        connectivityMonitorProvider.overrideWithValue(monitor),
+        subtitleControllerProvider.overrideWith((ref) => _Subtitles()),
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
+        rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
+        activeSubscriptionProvider.overrideWithValue(null),
+      ]);
+      addTearDown(container.dispose);
+      await container.read(advancedSettingsProvider.notifier).setLocalVideoProxy(config.enabled);
+      await tester.runAsync(() async {
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: PlayerScreen(
+              streamUrl: config.url,
+              contentType: config.type,
+            ),
+          ),
+        ));
+        for (var i = 0; i < 50 && video.sources.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(video.sources, hasLength(1));
+        final source = video.sources.single;
+        if (config.proxied) {
+          expect(Uri.parse(source.uri!).host, '127.0.0.1');
+          expect(source.uri, isNot(contains('secret')));
+          expect(source.httpHeaders, isEmpty);
+        } else {
+          expect(source.uri, config.url);
+          expect(source.httpHeaders, isNotEmpty);
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      });
+    });
+  }
   testWidgets('a Cloudflare challenge stops recovery without a new player',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

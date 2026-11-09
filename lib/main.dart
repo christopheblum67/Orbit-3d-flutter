@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -31,6 +32,7 @@ import 'package:orbit_3d_flutter/features/legal/legal_notice_screen.dart';
 
 import 'package:orbit_3d_flutter/core/navigation/initial_route.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
+import 'package:orbit_3d_flutter/core/utils/image_cache_config.dart';
 import 'package:orbit_3d_flutter/orbit_app.dart';
 
 import 'package:orbit_3d_flutter/core/navigation/app_router.dart';
@@ -49,6 +51,7 @@ void main() {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureOrbitImageCache(defaultTargetPlatform);
 
   // Capture globales installées le plus tôt possible (erreurs cadre + isolate).
   ErrorHandler.instance.setupGlobalErrorHandling();

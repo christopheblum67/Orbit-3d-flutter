@@ -1,5 +1,7 @@
 ﻿{
     "@@locale":  "it",
+    "localVideoProxy": "Proxy video locale sperimentale",
+    "localVideoProxySubtitle": "Per film e serie nel lettore interno, con cache su disco limitata.",
     "accountDeviceProfile":  "Profilo dispositivo e diagnostica",
     "accountDeviceProfileSubtitle":  "Profilo {label} · diagnostica lettore",
     "accountNoSubscription":  "Nessun abbonamento attivo",

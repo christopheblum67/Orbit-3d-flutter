@@ -9,6 +9,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get localVideoProxy => 'Experimental local video proxy';
+
+  @override
+  String get localVideoProxySubtitle =>
+      'For movies and series in the internal player, with a limited disk cache.';
+
+  @override
   String get accountDeviceProfile => 'Device profile & Diagnostics';
 
   @override

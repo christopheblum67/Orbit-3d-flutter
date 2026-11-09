@@ -77,6 +77,7 @@ class AdvancedSettings {
   final bool useTlsImpersonation;
   final String dnsProvider;
   final bool zeroLagPrefetch;
+  final bool localVideoProxy;
 
   /// Aperçu vidéo dans la navigation Live. `null` = automatique (désactivé
   /// sur Android TV, activé ailleurs).
@@ -110,6 +111,7 @@ class AdvancedSettings {
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
     this.zeroLagPrefetch = true,
+    this.localVideoProxy = false,
     this.livePreviewVideo,
     this.playerLive = const PlayerPerTypeConfig(
       primary: PlayerEngine.exoPlayer,
@@ -145,6 +147,7 @@ class AdvancedSettings {
     bool? useTlsImpersonation,
     String? dnsProvider,
     bool? zeroLagPrefetch,
+    bool? localVideoProxy,
     bool? livePreviewVideo,
     PlayerPerTypeConfig? playerLive,
     PlayerPerTypeConfig? playerVod,
@@ -167,6 +170,7 @@ class AdvancedSettings {
       useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
       dnsProvider: dnsProvider ?? this.dnsProvider,
       zeroLagPrefetch: zeroLagPrefetch ?? this.zeroLagPrefetch,
+      localVideoProxy: localVideoProxy ?? this.localVideoProxy,
       livePreviewVideo: livePreviewVideo ?? this.livePreviewVideo,
       playerLive: playerLive ?? this.playerLive,
       playerVod: playerVod ?? this.playerVod,
@@ -205,6 +209,7 @@ class AdvancedSettings {
   static const kTlsImpersonation = 'tls_impersonation';
   static const kDnsProvider = 'dns_provider';
   static const kZeroLagPrefetch = 'zero_lag_prefetch';
+  static const kLocalVideoProxy = 'local_video_proxy';
   static const kLivePreviewVideo = 'live_preview_video';
 
   // Clés de persistance des lecteurs par type de contenu (moteur par index).
@@ -248,6 +253,7 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       dnsProvider: prefs.getString(AdvancedSettings.kDnsProvider) ??
           '1.1.1.1 (Cloudflare DoH)',
       zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
+      localVideoProxy: prefs.getBool(AdvancedSettings.kLocalVideoProxy) ?? false,
       livePreviewVideo: prefs.getBool(AdvancedSettings.kLivePreviewVideo),
       playerLive: _readPlayerConfig(
         prefs,
@@ -373,6 +379,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     await _persistBool(AdvancedSettings.kZeroLagPrefetch, value);
   }
 
+  Future<void> setLocalVideoProxy(bool value) async {
+    state = state.copyWith(localVideoProxy: value);
+    await _persistBool(AdvancedSettings.kLocalVideoProxy, value);
+  }
+
   Future<void> setLivePreviewVideo(bool value) async {
     state = state.copyWith(livePreviewVideo: value);
     await _persistBool(AdvancedSettings.kLivePreviewVideo, value);
@@ -453,6 +464,7 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       AdvancedSettings.kZeroLagPrefetch,
       imported.zeroLagPrefetch,
     );
+    await _persistBool(AdvancedSettings.kLocalVideoProxy, imported.localVideoProxy);
     await _persistString(
       AdvancedSettings.kPlayerPrimary(PlaybackContentType.live),
       imported.playerLive.primary.name,

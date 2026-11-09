@@ -267,9 +267,10 @@ class _SeriesDetailContent extends ConsumerWidget {
     final profile = ref.watch(currentProfileProvider);
     if (episodes.isEmpty) return 0;
     final progressService = ref.watch(playbackProgressServiceProvider);
+    final watchedEpisodes = ref.watch(watchedEpisodesProvider);
     var seen = 0;
     for (final episode in episodes) {
-      final isVu = ref.read(watchedEpisodesProvider).containsKey(
+      final isVu = watchedEpisodes.containsKey(
             WatchedEpisodeEntry.keyFor(
               profileId: profile?.id ?? '',
               seriesId: baseSeries.id,
@@ -734,8 +735,13 @@ class _ResumeSection extends ConsumerWidget {
 }
 
 class _ResetEpisodeDialog extends StatefulWidget {
-  const _ResetEpisodeDialog({required this.message, required this.resetLabel});
+  const _ResetEpisodeDialog({
+    required this.title,
+    required this.message,
+    required this.resetLabel,
+  });
 
+  final String title;
   final String message;
   final String resetLabel;
 
@@ -746,6 +752,21 @@ class _ResetEpisodeDialog extends StatefulWidget {
 class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
   final _cancelFocus = FocusNode();
   final _resetFocus = FocusNode();
+  late final Set<LogicalKeyboardKey> _openingKeys;
+
+  @override
+  void initState() {
+    super.initState();
+    _openingKeys = HardwareKeyboard.instance.logicalKeysPressed
+        .where(_isSelectKey)
+        .toSet();
+  }
+
+  static bool _isSelectKey(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.select ||
+      key == LogicalKeyboardKey.enter ||
+      key == LogicalKeyboardKey.space ||
+      key == LogicalKeyboardKey.gameButtonA;
 
   @override
   void dispose() {
@@ -755,6 +776,10 @@ class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (_openingKeys.contains(event.logicalKey)) {
+      if (event is KeyUpEvent) _openingKeys.remove(event.logicalKey);
+      return KeyEventResult.handled;
+    }
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final towardReset = Directionality.of(context) == TextDirection.ltr
@@ -788,7 +813,7 @@ class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
       canRequestFocus: false,
       onKeyEvent: _handleKey,
       child: AlertDialog(
-        title: const Text('Réinitialiser l\'épisode ?'),
+        title: Text(widget.title),
         content: Text(widget.message),
         actions: [
           TextButton(
@@ -860,36 +885,60 @@ class _EpisodeTile extends ConsumerWidget {
       context.push('/episode/detail', extra: (series, episode));
     }
 
-    // Pression longue = « réinitialiser » : efface la progression de lecture
-    // en cours et/ou retire le statut « vu » (après confirmation).
+    Future<void> setWatched(bool value) async {
+      if (profileId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sélectionnez un profil pour modifier cet épisode.')),
+        );
+        return;
+      }
+      if (ref.read(currentProfileProvider)?.id != profileId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Le profil a changé. Réessayez.')),
+        );
+        return;
+      }
+      try {
+        final watchedNotifier = ref.read(watchedEpisodesProvider.notifier);
+        final progressService = ref.read(playbackProgressServiceProvider);
+        if (value) {
+          await watchedNotifier.record(series, episode);
+        } else {
+          if (watched) {
+            await watchedNotifier.toggle(series, episode);
+          }
+          if (progress?.hasProgress == true) {
+            await progressService.clear(progressId);
+          }
+        }
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Impossible de modifier le statut de cet épisode.')),
+          );
+        }
+      }
+    }
+
     Future<void> onLongPress() async {
       final hasProgress = progress?.hasProgress == true;
-      if (!isVu && !hasProgress) return;
-
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => _ResetEpisodeDialog(
+          title: isVu ? 'Réinitialiser l\'épisode ?' : 'Marquer comme vu ?',
           message: isVu && hasProgress
                 ? '« $label » sera marqué comme non vu et sa progression '
                     'de lecture sera effacée.'
                 : isVu
                     ? '« $label » sera marqué comme non vu pour ce profil.'
-                    : 'La progression de lecture de « $label » sera effacée.',
-          resetLabel: l.reset,
+                    : '« $label » sera marqué comme vu pour ce profil.',
+          resetLabel: isVu ? l.reset : 'Marquer comme vu',
         ),
       );
 
       if (confirmed != true) return;
-      // Le dialogue est modal, mais l'utilisateur peut encore avoir quitté
-      // l'écran de la série avec la télécommande pendant qu'il était ouvert.
-      // Trois lectures de `ref` suivaient, sans aucune garde.
       if (!context.mounted) return;
-      if (isVu) {
-        ref.read(watchedEpisodesProvider.notifier).toggle(series, episode);
-      }
-      if (hasProgress) {
-        await ref.read(playbackProgressServiceProvider).clear(progressId);
-      }
+      await setWatched(!isVu);
     }
 
     return TvFocus(
@@ -909,6 +958,7 @@ class _EpisodeTile extends ConsumerWidget {
         child: AppCard(
           focusable: false,
           onTap: canPlay ? onOpen : null,
+          onLongPress: onLongPress,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
@@ -987,14 +1037,18 @@ class _EpisodeTile extends ConsumerWidget {
               ],
               const SizedBox(width: 4),
               ExcludeFocus(
-                child: IconButton(
-                  tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
-                  onPressed: () => ref
-                      .read(watchedEpisodesProvider.notifier)
-                      .toggle(series, episode),
-                  icon: Icon(
-                    isVu ? Icons.check_circle : Icons.check_circle_outline,
-                    color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
+                child: GestureDetector(
+                  onLongPress: onLongPress,
+                  child: TooltipTheme(
+                    data: const TooltipThemeData(triggerMode: TooltipTriggerMode.manual),
+                    child: IconButton(
+                      tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
+                      onPressed: () => setWatched(!isVu),
+                      icon: Icon(
+                        isVu ? Icons.check_circle : Icons.check_circle_outline,
+                        color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ),
               ),

@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
 import 'package:orbit_3d_flutter/services/catalog_http_validators.dart';
 import 'package:orbit_3d_flutter/services/conditional_xmltv_cache.dart';
+import 'package:orbit_3d_flutter/services/video_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -232,6 +233,13 @@ class _NetworkSection extends ConsumerWidget {
           value: s.useTlsImpersonation,
           onChanged: n.setTlsImpersonation,
           icon: Icons.shield_outlined,
+        ),
+        SettingsSwitchTile(
+          title: l.localVideoProxy,
+          subtitle: l.localVideoProxySubtitle,
+          value: s.localVideoProxy,
+          onChanged: n.setLocalVideoProxy,
+          icon: Icons.router_outlined,
         ),
         const _DnsProviderTile(),
         const SizedBox(height: 16),
@@ -749,6 +757,7 @@ class _AdvancedSection extends ConsumerWidget {
     await ConditionalPlaylistCache.instance.clear();
     await CatalogHttpValidators.instance.clear();
     await ConditionalXmltvCache.instance.clear();
+    await (await VideoCacheManager.instance).clear();
     ref.read(epgDataCacheProvider).invalidate();
     await HiveSync.writeAsync('metadata_cache', (box) => box.clear());
     if (context.mounted) {

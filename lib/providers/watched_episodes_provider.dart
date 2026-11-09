@@ -133,19 +133,36 @@ class WatchedEpisodesNotifier
     final profile = ref.read(currentProfileProvider);
     if (profile == null) return;
     if (episode.episodeNumber <= 0 && episode.id.isEmpty) return;
-    _writeGen++;
+    final writeGen = ++_writeGen;
     final entry = _entryFor(series, episode, profile.id);
     final service = ref.read(watchedEpisodesServiceProvider);
-    if (state.containsKey(entry.key)) {
-      final next = Map<String, WatchedEpisodeEntry>.from(state)
-        ..remove(entry.key);
-      state = next;
-      await service.remove(entry.key);
+    final previous = state[entry.key];
+    final next = Map<String, WatchedEpisodeEntry>.from(state);
+    if (previous != null) {
+      next.remove(entry.key);
     } else {
-      final next = Map<String, WatchedEpisodeEntry>.from(state)
-        ..[entry.key] = entry;
-      state = next;
-      await service.save(entry);
+      next[entry.key] = entry;
+    }
+    state = next;
+    try {
+      if (previous != null) {
+        await service.remove(entry.key);
+      } else {
+        await service.save(entry);
+      }
+    } catch (_) {
+      if (ref.mounted &&
+          _writeGen == writeGen &&
+          ref.read(currentProfileProvider)?.id == profile.id) {
+        final restored = Map<String, WatchedEpisodeEntry>.from(state);
+        if (previous == null) {
+          restored.remove(entry.key);
+        } else {
+          restored[entry.key] = previous;
+        }
+        state = restored;
+      }
+      rethrow;
     }
   }
 

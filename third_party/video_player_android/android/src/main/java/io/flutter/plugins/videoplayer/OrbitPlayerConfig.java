@@ -13,6 +13,7 @@ public final class OrbitPlayerConfig {
   public static int maxBufferMs = 0;
   public static int bufferForPlaybackMs = 0;
   public static int bufferForPlaybackAfterRebufferMs = 0;
+  public static boolean prioritizeTimeOverSizeThresholds = false;
   public static int maxVideoWidth = 0;
   public static int maxVideoHeight = 0;
   /** Rend la vidéo via une SurfaceView native sur Android TV (au lieu d'une texture). */

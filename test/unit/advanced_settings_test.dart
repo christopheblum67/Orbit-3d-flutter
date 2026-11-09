@@ -17,6 +17,7 @@ void main() {
     expect(notifier.state.useTlsImpersonation, isTrue);
     expect(notifier.state.dnsProvider, '1.1.1.1 (Cloudflare DoH)');
     expect(notifier.state.zeroLagPrefetch, isTrue);
+    expect(notifier.state.localVideoProxy, isFalse);
     expect(notifier.state.nightFocusEnabled, isFalse);
     expect(notifier.state.nightFocusDialogueBoost, isTrue);
     expect(notifier.state.nightFocusBassKiller, isTrue);
@@ -45,6 +46,7 @@ void main() {
     await notifier.setTlsImpersonation(false);
     await notifier.setDnsProvider('9.9.9.9 (Quad9 DoH)');
     await notifier.setZeroLagPrefetch(false);
+    await notifier.setLocalVideoProxy(true);
     await notifier.setNightFocus(true);
     await notifier.setNightFocusDialogueBoost(false);
     await notifier.setNightFocusVocalGainDb(6.0);
@@ -53,6 +55,7 @@ void main() {
     expect(notifier.state.useTlsImpersonation, isFalse);
     expect(notifier.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
     expect(notifier.state.zeroLagPrefetch, isFalse);
+    expect(notifier.state.localVideoProxy, isTrue);
     expect(notifier.state.nightFocusEnabled, isTrue);
     expect(notifier.state.nightFocusDialogueBoost, isFalse);
     expect(notifier.state.nightFocusVocalGainDb, 6.0);
@@ -65,6 +68,7 @@ void main() {
       '9.9.9.9 (Quad9 DoH)',
     );
     expect(prefs.getBool(AdvancedSettings.kZeroLagPrefetch), isFalse);
+    expect(prefs.getBool(AdvancedSettings.kLocalVideoProxy), isTrue);
     expect(prefs.getBool(AdvancedSettings.kNightFocus), isTrue);
     expect(prefs.getDouble(AdvancedSettings.kNightFocusVocalGainDb), 6.0);
     expect(
@@ -80,6 +84,7 @@ void main() {
     expect(reloaded.state.useTlsImpersonation, isFalse);
     expect(reloaded.state.dnsProvider, '9.9.9.9 (Quad9 DoH)');
     expect(reloaded.state.zeroLagPrefetch, isFalse);
+    expect(reloaded.state.localVideoProxy, isTrue);
     expect(reloaded.state.nightFocusEnabled, isTrue);
     expect(reloaded.state.nightFocusVocalGainDb, 6.0);
     expect(reloaded.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
@@ -120,5 +125,18 @@ void main() {
     await notifier.load();
     expect(notifier.state.playerVod.primary, PlayerEngine.mxPlayer);
     expect(notifier.state.playerVod.fallback, PlayerEngine.vlc);
+  });
+
+  test('le relais est conservé après import des réglages', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(advancedSettingsProvider.notifier);
+    await notifier.importFromJson(const AdvancedSettings(localVideoProxy: true));
+    final reloadedContainer = ProviderContainer();
+    addTearDown(reloadedContainer.dispose);
+    final reloaded = reloadedContainer.read(advancedSettingsProvider.notifier);
+    await reloaded.load();
+    expect(reloaded.state.localVideoProxy, isTrue);
   });
 }

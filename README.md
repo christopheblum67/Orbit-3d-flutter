@@ -20,9 +20,24 @@ comme des secrets.
 ### Proxy de flux
 
 Le proxy Rust local n’est pas actuellement embarqué ni lancé sur Android/iOS.
-Sur ces plateformes, l’application lit donc directement le fournisseur ; le
-relai Rust est disponible uniquement lorsqu’un binaire et un lanceur natif sont
-fournis explicitement. L’absence du proxy ne bloque pas la lecture normale.
+Le relais Rust est disponible uniquement lorsqu’un binaire et un lanceur natif
+sont fournis explicitement. L’absence du proxy ne bloque pas la lecture normale.
+
+Un relais Dart expérimental distinct peut être activé dans les réglages réseau ;
+il est désactivé par défaut. Il concerne les films et séries lus par le lecteur
+interne, mais pas le Live, les lecteurs externes, les flux DASH identifiés ou
+les flux déjà dirigés vers le relais Rust. Il transmet les plages HTTP et
+réécrit les références des manifestes HLS pris en charge.
+
+Son cache temporaire est limité à 512 Mio. Il ne conserve que des ressources
+complètes d’au plus 1 Mio dont les en-têtes HTTP autorisent explicitement la
+mise en cache ; les plages absentes restent demandées au fournisseur. Les
+entrées ne sont réutilisées que pendant leur session de lecture et leur durée
+de fraîcheur, puis supprimées à la fermeture de la session ; les fichiers
+résiduels sont supprimés à la prochaine initialisation du cache. La commande
+« Vider les caches » supprime aussi ce cache vidéo.
+Le relais ne garantit pas la suppression des refus 403 ni la compatibilité avec
+tous les fournisseurs.
 
 ### Widevine
 
