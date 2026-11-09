@@ -44,6 +44,10 @@ class HistoryService {
     });
   }
 
+  Future<void> clearAll() async {
+    await HiveSync.writeAsync(_boxName, (box) => box.clear());
+  }
+
   Future<List<HistoryEntry>> getHistory() async {
     return HiveSync.read(_boxName, (box) {
       final entries = box

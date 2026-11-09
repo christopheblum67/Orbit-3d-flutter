@@ -26,6 +26,9 @@ void main() {
       notifier.state.vodSubtitleMode,
       VodSubtitleMode.defaultSelection,
     );
+    for (final type in PlaybackContentType.values) {
+      expect(notifier.state.configFor(type), const PlayerPerTypeConfig());
+    }
   });
 
   test('modifications persistées et relues', () async {
@@ -80,5 +83,42 @@ void main() {
     expect(reloaded.state.nightFocusEnabled, isTrue);
     expect(reloaded.state.nightFocusVocalGainDb, 6.0);
     expect(reloaded.state.vodSubtitleMode, VodSubtitleMode.forcedOnly);
+  });
+
+  test('moteurs et secours sauvegardés sont relus pour chaque type', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(advancedSettingsProvider.notifier);
+    await notifier.load();
+
+    for (final type in PlaybackContentType.values) {
+      for (final engine in PlayerEngine.values) {
+        await notifier.setPlayerPrimary(type, engine);
+        await notifier.setPlayerFallback(type, engine);
+        final reloadedContainer = ProviderContainer();
+        final reloaded =
+            reloadedContainer.read(advancedSettingsProvider.notifier);
+        await reloaded.load();
+        expect(reloaded.state.configFor(type).primary, engine);
+        expect(reloaded.state.configFor(type).fallback, engine);
+        reloadedContainer.dispose();
+      }
+    }
+  });
+
+  test('anciens libellés de moteurs restent lisibles', () async {
+    SharedPreferences.setMockInitialValues({
+      AdvancedSettings.kPlayerPrimary(PlaybackContentType.vod):
+          PlayerEngine.mxPlayer.label,
+      AdvancedSettings.kPlayerFallback(PlaybackContentType.vod):
+          PlayerEngine.vlc.label,
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(advancedSettingsProvider.notifier);
+    await notifier.load();
+    expect(notifier.state.playerVod.primary, PlayerEngine.mxPlayer);
+    expect(notifier.state.playerVod.fallback, PlayerEngine.vlc);
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/models/category.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 
@@ -19,17 +20,26 @@ class CategoryFilterScreen extends ConsumerStatefulWidget {
       _CategoryFilterScreenState();
 }
 
-class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
+class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
+    with SingleTickerProviderStateMixin {
   bool _scanning = false;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     // À l'ouverture, la liste peut être périmée (catégORIES ajoutées ou
     // renommées par le panel, changement d'abonnement). `rescan` respecte le
     // TTL de 12 h : n'y a une requête réseau que si le scan précédent est
     // réellement périmé. Le `_rescan` manuel reste disponible.
     WidgetsBinding.instance.addPostFrameCallback((_) => _rescan());
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _rescan() async {
@@ -59,7 +69,9 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
     final notifier = ref.read(vodCategoryFilterProvider.notifier);
     final vodSource = ref.watch(vodCategoriesProvider);
     final seriesSource = ref.watch(seriesCategoriesProvider);
-
+    final liveChannels =
+        ref.watch(liveChannelsAllProvider).value ?? const <Channel>[];
+    final liveCategories = _liveCategories(liveChannels);
     // Catalogue preferential : celui du scan s'il existe (donc même les
     // catégories sans contenu), sinon la réponse live du panel.
     final vodCategories = filter.knownVodCategories.isNotEmpty
@@ -87,8 +99,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
       ),
       body: sub == null
           ? const Center(child: Text('Aucun abonnement actif'))
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 32),
+          : Column(
               children: [
                 _SubscriptionHeader(
                   subscriptionName: sub.name,
@@ -96,23 +107,92 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen> {
                   scanning: _scanning,
                   onRescan: _rescan,
                 ),
-                _CategorySection(
-                  title: 'Films',
-                  emptyMessage: 'Aucune catégorie Films sur ce panel.',
-                  categories: vodCategories,
-                  isHidden: filter.isVodHidden,
-                  onToggle: notifier.setVodCategoryVisible,
+                TabBar(
+                  controller: _tabController,
+                  tabs: [
+                    _focusTab(0, 'Live TV', filter.hiddenLiveCategoryIds.length),
+                    _focusTab(1, 'Films', filter.hiddenVodCategoryIds.length),
+                    _focusTab(
+                        2, 'Séries', filter.hiddenSeriesCategoryIds.length),
+                  ],
                 ),
-                _CategorySection(
-                  title: 'Séries',
-                  emptyMessage: 'Aucune catégorie Séries sur ce panel.',
-                  categories: seriesCategories,
-                  isHidden: filter.isSeriesHidden,
-                  onToggle: notifier.setSeriesCategoryVisible,
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _tabList(
+                        _CategorySection(
+                          title: 'Live TV',
+                          emptyMessage: 'Aucune catégorie Live TV sur ce panel.',
+                          categories: liveCategories,
+                          isHidden: filter.isLiveHidden,
+                          onToggle: notifier.setLiveCategoryVisible,
+                          unit: 'chaînes',
+                        ),
+                      ),
+                      _tabList(
+                        _CategorySection(
+                          title: 'Films',
+                          emptyMessage: 'Aucune catégorie Films sur ce panel.',
+                          categories: vodCategories,
+                          isHidden: filter.isVodHidden,
+                          onToggle: notifier.setVodCategoryVisible,
+                        ),
+                      ),
+                      _tabList(
+                        _CategorySection(
+                          title: 'Séries',
+                          emptyMessage: 'Aucune catégorie Séries sur ce panel.',
+                          categories: seriesCategories,
+                          isHidden: filter.isSeriesHidden,
+                          onToggle: notifier.setSeriesCategoryVisible,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
     );
+  }
+
+  /// Onglet qui s'active dès qu'il reçoit le focus (D-pad gauche/droite).
+  Widget _focusTab(int index, String label, int hiddenCount) {
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) {
+        if (focused && _tabController.index != index) {
+          _tabController.animateTo(index);
+        }
+      },
+      child: Tab(
+        text: hiddenCount > 0 ? '$label ($hiddenCount masquées)' : label,
+      ),
+    );
+  }
+
+  Widget _tabList(Widget section) => ListView(
+        padding: const EdgeInsets.only(bottom: 32),
+        children: [section],
+      );
+
+  /// Catégories Live dérivées des chaînes (sans masquage), clé = [liveCategoryKey].
+  static List<MediaCategory> _liveCategories(List<Channel> channels) {
+    final names = <String, String>{};
+    final counts = <String, int>{};
+    for (final c in channels) {
+      final key = liveCategoryKey(c);
+      if (key.isEmpty) continue;
+      names.putIfAbsent(
+        key,
+        () => c.groupLabel.isNotEmpty ? c.groupLabel : key,
+      );
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return [
+      for (final e in names.entries)
+        MediaCategory(id: e.key, name: e.value, count: counts[e.key] ?? 0),
+    ];
   }
 }
 
@@ -195,8 +275,10 @@ class _CategorySection extends StatelessWidget {
     required this.categories,
     required this.isHidden,
     required this.onToggle,
+    this.unit = 'titres',
   });
 
+  final String unit;
   final String title;
   final String emptyMessage;
   final List<MediaCategory> categories;
@@ -244,7 +326,7 @@ class _CategorySection extends StatelessWidget {
                 ),
               ),
               subtitle:
-                  category.count > 0 ? Text('${category.count} titres') : null,
+                  category.count > 0 ? Text('${category.count} $unit') : null,
             );
           },
         ),

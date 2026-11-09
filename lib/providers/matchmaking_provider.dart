@@ -257,8 +257,11 @@ String _normalizeGenre(String genre) {
 /// (`science-fiction` -> `science fiction`). Si on ne fait pas de meme côté
 /// texte, une description comme « histoire de science-fiction spatiale »
 /// ne contient plus jamais « science fiction » et l'affinite tombe a zero.
+final RegExp _kMatchSeparators = RegExp(r'[\-_]');
+final RegExp _kGenreSeparators = RegExp(r'[,/|&]');
+
 String _normalizeForMatch(String text) =>
-    text.toLowerCase().replaceAll(RegExp(r'[\-_]'), ' ');
+    text.toLowerCase().replaceAll(_kMatchSeparators, ' ');
 
 /// Vrai si [label] est — ou contient — un genre **reconnu**, plutôt qu'un simple
 /// nom de catégorie Xtream (« Récents », « Nouveautés », « Netflix », …).
@@ -287,12 +290,33 @@ bool isKnownGenreLabel(String label) {
 /// comparer. Sans cela, un profil étiqueté `fantasy` (anglais) ne matchait
 /// jamais un film listé `Fantastique` (français), car `_genreAliases` n'allait
 /// que dans un sens (`fantastique` → `fantasy`, jamais l'inverse).
+/// Les libellés de genre d'un catalogue sont peu nombreux (noms de catégories,
+/// genres TMDB) mais le scoring les redécoupe pour chacun des ~130 000 titres :
+/// on mémorise donc la découpe.
+final Map<String, Set<String>> _genreTokenMemo = <String, Set<String>>{};
+
 Set<String> _canonicalGenreTokens(String raw) {
+  final memo = _genreTokenMemo[raw];
+  if (memo != null) return memo;
   final tokens = <String>{};
-  for (final part in raw.split(RegExp(r'[,/|&]'))) {
+  for (final part in raw.split(_kGenreSeparators)) {
     final t = part.trim().toLowerCase();
     if (t.isNotEmpty) tokens.add(_normalizeGenre(t));
   }
+  if (_genreTokenMemo.length > 20000) _genreTokenMemo.clear();
+  return _genreTokenMemo[raw] = tokens;
+}
+
+/// Jetons canoniques des genres favoris, calculés une fois par liste.
+final Expando<Set<String>> _favTokensMemo = Expando<Set<String>>('favTokens');
+
+Set<String> _favoriteTokens(List<String> favorites) {
+  final cached = _favTokensMemo[favorites];
+  if (cached != null) return cached;
+  final tokens = <String>{
+    for (final f in favorites) ..._canonicalGenreTokens(f),
+  };
+  _favTokensMemo[favorites] = tokens;
   return tokens;
 }
 
@@ -318,9 +342,7 @@ double profileAffinity(Recommendation reco, List<String> favorites) {
     return (reco.rating / 20).clamp(0.0, 0.5).toDouble();
   }
 
-  final favTokens = <String>{
-    for (final f in favorites) ..._canonicalGenreTokens(f),
-  };
+  final favTokens = _favoriteTokens(favorites);
   if (favTokens.isEmpty) {
     return (reco.rating / 20).clamp(0.0, 0.5).toDouble();
   }

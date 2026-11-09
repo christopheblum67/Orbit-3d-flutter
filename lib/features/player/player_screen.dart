@@ -1,98 +1,65 @@
 import 'dart:async';
+import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
-import 'package:collection/collection.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
-import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/services/night_focus_audio_service.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
+import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/player_monitoring_overlay.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart' show tvModeNotifierProvider;
+import 'package:orbit_3d_flutter/features/player/widgets/delayed_playback_loading.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_footer_bars.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_footer_content.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/ready_player.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_error_view.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/provider_verification_dialog.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/cast_button.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/time_progress_bar.dart';
+import 'package:orbit_3d_flutter/features/player/player_route_data.dart';
+import 'package:orbit_3d_flutter/features/player/adjacent_player_cache.dart';
+import 'package:orbit_3d_flutter/features/player/player_key_policy.dart';
+import 'package:orbit_3d_flutter/features/player/playback_checkpoint.dart';
+import 'package:orbit_3d_flutter/features/player/playback_error_policy.dart';
+import 'package:orbit_3d_flutter/features/player/external_playback.dart';
+import 'package:orbit_3d_flutter/features/player/playback_history_writer.dart';
+import 'package:orbit_3d_flutter/features/player/preload_candidate.dart';
+import 'package:orbit_3d_flutter/features/player/player_preloader.dart';
+import 'package:orbit_3d_flutter/features/player/playback_progress_writer.dart';
+import 'package:orbit_3d_flutter/features/player/playback_rate_limit.dart';
+import 'package:orbit_3d_flutter/features/player/saved_audio_track.dart';
+import 'package:orbit_3d_flutter/features/player/subtitle_preferences.dart';
+import 'package:orbit_3d_flutter/features/player/embedded_subtitle_scanner.dart';
+import 'package:orbit_3d_flutter/features/player/decoder_recovery.dart';
+import 'package:orbit_3d_flutter/features/player/next_episode.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
-import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:orbit_3d_flutter/services/stream_prewarm_service.dart';
-import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
+import 'package:orbit_3d_flutter/services/player_crash_guard.dart';
 import 'package:orbit_3d_flutter/services/pip_service.dart';
 import 'package:orbit_3d_flutter/services/background_playback_service.dart';
 import 'package:orbit_3d_flutter/services/stream_relay.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
-import 'package:orbit_3d_flutter/features/player/widgets/subtitle_overlay.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/features/player/widgets/player_subtitle_overlay.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-class PlayerRouteData {
-  const PlayerRouteData({
-    required this.streamUrl,
-    this.title,
-    this.channels = const [],
-    this.index = 0,
-    this.progressId,
-    this.initialPositionMs,
-    this.contentType = PlaybackContentType.live,
-    this.favorite,
-    this.posterUrl,
-    this.subtitle,
-    this.rating,
-    this.genre,
-    this.year = 0,
-    this.seriesName,
-    this.episodeLabel,
-    this.series,
-    this.episode,
-    this.vodId,
-  });
-
-  final String streamUrl;
-  final String? title;
-  final List<Channel> channels;
-  final int index;
-  final String? progressId;
-  final int? initialPositionMs;
-
-  /// Identifiant VOD du film (`stream_id`), utilisé pour découvrir les
-  /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
-  final String? vodId;
-  final PlaybackContentType contentType;
-
-  /// Favori associé au contenu lancé (utilisé pour la lecture non live).
-  /// En live, le favori est déduit de la chaîne courante.
-  final FavoriteEntry? favorite;
-
-  final String? posterUrl;
-  final String? subtitle;
-  final double? rating;
-  final String? genre;
-  final int year;
-  final String? seriesName;
-  final String? episodeLabel;
-
-  /// Contexte série (lecture d'un épisode) : permet au player de poser le
-  /// statut « vu » quand l'épisode atteint 80 % de progression.
-  final Series? series;
-  final Episode? episode;
-}
+export 'player_route_data.dart';
 
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({
@@ -115,6 +82,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.series,
     this.episode,
     this.vodId,
+    this.consecutiveEpisodes = 1,
   });
 
   final String streamUrl;
@@ -138,6 +106,7 @@ class PlayerScreen extends ConsumerStatefulWidget {
   /// Identifiant VOD du film (`stream_id`), utilisé pour découvrir les
   /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
   final String? vodId;
+  final int consecutiveEpisodes;
 
   @override
   ConsumerState<PlayerScreen> createState() => PlayerScreenState();
@@ -156,38 +125,6 @@ const _probTimeout = Duration(seconds: 45);
 
 /// Durée d'affichage de la footerbar avant masquage automatique.
 const _footerBarDuration = Duration(seconds: 5);
-
-/// Seuil (fraction lue) au-delà duquel un épisode de série est posé « vu ».
-const double _seriesWatchedThreshold = 0.8;
-
-/// Bornes du back-off appliqué après un 401 du panneau.
-///
-/// Qui arbitre le rythme, et pourquoi.
-///
-/// Le NATIF est l'autorité du rythme : `LoggingDataSource` espace les
-/// ouvertures avec un verrou GLOBAL partagé par tous les contrôleurs de la
-/// processus (lecture, préchauffage, préchargement) et réessaie 3 fois avec
-/// 3/8/20 s. C'est le seul étage qui voit les contrôleurs que cet écran ne
-/// connaît pas, donc le seul qui puisse empêcher la rafale de requêtes
-/// « quasi simultanées » que l'anti-leech sanctionne.
-///
-/// Ces bornes Dart ne sont donc PAS une seconde barrière anti-leech à
-/// empiler : elles n'espacent que les tentatives déclenchées depuis cet
-/// écran (relance manuelle, zapping), le temps que le verrou natif fasse son
-/// office. D'où des valeurs volontairement courtes : le refus que le natif a
-/// déjà payé (jusqu'à 31 s) ne doit pas être doublé d'une pénalité de 4 à
-/// 60 s d'écran noir. Le cumul des deux était la source des dizaines de
-/// secondes d'attente sans que le CDN y gagne quoi que ce soit.
-///
-/// Measured sur draap.online : 4 requêtes quasi simultanées en boucle → 0 % de
-/// réussite, alors qu'une requête isolée réussit une fois sur deux. Marteler
-/// l'endpoint garantit donc de rester bloqué.
-const List<Duration> _rateLimitBackoffs = [
-  Duration(seconds: 2),
-  Duration(seconds: 5),
-  Duration(seconds: 10),
-  Duration(seconds: 20),
-];
 
 /// Nombre de variantes d'URL tolérées après un refus anti-leech avant
 /// d'abandonner la tentative courante.
@@ -211,7 +148,7 @@ const int _maxRateLimitedVariants = 2;
 ///
 /// En passant à `false`, chaque nouveau lecteur prend le focus et fait taire
 /// le précédent au niveau du système, même si un contrôleur survit en cache.
-/// Les caches `_cachedPrev`/`_cachedNext` redeviennent sûrs.
+/// Les caches des lecteurs adjacents redeviennent sûrs.
 final VideoPlayerOptions _exclusivePlayback = VideoPlayerOptions(
   mixWithOthers: false,
   allowBackgroundPlayback: false,
@@ -222,63 +159,59 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   List<Channel> _channels = const [];
   late int _index;
   VideoPlayerController? _controller;
-  VideoPlayerController? _cachedNext;
-  int? _cachedNextIndex;
-  VideoPlayerController? _cachedPrev;
+  late final _adjacentPlayers = AdjacentPlayerCache<VideoPlayerController>(
+    disposePlayer: (player) => unawaited(_disposeController(player)),
+  );
 
-  /// Nombre de 401 consécutifs et fin du délai de refroidissement courant.
-  int _rateLimitStrikes = 0;
-  DateTime? _rateLimitUntil;
-
-  /// La dernière tentative a essuyé un refus anti-leech : inutile d'enchaîner
-  /// sur les autres variantes d'URL, elles seront refusées aussi.
-  bool _rateLimitedOnLastAttempt = false;
+  final PlaybackRateLimit _rateLimit = PlaybackRateLimit();
 
   /// Piste audio préférée ré-appliquée après l'initialisation du contrôleur.
   bool _appliedAudioPref = false;
 
-  /// Génération pour laquelle la préférence de sous-titres d'une série a déjà
-  /// été appliquée (`-1` = jamais). Évite de rejouer la sélection à chaque
-  /// vague de découverte — et donc de reprendre la main sur un choix manuel.
-  int _appliedSeriesSubtitleGeneration = -1;
-  int _appliedVodSubtitleModeGeneration = -1;
-  int _vodManualSelectionRevisionAtScan = 0;
+  final SubtitlePreferences _subtitlePreferences = SubtitlePreferences();
 
-  /// Balayage des sous-titres intégrés.
-  ///
-  /// Un flux adaptatif (HLS/DASH) n'annonce pas ses pistes texte d'un coup :
-  /// media3 publie d'abord quelques pistes, puis les autres au fil du
-  /// chargement — sur le panel mesuré, la liste complète n'arrive qu'après
-  /// ~30 s. Un unique appel juste après `isInitialized` ne captait donc que la
-  /// première vague (une piste sur cinq). On rejoue la sonde tant que la liste
-  /// évolue, jusqu'à un délai borné.
-  Timer? _embeddedScanTimer;
-  VideoPlayerController? _embeddedScanController;
-
-  String _embeddedSig = kEmbeddedSigUnset;
-  bool _embeddedScanRunning = false;
-  int? _cachedPrevIndex;
-  int? _preloadTarget;
+  final EmbeddedSubtitleScanner<VideoPlayerController> _embeddedScanner =
+      EmbeddedSubtitleScanner(
+    fetchTracks: (player) =>
+        EmbeddedSubtitleBridge(embeddedPlayerId(player)).getTracks(),
+  );
+  final _preloader = PlayerPreloader<VideoPlayerController>();
+  // Un zapping ultérieur doit aussi attendre la pause encore en cours.
+  Future<void>? _pendingZapPause;
   _PlayerStatus _status = _PlayerStatus.loading;
   bool _handlingError = false;
-  bool _autorecovered = false;
+  bool _externalPlaybackLaunched = false;
+  late final PlaybackProgressWriter _progressWriter;
+  late final SubtitleController _subtitleController;
+  late final WatchedEpisodesNotifier _watchedEpisodes;
+  int _autoRecoveryAttempts = 0;
   bool _retrying = false;
+  bool _decoderInitializationError = false;
+  int? _decoderModeOverride;
   DateTime? _lastRetryTime;
   String? _lastErrorDescription;
   int _generation = 0;
   bool _footerVisible = false;
   Timer? _footerTimer;
+  Timer? _nextEpisodeTimer;
+  Episode? _nextEpisode;
+  int _nextEpisodeSeconds = 15;
+  bool _completionHandled = false;
   Timer? _saveProgressTimer;
   bool _immersive = false;
-  bool _hasAppliedInitialPosition = false;
+  late final PlaybackCheckpoint _checkpoint;
+  bool _resumePlaying = true;
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
+  final FocusNode _nextEpisodeFocus = FocusNode(debugLabel: 'NextEpisode');
   final FocusScopeNode _footerScope = FocusScopeNode(debugLabel: 'PlayerFooter');
+  final FocusScopeNode _playerErrorScope = FocusScopeNode(debugLabel: 'PlayerErrors');
 
   // Picture-in-Picture & lecture en arrière-plan
   final _pipService = PipService();
   final _bgService = BackgroundPlaybackService();
   bool? _pipSupported;
+  late final PlaybackRefreshLease _refreshLease;
 
   // Monitoring réseau & stall
   Timer? _monitoringTimer;
@@ -311,6 +244,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void initState() {
     super.initState();
+    _refreshLease = PlaybackRefreshGate.instance.acquire();
+    _progressWriter =
+        PlaybackProgressWriter(ref.read(playbackProgressServiceProvider));
+    _subtitleController = ref.read(subtitleControllerProvider);
+    _watchedEpisodes = ref.read(watchedEpisodesProvider.notifier);
+    _checkpoint = PlaybackCheckpoint(widget.initialPositionMs);
     WidgetsBinding.instance.addObserver(this);
     // Contexte de découverte des sous-titres pour le contenu lu. Renseigné
     // ici (et non au moment de l'appui sur l'icône) pour que la feuille puisse
@@ -363,6 +302,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     ref.read(subtitleControllerProvider).resetForNewContent();
     _initializePlayer();
     _startSaveProgressTimer();
+    unawaited(PlayerCrashGuard.begin());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final supported = await _pipService.isSupported;
       if (mounted) {
@@ -375,20 +315,29 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
+    _embeddedScanner.stop();
+    _refreshLease.release();
     WidgetsBinding.instance.removeObserver(this);
     _restoreSystemUi();
     _footerTimer?.cancel();
+    _nextEpisodeTimer?.cancel();
     _saveProgressTimer?.cancel();
     _monitoringTimer?.cancel();
     _stallDetector?.stop();
     _bgService.stop();
-    _saveProgress();
+    _saveProgress(
+      preserveOnError: _handlingError ||
+          _status == _PlayerStatus.error ||
+          (_autoRecoveryAttempts > 0 && _status != _PlayerStatus.ready),
+    );
     _focusNode.dispose();
+    _nextEpisodeFocus.dispose();
     _footerScope.dispose();
+    _playerErrorScope.dispose();
     _disposeActive();
-    _disposeCachedNext();
-    _disposeCachedPrev();
-    _preloadTarget = null;
+    _adjacentPlayers.clear();
+    _preloader.cancel();
+    unawaited(PlayerCrashGuard.end());
     super.dispose();
   }
 
@@ -398,6 +347,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _syncImmersive();
       _bgService.stop();
     } else {
+      if (_nextEpisodeTimer?.isActive == true) {
+        _nextEpisodeTimer?.cancel();
+        if (mounted) setState(() {});
+      }
       _restoreSystemUi();
       // Lecture active + app non au premier plan (PiP, home, écran éteint) :
       // le foreground service mediaPlayback garde le process vivant (Android 14+).
@@ -433,17 +386,20 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Affiche la footerbar (et les barres système) pendant [duration] puis la
   /// masque automatiquement. Appelé sur tap écran, touche OK ou zapping.
-  void _showFooterBar({Duration duration = _footerBarDuration}) {
+  void _showFooterBar({
+    Duration duration = _footerBarDuration,
+    bool focusControls = true,
+  }) {
     _footerTimer?.cancel();
     final firstShow = !_footerVisible;
     _footerVisible = true;
     if (mounted && firstShow) {
       setState(() {});
-      // L'autofocus d'un FocusScope est ignoré quand le lecteur a déjà le
-      // focus : on le donne explicitement au premier bouton de la barre.
+    }
+    if (mounted && focusControls && !_footerScope.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_footerVisible) return;
-        if (_footerScope.hasFocus) return;
+        if (!mounted || !_footerVisible || _footerScope.hasFocus ||
+            _status != _PlayerStatus.ready || _playerErrorScope.hasFocus) return;
         final targets = _footerScope.traversalDescendants
             .where((n) => n.canRequestFocus && !n.skipTraversal);
         if (targets.isNotEmpty) targets.first.requestFocus();
@@ -455,7 +411,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _footerVisible = false;
       _footerTimer = null;
       setState(() {});
-      _focusNode.requestFocus();
+      if (_status == _PlayerStatus.ready && !_playerErrorScope.hasFocus) {
+        _focusNode.requestFocus();
+      }
       _syncImmersive(); // repasse en immersive si lecture en cours
     });
   }
@@ -500,61 +458,36 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Sauvegarde la position courante de lecture.
-  void _saveProgress() {
+  void _saveProgress({bool preserveOnError = false}) {
     final id = widget.progressId;
     if (id == null) return;
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
-    final position = controller.value.position;
-    final duration = controller.value.duration;
+    if (widget.contentType == PlaybackContentType.live) return;
+    if (controller != null) _checkpoint.observe(controller.value);
+    if (!_checkpoint.hasPosition) return;
+    final position = _checkpoint.position;
+    final duration = _checkpoint.duration;
     final positionMs = position.inMilliseconds;
     final durationMs = duration.inMilliseconds;
 
-    // Épisode de série : dès que 80 % sont regardés, l'épisode est posé
-    // comme « vu » pour le profil courant (tout en restant reprenable).
-    final fraction = durationMs > 0 ? positionMs / durationMs : 0.0;
-    if (fraction >= _seriesWatchedThreshold) {
-      final series = widget.series;
-      final episode = widget.episode;
-      if (series != null && episode != null) {
-        ref.read(watchedEpisodesProvider.notifier).record(series, episode);
-      }
-    }
-
-    // Si la lecture est terminée (> 95 %), on efface la progression.
-    if (durationMs > 0 && positionMs > durationMs * 0.95) {
-      ref.read(playbackProgressServiceProvider).clear(id);
-    } else {
-      ref
-          .read(playbackProgressServiceProvider)
-          .save(id, positionMs, durationMs);
-    }
-  }
-
-  /// Applique la position initiale si elle est fournie et que le controller
-  /// est prêt. La durée peut être encore inconnue (0) au moment du seek :
-  /// on n'empêche alors pas la reprise (ExoPlayer sait se positionner).
-  void _applyInitialPosition() {
-    if (_hasAppliedInitialPosition) return;
-    final initialMs = widget.initialPositionMs;
-    if (initialMs == null || initialMs <= 0) {
-      _hasAppliedInitialPosition = true;
-      return;
-    }
-    final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) return;
-    _hasAppliedInitialPosition = true;
-    final position = Duration(milliseconds: initialMs);
-    final duration = controller.value.duration;
-    if (duration.inMilliseconds <= 0 || position < duration) {
-      controller.seekTo(position);
-    }
+    final series = widget.series;
+    final episode = widget.episode;
+    _progressWriter.save(
+      id: id,
+      positionMs: positionMs,
+      durationMs: durationMs,
+      preserveOnError: preserveOnError,
+      markWatched: series != null && episode != null
+          ? () => _watchedEpisodes.record(series, episode)
+          : null,
+    );
   }
 
   void _initializePlayer() {
     _generation++;
     _handlingError = false;
-    _autorecovered = false;
+    _autoRecoveryAttempts = 0;
+    _externalPlaybackLaunched = false;
     _lastErrorDescription = null;
     _startAttempt();
     _startPreload();
@@ -576,23 +509,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  /// Échec du décodeur matériel (MediaCodec) : ce n'est PAS un blocage du
-  /// serveur, donc il ne doit pas armer le circuit breaker de l'hôte (sinon
-  /// toutes les chaînes de ce serveur deviennent « indisponibles » 90 s).
-  bool _isDecoderError(Object? error) {
-    final s = '$error';
-    return s.contains('MediaCodecVideoRenderer') ||
-        s.contains('DecoderInitializationException') ||
-        s.contains('Decoder init failed');
-  }
-
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
 
     // Refroidissement après un 401 anti-leech : on laisse l'endpoint avant de
     // repartir, sinon on accumulate les refus et le blocage s'allonge.
-    await _awaitRateLimitCooldown();
+    await _rateLimit.wait();
     if (!mounted || gen != _generation) return;
 
     // Connectivite au demarrage. ConnectivityMonitor demarre a
@@ -628,13 +551,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // de résolution) AVANT la création du contrôleur ExoPlayer.
     await PlayerProfileService.push(
       Media3PlaybackProfile.forProfile(ref.read(deviceProfileProvider)),
+      decoderModeOverride: _decoderModeOverride,
     );
+    if (!mounted || gen != _generation) return;
     if (!isLikelyStreamUrl(_activeStreamUrl)) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
     }
     // Flux préchauffé par la grille Live TV : zapping sans démarrage à froid.
-    final prewarmed = StreamPrewarmService.instance.take(_activeStreamUrl);
+    final prewarmed = widget.contentType == PlaybackContentType.live &&
+            _autoRecoveryAttempts == 0
+        ? StreamPrewarmService.instance.take(_activeStreamUrl)
+        : null;
     if (prewarmed != null) {
       // Force l'arrêt de l'ancien contrôleur AVANT d'assigner le nouveau
       // pour éviter le chevauchement audio (doublage).
@@ -654,7 +582,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       _setStatus(_PlayerStatus.ready);
       _showInfoBrief();
-      _recordHistory();
+      unawaited(_recordHistory());
       return;
     }
     _setStatus(_PlayerStatus.loading);
@@ -662,8 +590,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // (VLC / MX), on tente d'abord de diriger la lecture vers celle-ci.
     if (_engineConfig.primary.isExternal) {
       final external = await _launchExternal();
-      if (external && mounted && gen == _generation) return;
       if (!mounted || gen != _generation) return;
+      if (external) {
+        _showExternalPlaybackState();
+        return;
+      }
       // Échec du lecteur externe : on retombe sur le moteur interne.
     }
     // Priorité : sur les serveurs hybrides, l'URL « style live » /u/p/{id}
@@ -671,12 +602,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // chemin /movie/{id} renvoie 401. On tente donc les variantes dans
     // l'ordre, en complétant par les User-Agents si toutes échouent.
     final variants = await _resolvedVariants();
+    _decoderInitializationError = false;
     var rateLimitedAttempts = 0;
     for (final attemptUrl in variants) {
       final found = await _tryPlay(gen, attemptUrl);
       if (found) return;
       if (!mounted || gen != _generation) return;
-      if (_rateLimitedOnLastAttempt) {
+      if (_decoderInitializationError) {
+        await _handleActiveError();
+        return;
+      }
+      if (_rateLimit.lastAttemptLimited) {
         rateLimitedAttempts++;
         // Un refus isolé reste toléré : sur les serveurs hybrides, le chemin
         // /movie/{id} renvoie 401 alors que /u/p/{id} fonctionne, et l'ordre
@@ -692,8 +628,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // bascule sur le fallback (ex. libVLC) avant de déclarer une erreur.
       if (_engineConfig.fallback.isExternal) {
         final external = await _launchFallbackExternal();
-        if (external && mounted && gen == _generation) return;
         if (!mounted || gen != _generation) return;
+        if (external) {
+          _showExternalPlaybackState();
+          return;
+        }
       }
       _setStatus(_PlayerStatus.error);
     }
@@ -703,45 +642,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// ex. libVLC) en cas d'échec du moteur principal interne.
   Future<bool> _launchFallbackExternal() async {
     final engine = _engineConfig.fallback;
-    if (!engine.isExternal) return false;
-    final result = await safeAsync<bool>(
-      () async {
-        final url = _activeStreamUrl;
-        final uri = engine == PlayerEngine.vlc
-            ? Uri.parse('vlc://$url')
-            : Uri.parse(url);
-        final ui = Uri.parse(url);
-        final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
-        if (!supported) return false;
-        final launched =
-            await launchUrl(uri, mode: LaunchMode.externalApplication) ||
-                await launchUrl(ui, mode: LaunchMode.externalApplication);
-        if (launched && mounted) {
-          _setStatus(_PlayerStatus.ready);
-          _showInfoBrief();
-        }
-        return launched;
-      },
-      context: '_launchFallbackExternal',
-      fallbackValue: false,
-    );
-    return result.valueOrNull ?? false;
+    return _launchConfiguredExternal(engine);
   }
 
   Future<void> _openProviderWebsite() async {
-    final baseUrl = ref.read(activeSubscriptionProvider)?.baseUrl;
-    final providerUri = baseUrl == null ? null : Uri.tryParse(baseUrl);
-    if (providerUri == null ||
-        providerUri.host.isEmpty ||
-        (providerUri.scheme != 'http' && providerUri.scheme != 'https')) {
+    final uri = providerVerificationUri(
+      ref.read(activeSubscriptionProvider)?.baseUrl,
+    );
+    if (uri == null) {
       _showProviderWebsiteError();
       return;
     }
-    final uri = Uri(
-      scheme: providerUri.scheme,
-      host: providerUri.host,
-      port: providerUri.hasPort ? providerUri.port : null,
-    );
 
     final l = AppLocalizations.of(context);
     await showDialog<void>(
@@ -819,77 +730,26 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// pause et l'utilisateur poursuit dans l'app externe).
   Future<bool> _launchExternal() async {
     final engine = _engineConfig.primary;
-    if (!engine.isExternal) return false;
-    final result = await safeAsync<bool>(
-      () async {
-        final url = _activeStreamUrl;
-        // Pour VLC on préfère le schéma vlc:// ; sinon intent https générique.
-        final uri = engine == PlayerEngine.vlc
-            ? Uri.parse('vlc://$url')
-            : Uri.parse(url);
-        final ui = Uri.parse(url);
-        final supported = await canLaunchUrl(uri) || await canLaunchUrl(ui);
-        if (!supported) return false;
-        final launched =
-            await launchUrl(uri, mode: LaunchMode.externalApplication) ||
-                await launchUrl(
-                  ui,
-                  mode: LaunchMode.externalApplication,
-                );
-        if (launched && mounted) {
-          _setStatus(_PlayerStatus.ready);
-          _showInfoBrief();
-        }
-        return launched;
-      },
-      context: '_launchExternal',
-      fallbackValue: false,
-    );
-    return result.valueOrNull ?? false;
+    return _launchConfiguredExternal(engine);
   }
 
-  /// Vrai si l'erreur vient d'un refus HTTP du panneau/CDN (401/403).
-  ///
-  /// Un 401 n'a rien à voir avec l'User-Agent : c'est l'anti-leech en aval du
-  /// 302 qui refuse la connexion. Insister avec d'autres User-Agents ne peut
-  /// qu'augmenter le nombre de requêtes et allonger le refus.
-  static bool _isRateLimitedError(Object? error) {
-    if (error == null) return false;
-    final text = error.toString();
-    return text.contains('Response code: 401') ||
-        text.contains('Response code: 403') ||
-        text.contains('InvalidResponseCodeException');
-  }
-
-  /// Enregistre un refus et arme le prochain refroidissement.
-  void _registerRateLimit() {
-    final index = _rateLimitStrikes.clamp(0, _rateLimitBackoffs.length - 1);
-    final backoff = _rateLimitBackoffs[index];
-    _rateLimitStrikes++;
-    _rateLimitUntil = DateTime.now().add(backoff);
-    // Le refus porte sur le serveur, pas sur l'URL : les autres variantes
-    // d'URL seront refusées identiquement, autant ne pas les payer.
-    _rateLimitedOnLastAttempt = true;
-    debugPrint(
-      'Orbit3D 401 throttle: strike=$_rateLimitStrikes pause=${backoff.inSeconds}s',
+  Future<bool> _launchConfiguredExternal(PlayerEngine engine) async {
+    return launchExternalPlayback(
+      engine: engine,
+      url: _activeStreamUrl,
     );
   }
 
-  /// Attente le refroidissement en cours avant de repartir (borne à [_rateLimitUntil]).
-  Future<void> _awaitRateLimitCooldown() async {
-    final until = _rateLimitUntil;
-    if (until == null) return;
-    final wait = until.difference(DateTime.now());
-    if (wait.isNegative || wait.inMilliseconds <= 0) return;
-    debugPrint('Orbit3D throttle: attente ${wait.inMilliseconds}ms');
-    await Future<void>.delayed(wait);
+  void _showExternalPlaybackState() {
+    _externalPlaybackLaunched = true;
+    _setStatus(_PlayerStatus.error);
   }
 
   Future<bool> _tryPlay(int gen, String url) async {
     // Chaque tentative repart d'un état de refus neutre : le drapeau est
-    // réarmé par `_registerRateLimit` si, et seulement si, ce nouvel essai
+    // réarmé par le limiteur si, et seulement si, ce nouvel essai
     // est lui aussi refusé.
-    _rateLimitedOnLastAttempt = false;
+    _rateLimit.startAttempt();
     final circuitBreaker = ref.read(hostCircuitBreakerProvider);
     final host = Uri.tryParse(url)?.host ?? '';
 
@@ -912,7 +772,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // Sans effet si le profil est inchangé (dedup dans PlayerProfileService).
     await PlayerProfileService.pushForDevice(
       ref.read(deviceProfileProvider),
+      decoderModeOverride: _decoderModeOverride,
     );
+    if (!mounted || gen != _generation) return false;
     for (final agentIndex in userAgentOrder) {
       // Laisse un intervalle entre deux essais : marteler le panneau IPTV
       // déclenche son anti-leech (401 « indisponible » temporaire).
@@ -925,6 +787,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         httpHeaders: _resolvedHeaders(url, agentIndex),
         videoPlayerOptions: _exclusivePlayback,
       );
+      if (widget.contentType != PlaybackContentType.live) {
+        _checkpoint.restoring = true;
+      }
       _controller = controller;
       controller.addListener(_onControllerUpdate);
       _appliedAudioPref = false;
@@ -932,9 +797,20 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         () => controller.initialize().timeout(_probTimeout),
         context: '_tryPlay controller.initialize',
       );
+      if (!mounted || gen != _generation || _controller != controller) {
+        return true;
+      }
       if (initResult.isFailure) {
-        debugPrint('Orbit3D video error ($url): ${initResult.errorOrNull}');
-        if (host.isNotEmpty && !_isDecoderError(initResult.errorOrNull)) {
+        final description = controller.value.errorDescription ??
+            initResult.errorOrNull?.message;
+        if (isPlaybackDecoderError(description)) {
+          _lastErrorDescription = description;
+          _decoderInitializationError = true;
+          _controller = null;
+          await _disposeController(controller);
+          return false;
+        }
+        if (host.isNotEmpty && !isPlaybackDecoderError(initResult.errorOrNull)) {
           circuitBreaker.recordFailure(host);
         }
         if (_controller == controller) {
@@ -945,8 +821,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         }
         // 401/403 = refus anti-leech, pas un mauvais User-Agent : tourner les
         // agents quadruplerait le volume de requêtes et aggraverait le refus.
-        if (_isRateLimitedError(initResult.errorOrNull)) {
-          _registerRateLimit();
+        if (PlaybackRateLimit.isRateLimited(initResult.errorOrNull)) {
+          _rateLimit.register();
           return false;
         }
         continue;
@@ -957,15 +833,64 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       if (controller.value.hasError) {
         debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+        if (isPlaybackDecoderError(controller.value.errorDescription)) {
+          _lastErrorDescription = controller.value.errorDescription;
+          _decoderInitializationError = true;
+          _controller = null;
+          await _disposeController(controller);
+          return false;
+        }
         if (host.isNotEmpty &&
-            !_isDecoderError(controller.value.errorDescription)) {
+            !isPlaybackDecoderError(controller.value.errorDescription)) {
           circuitBreaker.recordFailure(host);
         }
         _disposeController(controller);
         _controller = null;
         continue;
       }
-      controller.play();
+      if (widget.contentType != PlaybackContentType.live) {
+        final position = _checkpoint.position;
+        if (position > Duration.zero) {
+          final duration = controller.value.duration;
+          if (duration > Duration.zero && position >= duration) {
+            _lastErrorDescription = 'Saved position exceeds media duration';
+            _disposeController(controller);
+            _controller = null;
+            return false;
+          }
+          final result = await safeAsync(
+            () => controller.seekTo(position),
+            context: 'PlayerScreen.restoreCheckpoint',
+          );
+          if (!mounted || gen != _generation || _controller != controller) {
+            return true;
+          }
+          if (result.isFailure || controller.value.hasError) {
+            _lastErrorDescription = 'Could not restore playback position';
+            _disposeController(controller);
+            _controller = null;
+            return false;
+          }
+        }
+        _checkpoint.restoring = false;
+      }
+      if (_resumePlaying || widget.contentType == PlaybackContentType.live) {
+        final played = await safeAsync(
+          () => controller.play(),
+          context: 'PlayerScreen.playAfterRestore',
+        );
+        if (!mounted || gen != _generation || _controller != controller) {
+          return true;
+        }
+        if (played.isFailure || controller.value.hasError) {
+          _lastErrorDescription = controller.value.errorDescription ??
+              played.errorOrNull?.message;
+          _decoderInitializationError = isPlaybackDecoderError(_lastErrorDescription);
+          _controller = null;
+          await _disposeController(controller);
+          return false;
+        }
+      }
       if (!mounted || gen != _generation || _controller != controller) {
         _disposeController(controller);
         return true;
@@ -974,12 +899,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (host.isNotEmpty) {
         circuitBreaker.recordSuccess(host);
       }
-      _rateLimitStrikes = 0;
-      _rateLimitUntil = null;
+      _rateLimit.resetAfterSuccess();
       _setStatus(_PlayerStatus.ready);
-      _applyInitialPosition();
       _showInfoBrief();
-      _recordHistory();
+      unawaited(_recordHistory());
       return true;
     }
     return false;
@@ -998,10 +921,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // par vagues, donc on la rejoue (voir [_startEmbeddedScan]).
       _startEmbeddedScan(active);
     }
-    // Nouvelle tentative tant que la position initiale n'a pas été appliquée
-    // (la durée peut n'attendre qu'après le chargement des métadonnées).
-    if (!_hasAppliedInitialPosition && widget.initialPositionMs != null) {
-      _applyInitialPosition();
+    if (active != null && _status == _PlayerStatus.ready &&
+        widget.contentType != PlaybackContentType.live) {
+      _checkpoint.observe(active.value);
+      if (active.value.isInitialized && !active.value.hasError) {
+        _resumePlaying = active.value.isPlaying;
+      }
     }
     final playing = _controller?.value.isPlaying;
     if (playing != null && playing != _lastKnownPlaying) {
@@ -1015,95 +940,104 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (_status != _PlayerStatus.ready) return;
     final controller = _controller;
+    if (controller != null && !controller.value.isCompleted && _completionHandled) {
+      _nextEpisodeTimer?.cancel();
+      _nextEpisode = null;
+      _completionHandled = false;
+      if (mounted) setState(() {});
+    }
+    if (controller != null && !controller.value.hasError &&
+        controller.value.isCompleted &&
+        !_completionHandled && widget.contentType == PlaybackContentType.series) {
+      _completionHandled = true;
+      _offerNextEpisode();
+    }
     if (controller == null || !controller.value.hasError) return;
     debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
     _lastErrorDescription = controller.value.errorDescription;
     _handleActiveError();
   }
 
-  /// Ré-applique la piste audio choisie précédemment pour ce contenu
-  /// (préférence mémorisée via [PlayerTrackPrefs]). Best-effort.
-  /// Gère aussi les préférences au niveau série (langue forcée pour tous les épisodes).
-  Future<void> _applySavedAudioTrack(VideoPlayerController controller) async {
-    final mediaKey = widget.progressId ?? widget.streamUrl;
-    await safeAsync(
-      () async {
-        // 1. Préférence spécifique à cet épisode/flux
-        final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
-        if (pref != null && pref.isEmpty) return;
+  void _offerNextEpisode() {
+    final series = widget.series;
+    final episode = widget.episode;
+    if (series == null || episode == null || widget.consecutiveEpisodes >= 3) return;
+    final next = nextPlayableEpisode(series, episode);
+    if (next == null) return;
+    _nextEpisode = next;
+    _nextEpisodeSeconds = 15;
+    _nextEpisodeTimer?.cancel();
+    _nextEpisodeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_nextEpisodeSeconds <= 1) {
+        timer.cancel();
+        _playNextEpisode();
+      } else {
+        setState(() => _nextEpisodeSeconds--);
+      }
+    });
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _nextEpisode == next) _nextEpisodeFocus.requestFocus();
+    });
+  }
 
-        if (!mounted || _controller != controller) return;
-        final tracks = await controller.getAudioTracks();
-        if (tracks.isEmpty) return;
-
-        // 2. Si c'est un épisode de série, vérifier la préférence série
-        String? trackIdToApply = pref;
-        if (trackIdToApply == null &&
-            widget.series != null &&
-            widget.episode != null) {
-          final seriesId = widget.series!.id;
-          final forced = await PlayerTrackPrefs.isSeriesAudioForced(seriesId);
-          final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(seriesId);
-          if (lang != null && lang.isNotEmpty) {
-            // Chercher une piste correspondant à la langue
-            final matchingTrack = tracks.firstWhereOrNull(
-              (t) =>
-                  t.language != null &&
-                  t.language!.toLowerCase() == lang.toLowerCase(),
-            );
-            if (matchingTrack != null) {
-              trackIdToApply = matchingTrack.id;
-            } else if (!forced) {
-              // Si pas forcé et langue pas trouvée, on ne fait rien (langue par défaut du flux)
-              return;
-            }
-            // Si forcé mais langue pas trouvée, on ne force pas (évite silence)
-          }
-        }
-
-        if (trackIdToApply == null) return;
-        if (!mounted || _controller != controller) return;
-        final known = tracks.any((t) => t.id == trackIdToApply);
-        if (!known) return;
-        await controller.selectAudioTrack(trackIdToApply);
-      },
-      context: '_applySavedAudioTrack',
+  Future<void> _playNextEpisode() async {
+    final next = _nextEpisode;
+    final series = widget.series;
+    if (next == null || series == null || !mounted) return;
+    _nextEpisodeTimer?.cancel();
+    _nextEpisode = null;
+    final profileId = ref.read(currentProfileProvider)?.id ?? '';
+    final disposal = _cleanup();
+    final generation = _generation;
+    try {
+      await disposal.timeout(const Duration(seconds: 5));
+      await _progressWriter.pending;
+    } catch (error, stackTrace) {
+      debugPrint('Impossible de libérer le lecteur précédent : $error\n$stackTrace');
+      if (mounted && generation == _generation) {
+        _lastErrorDescription = 'Impossible de libérer le lecteur précédent.';
+        _setStatus(_PlayerStatus.error);
+      }
+      return;
+    }
+    if (!mounted || generation != _generation ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    context.pushReplacement(
+      '/player',
+      extra: PlayerRouteData(
+        streamUrl: next.streamUrl,
+        title: next.title,
+        progressId: PlaybackProgressService.idForProfile(profileId, 'episode-${next.id}'),
+        contentType: PlaybackContentType.series,
+        posterUrl: series.coverUrl,
+        subtitle: series.genre,
+        rating: series.rating > 0 ? series.rating : null,
+        genre: series.genre.isNotEmpty ? series.genre : null,
+        year: series.year,
+        seriesName: series.title,
+        episodeLabel: next.title,
+        series: series,
+        episode: next,
+        consecutiveEpisodes: widget.consecutiveEpisodes + 1,
+      ),
     );
   }
 
-  /// Applique, UNE fois par contenu, la langue de sous-titres choisie pour la
-  /// série à laquelle appartient l'épisode en cours.
-  ///
-  /// Les pistes intégrées arrivant par vagues, cette méthode est appelée à
-  /// chaque découverte : tant qu'aucune piste ne correspond à la langue choisie,
-  /// elle ne marque rien — une vague ultérieure peut l'apporter. Dès qu'elle
-  /// applique, elle mémorise la génération pour ne plus reprendre la main sur la
-  /// sélection (éventuellement manuelle) de l'utilisateur.
-  Future<void> _applySeriesSubtitlePreference(
-    SubtitleController ctrl,
-    int generation,
-  ) async {
-    if (widget.series == null || widget.episode == null) return;
-    if (_appliedSeriesSubtitleGeneration == generation) return;
-
-    final seriesId = widget.series!.id;
-    // La préférence est soit un code langue (« fr », formats historiques), soit
-    // le libellé d'une piste (« Français (SDH) », choix « une entrée par
-    // piste ») : le sélecteur tranche (cf. pickEmbeddedSubtitleTrackForPreference).
-    final preference =
-        await PlayerTrackPrefs.seriesSubtitleLanguageFor(seriesId);
-    if (preference == null || preference.isEmpty) return;
-    if (!mounted || generation != _generation) return;
-
-    final track = pickEmbeddedSubtitleTrackForPreference(
-      ctrl.embeddedTracks,
-      preference,
+  /// Ré-applique la piste audio choisie précédemment pour ce contenu
+  /// (préférence mémorisée par contenu). Best-effort.
+  /// Gère aussi les préférences au niveau série (langue forcée pour tous les épisodes).
+  Future<void> _applySavedAudioTrack(VideoPlayerController controller) async {
+    await applySavedAudioTrack(
+      controller: controller,
+      mediaKey: widget.progressId ?? widget.streamUrl,
+      seriesId: widget.episode != null ? widget.series?.id : null,
+      isCurrent: () => mounted && _controller == controller,
     );
-    if (track == null) return;
-
-    await ctrl.selectEmbeddedTrack(track.id, userInitiated: false);
-    if (!mounted || generation != _generation) return;
-    _appliedSeriesSubtitleGeneration = generation;
   }
 
   /// Démarre le balayage des sous-titres intégrés du flux.
@@ -1115,189 +1049,89 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// que lorsque la liste change, jusqu'à un délai borné qui couvre le
   /// chargement observé.
   void _startEmbeddedScan(VideoPlayerController controller) {
-    _embeddedScanTimer?.cancel();
-    _embeddedScanController = controller;
-    // Chaque lecteur repart d'un état neuf : c'est ce qui autorise la première
-    // sonde à conclure « ce contenu n'a pas de piste intégrée » — décision
-    // légitime ici, illegitimate plus tard (cf. [_discoverEmbeddedSubtitles]).
-    _embeddedSig = kEmbeddedSigUnset;
-    _appliedVodSubtitleModeGeneration = -1;
-    _vodManualSelectionRevisionAtScan =
-        ref.read(subtitleControllerProvider).manualSelectionRevision;
-    const period = Duration(seconds: 1);
-    const deadline = Duration(seconds: 60);
-    var elapsed = Duration.zero;
-    _embeddedScanTimer = Timer.periodic(period, (timer) {
-      if (!mounted || _controller != controller) {
-        timer.cancel();
-        _embeddedScanTimer = null;
-        return;
-      }
-      elapsed += period;
-      unawaited(_discoverEmbeddedSubtitles(controller));
-      if (elapsed >= deadline) {
-        timer.cancel();
-        _embeddedScanTimer = null;
-      }
-    });
-    unawaited(_discoverEmbeddedSubtitles(controller));
-  }
-
-  /// Sonde les sous-titres intégrés du flux et les expose au contrôleur.
-  ///
-  /// Best-effort : un échec du canal natif (ou une absence de pistes) ne doit
-  /// jamais perturber la lecture.
-  ///
-  /// ## Trois garde-fous, chacun mesurable
-  ///
-  /// 1. **Réponse périmée ignorée.** La sonde capture `_generation` et
-  ///    l'identifiant du lecteur. Un changement de source entre l'appel et la
-  ///    réponse (zapping, préchauffage, bascule de chaîne) invalide le résultat :
-  ///    sans ce contrôle, une liste non vide venue de l'ANCIEN lecteur
-  ///    remplacerait les pistes du nouveau — l'erreur inverse de celle
-  ///    corrigée, et tout aussi silencieuse.
-  /// 2. **Liste vide non destructive.** Media3 reconstruit ses groupes à chaque
-  ///    adaptation du flux : entre deux `onTracksChanged`, `getCurrentTracks()`
-  ///    peut rendre une liste vide alors que le contenu en contient six.
-  ///    Propager cet état effaçait la section « Sous-titres intégrés » déjà
-  ///    affichée — l'utilisateur voyait les pistes disparaître sans rien faire.
-  /// 3. **Pas de mise à jour redondante.** Une signature identique n'est pas
-  ///    repropagée : évite de notifier des reconstructions inutiles et de
-  ///    voler la piste choisie par l'utilisateur.
-  Future<void> _discoverEmbeddedSubtitles(
-    VideoPlayerController controller,
-  ) async {
     if (!kIsWeb && defaultTargetPlatform != TargetPlatform.android) return;
-    if (_embeddedScanRunning) return;
-    _embeddedScanRunning = true;
-    final ctrl = ref.read(subtitleControllerProvider);
-    // Identité capturée AVANT l'appel asynchrone.
     final probeGeneration = _generation;
-    final probeController = controller;
-    try {
-      final bridge = EmbeddedSubtitleBridge(embeddedPlayerId(controller));
-      final tracks = await bridge.getTracks();
-      if (!mounted) return;
-      // (1) Réponse périmée : le lecteur ou la génération a changé pendant
-      // l'appel. Elle ne décrit plus l'écran affiché.
-      if (_controller != probeController) return;
-      if (probeGeneration != _generation) return;
-      if (!identical(_embeddedScanController, probeController)) return;
-      // (2) Liste vide : seulement acceptable si rien n'a encore été vu pour
-      // CE lecteur (cf. [shouldPropagateEmbeddedTracks]).
-      if (!shouldPropagateEmbeddedTracks(
-        tracks: tracks,
-        previousSignature: _embeddedSig,
-      )) {
-        return;
-      }
-      // (3) Signature identique : rien à annoncer.
-      final sig = embeddedTracksSignature(tracks);
-      if (sig == _embeddedSig) return;
-      _embeddedSig = sig;
-      ctrl.setEmbeddedContext(
-        playerId: embeddedPlayerId(controller),
-        tracks: tracks,
-      );
-      if (tracks.isNotEmpty) {
-        LoggerService.instance.info(
-          'sous-titres intégrés détectés: '
-          '${tracks.map((t) => '${t.id}:${t.label}').join(', ')}',
+    final ctrl = ref.read(subtitleControllerProvider);
+    _subtitlePreferences.startScan(ctrl);
+    bool isCurrent() =>
+        mounted && probeGeneration == _generation && _controller == controller;
+    _embeddedScanner.start(
+      player: controller,
+      isCurrent: isCurrent,
+      onTracks: (tracks, scanIsCurrent) async {
+        ctrl.setEmbeddedContext(
+          playerId: embeddedPlayerId(controller),
+          tracks: tracks,
         );
-      }
-      // Applique la langue de sous-titres choisie pour la série (une fois par
-      // contenu). Les vagues suivantes peuvent l'apporter après coup : tant
-      // qu'aucune piste ne correspond, la préférence reste « non appliquée ».
-      await _applyVodSubtitleMode(ctrl, tracks, probeGeneration);
-      await _applySeriesSubtitlePreference(ctrl, probeGeneration);
-    } catch (_) {
-      // Canal natif indisponible (lecture RTSP, plugin tiers…) : on ignore.
-    } finally {
-      _embeddedScanRunning = false;
-    }
-  }
-
-  Future<void> _applyVodSubtitleMode(
-    SubtitleController ctrl,
-    List<EmbeddedSubtitleTrack> tracks,
-    int generation,
-  ) async {
-    if (widget.contentType != PlaybackContentType.vod &&
-            widget.contentType != PlaybackContentType.series ||
-        _appliedVodSubtitleModeGeneration == generation) {
-      return;
-    }
-
-    if (ctrl.manualSelectionRevision != _vodManualSelectionRevisionAtScan) {
-      _appliedVodSubtitleModeGeneration = generation;
-      return;
-    }
-
-    final mode = ref.read(advancedSettingsProvider).vodSubtitleMode;
-    if (mode == VodSubtitleMode.defaultSelection) {
-      _appliedVodSubtitleModeGeneration = generation;
-      return;
-    }
-
-    if (mode == VodSubtitleMode.disabled) {
-      ctrl.disable(userInitiated: false);
-      return;
-    }
-
-    final forcedTrack = tracks.firstWhereOrNull((track) => track.isForced);
-    if (forcedTrack == null) {
-      // Ne pas laisser media3 sélectionner une piste de dialogue complète
-      // quand l'utilisateur a demandé uniquement les sous-titres forcés.
-      ctrl.disableEmbedded(userInitiated: false);
-      return;
-    }
-
-    await ctrl.selectEmbeddedTrack(
-      forcedTrack.id,
-      userInitiated: false,
+        if (tracks.isNotEmpty) {
+          LoggerService.instance.info(
+            'sous-titres intégrés détectés: '
+            '${tracks.map((t) => '${t.id}:${t.label}').join(', ')}',
+          );
+        }
+        await _subtitlePreferences.applyVod(
+          controller: ctrl,
+          tracks: tracks,
+          contentType: widget.contentType,
+          generation: probeGeneration,
+          readMode: () => ref.read(advancedSettingsProvider).vodSubtitleMode,
+          isCurrent: scanIsCurrent,
+        );
+        if (!scanIsCurrent()) return;
+        await _subtitlePreferences.applySeries(
+          controller: ctrl,
+          seriesId: widget.episode != null ? widget.series?.id : null,
+          generation: probeGeneration,
+          isCurrent: scanIsCurrent,
+        );
+      },
     );
-    if (mounted && generation == _generation) {
-      _appliedVodSubtitleModeGeneration = generation;
-    }
   }
 
   /// Détecte une coupure d'anti-leech fournisseur (ExoPlayer: HTTP 401 /
   /// Source error), distincte d'une simple chaîne indisponible.
   static bool isProviderBlock(String? description) {
-    if (description == null || description.isEmpty) return false;
-    return description.contains('401') || description.contains('Source error');
-  }
-
-  /// Détecte si une erreur est liée à Cloudflare (challenge, 403, cookie expiré, etc.)
-  bool _isCloudflareError(String? description) {
-    if (description == null || description.isEmpty) return false;
-    final msg = description.toLowerCase();
-    return msg.contains('403') ||
-        msg.contains('cloudflare') ||
-        msg.contains('challenge') ||
-        msg.contains('cf_clearance') ||
-        msg.contains('blocked') ||
-        msg.contains('access denied') ||
-        msg.contains('forbidden');
+    return isPlaybackProviderBlock(description);
   }
 
   Future<void> _handleActiveError() async {
     if (!mounted || _handlingError) return;
     final gen = _generation;
     _handlingError = true;
-    _disposeActive();
+    _saveProgress(preserveOnError: true);
+    final failingController = _controller;
+    _controller = null;
+    failingController?.removeListener(_onControllerUpdate);
     if (!mounted || gen != _generation) {
       _handlingError = false;
       return;
     }
     // `_controller` est maintenant null mais `_status` vaut encore `ready` :
-    // le build construit `_ReadyPlayer(controller: player!)` et n'importe quel
+    // le build construit `ReadyPlayer(controller: player!)` et n'importe quel
     // rebuild (auto-masquage du footer ~5 s après un tap, listener du lecteur)
     // crashe sur le null-check tant que la reprise n'a pas abouti. On force
     // l'affichage « chargement » dès ici ; `_startAttempt` (ou `_setStatus`
     // error) prendra le relais ensuite.
     if (mounted) _setStatus(_PlayerStatus.loading);
-
+    // Let the platform error callback finish before cancelling its event stream.
+    await Future<void>.delayed(Duration.zero);
+    if (failingController != null) {
+      final disposal = await safeAsync(
+        () => _disposeController(failingController)
+            .timeout(const Duration(seconds: 5)),
+        context: 'PlayerScreen.disposeAfterError',
+      );
+      if (disposal.isFailure) {
+        await _progressWriter.pending;
+        if (mounted && gen == _generation) {
+          _handlingError = false;
+          _setStatus(_PlayerStatus.error);
+        }
+        return;
+      }
+    }
+    await _progressWriter.pending;
+    if (!mounted || gen != _generation) return;
     final errorDesc = _lastErrorDescription;
     final host = Uri.tryParse(_activeStreamUrl)?.host ?? '';
     final isProviderBlockError = isProviderBlock(errorDesc);
@@ -1307,14 +1141,25 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       ref.read(hostCircuitBreakerProvider).recordFailure(host);
     }
 
-    if (_isCloudflareError(errorDesc)) {
+    final recovery = playbackRecoveryAction(
+      description: errorDesc,
+      attempts: _autoRecoveryAttempts,
+    );
+    if (recovery == PlaybackRecoveryAction.showError) {
       _handlingError = false;
       _setStatus(_PlayerStatus.error);
       return;
     }
 
-    if (!_autorecovered) {
-      _autorecovered = true;
+    if (recovery == PlaybackRecoveryAction.retry) {
+      _autoRecoveryAttempts++;
+      if (isPlaybackDecoderError(errorDesc)) {
+        _decoderModeOverride = decoderRecoveryMode(
+              errorDesc,
+              VideoDecoderPrefs.mode,
+            ) ??
+            _decoderModeOverride;
+      }
       _handlingError = false;
       if (!mounted || gen != _generation) return;
       _startAttempt();
@@ -1322,11 +1167,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     _handlingError = false;
     _setStatus(_PlayerStatus.error);
+    if (_engineConfig.fallback.isExternal) {
+      final launched = await _launchFallbackExternal();
+      if (launched && mounted && gen == _generation) {
+        _showExternalPlaybackState();
+      }
+    }
   }
 
-  void _goNext() {
+  void _goNext({bool focusControls = true}) {
     if (!_hasNext) return;
-    _showFooterBar();
+    _showFooterBar(focusControls: focusControls);
     // `_switchTo` incremente `_generation` de facon synchrone avant son
     // premier `await`, donc un zapping rapide reste correctement ordonne :
     // chaque appel voit l'_index deja change et les appels obsoletes sont
@@ -1334,9 +1185,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     unawaited(_switchTo(_index + 1));
   }
 
-  void _goPrevious() {
+  void _goPrevious({bool focusControls = true}) {
     if (!_hasPrevious) return;
-    _showFooterBar();
+    _showFooterBar(focusControls: focusControls);
     unawaited(_switchTo(_index - 1));
   }
 
@@ -1370,35 +1221,50 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         target >= _channels.length) {
       return;
     }
-    final gen = _generation;
-    _generation++;
-    _autorecovered = false;
+    final gen = ++_generation;
+    _autoRecoveryAttempts = 0;
+    _externalPlaybackLaunched = false;
+    _decoderModeOverride = null;
+    _checkpoint.reset();
+    _resumePlaying = true;
     _handlingError = false;
     // Nouveau contenu (zapping) : la piste externe du flux précédent ne doit
     // pas continuer de s'afficher. Le contrôleur est partagé et le player
     // (re)joue le même média sur `_retry` : le reset n'a lieu qu'ici, au vrai
     // changement de contenu.
     ref.read(subtitleControllerProvider).resetForNewContent();
-    // Invalidate EPG cache on zap to free memory
-    ref.read(epgDataCacheProvider).invalidate();
     final forward = target > _index;
     final oldActive = _controller;
     final newActive = _takeCachedFor(target);
     if (forward) {
-      _disposeCachedPrev();
+      _adjacentPlayers.clearPrevious();
     } else {
-      _disposeCachedNext();
+      _adjacentPlayers.clearNext();
     }
     _index = target;
-    _preloadTarget = null;
+    _preloader.cancel();
     _controller = newActive;
+    _lastKnownPlaying = null;
     _appliedAudioPref = false;
     if (oldActive != null) {
       oldActive.removeListener(_onControllerUpdate);
-      if (oldActive.value.isInitialized && !oldActive.value.hasError) {
+      if (oldActive.value.isInitialized &&
+          !oldActive.value.hasError &&
+          !PlayerCrashGuard.safeMode &&
+          !ref.read(tvModeNotifierProvider).enabled) {
         // `await` avant toute decision : tant que la commande plateforme n'est
         // pas passee, l'ancien decodeur audio tourne encore.
-        await oldActive.pause();
+        final precedingPause = _pendingZapPause;
+        final pause = () async {
+          if (precedingPause != null) await precedingPause;
+          await oldActive.pause();
+        }();
+        _pendingZapPause = pause;
+        try {
+          await pause;
+        } finally {
+          if (identical(_pendingZapPause, pause)) _pendingZapPause = null;
+        }
         if (!mounted || gen != _generation) {
           // Un autre zapping a pris la main pendant l'attente : cet ancien
           // controleur n'appartient plus a personne. On ne le remet surtout
@@ -1407,16 +1273,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           return;
         }
         if (forward) {
-          _cachedPrev = oldActive;
-          _cachedPrevIndex = target - 1;
+          _adjacentPlayers.setPrevious(target - 1, oldActive);
         } else {
-          _cachedNext = oldActive;
-          _cachedNextIndex = target + 1;
+          _adjacentPlayers.setNext(target + 1, oldActive);
         }
       } else {
         oldActive.dispose();
       }
     }
+    final pendingPause = _pendingZapPause;
+    if (pendingPause != null) await pendingPause;
     if (!mounted || gen != _generation) return;
     if (newActive != null) {
       newActive.addListener(_onControllerUpdate);
@@ -1437,16 +1303,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   VideoPlayerController? _takeCachedFor(int target) {
-    VideoPlayerController? cached;
-    if (_cachedNextIndex == target) {
-      cached = _cachedNext;
-      _cachedNext = null;
-      _cachedNextIndex = null;
-    } else if (_cachedPrevIndex == target) {
-      cached = _cachedPrev;
-      _cachedPrev = null;
-      _cachedPrevIndex = null;
-    }
+    final cached = _adjacentPlayers.take(target);
     if (cached == null) return null;
     cached.removeListener(_onControllerUpdate);
     if (!cached.value.isInitialized || cached.value.hasError) {
@@ -1460,18 +1317,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final gen = _generation;
     if (!mounted || _channels.isEmpty) return;
     if (!ref.read(advancedSettingsProvider).zeroLagPrefetch) return;
-    final target = _index + 1;
-    if (target >= _channels.length) return;
-    if (_cachedNext != null || _preloadTarget == target) return;
-    final channelUrl = _channels[target].streamUrl;
-    if (!isLikelyStreamUrl(channelUrl)) return;
-    _preloadTarget = target;
-    // Préchargement relais : on passe par le proxy local si celui-ci est prêt
-    // et que la chaîne cible est un candidat au relais.
-    final targetUrl = maybeRebaseThroughProxy(
-      channelUrl,
-      proxyReady: ref.read(rustProxyManagerProvider).isReady,
-    );
+    // Sur TV ou en mode sûr, éviter un second lecteur et son décodeur.
+    if (ref.read(tvModeNotifierProvider).enabled ||
+        PlayerCrashGuard.safeMode) {
+      return;
+    }
     // Ne pas precharger pendant que la lecture courante se bat encore : le
     // panneau limite les connexions simultanees et un prechargement en echec
     // aggrave les 401 de la chaine en cours.
@@ -1481,92 +1331,65 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // flux en cours : on observait 4 x 401 en cascade toutes les 4 s pendant
     // que la position du flux principal restait bloquee.
     final current = _controller;
-    if (current == null ||
-        !current.value.isInitialized ||
-        !current.value.isPlaying) {
-      return;
-    }
-    for (final attempt in _userAgentOrder()) {
-      final controller = VideoPlayerController.networkUrl(
+    final candidate = preloadCandidate(
+      channels: _channels,
+      currentIndex: _index,
+      hasCachedNext: _adjacentPlayers.hasNext,
+      pendingIndex: _preloader.pendingIndex,
+      currentInitialized: current?.value.isInitialized ?? false,
+      currentPlaying: current?.value.isPlaying ?? false,
+    );
+    if (candidate == null) return;
+    final target = candidate.index;
+    // Préchargement relais uniquement si le proxy est prêt.
+    final targetUrl = maybeRebaseThroughProxy(
+      candidate.url,
+      proxyReady: ref.read(rustProxyManagerProvider).isReady,
+    );
+    await _preloader.start(
+      index: target,
+      attempts: _userAgentOrder(),
+      isCurrent: () => mounted && gen == _generation,
+      create: (attempt) => VideoPlayerController.networkUrl(
         Uri.parse(targetUrl),
         httpHeaders: _resolvedHeaders(targetUrl, attempt),
         videoPlayerOptions: _exclusivePlayback,
-      );
-      final initResult = await safeAsync(
-        () => controller.initialize().timeout(_probTimeout),
-        context: '_startPreload controller.initialize',
-      );
-      if (initResult.isFailure) {
-        debugPrint('Orbit3D preload error: ${initResult.errorOrNull}');
-        _disposeController(controller);
-        continue;
-      }
-      if (!mounted || gen != _generation || _preloadTarget != target) {
-        _disposeController(controller);
-        if (_preloadTarget == target) _preloadTarget = null;
-        return;
-      }
-      if (controller.value.hasError) {
-        _disposeController(controller);
-        continue;
-      }
-      if (!mounted || gen != _generation || _cachedNext != null) {
-        _disposeController(controller);
-        return;
-      }
-      controller.pause();
-      _cachedNext = controller;
-      _cachedNextIndex = target;
-      _preloadTarget = null;
-      return;
-    }
-    if (mounted && gen == _generation && _preloadTarget == target) {
-      _preloadTarget = null;
-    }
+      ),
+      initialize: (controller) async {
+        final result = await safeAsync(
+          () => controller.initialize().timeout(_probTimeout),
+          context: '_startPreload controller.initialize',
+        );
+        if (result.isFailure) {
+          debugPrint('Orbit3D preload error: ${result.errorOrNull}');
+        }
+        return !result.isFailure;
+      },
+      isUsable: (controller) => !controller.value.hasError,
+      pause: (controller) => unawaited(controller.pause()),
+      canAccept: () => !_adjacentPlayers.hasNext,
+      accept: _adjacentPlayers.setNext,
+      dispose: (controller) => unawaited(_disposeController(controller)),
+    );
   }
 
-  void _disposeController(VideoPlayerController controller) {
+  Future<void> _disposeController(VideoPlayerController controller) {
     // Coupe le pont sous-titres intégrés de CE lecteur avant de libérer la
     // texture : le polling s'arrête et l'état est vidé sans toucher à un
     // éventuel autre lecteur (préchauffage).
-    ref
-        .read(subtitleControllerProvider)
-        .detachEmbedded(embeddedPlayerId(controller));
+    _subtitleController.detachEmbedded(embeddedPlayerId(controller));
     // Arrête le balayage s'il visait CE lecteur (le timer se neutralise sinon
     // au tick suivant, mais autant le libérer tout de suite).
-    if (identical(_embeddedScanController, controller)) {
-      _embeddedScanTimer?.cancel();
-      _embeddedScanTimer = null;
-      _embeddedScanController = null;
-      // L'état appartient à CE lecteur : le libérer évite qu'une texture
-      // suivante hérite des pistes de l'ancienne.
-      _embeddedSig = kEmbeddedSigUnset;
-    }
+    _embeddedScanner.stopPlayer(controller);
     controller.removeListener(_onControllerUpdate);
-    controller.dispose();
+    return controller.dispose();
   }
 
-  void _disposeActive() {
+  Future<void> _disposeActive() {
     final controller = _controller;
     _controller = null;
-    if (controller == null) return;
-    _disposeController(controller);
-  }
-
-  void _disposeCachedNext() {
-    final controller = _cachedNext;
-    _cachedNext = null;
-    _cachedNextIndex = null;
-    if (controller == null) return;
-    _disposeController(controller);
-  }
-
-  void _disposeCachedPrev() {
-    final controller = _cachedPrev;
-    _cachedPrev = null;
-    _cachedPrevIndex = null;
-    if (controller == null) return;
-    _disposeController(controller);
+    if (controller == null) return Future<void>.value();
+    return _disposeController(controller);
   }
 
   void _setStatus(_PlayerStatus status) {
@@ -1620,10 +1443,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
     try {
       _generation++;
+      _preloader.cancel();
       _handlingError = false;
-      _autorecovered = false;
-      _disposeCachedNext();
-      _disposeCachedPrev();
+      _autoRecoveryAttempts = 0;
+      _externalPlaybackLaunched = false;
+      _adjacentPlayers.clear();
+      _disposeActive();
+      _setStatus(_PlayerStatus.loading);
 
       _startAttempt();
       _startPreload();
@@ -1639,48 +1465,29 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _recordHistory() async {
-    await safeAsync(
+    await safeAsync<void>(
       () async {
-        final channel = _currentChannel;
-        if (channel != null) {
-          // Live : identité = chaîne courante (suit le zapping).
-          ref.read(recentlyWatchedProvider.notifier).record(
-                ContentType.live,
-                channel.id,
-                channel.name,
-                posterUrl: channel.logoUrl,
-                subtitle: channel.groupLabel,
-                streamUrl: channel.streamUrl,
-              );
-          // Also record to history service
-          ref.read(historyServiceProvider).addEntry(
-                'live',
-                channel.name,
-                channel.streamUrl,
-              );
-          return;
-        }
-        final favorite = widget.favorite;
-        if (favorite != null) {
-          ref.read(recentlyWatchedProvider.notifier).record(
-                favorite.type,
-                favorite.id,
-                favorite.title,
-                posterUrl: favorite.posterUrl,
-                subtitle: favorite.subtitle,
-                streamUrl: favorite.streamUrl.isEmpty
-                    ? widget.streamUrl
-                    : favorite.streamUrl,
-              );
-          // Also record to history service
-          ref.read(historyServiceProvider).addEntry(
-                favorite.type.name,
-                favorite.title,
-                favorite.streamUrl.isEmpty
-                    ? widget.streamUrl
-                    : favorite.streamUrl,
-              );
-        }
+        final entry = playbackHistoryEntry(
+          channel: _currentChannel,
+          favorite: widget.favorite,
+          fallbackStreamUrl: widget.streamUrl,
+        );
+        if (entry == null) return;
+        final recentlyWatched = ref.read(recentlyWatchedProvider.notifier);
+        final history = ref.read(historyServiceProvider);
+        await writePlaybackHistory(
+          entry: entry,
+          writeRecent: (value) => recentlyWatched.record(
+            value.type,
+            value.id,
+            value.title,
+            posterUrl: value.posterUrl,
+            subtitle: value.subtitle,
+            streamUrl: value.streamUrl,
+          ),
+          writeHistory: (value) =>
+              history.addEntry(value.type.name, value.title, value.streamUrl),
+        );
       },
       context: '_recordHistory',
     );
@@ -1755,100 +1562,82 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _cleanup();
   }
 
-  void _cleanup() {
+  Future<void> _cleanup() {
     _generation++;
+    _embeddedScanner.stop();
     _restoreSystemUi();
     _footerTimer?.cancel();
+    _nextEpisodeTimer?.cancel();
     _saveProgressTimer?.cancel();
     _saveProgress();
-    _disposeActive();
-    _disposeCachedNext();
-    _disposeCachedPrev();
-    _preloadTarget = null;
+    final disposal = _disposeActive();
+    _adjacentPlayers.clear();
+    _preloader.cancel();
+    return disposal;
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final key = event.logicalKey;
-    if (_footerVisible) _showFooterBar();
-    if (key == LogicalKeyboardKey.select ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter) {
-      // Barre visible : OK active le bouton focalisé (géré par le bouton).
-      if (_footerVisible) return KeyEventResult.ignored;
-      _showFooterBar();
-      return KeyEventResult.handled;
+    if (_status != _PlayerStatus.ready || _playerErrorScope.hasFocus) {
+      return KeyEventResult.ignored;
     }
-    final arrow = key == LogicalKeyboardKey.arrowLeft ||
-        key == LogicalKeyboardKey.arrowRight ||
-        key == LogicalKeyboardKey.arrowUp ||
-        key == LogicalKeyboardKey.arrowDown;
-    if (_footerVisible && arrow) return KeyEventResult.ignored;
-    if (key == LogicalKeyboardKey.arrowLeft ||
-        key == LogicalKeyboardKey.arrowRight) {
-      _showFooterBar();
-      return KeyEventResult.handled;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
     }
-    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.pageUp) {
-      _goPrevious();
-      return KeyEventResult.handled;
+    final decision = resolvePlayerKey(
+      key: event.logicalKey,
+      repeat: event is KeyRepeatEvent,
+      isLive: widget.contentType == PlaybackContentType.live,
+      footerVisible: _footerVisible,
+      footerHasFocus: _footerScope.hasFocus,
+      nextEpisodeHasFocus: _nextEpisodeFocus.hasFocus,
+      isPlaying: event.logicalKey == LogicalKeyboardKey.mediaPlay ||
+              event.logicalKey == LogicalKeyboardKey.mediaPause
+          ? _controller?.value.isPlaying ?? false
+          : false,
+    );
+    if (decision.refreshFooter) _showFooterBar();
+    switch (decision.action) {
+      case PlayerKeyAction.ignored:
+        return KeyEventResult.ignored;
+      case PlayerKeyAction.handled:
+        break;
+      case PlayerKeyAction.nextEpisode:
+        unawaited(_playNextEpisode());
+      case PlayerKeyAction.previousUnfocused:
+        _goPrevious(focusControls: false);
+      case PlayerKeyAction.nextUnfocused:
+        _goNext(focusControls: false);
+      case PlayerKeyAction.showFooter:
+        _showFooterBar();
+      case PlayerKeyAction.previous:
+        _goPrevious();
+      case PlayerKeyAction.next:
+        _goNext();
+      case PlayerKeyAction.togglePlayback:
+        _togglePlayPause();
+      case PlayerKeyAction.showDetails:
+        final player = _controller;
+        if (player != null) {
+          _footerTimer?.cancel();
+          showStreamDetailsSheet(
+            context,
+            player,
+            widget.progressId ?? widget.streamUrl,
+            isLive: widget.contentType == PlaybackContentType.live,
+          ).whenComplete(() {
+            if (mounted) _showFooterBar();
+          });
+        }
+      case PlayerKeyAction.seekForward:
+        _seekBy(const Duration(seconds: 30));
+        _showFooterBar();
+      case PlayerKeyAction.seekBackward:
+        _seekBy(const Duration(seconds: -30));
+        _showFooterBar();
+      case PlayerKeyAction.toggleFooter:
+        _toggleFooter();
     }
-    if (key == LogicalKeyboardKey.arrowDown ||
-        key == LogicalKeyboardKey.pageDown) {
-      _goNext();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.space ||
-        key == LogicalKeyboardKey.mediaPlayPause) {
-      _togglePlayPause();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaPlay ||
-        key == LogicalKeyboardKey.mediaPause) {
-      final playing = _controller?.value.isPlaying ?? false;
-      if ((key == LogicalKeyboardKey.mediaPlay) != playing) _togglePlayPause();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.contextMenu ||
-        key == LogicalKeyboardKey.info ||
-        key == LogicalKeyboardKey.settings) {
-      final player = _controller;
-      if (player != null) {
-        _footerTimer?.cancel();
-        showStreamDetailsSheet(
-          context,
-          player,
-          widget.progressId ?? widget.streamUrl,
-        ).whenComplete(() {
-          if (mounted) _showFooterBar();
-        });
-      }
-      return KeyEventResult.handled;
-    }
-    final seekable = widget.contentType != PlaybackContentType.live;
-    if (seekable && key == LogicalKeyboardKey.mediaFastForward) {
-      _seekBy(const Duration(seconds: 30));
-      _showFooterBar();
-      return KeyEventResult.handled;
-    }
-    if (seekable && key == LogicalKeyboardKey.mediaRewind) {
-      _seekBy(const Duration(seconds: -30));
-      _showFooterBar();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaTrackNext) {
-      _goNext();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
-      _goPrevious();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.escape) {
-      _toggleFooter();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
+    return KeyEventResult.handled;
   }
 
   @override
@@ -1867,27 +1656,22 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         onKeyEvent: _onKeyEvent,
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: _status == _PlayerStatus.ready && player != null
+                ? EdgeInsets.zero
+                : const EdgeInsets.all(16),
             child: switch (_status) {
-              _PlayerStatus.loading => const VideoLoadingState(),
-              _PlayerStatus.error => VideoErrorState(
-                  title: isProviderBlock(_lastErrorDescription)
-                      ? 'Flux temporairement bloqué par le fournisseur'
-                      : _isCloudflareError(_lastErrorDescription)
-                          ? AppLocalizations.of(context).cloudflareCheckRequired
-                          : 'Flux indisponible',
-                  message: isProviderBlock(_lastErrorDescription)
-                      ? 'La lecture a été coupée par la protection anti-leech '
-                          'du serveur. Patientez 3 à 5 minutes sans lecture, '
-                          'puis relancez cette chaîne (sans zapper).'
-                      : _isCloudflareError(_lastErrorDescription)
-                          ? AppLocalizations.of(context).cloudflareChallengeHelp
-                          : 'Impossible de lancer cette chaîne. '
-                              'Vérifie ton abonnement ou réessaie.',
+              _PlayerStatus.loading => widget.contentType == PlaybackContentType.live
+                  ? const VideoLoadingState()
+                  : DelayedPlaybackLoading(
+                      key: ValueKey(_generation),
+                      onRetry: _retry,
+                    ),
+              _PlayerStatus.error => PlayerErrorView(
+                  externalPlaybackLaunched: _externalPlaybackLaunched,
+                  errorDescription: _lastErrorDescription,
+                  contentType: widget.contentType,
                   onRetry: _retry,
-                  onProviderWebsite: _isCloudflareError(_lastErrorDescription)
-                      ? _openProviderWebsite
-                      : null,
+                  onProviderWebsite: _openProviderWebsite,
                 ),
               _PlayerStatus.ready => player != null
                   ? Stack(
@@ -1897,7 +1681,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                           canRequestFocus: false,
                           skipTraversal: true,
                           onKeyEvent: (_, event) {
-                            if (event is KeyDownEvent &&
+                            if (!_playerErrorScope.hasFocus &&
+                                event is KeyDownEvent &&
                                 (event.logicalKey ==
                                         LogicalKeyboardKey.select ||
                                     event.logicalKey ==
@@ -1908,39 +1693,19 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                             }
                             return KeyEventResult.ignored;
                           },
-                          child: _ReadyPlayer(
-                            controller: player,
-                            onTap: _showFooterBar,
-                            streamUrl: _activeStreamUrl,
-                            onRetry: _retry,
+                          child: FocusScope(
+                            node: _playerErrorScope,
+                            child: ReadyPlayer(
+                              controller: player,
+                              onTap: _showFooterBar,
+                              streamUrl: _activeStreamUrl,
+                              onRetry: _retry,
+                              watchBuffering:
+                                  widget.contentType != PlaybackContentType.live,
+                            ),
                           ),
                         ),
-                        // Overlay sous-titres (au-dessus vidéo, sous footerbar)
-                        //
-                        // C'est l'overlay qui s'abonne à la position du lecteur :
-                        // le passer en paramètre figeait le cue à l'instant du
-                        // choix de la piste, et rien ne se rejouait ensuite.
-                        Consumer(
-                          builder: (_, ref, __) {
-                            final subtitleCtrl =
-                                ref.watch(subtitleControllerProvider);
-                            // Les sous-titres intégrés passent d'abord : le
-                            // rendu suit le flux du pipeline (polling 300 ms),
-                            // alors que la piste externe est recalee sur la
-                            // position.
-                            if (subtitleCtrl.hasActiveEmbedded) {
-                              return EmbeddedSubtitleOverlay(
-                                cues: subtitleCtrl.liveEmbeddedCues,
-                                bottomPadding: 100, // au-dessus footerbar
-                              );
-                            }
-                            return VideoSubtitleOverlay(
-                              controller: player,
-                              track: subtitleCtrl.activeTrack,
-                              bottomPadding: 100, // au-dessus footerbar
-                            );
-                          },
-                        ),
+                        PlayerSubtitleOverlay(controller: player),
                         if (_footerVisible)
                           Positioned(
                             left: 0,
@@ -1952,8 +1717,53 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                 if (event is KeyDownEvent) _showFooterBar();
                                 return KeyEventResult.ignored;
                               },
-                              child: _ContentFooterBar(
-                                child: _buildFooterContent(player),
+                              child: ContentFooterBar(
+                                child: PlayerFooterContent(
+                                  controller: player,
+                                  contentType: widget.contentType,
+                                  streamUrl: widget.streamUrl,
+                                  progressId: widget.progressId,
+                                  channel: _currentChannel,
+                                  title: widget.title,
+                                  subtitle: widget.subtitle,
+                                  seriesName: widget.seriesName,
+                                  episodeLabel: widget.episodeLabel,
+                                  rating: widget.rating,
+                                  genre: widget.genre,
+                                  index: _index,
+                                  total: _channels.length,
+                                  onExit: _requestExit,
+                                  onPrevious: _hasPrevious ? _goPrevious : null,
+                                  onNext: _hasNext ? _goNext : null,
+                                  onTogglePlayPause: _togglePlayPause,
+                                  onPip: _pipSupported == true ? _enterPip : null,
+                                  onSeekBack30: () =>
+                                      _seekBy(const Duration(seconds: -30)),
+                                  onSeekForward30: () =>
+                                      _seekBy(const Duration(seconds: 30)),
+                                  onToggleNightFocus: _toggleNightFocus,
+                                  onDetailsOpened: () => _footerTimer?.cancel(),
+                                  onDetailsClosed: _showFooterBar,
+                                  onProgressInteraction: () =>
+                                      _showFooterBar(focusControls: false),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (_nextEpisode != null)
+                          Positioned(
+                            left: 16,
+                            right: 16,
+                            bottom: _footerVisible ? 130 : 24,
+                            child: Align(
+                              alignment: Alignment.bottomRight,
+                              child: FilledButton(
+                                focusNode: _nextEpisodeFocus,
+                                onPressed: () => _playNextEpisode(),
+                                child: Text(
+                                  'Épisode suivant : ${_nextEpisode!.title} '
+                                  '${_nextEpisodeTimer?.isActive == true ? "($_nextEpisodeSeconds s)" : ""}',
+                                ),
                               ),
                             ),
                           ),
@@ -1967,781 +1777,4 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
-  /// Construit le contenu de la footerbar selon le type de contenu en cours.
-  Widget _buildFooterContent(VideoPlayerController player) {
-    final isPlaying = player.value.isPlaying;
-    final castButton = CastButton(
-      streamUrl: widget.streamUrl,
-      isLive: widget.contentType == PlaybackContentType.live,
-    );
-    final streamDetails = _FooterStreamDetails(
-      controller: player,
-      mediaKey: widget.progressId ?? widget.streamUrl,
-      onOpened: () => _footerTimer?.cancel(),
-      onClosed: _showFooterBar,
-    );
-    final onPip = _pipSupported == true ? _enterPip : null;
-    return switch (widget.contentType) {
-      PlaybackContentType.live => _LiveFooterBar(
-          channel: _currentChannel,
-          fallbackTitle: widget.title ?? _currentChannel?.name ?? 'Live',
-          index: _index,
-          total: _channels.length,
-          isPlaying: isPlaying,
-          showSeek: false,
-          onExit: _requestExit,
-          onPrevious: _hasPrevious ? _goPrevious : null,
-          onNext: _hasNext ? _goNext : null,
-          onTogglePlayPause: _togglePlayPause,
-          onPip: onPip,
-          onSeekBack30: null,
-          onSeekForward30: null,
-          castButton: castButton,
-          streamDetails: streamDetails,
-          onToggleNightFocus: _toggleNightFocus,
-        ),
-      PlaybackContentType.replay => _LiveFooterBar(
-          channel: _currentChannel,
-          fallbackTitle: widget.title ?? 'Replay',
-          subtitle: widget.subtitle,
-          controller: player,
-          index: _index,
-          total: _channels.length,
-          isPlaying: isPlaying,
-          showSeek: true,
-          onExit: _requestExit,
-          onPrevious: _hasPrevious ? _goPrevious : null,
-          onNext: _hasNext ? _goNext : null,
-          onTogglePlayPause: _togglePlayPause,
-          onPip: onPip,
-          onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
-          onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
-          castButton: castButton,
-          streamDetails: streamDetails,
-          onToggleNightFocus: _toggleNightFocus,
-        ),
-      PlaybackContentType.vod || PlaybackContentType.series => _VodFooterBar(
-          controller: player,
-          title: widget.title ?? widget.seriesName ?? 'Lecture',
-          rating: widget.rating,
-          genre: widget.genre,
-          subtitle: widget.subtitle,
-          seriesName: widget.seriesName,
-          episodeLabel: widget.episodeLabel,
-          isPlaying: isPlaying,
-          onExit: _requestExit,
-          onTogglePlayPause: _togglePlayPause,
-          onPip: onPip,
-          onSeekBack30: () => _seekBy(const Duration(seconds: -30)),
-          onSeekForward30: () => _seekBy(const Duration(seconds: 30)),
-          castButton: castButton,
-          streamDetails: streamDetails,
-          onToggleNightFocus: _toggleNightFocus,
-        ),
-    };
-  }
-}
-
-/// Conteneur commun de la footerbar unifiée : barre basse translucide
-/// arrondie, ancrée en bas (SafeArea), que l'on place en overlay du lecteur.
-class _ContentFooterBar extends StatelessWidget {
-  const _ContentFooterBar({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 10, 10),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Icône compacte de la footerbar (blanche sur fond translucide).
-Widget _fbIcon(
-  IconData icon,
-  VoidCallback? onPressed, {
-  String? tooltip,
-  Color color = Colors.white,
-  double size = 22,
-}) {
-  return IconButton(
-    tooltip: tooltip,
-    visualDensity: VisualDensity.compact,
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-    style: _fbFocusStyle(color),
-    onPressed: onPressed,
-    icon: Icon(icon, size: size),
-  );
-}
-
-/// Style D-pad des icônes de la footerbar : fond ambre, icône noire et bordure
-/// blanche quand le bouton a le focus, pour qu'on voie où l'on se trouve.
-ButtonStyle _fbFocusStyle(Color normal) {
-  return ButtonStyle(
-    iconColor: WidgetStateProperty.resolveWith(
-      (s) => s.contains(WidgetState.focused) ? Colors.black : normal,
-    ),
-    backgroundColor: WidgetStateProperty.resolveWith(
-      (s) =>
-          s.contains(WidgetState.focused) ? const Color(0xFFFFC107) : null,
-    ),
-    side: WidgetStateProperty.resolveWith(
-      (s) => s.contains(WidgetState.focused)
-          ? const BorderSide(color: Colors.white, width: 2)
-          : null,
-    ),
-  );
-}
-
-/// Bouton pause/lecture proéminent de la footerbar.
-Widget _fbPlayPause({
-  required bool isPlaying,
-  required VoidCallback onPressed,
-}) {
-  return IconButton(
-    tooltip: isPlaying ? 'Pause' : 'Lecture',
-    style: IconButton.styleFrom(
-      backgroundColor: Colors.white.withValues(alpha: 0.22),
-    ).merge(_fbFocusStyle(Colors.white)),
-    visualDensity: VisualDensity.compact,
-    padding: const EdgeInsets.all(6),
-    constraints: const BoxConstraints(minWidth: 46, minHeight: 44),
-    onPressed: onPressed,
-    icon: Icon(
-      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-      size: 28,
-    ),
-  );
-}
-
-/// Icône Night Focus de la footerbar : l'icône et la couleur changent selon
-/// l'état ON/OFF du maître (toggle direct, sans ouvrir de sous-menu).
-Widget _fbNightFocus({
-  required VoidCallback onPressed,
-  required WidgetRef ref,
-}) {
-  final enabled = ref.watch(
-    advancedSettingsProvider.select((s) => s.nightFocusEnabled),
-  );
-  return IconButton(
-    tooltip: enabled ? 'Night Focus (activé)' : 'Night Focus (désactivé)',
-    visualDensity: VisualDensity.compact,
-    padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-    style: _fbFocusStyle(enabled ? const Color(0xFFFFC107) : Colors.white70),
-    onPressed: onPressed,
-    icon: Icon(
-      enabled ? Icons.nightlight_round : Icons.nightlight_outlined,
-      size: 22,
-    ),
-  );
-}
-
-/// Petit badge numéro de chaîne / étiquette genre (#num ou chip métadonnée).
-class _ChannelBadge extends StatelessWidget {
-  const _ChannelBadge({
-    required this.label,
-    this.color = const Color(0xFF4FC3F7),
-  });
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-/// Barre de progression du programme EPG en cours : (now - start)/(end - start).
-class _LiveProgressBar extends StatelessWidget {
-  const _LiveProgressBar({required this.program});
-
-  final EPGProgram program;
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final totalMs = program.end.difference(program.start).inMilliseconds;
-    var ratio = 0.0;
-    if (totalMs > 0) {
-      ratio = now.difference(program.start).inMilliseconds / totalMs;
-    }
-    ratio = ratio.clamp(0.0, 1.0);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: LinearProgressIndicator(
-        value: ratio,
-        minHeight: 4,
-        backgroundColor: Colors.white.withValues(alpha: 0.16),
-        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4FC3F7)),
-      ),
-    );
-  }
-}
-
-/// Rangée de contrôles de seek : 2x retour rapide / play-pause / 2x avance rapide.
-/// Vitesses : -10s / -30s  |  play/pause  |  +10s / +30s
-/// Footerbar Live / Replay : nom de chaîne + #numéro + EPG (titre/horaires
-/// + progression du programme) puis actions (zapping, pause/play, seek si
-/// replay, menu détails du flux, Night Focus, retour).
-class _LiveFooterBar extends ConsumerWidget {
-  const _LiveFooterBar({
-    required this.channel,
-    required this.fallbackTitle,
-    this.subtitle,
-    this.controller,
-    required this.index,
-    required this.total,
-    required this.isPlaying,
-    required this.showSeek,
-    required this.onExit,
-    this.onPrevious,
-    this.onNext,
-    required this.onTogglePlayPause,
-    this.onPip,
-    this.onSeekBack30,
-    this.onSeekForward30,
-    this.castButton,
-    required this.streamDetails,
-    required this.onToggleNightFocus,
-  });
-
-  final Channel? channel;
-  final String fallbackTitle;
-  final String? subtitle;
-  final VideoPlayerController? controller;
-  final int index;
-  final int total;
-  final bool isPlaying;
-  final bool showSeek;
-  final VoidCallback onExit;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-  final VoidCallback onTogglePlayPause;
-  final VoidCallback? onPip;
-  final VoidCallback? onSeekBack30;
-  final VoidCallback? onSeekForward30;
-  final Widget? castButton;
-  final _FooterStreamDetails streamDetails;
-  final VoidCallback onToggleNightFocus;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final currentChannel = channel;
-    final epgAsync = currentChannel != null
-        ? ref.watch(channelEpgProvider(currentChannel.primaryEpgChannelId))
-        : null;
-    final (nowProgram, nextProgram) = currentChannel != null && epgAsync != null
-        ? _nowAndNext(epgAsync.value ?? const [])
-        : (null, null);
-    final channelName = currentChannel?.name ?? fallbackTitle;
-    final canZap = total > 1;
-    final player = controller;
-    final hasEpg =
-        currentChannel != null && (nowProgram != null || nextProgram != null);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            if (currentChannel != null)
-              _ChannelBadge(
-                label:
-                    '#${currentChannel.orderNum > 0 ? currentChannel.orderNum : index + 1}',
-              ),
-            if (currentChannel != null) const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    channelName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (subtitle != null && subtitle!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (canZap)
-              Text(
-                '${index + 1} / $total',
-                style: const TextStyle(color: Colors.white60, fontSize: 11.5),
-              ),
-          ],
-        ),
-        if (hasEpg) ...[
-          const SizedBox(height: 8),
-          _EpgRow(now: nowProgram, next: nextProgram),
-          if (nowProgram != null) ...[
-            const SizedBox(height: 8),
-            _LiveProgressBar(program: nowProgram),
-          ],
-        ] else if (currentChannel != null &&
-            epgAsync != null &&
-            epgAsync.isLoading) ...[
-          const SizedBox(height: 8),
-          const Text(
-            'Programme en cours de chargement…',
-            style: TextStyle(color: Colors.white70, fontSize: 11.5),
-          ),
-        ] else if (showSeek && player != null) ...[
-          const SizedBox(height: 8),
-          TimeProgressBar(
-            controller: player,
-            allowScrubbing: true,
-          ),
-        ],
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            const Spacer(),
-            if (onPrevious != null)
-              _fbIcon(
-                Icons.skip_previous_rounded,
-                onPrevious,
-                tooltip: l.previousChannel,
-              ),
-            if (showSeek)
-              _fbIcon(
-                Icons.replay_30,
-                onSeekBack30,
-                tooltip: l.rewind30s,
-                color: Colors.white,
-              ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-            if (showSeek) ...[
-              _fbIcon(
-                Icons.forward_30,
-                onSeekForward30,
-                tooltip: l.forward30s,
-                color: Colors.white,
-              ),
-            ],
-            if (onNext != null)
-              _fbIcon(
-                Icons.skip_next_rounded,
-                onNext,
-                tooltip: l.nextChannel,
-              ),
-            const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            if (onPip != null)
-              _fbIcon(
-                Icons.picture_in_picture_alt_rounded,
-                onPip,
-                tooltip: l.pip,
-              ),
-            if (castButton != null) castButton!,
-            streamDetails,
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Footerbar VOD / Séries : titre + note ★ + genre (+ épisode), barre de
-/// progression de lecture puis 2x retour / play-pause / 2x avance, et menu
-/// détails du flux / Night Focus.
-class _VodFooterBar extends ConsumerWidget {
-  const _VodFooterBar({
-    required this.controller,
-    required this.title,
-    this.rating,
-    this.genre,
-    this.subtitle,
-    this.seriesName,
-    this.episodeLabel,
-    required this.isPlaying,
-    required this.onExit,
-    required this.onTogglePlayPause,
-    required this.onSeekBack30,
-    required this.onSeekForward30,
-    this.onPip,
-    this.castButton,
-    required this.streamDetails,
-    required this.onToggleNightFocus,
-  });
-
-  final VideoPlayerController controller;
-  final String title;
-  final double? rating;
-  final String? genre;
-  final String? subtitle;
-  final String? seriesName;
-  final String? episodeLabel;
-  final bool isPlaying;
-  final VoidCallback onExit;
-  final VoidCallback onTogglePlayPause;
-  final VoidCallback? onPip;
-  final VoidCallback onSeekBack30;
-  final VoidCallback onSeekForward30;
-  final Widget? castButton;
-  final _FooterStreamDetails streamDetails;
-  final VoidCallback onToggleNightFocus;
-
-  String? get _subLine {
-    if (seriesName != null && episodeLabel != null) {
-      return '$seriesName · $episodeLabel';
-    }
-    return episodeLabel ??
-        (subtitle != null && subtitle!.isNotEmpty ? subtitle : null);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
-    final showRating = rating != null && rating! > 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (_subLine != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      _subLine!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (showRating) ...[
-              const Icon(
-                Icons.star_rounded,
-                size: 16,
-                color: Color(0xFFFFC107),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                rating!.toStringAsFixed(1),
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
-            if (genre != null && genre!.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              _ChannelBadge(label: genre!, color: scheme.tertiary),
-            ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        TimeProgressBar(
-          controller: controller,
-          allowScrubbing: true,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
-            const Spacer(),
-            _fbIcon(
-              Icons.replay_30,
-              onSeekBack30,
-              tooltip: l.rewind30s,
-              color: Colors.white,
-            ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
-            _fbIcon(
-              Icons.forward_30,
-              onSeekForward30,
-              tooltip: l.forward30s,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
-            if (onPip != null)
-              _fbIcon(
-                Icons.picture_in_picture_alt_rounded,
-                onPip,
-                tooltip: l.pip,
-              ),
-            if (castButton != null) castButton!,
-            streamDetails,
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// Icône ⚙️ de la footerbar : ouvre le panneau « Détails du flux » (pistes
-/// audio / qualité vidéo / sous-titres).
-///
-/// Tant que la sous-fenêtre est ouverte on gèle le timer d'auto-masquage (via
-/// [onOpened]) et on le relance à la fermeture ([onClosed]).
-class _FooterStreamDetails extends StatelessWidget {
-  const _FooterStreamDetails({
-    required this.controller,
-    required this.mediaKey,
-    required this.onOpened,
-    required this.onClosed,
-  });
-
-  final VideoPlayerController controller;
-  final String? mediaKey;
-  final VoidCallback onOpened;
-  final VoidCallback onClosed;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return IconButton(
-      tooltip: l.streamDetails,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
-      style: _fbFocusStyle(Colors.white),
-      onPressed: () async {
-        onOpened();
-        await showStreamDetailsSheet(context, controller, mediaKey ?? '');
-        if (context.mounted) onClosed();
-      },
-      icon: const Icon(Icons.settings_rounded, size: 22),
-    );
-  }
-}
-
-class _EpgRow extends StatelessWidget {
-  const _EpgRow({required this.now, required this.next});
-
-  final EPGProgram? now;
-  final EPGProgram? next;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final current = now;
-    if (current == null) {
-      return const Row(
-        children: [
-          Icon(Icons.tv_off_rounded, size: 14, color: Colors.white54),
-          SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'Programme non disponible',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-        ],
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.graphic_eq_rounded, size: 14, color: scheme.tertiary),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                '${_fmt(current.start)} - ${_fmt(current.end)}   ${current.title}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (next != null) ...[
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(
-                Icons.schedule_rounded,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  'Suivant : ${_fmt(next!.start)}   ${next!.title}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-(EPGProgram?, EPGProgram?) _nowAndNext(List<EPGProgram> programs) =>
-    epgCurrentAndNext(programs, DateTime.now());
-
-String _fmt(DateTime time) => DateFormat('HH:mm').format(time);
-
-class _ReadyPlayer extends ConsumerStatefulWidget {
-  const _ReadyPlayer({
-    required this.controller,
-    required this.onTap,
-    required this.streamUrl,
-    required this.onRetry,
-  });
-
-  final VideoPlayerController controller;
-  final VoidCallback onTap;
-  final String streamUrl;
-  final VoidCallback onRetry;
-
-  @override
-  ConsumerState<_ReadyPlayer> createState() => _ReadyPlayerState();
-}
-
-class _ReadyPlayerState extends ConsumerState<_ReadyPlayer> {
-  bool _showBuffering = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_onPlayerStateChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onPlayerStateChanged);
-    super.dispose();
-  }
-
-  void _onPlayerStateChanged() {
-    if (!mounted) return;
-    final isBuffering = widget.controller.value.isBuffering;
-    if (isBuffering != _showBuffering) {
-      setState(() {
-        _showBuffering = isBuffering;
-      });
-    }
-  }
-
-  void _togglePlayPause() {
-    if (widget.controller.value.isPlaying) {
-      widget.controller.pause();
-    } else {
-      widget.controller.play();
-    }
-    widget.onTap();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onDoubleTap: _togglePlayPause,
-      child: AppCard(
-        padding: EdgeInsets.zero,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              AspectRatio(
-                aspectRatio: widget.controller.value.aspectRatio,
-                child: VideoPlayer(widget.controller),
-              ),
-              // Buffering indicator
-              if (_showBuffering)
-                Container(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  ),
-                ),
-              // Monitoring overlay (réseau, stall, cooldown)
-              PlayerMonitoringOverlay(
-                streamUrl: widget.streamUrl,
-                onRetry: widget.onRetry,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -83,14 +83,15 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     state = subscriptions;
 
     if (id == previouslyActive) return;
-    _onActiveSubscriptionChanged(activated);
+    await _onActiveSubscriptionChanged(activated);
   }
 
-  void _onActiveSubscriptionChanged(Subscription activated) {
+  Future<void> _onActiveSubscriptionChanged(Subscription activated) async {
     ref.invalidate(activeSubscriptionProvider);
 
     // Les caches globaux ne sont pas dépendants de activeSubscriptionProvider.
     // Les vider ici garantit qu'aucune donnée ne traverse un changement de panel.
+    ref.invalidate(liveChannelsAllProvider);
     ref.invalidate(liveChannelsProvider);
     ref.invalidate(moviesProvider);
     ref.invalidate(seriesProvider);
@@ -103,6 +104,10 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     channelReplaysCache.invalidate();
     ref.invalidate(shortEpgCacheProvider);
     ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
+    final lastRefresh = await loadLastRefresh(subscriptionId: activated.id);
+    if (!ref.mounted) return;
+    if (ref.read(activeSubscriptionProvider)?.id != activated.id) return;
+    ref.read(lastRefreshTimestampProvider.notifier).restoreTimestamp(lastRefresh);
 
     final api = ref.read(apiServiceProvider);
     api.forgetSlowUrls();

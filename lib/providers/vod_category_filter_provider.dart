@@ -35,6 +35,7 @@ class VodCategoryFilter {
     this.knownSeriesCategories = const <MediaCategory>[],
     this.hiddenVodCategoryIds = const <String>{},
     this.hiddenSeriesCategoryIds = const <String>{},
+    this.hiddenLiveCategoryIds = const <String>{},
     this.scannedAt,
   });
 
@@ -48,6 +49,9 @@ class VodCategoryFilter {
 
   final Set<String> hiddenVodCategoryIds;
   final Set<String> hiddenSeriesCategoryIds;
+
+  /// Catégories Live TV masquées (clé = [liveCategoryKey]).
+  final Set<String> hiddenLiveCategoryIds;
 
   /// Instant du premier scan réussi pour cet abonnement.
   final DateTime? scannedAt;
@@ -76,8 +80,13 @@ class VodCategoryFilter {
   bool isSeriesHidden(String categoryId) =>
       hiddenSeriesCategoryIds.contains(categoryId);
 
+  bool isLiveHidden(String categoryKey) =>
+      hiddenLiveCategoryIds.contains(categoryKey);
+
   int get hiddenCount =>
-      hiddenVodCategoryIds.length + hiddenSeriesCategoryIds.length;
+      hiddenVodCategoryIds.length +
+      hiddenSeriesCategoryIds.length +
+      hiddenLiveCategoryIds.length;
 
   /// Ne laisse que les catégories visibles, à l'ordre du panel.
   List<MediaCategory> visibleVodCategories(Iterable<MediaCategory> source) =>
@@ -98,6 +107,7 @@ class VodCategoryFilter {
     List<MediaCategory>? knownSeriesCategories,
     Set<String>? hiddenVodCategoryIds,
     Set<String>? hiddenSeriesCategoryIds,
+    Set<String>? hiddenLiveCategoryIds,
     DateTime? scannedAt,
   }) {
     return VodCategoryFilter(
@@ -108,6 +118,8 @@ class VodCategoryFilter {
       hiddenVodCategoryIds: hiddenVodCategoryIds ?? this.hiddenVodCategoryIds,
       hiddenSeriesCategoryIds:
           hiddenSeriesCategoryIds ?? this.hiddenSeriesCategoryIds,
+      hiddenLiveCategoryIds:
+          hiddenLiveCategoryIds ?? this.hiddenLiveCategoryIds,
       scannedAt: scannedAt ?? this.scannedAt,
     );
   }
@@ -143,9 +155,13 @@ class VodCategoryFilterNotifier extends Notifier<VodCategoryFilter> {
     final hiddenSeries =
         (prefs.getStringList(_key(sub.id, 'hiddenSeries')) ?? const <String>[])
             .toSet();
+    final hiddenLive =
+        (prefs.getStringList(_key(sub.id, 'hiddenLive')) ?? const <String>[])
+            .toSet();
     final scannedMs = prefs.getInt(_key(sub.id, 'scannedAtMs'));
     final loaded = VodCategoryFilter(
       subscriptionId: sub.id,
+      hiddenLiveCategoryIds: hiddenLive,
       knownVodCategories: vod,
       knownSeriesCategories: series,
       hiddenVodCategoryIds: hiddenVod,
@@ -192,6 +208,10 @@ class VodCategoryFilterNotifier extends Notifier<VodCategoryFilter> {
         _key(next.subscriptionId, 'hiddenSeries'),
         next.hiddenSeriesCategoryIds.toList(),
       ),
+      prefs.setStringList(
+        _key(next.subscriptionId, 'hiddenLive'),
+        next.hiddenLiveCategoryIds.toList(),
+      ),
       prefs.setInt(
         _key(next.subscriptionId, 'scannedAtMs'),
         (next.scannedAt ?? DateTime.now()).millisecondsSinceEpoch,
@@ -231,11 +251,23 @@ class VodCategoryFilterNotifier extends Notifier<VodCategoryFilter> {
     return _persist(state.copyWith(hiddenSeriesCategoryIds: hidden));
   }
 
+  /// Affiche / masque une catégorie Live TV pour l'abonnement courant.
+  Future<void> setLiveCategoryVisible(String categoryKey, bool visible) {
+    final hidden = Set<String>.from(state.hiddenLiveCategoryIds);
+    if (visible) {
+      hidden.remove(categoryKey);
+    } else {
+      hidden.add(categoryKey);
+    }
+    return _persist(state.copyWith(hiddenLiveCategoryIds: hidden));
+  }
+
   Future<void> resetToAllVisible() {
     return _persist(
       state.copyWith(
         hiddenVodCategoryIds: const <String>{},
         hiddenSeriesCategoryIds: const <String>{},
+        hiddenLiveCategoryIds: const <String>{},
       ),
     );
   }

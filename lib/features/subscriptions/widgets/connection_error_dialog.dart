@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/error_action_focus.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 
 enum ConnectionErrorCategory {
@@ -363,13 +363,10 @@ class ConnectionErrorDialog extends StatelessWidget {
           child: const Text('Fermer'),
         ),
         if (onRetry case final retry?)
-          TvFocus(
+          ErrorActionFocus(
             autofocus: true,
-            onActivate: () {
-              Navigator.of(context).pop();
-              retry();
-            },
-            child: FilledButton(
+            builder: (context, focusNode) => FilledButton(
+              focusNode: focusNode,
               onPressed: () {
                 Navigator.of(context).pop();
                 retry();

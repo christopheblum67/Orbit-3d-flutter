@@ -6,6 +6,7 @@ package io.flutter.plugins.videoplayer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -16,6 +17,7 @@ import static org.mockito.Mockito.when;
 
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.C;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.test.core.app.ApplicationProvider;
@@ -134,6 +136,41 @@ public final class VideoAssetTest {
     verify(mockFactory).setUserAgent("ExoPlayer");
     verify(mockFactory).setAllowCrossProtocolRedirects(true);
     verify(mockFactory).setDefaultRequestProperties(headers);
+  }
+
+  @Test
+  public void widevineConfigurationIsPerAssetAndDoesNotAffectClearStreams() {
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Authorization", "test-token");
+    WidevineMediaConfig config = new WidevineMediaConfig("https://license.example.test", headers);
+    headers.put("Authorization", "changed");
+    VideoAsset protectedAsset =
+        VideoAsset.fromRemoteUrl(
+            "https://media.example.test/manifest.mpd",
+            VideoAsset.StreamingFormat.DYNAMIC_ADAPTIVE,
+            new HashMap<>(),
+            config);
+    VideoAsset clearAsset =
+        VideoAsset.fromRemoteUrl(
+            "https://media.example.test/clear.mpd",
+            VideoAsset.StreamingFormat.DYNAMIC_ADAPTIVE,
+            new HashMap<>());
+    MediaItem.DrmConfiguration drm =
+        Objects.requireNonNull(protectedAsset.getMediaItem().localConfiguration).drmConfiguration;
+    assertEquals(C.WIDEVINE_UUID, Objects.requireNonNull(drm).scheme);
+    assertEquals(Uri.parse("https://license.example.test"), drm.licenseUri);
+    assertEquals("test-token", drm.licenseRequestHeaders.get("Authorization"));
+    assertNull(Objects.requireNonNull(clearAsset.getMediaItem().localConfiguration).drmConfiguration);
+  }
+
+  @Test
+  public void widevineRejectsInsecureAndCredentialBearingLicenseUrls() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new WidevineMediaConfig("http://license.example.test", new HashMap<>()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new WidevineMediaConfig("https://user:pass@license.example.test", new HashMap<>()));
   }
 
   @Test

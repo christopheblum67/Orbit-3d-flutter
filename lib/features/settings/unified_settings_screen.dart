@@ -6,6 +6,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
+import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
+import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
+import 'package:orbit_3d_flutter/services/catalog_http_validators.dart';
+import 'package:orbit_3d_flutter/services/conditional_xmltv_cache.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
@@ -14,16 +19,15 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/settings_tab_bar.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
-import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/cloud_sync/cloud_sync_provider.dart';
-import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
+import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
 
 /// Configuration unifiée (style XCIPTV) — fusionne SettingsScreen + AdvancedSettingsScreen.
 /// Organisé en sections logiques avec icônes explicites, navigation au D-pad/TV.
@@ -39,19 +43,10 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
-  static const _tabIcons = [
-    Icons.person_outline,
-    Icons.wifi_tethering,
-    Icons.play_circle_outline,
-    Icons.security_outlined,
-    Icons.equalizer,
-    Icons.tune,
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabIcons.length, vsync: this);
+    _tabController = TabController(length: SettingsTabBar.icons.length, vsync: this);
   }
 
   @override
@@ -91,16 +86,10 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
             icon: const Icon(Icons.settings_input_component),
           ),
         ],
-        bottom: TabBar(
+        bottom: SettingsTabBar(
           controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: [
-            for (var i = 0; i < _tabIcons.length; i++)
-              Tab(
-                icon: Icon(_tabIcons[i]),
-                text: _tabLabel(i),
-              ),
+          labels: [
+            for (var i = 0; i < SettingsTabBar.icons.length; i++) _tabLabel(i),
           ],
         ),
       ),
@@ -166,10 +155,7 @@ class _AccountSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final sub = ref.watch(activeSubscriptionProvider);
-    final syncState = ref.watch(cloudSyncProvider);
-    final syncNotifier = ref.read(cloudSyncProvider.notifier);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -205,121 +191,25 @@ class _AccountSection extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
         SettingsSectionTitle(l.sectionCloudSync),
-        SettingsSwitchTile(
-          title: l.cloudSyncEnabled,
-          subtitle: syncState.signedIn
-              ? l.cloudSyncLastSync(_formatTime(syncState.lastSyncAt, l.never))
-              : l.cloudSyncSubtitleOff,
-          value: syncState.enabled,
-          onChanged: syncNotifier.setEnabled,
-          icon: Icons.cloud_sync_rounded,
-        ),
-        if (syncState.lastError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              syncState.lastError!,
-              style: TextStyle(
-                fontSize: 11,
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ),
-        if (syncState.enabled && !syncState.busy)
-          SettingsActionTile(
-            title: l.cloudSyncNow,
-            subtitle: l.cloudSyncNowSubtitle,
-            icon: Icons.sync_rounded,
-            onTap: syncNotifier.syncNow,
-          ),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionBackup),
         _NavTile(
-          icon: Icons.upload_outlined,
-          title: l.backupExport,
-          subtitle: l.backupExportSubtitle,
-          // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
-          // ne doivent pas bloquer le tap. Les helpers retournent désormais
-          // `Future<void>` : en `static void ... async` l'appelant ne pouvait
-          // ni attendre, ni voir les exceptions, qui remontaient en zone non
-          // rattrapable.
-          onTap: () => unawaited(_exportSettings(context, ref)),
-          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          icon: Icons.account_circle_outlined,
+          title: 'Compte cloud',
+          subtitle: 'Connexion Google ou e-mail',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const CloudAccountScreen()),
+          ),
         ),
-        _NavTile(
-          icon: Icons.download_outlined,
-          title: l.backupImport,
-          subtitle: l.backupImportSubtitle,
-          onTap: () => unawaited(_importSettings(context, ref)),
-          trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+        const ListTile(
+          leading: Icon(Icons.cloud_off_outlined),
+          title: Text('Synchronisation complète indisponible'),
+          subtitle: Text(
+            'L’ancienne synchronisation en clair est désactivée. '
+            'Les fiches de profils peuvent être sauvegardées manuellement '
+            'depuis Compte cloud ; les autres données ne sont pas synchronisées.',
+          ),
         ),
       ],
     );
-  }
-
-  static Future<void> _exportSettings(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final l = AppLocalizations.of(context);
-    final s = ref.read(advancedSettingsProvider);
-    final prefs = ref.read(preferencesProvider);
-    final json = await SettingsBackupService().exportToJson(
-      advancedSettings: s,
-      userPreferences: prefs,
-    );
-    // L'export est du vrai I/O : l'utilisateur peut quitter les réglages entre
-    // l'appel et l'écriture. `context.mounted` ne protégeait que le SnackBar,
-    // la ligne suivante lisait `ref` sans garde.
-    if (!context.mounted) return;
-    await ref.read(storageServiceProvider).setSetting('settings_backup', json);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackBackupExported)),
-      );
-    }
-  }
-
-  static Future<void> _importSettings(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final l = AppLocalizations.of(context);
-    final backup =
-        ref.read(storageServiceProvider).getSetting('settings_backup');
-    if (backup == null || backup.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.snackNoBackup)),
-        );
-      }
-      return;
-    }
-    final result = await SettingsBackupService().importFromJson(
-      backup,
-      ref.read(advancedSettingsProvider.notifier),
-      ref.read(preferencesProvider.notifier),
-    );
-    // L'import réécrit les réglages : l'écran peut avoir été quitté entre-temps.
-    if (!context.mounted) return;
-    if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackImportSuccess)),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.snackImportError(result.message))),
-      );
-    }
-  }
-
-  static String _formatTime(DateTime? dt, String neverLabel) {
-    if (dt == null) return neverLabel;
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    final mo = dt.month.toString().padLeft(2, '0');
-    return '$d/$mo/${dt.year} $h:$m';
   }
 }
 
@@ -817,12 +707,6 @@ class _AdvancedSection extends ConsumerWidget {
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionDiagnostics),
         _NavTile(
-          icon: Icons.bug_report_outlined,
-          title: l.logsDiagnostic,
-          subtitle: l.logsDiagnosticSubtitle,
-          onTap: () => context.go('/diagnostic'),
-        ),
-        _NavTile(
           icon: Icons.cleaning_services_outlined,
           title: l.clearCaches,
           subtitle: l.clearCachesSubtitle,
@@ -859,6 +743,14 @@ class _AdvancedSection extends ConsumerWidget {
     PaintingBinding.instance.imageCache.clear();
     // Vide aussi le cache disque en arrière-plan → le snack reflète la réalité.
     await DefaultCacheManager().emptyCache();
+    // Guide TV (tampon disque + cache mémoire) et métadonnées TMDB/OMDb/TVmaze :
+    // ils seront retéléchargés au prochain besoin.
+    await EpgBufferStore.instance.clearAll();
+    await ConditionalPlaylistCache.instance.clear();
+    await CatalogHttpValidators.instance.clear();
+    await ConditionalXmltvCache.instance.clear();
+    ref.read(epgDataCacheProvider).invalidate();
+    await HiveSync.writeAsync('metadata_cache', (box) => box.clear());
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l.snackCacheCleared)),
@@ -996,6 +888,9 @@ class _AdvancedSection extends ConsumerWidget {
 
     // 4) Clear flutter_cache_manager disk cache
     await DefaultCacheManager().emptyCache();
+    await ConditionalPlaylistCache.instance.clear();
+    await CatalogHttpValidators.instance.clear();
+    await ConditionalXmltvCache.instance.clear();
 
     // 5) Clear Flutter image cache
     PaintingBinding.instance.imageCache.clearLiveImages();

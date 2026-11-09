@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,10 +8,15 @@ import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart' show tvModeNotifierProvider;
+import 'package:orbit_3d_flutter/features/player/widgets/player_video_viewport.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
+import 'package:orbit_3d_flutter/services/stream_failure_diagnosis.dart';
+import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 
 /// Cadre de diffusion EN COURS de la chaîne sélectionnée.
 ///
@@ -71,6 +77,17 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
   int _generation = 0;
   bool _failed = false;
   bool _decoderUnsupported = false;
+  String? _failureMessage;
+  PlaybackRefreshLease? _refreshLease;
+
+  void _syncRefreshLease() {
+    if (widget.active && _previewEnabled) {
+      _refreshLease ??= PlaybackRefreshGate.instance.acquire();
+    } else {
+      _refreshLease?.release();
+      _refreshLease = null;
+    }
+  }
 
   /// L'aperçu était auparavant non surveillé : un gel y restait muet, alors
   /// que le lecteur principal, lui, remontait un message. Même traitement
@@ -104,6 +121,8 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
 
   @override
   void dispose() {
+    _refreshLease?.release();
+    _refreshLease = null;
     _startTimer?.cancel();
     _stallDetector
       ..removeListener(_onStallChanged)
@@ -120,7 +139,12 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     c?.dispose();
   }
 
+  /// Un choix explicite de l'utilisateur prime sur le comportement par défaut.
+  bool get _previewEnabled =>
+      ref.read(advancedSettingsProvider).livePreviewVideo ?? true;
+
   void _suspend() {
+    _syncRefreshLease();
     _startTimer?.cancel();
     _generation++;
     _disposeController();
@@ -128,17 +152,20 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
   }
 
   void _scheduleStart() {
+    _syncRefreshLease();
     _startTimer?.cancel();
     _disposeController();
     _failed = false;
     _decoderUnsupported = false;
+    _failureMessage = null;
     final gen = ++_generation;
     if (mounted) setState(() {});
+    if (!_previewEnabled) return;
     if (!widget.active) return;
     _startTimer = Timer(_startDelay, () => _start(gen));
   }
 
-  Future<void> _start(int gen) async {
+  Future<void> _start(int gen, {bool isRetry = false}) async {
     final channel = widget.channel;
     if (gen != _generation || !mounted) return;
 
@@ -178,15 +205,40 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
       final detail =
           '${result.errorOrNull} ${controller.value.errorDescription}';
       controller.dispose();
+      final failure = diagnoseStreamFailure(
+        streamUrl: channel.streamUrl,
+        error: detail,
+      );
+      final decoderError = failure.isDecoder;
+      final wasSoftwareRetry = VideoDecoderPrefs.forceSoftwareOnce;
+      VideoDecoderPrefs.forceSoftwareOnce = false;
+      // Cascade : le décodeur matériel a échoué, on retente une fois avec les
+      // décodeurs logiciels en tête (après 1,5 s pour libérer le matériel).
+      if (decoderError &&
+          !isRetry &&
+          !wasSoftwareRetry &&
+          VideoDecoderPrefs.mode != VideoDecoderMode.hardware &&
+          mounted &&
+          gen == _generation) {
+        VideoDecoderPrefs.forceSoftwareOnce = true;
+        _startTimer = Timer(
+          const Duration(milliseconds: 1500),
+          () => _start(gen, isRetry: true),
+        );
+        return;
+      }
       if (mounted) {
         setState(() {
           _failed = true;
-          _decoderUnsupported = detail.contains('MediaCodecVideoRenderer') ||
-              detail.contains('Decoder init failed') ||
-              detail.contains('Decoder failed');
+          _decoderUnsupported = decoderError;
+          _failureMessage = failure.message;
         });
       }
       return;
+    }
+    if (VideoDecoderPrefs.forceSoftwareOnce) {
+      VideoDecoderPrefs.forceSoftwareOnce = false;
+      unawaited(VideoDecoderPrefs.reportSoftwareRecovered());
     }
 
     // L'aperçu est SONORE : c'est le but —-on écoute la chaîne pour savoir ce
@@ -219,21 +271,32 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(advancedSettingsProvider.select((s) => s.livePreviewVideo),
+        (previous, next) {
+      if ((previous ?? true) != (next ?? true)) _scheduleStart();
+    });
     final scheme = Theme.of(context).colorScheme;
     final controller = _controller;
 
     final Widget content;
-    if (controller != null && controller.value.isInitialized) {
+    if (!widget.active) {
+      content = const SizedBox.shrink();
+    } else if (!_previewEnabled) {
+      content = _Message(
+        icon: Icons.play_circle_outline_rounded,
+        text: 'Aperçu vidéo désactivé. Appuie sur « regarder » pour ouvrir la chaîne.',
+        color: scheme.onSurfaceVariant,
+      );
+    } else if (controller != null && controller.value.isInitialized) {
       content = Stack(
         fit: StackFit.expand,
         children: [
-          FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: controller.value.size.width,
-              height: controller.value.size.height,
-              child: VideoPlayer(controller),
-            ),
+          PlayerVideoViewport(
+            aspectRatio: controller.value.size.width > 0 &&
+                    controller.value.size.height > 0
+                ? controller.value.aspectRatio
+                : 16 / 9,
+            child: VideoPlayer(controller),
           ),
           // Gel constaté : on le dit, et on propose de relancer. Sans cela
           // l'aperçu restait figé sans aucune explication.
@@ -243,9 +306,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     } else if (_failed) {
       content = _Message(
         icon: Icons.tv_off_rounded,
-        text: _decoderUnsupported
-            ? 'Format vidéo (4K / HEVC) non pris en charge par ce téléviseur'
-            : 'Flux indisponible',
+        text: _failureMessage ?? 'Flux indisponible',
         color: scheme.onSurfaceVariant,
       );
     } else {
@@ -288,7 +349,10 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
             Positioned(
               right: 10,
               bottom: 10,
-              child: _WatchButton(onPressed: widget.onWatch!),
+              child: _WatchButton(
+                onPressed: widget.onWatch!,
+                autofocus: ref.read(tvModeNotifierProvider).enabled,
+              ),
             ),
         ],
       ),
@@ -342,9 +406,10 @@ class _StaleOverlay extends StatelessWidget {
 }
 
 class _WatchButton extends StatelessWidget {
-  const _WatchButton({required this.onPressed});
+  const _WatchButton({required this.onPressed, required this.autofocus});
 
   final VoidCallback onPressed;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +436,7 @@ class _WatchButton extends StatelessWidget {
             ),
             child: FilledButton.icon(
               focusNode: liveWatchFocusNode,
+              autofocus: autofocus,
               onPressed: onPressed,
               icon: Icon(Icons.play_arrow_rounded, size: focused ? 34 : 24),
               label: Text(

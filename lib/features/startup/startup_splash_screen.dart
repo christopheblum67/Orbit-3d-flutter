@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/core/services/refresh_freshness.dart';
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
@@ -44,21 +45,25 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   bool _navigated = false;
   bool _showBranding = false;
   bool _refreshStalled = false;
+  String? _startingSubscriptionId;
 
   @override
   void initState() {
     super.initState();
+    _startingSubscriptionId = ref.read(activeSubscriptionProvider)?.id;
     final api = ref.read(apiServiceProvider);
     // Le container survit au splash : le préchargement différé des catalogues
     // continue après la navigation vers l'accueil.
     final container = ProviderScope.containerOf(context, listen: false);
     _controller = StartupRefreshController(
       api,
-      loadLiveChannels: () => ref.read(liveChannelsProvider.future),
+      loadLiveChannels: () => container.read(liveChannelsProvider.future),
       loadMovies: () => container.read(moviesProvider.future),
       loadSeries: () => container.read(seriesProvider.future),
-      loadRadioChannels: () => ref.read(radioChannelsProvider.future),
+      loadRadioChannels: () => container.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
+      deferredStillValid: () =>
+          container.read(activeSubscriptionProvider)?.id == _startingSubscriptionId,
       steps: widget.remainingPhase
           ? StartupRefreshController.remainingSteps
           : StartupRefreshController.initialSteps,
@@ -75,6 +80,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         // choix du profil.
         _navigated = true;
         _finishRemainingPhase();
+        return;
+      }
+      if (_startingSubscriptionId != null &&
+          _startingSubscriptionId!.isNotEmpty &&
+          ref.read(activeSubscriptionProvider)?.id == _startingSubscriptionId &&
+          isSubscriptionRefreshFresh(ref.read(lastRefreshTimestampProvider))) {
+        _navigated = true;
+        context.go('/profiles?startup=true');
         return;
       }
       setState(() => _showBranding = true);
@@ -130,9 +143,20 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   Future<void> _finishInitialPhase() async {
     // Le catalogue vient d'être chargé : horodater tout de suite évite qu'un
     // rafraîchissement « périmé » ne relance un second chargement complet.
-    ref
-        .read(lastRefreshTimestampProvider.notifier)
-        .setTimestamp(DateTime.now());
+    final subscription = ref.read(activeSubscriptionProvider);
+    if (subscription?.id == _startingSubscriptionId) {
+      ref.read(startupRefreshAttemptProvider.notifier).markCompleted();
+    }
+    if (_controller.error == null &&
+        _controller.hasCatalogData &&
+        subscription != null &&
+        subscription.id.isNotEmpty &&
+        subscription.id == _startingSubscriptionId) {
+      ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(
+            DateTime.now(),
+            subscriptionId: subscription.id,
+          );
+    }
     await Future<void>.delayed(const Duration(milliseconds: 400));
     if (mounted) context.go('/profiles?startup=true');
   }

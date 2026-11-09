@@ -8,13 +8,18 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import android.os.Build;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import io.flutter.view.TextureRegistry;
 import org.junit.Before;
 import org.junit.Rule;
@@ -27,6 +32,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.util.ReflectionHelpers;
 
 /**
  * Unit tests for {@link VideoPlayer}.
@@ -213,6 +219,130 @@ public final class VideoPlayerTest {
     verify(mockExoPlayer, never()).setPlayWhenReady(anyBoolean());
 
     videoPlayer.dispose();
+  }
+
+  @Test
+  public void firstSurfaceRestartsAffectedRealtekHevcVodOnlyOnce() {
+    setAffectedDevice();
+    VideoPlayer videoPlayer = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    SurfaceHolder first = mock(SurfaceHolder.class);
+    SurfaceHolder second = mock(SurfaceHolder.class);
+
+    videoPlayer.attachSurfaceHolder(first);
+    InOrder order = inOrder(mockExoPlayer);
+    order.verify(mockExoPlayer).stop();
+    order.verify(mockExoPlayer).setVideoSurfaceHolder(first);
+    order.verify(mockExoPlayer).prepare();
+    videoPlayer.detachSurfaceHolder(first);
+    videoPlayer.attachSurfaceHolder(second);
+    verify(mockExoPlayer, times(1)).stop();
+    verify(mockExoPlayer).setVideoSurfaceHolder(second);
+    verify(mockExoPlayer, never()).seekTo(anyLong());
+    verify(mockExoPlayer, never()).setPlayWhenReady(anyBoolean());
+    videoPlayer.dispose();
+  }
+
+  @Test
+  public void surfaceDoesNotRestartForLiveOrOtherFormats() {
+    setAffectedDevice();
+    VideoPlayer live = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    when(mockExoPlayer.isCurrentMediaItemLive()).thenReturn(true);
+    live.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    live.dispose();
+
+    reset(mockExoPlayer);
+    VideoPlayer avc = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    avc.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    avc.dispose();
+  }
+
+  @Test
+  public void surfaceDoesNotRestartWithoutInitializedRealtekDecoder() {
+    setAffectedDevice();
+    VideoPlayer videoPlayer = createSurfaceViewVideoPlayer();
+    selectDecoder("c2.android.hevc.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    videoPlayer.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    videoPlayer.dispose();
+  }
+
+  @Test
+  public void surfaceDoesNotRestartOnAnotherDevice() {
+    setAffectedDevice();
+    ReflectionHelpers.setStaticField(Build.class, "MODEL", "OtherTV");
+    VideoPlayer otherDevice = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    otherDevice.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    otherDevice.dispose();
+  }
+
+  @Test
+  public void surfaceDoesNotRestartForDolbyVision() {
+    setAffectedDevice();
+    VideoPlayer dolbyVision = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    dolbyVision.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    dolbyVision.dispose();
+  }
+
+  @Test
+  public void surfaceAttachedBeforeReadyDoesNotRestartOnLaterReattachment() {
+    setAffectedDevice();
+    VideoPlayer videoPlayer = createSurfaceViewVideoPlayer();
+    selectDecoder("OMX.realtek.video.decoder");
+    when(mockExoPlayer.getVideoFormat())
+        .thenReturn(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build());
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_BUFFERING);
+    SurfaceHolder first = mock(SurfaceHolder.class);
+    videoPlayer.attachSurfaceHolder(first);
+    videoPlayer.detachSurfaceHolder(first);
+    when(mockExoPlayer.getPlaybackState()).thenReturn(Player.STATE_READY);
+    videoPlayer.attachSurfaceHolder(mock(SurfaceHolder.class));
+    verify(mockExoPlayer, never()).stop();
+    videoPlayer.dispose();
+  }
+
+  private VideoPlayer createSurfaceViewVideoPlayer() {
+    return new VideoPlayer(
+        () -> mockExoPlayer, mockEvents, null, fakeVideoAsset.getMediaItem(), new VideoPlayerOptions());
+  }
+
+  private void selectDecoder(String decoderName) {
+    ArgumentCaptor<AnalyticsListener> captor = ArgumentCaptor.forClass(AnalyticsListener.class);
+    verify(mockExoPlayer).addAnalyticsListener(captor.capture());
+    captor.getValue().onVideoDecoderInitialized(null, decoderName, 0, 0);
+  }
+
+  private static void setAffectedDevice() {
+    ReflectionHelpers.setStaticField(Build.class, "MANUFACTURER", "TCL");
+    ReflectionHelpers.setStaticField(Build.class, "MODEL", "BeyondTV");
+    ReflectionHelpers.setStaticField(Build.class, "DEVICE", "BeyondTV");
+    ReflectionHelpers.setStaticField(Build.VERSION.class, "SDK_INT", 30);
   }
 
   @Test

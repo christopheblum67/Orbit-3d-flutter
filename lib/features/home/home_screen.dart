@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/services/refresh_freshness.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -19,15 +20,18 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   late final PageController _pageController;
   final Map<String, FocusNode> _carouselFocusNodes = {};
   double _currentPage = 0.0;
   String? _focusedCarouselRoute;
   bool _autoRefreshing = false;
+  GoRouter? _router;
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController(
       initialPage: 0,
       viewportFraction: 0.38,
@@ -50,7 +54,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (_router != router) {
+      _router?.routeInformationProvider.removeListener(_onRouteChanged);
+      _router = router;
+      router.routeInformationProvider.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _autoRefreshIfStale();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _onRouteChanged();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _router?.routeInformationProvider.removeListener(_onRouteChanged);
     _pageController.dispose();
     for (final focusNode in _carouselFocusNodes.values) {
       focusNode.dispose();
@@ -206,8 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final last = ref.read(lastRefreshTimestampProvider);
     // Garde-fou : si la dernière mise à jour date de moins de 30 min
     // (TTL EPG), on évite de re-télécharger inutilement.
-    if (last != null &&
-        DateTime.now().difference(last) < const Duration(minutes: 30)) {
+    if (isSubscriptionRefreshFresh(last)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -249,9 +276,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// jamais au lancement.
   Future<void> _autoRefreshIfStale() async {
     if (_autoRefreshing) return;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if ((lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+        _router?.routeInformationProvider.value.uri.path != '/home' ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    if (ref.read(startupRefreshAttemptProvider.notifier).consume()) return;
     final last = ref.read(lastRefreshTimestampProvider);
-    if (last != null &&
-        DateTime.now().difference(last) < const Duration(minutes: 30)) {
+    if (isSubscriptionRefreshFresh(last)) {
       return;
     }
     _autoRefreshing = true;
@@ -306,17 +339,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildCard(_OrbitItem item, bool focused) {
-    return Center(
-      child: GestureDetector(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest.shortestSide.clamp(0.0, 290.0);
+        return Center(
+          child: GestureDetector(
         onTap: () => _openItem(context, item),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 290,
-          height: 400,
-          padding: const EdgeInsets.all(20),
+          width: size,
+          height: size,
+          padding: EdgeInsets.all(size * 0.1),
           decoration: BoxDecoration(
             color: focused ? const Color(0xFF1E222D) : const Color(0xFF141720),
-            borderRadius: BorderRadius.circular(24),
+            shape: BoxShape.circle,
             border: Border.all(
               color: focused ? item.color : Colors.white10,
               width: focused ? 2.5 : 1,
@@ -337,31 +373,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(size * 0.045),
                     decoration: BoxDecoration(
                       color: item.color.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(item.icon, size: 58, color: item.color),
+                    child: Icon(item.icon, size: size * 0.2, color: item.color),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: size * 0.045),
                   Text(
                     item.title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: (size * 0.075).clamp(12.0, 22.0),
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: size * 0.025),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       item.subtitle,
                       textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: (size * 0.045).clamp(10.0, 13.0),
                         color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
@@ -430,7 +470,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 

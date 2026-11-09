@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/models/duration_adapter.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/download_providers.dart' as downloads;
 import 'package:orbit_3d_flutter/services/download_manager.dart';
 
 /// L'onglet Téléchargements vide malgré une tâche persistée.
@@ -117,6 +118,47 @@ void main() {
       contains('orpheline'),
       reason: 'le provider doit initialiser le gestionnaire et rendre l\'état '
           'courant, pas une liste vide',
+    );
+  });
+
+  test('le flux redémarre avec le gestionnaire partagé après démontage',
+      () async {
+    expect(downloadManagerProvider, same(downloads.downloadManagerProvider));
+    expect(
+      downloadTasksStreamProvider,
+      same(downloads.downloadTasksStreamProvider),
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final manager = container.read(downloadManagerProvider);
+    expect(manager, same(DownloadManager()));
+
+    final first = container.listen(downloadTasksStreamProvider, (_, __) {});
+    await container.read(downloadTasksStreamProvider.future);
+    final box = Hive.box<DownloadTask>('downloads');
+    await box.put('first', _task('first'));
+    await _pump();
+    await container.pump();
+    expect(first.read().requireValue.map((task) => task.id), contains('first'));
+
+    first.close();
+    await container.pump();
+    expect(container.exists(downloadTasksStreamProvider), isFalse);
+    expect(container.read(downloadManagerProvider), same(manager));
+    expect(box.isOpen, isTrue);
+    await box.put('while-closed', _task('while-closed'));
+
+    final second = container.listen(downloadTasksStreamProvider, (_, __) {});
+    addTearDown(second.close);
+    final initial = await container.read(downloadTasksStreamProvider.future);
+    expect(initial.map((task) => task.id), containsAll(['first', 'while-closed']));
+    await _pump();
+    await box.put('after-reopen', _task('after-reopen'));
+    await _pump();
+    await container.pump();
+    expect(
+      second.read().requireValue.map((task) => task.id),
+      contains('after-reopen'),
     );
   });
 }

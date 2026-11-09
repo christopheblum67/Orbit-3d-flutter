@@ -220,7 +220,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
           icon: Icons.live_tv_outlined,
           title: l.channelsUnavailable,
           message: userFriendlyError(err),
-          onRetry: () => ref.invalidate(liveChannelsProvider),
+          onRetry: () => ref.invalidate(liveChannelsAllProvider),
         ),
         data: (channels) =>
             _buildBody(context, channels, maxStreams, deviceProfile),

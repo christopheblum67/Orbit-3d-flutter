@@ -27,9 +27,8 @@ class StreamAudioTracksService {
     try {
       final result = await safeAsync(
         () async {
-          await controller.initialize();
+          await controller.initialize().timeout(const Duration(seconds: 15));
           final tracks = await controller.getAudioTracks();
-          controller.dispose();
 
           final languages = <String, String>{};
           for (final track in tracks) {

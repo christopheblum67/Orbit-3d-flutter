@@ -28,18 +28,12 @@ final widevineDelegateProvider = Provider<WidevineDelegate>((ref) {
   return WidevineDelegate(licenseManager: ref.watch(licenseManagerProvider));
 });
 
-/// Configuration Widevine globale, chargée au démarrage et persistée en coffre.
-final widevineConfigProvider =
-    NotifierProvider<WidevineConfigNotifier, WidevineConfig?>(
-  WidevineConfigNotifier.new,
+/// Chaque abonnement conserve sa propre configuration de licence.
+final widevineConfigProvider = FutureProvider.family<WidevineConfig?, String>(
+  (ref, subscriptionId) =>
+      WidevineConfigStore.instance.loadForSubscription(subscriptionId),
 );
 
-class WidevineConfigNotifier extends Notifier<WidevineConfig?> {
-  @override
-  WidevineConfig? build() => null;
-
-  Future<void> setConfig(WidevineConfig? config) async {
-    await WidevineConfigStore.instance.save(config);
-    state = config;
-  }
-}
+final legacyWidevineConfigProvider = FutureProvider<WidevineConfig?>(
+  (ref) => WidevineConfigStore.instance.load(),
+);

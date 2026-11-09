@@ -26,14 +26,24 @@ final class HttpVideoAsset extends VideoAsset {
 
   @NonNull private final StreamingFormat streamingFormat;
   @NonNull private final Map<String, String> httpHeaders;
+  @Nullable private final WidevineMediaConfig drmConfig;
 
   HttpVideoAsset(
       @Nullable String assetUrl,
       @NonNull StreamingFormat streamingFormat,
       @NonNull Map<String, String> httpHeaders) {
+    this(assetUrl, streamingFormat, httpHeaders, null);
+  }
+
+  HttpVideoAsset(
+      @Nullable String assetUrl,
+      @NonNull StreamingFormat streamingFormat,
+      @NonNull Map<String, String> httpHeaders,
+      @Nullable WidevineMediaConfig drmConfig) {
     super(assetUrl);
     this.streamingFormat = streamingFormat;
     this.httpHeaders = httpHeaders;
+    this.drmConfig = drmConfig;
   }
 
   @NonNull
@@ -54,6 +64,9 @@ final class HttpVideoAsset extends VideoAsset {
     }
     if (mimeType != null) {
       builder.setMimeType(mimeType);
+    }
+    if (drmConfig != null) {
+      builder.setDrmConfiguration(drmConfig.toMedia3Configuration());
     }
     return builder.build();
   }

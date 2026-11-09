@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
@@ -40,6 +41,7 @@ void main() {
   });
 
   testWidgets('shows an actionable error dialog with retry', (tester) async {
+    var retries = 0;
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -50,7 +52,7 @@ void main() {
                   context,
                   'DioException: status code 401 Unauthorized',
                   type: SubscriptionType.xtream,
-                  onRetry: () {},
+                  onRetry: () => retries++,
                 ),
                 child: const Text('Tester'),
               ),
@@ -66,5 +68,43 @@ void main() {
     expect(find.text('Identifiants invalides'), findsOneWidget);
     expect(find.text('À vérifier'), findsOneWidget);
     expect(find.text('Réessayer'), findsOneWidget);
+    expect(Focus.of(tester.element(find.text('Réessayer'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(Focus.of(tester.element(find.text('Fermer'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(Focus.of(tester.element(find.text('Réessayer'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(retries, 1);
+    expect(find.text('Identifiants invalides'), findsNothing);
+  });
+
+  testWidgets('focuses close when retry is unavailable', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showConnectionErrorDialog(
+                  context,
+                  'timeout',
+                  type: SubscriptionType.m3u,
+                ),
+                child: const Text('Tester'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Tester'));
+    await tester.pumpAndSettle();
+    expect(Focus.of(tester.element(find.text('Fermer'))).hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(find.text('Délai de réponse dépassé'), findsNothing);
   });
 }

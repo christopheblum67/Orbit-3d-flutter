@@ -565,7 +565,7 @@ class _SeriesHeader extends ConsumerWidget {
           _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
           const SizedBox(height: 16),
           // Sélecteur de langue de sous-titres par défaut pour la série
-          _SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
+          SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
         ],
       ),
     );
@@ -733,6 +733,81 @@ class _ResumeSection extends ConsumerWidget {
   }
 }
 
+class _ResetEpisodeDialog extends StatefulWidget {
+  const _ResetEpisodeDialog({required this.message, required this.resetLabel});
+
+  final String message;
+  final String resetLabel;
+
+  @override
+  State<_ResetEpisodeDialog> createState() => _ResetEpisodeDialogState();
+}
+
+class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
+  final _cancelFocus = FocusNode();
+  final _resetFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _cancelFocus.dispose();
+    _resetFocus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    final towardReset = Directionality.of(context) == TextDirection.ltr
+        ? LogicalKeyboardKey.arrowRight
+        : LogicalKeyboardKey.arrowLeft;
+    final towardCancel = Directionality.of(context) == TextDirection.ltr
+        ? LogicalKeyboardKey.arrowLeft
+        : LogicalKeyboardKey.arrowRight;
+    if (key == towardReset && _cancelFocus.hasFocus) {
+      _resetFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (key == towardCancel && _resetFocus.hasFocus) {
+      _cancelFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      if (_cancelFocus.hasFocus || _resetFocus.hasFocus) {
+        Navigator.of(context).pop(_resetFocus.hasFocus);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: _handleKey,
+      child: AlertDialog(
+        title: const Text('Réinitialiser l\'épisode ?'),
+        content: Text(widget.message),
+        actions: [
+          TextButton(
+            autofocus: true,
+            focusNode: _cancelFocus,
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            focusNode: _resetFocus,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(widget.resetLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EpisodeTile extends ConsumerWidget {
   const _EpisodeTile({required this.series, required this.episode});
 
@@ -791,79 +866,18 @@ class _EpisodeTile extends ConsumerWidget {
       final hasProgress = progress?.hasProgress == true;
       if (!isVu && !hasProgress) return;
 
-      final cancelFocus = FocusNode();
-      final confirmFocus = FocusNode();
-
-      void requestFocus(FocusNode focus) {
-        if (context.mounted) {
-          FocusScope.of(context).requestFocus(focus);
-        }
-      }
-
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Réinitialiser l\'épisode ?'),
-          content: Text(
-            isVu && hasProgress
+        builder: (_) => _ResetEpisodeDialog(
+          message: isVu && hasProgress
                 ? '« $label » sera marqué comme non vu et sa progression '
                     'de lecture sera effacée.'
                 : isVu
                     ? '« $label » sera marqué comme non vu pour ce profil.'
                     : 'La progression de lecture de « $label » sera effacée.',
-          ),
-          actions: [
-            Focus(
-              focusNode: cancelFocus,
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  Navigator.of(dialogContext).pop(false);
-                  return KeyEventResult.handled;
-                }
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                        event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                  requestFocus(confirmFocus);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Annuler'),
-              ),
-            ),
-            Focus(
-              focusNode: confirmFocus,
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.enter ||
-                        event.logicalKey == LogicalKeyboardKey.select ||
-                        event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                  Navigator.of(dialogContext).pop(true);
-                  return KeyEventResult.handled;
-                }
-                if (event is KeyDownEvent &&
-                    (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                        event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                  requestFocus(cancelFocus);
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(l.reset),
-              ),
-            ),
-          ],
+          resetLabel: l.reset,
         ),
       );
-      cancelFocus.dispose();
-      confirmFocus.dispose();
 
       if (confirmed != true) return;
       // Le dialogue est modal, mais l'utilisateur peut encore avoir quitté
@@ -1020,14 +1034,17 @@ class _SeriesAudioLanguageSelectorState
     // 1. Charger préférences sauvegardées
     final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(widget.seriesId);
     final forced = await PlayerTrackPrefs.isSeriesAudioForced(widget.seriesId);
+    if (!mounted) return;
+    setState(() {
+      _selectedLanguage = lang;
+      _forced = forced;
+    });
 
     // 2. Récupérer les langues réelles depuis le premier épisode jouable
     final languages = await _fetchRealAudioLanguages();
 
     if (mounted) {
       setState(() {
-        _selectedLanguage = lang;
-        _forced = forced;
         _availableLanguages = languages;
         _loading = false;
       });
@@ -1103,14 +1120,7 @@ class _SeriesAudioLanguageSelectorState
           ],
         ),
         const SizedBox(height: 8),
-        _loading
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            : Column(
+        Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
@@ -1133,10 +1143,19 @@ class _SeriesAudioLanguageSelectorState
                           child: Text(l.$2),
                         ),
                       ),
+                      if (_selectedLanguage != null &&
+                          _selectedLanguage!.isNotEmpty &&
+                          !_availableLanguages.any((l) => l.$1 == _selectedLanguage))
+                        DropdownMenuItem<String>(
+                          value: _selectedLanguage,
+                          child: Text(_selectedLanguage!),
+                        ),
                     ],
                     onChanged: _onLanguageChanged,
                   ),
                   const SizedBox(height: 8),
+                  if (_loading)
+                    const Text('Recherche des pistes audio…'),
                   Row(
                     children: [
                       Checkbox(
@@ -1182,20 +1201,26 @@ class _SeriesAudioLanguageSelectorState
 /// feuille du lecteur, variantes `(CC)`/`(SDH)` comprises. Dédupliquer par
 /// langue faisait disparaître ces variantes et n'affichait que deux entrées là
 /// où le lecteur en offrait cinq.
-class _SeriesSubtitleLanguageSelector extends ConsumerStatefulWidget {
-  const _SeriesSubtitleLanguageSelector({required this.seriesId});
+class SeriesSubtitleLanguageSelector extends ConsumerStatefulWidget {
+  const SeriesSubtitleLanguageSelector({
+    super.key,
+    required this.seriesId,
+    this.fetchTracks,
+  });
   final String seriesId;
+  final Future<List<(String, String)>> Function()? fetchTracks;
 
   @override
-  ConsumerState<_SeriesSubtitleLanguageSelector> createState() =>
+  ConsumerState<SeriesSubtitleLanguageSelector> createState() =>
       _SeriesSubtitleLanguageSelectorState();
 }
 
 class _SeriesSubtitleLanguageSelectorState
-    extends ConsumerState<_SeriesSubtitleLanguageSelector> {
+    extends ConsumerState<SeriesSubtitleLanguageSelector> {
   String? _selectedLanguage;
   bool _forced = false;
   bool _loading = true;
+  bool _preferencesLoaded = false;
   List<(String, String)> _availableLanguages = const [];
 
   @override
@@ -1212,14 +1237,19 @@ class _SeriesSubtitleLanguageSelectorState
     final forced = await PlayerTrackPrefs.isSeriesSubtitleForced(
       widget.seriesId,
     );
+    if (!mounted) return;
+    setState(() {
+      _selectedLanguage = lang;
+      _forced = forced;
+      _preferencesLoaded = true;
+    });
 
     // 2. Récupérer les langues réelles depuis le premier épisode jouable
-    final languages = await _fetchRealSubtitleLanguages();
+    final languages = await (widget.fetchTracks?.call() ??
+        _fetchRealSubtitleLanguages());
 
     if (mounted) {
       setState(() {
-        _selectedLanguage = lang;
-        _forced = forced;
         _availableLanguages = languages;
         _loading = false;
       });
@@ -1276,12 +1306,22 @@ class _SeriesSubtitleLanguageSelectorState
   /// Sans ça, `DropdownButtonFormField` lèverait une assertion — « value » doit
   /// exister parmi les items — et l'écran série planterait à l'ouverture.
   List<DropdownMenuItem<String>> _dropdownItems() {
+    const fallbackLanguages = <(String, String)>[
+      ('fr', 'Français'),
+      ('en', 'Anglais'),
+      ('es', 'Espagnol'),
+      ('de', 'Allemand'),
+      ('it', 'Italien'),
+      ('ar', 'Arabe'),
+    ];
+    final languages =
+        _availableLanguages.isEmpty ? fallbackLanguages : _availableLanguages;
     final items = <DropdownMenuItem<String>>[
       const DropdownMenuItem<String>(
         value: '',
         child: Text('(Désactivés)'),
       ),
-      ..._availableLanguages.map(
+      ...languages.map(
         (l) => DropdownMenuItem<String>(
           value: l.$1,
           child: Text(l.$2),
@@ -1319,17 +1359,11 @@ class _SeriesSubtitleLanguageSelectorState
           ],
         ),
         const SizedBox(height: 8),
-        _loading
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            : Column(
+        Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
+                    key: ValueKey(_selectedLanguage),
                     initialValue: _selectedLanguage,
                     decoration: const InputDecoration(
                       labelText: 'Langue des sous-titres',
@@ -1339,9 +1373,17 @@ class _SeriesSubtitleLanguageSelectorState
                       isDense: true,
                     ),
                     items: _dropdownItems(),
-                    onChanged: _onLanguageChanged,
+                    onChanged:
+                        _preferencesLoaded ? _onLanguageChanged : null,
                   ),
                   const SizedBox(height: 8),
+                  if (_loading)
+                    const Text('Recherche des pistes de sous-titres…'),
+                  if (!_loading && _availableLanguages.isEmpty)
+                    const Text(
+                      'Aucune piste détectée : choisissez une langue, '
+                      'elle sera utilisée si disponible.',
+                    ),
                   Row(
                     children: [
                       Checkbox(
@@ -1354,7 +1396,8 @@ class _SeriesSubtitleLanguageSelectorState
                       Expanded(
                         child: Text(
                           (_selectedLanguage == null)
-                              ? 'Choisissez d\'abord une langue'
+                              ? 'Choisissez une langue dans le menu ci-dessus '
+                                  'pour activer cette option'
                               : _forced
                                   ? 'Forcer cette langue pour TOUS les épisodes de la série'
                                   : 'Appliquer seulement si disponible (sinon langue du flux)',

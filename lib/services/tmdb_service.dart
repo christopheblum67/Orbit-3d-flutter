@@ -17,6 +17,10 @@ class TmdbService {
   static const String _imageBaseUrl = 'https://image.tmdb.org/t/p';
   static const String _cacheBoxName = 'metadata_cache';
   static const Duration _cacheTtl = Duration(hours: 24);
+
+  /// Les entrées « light » (genres, affiche, note) bougent peu : durée longue
+  /// pour que le matchmaking conserve ses données d'une session à l'autre.
+  static const Duration _lightCacheTtl = Duration(days: 30);
   static const int _maxRequestsPer10Seconds = 40;
 
   final Dio _dio;
@@ -148,7 +152,11 @@ class TmdbService {
   }
 
   /// Récupère depuis le cache si valide
-  T? _getCached<T>(String key, T Function(Map<String, dynamic>) fromJson) {
+  T? _getCached<T>(
+    String key,
+    T Function(Map<String, dynamic>) fromJson, {
+    Duration? ttl,
+  }) {
     if (_cacheBox == null) return null;
     final entry = _cacheBox!.get(key);
     if (entry == null) return null;
@@ -156,7 +164,7 @@ class TmdbService {
     final Map<String, dynamic> data = Map<String, dynamic>.from(entry);
     final fetchedAt = data['fetchedAt'] as int? ?? 0;
     if (DateTime.now().millisecondsSinceEpoch - fetchedAt >
-        _cacheTtl.inMilliseconds) {
+        (ttl ?? _cacheTtl).inMilliseconds) {
       _cacheBox!.delete(key);
       return null;
     }
@@ -346,7 +354,11 @@ class TmdbService {
     if (!hasApiKey) return null;
 
     final cacheKey = _cacheKey('grid', title, year ?? 0);
-    final cached = _getCached(cacheKey, (d) => TmdbRankEntry.fromMovieJson(d));
+    final cached = _getCached(
+      cacheKey,
+      (d) => TmdbRankEntry.fromMovieJson(d),
+      ttl: _lightCacheTtl,
+    );
     if (cached != null) return cached;
 
     await _waitForRateLimit();
@@ -399,6 +411,7 @@ class TmdbService {
     return _getCached(
       _cacheKey('grid', title, year ?? 0),
       (d) => TmdbRankEntry.fromMovieJson(d),
+      ttl: _lightCacheTtl,
     );
   }
 
@@ -408,6 +421,7 @@ class TmdbService {
     return _getCached(
       _cacheKey('gridTv', title, year ?? 0),
       (d) => TmdbRankEntry.fromTvJson(d),
+      ttl: _lightCacheTtl,
     );
   }
 
@@ -675,7 +689,11 @@ class TmdbService {
     if (!hasApiKey) return null;
 
     final cacheKey = _cacheKey('gridTv', title, year ?? 0);
-    final cached = _getCached(cacheKey, (d) => TmdbRankEntry.fromTvJson(d));
+    final cached = _getCached(
+      cacheKey,
+      (d) => TmdbRankEntry.fromTvJson(d),
+      ttl: _lightCacheTtl,
+    );
     if (cached != null) return cached;
 
     await _waitForRateLimit();
@@ -1059,7 +1077,7 @@ class TmdbService {
     int tmdbId, {
     int page = 1,
   }) async {
-    if (!hasApiKey) return const <TmdbRankEntry>[];
+    if (!hasApiKey) throw StateError('TMDB API key is not configured');
     final cacheKey = _cacheKey('rec_movie', '$tmdbId:$page');
     final cached = _getCached(cacheKey, (d) {
       final results = d['results'] as List<dynamic>? ?? [];
@@ -1080,7 +1098,9 @@ class TmdbService {
             'region': 'FR',
           },
         );
-        if (response.data == null) return const <TmdbRankEntry>[];
+        if (response.data == null || response.data['results'] is! List) {
+          throw const FormatException('Invalid TMDB recommendations response');
+        }
         await _setCache(cacheKey, response.data);
         final results = response.data['results'] as List<dynamic>? ?? [];
         return results
@@ -1090,9 +1110,8 @@ class TmdbService {
             .toList();
       },
       context: 'TmdbService.getMovieRecommendations',
-      fallbackValue: const <TmdbRankEntry>[],
     );
-    return result.getOrElse(const <TmdbRankEntry>[]);
+    return result.getOrThrow();
   }
 
   /// Recommandations séries (endpoint TMDB /tv/{id}/recommendations)

@@ -107,11 +107,25 @@ class WatchedEpisodesNotifier
     if (episode.episodeNumber <= 0 && episode.id.isEmpty) return;
     _writeGen++;
     final entry = _entryFor(series, episode, profile.id);
+    final previous = state[entry.key];
     final next = Map<String, WatchedEpisodeEntry>.from(state)
       ..[entry.key] = entry;
     state = next;
     final service = ref.read(watchedEpisodesServiceProvider);
-    await service.save(entry);
+    try {
+      await service.save(entry);
+    } catch (_) {
+      if (ref.mounted && identical(state[entry.key], entry)) {
+        final restored = Map<String, WatchedEpisodeEntry>.from(state);
+        if (previous == null) {
+          restored.remove(entry.key);
+        } else {
+          restored[entry.key] = previous;
+        }
+        state = restored;
+      }
+      rethrow;
+    }
   }
 
   /// Bascule vu / non-vu (toggle manuel depuis la liste d'épisodes).

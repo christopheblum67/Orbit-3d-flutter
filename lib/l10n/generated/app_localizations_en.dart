@@ -726,6 +726,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get tmdbMovieRecommendations => 'TMDB recommendations';
+
+  @override
+  String get tmdbRecommendationsEmpty =>
+      'No TMDB recommendations for this movie.';
+
+  @override
+  String get tmdbRecommendationsError => 'Could not load TMDB recommendations.';
+
+  @override
+  String get tmdbRecommendationsUnavailable =>
+      'TMDB recommendations are unavailable for this movie.';
+
+  @override
+  String get playbackDelayedTitle => 'Playback is taking too long';
+
+  @override
+  String get playbackDelayedMessage =>
+      'Playback has not started or resumed. The stream, connection or video format may be responsible.';
+
+  @override
+  String get playbackContinueWaiting => 'Keep waiting';
+
+  @override
+  String get playbackUnavailableTitle => 'Playback unavailable';
+
+  @override
+  String get playbackUnavailableMessage =>
+      'This movie or episode cannot be played right now. Retry or check the connection and file format.';
+
+  @override
   String get retrySearch => 'Retry search';
 
   @override

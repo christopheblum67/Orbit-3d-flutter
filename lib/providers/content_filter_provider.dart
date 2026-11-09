@@ -4,7 +4,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/core_providers.dart';
 
 /// Heuristique de classification adulte / violence (Sprint 4).
 ///

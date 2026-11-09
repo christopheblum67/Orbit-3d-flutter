@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
@@ -152,20 +151,10 @@ class CloudSyncNotifier extends Notifier<CloudSyncState> {
   }
 
   Future<void> _ensureSignedIn() async {
-    final result = await safeAsync<void>(
-      () async {
-        final current = FirebaseAuth.instance.currentUser;
-        if (current == null) {
-          await FirebaseAuth.instance.signInAnonymously();
-        }
-      },
-      context: 'CloudSyncNotifier._ensureSignedIn',
+    throw StateError(
+      'La synchronisation précédente est désactivée car elle envoyait des '
+      'données en clair. La synchronisation chiffrée est en cours de mise en place.',
     );
-    if (result.isFailure) {
-      throw StateError(
-        'Connexion cloud impossible : ${result.errorOrNull?.originalError ?? result.errorOrNull}',
-      );
-    }
   }
 
   void _schedulePush() {

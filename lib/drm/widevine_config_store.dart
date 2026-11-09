@@ -10,8 +10,13 @@ class WidevineConfigStore {
   static final WidevineConfigStore instance = WidevineConfigStore._();
   static const _secretKey = 'widevine_config';
 
-  Future<WidevineConfig?> load() async {
-    final serialized = await secretStore.read(_secretKey);
+  Future<WidevineConfig?> load() => _load(_secretKey);
+
+  Future<WidevineConfig?> loadForSubscription(String subscriptionId) =>
+      _load(_subscriptionKey(subscriptionId));
+
+  Future<WidevineConfig?> _load(String key) async {
+    final serialized = await secretStore.read(key);
     if (serialized == null || serialized.isEmpty) return null;
 
     try {
@@ -39,15 +44,30 @@ class WidevineConfigStore {
     }
   }
 
-  Future<void> save(WidevineConfig? config) async {
+  Future<void> save(WidevineConfig? config) => _save(_secretKey, config);
+
+  Future<void> saveForSubscription(
+    String subscriptionId,
+    WidevineConfig? config,
+  ) =>
+      _save(_subscriptionKey(subscriptionId), config);
+
+  Future<void> _save(String key, WidevineConfig? config) async {
     if (config == null) {
-      await secretStore.delete(_secretKey);
+      await secretStore.delete(key);
       return;
     }
     if (!_hasValidLicenseUrl(config.licenseUrl)) {
       throw ArgumentError.value(config.licenseUrl, 'licenseUrl');
     }
-    await secretStore.write(_secretKey, jsonEncode(config.toJson()));
+    await secretStore.write(key, jsonEncode(config.toJson()));
+  }
+
+  static String _subscriptionKey(String subscriptionId) {
+    if (subscriptionId.trim().isEmpty) {
+      throw ArgumentError.value(subscriptionId, 'subscriptionId');
+    }
+    return 'widevine_config_subscription_${base64Url.encode(utf8.encode(subscriptionId))}';
   }
 
   static bool _hasValidLicenseUrl(String value) {

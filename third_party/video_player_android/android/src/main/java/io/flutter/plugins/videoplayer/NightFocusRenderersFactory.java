@@ -1,11 +1,17 @@
 package io.flutter.plugins.videoplayer;
 
 import android.content.Context;
+import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Fabrique de renderers ExoPlayer dont le {@code AudioSink} embarque le
@@ -30,6 +36,36 @@ public final class NightFocusRenderersFactory extends DefaultRenderersFactory {
     // Si le décodeur matériel échoue à l'init (ex. OMX.realtek sur du H.264
     // level 5.0), bascule sur le décodeur suivant au lieu d'échouer.
     setEnableDecoderFallback(true);
+    // Mode « logiciel d'abord » : les décodeurs vidéo logiciels (OMX.google,
+    // c2.android) passent devant les décodeurs matériels, qui restent en
+    // secours. Évalué à la construction du lecteur.
+    final int decoderMode = OrbitPlayerConfig.decoderMode;
+    setMediaCodecSelector(
+          (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+            List<MediaCodecInfo> infos =
+                MediaCodecSelector.DEFAULT.getDecoderInfos(
+                    mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+            if (!mimeType.startsWith("video/")) {
+              return infos;
+            }
+            List<MediaCodecInfo> sorted = new ArrayList<>(infos);
+            Collections.sort(
+                sorted,
+                (a, b) -> decoderMode == 2
+                    ? Boolean.compare(!a.softwareOnly, !b.softwareOnly)
+                    : Boolean.compare(a.softwareOnly, b.softwareOnly));
+            StringBuilder candidates = new StringBuilder();
+            for (MediaCodecInfo info : sorted) {
+              if (candidates.length() > 0) candidates.append(",");
+              candidates.append(info.name).append(info.softwareOnly ? "(sw)" : "(hw)");
+            }
+            Log.i(
+                "OrbitDecoder",
+                "mode=" + decoderMode + " mime=" + mimeType + " secure="
+                    + requiresSecureDecoder + " tunneled=" + requiresTunnelingDecoder
+                    + " candidates=" + candidates);
+            return sorted;
+          });
   }
 
   @Override

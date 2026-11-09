@@ -730,6 +730,38 @@ class AppLocalizationsDe extends AppLocalizations {
   String get retry => 'Erneut versuchen';
 
   @override
+  String get tmdbMovieRecommendations => 'TMDB-Empfehlungen';
+
+  @override
+  String get tmdbRecommendationsEmpty =>
+      'Keine TMDB-Empfehlungen für diesen Film.';
+
+  @override
+  String get tmdbRecommendationsError =>
+      'TMDB-Empfehlungen konnten nicht geladen werden.';
+
+  @override
+  String get tmdbRecommendationsUnavailable =>
+      'TMDB-Empfehlungen für diesen Film sind nicht verfügbar.';
+
+  @override
+  String get playbackDelayedTitle => 'Die Wiedergabe dauert zu lange';
+
+  @override
+  String get playbackDelayedMessage =>
+      'Die Wiedergabe startet nicht oder wird nicht fortgesetzt. Der Stream, die Verbindung oder das Videoformat können die Ursache sein.';
+
+  @override
+  String get playbackContinueWaiting => 'Weiter warten';
+
+  @override
+  String get playbackUnavailableTitle => 'Wiedergabe nicht verfügbar';
+
+  @override
+  String get playbackUnavailableMessage =>
+      'Dieser Film oder diese Folge kann derzeit nicht abgespielt werden. Versuche es erneut oder überprüfe Verbindung und Dateiformat.';
+
+  @override
   String get retrySearch => 'Suche erneut versuchen';
 
   @override

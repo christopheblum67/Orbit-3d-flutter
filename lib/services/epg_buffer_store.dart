@@ -7,9 +7,41 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// Décode le tampon dans un isolate (plusieurs dizaines de Mo de JSON).
-Map<String, dynamic> _decodeBufferJson(String text) =>
-    jsonDecode(text) as Map<String, dynamic>;
+/// Lit et reconstruit les programmes hors du thread d'interface.
+Future<List<EPGProgram>?> _readBufferInIsolate(
+  ({String path, int nowMs, int maxAgeMs, int formatVersion}) args,
+) async {
+  final file = File(args.path);
+  if (!await file.exists()) return null;
+  final now = DateTime.fromMillisecondsSinceEpoch(args.nowMs);
+  final modified = await file.lastModified();
+  if (now.difference(modified).inMilliseconds > args.maxAgeMs) return null;
+  final data = jsonDecode(await file.readAsString());
+  if (data is! Map<String, dynamic> || data['v'] != args.formatVersion) {
+    return null;
+  }
+  final writtenAt = data['writtenAt'];
+  final list = data['programs'];
+  if (writtenAt is! int || list is! List) return null;
+  final written = DateTime.fromMillisecondsSinceEpoch(writtenAt);
+  if (now.difference(written).inMilliseconds > args.maxAgeMs ||
+      written.year != now.year ||
+      written.month != now.month ||
+      written.day != now.day) {
+    return null;
+  }
+  return [
+    for (final item in list)
+      if (item is Map<String, dynamic>)
+        EPGProgram(
+          channelId: item['c'] as String? ?? '',
+          title: item['t'] as String? ?? '',
+          description: EpgBufferStore._clip(item['d'] as String? ?? ''),
+          start: DateTime.fromMillisecondsSinceEpoch(item['s'] as int),
+          end: DateTime.fromMillisecondsSinceEpoch(item['e'] as int),
+        ),
+  ];
+}
 
 /// Tampon EPG local : évite de retélécharger le dump XMLTV à chaque session.
 ///
@@ -108,6 +140,17 @@ class EpgBufferStore {
   }) =>
       programs
           .where((p) => p.end.isAfter(windowStart) && p.end.isBefore(horizon))
+          .map(
+            (p) => p.description.length <= _maxDescriptionChars
+                ? p
+                : EPGProgram(
+                    channelId: p.channelId,
+                    title: p.title,
+                    description: _clip(p.description),
+                    start: p.start,
+                    end: p.end,
+                  ),
+          )
           .toList();
 
   /// Vrai si un tampon du jour, assez récent, est présent (sans le lire).
@@ -141,57 +184,32 @@ class EpgBufferStore {
     Duration maxAgeLimit = maxAge,
   }) async {
     int? fileBytes;
-    final result = await safeAsync<Map<String, dynamic>?>(
+    final result = await safeAsync<List<EPGProgram>?>(
       () async {
         final file = File('${(await _dir()).path}/${fileNameFor(cacheKey)}');
-        if (!file.existsSync()) return null;
-        fileBytes = file.lengthSync();
-        final modifiedAt = DateTime.fromMillisecondsSinceEpoch(
-          file.lastModifiedSync().millisecondsSinceEpoch,
+        if (!await file.exists()) return null;
+        fileBytes = await file.length();
+        return compute(
+          _readBufferInIsolate,
+          (
+            path: file.path,
+            nowMs: clock().millisecondsSinceEpoch,
+            maxAgeMs: maxAgeLimit.inMilliseconds,
+            formatVersion: _formatVersion,
+          ),
         );
-        if (clock().difference(modifiedAt) > maxAgeLimit) return null;
-        return await compute(_decodeBufferJson, await file.readAsString());
       },
       context: 'EpgBufferStore.read',
       fallbackValue: null,
     );
-    final data = result.valueOrNull;
-    if (data == null) return null;
-    if (data['v'] != _formatVersion) return null;
-    final writtenAt = data['writtenAt'];
-    final list = data['programs'];
-    if (writtenAt is! int || list is! List) return null;
-    final written = DateTime.fromMillisecondsSinceEpoch(writtenAt);
-    if (clock().difference(written) > maxAgeLimit) return null;
-    // Le tampon est ancré sur la FENÊTRE DE LA JOURNÉE où il a été écrit :
-    // `project` prend `windowStart = minuit du jour d'écriture` et
-    // `horizon = écriture + 30 h`. Relu le lendemain — la péremption seule ne
-    // l'attrape pas, la nuit fait moins de 12 h — il couvre encore la veille
-    // mais plus la fin de la journée en cours. La grille n'avait alors de
-    // programmes que jusqu'à `écriture + 30 h`, soit quelques heures après
-    // minuit, tout le reste étant comblé par des blocs « aucune donnée ».
-    if (!_sameLocalDay(written, clock())) return null;
-    try {
-      final parsed = <EPGProgram>[
-        for (final item in list)
-          if (item is Map<String, dynamic>)
-            EPGProgram(
-              channelId: item['c'] as String? ?? '',
-              title: item['t'] as String? ?? '',
-              description: item['d'] as String? ?? '',
-              start: DateTime.fromMillisecondsSinceEpoch(item['s'] as int),
-              end: DateTime.fromMillisecondsSinceEpoch(item['e'] as int),
-            ),
-      ];
+    final parsed = result.valueOrNull;
+    if (parsed != null) {
       LoggerService.instance.info(
         'EPG tampon: ${parsed.length} programmes, '
         '${_humanSize(fileBytes ?? 0)} sur disque',
       );
-      return parsed;
-    } on Object {
-      // Champ manquant ou mal typé : tampon inexploitable, on le disregard.
-      return null;
     }
+    return parsed;
   }
 
   /// Écrit le tampon.
@@ -213,7 +231,7 @@ class EpgBufferStore {
               {
                 'c': p.channelId,
                 't': p.title,
-                'd': p.description,
+                'd': _clip(p.description),
                 's': p.start.millisecondsSinceEpoch,
                 'e': p.end.millisecondsSinceEpoch,
               },
@@ -270,6 +288,14 @@ class EpgBufferStore {
   /// téléspectateur).
   static bool _sameLocalDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Les descriptions dominent la taille du tampon ; sur une TV à 2 Go,
+  /// 167 000 descriptions complètes saturent la mémoire.
+  static const int _maxDescriptionChars = 160;
+
+  static String _clip(String text) => text.length <= _maxDescriptionChars
+      ? text
+      : '${text.substring(0, _maxDescriptionChars)}…';
 
   /// Taille lisible, sans l'unité « octets » qui masque l'ordre de grandeur.
   static String _humanSize(int bytes) {

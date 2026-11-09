@@ -52,9 +52,9 @@ class _OnboardingConfigScreenState
   String _profileDescription(DeviceProfile profile) {
     return switch (profile) {
       DeviceProfile.eco =>
-        'Tampon long (20 s) · max 1080p · 3D désactivée · multi-vue off',
+        'Démarrage rapide (1,5 s) · max 1080p · 3D désactivée · multi-vue off',
       DeviceProfile.standard =>
-        'Tampon intermédiaire (10 s) · rendu 3D fluide · multi-vue x2',
+        'Démarrage rapide (2 s) · rendu 3D fluide · multi-vue x2',
       DeviceProfile.ultra =>
         'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
     };

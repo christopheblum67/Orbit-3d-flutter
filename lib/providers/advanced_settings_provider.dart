@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,6 +78,10 @@ class AdvancedSettings {
   final String dnsProvider;
   final bool zeroLagPrefetch;
 
+  /// Aperçu vidéo dans la navigation Live. `null` = automatique (désactivé
+  /// sur Android TV, activé ailleurs).
+  final bool? livePreviewVideo;
+
   // Lecteurs par type de contenu (moteur principal + moteur de secours).
   final PlayerPerTypeConfig playerLive;
   final PlayerPerTypeConfig playerVod;
@@ -105,6 +110,7 @@ class AdvancedSettings {
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
     this.zeroLagPrefetch = true,
+    this.livePreviewVideo,
     this.playerLive = const PlayerPerTypeConfig(
       primary: PlayerEngine.exoPlayer,
       fallback: PlayerEngine.vlc,
@@ -139,6 +145,7 @@ class AdvancedSettings {
     bool? useTlsImpersonation,
     String? dnsProvider,
     bool? zeroLagPrefetch,
+    bool? livePreviewVideo,
     PlayerPerTypeConfig? playerLive,
     PlayerPerTypeConfig? playerVod,
     PlayerPerTypeConfig? playerSeries,
@@ -160,6 +167,7 @@ class AdvancedSettings {
       useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
       dnsProvider: dnsProvider ?? this.dnsProvider,
       zeroLagPrefetch: zeroLagPrefetch ?? this.zeroLagPrefetch,
+      livePreviewVideo: livePreviewVideo ?? this.livePreviewVideo,
       playerLive: playerLive ?? this.playerLive,
       playerVod: playerVod ?? this.playerVod,
       playerSeries: playerSeries ?? this.playerSeries,
@@ -197,6 +205,7 @@ class AdvancedSettings {
   static const kTlsImpersonation = 'tls_impersonation';
   static const kDnsProvider = 'dns_provider';
   static const kZeroLagPrefetch = 'zero_lag_prefetch';
+  static const kLivePreviewVideo = 'live_preview_video';
 
   // Clés de persistance des lecteurs par type de contenu (moteur par index).
   static const kPlayerEngine = 'player_engine';
@@ -239,6 +248,7 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       dnsProvider: prefs.getString(AdvancedSettings.kDnsProvider) ??
           '1.1.1.1 (Cloudflare DoH)',
       zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
+      livePreviewVideo: prefs.getBool(AdvancedSettings.kLivePreviewVideo),
       playerLive: _readPlayerConfig(
         prefs,
         PlaybackContentType.live,
@@ -361,6 +371,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
   Future<void> setZeroLagPrefetch(bool value) async {
     state = state.copyWith(zeroLagPrefetch: value);
     await _persistBool(AdvancedSettings.kZeroLagPrefetch, value);
+  }
+
+  Future<void> setLivePreviewVideo(bool value) async {
+    state = state.copyWith(livePreviewVideo: value);
+    await _persistBool(AdvancedSettings.kLivePreviewVideo, value);
   }
 
   Future<void> setNightFocus(bool value) async {
@@ -529,13 +544,24 @@ PlayerPerTypeConfig _readPlayerConfig(
   PlaybackContentType type,
 ) {
   return PlayerPerTypeConfig(
-    primary: PlayerEngineX.fromLabel(
+    primary: _readPlayerEngine(
       prefs.getString(AdvancedSettings.kPlayerPrimary(type)),
+      PlayerEngine.exoPlayer,
     ),
-    fallback: PlayerEngineX.fromLabel(
+    fallback: _readPlayerEngine(
       prefs.getString(AdvancedSettings.kPlayerFallback(type)),
+      PlayerEngine.vlc,
     ),
   );
+}
+
+PlayerEngine _readPlayerEngine(String? value, PlayerEngine defaultEngine) {
+  if (value == null) return defaultEngine;
+  for (final engine in PlayerEngine.values) {
+    if (value == engine.name || value == engine.label) return engine;
+  }
+  debugPrint('Moteur de lecture enregistré inconnu : $value');
+  return defaultEngine;
 }
 
 VodSubtitleMode _readVodSubtitleMode(SharedPreferences prefs) {

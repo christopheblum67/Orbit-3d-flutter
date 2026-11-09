@@ -5,6 +5,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 
 /// Panneau « Mémoire & Cache » intégré à l'onglet Réglages.
 ///
@@ -57,7 +58,7 @@ class MemorySettingsPanel extends ConsumerWidget {
               subtitle: const Padding(
                 padding: EdgeInsets.only(top: 2),
                 child: Text(
-                  'Efface la liste des récemment regardés et les positions de reprise.',
+                  'Efface l\'historique, les récemment regardés (Live, Films, Séries) et les positions de reprise du profil courant.',
                   style: TextStyle(fontSize: 11, color: Colors.white38),
                 ),
               ),
@@ -71,7 +72,15 @@ class MemorySettingsPanel extends ConsumerWidget {
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onPressed: () async {
+                  final profileId = ref.read(currentProfileProvider)?.id ?? '';
                   await libraryManager.clearRecentlyWatched();
+                  await ref.read(historyServiceProvider).clearAll();
+                  await ref
+                      .read(recentlyWatchedProvider.notifier)
+                      .clearForCurrentProfile();
+                  await ref
+                      .read(playbackProgressServiceProvider)
+                      .clearForProfile(profileId);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(l.playHistoryCleared)),

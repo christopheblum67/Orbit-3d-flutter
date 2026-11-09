@@ -79,6 +79,21 @@ class PlaybackProgressService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Efface les positions de reprise du profil (et les anciennes clés sans
+  /// profil, antérieures à la migration).
+  Future<void> clearForProfile(String profileId) async {
+    final prefix = '$_profileKeyPrefix$profileId:';
+    await HiveSync.writeAsync(_boxName, (box) async {
+      final keys = box.keys
+          .where((k) =>
+              k is String &&
+              (k.startsWith(prefix) || !k.startsWith(_profileKeyPrefix)))
+          .toList();
+      await box.deleteAll(keys);
+    });
+    notifyListeners();
+  }
+
   Future<Map<String, PlaybackProgress>> loadForProfile(String profileId) {
     final prefix = '$_profileKeyPrefix$profileId:';
     return HiveSync.read(_boxName, (box) {

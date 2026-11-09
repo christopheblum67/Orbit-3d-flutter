@@ -54,6 +54,7 @@ class _ProlongDecisionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final isMovie = reco.kind == RecommendationKind.movie;
 
     return SafeArea(
       child: Padding(
@@ -63,7 +64,9 @@ class _ProlongDecisionSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ce film vous appartient ?',
+              isMovie
+                  ? 'Ce film vous appartient ?'
+                  : 'Cette série vous appartient ?',
               style: theme.textTheme.titleMedium
                   ?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -78,8 +81,9 @@ class _ProlongDecisionSheet extends StatelessWidget {
             const SizedBox(height: 16),
             _DecisionTile(
               icon: Icons.visibility_off_outlined,
-              label: 'Film déjà vu',
+              label: isMovie ? 'Film déjà vu' : 'Série déjà vue',
               detail: 'Retiré des prochaines suggestions',
+              autofocus: true,
               onTap: () => Navigator.of(context).pop(true),
             ),
             const SizedBox(height: 8),
@@ -120,12 +124,14 @@ class _DecisionTile extends StatelessWidget {
     required this.label,
     required this.detail,
     required this.onTap,
+    this.autofocus = false,
   });
 
   final IconData icon;
   final String label;
   final String detail;
   final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +140,7 @@ class _DecisionTile extends StatelessWidget {
       color: scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
+        autofocus: autofocus,
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(

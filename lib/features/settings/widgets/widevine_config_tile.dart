@@ -3,30 +3,68 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/drm/drm_provider.dart';
+import 'package:orbit_3d_flutter/drm/widevine_config_store.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 
 class WidevineConfigTile extends ConsumerWidget {
   const WidevineConfigTile({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(widevineConfigProvider);
+    final subscription = ref.watch(activeSubscriptionProvider);
+    final config = subscription == null || subscription.id.trim().isEmpty
+        ? null
+        : ref.watch(widevineConfigProvider(subscription.id));
     return SettingsNavTile(
       icon: Icons.key_outlined,
       title: 'Widevine DRM',
-      subtitle: config == null
-          ? 'Aucune configuration de licence'
-          : config.licenseUrl,
-      onTap: () => showDialog<void>(
-        context: context,
-        builder: (_) => const _WidevineConfigDialog(),
-      ),
+      subtitle: subscription == null || subscription.id.trim().isEmpty
+          ? 'Sélectionnez un abonnement actif'
+          : config!.when(
+              loading: () => 'Chargement de la configuration',
+              error: (error, stack) => 'Impossible de charger la configuration',
+              data: (value) => value == null
+                  ? '${subscription.name} : aucune licence configurée'
+                  : '${subscription.name} : ${value.licenseUrl}',
+            ),
+      onTap: () {
+        if (subscription == null || subscription.id.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Sélectionnez d’abord un abonnement actif.'),
+          ));
+          return;
+        }
+        final current = config;
+        if (current == null || !current.hasValue || current.hasError) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('La configuration Widevine n’est pas disponible.'),
+          ));
+          return;
+        }
+        showDialog<void>(
+          context: context,
+          builder: (_) => _WidevineConfigDialog(
+            subscriptionId: subscription.id,
+            subscriptionName: subscription.name,
+            initialConfig: current.value,
+          ),
+        );
+      },
     );
   }
 }
 
 class _WidevineConfigDialog extends ConsumerStatefulWidget {
-  const _WidevineConfigDialog();
+  const _WidevineConfigDialog({
+    required this.subscriptionId,
+    required this.subscriptionName,
+    required this.initialConfig,
+  });
+
+  final String subscriptionId;
+  final String subscriptionName;
+  final WidevineConfig? initialConfig;
 
   @override
   ConsumerState<_WidevineConfigDialog> createState() =>
@@ -42,7 +80,7 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
   @override
   void initState() {
     super.initState();
-    final config = ref.read(widevineConfigProvider);
+    final config = widget.initialConfig;
     _licenseUrl = TextEditingController(text: config?.licenseUrl ?? '');
     _headers = TextEditingController(
       text: config == null
@@ -66,15 +104,19 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
     if (headers == null) return;
 
     try {
-      await ref.read(widevineConfigProvider.notifier).setConfig(
-            WidevineConfig(
-              licenseUrl: _licenseUrl.text.trim(),
-              headers: headers,
-              certificateBase64: _certificate.text.trim().isEmpty
-                  ? null
-                  : _certificate.text.trim(),
-            ),
-          );
+      await WidevineConfigStore.instance.saveForSubscription(
+        widget.subscriptionId,
+        WidevineConfig(
+          licenseUrl: _licenseUrl.text.trim(),
+          headers: headers,
+          certificateBase64: _certificate.text.trim().isEmpty
+              ? null
+              : _certificate.text.trim(),
+        ),
+      );
+      if (mounted) {
+        ref.invalidate(widevineConfigProvider(widget.subscriptionId));
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,7 +130,13 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
 
   Future<void> _clear() async {
     try {
-      await ref.read(widevineConfigProvider.notifier).setConfig(null);
+      await WidevineConfigStore.instance.saveForSubscription(
+        widget.subscriptionId,
+        null,
+      );
+      if (mounted) {
+        ref.invalidate(widevineConfigProvider(widget.subscriptionId));
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -102,9 +150,10 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final hasConfig = ref.watch(widevineConfigProvider) != null;
+    final hasConfig = widget.initialConfig != null;
+    final legacy = ref.watch(legacyWidevineConfigProvider).value;
     return AlertDialog(
-      title: const Text('Configuration Widevine'),
+      title: Text('Widevine — ${widget.subscriptionName}'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -151,9 +200,22 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
               const SizedBox(height: 12),
               const Text(
                 'La configuration est stockée dans le coffre sécurisé. '
+                'Elle est liée à cet abonnement. '
                 'Elle ne rend pas compatible un moteur de lecture qui ne '
                 'prend pas en charge Widevine.',
               ),
+              if (!hasConfig && legacy != null)
+                TextButton(
+                  onPressed: () {
+                    _licenseUrl.text = legacy.licenseUrl;
+                    _headers.text = const JsonEncoder.withIndent('  ')
+                        .convert(legacy.headers);
+                    _certificate.text = legacy.certificateBase64 ?? '';
+                  },
+                  child: const Text(
+                    'Copier l’ancienne configuration globale',
+                  ),
+                ),
             ],
           ),
         ),

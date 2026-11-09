@@ -10,6 +10,8 @@ class TvPrimaryButton extends StatefulWidget {
     required this.label,
     this.autofocus = false,
     this.focusNode,
+    this.minimumSize,
+    this.padding,
   });
 
   final VoidCallback? onPressed;
@@ -17,6 +19,8 @@ class TvPrimaryButton extends StatefulWidget {
   final Widget label;
   final bool autofocus;
   final FocusNode? focusNode;
+  final Size? minimumSize;
+  final EdgeInsetsGeometry? padding;
 
   static const Color amber = Color(0xFFFFC107);
 
@@ -56,7 +60,9 @@ class _TvPrimaryButtonState extends State<TvPrimaryButton> {
           icon: widget.icon,
           label: widget.label,
           style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+            minimumSize: widget.minimumSize,
+            padding: widget.padding ??
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           ).copyWith(
             backgroundColor: WidgetStateProperty.resolveWith(
               (s) => s.contains(WidgetState.focused)

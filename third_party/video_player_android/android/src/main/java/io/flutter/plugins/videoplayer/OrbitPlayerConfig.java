@@ -17,6 +17,8 @@ public final class OrbitPlayerConfig {
   public static int maxVideoHeight = 0;
   /** Rend la vidéo via une SurfaceView native sur Android TV (au lieu d'une texture). */
   public static boolean useSurfaceView = true;
+  /** 0 = matériel d'abord (défaut), 2 = décodeurs logiciels d'abord. */
+  public static int decoderMode = 0;
 
   private OrbitPlayerConfig() {}
 }

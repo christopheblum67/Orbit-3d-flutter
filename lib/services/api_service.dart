@@ -1,6 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
+import 'package:orbit_3d_flutter/services/catalog_http_validators.dart';
+import 'package:orbit_3d_flutter/services/catalog_fetch_service.dart';
+import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
+import 'package:orbit_3d_flutter/services/conditional_xmltv_cache.dart';
 import 'package:orbit_3d_flutter/services/catalog_db.dart';
 
 import 'package:flutter/foundation.dart';
@@ -13,36 +16,27 @@ import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
-import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
-import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/api_rate_limiter.dart';
-import 'package:orbit_3d_flutter/services/api_request_gate.dart';
+import 'package:orbit_3d_flutter/services/api_transport.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
-import 'package:orbit_3d_flutter/services/catchup_url_builder.dart';
 import 'package:orbit_3d_flutter/services/epg_stream_parser.dart';
-import 'package:orbit_3d_flutter/services/stream_helpers.dart'
-    as stream_helpers;
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     show StreamNetworkException;
 import 'package:orbit_3d_flutter/services/subscription_manager.dart';
-import 'package:orbit_3d_flutter/services/certificate_pinning.dart';
-import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/xtream_url_builder.dart';
-
-/// Décode un JSON de panel en liste (exécuté dans un isolate via `compute`).
-List<dynamic> _decodeJsonList(Uint8List bytes) {
-  Object? raw;
-  try {
-    raw = jsonDecode(utf8.decode(bytes));
-  } on FormatException {
-    raw = jsonDecode(latin1.decode(bytes));
-  }
-  return raw is List ? raw : const <dynamic>[];
-}
+import 'package:orbit_3d_flutter/services/xmltv_service.dart';
+import 'package:orbit_3d_flutter/services/playlist_fetch_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_live_catalog_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_media_catalog_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_radio_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_movie_detail_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_series_detail_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_subtitle_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_replay_service.dart';
 
 class ApiService {
   /// Instance courante, utilisée par le builder global d'URLs de stream.
@@ -99,14 +93,8 @@ class ApiService {
     return '$base|$user';
   }
 
-  static Set<String>? _certificateFingerprints;
-
-  /// Configure les fingerprints SHA-256 autorisés pour le certificate pinning.
-  /// Si null ou vide, le pinning est désactivé.
-  static void setCertificateFingerprints(Set<String>? fingerprints) {
-    _certificateFingerprints =
-        fingerprints?.isNotEmpty == true ? fingerprints : null;
-  }
+  static void setCertificateFingerprints(Set<String>? fingerprints) =>
+      ApiTransport.setCertificateFingerprints(fingerprints);
 
   /// Construit les URLs de stream de façon **synchrone** à partir des
   /// identifiants de l'abonnement actif mémorisés en mémoire.
@@ -179,381 +167,34 @@ class ApiService {
     );
   }
 
-  /// Budget court : suffisant pour tout appel de controle (live, infos d'un
-  /// canal, EPG d'une chaine). Au-dela, c'est un vrai probleme reseau.
-  static const Duration _fastTimeout = Duration(seconds: 30);
-
-  /// Budget long : payload catalogue volumineux. `get_vod_streams` etait ~30 Mo
-  /// et `get_series` ~44 Mo sur un panel Xtream ; le decoding JSON depasse
-  /// largement 30 s sur mobile.
-  static const Duration _slowTimeout = Duration(seconds: 180);
-
-  /// URLs qui ont deja necessite le budget long. Evite de repayer le delai
-  /// court a chaque appel tant que le cache vit.
-  final Set<String> _slowUrls = <String>{};
-
-  /// Ouvre le cache d'URL lentes. A appeler quand l'abonnement change : le
-  /// classement à cette URL est lent, mais vaut pour UN serveur, pas pour le
-  /// suivant, et le conserver ferait perdre jusqu'a 30 s sur chaque appel.
-  void forgetSlowUrls() {
-    if (_slowUrls.isEmpty) return;
-    _slowUrls.clear();
-  }
-
-  Dio _createDio() {
-    final dio = Dio(
-      BaseOptions(
-        connectTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
-        receiveTimeout: _fastTimeout,
-        followRedirects: true,
-        maxRedirects: 5,
-      ),
-    );
-
-    // Limiteur de débit : espace les départs de requêtes et se tait après un 429.
-    //
-    // Mesuré sur le panel `1.888000.eu` : sans cela, tout partait en rafale et
-    // TOUT était refusé, y compris la première requête (429 en 130–200 ms).
-    dio.interceptors.add(rateLimiter.interceptor);
-
-    // Certificate pinning si des fingerprints sont configurés
-    if (_certificateFingerprints != null &&
-        _certificateFingerprints!.isNotEmpty) {
-      dio.httpClientAdapter = createPinningHttpClientAdapter(
-        allowedFingerprints: _certificateFingerprints!,
-        logger: _logger,
-      );
-    }
-    return dio;
-  }
-
-  late final Dio _dio = _createDio();
   final SubscriptionManager _subscriptionManager = SubscriptionManager();
-  final LoggerService _logger = LoggerService.instance;
-
-  /// Limiteur de débit partagé par tous les appels de cette instance.
-  ///
-  /// Volontairement une seule instance par `ApiService` : le budget doit être
-  /// commun à tous les appels, sinon chaque écran repartirait de zéro.
   final ApiRateLimiter rateLimiter = ApiRateLimiter();
+  late final ApiTransport _transport = ApiTransport(rateLimiter: rateLimiter);
 
-  ApiService() {
+  void forgetSlowUrls() => _transport.forgetSlowUrls();
+
+  ApiService({
+    ConditionalPlaylistCache? playlistCache,
+    CatalogDiskCache? catalogCache,
+    CatalogHttpValidators? catalogValidators,
+    ConditionalXmltvCache? xmltvCache,
+  })  : _playlistCache = playlistCache ?? ConditionalPlaylistCache.instance,
+        _catalogCache = catalogCache ?? CatalogDiskCache.instance,
+        _catalogValidators = catalogValidators ?? CatalogHttpValidators.instance,
+        _xmltvCache = xmltvCache ?? ConditionalXmltvCache.instance {
     _instance = this;
     initStreamUrlBuilder();
   }
 
-  Future<Response<dynamic>> _get(String url, {Options? options}) {
-    return stream_helpers.retryStream(
-      () => _performGet(url, options),
-      // Le panel applique un rate-limit (429) sous charge : on retente 3 fois
-      // avec 1,2 s d'écart avant d'abandonner (démarrage séquentiel en plus).
-      //
-      // SAUF sur 429, qui n'est PAS une panne transitoire mais un « tu vas trop
-      // vite » : le réessayer ici multipliait la pression (3 × 2 retries
-      // internes = jusqu'à 9 requêtes pour un seul appel logique) et
-      // entretenait le blocage. Un 429 remonte immédiatement : c'est
-      // [ApiRequestGate] qui espace les appels suivants, et l'utilisateur voit un
-      // état exploitable au lieu d'un chargement éternel.
-      attempts: 3,
-      delay: const Duration(milliseconds: 1200),
-      shouldRetry: (error) {
-        if (isRateLimitError(error)) return false;
-        if (error is StreamNetworkException) return error.isRetriable;
-        return true;
-      },
-    );
-  }
-
-  /// Vrai si l'erreur est un refus de quota (HTTP 429) du panel.
-  ///
-  /// Partagé par la couche de retry et les appelants qui doivent éviter
-  /// d'empiler des requêtes sur un panel déjà saturé.
-  static bool isRateLimitError(Object? error) {
-    if (error == null) return false;
-    if (error is StreamNetworkException) {
-      final text = '${error.message} ${error.original ?? ''}';
-      return text.contains('429') ||
-          text.toLowerCase().contains('limite de requ');
-    }
-    return error.toString().contains('429');
-  }
-
-  /// Sérialisation des appels au panel.
-  ///
-  /// Le panel applique un rate-limit global : une rafale de requêtes
-  /// simultanées (la sonde Replay qui interroge 40 chaînes, le chargement
-  /// VOD + séries + EPG au démarrage) le fait répondre 429 à TOUT, y compris
-  /// aux requêtes sans rapport. On impose donc un espacement minimal entre
-  /// deux appels et un plafond d'appels simultanés, comme le verrou global
-  /// `OPEN_GATE` le fait côté natif pour les requêtes de segments.
-  ///
-  /// L'espacement est adaptatif : après un 429 il s'allonge (le panel
-  /// signale une saturation durable), puis redescend progressivement.
-  static final ApiRequestGate _apiGate = ApiRequestGate();
+  Future<Response<dynamic>> _get(String url, {Options? options}) =>
+      _transport.request(url, options: options);
 
   Future<Response<dynamic>> get(String url) => _get(url);
 
-  /// Nombre de re-essais sur rejet HTTP non 2xx (429/5xx).
-  ///
-  /// Volontairement bas : le rejet est en général dû à une rafale de requêtes
-  /// simultanées, et repartir en force aggraverait la situation. Un repli
-  /// croissant suffit à attendre que la rafale retombe.
-  static const int _badResponseRetries = 2;
+  static bool isRateLimitError(Object? error) => ApiTransport.isRateLimitError(error);
 
-  Future<Response<dynamic>> _performGet(String url, [Options? extra]) async {
-    final sw = Stopwatch()..start();
-    logDiag('GET ${_shortAction(url)} ...');
-    // Escalade universal : plutot que de deviner a l'avance quelles actions sont
-    // lourdes (ce qui serait lie a un panel), on tente le budget court et on
-    // reessaie UNE fois avec le budget long si le serveur n'a pas fini. Le GET
-    // est idempotent, le doublecout n'est paye que si le 1er essai echoue.
-    final budget = _slowUrls.contains(url) ? _slowTimeout : _fastTimeout;
-    // Portillon global : on attend notre tour avant d'émettre. C'est ce qui
-    // empêche une rafale (sonde Replay, VOD + séries + EPG) de faire répondre
-    // 429 à des requêtes qui n'y sont pour rien.
-    await _apiGate.acquire();
-    try {
-      final res = await _dio.get<dynamic>(
-        url,
-        options: (extra ?? Options()).copyWith(receiveTimeout: budget),
-      );
-      _apiGate.onSuccess();
-      // On ne retire PAS l'URL du cache lent ici : une requete qui a reussi
-      // avec le budget long peut reechouer au budget court au prochain appel
-      // (charge serveur variable). L'apprentissage doit survivre jusqu'au
-      // changement d'abonnement,Nvautre `forgetSlowUrls()`.
-      logDiag(
-        'HTTP ${res.statusCode} ${sw.elapsedMilliseconds}ms '
-        'lent=${budget == _slowTimeout} ${_shortAction(url)}',
-      );
-      return res;
-    } on DioException catch (e) {
-      final isTimeout = e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.transformTimeout;
-      if (isTimeout && budget == _fastTimeout) {
-        _slowUrls.add(url);
-        logDiag('HTTP TIMEOUT ${_shortAction(url)} -> escalade 180s');
-        try {
-          final res = await _dio.get<dynamic>(
-            url,
-            options: Options(receiveTimeout: _slowTimeout),
-          );
-          logDiag(
-            'HTTP ${res.statusCode} ${sw.elapsedMilliseconds}ms (escalade) '
-            '${_shortAction(url)}',
-          );
-          return res;
-        } on DioException catch (e2) {
-          logDiag('HTTP ECHEC final ${sw.elapsedMilliseconds}ms ${e2.type}');
-          throw _toNetworkException(e2);
-        }
-      }
-
-      // Statut HTTP non 2xx (429/403/503...).
-      //
-      // Les rejets arrivent en ~45 ms, ce qui exclut un délai réseau : c'est
-      // le panel qui refuse la requête, très probablement parce que le
-      // préchargeur EPG émet plusieurs `get_short_epg` simultanés. Le GET étant
-      // idempotent, on réessaie avec un repli croissant : le même appel
-      // réussissait ~1,8 s plus tard lors des relevés, une fois la rafale
-      // retombée.
-      //
-      // SAUF sur 429 : c'est une saturation, pas une panne. Réessayer 250 ms
-      // puis 1 s plus tard ne fait qu'ajouter 2 requêtes au painel déjà
-      // saturé, et ce comportement (combiné aux retries de `_get`) multipliait
-      // la pression jusqu'à 9 requêtes pour un appel logique — et c'est
-      // précisément ce qui entretenait le blocage. On remonte donc l'erreur
-      // tout de suite, et [ApiRequestGate] espace les appels suivants.
-      final status = e.response?.statusCode;
-      final isRateLimited = status == 429;
-      final retriable = !isRateLimited &&
-          e.type == DioExceptionType.badResponse &&
-          (status == null || status == 408 || (status >= 500 && status < 600));
-      if (isRateLimited) {
-        // Le gate relève son espacement : le panel vient de refuser.
-        _apiGate.onRateLimited();
-      }
-      if (retriable) {
-        for (var attempt = 1; attempt <= _badResponseRetries; attempt++) {
-          final backoff = Duration(milliseconds: 250 * attempt * attempt);
-          logDiag(
-            'HTTP ${status ?? '?'} ${_shortAction(url)} '
-            '-> retry $attempt/$_badResponseRetries dans ${backoff.inMilliseconds}ms',
-          );
-          await Future<void>.delayed(backoff);
-          try {
-            final res = await _dio.get<dynamic>(
-              url,
-              options: (extra ?? Options()).copyWith(receiveTimeout: budget),
-            );
-            _apiGate.onSuccess();
-            logDiag(
-              'HTTP ${res.statusCode} ${sw.elapsedMilliseconds}ms '
-              '(retry ok) ${_shortAction(url)}',
-            );
-            return res;
-          } on DioException {
-            // On continue jusqu'au dernier essai, puis on sort en erreur.
-          }
-        }
-        logDiag(
-          'HTTP ${status ?? '?'} ${_shortAction(url)} '
-          '-> $_badResponseRetries retries épuisés',
-        );
-      }
-
-      logDiag(
-        'HTTP ECHEC ${sw.elapsedMilliseconds}ms ${e.type} '
-        'status=$status ${_shortAction(url)}',
-      );
-      throw _toNetworkException(e);
-    } finally {
-      // Le créneau est rendu quel que soit le sort de l'appel : sans cela,
-      // une exception quittant le `try` le monopolisait, et le portillon se
-      // fermait après trois échecs.
-      _apiGate.release();
-    }
-  }
-
-  /// Extrait l'action pour un log lisible, sans le user/password.
-  static String _shortAction(String url) {
-    final i = url.indexOf('action=');
-    if (i < 0) return 'autre';
-    final rest = url.substring(i + 7);
-    final end = rest.indexOf('&');
-    return end < 0 ? rest : rest.substring(0, end);
-  }
-
-  /// Heure de réinitialisation du quota, déduite des en-têtes du serveur.
-  ///
-  /// Trois conventions coexistent sur les API Xtream : `Retry-After` en
-  /// secondes, et `X-RateLimit-Reset` en epoch **secondes** ou en epoch
-  /// **millisecondes**. On les essaie toutes — deviner entre secondes et
-  /// millisecondes donnerait une date fausse, ce qui est pire que pas de date.
-  ///
-  /// Renvoie `null` si le serveur n'en donne pas : on affiche alors un message
-  /// sans heure, jamais une heure inventée.
-  static String? rateLimitResetHint(Headers? headers) {
-    if (headers == null || headers.isEmpty) return null;
-
-    String? read(List<String> keys) {
-      for (final key in keys) {
-        final value = headers.value(key)?.trim();
-        if (value != null && value.isNotEmpty) return value;
-      }
-      return null;
-    }
-
-    final raw = read([
-          'retry-after',
-          'Retry-After',
-          'x-ratelimit-reset',
-          'X-RateLimit-Reset',
-        ]) ??
-        read(['ratelimit-reset', 'RateLimit-Reset']);
-    if (raw == null) return null;
-
-    DateTime? at;
-    final seconds = int.tryParse(raw) ?? double.tryParse(raw)?.round();
-    if (seconds != null) {
-      // Epoch en secondes : autour de 1,7e9. En millisecondes : 1,7e12.
-      at = seconds > 100000000000
-          ? DateTime.fromMillisecondsSinceEpoch(seconds)
-          : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-    } else {
-      at = DateTime.tryParse(raw);
-    }
-    if (at == null) return null;
-
-    at = at.toLocal();
-    if (at.isBefore(DateTime.now())) return null;
-    final minutes = at.difference(DateTime.now()).inMinutes + 1;
-    final h = at.hour.toString().padLeft(2, '0');
-    final m = at.minute.toString().padLeft(2, '0');
-    return 'Quota réinitialisé à $h:$m (dans ~$minutes min).';
-  }
-
-  StreamNetworkException _toNetworkException(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-        return StreamNetworkException(
-          'Délai de connexion au serveur dépassé (15 s). '
-          'Vérifiez votre connexion Internet et la disponibilité du serveur.',
-          original: e,
-          isRetriable: true,
-        );
-      case DioExceptionType.sendTimeout:
-        return StreamNetworkException(
-          'Délai d\'envoi dépassé (15 s). Le serveur ne répond pas correctement.',
-          original: e,
-          isRetriable: true,
-        );
-      case DioExceptionType.receiveTimeout:
-        return StreamNetworkException(
-          'Le serveur met trop de temps à répondre. '
-          'Le flux est peut-être indisponible ou bloqué (ex. Cloudflare).',
-          original: e,
-          isRetriable: true,
-        );
-      case DioExceptionType.transformTimeout:
-        return StreamNetworkException(
-          'La réponse du serveur n\'a pas pu être traitée à temps. '
-          'Le flux est peut-être indisponible ou bloqué (ex. Cloudflare).',
-          original: e,
-          isRetriable: true,
-        );
-      case DioExceptionType.connectionError:
-        return StreamNetworkException(
-          'Impossible de se connecter au serveur. '
-          'Vérifiez votre réseau et l\'accès au serveur.',
-          original: e,
-          isRetriable: true,
-        );
-      case DioExceptionType.badCertificate:
-        return StreamNetworkException(
-          'Certificat de sécurité invalide. '
-          'Vérifiez la configuration HTTPS du serveur.',
-          original: e,
-        );
-      case DioExceptionType.cancel:
-        return StreamNetworkException('Requête annulée.', original: e);
-      case DioExceptionType.badResponse:
-        final status = e.response?.statusCode;
-        final message = switch (status) {
-          401 => 'Accès refusé par le serveur (code 401). '
-              'Vérifiez vos identifiants Xtream.',
-          403 => 'Accès refusé par le serveur (code 403). '
-              'L\'abonnement est peut-être bloqué.',
-          404 => 'Ressource introuvable (code 404). '
-              'Vérifiez l\'adresse du serveur.',
-          // « Réessayez dans quelques instants » n'était qu'une phrase. Le
-          // serveur, lui, sait dire QUAND : son en-tête de réinitialisation
-          // donne l'heure exacte, ce qui répond à la seule question utile —
-          // « quand est-ce que ça repart ? ».
-          429 => 'Limite de requêtes dépassée (code 429). '
-              '${rateLimitResetHint(e.response?.headers) ?? 'Le serveur limite le nombre de requêtes.'} '
-              'Aucune relance automatique : réessayer pendant une limitation '
-              'ne fait qu\'allonger la limitation.',
-          _ => 'Le serveur a renvoyé une erreur (code ${status ?? 'inconnu'}).',
-        };
-        return StreamNetworkException(
-          message,
-          original: e,
-          // 429 n'est PAS réessayable : c'est une demande de patienter, pas
-          // une panne passagère. Le marqué comme réessayable faisait boucler
-          // l'application contre le quota, et le panel bloquait d'autant plus
-          // longtemps — Films et Séries restaient vides au lieu de revenir.
-          isRetriable: status != 429,
-        );
-      case DioExceptionType.unknown:
-        return StreamNetworkException(
-          'Erreur réseau inattendue : ${e.message ?? e.runtimeType}.',
-          original: e,
-          isRetriable: true,
-        );
-    }
-  }
+  static String? rateLimitResetHint(Headers? headers) =>
+      ApiTransport.rateLimitResetHint(headers);
 
   // ---------- Informations du compte (validité) ----------
   /// Récupère la date d'expiration du compte Xtream via
@@ -670,73 +311,13 @@ class ApiService {
   Future<List<Channel>> _fetchLiveChannels() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
-      final baseUrl = sub['baseUrl']!;
-      final username = sub['username']!;
-      final password = sub['password']!;
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_live_streams',
-      });
-      // Catégories et flux en parallèle, et flux servi par le cache disque
-      // s'il est frais : le démarrage n'attend plus le panel à chaque lancement.
-      final results = await Future.wait<Object?>([
-        _fetchLiveCategoryNames(baseUrl, username, password),
-        _catalogBytes('live', '$baseUrl|$username', url),
-      ]);
-      final categoryNames = results[0]! as Map<String, String>;
-      final rawStreams = await compute(_decodeJsonList, results[1]! as Uint8List);
-      return rawStreams.map((e) {
-        final map = Map<String, dynamic>.from(e);
-        final categoryId = map['category_id']?.toString() ?? '';
-        if (categoryNames.containsKey(categoryId)) {
-          map['category_name'] = categoryNames[categoryId];
-        }
-        final streamUrl = buildXtreamStreamUrl(
-          baseUrl,
-          username,
-          password,
-          map['stream_id']?.toString(),
-        );
-        final channel = Channel.fromMap(map).copyWith(streamUrl: streamUrl);
-        channel.requireStreamUrl();
-        return channel;
-      }).toList();
+      return _liveCatalogService.live(
+        sub['baseUrl']!, sub['username']!, sub['password']!,
+      );
     }
     throw StreamNetworkException(
       'Le chargement Live M3U doit passer par le fournisseur de playlist M3U.',
     );
-  }
-
-  Future<Map<String, String>> _fetchLiveCategoryNames(
-    String baseUrl,
-    String username,
-    String password,
-  ) async {
-    final result = await safeAsync<Map<String, String>>(
-      () async {
-        final url = _playerApiUrl(baseUrl, 'player_api.php', {
-          'username': username,
-          'password': password,
-          'action': 'get_live_categories',
-        });
-        final bytes = await _catalogBytes('live_cats', '$baseUrl|$username', url);
-        final list = await compute(_decodeJsonList, bytes);
-        final map = <String, String>{};
-        for (final e in list) {
-          final m = Map<String, dynamic>.from(e as Map);
-          final id = m['category_id']?.toString();
-          final name = m['category_name']?.toString() ?? '';
-          if (id != null && id.isNotEmpty && name.isNotEmpty) {
-            map[id] = name;
-          }
-        }
-        return map;
-      },
-      context: 'ApiService._fetchLiveCategoryNames',
-      fallbackValue: const <String, String>{},
-    );
-    return result.getOrElse(const <String, String>{});
   }
 
   // ---------- Films (VOD) ----------
@@ -749,22 +330,9 @@ class ApiService {
     if (sub['type'] != 'xtream') {
       return const [];
     }
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final url = _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'action': 'get_vod_categories',
-    });
-    final response = await _get(url);
-    final raw = response.data;
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => MediaCategory.fromMap(Map<String, dynamic>.from(e)))
-        .where((c) => c.id.isNotEmpty)
-        .toList();
+    return _liveCatalogService.categories(
+      sub['baseUrl']!, sub['username']!, sub['password']!, series: false,
+    );
   }
 
   Future<List<MediaCategory>> fetchSeriesCategories() {
@@ -776,57 +344,69 @@ class ApiService {
     if (sub['type'] != 'xtream') {
       return const [];
     }
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final url = _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'action': 'get_series_categories',
-    });
-    final response = await _get(url);
-    final raw = response.data;
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((e) => MediaCategory.fromMap(Map<String, dynamic>.from(e)))
-        .where((c) => c.id.isNotEmpty)
-        .toList();
+    return _liveCatalogService.categories(
+      sub['baseUrl']!, sub['username']!, sub['password']!, series: true,
+    );
   }
 
   /// Quand `true`, le prochain chargement des catalogues ignore le cache
   /// disque (rafraîchissement manuel) puis le réécrit.
   static bool bypassCatalogCache = false;
+  final CatalogDiskCache _catalogCache;
+  final CatalogHttpValidators _catalogValidators;
+  late final CatalogFetchService _catalogFetchService = CatalogFetchService(
+    cache: _catalogCache,
+    validators: _catalogValidators,
+    get: _get,
+  );
+  late final XtreamLiveCatalogService _liveCatalogService =
+      XtreamLiveCatalogService(
+    loadBytes: _catalogBytes,
+    buildApiUrl: _playerApiUrl,
+  );
+  late final XtreamMediaCatalogService _mediaCatalogService =
+      XtreamMediaCatalogService(
+    loadBytes: _catalogBytes,
+    buildApiUrl: _playerApiUrl,
+    loadVodCategoryNames: _vodCategoryNames,
+    syncMovies: (key, bytes, items) => CatalogDb.instance.syncMovies(
+      key,
+      CatalogDb.signatureOf(bytes, items.length),
+      items,
+    ),
+    syncSeries: (key, bytes, items) => CatalogDb.instance.syncSeries(
+      key,
+      CatalogDb.signatureOf(bytes, items.length),
+      items,
+    ),
+  );
+  final ConditionalXmltvCache _xmltvCache;
+  late final XmltvService _xmltvService =
+      XmltvService(cache: _xmltvCache, get: _get);
 
   /// Octets bruts d'un catalogue : cache disque s'il est frais, sinon réseau
   /// (puis écriture du cache).
   Future<Uint8List> _catalogBytes(
     String name,
     String cacheKey,
-    String url,
-  ) async {
-    final cache = CatalogDiskCache.instance;
-    if (!bypassCatalogCache) {
-      final cached = await cache.read(name, cacheKey);
-      if (cached != null && cached.isNotEmpty) {
-        logDiag('Catalogue $name: cache disque (${cached.length} o)');
-        return cached;
-      }
-    }
-    final response = await _get(
-      url,
-      options: Options(responseType: ResponseType.bytes),
-    );
-    final data = response.data;
-    final bytes = data is Uint8List
-        ? data
-        : Uint8List.fromList(data is List<int> ? data : const <int>[]);
-    if (bytes.isEmpty) {
-      throw StreamNetworkException('Réponse $name vide.');
-    }
-    await cache.write(name, cacheKey, bytes);
-    return bytes;
-  }
+    String url, {
+    bool useFreshCache = true,
+  }) =>
+      _catalogFetchService.fetch(
+        name,
+        cacheKey,
+        url,
+        useFreshCache: useFreshCache && !bypassCatalogCache,
+      );
+
+  @visibleForTesting
+  Future<Uint8List> catalogBytesForTest(
+    String name,
+    String cacheKey,
+    String url, {
+    bool useFreshCache = true,
+  }) =>
+      _catalogBytes(name, cacheKey, url, useFreshCache: useFreshCache);
 
   Future<List<Movie>> fetchMovies() {
     return _singleFlight('vod_streams', () => _fetchMovies());
@@ -835,41 +415,9 @@ class ApiService {
   Future<List<Movie>> _fetchMovies() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
-      final baseUrl = sub['baseUrl']!;
-      final username = sub['username']!;
-      final password = sub['password']!;
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_vod_streams',
-      });
-      final cacheKey = '$baseUrl|$username';
-      final bytes = await _catalogBytes('vod', cacheKey, url);
-
-      // `get_vod_streams` ne renvoie ni `genre` ni `category_name` (seulement
-      // `category_id`). On enrichit le genre depuis les catégories VOD pour que
-      // le matchmaking puisse scorer les films par genre.
-      final categoryNames = await _vodCategoryNames();
-
-      // Décodage JSON + construction des ~100 000 modèles dans un isolate :
-      // sur le thread UI cela figeait l'app ~22 s sur la TV.
-      final parsed = await parseMoviesInBackground(
-        MoviesParseInput(bytes, categoryNames),
+      return _mediaCatalogService.movies(
+        sub['baseUrl']!, sub['username']!, sub['password']!,
       );
-      if (parsed.ignored > 0) {
-        logDiag('VOD entrees ignorees=${parsed.ignored} '
-            '(${parsed.firstError ?? ''})');
-      }
-      logDiag(
-          'Catalogue parse decode=${parsed.decodeMs}ms build=${parsed.buildMs}ms n=${parsed.items.length}');
-      unawaited(
-        CatalogDb.instance.syncMovies(
-          cacheKey,
-          CatalogDb.signatureOf(bytes, parsed.items.length),
-          parsed.items,
-        ),
-      );
-      return parsed.items;
     }
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',
@@ -892,6 +440,9 @@ class ApiService {
     return result.getOrElse(const <String, String>{});
   }
 
+  late final XtreamMovieDetailService _movieDetailService =
+      XtreamMovieDetailService(buildApiUrl: _playerApiUrl, get: get);
+
   /// Enrichit un film avec les métadonnées détaillées du serveur grâce à
   /// `get_vod_info` (synopsis, année, genre, réalisateur, note, âge/PEGI).
   /// L'endpoint de liste `get_vod_streams` ne fournit pas ces champs, d'où
@@ -900,81 +451,9 @@ class ApiService {
   Future<Movie> fetchMovieDetail(Movie movie) async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream' || movie.id.isEmpty) return movie;
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final url = _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'action': 'get_vod_info',
-      'vod_id': movie.id,
-    });
-    final result = await safeAsync<Movie>(
-      () async {
-        final response = await _get(url);
-        final data = response.data;
-        if (data is! Map) return movie;
-        final rawInfo = data['info'];
-        final info = rawInfo is Map ? rawInfo : <String, dynamic>{};
-
-        // Année depuis `releaseDate` (YYYY-...), sinon depuis `releasedate`.
-        var year = movie.year;
-        final releaseDate =
-            firstNonEmpty([info['releaseDate'], info['releasedate']])
-                .toString();
-        final ym = RegExp(r'^(\d{4})').firstMatch(releaseDate);
-        if (ym != null) year = int.tryParse(ym.group(1)!) ?? year;
-
-        final genreRaw = firstNonEmpty([
-          info['genre'],
-          info['genre_1'],
-          movie.genre,
-        ]).toString().trim();
-
-        var rating = movie.rating;
-        final ratingRaw = firstNonEmpty([info['rating'], info['rating_5based']])
-            .toString()
-            .replaceAll(RegExp(r'[^0-9.]'), '');
-        if (ratingRaw.isNotEmpty) rating = double.tryParse(ratingRaw) ?? rating;
-
-        final posterUrl = firstNonEmpty([
-          info['cover_big'],
-          info['movie_image'],
-          info['backdrop_path'],
-          movie.posterUrl,
-        ]).toString();
-
-        return Movie(
-          id: movie.id,
-          title: movie.title,
-          description: firstNonEmpty([
-            info['description'],
-            info['plot'],
-            movie.description,
-          ]).toString(),
-          posterUrl: posterUrl,
-          year: year,
-          genre: genreRaw,
-          director: firstNonEmpty([
-            info['director'],
-            movie.director,
-          ]).toString(),
-          rating: rating,
-          pegi: firstNonEmpty([
-            info['age'],
-            info['mpaa_rating'],
-            info['us_certification'],
-            movie.pegi,
-          ]).toString(),
-          streamId: movie.streamId,
-          containerExtension: movie.containerExtension,
-          categoryId: movie.categoryId,
-        );
-      },
-      context: 'ApiService.fetchMovieDetail',
-      fallbackValue: movie,
+    return _movieDetailService.detail(
+      movie, sub['baseUrl']!, sub['username']!, sub['password']!,
     );
-    return result.getOrElse(movie);
   }
 
   /// Récupère le casting et l'équipe technique d'un film (cast + crew).
@@ -983,30 +462,9 @@ class ApiService {
   Future<MovieCredits?> fetchMovieCredits(String movieId) async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream' || movieId.isEmpty) return null;
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final url = _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'action': 'get_vod_info',
-      'vod_id': movieId,
-    });
-    final result = await safeAsync<MovieCredits?>(
-      () async {
-        final response = await _get(url);
-        final data = response.data;
-        if (data is! Map) return null;
-        final rawInfo = data['info'];
-        final info = rawInfo is Map
-            ? Map<String, dynamic>.from(rawInfo)
-            : <String, dynamic>{};
-        return MovieCredits.fromMap(info);
-      },
-      context: 'ApiService.fetchMovieCredits',
-      fallbackValue: null,
+    return _movieDetailService.credits(
+      movieId, sub['baseUrl']!, sub['username']!, sub['password']!,
     );
-    return result.valueOrNull;
   }
 
   Future<List<Series>> fetchSeries() {
@@ -1016,240 +474,27 @@ class ApiService {
   Future<List<Series>> _fetchSeries() async {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
-      final baseUrl = sub['baseUrl']!;
-      final username = sub['username']!;
-      final password = sub['password']!;
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_series',
-      });
-      final seriesKey = '$baseUrl|$username';
-      final bytes = await _catalogBytes('series', seriesKey, url);
-      final parsed = await parseSeriesInBackground(bytes);
-      if (parsed.ignored > 0) {
-        logDiag('SERIES entrees ignorees=${parsed.ignored} '
-            '(${parsed.firstError ?? ''})');
-      }
-      logDiag(
-          'Catalogue parse decode=${parsed.decodeMs}ms build=${parsed.buildMs}ms n=${parsed.items.length}');
-      unawaited(
-        CatalogDb.instance.syncSeries(
-          seriesKey,
-          CatalogDb.signatureOf(bytes, parsed.items.length),
-          parsed.items,
-        ),
+      return _mediaCatalogService.series(
+        sub['baseUrl']!, sub['username']!, sub['password']!,
       );
-      return parsed.items;
     }
     throw StreamNetworkException(
       'Ce mode n\'est pas encore disponible pour cette section.',
     );
   }
 
-  /// Découvre les pistes de sous-titres publiées pour un contenu.
-  ///
-  /// Interroge `get_vod_info` (film) ou `get_series_info` (série) et en
-  /// extrait les sous-titres. Aucun standard n'impose le format de retour, les
-  /// panels divergent : l'extraction est déléguée à [SubtitleDiscovery], qui
-  /// accepte les variantes courantes et ne lève jamais.
-  ///
-  /// Retourne une liste vide si le panel n'en publie pas ou si l'appel échoue :
-  /// l'absence de sous-titres ne doit pas être une erreur.
-  /// Découvre les sous-titres d'un contenu.
-  ///
-  /// Renvoie les pistes trouvées, si elles sont DÉDUITES — des panels ne
-  /// déclarent rien et servent les fichiers par convention d'URL, et
-  /// l'interface doit le dire plutôt que présenter une supposition comme une
-  /// certitude — et l'identifiant TMDB que le panel a lui-même publié.
-  ///
-  /// Ce dernier point évite une dépendance inutile : beaucoup de panels
-  /// renvoient `tmdb_id` dans `get_vod_info` et `get_series_info`. Résoudre
-  /// l'identifiant par notre propre recherche TMDB exige une clé API que
-  /// l'utilisateur n'a pas forcément saisie, et le contenu devenait
-  /// introuvable alors que l'information était dans la réponse que nous
-  /// venions de lire.
+  late final XtreamSubtitleService _subtitleService = XtreamSubtitleService(
+    activeSub: _activeSub,
+    get: get,
+    buildApiUrl: _playerApiUrl,
+  );
+
   Future<({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>
-      discoverSubtitles(
-    String contentId, {
-    required bool isSeries,
-    String? streamId,
-  }) async {
-    const nothing = (tracks: <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
-    if (contentId.isEmpty) return nothing;
-    final sub = await _activeSub();
-    if (sub['type'] != 'xtream') return nothing;
+      discoverSubtitles(String contentId, {required bool isSeries, String? streamId}) =>
+      _subtitleService.discoverSubtitles(contentId, isSeries: isSeries, streamId: streamId);
 
-    final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
-      'username': sub['username']!,
-      'password': sub['password']!,
-      'action': isSeries ? 'get_series_info' : 'get_vod_info',
-      if (isSeries) 'series_id': contentId else 'vod_id': contentId,
-    });
-
-    // Contexte de synthèse d'URL, pour le format le plus répandu : une liste de
-    // codes langue sans URL. Pour un film, `vod_id` EST le stream id. Pour une
-    // série, `series_id` ne l'est PAS : la convention de nommage attend le
-    // stream id de l'ÉPISODE, que l'appelant doit fournir. Sans lui, on ne
-    // synthétise rien — une piste déduite sur le mauvais identifiant pointe
-    // vers le média d'une autre série.
-    final context = SubtitleDiscoveryContext(
-      baseUrl: sub['baseUrl']!,
-      username: sub['username']!,
-      password: sub['password']!,
-      streamId: isSeries ? streamId : contentId,
-    );
-
-    final result = await safeAsync<
-        ({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>(
-      () async {
-        final response = await _get(url);
-        // Relevé de la charge utile : « aucune piste disponible » est
-        // indifférenciable entre un panel qui ne publie rien et un câblage
-        // cassé de notre côté.
-        _logSubtitlePayload(
-          action: isSeries ? 'get_series_info' : 'get_vod_info',
-          contentId: contentId,
-          streamId: context.streamId ?? '',
-          data: response.data,
-        );
-
-        final declared =
-            SubtitleDiscovery.parse(response.data, context: context);
-        final panelTmdbId = _tmdbIdFrom(response.data);
-        if (declared.isNotEmpty) {
-          return (tracks: declared, guessed: false, tmdbId: panelTmdbId);
-        }
-
-        // Aucune piste adressable dans la réponse. Deuxième voie : les codes
-        // langue peuvent être déclarés PLUS PROFOND, notamment dans les objets
-        // épisode d'une série, où le parseur ne va pas les chercher.
-        var codes =
-            SubtitleDiscovery.collectLanguageCodes(response.data).toList();
-        var guessed = false;
-        if (codes.isEmpty) {
-          // Troisième voie : le panel ne déclare rien du tout — mesuré sur deux
-          // contenus d'un même panel, `get_vod_info` comme `get_series_info`.
-          // Ses fichiers existent pourtant, servis par convention d'URL. Sans
-          // candidates, l'app ne peut rien proposer alors que la piste existe.
-          codes = SubtitleDiscovery.defaultConventionLanguages(
-            deviceLanguageCode: PlatformDispatcher.instance.locale.languageCode,
-          );
-          guessed = true;
-        }
-
-        // L'URL d'une piste se construit avec le stream id de l'épisode lu, pas
-        // avec celui de l'épisode qui porte la déclaration.
-        final synthesized = SubtitleDiscovery.synthesizeFromConvention(
-          context: context,
-          languages: codes,
-        );
-        _logger.info(
-          'Sous-titres $contentId : ${synthesized.length} piste(s) '
-          '${guessed ? 'CONVENTIONNELLES (le panel ne déclare rien)' : 'déclarées'} '
-          '-> ${(codes.toList()..sort()).join(', ')}',
-          tag: 'subtitle',
-        );
-        return (
-          tracks: synthesized,
-          guessed: guessed,
-          tmdbId: panelTmdbId,
-        );
-      },
-      context: 'ApiService.discoverSubtitles',
-      fallbackValue: (
-        tracks: const <SubtitleTrackRef>[],
-        guessed: false,
-        tmdbId: 0,
-      ),
-    );
-    final found = result.valueOrNull ??
-        (tracks: const <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
-    final effectiveStreamId = context.streamId ?? '';
-    _logger.info(
-      'Sous-titres ${isSeries ? 'série' : 'film'} $contentId : '
-      '${found.tracks.length} piste(s), stream id « $effectiveStreamId »'
-      '${effectiveStreamId.isEmpty ? ' (AUCUN : URL non synthétisable)' : ''}',
-      tag: 'subtitle',
-    );
-    return found;
-  }
-
-  /// Identifiant TMDB publié par le panel, s'il en fournit un.
-  ///
-  /// Cherché à la racine ET dans les objets infos/épisodes : selon le panel,
-  /// `tmdb_id` est soit au niveau du contenu, soit attaché à chaque épisode.
-  /// On garde le premier trouvé, les valeurs divergentes étant rares.
-  static int _tmdbIdFrom(Object? data) {
-    var found = 0;
-    void walk(Object? node, int depth) {
-      if (found != 0 || node is! Map || depth > 4) return;
-      for (final entry in node.entries) {
-        if (found != 0) return;
-        final key = entry.key.toString().toLowerCase();
-        if (key == 'tmdb_id') {
-          final value = entry.value;
-          final id = value is int
-              ? value
-              : value is num
-                  ? value.toInt()
-                  : int.tryParse('$value');
-          if (id != null && id > 0) found = id;
-        } else if (entry.value is Map || entry.value is List) {
-          walk(entry.value, depth + 1);
-        }
-      }
-    }
-
-    walk(data, 0);
-    return found;
-  }
-
-  /// Journalise la forme de la réponse `subtitles` renvoyée par le panel.
-  void _logSubtitlePayload({
-    required String action,
-    required String contentId,
-    required String streamId,
-    required Object? data,
-  }) {
-    Map<String, dynamic>? found;
-    var depth = 0;
-    void walk(Object? node) {
-      if (depth > 4 || found != null) return;
-      depth++;
-      if (node is Map) {
-        final map = Map<String, dynamic>.from(node);
-        for (final key in const [
-          'subtitles',
-          'subtitle',
-        ]) {
-          if (map.containsKey(key)) {
-            found = {'$action.$key': map[key]};
-            return;
-          }
-        }
-        walk(map['info']);
-      }
-    }
-
-    walk(data);
-    if (found == null) {
-      _logger.info(
-        'Sous-titres $action $contentId : aucun champ « subtitles » dans la '
-        'réponse (stream id « $streamId »)',
-        tag: 'subtitle',
-      );
-      return;
-    }
-    final raw = found!.values.first;
-    final summary = raw is List
-        ? '${raw.length} entrée(s) : ${raw.take(3).join(' | ')}'
-        : '$raw';
-    _logger.info(
-      'Sous-titres $action $contentId : $summary',
-      tag: 'subtitle',
-    );
-  }
+  late final XtreamSeriesDetailService _seriesDetailService =
+      XtreamSeriesDetailService(buildApiUrl: _playerApiUrl, get: _get);
 
   Future<Series> fetchSeriesInfo(String seriesId) async {
     final sub = await _activeSub();
@@ -1258,137 +503,24 @@ class ApiService {
         'Ce mode n\'est pas encore disponible pour cette section.',
       );
     }
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final url = _playerApiUrl(baseUrl, 'player_api.php', {
-      'username': username,
-      'password': password,
-      'action': 'get_series_info',
-      'series_id': seriesId,
-    });
-    // `get_short_epg` renvoie du JSON dont les titres/descriptions sont en
-    // UTF-8, alors que le panel_Xtream sert souvent `text/html` ou
-    // `text/xml` SANS charset : Dio applique alors son défaut (latin1) et
-    // chaque accent devenait illisible (« à caractères spéciaux »). On
-    // récupère donc les octets bruts et on décode nous-mêmes.
-    final response = await _get(
-      url,
-      options: Options(responseType: ResponseType.bytes),
+    return _seriesDetailService.fetch(
+      seriesId, sub['baseUrl']!, sub['username']!, sub['password']!,
     );
-    final data = _decodeJsonPayload(response);
-    Map<String, dynamic> root;
-    if (data is List) {
-      if (data.isEmpty) {
-        throw StreamNetworkException(
-          'Aucun détail disponible pour cette série.',
-        );
-      }
-      root = Map<String, dynamic>.from(data.first as Map);
-    } else if (data is Map) {
-      root = Map<String, dynamic>.from(data);
-    } else {
-      throw StreamNetworkException(
-        'Réponse inattendue du serveur pour cette série.',
-      );
-    }
-    final rootSorted = root;
-    final info = rootSorted['info'];
-    final stitched = Map<String, dynamic>.from(
-      info is Map ? Map<String, dynamic>.from(info) : const <String, dynamic>{},
-    );
-    stitched['series_id'] = seriesId;
-    final episodeMaps = <Map<String, dynamic>>[];
-    final rawEpisodes = root['episodes'];
-    if (rawEpisodes is Map) {
-      for (final seasonEntry in rawEpisodes.entries) {
-        final season = int.tryParse(seasonEntry.key.toString()) ?? 0;
-        final list =
-            seasonEntry.value is List ? seasonEntry.value as List : const [];
-        for (final raw in list) {
-          final em = Map<String, dynamic>.from(raw as Map);
-          em['season'] = season;
-          final id = em['id']?.toString() ?? '';
-          em['url'] = id.isEmpty
-              ? ''
-              : buildXtreamStreamUrl(
-                  baseUrl,
-                  username,
-                  password,
-                  id,
-                  type: 'series',
-                  extension: em['container_extension']?.toString(),
-                  withExtension: true,
-                );
-          episodeMaps.add(em);
-        }
-      }
-    }
-    stitched['episodes'] = episodeMaps;
-    return Series.fromMap(stitched);
   }
 
   // ---------- Radios ----------
+  late final XtreamRadioService _radioService = XtreamRadioService(
+    buildApiUrl: _playerApiUrl,
+    get: get,
+  );
+
   Future<List<Channel>> fetchRadioChannels() async {
     final sub = await _activeSub();
     logDiag('RADIO fetch=start source=${sub['type'] ?? 'unknown'}');
     if (sub['type'] == 'xtream') {
-      final baseUrl = sub['baseUrl']!;
-      final username = sub['username']!;
-      final password = sub['password']!;
-
-      // Identifie la catégorie "Radio" parmi les catégories live, puis ne
-      // garde que les flux appartenant à cette catégorie. Beaucoup de
-      // serveurs ignorent `category=radio` sur get_live_streams et
-      // renverraient alors tout le Live TV.
-      final radioCategoryIds = await _fetchRadioCategoryIds(
-        baseUrl,
-        username,
-        password,
+      return _radioService.fetch(
+        sub['baseUrl']!, sub['username']!, sub['password']!,
       );
-      logDiag(
-        'RADIO categories=resolved count=${radioCategoryIds.length} '
-        'filter=${radioCategoryIds.isEmpty ? 'disabled' : 'enabled'}',
-      );
-
-      final url = _playerApiUrl(baseUrl, 'player_api.php', {
-        'username': username,
-        'password': password,
-        'action': 'get_live_streams',
-      });
-      final stopwatch = Stopwatch()..start();
-      logDiag('RADIO streams=request start');
-      final response = await _get(url);
-      final rawStreams = response.data;
-      if (rawStreams is! List) {
-        logDiag(
-          'RADIO streams=invalid-response '
-          'type=${rawStreams.runtimeType} durationMs=${stopwatch.elapsedMilliseconds}',
-        );
-        throw const FormatException('Réponse de flux Radio invalide.');
-      }
-      final channels = rawStreams
-          .whereType<Map>()
-          .where(
-            (e) =>
-                radioCategoryIds.isEmpty ||
-                radioCategoryIds.contains(e['category_id']?.toString()),
-          )
-          .map((e) {
-        final map = Map<String, dynamic>.from(e);
-        final streamUrl = buildXtreamStreamUrl(
-          baseUrl,
-          username,
-          password,
-          map['stream_id']?.toString(),
-        );
-        return Channel.fromMap(map).copyWith(streamUrl: streamUrl);
-      }).toList();
-      logDiag(
-        'RADIO streams=complete received=${rawStreams.length} '
-        'matched=${channels.length} durationMs=${stopwatch.elapsedMilliseconds}',
-      );
-      return channels;
     }
     logDiag(
       'RADIO fetch=unsupported-source source=${sub['type'] ?? 'unknown'}',
@@ -1398,597 +530,40 @@ class ApiService {
     );
   }
 
-  Future<Set<String>> _fetchRadioCategoryIds(
-    String baseUrl,
-    String username,
-    String password,
-  ) async {
-    final stopwatch = Stopwatch()..start();
-    logDiag('RADIO categories=request start');
-    final result = await safeAsync<Set<String>>(
-      () async {
-        final url = _playerApiUrl(baseUrl, 'player_api.php', {
-          'username': username,
-          'password': password,
-          'action': 'get_live_categories',
-        });
-        final response = await _get(url);
-        final categories = response.data as List;
-        return categories
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .where((c) {
-              final name = '${c['category_name'] ?? ''}'.toLowerCase();
-              return name.contains('radio') ||
-                  name.contains('musique') ||
-                  name.contains('music');
-            })
-            .map((c) => c['category_id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty)
-            .toSet();
-      },
-      context: 'ApiService._fetchRadioCategoryIds',
-      fallbackValue: const <String>{},
-    );
-    final categoryIds = result.getOrElse(const <String>{});
-    logDiag(
-      'RADIO categories=${result.isSuccess ? 'complete' : 'failed'} '
-      'matched=${categoryIds.length} durationMs=${stopwatch.elapsedMilliseconds}'
-      '${result.isFailure ? ' fallback=unfiltered' : ''}',
-    );
-    return categoryIds;
-  }
-
   // ---------- Replays ----------
+  late final XtreamReplayService _replayService = XtreamReplayService(
+    activeSub: _activeSub,
+    get: get,
+    buildApiUrl: _playerApiUrl,
+    fetchLiveChannels: fetchLiveChannels,
+  );
 
-  /// Nombre d'interrogations EPG courtes exécutées en parallèle.
-  ///
-  /// Abaisse de 8 à 2 après les tempêtes de 429 observées : la sonde
-  /// interroge jusqu'à 40 chaînes et le panneau applique un quota GLOBAL —
-  /// huit sondes simultanées suffisaient à le faire répondre 429 à toutes les
-  /// requêtes de l'app, y compris celles des écrans Films et Séries. Le gain
-  /// de temps de la sonde est marginal (l'EPG global alimente le replay
-  /// multi-jours) ; le coût d'un catalogue bloqué, lui, est total.
-  ///
-  /// Le portillon [ApiRequestGate] limite par ailleurs l'ensemble des appels
-  /// concurrents à 3 : ce réglage ne gouverne que la sonde.
-  static const int _probeConcurrency = 2;
-
-  /// Fenêtre de replay : on ne remonte pas au-delà de 48h.
-  static const Duration _replayWindow = Duration(hours: 48);
-
-  /// Nombre d'entrées demandées à ``get_short_epg``.
-  ///
-  /// Un programme TV dure en moyenne 30 à 90 minutes : 48 h de replay
-  /// représentent 40 à 100 programmes selon la chaîne. On demande 100 pour
-  /// couvrir la fenêtre entière, quitte à ce que le panel en renvoie moins.
-  static const int _replayLimit = 100;
-
-  /// Construit les replays à partir de l'**EPG global** déjà téléchargé.
-  ///
-  /// ## Pourquoi cette source et pas `get_short_epg`
-  ///
-  /// Le paramètre `limit` de `get_short_epg` n'est pas respecté par les
-  /// panels : les logs du 29/09 montrent `limit=100` renvoyé **4 entrées**, et
-  /// quatre programmes en pleine journée sont presque tous *futurs*. Cet appel
-  /// ne peut donc pas alimenter un replay multi-jours — au mieux il donne le
-  /// dernier programme passé, d'où les écrans à une seule date, un seul
-  /// programme à la fois.
-  ///
-  /// L'EPG global, lui, couvre plusieurs jours et fait déjà authority pour le
-  /// guide. On le croise donc avec les chaînes marquées `supportsReplay` et on
-  /// ne conserve que les programmes **terminés** : c'est exactement la
-  /// définition de [isReplayableProgram].
-  ///
-  /// [fetchReplays] reste utilisé en complément, pour les chaînes absentes de
-  /// l'EPG global.
   Future<List<ReplayItem>> buildReplaysFromGlobalEpg({
     required List<EPGProgram> programs,
     required List<Channel> channels,
-  }) async {
-    final sub = await _activeSub();
-    if (sub['type'] != 'xtream') return const <ReplayItem>[];
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final now = DateTime.now();
+  }) => _replayService.buildReplaysFromGlobalEpg(
+    programs: programs, channels: channels,
+  );
 
-    // Index des chaînes rejouables sous TOUS leurs identifiants EPG possibles
-    // (`{stream_id}` et `{num}:{stream_id}`) : le XMLTV et le panel ne
-    // s'accordent pas toujours sur la même forme.
-    final byEpgId = <String, Channel>{};
-    for (final c in channels) {
-      if (!c.supportsReplay) continue;
-      for (final id in c.epgChannelIds) {
-        if (id.isNotEmpty) byEpgId[id] = c;
-      }
-      if (c.id.isNotEmpty) byEpgId[c.id] = c;
-    }
-    if (byEpgId.isEmpty) return const <ReplayItem>[];
-
-    final items = <ReplayItem>[];
-    final seen = <String>{};
-    for (final p in programs) {
-      final channel = byEpgId[p.channelId];
-      if (channel == null) continue;
-      if (!isReplayableProgram(p, now: now, channelSupportsReplay: true)) {
-        continue;
-      }
-      // Fenêtre propre à la chaîne : `catchup-days` de l'abonnement quand le
-      // provider le déclare, 48 h sinon.
-      if (now.difference(p.start) > archiveWindow(channel)) continue;
-
-      final startEpoch = p.start.millisecondsSinceEpoch ~/ 1000;
-      final endEpoch = p.end.millisecondsSinceEpoch ~/ 1000;
-      final key = '${channel.id}_$startEpoch';
-      if (!seen.add(key)) continue;
-
-      final title = p.title.trim();
-      if (title.isEmpty) continue;
-      items.add(
-        ReplayItem(
-          id: key,
-          title: title,
-          streamUrl: replayStreamUrl(
-            channel: channel,
-            baseUrl: baseUrl,
-            username: username,
-            password: password,
-            startEpoch: startEpoch,
-            endEpoch: endEpoch,
-          ),
-          startTime: _formatReplayTime(p.start, now),
-          endTime: _formatReplayTime(p.end, now),
-          categoryId: channel.groupLabel,
-          channelId: channel.id,
-          channelName: channel.name,
-          startDate: p.start,
-          description: p.description.trim(),
-          startAt: p.start,
-          endAt: p.end,
-        ),
-      );
-    }
-
-    _logger.info(
-      'Replay EPG global: ${items.length} programme(s) rejouable(s) '
-      'sur ${programs.length} entrées, ${byEpgId.length} chaîne(s) DVR',
-    );
-    return items;
-  }
-
-  /// Fusionne les replays issus de l'EPG global (autoritaires) avec ceux de
-  /// `get_short_epg`, en dédupliquant sur chaîne + début de programme.
-  ///
-  /// L'EPG global passe en premier : il est plus complet. `get_short_epg` ne
-  /// sert qu'à rattraper une chaîne absente du dump XMLTV.
   static List<ReplayItem> mergeReplays(
-    List<ReplayItem> fromEpg,
-    List<ReplayItem> fromShortEpg,
-  ) {
-    final seen = <String>{};
-    final merged = <ReplayItem>[];
-    for (final r in [...fromEpg, ...fromShortEpg]) {
-      final start = r.startAt?.millisecondsSinceEpoch ??
-          r.startDate?.millisecondsSinceEpoch ??
-          0;
-      if (seen.add('${r.channelId}_$start')) merged.add(r);
-    }
-    return merged;
-  }
+    List<ReplayItem> fromEpg, List<ReplayItem> fromShortEpg,
+  ) => XtreamReplayService.mergeReplays(fromEpg, fromShortEpg);
 
-  Future<List<ReplayItem>> fetchReplays() async {
-    final sub = await _activeSub();
+  Future<List<ReplayItem>> fetchReplays() => _replayService.fetchReplays();
 
-    if (sub['type'] == 'xtream') {
-      return _fetchXtreamReplays(sub);
-    }
-    if (sub['type'] == 'm3u') {
-      return _fetchM3uReplays(sub);
-    }
-    throw StreamNetworkException('Aucun abonnement configuré.');
-  }
+  static List<Channel> replayProbeSet(List<Channel> channels, List<Channel> flagged) =>
+      XtreamReplayService.replayProbeSet(channels, flagged);
 
-  /// Replay Xtream : les chaînes DVR (tv_archive / timeshift) exposent leurs
-  /// programmes passés via l'EPG court ; chaque programme est joué avec une
-  /// URL timeshift (start/end en secondes Unix) sur le flux de la chaîne.
-  Future<List<ReplayItem>> _fetchXtreamReplays(
-    Map<String, String?> sub,
-  ) async {
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-
-    final channelsResult = await safeAsync<List<Channel>>(
-      () => fetchLiveChannels(),
-      context: 'ApiService._fetchChannelReplayPrograms',
-      fallbackValue: const <Channel>[],
-    );
-    final channels = channelsResult.getOrElse(const <Channel>[]);
-
-    final flagged = channels
-        .where(
-          (c) => c.supportsReplay || c.name.toLowerCase().contains('replay'),
-        )
-        .toList();
-
-    // Découverte large : beaucoup de panels ne marquent `tv_archive` que sur
-    // une poignée de chaînes (ex. une catégorie) alors que le timeshift est
-    // global. On sonde donc TOUJOURS un échantillon diversifié :
-    //   1. toutes les chaînes explicitement DVR (« Seulement France HD » est
-    //      le symptôme typique d'une marque partielle) ;
-    //   2. complété par un échantillon STRATIFIÉ par catégorie (un même
-    //      groupe n'apparaîtra qu'en petit nombre dans la sonde) pour couvrir
-    //      le reste de la grille, sans marteler le panel (budget plafonné).
-    final probeChannels = replayProbeSet(channels, flagged);
-    if (probeChannels.isEmpty) return const <ReplayItem>[];
-
-    final now = DateTime.now();
-    final results = List<List<ReplayItem>?>.filled(probeChannels.length, null);
-    var nextIndex = 0;
-    final workerCount = probeChannels.length < _probeConcurrency
-        ? probeChannels.length
-        : _probeConcurrency;
-    final workers = <Future<void>>[
-      for (var w = 0; w < workerCount; w++)
-        () async {
-          while (true) {
-            final i = nextIndex++;
-            if (i >= probeChannels.length) break;
-            results[i] = await _fetchChannelReplayPrograms(
-              baseUrl: baseUrl,
-              username: username,
-              password: password,
-              channel: probeChannels[i],
-              now: now,
-            );
-          }
-        }(),
-    ];
-    await Future.wait(workers);
-
-    final replayItems = <ReplayItem>[];
-    for (var i = 0; i < probeChannels.length; i++) {
-      final programs = results[i] ?? const <ReplayItem>[];
-      if (programs.isNotEmpty) {
-        replayItems.addAll(programs);
-      }
-      // Pas de fallback live TV : on n'affiche que les vrais programmes catch-up
-      // issus de l'EPG (get_short_epg). Si aucun programme terminé n'est exposé
-      // par le panel pour cette chaîne, on ne l'affiche pas.
-    }
-
-    // Programmes les plus récents d'abord.
-    replayItems.sort((a, b) {
-      final ta = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final tb = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return tb.compareTo(ta);
-    });
-
-    debugPrint('Orbit3D replays=${replayItems.length} '
-        'probed=${probeChannels.length} '
-        'flagged=${flagged.length}');
-    return replayItems;
-  }
-
-  /// Constitution de l'ensemble des chaînes à sonder pour le replay.
-  ///
-  /// Le budget est GLOBAL ([budget]) : certains panels marquent TOUT le
-  /// catalogue DVR (tv_archive partout) — sonder les ~200 chaînes martèlerait
-  /// le panel et déclencherait l'anti-leech (blocage IP temporaire qui fait
-  /// ensuite échouer le catalogue VOD). Le budget est donc réparti en
-  /// round-robin PAR CATÉGORIE (au plus [perGroup] chaînes par groupe), en
-  /// donnant la priorité aux chaînes explicitement DVR afin que toutes les
-  /// catégories soient couvertes (pas de cluster « Seulement France HD » : le
-  /// `take(25)` brut ne garderait que la première catégorie).
-  static List<Channel> replayProbeSet(
-    List<Channel> channels,
-    List<Channel> flagged,
-  ) {
-    const budget = 40;
-    const perGroup = 3;
-    if (channels.isEmpty) return const <Channel>[];
-
-    final flaggedIds = flagged.map((c) => c.id).toSet();
-    final candidates = <Channel>[];
-    final seen = <String>{};
-    final takenByGroup = <String, int>{};
-
-    void fillRoundRobin(List<Channel> source) {
-      final byGroup = <String, List<Channel>>{};
-      for (final c in source) {
-        final g = c.groupLabel.isNotEmpty ? c.groupLabel : _unknownGroupLabel;
-        byGroup.putIfAbsent(g, () => []).add(c);
-      }
-      final groupNames = byGroup.keys.toList();
-      var allExhausted = false;
-      while (candidates.length < budget && !allExhausted) {
-        allExhausted = true;
-        for (final group in groupNames) {
-          if (candidates.length >= budget) break;
-          final list = byGroup[group]!;
-          final taken = takenByGroup[group] ?? 0;
-          if (taken >= perGroup) continue;
-          Channel? next;
-          for (final c in list) {
-            if (!seen.contains(c.id)) {
-              next = c;
-              break;
-            }
-          }
-          if (next == null) continue;
-          seen.add(next.id);
-          candidates.add(next);
-          takenByGroup[group] = taken + 1;
-          allExhausted = false;
-        }
-      }
-    }
-
-    // 1. Chaînes explicitement DVR d'abord — réparties par catégorie pour
-    //    ne jamais dépasser le budget total (anti-leech) ni clusteriser.
-    fillRoundRobin(flagged);
-    if (candidates.length >= budget) return candidates;
-    // 2. Complétion du budget avec le reste de la grille (marquage partiel :
-    //    le DVR du panel est souvent global, la marque elle ne l'est pas).
-    fillRoundRobin(channels.where((c) => !flaggedIds.contains(c.id)).toList());
-    return candidates;
-  }
-
-  static const String _unknownGroupLabel = '(sans groupe)';
-
-  /// Point d'entrée de test pour le décodage des textes de panel.
-  ///
-  /// Le décodeur unique vit dans [PanelText]. Il était dupliqué ici : deux
-  /// implémentations du même garde-fou finissent toujours par diverger, et c'est
-  /// cette divergence qui avait laissé des titres en base64 à côté de titres
-  /// corrects dans une même liste.
   @visibleForTesting
-  static String decodeEpgTextForTest(String raw) => PanelText.decode(raw);
+  static String decodeEpgTextForTest(String raw) =>
+      PanelText.decode(raw);
 
-  /// Programmes EPG d'une chaîne via `get_short_epg` (JSON).
-  ///
-  /// Complément au XMLTV global : renseigne le guide d'une chaîne en direct sans
-  /// télécharger l'intégralité du dump. Échec ⇒ liste vide, le flux principal
-  /// (XMLTV) reste la référence.
-  ///
-  /// Les titres et synopsis de certains panels arrivent encodés en base64 ; le
-  /// décodage passe désormais par [PanelText], qui porte les garde-fous.
-  Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) async {
-    final sub = await _activeSub();
-    if (sub['type'] != 'xtream') return const <EPGProgram>[];
-    final result = await safeAsync<List<EPGProgram>>(
-      () async {
-        final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
-          'username': sub['username']!,
-          'password': sub['password']!,
-          'action': 'get_short_epg',
-          'stream_id': channel.id,
-        });
-        final response = await _get(url);
-        final data = response.data;
-        final list = data is List
-            ? data
-            : (data is Map
-                ? (data['epg_listings'] as List? ?? const <dynamic>[])
-                : const <dynamic>[]);
-        final programs = <EPGProgram>[];
-        for (final e in list.whereType<Map>()) {
-          final map = Map<String, dynamic>.from(e);
-          final start =
-              _parseReplayDate(map['start_timestamp'] ?? map['start']);
-          final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-          if (start == null || end == null || !end.isAfter(start)) continue;
-          final title = PanelText.decode(
-            map['title']?.toString().trim() ?? '',
-          );
-          if (title.isEmpty) continue;
-          programs.add(
-            EPGProgram(
-              // `epgChannelId` peut contenir plusieurs candidats séparés par
-              // une virgule : on retient le premier, sinon l'id de la chaîne.
-              channelId: channel.primaryEpgChannelId.isNotEmpty
-                  ? channel.primaryEpgChannelId
-                  : channel.id,
-              title: title,
-              description: PanelText.decode(
-                (map['description'] ?? map['plot'] ?? '').toString().trim(),
-              ),
-              start: start,
-              end: end,
-            ),
-          );
-        }
-        return programs;
-      },
-      context: 'ApiService.fetchChannelEpgPrograms',
-      fallbackValue: const <EPGProgram>[],
-    );
-    return result.getOrElse(const <EPGProgram>[]);
-  }
+  Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) =>
+      _replayService.fetchChannelEpgPrograms(channel);
 
-  /// Programmes rejouables d'**une seule** chaîne : un appel.
-  ///
-  /// ## L'endpoint qui compte
-  ///
-  /// `get_short_epg` ne sert **pas** à ça. Sa documentation le dit : « aperçu
-  /// rapide des **prochains** programmes ». Il renvoie 4 entrées, toutes
-  /// futures, et le filtre « terminé » les élimine toutes — d'où un Replay vide
-  /// alors que le panel archive bien. Mesuré le 30/09 : `0 programme(s)
-  /// rejouable(s) sur 4 renvoyés par get_short_epg`.
-  ///
-  /// L'EPG complet d'une chaîne, celui qui est « nécessaire pour calculer le
-  /// Replay », vient de `get_simple_data_table&stream_id=…`. Cet appel n'était
-  /// fait nulle part dans l'application.
-  ///
-  /// Un seul appel par chaîne, comme le niveau 1 de l'écran : le catalogue
-  /// compte plus de 1400 chaînes rejouables, et les sonder toutes déclencherait
-  /// la tempête de 429 qui vide l'EPG, les Films et le Live TV.
-  Future<List<ReplayItem>> fetchChannelReplays(Channel channel) async {
-    final sub = await _activeSub();
-    if (sub['type'] != 'xtream') return const <ReplayItem>[];
-    final baseUrl = sub['baseUrl']!;
-    final username = sub['username']!;
-    final password = sub['password']!;
-    final now = DateTime.now();
+  Future<List<ReplayItem>> fetchChannelReplays(Channel channel) =>
+      _replayService.fetchChannelReplays(channel);
 
-    final entries = await _fetchChannelFullEpg(
-      baseUrl: baseUrl,
-      username: username,
-      password: password,
-      channel: channel,
-    );
-
-    // Repli : certains panels ne servent pas l'EPG complet par cet appel. On
-    // retente alors avec l'aperçu court, qui ne donnera que les rares
-    // programmes déjà diffusés — moins de résultats, mais mieux que rien.
-    if (entries.isEmpty) {
-      return _fetchChannelReplayPrograms(
-        baseUrl: baseUrl,
-        username: username,
-        password: password,
-        channel: channel,
-        now: now,
-      );
-    }
-
-    // Fenêtre de l'abonnement pour CETTE chaîne (`tv_archive_duration`). Le tri
-    // par jour est fait par l'écran ; on renvoie du plus récent au plus ancien,
-    // qui est l'ordre de lecture attendu.
-    final window = archiveWindow(channel);
-    final items = <ReplayItem>[];
-    final seen = <int>{};
-    for (final e in entries) {
-      final map = Map<String, dynamic>.from(e);
-      final start = _parseReplayDate(map['start_timestamp'] ?? map['start']);
-      final end = _parseReplayDate(
-        map['stop_timestamp'] ?? map['stop'] ?? map['end'],
-      );
-      if (start == null || end == null) continue;
-      if (!end.isBefore(now)) continue; // pas encore terminé
-      if (now.difference(start) > window) continue; // hors fenêtre du compte
-      // Ce panel encode les titres et descriptifs en base64 : sans décodage,
-      // la table affichait « TxkgTWlsbGlvbg== » là où il faut lire
-      // « Le Bulletin ». Le décodage est prudent (longueur, alphabet, contrôle
-      // de caractères) : un titre en clair qui ressemblerait à du base64 n'est
-      // jamais altéré.
-      final title = PanelText.decode(
-        map['title']?.toString().trim() ?? '',
-      );
-      if (title.isEmpty) continue;
-      final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
-      if (!seen.add(startEpoch)) continue;
-      items.add(
-        ReplayItem(
-          id: '${channel.id}_$startEpoch',
-          title: title,
-          streamUrl: replayStreamUrl(
-            channel: channel,
-            baseUrl: baseUrl,
-            username: username,
-            password: password,
-            startEpoch: startEpoch,
-            endEpoch: end.millisecondsSinceEpoch ~/ 1000,
-          ),
-          startTime: _formatReplayTime(start, now),
-          endTime: _formatReplayTime(end, now),
-          categoryId: channel.groupLabel,
-          channelId: channel.id,
-          channelName: channel.name,
-          startDate: start,
-          description: PanelText.decode(
-            _firstString(map, const [
-              'description',
-              'plot',
-              'desc',
-              'summary',
-            ]),
-          ),
-          host: PanelText.decode(
-            _firstString(map, const [
-              'name',
-              'presenter',
-              'host',
-              'director',
-              'actor',
-            ]),
-          ),
-          startAt: start,
-          endAt: end,
-        ),
-      );
-    }
-    items.sort(
-      (a, b) => (b.startAt ?? b.startDate ?? DateTime(1900))
-          .compareTo(a.startAt ?? a.startDate ?? DateTime(1900)),
-    );
-
-    _logger.info(
-      'Replay ${channel.name}: ${items.length} programme(s) rejouable(s) '
-      'sur ${entries.length} de l\'EPG complet '
-      '(fenêtre ${window.inDays} j, archive ${channel.archiveDays} j)',
-      tag: 'replay',
-    );
-    return items;
-  }
-
-  /// EPG complet d'une chaîne (`get_simple_data_table&stream_id=…`).
-  ///
-  /// Séparé de [fetchChannelReplays] pour que le tri, le filtre et la
-  /// construction d'URL soient testables sans réseau.
-  Future<List<Map<String, dynamic>>> _fetchChannelFullEpg({
-    required String baseUrl,
-    required String username,
-    required String password,
-    required Channel channel,
-  }) async {
-    final result = await safeAsync<List<Map<String, dynamic>>>(
-      () async {
-        final url = _playerApiUrl(baseUrl, 'player_api.php', {
-          'username': username,
-          'password': password,
-          'action': 'get_simple_data_table',
-          'stream_id': channel.id,
-        });
-        final response = await _get(url);
-        final data = response.data;
-        // Trois formes rencontrées : liste nue, `epg_listings` (variante
-        // get_short_epg) et `epg_programmes` (variante get_simple_data_table).
-        final list = data is List
-            ? data
-            : (data is Map
-                ? (data['epg_programmes'] as List? ??
-                    data['epg_listings'] as List? ??
-                    const <dynamic>[])
-                : const <dynamic>[]);
-        final entries = <Map<String, dynamic>>[];
-        for (final e in list.whereType<Map>()) {
-          entries.add(Map<String, dynamic>.from(e));
-        }
-        _logger.info(
-          'EPG complet ${channel.name} (${channel.id}): ${entries.length} '
-          'programme(s) via get_simple_data_table',
-          tag: 'replay',
-        );
-        return entries;
-      },
-      context: 'ApiService._fetchChannelFullEpg',
-      fallbackValue: const <Map<String, dynamic>>[],
-    );
-    return result.getOrElse(const <Map<String, dynamic>>[]);
-  }
-
-  /// URL de lecture d'un programme de replay.
-  ///
-  /// Le template `catchup-source` déclaré par le provider, s'il y en a un,
-  /// **prime sur tout** : c'est lui qui décrit le chemin de replay réel. En
-  /// son absence on applique la convention Xtream Codes
-  /// (`/timeshift/user/pass/durée/date/id.ext`), qui est celle de ce panel —
-  /// `get_live_streams` n'y expose pas de `catchup-source`, contrairement aux
-  /// playlists M3U qui en déclarent toujours un.
-  ///
-  /// Inventer une URL alors qu'un template est disponible donnait des liens
-  /// morts : le programme était listé, puis la lecture échouait.
   String replayStreamUrl({
     required Channel channel,
     required String baseUrl,
@@ -1996,271 +571,13 @@ class ApiService {
     required String password,
     required int startEpoch,
     required int endEpoch,
-  }) {
-    final fromTemplate = CatchupUrl.build(
-      channel: channel,
-      start: DateTime.fromMillisecondsSinceEpoch(startEpoch * 1000),
-      end: DateTime.fromMillisecondsSinceEpoch(endEpoch * 1000),
-    );
-    if (fromTemplate != null && fromTemplate.isNotEmpty) return fromTemplate;
-    return buildXtreamTimeshiftUrl(
-      baseUrl,
-      username,
-      password,
-      channel.id,
-      start: startEpoch,
-      end: endEpoch,
-    );
-  }
+  }) => _replayService.replayStreamUrl(
+    channel: channel, baseUrl: baseUrl, username: username, password: password,
+    startEpoch: startEpoch, endEpoch: endEpoch,
+  );
 
-  /// Fenêtre de retroactivité d'une chaîne.
-  ///
-  /// `catchup-days` / `tv_archive_duration` est la fenêtre **de l'abonnement**
-  /// — 48 h, 7 jours, 14 jours selon le compte. C'est donc elle qu'on lit, et
-  /// le 48 h n'est plus qu'un repli pour les panels qui ne déclarent rien.
-  static Duration archiveWindow(Channel channel) {
-    if (channel.archiveDays > 0) return Duration(days: channel.archiveDays);
-    return _replayWindow;
-  }
-
-  /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
-  Future<List<ReplayItem>> _fetchChannelReplayPrograms({
-    required String baseUrl,
-    required String username,
-    required String password,
-    required Channel channel,
-    required DateTime now,
-  }) async {
-    final result = await safeAsync<List<ReplayItem>>(
-      () async {
-        final url = _playerApiUrl(baseUrl, 'player_api.php', {
-          'username': username,
-          'password': password,
-          'action': 'get_short_epg',
-          'stream_id': channel.id,
-          // `get_short_epg` plafonne à 4 entrées par défaut. Quatre programmes
-          // en pleine journée couvrent à peine deux heures, tous FUTURS : le
-          // filtre « terminé uniquement » les supprimait tous et l'écran
-          // finissait sur « aucun replay disponible », alors que le panel en
-          // publie. On demande explicitement une fenêtre couvrant les
-          // `_replayWindow`.
-          'limit': '$_replayLimit',
-        });
-        final response = await _get(url);
-        final data = response.data;
-        final list = data is List
-            ? data
-            : (data is Map
-                ? (data['epg_listings'] as List? ?? const <dynamic>[])
-                : const <dynamic>[]);
-        final items = <ReplayItem>[];
-        // Diagnostic : `get_short_epg` plafonne par défaut à 4 entrées, et un
-        // panel peut en renvoyer 0 malgré `tv_archive: 1`. Sans ce log, un
-        // « aucun replay disponible » est indiscernable d'un vrai panel vide.
-        _logger.info(
-          'Replay ${channel.name} (${channel.id}): short_epg limit=$_replayLimit '
-          '-> ${list.length} entrées brutes',
-        );
-        // Relevé des entrées brutes : sans lui, « 0 programme rejouable sur 4 »
-        // est indécidable. Les 4 peuvent être toutes futures (le panel ne
-        // publie pas d'historique par cet appel), ou des passées rejetées par
-        // notre filtre — et les deux appellent des corrections opposées.
-        final window = archiveWindow(channel);
-        final sample = <String>[];
-        for (final e in list.whereType<Map>().take(6)) {
-          final map = Map<String, dynamic>.from(e);
-          final s = _parseReplayDate(map['start_timestamp'] ?? map['start']);
-          final en = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-          if (s == null || en == null) {
-            sample.add('?');
-            continue;
-          }
-          final delta = now.difference(s);
-          final hours = (delta.inMinutes / 60).round();
-          final state = en.isBefore(now) ? 'terminé' : 'à venir';
-          final tooOld = delta > window ? ', hors fenêtre' : '';
-          sample.add(
-            '${_formatReplayTime(s, now)} ($hours h, $state$tooOld)',
-          );
-        }
-        if (sample.isNotEmpty) {
-          _logger.info(
-            'Replay ${channel.name}: entrées = ${sample.join(' | ')} '
-            '(fenêtre ${window.inDays} j)',
-            tag: 'replay',
-          );
-        }
-        for (final e in list.whereType<Map>()) {
-          final map = Map<String, dynamic>.from(e);
-          final start =
-              _parseReplayDate(map['start_timestamp'] ?? map['start']);
-          final end = _parseReplayDate(map['stop_timestamp'] ?? map['end']);
-          if (start == null || end == null) continue;
-          if (!end.isBefore(now)) continue; // programme pas encore terminé
-          // Fenêtre de rétroactivité : `catchup-days` de l'abonnement quand le
-          // provider le déclare (48 h, 7 j, 14 j selon le compte), 48 h sinon.
-          // Fixer 48 h en dur éliminait à tort les replays d'un compte
-          // annonçant 7 jours : le programme était bien servi, il était
-          // filtré de notre côté.
-          if (now.difference(start) > archiveWindow(channel)) {
-            continue; // trop ancien
-          }
-          // Même décodage que le chemin `get_simple_data_table` : ce panel
-          // encode les titres en base64 sur les deux appels. Sans lui, les
-          // chaînes servies par ce repli affichaient « QWxsZSwgbGUgbG9pciI »
-          // alors que les autres étaient lisibles.
-          final title = PanelText.decode(
-            map['title']?.toString().trim() ?? '',
-          );
-          if (title.isEmpty) continue;
-          final startEpoch = start.millisecondsSinceEpoch ~/ 1000;
-          final endEpoch = end.millisecondsSinceEpoch ~/ 1000;
-          items.add(
-            ReplayItem(
-              id: '${channel.id}_$startEpoch',
-              title: title,
-              streamUrl: replayStreamUrl(
-                channel: channel,
-                baseUrl: baseUrl,
-                username: username,
-                password: password,
-                startEpoch: startEpoch,
-                endEpoch: endEpoch,
-              ),
-              startTime: _formatReplayTime(start, now),
-              endTime: _formatReplayTime(end, now),
-              categoryId: channel.groupLabel,
-              channelId: channel.id,
-              channelName: channel.name,
-              startDate: start,
-              // Résumé et présentation : `get_short_epg` les fournit sous
-              // des noms de champs variables selon les panels. On les lit
-              // tous, et l'affichage masque ce qui est vide.
-              description: PanelText.decode(
-                _firstString(map, const [
-                  'description',
-                  'plot',
-                  'desc',
-                  'summary',
-                ]),
-              ),
-              host: PanelText.decode(
-                _firstString(map, const [
-                  'name',
-                  'presenter',
-                  'host',
-                  'director',
-                  'actor',
-                ]),
-              ),
-              startAt: start,
-              endAt: end,
-            ),
-          );
-        }
-        _logger.info(
-          'Replay ${channel.name}: ${items.length} programme(s) rejouable(s) '
-          'sur ${list.length} renvoyés par get_short_epg',
-        );
-        return items;
-      },
-      context: 'ApiService._fetchChannelReplayPrograms',
-      fallbackValue: const <ReplayItem>[],
-    );
-    return result.getOrElse(const <ReplayItem>[]);
-  }
-
-  /// Replay M3U : les chaînes portant un attribut `catchup`/`timeshift`
-  /// apparaissent directement comme rejouables.
-  Future<List<ReplayItem>> _fetchM3uReplays(Map<String, String?> sub) async {
-    // M3U playlists don't carry catch-up program metadata (what aired when).
-    // Real catch-up requires an EPG source (XMLTV) to know what aired when.
-    // The M3U `catchup`/`catchup-days` attributes only indicate *support*, not
-    // program metadata. Returning empty here avoids false "Replay à Channel"
-    // entries that just play the live stream.
-    return const <ReplayItem>[];
-  }
-
-  /// Parse un horaire EPG : timestamp Unix (secondes) ou « yyyy-MM-dd HH:mm:ss ».
-  static DateTime? _parseReplayDate(Object? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.toString().trim();
-    if (trimmed.isEmpty) return null;
-    final seconds = int.tryParse(trimmed);
-    if (seconds != null && seconds > 0) {
-      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
-    }
-    return DateTime.tryParse(trimmed.replaceFirst(' ', 'T'));
-  }
-
-  /// Première clé non vide parmi [keys], normalisée en texte brut.
-  ///
-  /// Les panels n'utilisent pas les mêmes noms de champs d'une installation à
-  /// l'autre : `description` / `plot` / `desc`, `name` / `presenter` /
-  /// `director`... On essaie donc une liste ordonnée par fréquence décroissante
-  /// plutôt que de coder un nom unique, sinon la moitié des replays
-  /// s'afficheraient sans résumé ni présentateur.
-  ///
-  /// Les balises HTML éventuelles sont retirées : le texte est rendu dans un
-  /// `Text` Flutter, où du markup apparaissait littéralement.
-  static String _firstString(Map<String, dynamic> map, List<String> keys) {
-    for (final k in keys) {
-      final raw = map[k];
-      if (raw == null) continue;
-      var v = raw.toString().trim();
-      if (v.isEmpty) continue;
-      // Le XMLTV échappe l'apostrophe en `&apos;` : sans cette correction le
-      // titre s'affichait littéralement « C dans l&apos;achat ».
-      //
-      // `&amp;` passe en DERNIER : le dé-échapprement doit être unique,
-      // sinon un `&amp;apos;` légitime deviendrait une apostrophe.
-      v = v
-          .replaceAll('&apos;', "'")
-          .replaceAll('&#39;', "'")
-          .replaceAll('&quot;', '"')
-          .replaceAll('&nbsp;', ' ')
-          .replaceAll('&lt;', '<')
-          .replaceAll('&gt;', '>')
-          .replaceAll('&amp;', '&');
-      if (v.contains('<')) {
-        // Le nettoyage des balises vient APRÈS l'échappement : sinon
-        // `&lt;b&gt;` redeviendrait une balise et disparaîtrait au lieu de
-        // s'afficher.
-        v = v
-            .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-            .replaceAll(RegExp(r'<[^>]*>'), '')
-            .trim();
-      }
-      if (v.isNotEmpty) return v;
-    }
-    return '';
-  }
-
-  /// « HH:mm » si même jour, sinon « d mois HH:mm » (ex. « 5 févr. 18:30 »).
-  String _formatReplayTime(DateTime dt, DateTime now) {
-    final local = dt.toLocal();
-    final h = local.hour.toString().padLeft(2, '0');
-    final m = local.minute.toString().padLeft(2, '0');
-    final sameDay = local.year == now.year &&
-        local.month == now.month &&
-        local.day == now.day;
-    if (sameDay) return '$h:$m';
-    const months = [
-      'janv.',
-      'févr.',
-      'mars',
-      'avr.',
-      'mai',
-      'juin',
-      'juil.',
-      'août',
-      'sept.',
-      'oct.',
-      'nov.',
-      'déc.',
-    ];
-    return '${local.day} ${months[local.month - 1]} $h:$m';
-  }
+  static Duration archiveWindow(Channel channel) =>
+      XtreamReplayService.archiveWindow(channel);
 
   // ---------- EPG (XMLTV) ----------
   Future<List<EPGProgram>> fetchEpg() async {
@@ -2273,22 +590,7 @@ class ApiService {
         'username': username,
         'password': password,
       });
-      // `responseType: bytes` : on veut les octets bruts, pas une String déjà
-      // décodée par Dio selon un charset HTTP souvent absent => accents
-      // cassés. Le décodage réel est fait par [_decodeXmltvPayload].
-      final response = await _get(
-        url,
-        options: Options(responseType: ResponseType.bytes),
-      );
-      // Le dump XMLTV est massivement en UTF-8 alors que le panel_Xtream sert
-      // souvent `Content-Type: text/xml` SANS charset : Dio applique alors son
-      // défaut (latin1), ce qui transformait chaque accent en « é ». On
-      // décode donc les octets bruts nous-mêmes, en suivant la déclaration
-      // `encoding=` du prologue XML quand elle existe.
-      final content = _decodeXmltvPayload(response);
-      // Le parse complet (~94 000 entrées) est lourd : déporté sur un isolate
-      // pour ne pas figer le thread UI (évite l'ANR sur les box TV/phones).
-      final programs = await compute(_parseXmltvIsolate, content);
+      final programs = await _xmltvService.fetch(url);
       debugPrint('Orbit3D epg fetched=${programs.length} '
           'first=${programs.isEmpty ? '<none>' : programs.first.channelId} '
           'url=${url.split('?').first}');
@@ -2299,101 +601,9 @@ class ApiService {
     return const <EPGProgram>[];
   }
 
-  /// Entrée isolate : `compute` exige une fonction top-level.
-  static List<EPGProgram> _parseXmltvIsolate(String content) =>
-      ApiService().parseXmltv(content);
-
-  /// Décode une réponse JSON dont l'encodage HTTP est absent ou faux.
-  ///
-  /// Le panel_Xtream sert parfois `text/html` ou `text/xml` sans `charset` :
-  /// Dio décode alors en latin1, ce qui corrompt les accents. Contrairement au
-  /// XMLTV, on ne peut pas se fier au prologue du document, donc on essaie
-  /// l'UTF-8 en premier (repli sur latin1 si le contenu n'est pas de l'UTF-8
-  /// valide — typiquement un JSON déjà échappé en latin1 par le panel).
-  static dynamic _decodeJsonPayload(Response<dynamic> response) {
-    final dynamic data = response.data;
-    if (data is! List<int>) return data;
-
-    // Tentative UTF-8 : si elle réussit, c'est de l'UTF-8.
-    try {
-      return jsonDecode(utf8.decode(data));
-    } catch (_) {
-      // Ignoré : on tente latin1 ci-dessous.
-    }
-    try {
-      return jsonDecode(latin1.decode(data));
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Décode le corps XMLTV en respectant l'encodage réellement déclaré.
-  ///
-  /// Priorité : la déclaration `encoding="…"` du prologue XML, puis l'en-tête
-  /// HTTP de la réponse, puis UTF-8. On retombe sur latin1 seulement si le
-  /// décodage strict UTF-8 échoue, ce qui couvre les vieux dumps CP1252.
-  static String _decodeXmltvPayload(Response<dynamic> response) {
-    final dynamic data = response.data;
-    final List<int> bytes;
-    if (data is List<int>) {
-      bytes = data;
-    } else if (data is String) {
-      // Dio a déjà décodé : on ne peut plus rattraper l'encodage, on réencode
-      // en UTF-8 pour uniformiser la suite du traitement.
-      return data;
-    } else {
-      return data?.toString() ?? '';
-    }
-
-    // 1. Déclaration XML du prologue (les 4 premiers Ko suffisent).
-    final head = latin1.decode(bytes.take(4096).toList(), allowInvalid: true);
-    final match = RegExp(
-      "encoding\\s*=\\s*['\"]([A-Za-z0-9_.\\-]+)['\"]",
-      caseSensitive: false,
-    ).firstMatch(head);
-    final declared = match?.group(1)?.toLowerCase();
-
-    // 2. En-tête HTTP.
-    final header = response.headers.value('content-type')?.toLowerCase() ?? '';
-    final headerCharset =
-        RegExp('charset=([A-Za-z0-9_.\\-]+)').firstMatch(header)?.group(1);
-
-    final candidates = <String>[
-      if (declared != null) declared,
-      if (headerCharset != null) headerCharset,
-      'utf-8',
-      'iso-8859-1',
-    ];
-
-    for (final charset in candidates) {
-      final decoded = _decodeCharset(bytes, charset);
-      if (decoded != null) return decoded;
-    }
-    // `iso-8859-1` ne lève jamais : cette ligne est donc inatteignable en
-    // pratique, mais garantit un String non-null.
-    return latin1.decode(bytes, allowInvalid: true);
-  }
-
-  /// Décode [bytes] avec [charset]. Retourne null si l'encodage est inconnu ou
-  /// si le décodage strict échoue (ce qui permet d'essayer le suivant).
-  static String? _decodeCharset(List<int> bytes, String charset) {
-    final name = charset.toLowerCase().trim();
-    try {
-      if (name == 'utf-8' || name == 'utf8') {
-        return utf8.decode(bytes);
-      }
-      if (name == 'iso-8859-1' ||
-          name == 'latin1' ||
-          name == 'iso8859-1' ||
-          name == 'windows-1252' ||
-          name == 'cp1252') {
-        return latin1.decode(bytes, allowInvalid: true);
-      }
-    } catch (_) {
-      return null;
-    }
-    return null;
-  }
+  @visibleForTesting
+  Future<List<EPGProgram>> fetchXmltvForTest(String url) =>
+      _xmltvService.fetch(url);
 
   static String _trimBaseUrl(String baseUrl) {
     return XtreamUrlBuilder.trimBaseUrl(baseUrl);
@@ -2474,26 +684,12 @@ class ApiService {
     return M3uPlaylistParser.parse(content).channels;
   }
 
-  Future<M3uPlaylist> fetchM3uPlaylist(String url) async {
-    final stopwatch = Stopwatch()..start();
-    logDiag('M3U playlist=fetch-start');
-    final response = await _get(url);
-    final content = response.data.toString();
-    logDiag(
-      'M3U playlist=downloaded chars=${content.length} '
-      'durationMs=${stopwatch.elapsedMilliseconds}',
-    );
-    final parseStopwatch = Stopwatch()..start();
-    final playlist = M3uPlaylistParser.parse(content);
-    logDiag(
-      'M3U playlist=parsed channels=${playlist.channels.length} '
-      'radios=${playlist.radios.length} '
-      'movies=${playlist.movies.length} series=${playlist.series.length} '
-      'durationMs=${parseStopwatch.elapsedMilliseconds} '
-      'totalMs=${stopwatch.elapsedMilliseconds}',
-    );
-    return playlist;
-  }
+  final ConditionalPlaylistCache _playlistCache;
+  late final PlaylistFetchService _playlistFetchService =
+      PlaylistFetchService(cache: _playlistCache, get: _get);
+
+  Future<M3uPlaylist> fetchM3uPlaylist(String url) =>
+      _playlistFetchService.fetch(url);
 
   // ---------- Parseur XMLTV basique (mono-passe, sans DOM) ----------
   List<EPGProgram> parseXmltv(String content) => EpgStreamParser.parse(content);

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 
 /// Sous-fenêtre de configuration des moteurs de lecture par type de contenu
 /// (Live, VOD, Séries, Replays), façon XCIPTV : une ligne par élément.
@@ -40,10 +42,14 @@ class _PlayerEngineConfigSheetState
   final _cancelFocus = FocusNode();
   final _saveFocus = FocusNode();
   final _vodSubtitleFocus = FocusNode();
+  final _decoderFocus = FocusNode();
+  final _scrollController = ScrollController();
   final Map<PlaybackContentType, FocusNode> _primaryFocusNodes = {};
   final Map<PlaybackContentType, FocusNode> _fallbackFocusNodes = {};
 
   late VodSubtitleMode _vodSubtitleModeDraft;
+  VideoDecoderMode _decoderModeDraft = VideoDecoderMode.auto;
+  bool _decoderLoaded = false;
 
   @override
   void dispose() {
@@ -51,6 +57,8 @@ class _PlayerEngineConfigSheetState
     _cancelFocus.dispose();
     _saveFocus.dispose();
     _vodSubtitleFocus.dispose();
+    _decoderFocus.dispose();
+    _scrollController.dispose();
     for (final node in _primaryFocusNodes.values) {
       node.dispose();
     }
@@ -68,6 +76,13 @@ class _PlayerEngineConfigSheetState
       for (final t in PlaybackContentType.values) t: s.configFor(t),
     };
     _vodSubtitleModeDraft = s.vodSubtitleMode;
+    VideoDecoderPrefs.ensureLoaded().then((_) {
+      if (!mounted) return;
+      setState(() {
+        _decoderModeDraft = VideoDecoderPrefs.mode;
+        _decoderLoaded = true;
+      });
+    });
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _requestFocus(_closeFocus));
     // Initialize focus nodes for each content type
@@ -94,18 +109,33 @@ class _PlayerEngineConfigSheetState
   }
 
   Future<void> _save() async {
+    if (!_decoderLoaded) return;
     final n = ref.read(advancedSettingsProvider.notifier);
     for (final entry in _draft.entries) {
       await n.setPlayerPrimary(entry.key, entry.value.primary);
       await n.setPlayerFallback(entry.key, entry.value.fallback);
     }
     await n.setVodSubtitleMode(_vodSubtitleModeDraft);
+    if (_decoderModeDraft != VideoDecoderPrefs.mode) {
+      await VideoDecoderPrefs.setMode(_decoderModeDraft);
+      PlayerProfileService.invalidate();
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
   void _requestFocus(FocusNode focus) {
     if (mounted) {
       FocusScope.of(context).requestFocus(focus);
+      if ((focus == _primaryFocusNodes[PlaybackContentType.live] ||
+              focus == _fallbackFocusNodes[PlaybackContentType.live]) &&
+          _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.minScrollExtent);
+        return;
+      }
+      final target = focus.context;
+      if (target != null) {
+        Scrollable.ensureVisible(target);
+      }
     }
   }
 
@@ -121,13 +151,15 @@ class _PlayerEngineConfigSheetState
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
               event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.gameButtonA ||
-              event.logicalKey == LogicalKeyboardKey.arrowDown) {
-            // Let the dropdown handle opening, then move to next
+              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
             return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            _requestFocus(nextFocusNode);
+            return KeyEventResult.handled;
           }
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
             _requestFocus(nextFocusNode);
@@ -159,24 +191,27 @@ class _PlayerEngineConfigSheetState
     );
   }
 
-  Widget _buildTvSubtitleDropdownButton({
+  Widget _buildTvSubtitleDropdownButton<T>({
     required FocusNode focusNode,
     required FocusNode nextFocusNode,
     required FocusNode prevFocusNode,
-    required VodSubtitleMode value,
-    required ValueChanged<VodSubtitleMode> onChanged,
-    required List<DropdownMenuItem<VodSubtitleMode>> items,
+    required T value,
+    required ValueChanged<T> onChanged,
+    required List<DropdownMenuItem<T>> items,
   }) {
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
+        if (event is KeyDownEvent || event is KeyRepeatEvent) {
           if (event.logicalKey == LogicalKeyboardKey.enter ||
               event.logicalKey == LogicalKeyboardKey.select ||
-              event.logicalKey == LogicalKeyboardKey.gameButtonA ||
-              event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              event.logicalKey == LogicalKeyboardKey.gameButtonA) {
             return KeyEventResult.ignored;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            _requestFocus(nextFocusNode);
+            return KeyEventResult.handled;
           }
           if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
             _requestFocus(nextFocusNode);
@@ -191,7 +226,7 @@ class _PlayerEngineConfigSheetState
         return KeyEventResult.ignored;
       },
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<VodSubtitleMode>(
+        child: DropdownButton<T>(
           value: value,
           isDense: true,
           focusNode: focusNode,
@@ -291,86 +326,128 @@ class _PlayerEngineConfigSheetState
                 ),
               ),
               Flexible(
-                child: ListView(
-                  shrinkWrap: true,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
-                      child: Text(
-                        'Choisissez le moteur utilisé pour chaque type de '
-                        'contenu, ainsi que le moteur de secours en cas '
-                        'd\'échec de lecture.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurfaceVariant,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                        child: Text(
+                          'Choisissez le moteur utilisé pour chaque type de '
+                          'contenu, ainsi que le moteur de secours en cas '
+                          'd\'échec de lecture.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                    for (final type in PlaybackContentType.values)
-                      _TypeSection(
-                        type: type,
-                        config: _draft[type]!,
-                        onPrimary: (e) => _setPrimary(type, e),
-                        onFallback: (e) => _setFallback(type, e),
-                        primaryFocusNode: _primaryFocusNodes[type]!,
-                        fallbackFocusNode: _fallbackFocusNodes[type]!,
-                        dropdownItems: dropdownItems,
-                        buildTvDropdown: _buildTvDropdownButton,
-                        vodSubtitleMode: type == PlaybackContentType.vod
-                            ? _vodSubtitleModeDraft
-                            : null,
-                        onVodSubtitleMode: type == PlaybackContentType.vod
-                            ? _setVodSubtitleMode
-                            : null,
-                        vodSubtitleFocusNode: _vodSubtitleFocus,
-                        buildTvSubtitleDropdown: _buildTvSubtitleDropdownButton,
-                        getNextVodSubtitleFocus: () =>
-                            _primaryFocusNodes[PlaybackContentType.series]!,
-                        getPrevVodSubtitleFocus: () =>
-                            _fallbackFocusNodes[PlaybackContentType.vod]!,
-                        getNextPrimaryFocus: (currentType) {
-                          final types = PlaybackContentType.values;
-                          final idx = types.indexOf(currentType);
-                          if (idx + 1 < types.length) {
-                            return _primaryFocusNodes[types[idx + 1]]!;
-                          }
-                          return _cancelFocus; // After last primary, go to cancel
-                        },
-                        getPrevPrimaryFocus: (currentType) {
-                          if (currentType == PlaybackContentType.series) {
-                            return _vodSubtitleFocus;
-                          }
-                          final types = PlaybackContentType.values;
-                          final idx = types.indexOf(currentType);
-                          if (idx > 0) {
-                            return _fallbackFocusNodes[types[idx - 1]]!;
-                          }
-                          return _closeFocus; // Before first primary, go to close
-                        },
-                        getNextFallbackFocus: (currentType) {
-                          if (currentType == PlaybackContentType.vod) {
-                            return _vodSubtitleFocus;
-                          }
-                          final types = PlaybackContentType.values;
-                          final idx = types.indexOf(currentType);
-                          if (idx + 1 < types.length) {
-                            return _primaryFocusNodes[types[idx + 1]]!;
-                          }
-                          return _cancelFocus; // After last fallback, go to cancel
-                        },
-                        getPrevFallbackFocus: (currentType) {
-                          final types = PlaybackContentType.values;
-                          final idx = types.indexOf(currentType);
-                          if (idx > 0) {
-                            return _primaryFocusNodes[
-                                types[idx]]!; // Same type's primary
-                          }
-                          return _closeFocus;
-                        },
+                      for (final type in PlaybackContentType.values)
+                        _TypeSection(
+                          type: type,
+                          config: _draft[type]!,
+                          onPrimary: (e) => _setPrimary(type, e),
+                          onFallback: (e) => _setFallback(type, e),
+                          primaryFocusNode: _primaryFocusNodes[type]!,
+                          fallbackFocusNode: _fallbackFocusNodes[type]!,
+                          dropdownItems: dropdownItems,
+                          buildTvDropdown: _buildTvDropdownButton,
+                          vodSubtitleMode: type == PlaybackContentType.vod
+                              ? _vodSubtitleModeDraft
+                              : null,
+                          onVodSubtitleMode: type == PlaybackContentType.vod
+                              ? _setVodSubtitleMode
+                              : null,
+                          vodSubtitleFocusNode: _vodSubtitleFocus,
+                          buildTvSubtitleDropdown:
+                              _buildTvSubtitleDropdownButton,
+                          getNextVodSubtitleFocus: () =>
+                              _primaryFocusNodes[PlaybackContentType.series]!,
+                          getPrevVodSubtitleFocus: () =>
+                              _fallbackFocusNodes[PlaybackContentType.vod]!,
+                          getNextPrimaryFocus: (currentType) {
+                            return _fallbackFocusNodes[currentType]!;
+                          },
+                          getPrevPrimaryFocus: (currentType) {
+                            if (currentType == PlaybackContentType.series) {
+                              return _vodSubtitleFocus;
+                            }
+                            final types = PlaybackContentType.values;
+                            final idx = types.indexOf(currentType);
+                            if (idx > 0) {
+                              return _fallbackFocusNodes[types[idx - 1]]!;
+                            }
+                            return _closeFocus; // Before first primary, go to close
+                          },
+                          getNextFallbackFocus: (currentType) {
+                            if (currentType == PlaybackContentType.vod) {
+                              return _vodSubtitleFocus;
+                            }
+                            final types = PlaybackContentType.values;
+                            final idx = types.indexOf(currentType);
+                            if (idx + 1 < types.length) {
+                              return _primaryFocusNodes[types[idx + 1]]!;
+                            }
+                            return _decoderFocus;
+                          },
+                          getPrevFallbackFocus: (currentType) {
+                            return _primaryFocusNodes[currentType]!;
+                          },
+                        ),
+                      AppCard(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        borderRadius:
+                            BorderRadius.circular(AppConstants.radiusLg),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.memory_outlined, size: 18),
+                            const SizedBox(width: 10),
+                            const Expanded(child: Text('Décodage vidéo')),
+                            _buildTvSubtitleDropdownButton<VideoDecoderMode>(
+                              focusNode: _decoderFocus,
+                              nextFocusNode: _cancelFocus,
+                              prevFocusNode: _fallbackFocusNodes[
+                                  PlaybackContentType.replay]!,
+                              value: _decoderModeDraft,
+                              onChanged: (mode) {
+                                if (_decoderLoaded) {
+                                  setState(() => _decoderModeDraft = mode);
+                                }
+                              },
+                              items: const [
+                                DropdownMenuItem(
+                                    value: VideoDecoderMode.auto,
+                                    child: Text('Auto (recommandé)')),
+                                DropdownMenuItem(
+                                    value: VideoDecoderMode.hardware,
+                                    child: Text('Matériel')),
+                                DropdownMenuItem(
+                                    value: VideoDecoderMode.software,
+                                    child: Text('Logiciel')),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    const SizedBox(height: 8),
-                  ],
+                      if (_decoderLoaded &&
+                          _decoderModeDraft == VideoDecoderMode.auto &&
+                          VideoDecoderPrefs.learnedSoftware)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+                          child: Text(
+                            'Auto : logiciel retenu pour cet appareil',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -393,10 +470,7 @@ class _PlayerEngineConfigSheetState
                           if (event is KeyDownEvent &&
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
-                            // Go to last fallback (Replay)
-                            _requestFocus(
-                              _fallbackFocusNodes[PlaybackContentType.replay]!,
-                            );
+                            _requestFocus(_decoderFocus);
                             return KeyEventResult.handled;
                           }
                           if (event is KeyDownEvent &&
@@ -437,9 +511,7 @@ class _PlayerEngineConfigSheetState
                           if (event is KeyDownEvent &&
                               (event.logicalKey ==
                                   LogicalKeyboardKey.arrowUp)) {
-                            _requestFocus(
-                              _fallbackFocusNodes[PlaybackContentType.replay]!,
-                            );
+                            _requestFocus(_decoderFocus);
                             return KeyEventResult.handled;
                           }
                           return KeyEventResult.ignored;

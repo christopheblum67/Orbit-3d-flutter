@@ -9,6 +9,7 @@ class MainActivity : FlutterActivity() {
         AppLogChannel.register(flutterEngine, this)
         NightFocusChannel.register(flutterEngine, this)
         PlayerConfigChannel.register(flutterEngine, this)
+        ExternalPlayerChannel.register(flutterEngine, this)
         HardwareChannel.register(flutterEngine, this)
         PipChannel.register(flutterEngine, this)
         PlaybackServiceChannel.register(flutterEngine, this)

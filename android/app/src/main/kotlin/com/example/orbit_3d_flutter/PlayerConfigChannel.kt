@@ -35,6 +35,8 @@ object PlayerConfigChannel {
                         ?: OrbitPlayerConfig.maxVideoWidth
                     OrbitPlayerConfig.maxVideoHeight = (args["maxVideoHeight"] as? Number)?.toInt()
                         ?: OrbitPlayerConfig.maxVideoHeight
+                    OrbitPlayerConfig.decoderMode = (args["decoderMode"] as? Number)?.toInt()
+                        ?: OrbitPlayerConfig.decoderMode
                     result.success(true)
                 }
                 else -> result.notImplemented()

@@ -140,6 +140,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       _dbSignature = signature;
       _pager?.invalidate();
       final pager = CatalogPager<Movie>(
+        diagnosticKind: 'vod',
         fetch: (limit, offset) => CatalogDb.instance.queryMovies(
           subKey,
           filter: filter,
@@ -355,7 +356,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ref.watch(vodCategoryFilterProvider).hiddenVodCategoryIds;
     final enrichments = ref.watch(vodGridEnrichmentsProvider).value ?? const {};
     final dbSort = _dbSortFor(_selectedSortMode);
-    final dbKey = ref.watch(catalogDbKeyProvider(CatalogKind.vod)).value;
+    final dbKeyAsync = ref.watch(catalogDbKeyProvider(CatalogKind.vod));
+    final dbKey = dbKeyAsync.value;
     if (dbKey != null && dbSort != null) {
       final vodFavIds = favoriteEntries.values
           .where((e) => e.type == ContentType.vod)
@@ -392,8 +394,12 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           enrichments,
           affinity,
           scrollController: _dbScroll,
+          listLoading: !(_pager?.loaded ?? false),
         ),
       );
+    }
+    if (dbKeyAsync.isLoading && !dbKeyAsync.hasValue) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     _pager?.invalidate();
     _pager = null;
@@ -478,6 +484,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     Map<String, TmdbRankEntry> enrichments,
     ProfileAffinityScorer? affinity, {
     ScrollController? scrollController,
+    bool listLoading = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -485,6 +492,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         CategoriesRail(
           categories: railCategories,
           selectedId: _selectedCategoryId,
+          focusSelectedOnMount: ref.read(tvModeNotifierProvider).enabled,
           onSelected: (id) => setState(() => _selectedCategoryId = id),
         ),
         Expanded(
@@ -522,7 +530,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 ),
               ),
               Expanded(
-                child: visibleMovies.isEmpty
+                child: visibleMovies.isEmpty && listLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : visibleMovies.isEmpty
                     ? EmptyState(
                         icon: Icons.movie_outlined,
                         title: _selectedCategoryId == 'fav'
@@ -542,6 +552,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                       )
                     : GridView.builder(
                         controller: scrollController,
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(900),
                         padding:
                             const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         gridDelegate: mediaCardGridDelegate(
@@ -646,6 +657,7 @@ class _VodTile extends ConsumerWidget {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
+        ratingAboveAffinity: true,
         title: movie.title,
         posterUrl: movie.posterUrl.isNotEmpty
             ? movie.posterUrl

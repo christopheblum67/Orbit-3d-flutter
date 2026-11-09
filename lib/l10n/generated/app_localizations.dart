@@ -1438,6 +1438,60 @@ abstract class AppLocalizations {
   /// **'Réessayer'**
   String get retry;
 
+  /// No description provided for @tmdbMovieRecommendations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recommandations TMDB'**
+  String get tmdbMovieRecommendations;
+
+  /// No description provided for @tmdbRecommendationsEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune recommandation TMDB pour ce film.'**
+  String get tmdbRecommendationsEmpty;
+
+  /// No description provided for @tmdbRecommendationsError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les recommandations TMDB.'**
+  String get tmdbRecommendationsError;
+
+  /// No description provided for @tmdbRecommendationsUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recommandations TMDB indisponibles pour ce film.'**
+  String get tmdbRecommendationsUnavailable;
+
+  /// No description provided for @playbackDelayedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'La lecture prend du temps'**
+  String get playbackDelayedTitle;
+
+  /// No description provided for @playbackDelayedMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'La lecture ne démarre pas ou ne reprend pas pour le moment. Le flux, la connexion ou le format vidéo peuvent être en cause.'**
+  String get playbackDelayedMessage;
+
+  /// No description provided for @playbackContinueWaiting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Continuer à attendre'**
+  String get playbackContinueWaiting;
+
+  /// No description provided for @playbackUnavailableTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture indisponible'**
+  String get playbackUnavailableTitle;
+
+  /// No description provided for @playbackUnavailableMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lancer ce film ou cet épisode pour le moment. Réessaie ou vérifie la connexion et le format du fichier.'**
+  String get playbackUnavailableMessage;
+
   /// No description provided for @retrySearch.
   ///
   /// In fr, this message translates to:

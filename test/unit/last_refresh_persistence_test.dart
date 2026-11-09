@@ -81,5 +81,26 @@ void main() {
       expect(await loadLastRefresh(), isNull,
           reason: 'une préférence corrompue ne doit pas casser le lancement',);
     });
+
+    test('les horodatages sont isolés par abonnement', () async {
+      final a = DateTime(2026, 3, 14, 15);
+      final b = DateTime(2026, 3, 14, 16);
+      await persistLastRefresh(a, subscriptionId: 'premier');
+      await persistLastRefresh(b, subscriptionId: 'second');
+      await persistLastRefresh(DateTime(2026, 3, 14, 17));
+
+      expect(await loadLastRefresh(subscriptionId: 'premier'), a);
+      expect(await loadLastRefresh(subscriptionId: 'second'), b);
+      expect(await loadLastRefresh(subscriptionId: 'autre'), isNull);
+    });
+  });
+
+  test('une tentative au démarrage ne supprime qu’un seul contrôle accueil', () {
+    final container = _container();
+    final attempt = container.read(startupRefreshAttemptProvider.notifier);
+    expect(attempt.consume(), isFalse);
+    attempt.markCompleted();
+    expect(attempt.consume(), isTrue);
+    expect(attempt.consume(), isFalse);
   });
 }

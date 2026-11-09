@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,8 +52,34 @@ SubtitleOnlineErrorKind classifySubtitleOnlineError(String text) {
 Future<void> showStreamDetailsSheet(
   BuildContext context,
   VideoPlayerController controller,
-  String mediaKey,
-) {
+  String mediaKey, {
+  bool isLive = false,
+}) {
+  if (isLive) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => LayoutBuilder(
+        builder: (context, constraints) => Dialog(
+          insetPadding: const EdgeInsets.all(12),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: math.max(0, constraints.maxHeight - 24),
+            ),
+            child: SizedBox(
+              key: const ValueKey('live-stream-details-panel'),
+              width: math.min(820, math.max(0, constraints.maxWidth - 24)),
+              child: StreamDetailsSheet(
+                controller: controller,
+                mediaKey: mediaKey,
+                isLive: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -68,10 +96,12 @@ class StreamDetailsSheet extends ConsumerStatefulWidget {
     super.key,
     required this.controller,
     required this.mediaKey,
+    this.isLive = false,
   });
 
   final VideoPlayerController controller;
   final String mediaKey;
+  final bool isLive;
 
   @override
   ConsumerState<StreamDetailsSheet> createState() => _StreamDetailsSheetState();
@@ -468,7 +498,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxHeight: MediaQuery.of(context).size.height *
+              (widget.isLive ? 1 : 0.8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -528,6 +559,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                           ),
                         )
                       : ListView(
+                          shrinkWrap: true,
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           children: [
                             _sectionTitle(l.audioSection),

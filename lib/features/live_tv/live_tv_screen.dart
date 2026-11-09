@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart'
+    show tvModeNotifierProvider;
+import 'package:orbit_3d_flutter/services/player_crash_guard.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_browse_view.dart';
@@ -14,6 +17,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
@@ -23,6 +27,40 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+
+class _LiveSearchIcon extends StatefulWidget {
+  const _LiveSearchIcon({required this.tooltip, required this.onPressed});
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_LiveSearchIcon> createState() => _LiveSearchIconState();
+}
+
+class _LiveSearchIconState extends State<_LiveSearchIcon> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: IconButton(
+        tooltip: widget.tooltip,
+        onPressed: widget.onPressed,
+        icon: AnimatedScale(
+          scale: _focused ? 1.25 : 1,
+          duration: const Duration(milliseconds: 140),
+          child: Icon(
+            Icons.live_tv,
+            color: _focused ? scheme.primary : scheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key});
@@ -50,6 +88,14 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// Vrai tant que le lecteur plein écran recouvre cette route : l'aperçu live
   /// reste monté dessous et doublerait sinon le flux (et le son).
   bool _playerOpen = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _search = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +124,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                 : null,
         title: Text(l.liveTv),
         actions: [
-          IconButton(
+          _LiveSearchIcon(
             tooltip: l.searchChannel,
-            icon: const Icon(Icons.live_tv),
             onPressed: () => context.push('/search?type=live'),
           ),
         ],
@@ -187,6 +232,12 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               );
             }
 
+            final query = _search.trim().toLowerCase();
+            final filteredChannels = query.isEmpty
+                ? visibleChannels
+                : visibleChannels
+                    .where((c) => c.name.toLowerCase().contains(query))
+                    .toList();
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -194,6 +245,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                   CategoriesRail(
                     categories: categoryGroups,
                     selectedId: _selectedGroup,
+                    focusSelectedOnMount:
+                        ref.read(tvModeNotifierProvider).enabled,
                     onSelected: (id) => setState(() {
                       _selectedGroup = id;
                       // Changer de catégorie referme la vue de navigation :
@@ -203,46 +256,64 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                     }),
                   ),
                 Expanded(
-                  child: visibleChannels.isEmpty
-                      ? EmptyState(
-                          icon: Icons.live_tv_outlined,
-                          title: _selectedGroup == 'fav'
-                              ? 'Aucune chaîne favorite'
-                              : _selectedGroup == 'recent'
-                                  ? 'Aucune chaîne récente'
-                                  : 'Aucune chaîne dans ce groupe',
-                          message: _selectedGroup == 'fav'
-                              ? 'Appuie sur le cœur d\'une chaîne pour la '
-                                  'retrouver ici.'
-                              : _selectedGroup == 'recent'
-                                  ? 'Les chaînes regardées s\'afficheront ici.'
-                                  : 'Ce groupe ne contient aucune chaîne.',
-                        )
-                      : GridView.builder(
-                          padding: channelGridPadding,
-                          // Delegate partagé avec le Replay : même tuile, même
-                          // taille sur les deux écrans.
-                          gridDelegate: channelGridDelegate,
-                          itemCount: visibleChannels.length,
-                          itemBuilder: (context, index) {
-                            final channel = visibleChannels[index];
-                            return ChannelGridCard(
-                              name: channel.name,
-                              logoUrl: channel.logoUrl,
-                              badgeNumber: channel.orderNum,
-                              favoriteEntry: FavoriteEntry(
-                                type: ContentType.live,
-                                id: channel.id,
-                                title: channel.name,
-                                posterUrl: channel.logoUrl,
-                                subtitle: channel.groupLabel,
-                                streamUrl: channel.streamUrl,
-                              ),
-                              onTap: () => _openChannel(channel),
-                              onFocus: () => unawaited(_prewarm(channel)),
-                            );
-                          },
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                        child: DpadSearchField(
+                          controller: _searchController,
+                          hint: l.searchChannel,
+                          onChanged: (value) => setState(() => _search = value),
                         ),
+                      ),
+                      Expanded(
+                        child: filteredChannels.isEmpty
+                            ? EmptyState(
+                                icon: Icons.live_tv_outlined,
+                                title: query.isNotEmpty
+                                    ? 'Aucune chaîne trouvée'
+                                    : _selectedGroup == 'fav'
+                                        ? 'Aucune chaîne favorite'
+                                        : _selectedGroup == 'recent'
+                                            ? 'Aucune chaîne récente'
+                                            : 'Aucune chaîne dans ce groupe',
+                                message: query.isNotEmpty
+                                    ? 'Essaie un autre terme de recherche.'
+                                    : _selectedGroup == 'fav'
+                                        ? 'Appuie sur le cœur d\'une chaîne pour la '
+                                            'retrouver ici.'
+                                        : _selectedGroup == 'recent'
+                                            ? 'Les chaînes regardées s\'afficheront ici.'
+                                            : 'Ce groupe ne contient aucune chaîne.',
+                              )
+                            : GridView.builder(
+                                padding: channelGridPadding,
+                                // Delegate partagé avec le Replay : même tuile, même
+                                // taille sur les deux écrans.
+                                gridDelegate: channelGridDelegate,
+                                itemCount: filteredChannels.length,
+                                itemBuilder: (context, index) {
+                                  final channel = filteredChannels[index];
+                                  return ChannelGridCard(
+                                    name: channel.name,
+                                    logoUrl: channel.logoUrl,
+                                    badgeNumber: channel.orderNum,
+                                    favoriteEntry: FavoriteEntry(
+                                      type: ContentType.live,
+                                      id: channel.id,
+                                      title: channel.name,
+                                      posterUrl: channel.logoUrl,
+                                      subtitle: channel.groupLabel,
+                                      streamUrl: channel.streamUrl,
+                                    ),
+                                    onTap: () => _openChannel(channel),
+                                    onFocus: () => unawaited(_prewarm(channel)),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -255,7 +326,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             icon: Icons.live_tv_outlined,
             title: l.channelsUnavailable,
             message: userFriendlyError(err),
-            onRetry: () => ref.invalidate(liveChannelsProvider),
+            onRetry: () => ref.invalidate(liveChannelsAllProvider),
           ),
         ),
       ),
@@ -337,6 +408,11 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   /// la première chaîne regardée après un démarrage d'application ignorait le
   /// profil de l'appareil.
   Future<void> _prewarm(Channel channel) async {
+    // Sur TV, un lecteur préchauffé = un second décodeur matériel + un flux
+    // ouvert ; c'est ce qui sature le décodeur Realtek et la mémoire.
+    if (ref.read(tvModeNotifierProvider).enabled || PlayerCrashGuard.safeMode) {
+      return;
+    }
     try {
       await PlayerProfileService.pushForDevice(
         ref.read(deviceProfileProvider),

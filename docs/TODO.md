@@ -56,7 +56,78 @@
 
 ## 3. Chantiers en cours (issus du plan précédent)
 
+- [x] **Découpage des points d'entrée** : `ApiService` délègue désormais les
+      catalogues, caches HTTP, détails des films et séries, sous-titres, EPG,
+      replays et transport à des services. Le portillon réseau reste partagé et
+      la façade conserve la résolution d'abonnement et le regroupement des
+      requêtes. Les caches EPG/replay sont séparés des providers et les
+      composants visuels de la barre et de la vidéo, la progression, les délais
+      après refus réseau, les paramètres de route et la réapplication des pistes
+      audio mémorisées, des préférences et du balayage des sous-titres sont
+      extraits du lecteur. Les règles des touches de télécommande sont aussi
+      isolées, tandis que leurs actions et le cycle de vie restent dans l'écran.
+      La préparation et l'écriture de l'historique sont isolées ; les erreurs
+      asynchrones des deux écritures sont signalées indépendamment.
+      La sélection de la chaîne à précharger est isolée : elle exige une
+      lecture initialisée et active, une URL valide et aucune sonde en double ;
+      les protections TV et mode sûr restent dans l'écran.
+      La classification des erreurs et la décision de reprise du lecteur sont
+      isolées : un challenge fournisseur interrompt les reprises, et le secours
+      externe reste réservé aux erreurs de décodeur après deux essais. La carte
+      d'erreur défile sur les écrans de faible hauteur et conserve la navigation
+      à la télécommande.
+      Un nouveau lecteur peut lancer sa sonde sans attendre
+      la réponse périmée de l'ancien.
+      L'interprétation du guide Xtream et la transformation des programmes en
+      replays sont séparées du service réseau, en conservant les différences
+      d'ordre et de déduplication entre guide complet et guide court.
+      La politique de relance des catalogues est isolée : trois tentatives
+      supplémentaires au maximum, aucune en cas de limitation 429.
+      L'état et la persistance du rafraîchissement sont séparés et réexportés,
+      sans changer leur partage ni l'isolation des dates par abonnement.
+      Les providers de recherche et de suggestions sont regroupés et réexportés,
+      avec leurs filtres de catégories et leurs durées de vie inchangés.
+      Les providers replay sont séparés ; une génération protège le cache par
+      chaîne des réponses arrivant après un changement d'abonnement.
+      Les providers de téléchargement sont isolés : le flux reste `autoDispose`
+      et le gestionnaire singleton survit à la fermeture de l'écran.
+      Les providers d'enrichissement des grilles et fiches sont regroupés et
+      réexportés : quota de 30 recherches par passage, durée de vie des fiches
+      et traitement particulier des séries M3U conservés.
+      Les providers de métadonnées et de sous-titres ainsi que le budget EPG
+      sont séparés et réexportés pour conserver les imports existants. La
+      résolution EPG par chaîne est isolée : cache court, guide global et repli
+      borné. Le tri de la grille copie le cache immuable avant de le trier.
+      Le provider de rattrapage est isolé et réexporté : fenêtre d'archive par
+      chaîne, cache court partagé et traitement des requêtes en cours conservés.
+      Les providers EPG sont regroupés et réexportés ; le portillon unique des
+      aperçus, le budget de repli partagé et l'absence de requête courte Xtream
+      pour les playlists M3U sont conservés.
+      Les providers de catalogue et les services applicatifs sont regroupés
+      dans des modules dédiés ; la façade historique conserve les mêmes objets.
+      Les routes et le widget racine sont isolés de `main.dart`, qui conserve
+      leurs réexports ; la route initiale et l'observateur d'analytics restent
+      inchangés. Le lancement externe et l'affichage des erreurs du lecteur
+      sont séparés de son orchestration.
+      La composition de la barre de commandes est séparée pour les quatre
+      types de lecture ; focus, minuteurs et actions restent dans l'écran.
+      La sélection de l'overlay de sous-titres est isolée : les pistes
+      intégrées restent prioritaires et les pistes externes suivent la position.
+      Le cache des lecteurs adjacents est isolé ; lors de zappings rapides,
+      la pause en cours est aussi attendue par les bascules suivantes, et un
+      préchargement périmé est libéré sans remplacer le lecteur actif.
+      La gestion des tentatives de préchargement et de leur annulation est
+      isolée : un résultat tardif ne peut ni remplacer le cache courant ni
+      effacer une nouvelle tentative. Les règles TV et mode sûr restent dans
+      l'écran.
+      Le cycle de vie du lecteur actif, le zapping et leurs gardes de génération
+      restent volontairement regroupés dans l'écran, qui demeure propriétaire
+      des contrôleurs et coordonne leur libération et leur remplacement.
+      Ce choix évite de répartir entre plusieurs propriétaires les opérations
+      asynchrones sensibles ; les autres écrans volumineux ne font pas partie
+      de ce chantier des points d'entrée.
 - [x] **P1 — Rafraîchissement à la demande** (`RefreshStepsController` / `RefreshProgressView` / `showRefreshProgress`) : implémenté — **reste à valider sur device** (démarrage périmé + changement d'abonnement).
+      Le garde-fou de 30 minutes est partagé entre l'accueil et le démarrage, avec un horodatage distinct par abonnement. Lors d'un démarrage récent, le choix du profil s'ouvre sans écran de rafraîchissement ; les catalogues non chargés restent disponibles à la demande. L'ancien horodatage global n'est pas attribué automatiquement à un abonnement : un premier chargement peut donc encore être nécessaire après mise à jour. La validation sur la TV reste à faire.
 - [x] **P3 — Sous-titres intégrés** : cause racine confirmée — `subtitleControllerProvider` était **non autoDispose** ⇒ contrôleur app-scoped, `_activeTrack` contaminait le contenu suivant. Restreint (décision utilisateur) à la **réinitialisation de `_activeTrack` entre deux contenus** : `SubtitleController.resetForNewContent()` appelé à l'init de la `PlayerScreen` et dans `_switchTo` (zapping). Test fails-first dans `embedded_subtitle_controller_test.dart` (16 verts).
 - ~~[ ] **P4b — Réserve de cache froid**~~ — **Abandonné (décision utilisateur, 13/10)** : jamais défini nulle part (pas de cahier des charges), aucun livrable attendu.
 - [x] **P6 — Hive `json_retyping`** : défaut de retypage des maps relues après `Hive.close()` + réouverture. `deepRetypeMap` appliqué aux lectures de `StorageService` (`getProfiles`/`getPreferences`) et au cache OMDB. Test fails-first : `storage_service_retyping_test.dart` (round-trip Hive close/réouverture, 11 verts).
@@ -65,7 +136,8 @@
 
 - [x] **S1** — Migration `flutter_secure_storage` — **COMPLÈTE (décision utilisateur : tout migrer)** : abstraction `SecretStore` (Keystore RSA OAEP + AES-GCM, `InMemorySecretStore` pour tests injecté via `test/flutter_test_config.dart`). Cinq familles migrées : ① PIN parental (Hive → coffre, `_migrateLegacySecrets`), ② mot de passe OpenSubtitles (prefs → coffre, l'identifiant — non sensible — reste en prefs), ③ clé API OpenSubtitles (prefs → coffre, sanitise conservé), ④ override clé API TMDB (prefs → coffre), ⑤ **mot de passe Xtream des abonnements (Hive → coffre, keyé par id)** : cache mémoire pour les lecteurs synchrones (`getActiveSubscriptionSync`), hydratation aux lectures, nettoyage à la suppression, migration au premier `init()`. Tests : `parental_pin_migration_test`, `subscription_password_migration_test`, stores adaptés + tests de migration legacy. Suite complète : **861 verts**, `dart analyze` 0.
 - [x] **S2** — Signature release + `proguard-rules.pro` (+ règles R8 si sérialisation impactée) : keystore neuf PKCS12 `upload-keystore.jks` + `key.properties` gitignorés, `signingConfigs.release`, règles keep media3/videoplayer, `minifyEnabled`/`shrinkResources` actifs. **Build release validé (13/10)** : `√ Built build\app\outputs\flutter-apk\app-release.apk (71,4 Mo)`, installé sur le S20 sans crash R8.
-- [x] **armeabi-v7a** — **Décision prise (13/10)** : conserver tel quel (arm64-v8a + x86_64).
+- [x] **armeabi-v7a** — ajouté aux architectures de l'APK release pour prendre
+      en charge la TV 32 bits, aux côtés d'arm64-v8a et x86_64.
 
 ## 5. Hygiène dépôt
 

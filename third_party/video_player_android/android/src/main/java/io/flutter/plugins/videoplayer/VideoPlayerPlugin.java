@@ -20,6 +20,7 @@ import io.flutter.plugins.videoplayer.Messages.AndroidVideoPlayerApi;
 import io.flutter.plugins.videoplayer.Messages.CreateMessage;
 import io.flutter.view.TextureRegistry;
 import java.util.Map;
+import java.util.HashMap;
 
 /** Android platform implementation of the VideoPlayerPlugin. */
 public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
@@ -31,6 +32,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private final VideoPlayerOptions options = new VideoPlayerOptions();
   private final java.util.Set<Long> surfaceViewPlayers = new java.util.HashSet<>();
   private long nextSurfaceViewId = 1_000_000_000L;
+  private final PendingWidevineConfigurations pendingWidevine = new PendingWidevineConfigurations();
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
   public VideoPlayerPlugin() {}
@@ -83,6 +85,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     // be replaced with just asserting that videoPlayers.isEmpty().
     // https://github.com/flutter/flutter/issues/20989 tracks this.
     disposeAllPlayers();
+    pendingWidevine.clear();
   }
 
   @Override
@@ -92,6 +95,12 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
 
   @Override
   public @NonNull Long create(@NonNull CreateMessage arg) {
+    Map<String, String> requestHeaders = new HashMap<>(arg.getHttpHeaders());
+    WidevineMediaConfig drmConfig = pendingWidevine.take(requestHeaders);
+    if (drmConfig != null && (arg.getUri() == null
+        || !(arg.getUri().startsWith("https://") || arg.getUri().startsWith("http://")))) {
+      throw new IllegalArgumentException("Widevine requires an HTTP media URL");
+    }
     final boolean surfaceViewMode = useSurfaceView();
     final TextureRegistry.SurfaceProducer handle =
         surfaceViewMode ? null : flutterState.textureRegistry.createSurfaceProducer();
@@ -131,7 +140,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
             break;
         }
       }
-      videoAsset = VideoAsset.fromRemoteUrl(arg.getUri(), streamingFormat, arg.getHttpHeaders());
+      videoAsset = drmConfig == null
+          ? VideoAsset.fromRemoteUrl(arg.getUri(), streamingFormat, requestHeaders)
+          : VideoAsset.fromRemoteUrl(arg.getUri(), streamingFormat, requestHeaders, drmConfig);
     }
     videoPlayers.put(
         playerId,
@@ -230,6 +241,24 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   /** Dispatches the audio/video track commands from the Dart layer. */
   private void onTrackMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
     try {
+      if ("registerWidevine".equals(call.method)) {
+        String token = call.argument("token");
+        String licenseUrl = call.argument("licenseUrl");
+        Map<String, String> headers = call.argument("headers");
+        if (token == null || token.isEmpty() || licenseUrl == null || headers == null) {
+          result.error("InvalidWidevine", "Invalid Widevine configuration", null);
+          return;
+        }
+        pendingWidevine.register(token, new WidevineMediaConfig(licenseUrl, headers));
+        result.success(null);
+        return;
+      }
+      if ("discardWidevine".equals(call.method)) {
+        String token = call.argument("token");
+        if (token != null) pendingWidevine.discard(token);
+        result.success(null);
+        return;
+      }
       Number playerIdNumber = call.argument("playerId");
       if (playerIdNumber == null) {
         result.error("MissingArgument", "playerId is required.", null);

@@ -100,49 +100,62 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
   }
 
   Future<void> _run() async {
+    final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
     // Force un vrai rechargement réseau : les providers sont NON `autoDispose`,
     // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
     // cache sans aucun appel réseau (rafraîchissement factice).
     logDiag('REFRESH mode=manual providers=invalidate start');
     ApiService.bypassCatalogCache = true;
-    ref.invalidate(liveChannelsProvider);
-    ref.invalidate(moviesProvider);
-    ref.invalidate(seriesProvider);
-    ref.invalidate(radioChannelsProvider);
-    ref.invalidate(m3uPlaylistProvider);
-    ref.invalidate(replaysProvider);
-    ref.invalidate(epgProgramsProvider);
+    try {
+      ref.invalidate(liveChannelsAllProvider);
+      ref.invalidate(moviesProvider);
+      ref.invalidate(seriesProvider);
+      ref.invalidate(radioChannelsProvider);
+      ref.invalidate(m3uPlaylistProvider);
+      ref.invalidate(replaysProvider);
 
-    await _controller.run((step) async {
-      final List<dynamic> list = switch (step) {
-        StartupStep.live => await ref.read(liveChannelsProvider.future),
-        StartupStep.movies => await ref.read(moviesProvider.future),
-        StartupStep.series => await ref.read(seriesProvider.future),
-        StartupStep.radio => await ref.read(radioChannelsProvider.future),
-        StartupStep.replay => await ref.read(replaysProvider.future),
-        StartupStep.epg => await ref.read(epgProgramsProvider.future),
-        StartupStep.ai => const [],
-      };
-      logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
-      if (list.isNotEmpty) _responded++;
-    });
-    ApiService.bypassCatalogCache = false;
+      await _controller.run((step) async {
+        final List<dynamic> list = switch (step) {
+          StartupStep.live => await ref.read(liveChannelsProvider.future),
+          StartupStep.movies => await ref.read(moviesProvider.future),
+          StartupStep.series => await ref.read(seriesProvider.future),
+          StartupStep.radio => await ref.read(radioChannelsProvider.future),
+          StartupStep.replay => await ref.read(replaysProvider.future),
+          StartupStep.epg => await _refreshEpg(),
+          StartupStep.ai => const [],
+        };
+        logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
+        if (list.isNotEmpty) _responded++;
+      });
+    } finally {
+      ApiService.bypassCatalogCache = false;
+    }
 
     if (!mounted) return;
 
     // N'horodate que si au moins une source a répondu : sinon l'étiquette
     // « à jour depuis » mentirait (échec total du lot).
-    if (_responded > 0) {
-      ref.invalidate(epgDataCacheProvider);
+    if (_responded > 0 &&
+        subscriptionId != null &&
+        subscriptionId.isNotEmpty &&
+        ref.read(activeSubscriptionProvider)?.id == subscriptionId) {
       ref
           .read(lastRefreshTimestampProvider.notifier)
-          .setTimestamp(DateTime.now());
+          .setTimestamp(DateTime.now(), subscriptionId: subscriptionId);
     }
     logDiag(
       'REFRESH mode=manual complete responded=$_responded '
       'timestampUpdated=${_responded > 0}',
     );
     Navigator.of(context).pop(_responded > 0);
+  }
+
+  Future<List<dynamic>> _refreshEpg() async {
+    final cache = ref.read(epgDataCacheProvider);
+    final api = ref.read(apiServiceProvider);
+    final programs = await cache.loadFull(api, forceRefresh: true);
+    if (mounted) ref.invalidate(epgProgramsProvider);
+    return programs;
   }
 
   @override

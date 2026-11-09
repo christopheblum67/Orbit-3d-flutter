@@ -43,6 +43,7 @@ class MediaCard extends ConsumerWidget {
     this.focusable = true,
     this.showYear = true,
     this.titleFontSize,
+    this.ratingAboveAffinity = false,
   });
 
   /// Faux quand un TvFocus parent gère déjà le focus D-pad de la tuile.
@@ -57,6 +58,7 @@ class MediaCard extends ConsumerWidget {
 
   /// Taille du titre ; null = taille par défaut selon la largeur d'écran.
   final double? titleFontSize;
+  final bool ratingAboveAffinity;
 
   /// Ajustement de l'image dans la tuile.
   ///
@@ -182,6 +184,8 @@ class MediaCard extends ConsumerWidget {
                             // visibles suffisaient à dépasser les centaines
                             // de Mo sur TV.
                             memCacheWidth: posterDecodeWidth,
+                            fadeInDuration: const Duration(milliseconds: 60),
+                            fadeOutDuration: Duration.zero,
                             placeholder: (context, url) => _PosterFallback(
                               scheme: scheme,
                               icon: fallbackIcon,
@@ -220,11 +224,13 @@ class MediaCard extends ConsumerWidget {
                   if (isNew)
                     Positioned(
                       left: 8,
-                      top: 8,
+                      top: ratingAboveAffinity
+                          ? (ageLabel != null && ageLabel!.isNotEmpty ? 42 : 14)
+                          : 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ratingAboveAffinity ? 5 : 8,
+                          vertical: ratingAboveAffinity ? 2 : 4,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.redAccent,
@@ -236,7 +242,7 @@ class MediaCard extends ConsumerWidget {
                               Theme.of(context).textTheme.labelSmall?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 10,
+                                    fontSize: ratingAboveAffinity ? 7 : 10,
                                   ),
                         ),
                       ),
@@ -247,46 +253,40 @@ class MediaCard extends ConsumerWidget {
                       top: 8,
                       child: topBadge!,
                     ),
-                  if (matchPercent != null && matchPercent! > 0)
+                  if (ratingAboveAffinity &&
+                      ((matchPercent != null && matchPercent! > 0) ||
+                          rating > 0))
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (rating > 0)
+                            _RatingBadge(rating: rating),
+                          if (rating > 0 &&
+                              matchPercent != null &&
+                              matchPercent! > 0)
+                            const SizedBox(height: 4),
+                          if (matchPercent != null && matchPercent! > 0)
+                            _AffinityBadge(percent: matchPercent!),
+                        ],
+                      ),
+                    ),
+                  if (!ratingAboveAffinity &&
+                      matchPercent != null &&
+                      matchPercent! > 0)
                     Positioned(
                       left: 8,
                       bottom: 8,
                       child: _AffinityBadge(percent: matchPercent!),
                     ),
-                  if (rating > 0)
+                  if (!ratingAboveAffinity && rating > 0)
                     Positioned(
                       right: 8,
                       top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 14,
-                              color: Colors.amber,
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              rating.toStringAsFixed(1),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      child: _RatingBadge(rating: rating),
                     ),
                   if (favoriteOverlay != null)
                     Positioned(
@@ -346,6 +346,36 @@ class MediaCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RatingBadge extends StatelessWidget {
+  const _RatingBadge({required this.rating});
+
+  final double rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star, size: 14, color: Colors.amber),
+          const SizedBox(width: 3),
+          Text(
+            rating.toStringAsFixed(1),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
       ),
     );
   }

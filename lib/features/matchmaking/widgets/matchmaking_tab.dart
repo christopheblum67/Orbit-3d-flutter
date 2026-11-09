@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/matchmaking_screen.dart'
     show openRecommendation;
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/prolong_decision_sheet.dart';
@@ -292,7 +293,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         final shown = list.take(_visibleCount).toList();
         return _buildGrid(list: shown, hasMore: hasMore);
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: _loadingView,
       error: (e, _) => Center(child: Text(userFriendlyError(e))),
     );
   }
@@ -372,8 +373,45 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
         final shown = list.take(_visibleCount).toList();
         return _buildGroupGrid(list: shown, hasMore: hasMore);
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: _loadingView,
       error: (e, _) => Center(child: Text(userFriendlyError(e))),
+    );
+  }
+
+  /// Garde-fou : explique à l'utilisateur pourquoi la liste n'est pas encore là
+  /// (catalogue en cours de chargement, ou calcul des recommandations).
+  Widget _loadingView() {
+    final catalogLoading = ref.watch(moviesProvider).isLoading ||
+        ref.watch(seriesProvider).isLoading;
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            'assets/icons/orbit_loading_banner.jpg',
+            width: 270,
+            height: 90,
+            fit: BoxFit.contain,
+            semanticLabel: 'ORBIT IPTV',
+          ),
+          const SizedBox(height: 20),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(
+            catalogLoading
+                ? 'Chargement du catalogue en cours…'
+                : 'Construction de vos recommandations en cours…',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurface, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Cela peut prendre jusqu\'à 1 minute.',
+            style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+          ),
+        ],
+      ),
     );
   }
 
@@ -452,23 +490,10 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   }
 
   Widget _buildCard(Recommendation reco, {int? matchPercent}) {
-    return MediaCard(
-      title: reco.title,
-      posterUrl: reco.posterUrl,
-      year: reco.year,
-      genre: reco.genre,
-      rating: reco.rating,
-      ageLabel: matchPercent != null ? null : reco.pegiLabel,
-      fallbackIcon:
-          _isMovie ? Icons.movie_outlined : Icons.video_library_outlined,
-      isNew: reco.isNew,
+    return MatchmakingRecommendationCard(
+      reco: reco,
       matchPercent: matchPercent,
-      onTap: () => openRecommendation(context, reco),
-      // Appui long : décision « déjà vu » / « pas intéressé ».
-      //
-      // Réservé au geste long précisément parce que l'effet est irréversible
-      // sur l'algorithme — un appui simple ouvrirait la fiche, il ne doit
-      // jamais du même coup retirer le film des suggestions.
+      onOpen: () => openRecommendation(context, reco),
       onLongPress: () => showProlongDecision(context, ref, reco),
     );
   }
@@ -491,6 +516,45 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 16),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class MatchmakingRecommendationCard extends StatelessWidget {
+  const MatchmakingRecommendationCard({
+    super.key,
+    required this.reco,
+    required this.onOpen,
+    required this.onLongPress,
+    this.matchPercent,
+  });
+
+  final Recommendation reco;
+  final int? matchPercent;
+  final VoidCallback onOpen;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return TvFocus(
+      onActivate: onOpen,
+      onLongPress: onLongPress,
+      child: MediaCard(
+        focusable: false,
+        title: reco.title,
+        posterUrl: reco.posterUrl,
+        year: reco.year,
+        genre: reco.genre,
+        rating: reco.rating,
+        ageLabel: matchPercent != null ? null : reco.pegiLabel,
+        fallbackIcon: reco.kind == RecommendationKind.movie
+            ? Icons.movie_outlined
+            : Icons.video_library_outlined,
+        isNew: reco.isNew,
+        matchPercent: matchPercent,
+        onTap: onOpen,
+        onLongPress: onLongPress,
       ),
     );
   }

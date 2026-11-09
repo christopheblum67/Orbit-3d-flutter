@@ -40,6 +40,36 @@ class EpgScreen extends ConsumerStatefulWidget {
   ConsumerState<EpgScreen> createState() => _EpgScreenState();
 }
 
+class _EpgLoadingBanner extends StatelessWidget {
+  const _EpgLoadingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF1F2430),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Guide TV en cours de chargement… les programmes '
+              'apparaîtront dans un instant.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EpgScreenState extends ConsumerState<EpgScreen> {
   String? _gridCategory;
   EPGProgram? _selectedProgram;
@@ -142,6 +172,12 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                 program: _selectedProgram,
                 currentTimeSec: DateTime.now().millisecondsSinceEpoch ~/ 1000,
               ),
+            ValueListenableBuilder<bool>(
+              valueListenable: ref.read(epgDataCacheProvider).loading,
+              builder: (context, loading, _) => loading
+                  ? const _EpgLoadingBanner()
+                  : const SizedBox.shrink(),
+            ),
             Expanded(
               child: visible.isEmpty
                   ? Center(
@@ -177,7 +213,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         icon: Icons.tv_off_rounded,
         title: l.channelsUnavailable,
         message: 'Impossible de charger les chaînes.',
-        onRetry: () => ref.invalidate(liveChannelsProvider),
+        onRetry: () => ref.invalidate(liveChannelsAllProvider),
       ),
     );
   }

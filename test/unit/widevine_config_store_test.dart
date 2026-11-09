@@ -54,18 +54,63 @@ void main() {
     );
   });
 
-  test('provider exposes saved global configuration', () async {
+  test('isolates configurations by subscription and from the legacy global key',
+      () async {
+    final first = WidevineConfig(
+      licenseUrl: 'https://first.example.test/license',
+      headers: const {'Authorization': 'first'},
+    );
+    final second = WidevineConfig(
+      licenseUrl: 'https://second.example.test/license',
+      headers: const {'Authorization': 'second'},
+    );
+    final legacy = WidevineConfig(licenseUrl: 'https://legacy.example.test');
+
+    await store.save(legacy);
+    await store.saveForSubscription('first', first);
+    await store.saveForSubscription('second', second);
+
+    expect((await store.loadForSubscription('first'))?.headers, first.headers);
+    expect(
+      (await store.loadForSubscription('second'))?.headers,
+      second.headers,
+    );
+    expect(await store.loadForSubscription('third'), isNull);
+    await store.saveForSubscription('first', null);
+    expect(await store.loadForSubscription('first'), isNull);
+    expect(
+      (await store.loadForSubscription('second'))?.headers,
+      second.headers,
+    );
+    expect((await store.load())?.licenseUrl, legacy.licenseUrl);
+  });
+
+  test('rejects an empty subscription identifier', () async {
+    await expectLater(
+      () => store.loadForSubscription(' '),
+      throwsArgumentError,
+    );
+    await expectLater(
+      () => store.saveForSubscription('', null),
+      throwsArgumentError,
+    );
+  });
+
+  test('provider loads only the requested subscription', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final config = WidevineConfig(
       licenseUrl: 'https://license.example.test/widevine',
     );
 
-    await container.read(widevineConfigProvider.notifier).setConfig(config);
+    await store.saveForSubscription('first', config);
 
     expect(
-      container.read(widevineConfigProvider)?.licenseUrl,
+      (await container.read(widevineConfigProvider('first').future))
+          ?.licenseUrl,
       config.licenseUrl,
     );
+    expect(
+        await container.read(widevineConfigProvider('second').future), isNull);
   });
 }

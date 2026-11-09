@@ -6,5 +6,29 @@ service cloud.firestore {
       allow read, write: if request.auth != null
         && request.auth.uid == userId;
     }
+    match /users/{userId}/encrypted_sync/{docId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == userId
+          && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      }
+      function validEnvelope() {
+        let data = request.resource.data;
+        let envelope = data.envelope;
+        return data.keys().hasOnly(['revision', 'envelope'])
+          && data.keys().hasAll(['revision', 'envelope'])
+          && data.revision is int && data.revision > 0
+          && envelope is map
+          && envelope.keys().hasOnly(['version', 'salt', 'nonce', 'ciphertext', 'mac'])
+          && envelope.keys().hasAll(['version', 'salt', 'nonce', 'ciphertext', 'mac'])
+          && envelope.version == 1
+          && envelope.salt is string && envelope.nonce is string
+          && envelope.ciphertext is string && envelope.mac is string;
+      }
+      allow read: if isOwner();
+      allow create: if isOwner() && validEnvelope()
+        && request.resource.data.revision == 1;
+      allow update: if isOwner() && validEnvelope()
+        && request.resource.data.revision == resource.data.revision + 1;
+    }
   }
 }

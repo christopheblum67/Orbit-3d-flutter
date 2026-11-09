@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/watched_episode.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
+import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
+
+class _WatchedService extends WatchedEpisodesService {
+  final entries = <WatchedEpisodeEntry>[];
+
+  @override
+  Future<List<WatchedEpisodeEntry>> loadForProfile(String profileId) async =>
+      entries.where((entry) => entry.profileId == profileId).toList();
+
+  @override
+  Future<void> save(WatchedEpisodeEntry entry) async => entries.add(entry);
+}
+
+class _Progress extends PlaybackProgressService {
+  @override
+  PlaybackProgress? get(String id) => null;
+}
+
+void main() {
+  testWidgets('manual watched action saves for the active profile', (tester) async {
+    final service = _WatchedService();
+    final episode = Episode(
+      id: 'episode',
+      title: 'Episode',
+      season: 1,
+      episodeNumber: 1,
+      streamUrl: '',
+    );
+    final series = Series(
+      id: 'series',
+      title: 'Series',
+      description: '',
+      coverUrl: '',
+      year: 0,
+      genre: '',
+      director: '',
+      rating: 0,
+      pegi: '',
+      episodes: [episode],
+    );
+    final profile = UserProfile(
+      id: 'profile',
+      firstName: 'Test',
+      dateOfBirth: DateTime(2000),
+      gender: 'male',
+      favoriteGenres: const [],
+    );
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) => EpisodeDetailScreen(series: series, episode: episode),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+        downloadTasksStreamProvider.overrideWith((ref) => Stream.value([])),
+        watchedEpisodesServiceProvider.overrideWithValue(service),
+        playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marquer comme vu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Épisode déjà vu'), findsOneWidget);
+    expect(service.entries.single.profileId, 'profile');
+    expect(service.entries.single.episodeId, 'episode');
+  });
+}

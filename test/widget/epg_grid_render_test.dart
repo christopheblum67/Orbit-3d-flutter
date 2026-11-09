@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_grid_2d_view.dart';
@@ -71,6 +72,37 @@ Widget harness(
 }
 
 void main() {
+  testWidgets('le D-pad parcourt les programmes et ouvre la sélection',
+      (tester) async {
+    final first = prog('Premier', 0);
+    final second = prog('Suivant', 1);
+    final other = prog('Autre chaîne', 1);
+    EPGProgram? selected;
+    String? selectedChannel;
+    await tester.pumpWidget(harness(
+      ['TF1', 'France 2'],
+      {
+        'TF1': [first, second],
+        'France 2': [other],
+      },
+      onProgramTap: (program, channel) {
+        selected = program;
+        selectedChannel = channel;
+      },
+    ));
+    await tester.pump();
+    Focus.of(tester.element(find.descendant(
+      of: find.byKey(const ValueKey('epg-grid-focus')),
+      matching: find.byType(HorizontalDragLayer),
+    ))).requestFocus();
+    await tester.pump();
+    // L'heure actuelle se situe après les programmes de test : la dernière
+    // entrée est sélectionnée, puis Haut/Bas change de chaîne.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(selected, same(other));
+    expect(selectedChannel, 'France 2');
+  });
   group('EpgGrid2DView — les données chargées après coup sont visibles', () {
     testWidgets('un changement de jour reconstruit les positions des blocs',
         (tester) async {

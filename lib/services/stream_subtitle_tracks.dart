@@ -47,7 +47,7 @@ class StreamSubtitleTracksService {
     try {
       final result = await safeAsync(
         () async {
-          await controller.initialize();
+          await controller.initialize().timeout(const Duration(seconds: 15));
           final tracks = await _probeTracks(controller);
           return _toTrackChoices(tracks);
         },

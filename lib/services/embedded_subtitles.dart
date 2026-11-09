@@ -149,10 +149,15 @@ EmbeddedSubtitleTrack? pickEmbeddedSubtitleTrackForLanguage(
 ) {
   final wanted = language.trim().toLowerCase();
   if (wanted.isEmpty) return null;
+  final wantedLabel = LanguageLabel.of(wanted).trim().toLowerCase();
   EmbeddedSubtitleTrack? forcedFallback;
   for (final track in tracks) {
     final code = track.language?.trim().toLowerCase();
-    if (code != wanted) continue;
+    if (code == null || code.isEmpty) continue;
+    if (code != wanted &&
+        LanguageLabel.of(code).trim().toLowerCase() != wantedLabel) {
+      continue;
+    }
     if (!track.isForced) return track;
     forcedFallback ??= track;
   }

@@ -124,6 +124,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       _dbSignature = signature;
       _pager?.invalidate();
       final pager = CatalogPager<Series>(
+        diagnosticKind: 'series',
         fetch: (limit, offset) => CatalogDb.instance.querySeries(
           subKey,
           filter: filter,
@@ -194,7 +195,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final hiddenCategories =
         ref.watch(vodCategoryFilterProvider).hiddenSeriesCategoryIds;
     final dbSort = _dbSortFor(_selectedSortMode);
-    final dbKey = ref.watch(catalogDbKeyProvider(CatalogKind.series)).value;
+    final dbKeyAsync = ref.watch(catalogDbKeyProvider(CatalogKind.series));
+    final dbKey = dbKeyAsync.value;
     if (dbKey != null && dbSort != null) {
       final favIds = favoriteEntries.values
           .where((e) => e.type == ContentType.series)
@@ -231,8 +233,12 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           List<Series>.unmodifiable(_pager?.items ?? const <Series>[]),
           affinity,
           scrollController: _dbScroll,
+          listLoading: !(_pager?.loaded ?? false),
         ),
       );
+    }
+    if (dbKeyAsync.isLoading && !dbKeyAsync.hasValue) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     _pager?.invalidate();
     _pager = null;
@@ -417,6 +423,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     List<Series> visibleSeries,
     ProfileAffinityScorer? affinity, {
     ScrollController? scrollController,
+    bool listLoading = false,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -424,6 +431,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         CategoriesRail(
           categories: railCategories,
           selectedId: _selectedCategoryId,
+          focusSelectedOnMount: ref.read(tvModeNotifierProvider).enabled,
           onSelected: (id) => setState(() => _selectedCategoryId = id),
         ),
         Expanded(
@@ -462,7 +470,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 ),
               ),
               Expanded(
-                child: visibleSeries.isEmpty
+                child: visibleSeries.isEmpty && listLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : visibleSeries.isEmpty
                     ? EmptyState(
                         icon: Icons.tv,
                         title: _selectedCategoryId == 'fav'
@@ -480,6 +490,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       )
                     : CustomScrollView(
                         controller: scrollController,
+                        scrollCacheExtent: const ScrollCacheExtent.pixels(900),
                         slivers: [
                           SliverToBoxAdapter(
                             child: SectionHeader(
@@ -632,6 +643,7 @@ class _SeriesTile extends ConsumerWidget {
     return TvFocus(
       onActivate: onOpen,
       child: MediaCard(
+        ratingAboveAffinity: true,
         title: series.title,
         posterUrl: series.coverUrl,
         year: series.year,

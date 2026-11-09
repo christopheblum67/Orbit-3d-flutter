@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
+import 'package:orbit_3d_flutter/core/utils/catalog_diagnostic.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
 import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
@@ -42,7 +45,11 @@ class StartupRefreshController extends RefreshStepsController {
     required Future<List<Channel>> Function() loadRadioChannels,
     Set<StartupStep>? steps,
     EPGDataCache? epgCache,
+    bool Function()? deferredStillValid,
+    PlaybackRefreshGate? playbackGate,
   })  : _epgCache = epgCache,
+        _deferredStillValid = deferredStillValid,
+        _playbackGate = playbackGate ?? PlaybackRefreshGate.instance,
         _loadLiveChannels = loadLiveChannels,
         _loadMovies = loadMovies,
         _loadSeries = loadSeries,
@@ -62,6 +69,8 @@ class StartupRefreshController extends RefreshStepsController {
 
   final ApiService _api;
   final EPGDataCache? _epgCache;
+  final bool Function()? _deferredStillValid;
+  final PlaybackRefreshGate _playbackGate;
   final Future<List<Channel>> Function() _loadLiveChannels;
   final Future<List<Movie>> Function() _loadMovies;
   final Future<List<Series>> Function() _loadSeries;
@@ -69,6 +78,7 @@ class StartupRefreshController extends RefreshStepsController {
 
   List<Movie> movies = const [];
   List<Series> series = const [];
+  bool hasCatalogData = false;
 
   /// Avec un cache disque frais, aucun appel réseau n'est nécessaire : le
   /// démarrage n'attend pas le décodage des ~130 000 titres (lourd sur TV).
@@ -80,7 +90,7 @@ class StartupRefreshController extends RefreshStepsController {
     return key != null && await CatalogDiskCache.instance.hasFresh(kind, key);
   }
 
-  final List<Future<Object?> Function()> _deferred = [];
+  final List<({String kind, Future<Object?> Function() load})> _deferred = [];
 
   Future<bool> _canDeferEpg() async {
     if (bypassCatalogCache) return false;
@@ -88,16 +98,31 @@ class StartupRefreshController extends RefreshStepsController {
     return key != null && await EpgBufferStore.instance.hasUsable(key);
   }
 
-  void _deferInBackground(Future<Object?> Function() load) =>
-      _deferred.add(load);
+  void _deferInBackground(String kind, Future<Object?> Function() load) {
+    logDiag('CATALOG kind=$kind step=deferred state=queued');
+    _deferred.add((kind: kind, load: load));
+  }
 
-  /// Lance les catalogues différés une fois les étapes bloquantes terminées,
-  /// pour ne pas se disputer le CPU avec l'accueil.
+  /// Lance les catalogues différés un par un, avec une pause entre chacun :
+  /// décoder ~130 000 titres d'un coup monopolise le CPU et retarde l'écran de
+  /// choix du profil. Chaque tâche cède la main au moteur avant la suivante.
   void _startDeferred() {
-    for (final load in _deferred) {
-      unawaited(load().then((_) {}, onError: (_) {}));
-    }
+    final pending = List.of(_deferred);
     _deferred.clear();
+    if (pending.isEmpty) return;
+    unawaited(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 2500));
+      for (final item in pending) {
+        await _playbackGate.waitUntilIdle();
+        if (_deferredStillValid?.call() == false) return;
+        try {
+          await traceCatalogStep(item.kind, 'deferred', item.load);
+        } catch (_) {
+          // traceCatalogStep records the failure without exposing its contents.
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
+    }());
   }
 
   Future<void> start() {
@@ -108,24 +133,28 @@ class StartupRefreshController extends RefreshStepsController {
     return run((step) async {
       switch (step) {
         case StartupStep.live:
-          await _loadLiveChannels();
+          hasCatalogData = (await _loadLiveChannels()).isNotEmpty;
         case StartupStep.movies:
           if (await _canDeferCatalog('vod')) {
-            _deferInBackground(_loadMovies);
+            hasCatalogData = true;
+            _deferInBackground('vod', _loadMovies);
           } else {
             movies = await _loadMovies();
+            hasCatalogData = hasCatalogData || movies.isNotEmpty;
           }
         case StartupStep.series:
           if (await _canDeferCatalog('series')) {
-            _deferInBackground(_loadSeries);
+            hasCatalogData = true;
+            _deferInBackground('series', _loadSeries);
           } else {
             series = await _loadSeries();
+            hasCatalogData = hasCatalogData || series.isNotEmpty;
           }
         case StartupStep.radio:
           if (bypassCatalogCache) {
             await _loadRadioChannels();
           } else {
-            _deferInBackground(_loadRadioChannels);
+            _deferInBackground('radio', _loadRadioChannels);
           }
         case StartupStep.replay:
           // Aucun appel. Le Replay se charge chaîne par chaîne, à la demande,
@@ -143,12 +172,12 @@ class StartupRefreshController extends RefreshStepsController {
           final cache = _epgCache;
           if (cache != null) {
             if (await _canDeferEpg()) {
-              _deferInBackground(() => cache.loadFull(_api));
+              _deferInBackground('epg', () => cache.loadFull(_api));
             } else {
-              await cache.loadFull(_api);
+              await traceCatalogStep('epg', 'load', () => cache.loadFull(_api));
             }
           } else {
-            await _api.fetchEpg();
+            await traceCatalogStep('epg', 'load', _api.fetchEpg);
           }
         case StartupStep.ai:
           // Étape purement indicative : marquée instantanément comme faite pour

@@ -67,6 +67,16 @@ void main() {
       expect(pickEmbeddedSubtitleTrackForLanguage(tracks, 'fr')!.id, '0_1');
     });
 
+    test('reconnaît les codes à trois lettres pour une langue choisie', () {
+      final tracks = [
+        track(id: '0_0', language: 'fra', isForced: true),
+        track(id: '0_1', language: 'fre'),
+        track(id: '0_2', language: 'eng'),
+      ];
+      expect(pickEmbeddedSubtitleTrackForPreference(tracks, 'fr')!.id, '0_1');
+      expect(pickEmbeddedSubtitleTrackForPreference(tracks, 'en')!.id, '0_2');
+    });
+
     test('ne retourne rien pour une langue absente du flux', () {
       final tracks = [track(id: '0_0', language: 'en')];
       expect(pickEmbeddedSubtitleTrackForLanguage(tracks, 'de'), isNull);

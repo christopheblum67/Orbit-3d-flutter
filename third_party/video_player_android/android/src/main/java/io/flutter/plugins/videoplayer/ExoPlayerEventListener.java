@@ -15,11 +15,15 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 final class ExoPlayerEventListener implements Player.Listener {
   private final ExoPlayer exoPlayer;
   private final VideoPlayerCallbacks events;
   private final SubtitleDetector subtitleDetector;
+  private final Supplier<String> decoderKind;
+  private final Consumer<PlaybackException> errorLogger;
   private boolean isBuffering = false;
   private boolean isInitialized;
 
@@ -59,10 +63,19 @@ final class ExoPlayerEventListener implements Player.Listener {
 
   ExoPlayerEventListener(
       ExoPlayer exoPlayer, VideoPlayerCallbacks events, boolean initialized, SubtitleDetector subtitleDetector) {
+    this(exoPlayer, events, initialized, subtitleDetector, () -> "unknown", error -> {});
+  }
+
+  ExoPlayerEventListener(
+      ExoPlayer exoPlayer, VideoPlayerCallbacks events, boolean initialized,
+      SubtitleDetector subtitleDetector, Supplier<String> decoderKind,
+      Consumer<PlaybackException> errorLogger) {
     this.exoPlayer = exoPlayer;
     this.events = events;
     this.isInitialized = initialized;
     this.subtitleDetector = subtitleDetector;
+    this.decoderKind = decoderKind;
+    this.errorLogger = errorLogger;
   }
 
   private void setBuffering(boolean buffering) {
@@ -191,7 +204,9 @@ final class ExoPlayerEventListener implements Player.Listener {
       exoPlayer.seekToDefaultPosition();
       exoPlayer.prepare();
     } else {
-      events.onError("VideoError", "Video player had error " + error, null);
+      errorLogger.accept(error);
+      events.onError("VideoError", "Video player had error " + error
+          + " orbitDecoder=" + decoderKind.get() + " orbitErrorCode=" + error.errorCode, null);
     }
   }
 

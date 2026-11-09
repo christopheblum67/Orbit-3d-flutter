@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
   const ProfilePreferencesScreen({super.key});
@@ -101,6 +102,17 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             ),
             value: prefs.allowRecording,
             onChanged: (v) => notifier.setAllowRecording(v),
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            secondary: const Icon(Icons.live_tv_outlined),
+            title: const Text('Aperçu vidéo en direct'),
+            subtitle: const Text(
+              'Affiche le direct dans la navigation Live. Réglage commun à cet appareil.',
+            ),
+            value: ref.watch(advancedSettingsProvider).livePreviewVideo ?? true,
+            onChanged:
+                ref.read(advancedSettingsProvider.notifier).setLivePreviewVideo,
           ),
           const Divider(height: 1),
           const SizedBox(height: 24),

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
@@ -36,6 +39,18 @@ class _MemoryStorageService extends StorageService {
       if (subscription.isActive) return subscription;
     }
     return null;
+  }
+}
+
+class _DelayedReplayApi extends ApiService {
+  final started = Completer<void>();
+  final result = Completer<List<ReplayItem>>();
+  final completed = Completer<void>();
+
+  @override
+  Future<List<ReplayItem>> fetchChannelReplays(Channel channel) {
+    started.complete();
+    return result.future.whenComplete(completed.complete);
   }
 }
 
@@ -132,6 +147,64 @@ void main() {
       isFalse,
     );
     channelSubscription.close();
+  });
+
+  test('la bascule restaure uniquement la date du nouvel abonnement', () async {
+    final when = DateTime(2026, 1, 2);
+    await persistLastRefresh(when, subscriptionId: 'new');
+    final storage = _MemoryStorageService([
+      _subscription('old', active: true),
+      _subscription('new', active: false),
+    ]);
+    final container = ProviderContainer(
+      overrides: [storageServiceProvider.overrideWithValue(storage)],
+    );
+    addTearDown(container.dispose);
+    await container.read(subscriptionsProvider.notifier).setActive('new');
+    expect(container.read(lastRefreshTimestampProvider), when);
+    await container.read(subscriptionsProvider.notifier).setActive('old');
+    expect(container.read(lastRefreshTimestampProvider), isNull);
+  });
+
+  test('une réponse replay ancienne ne survit pas à la bascule', () async {
+    final storage = _MemoryStorageService([
+      _subscription('old', active: true),
+      _subscription('new', active: false),
+    ]);
+    final api = _DelayedReplayApi();
+    final channel = Channel(
+      id: '42',
+      name: 'Channel',
+      logoUrl: '',
+      streamUrl: '',
+      group: '',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storage),
+        apiServiceProvider.overrideWithValue(api),
+        liveChannelsProvider.overrideWith((ref) async => [channel]),
+      ],
+    );
+    addTearDown(container.dispose);
+    final listener = container.listen(channelReplaysProvider('42'), (_, __) {});
+    final oldResult = container.read(channelReplaysProvider('42').future);
+    await api.started.future;
+    final disposed = expectLater(oldResult, throwsStateError);
+    listener.close();
+    await container.read(subscriptionsProvider.notifier).setActive('new');
+    await disposed;
+    final old = ReplayItem(
+      id: 'old',
+      title: 'Old',
+      streamUrl: '',
+      startTime: '',
+      endTime: '',
+    );
+    api.result.complete([old]);
+    await api.completed.future;
+    await Future<void>.delayed(Duration.zero);
+    expect(channelReplaysCache.peek('42'), isNull);
   });
 
   test(

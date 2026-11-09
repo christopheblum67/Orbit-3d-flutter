@@ -20,14 +20,17 @@ class TvScrollToTop extends StatelessWidget {
     final moved =
         FocusScope.of(context).focusInDirection(TraversalDirection.up);
     if (moved) {
-      // Le focus a quitté la zone défilante (ex. barre d'actions) : on
-      // ramène quand même la page tout en haut.
-      final newScrollable = _verticalScrollable(
-        FocusManager.instance.primaryFocus?.context,
-      );
-      if (scrollable != null && newScrollable != scrollable) {
-        _scrollToTop(scrollable);
-      }
+      // Le focus ne change qu'à l'image suivante : on compare alors.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final newScrollable = _verticalScrollable(
+          FocusManager.instance.primaryFocus?.context,
+        );
+        if (scrollable != null &&
+            scrollable.mounted &&
+            newScrollable != scrollable) {
+          _scrollToTop(scrollable);
+        }
+      });
       return KeyEventResult.handled;
     }
     if (scrollable == null) return KeyEventResult.ignored;

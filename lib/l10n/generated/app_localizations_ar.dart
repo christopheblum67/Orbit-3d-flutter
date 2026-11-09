@@ -716,6 +716,36 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get tmdbMovieRecommendations => 'توصيات TMDB';
+
+  @override
+  String get tmdbRecommendationsEmpty => 'لا توجد توصيات TMDB لهذا الفيلم.';
+
+  @override
+  String get tmdbRecommendationsError => 'تعذر تحميل توصيات TMDB.';
+
+  @override
+  String get tmdbRecommendationsUnavailable =>
+      'توصيات TMDB غير متاحة لهذا الفيلم.';
+
+  @override
+  String get playbackDelayedTitle => 'يستغرق بدء التشغيل وقتًا طويلًا';
+
+  @override
+  String get playbackDelayedMessage =>
+      'لم يبدأ التشغيل أو يستأنف بعد. قد يكون السبب البث أو الاتصال أو تنسيق الفيديو.';
+
+  @override
+  String get playbackContinueWaiting => 'متابعة الانتظار';
+
+  @override
+  String get playbackUnavailableTitle => 'التشغيل غير متاح';
+
+  @override
+  String get playbackUnavailableMessage =>
+      'لا يمكن تشغيل هذا الفيلم أو هذه الحلقة حاليًا. أعد المحاولة أو تحقق من الاتصال وتنسيق الملف.';
+
+  @override
   String get retrySearch => 'إعادة محاولة البحث';
 
   @override

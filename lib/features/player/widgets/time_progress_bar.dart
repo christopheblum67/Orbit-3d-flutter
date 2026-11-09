@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 
@@ -15,6 +18,7 @@ class TimeProgressBar extends StatefulWidget {
     ),
     this.height = 4,
     this.textStyle,
+    this.onInteraction,
   });
 
   final VideoPlayerController controller;
@@ -22,6 +26,7 @@ class TimeProgressBar extends StatefulWidget {
   final VideoProgressColors colors;
   final double height;
   final TextStyle? textStyle;
+  final VoidCallback? onInteraction;
 
   @override
   State<TimeProgressBar> createState() => _TimeProgressBarState();
@@ -32,6 +37,9 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
   Duration duration = Duration.zero;
   double dragValue = 0;
   bool isDragging = false;
+  bool _focused = false;
+  Duration? _pendingSeek;
+  bool _seeking = false;
 
   @override
   void initState() {
@@ -47,8 +55,68 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
     if (duration != value.duration) {
       setState(() => duration = value.duration);
     }
-    if (!isDragging && position != value.position) {
+    if (!isDragging && !_seeking && position != value.position) {
       setState(() => position = value.position);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant TimeProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onVideoChange);
+      widget.controller.addListener(_onVideoChange);
+      position = widget.controller.value.position;
+      duration = widget.controller.value.duration;
+      _pendingSeek = null;
+      _seeking = false;
+      isDragging = false;
+    }
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if ((event is! KeyDownEvent && event is! KeyRepeatEvent) ||
+        !widget.allowScrubbing ||
+        duration <= Duration.zero) {
+      return KeyEventResult.ignored;
+    }
+    final delta = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowLeft => -30,
+      LogicalKeyboardKey.arrowRight => 30,
+      _ => 0,
+    };
+    if (delta == 0) return KeyEventResult.ignored;
+    widget.onInteraction?.call();
+    final targetMs = (position.inMilliseconds + delta * 1000)
+        .clamp(0, duration.inMilliseconds);
+    setState(() => position = Duration(milliseconds: targetMs));
+    _pendingSeek = position;
+    if (!_seeking) unawaited(_flushSeeks(widget.controller));
+    return KeyEventResult.handled;
+  }
+
+  Future<void> _flushSeeks(VideoPlayerController controller) async {
+    _seeking = true;
+    try {
+      while (mounted && identical(controller, widget.controller)) {
+        final target = _pendingSeek;
+        if (target == null) break;
+        _pendingSeek = null;
+        await controller.seekTo(target);
+      }
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'player',
+        context: ErrorDescription('while seeking using the remote'),
+      ));
+    } finally {
+      if (mounted && identical(controller, widget.controller)) {
+        _pendingSeek = null;
+        _seeking = false;
+        setState(() => position = controller.value.position);
+      }
     }
   }
 
@@ -90,64 +158,83 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
         ),
         const SizedBox(height: 4),
         // Barre de progression
-        GestureDetector(
-          onHorizontalDragStart: widget.allowScrubbing
-              ? (details) {
-                  isDragging = true;
-                }
-              : null,
-          onHorizontalDragUpdate: widget.allowScrubbing
-              ? (details) {
-                  final renderBox = context.findRenderObject() as RenderBox?;
-                  if (renderBox == null) return;
-                  final localPos =
-                      renderBox.globalToLocal(details.globalPosition);
-                  final ratio =
-                      (localPos.dx / renderBox.size.width).clamp(0.0, 1.0);
-                  setState(() {
-                    dragValue = ratio;
-                    position = Duration(
-                      milliseconds: (duration.inMilliseconds * ratio).round(),
-                    );
-                  });
-                }
-              : null,
-          onHorizontalDragEnd: widget.allowScrubbing
-              ? (details) {
-                  isDragging = false;
-                  final targetMs =
-                      (duration.inMilliseconds * dragValue).round();
-                  widget.controller.seekTo(Duration(milliseconds: targetMs));
-                }
-              : null,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.height / 2),
-            child: SizedBox(
-              height: widget.height,
-              child: Stack(
-                children: [
-                  // Fond
-                  Container(
-                    color: widget.colors.backgroundColor,
+        Focus(
+          canRequestFocus: widget.allowScrubbing && duration > Duration.zero,
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          onKeyEvent: _onKeyEvent,
+          child: GestureDetector(
+            onHorizontalDragStart: widget.allowScrubbing
+                ? (details) {
+                    isDragging = true;
+                  }
+                : null,
+            onHorizontalDragUpdate: widget.allowScrubbing
+                ? (details) {
+                    final renderBox = context.findRenderObject() as RenderBox?;
+                    if (renderBox == null) return;
+                    final localPos =
+                        renderBox.globalToLocal(details.globalPosition);
+                    final ratio =
+                        (localPos.dx / renderBox.size.width).clamp(0.0, 1.0);
+                    setState(() {
+                      dragValue = ratio;
+                      position = Duration(
+                        milliseconds: (duration.inMilliseconds * ratio).round(),
+                      );
+                    });
+                  }
+                : null,
+            onHorizontalDragEnd: widget.allowScrubbing
+                ? (details) {
+                    isDragging = false;
+                    final targetMs =
+                        (duration.inMilliseconds * dragValue).round();
+                    widget.controller.seekTo(Duration(milliseconds: targetMs));
+                  }
+                : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _focused ? Colors.white : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(widget.height / 2),
+                child: SizedBox(
+                  height: widget.height,
+                  child: Stack(
+                    children: [
+                      // Fond
+                      Container(
+                        color: widget.colors.backgroundColor,
+                      ),
+                      // Buffer
+                      if (duration > Duration.zero &&
+                          widget.controller.value.buffered.isNotEmpty)
+                        FractionallySizedBox(
+                          widthFactor: (widget.controller.value.buffered.first
+                                      .end.inMilliseconds /
+                                  duration.inMilliseconds)
+                              .clamp(0.0, 1.0),
+                          child: Container(color: widget.colors.bufferedColor),
+                        ),
+                      // Progression
+                      FractionallySizedBox(
+                        widthFactor: isDragging
+                            ? dragValue
+                            : (duration.inMilliseconds > 0
+                                ? (position.inMilliseconds /
+                                        duration.inMilliseconds)
+                                    .clamp(0.0, 1.0)
+                                : 0.0),
+                        child: Container(color: widget.colors.playedColor),
+                      ),
+                    ],
                   ),
-                  // Buffer
-                  if (widget.controller.value.buffered.isNotEmpty)
-                    FractionallySizedBox(
-                      widthFactor: widget.controller.value.buffered.first.end
-                              .inMilliseconds /
-                          duration.inMilliseconds,
-                      child: Container(color: widget.colors.bufferedColor),
-                    ),
-                  // Progression
-                  FractionallySizedBox(
-                    widthFactor: isDragging
-                        ? dragValue
-                        : (duration.inMilliseconds > 0
-                            ? position.inMilliseconds / duration.inMilliseconds
-                            : 0.0),
-                    child: Container(color: widget.colors.playedColor),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

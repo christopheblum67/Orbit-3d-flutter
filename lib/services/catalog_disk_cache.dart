@@ -20,6 +20,9 @@ import 'package:path_provider/path_provider.dart';
 class CatalogDiskCache {
   CatalogDiskCache._();
 
+  @visibleForTesting
+  CatalogDiskCache.forTesting(String directoryPath) : _dirPath = directoryPath;
+
   static final CatalogDiskCache instance = CatalogDiskCache._();
 
   /// Durée de validité. Un catalogue de panel change à l'échelle de l'heure ou
@@ -100,6 +103,18 @@ class CatalogDiskCache {
         await file.writeAsBytes(bytes, flush: true);
       },
       context: 'CatalogDiskCache.write',
+    );
+  }
+
+  Future<void> remove(String name, String subscriptionKey) async {
+    await safeAsync<void>(
+      () async {
+        final file = File(
+          '${(await _dir()).path}/${fileNameFor(name, subscriptionKey)}',
+        );
+        if (await file.exists()) await file.delete();
+      },
+      context: 'CatalogDiskCache.remove',
     );
   }
 

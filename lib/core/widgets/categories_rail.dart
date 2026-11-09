@@ -17,12 +17,14 @@ class CategoriesRail extends StatelessWidget {
     required this.selectedId,
     required this.onSelected,
     this.title = 'Catégories',
+    this.focusSelectedOnMount = false,
   });
 
   final List<MediaCategory> categories;
   final String selectedId;
   final ValueChanged<String> onSelected;
   final String title;
+  final bool focusSelectedOnMount;
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +59,11 @@ class CategoriesRail extends StatelessWidget {
             ),
           for (final category in categories)
             _FocusableCategoryTile(
+              key: ValueKey(category.id),
               name: category.name,
               count: category.count,
               selected: category.id == selectedId,
+              initialFocus: focusSelectedOnMount && category.id == selectedId,
               compact: !isWide,
               onTap: () => onSelected(category.id),
             ),
@@ -71,10 +75,12 @@ class CategoriesRail extends StatelessWidget {
 
 class _FocusableCategoryTile extends StatefulWidget {
   const _FocusableCategoryTile({
+    super.key,
     required this.name,
     required this.selected,
     required this.compact,
     required this.onTap,
+    required this.initialFocus,
     this.count = 0,
   });
 
@@ -82,6 +88,7 @@ class _FocusableCategoryTile extends StatefulWidget {
   final bool selected;
   final bool compact;
   final VoidCallback onTap;
+  final bool initialFocus;
   final int count;
 
   @override
@@ -96,6 +103,16 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChanged);
+    if (widget.initialFocus) {
+      final previousFocus = FocusManager.instance.primaryFocus;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            FocusManager.instance.primaryFocus == previousFocus &&
+            _focusNode.canRequestFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -116,7 +133,7 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final selected = widget.selected;
-    final showRing = selected || _hasFocus;
+    final showRing = _hasFocus;
     return Focus(
       focusNode: _focusNode,
       canRequestFocus: true,
@@ -181,7 +198,8 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: showRing ? scheme.primary : scheme.onSurface,
+                  color:
+                      selected || showRing ? scheme.primary : scheme.onSurface,
                   fontSize: widget.compact ? 12 : null,
                 ),
               ),

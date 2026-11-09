@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_primary_button.dart';
+import 'package:orbit_3d_flutter/features/vod/widgets/movie_playback_actions.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_scroll_to_top.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -167,27 +168,6 @@ class _MovieDetailContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Backdrop (si dispo)
-          if (detail.backdropUrl != null && detail.backdropUrl!.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: OrbitCachedImage(
-                imageUrl: detail.backdropUrl!,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => Container(
-                  height: 180,
-                  color: scheme.primaryContainer,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                errorWidget: (_, __, ___) => const SizedBox.shrink(),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           // Header: Poster + Titre + Métadonnées
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,37 +391,15 @@ class _MovieDetailContent extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Boutons Lecture — Wrap pour éviter le débordement en mode portrait
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              TvPrimaryButton(
-                autofocus: true,
-                onPressed: () => _openPlayer(
-                  context,
-                  progressId: progressId,
-                ),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: Text(l.start),
-              ),
-              OutlinedButton.icon(
-                onPressed: hasProgress
-                    ? () => _openPlayer(
-                          context,
-                          progressId: progressId,
-                          positionMs: progress!.positionMs,
-                        )
-                    : null,
-                icon: const Icon(Icons.replay_rounded),
-                label: const Text('Reprendre'),
-                style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                ),
-              ),
-            ],
+          MoviePlaybackActions(
+            onStart: () => _openPlayer(context, progressId: progressId),
+            onResume: hasProgress
+                ? () => _openPlayer(
+                      context,
+                      progressId: progressId,
+                      positionMs: progress!.positionMs,
+                    )
+                : null,
           ),
           // Bande-annonce
           if (detail.trailerUrl != null) ...[
@@ -533,6 +491,19 @@ class _MovieDetailContent extends ConsumerWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 24),
+          if (recommendationsAsync != null)
+            _SimilarSection(
+              title: l.tmdbMovieRecommendations,
+              async: recommendationsAsync,
+              onTap: (entry) => _openSimilarMovie(context, ref, entry),
+              emptyMessage: l.tmdbRecommendationsEmpty,
+              errorMessage: l.tmdbRecommendationsError,
+              onRetry: () => ref
+                  .invalidate(tmdbMovieRecommendationsProvider(detail.tmdbId)),
+            )
+          else
+            Text(l.tmdbRecommendationsUnavailable),
           // Équipe technique (Crew) - dépliable via bouton
           if (detail.crew.isNotEmpty) ...[
             const SizedBox(height: 24),
@@ -544,15 +515,6 @@ class _MovieDetailContent extends ConsumerWidget {
             _SimilarSection(
               title: l.similarMovies,
               async: similarAsync,
-              onTap: (entry) => _openSimilarMovie(context, ref, entry),
-            ),
-          ],
-          // Recommandations TMDB
-          if (recommendationsAsync != null) ...[
-            const SizedBox(height: 24),
-            _SimilarSection(
-              title: 'Recommandations',
-              async: recommendationsAsync,
               onTap: (entry) => _openSimilarMovie(context, ref, entry),
             ),
           ],
@@ -648,11 +610,17 @@ class _SimilarSection extends ConsumerWidget {
     required this.title,
     required this.async,
     required this.onTap,
+    this.emptyMessage,
+    this.errorMessage,
+    this.onRetry,
   });
 
   final String title;
   final AsyncValue<List<TmdbRankEntry>> async;
   final void Function(TmdbRankEntry) onTap;
+  final String? emptyMessage;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -660,7 +628,9 @@ class _SimilarSection extends ConsumerWidget {
 
     return async.when(
       data: (list) {
-        if (list.isEmpty) return const SizedBox.shrink();
+        if (list.isEmpty && emptyMessage == null) {
+          return const SizedBox.shrink();
+        }
         final shown = list.take(12).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -671,19 +641,25 @@ class _SimilarSection extends ConsumerWidget {
                   textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 280,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                itemCount: shown.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final entry = shown[index];
-                  return _SimilarCard(entry: entry, onTap: () => onTap(entry));
-                },
+            if (list.isEmpty)
+              Text(emptyMessage!)
+            else
+              SizedBox(
+                height: 280,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  itemCount: shown.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final entry = shown[index];
+                    return _SimilarCard(
+                      entry: entry,
+                      onTap: () => onTap(entry),
+                    );
+                  },
+                ),
               ),
-            ),
           ],
         );
       },
@@ -691,7 +667,25 @@ class _SimilarSection extends ConsumerWidget {
         height: 280,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, __) => errorMessage == null
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(errorMessage!),
+                if (onRetry != null)
+                  TextButton(
+                    onPressed: onRetry,
+                    child: Text(AppLocalizations.of(context).retry),
+                  ),
+              ],
+            ),
     );
   }
 }
@@ -707,55 +701,58 @@ class _SimilarCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 130,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: entry.posterUrl.isNotEmpty
-                  ? OrbitCachedImage(
-                      imageUrl: entry.posterUrl,
-                      width: 130,
-                      height: 195,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => _placeholder(scheme),
-                      errorWidget: (_, __, ___) => _placeholder(scheme),
-                    )
-                  : _placeholder(scheme),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              entry.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style:
-                  textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                const Icon(Icons.star, size: 12, color: Colors.amber),
-                const SizedBox(width: 3),
-                Text(
-                  entry.rating > 0 ? entry.rating.toStringAsFixed(1) : '—',
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-                if (entry.year > 0) ...[
-                  const SizedBox(width: 8),
+    return TvFocus(
+      onActivate: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: SizedBox(
+          width: 130,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: entry.posterUrl.isNotEmpty
+                    ? OrbitCachedImage(
+                        imageUrl: entry.posterUrl,
+                        width: 130,
+                        height: 195,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => _placeholder(scheme),
+                        errorWidget: (_, __, ___) => _placeholder(scheme),
+                      )
+                    : _placeholder(scheme),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  const Icon(Icons.star, size: 12, color: Colors.amber),
+                  const SizedBox(width: 3),
                   Text(
-                    '${entry.year}',
+                    entry.rating > 0 ? entry.rating.toStringAsFixed(1) : '—',
                     style: textTheme.bodySmall
                         ?.copyWith(color: scheme.onSurfaceVariant),
                   ),
+                  if (entry.year > 0) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '${entry.year}',
+                      style: textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

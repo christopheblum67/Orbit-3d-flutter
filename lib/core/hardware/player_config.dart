@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 
 /// Paramètres media3 appliqués au lecteur natif (fork video_player_android)
 /// via le canal « orbit/player_config », lus au moment de la construction de
@@ -58,15 +59,15 @@ class Media3PlaybackProfile {
       DeviceProfile.eco => const Media3PlaybackProfile(
           minBufferMs: 10000,
           maxBufferMs: 60000,
-          bufferForPlaybackMs: 5000,
-          bufferForPlaybackAfterRebufferMs: 8000,
+          bufferForPlaybackMs: 1500,
+          bufferForPlaybackAfterRebufferMs: 5000,
           maxVideoHeight: 1080,
         ),
       DeviceProfile.standard => const Media3PlaybackProfile(
           minBufferMs: 8000,
           maxBufferMs: 40000,
-          bufferForPlaybackMs: 3000,
-          bufferForPlaybackAfterRebufferMs: 6000,
+          bufferForPlaybackMs: 2000,
+          bufferForPlaybackAfterRebufferMs: 5000,
         ),
       DeviceProfile.ultra => const Media3PlaybackProfile(
           minBufferMs: 5000,
@@ -109,8 +110,13 @@ class PlayerProfileService {
   /// par zapping quand le profil n'a pas changé.
   static Map<String, Object?>? _lastPushed;
 
-  static Future<void> push(Media3PlaybackProfile profile) async {
-    final config = profile.toMethodArguments();
+  static Future<void> push(Media3PlaybackProfile profile,
+      {int? decoderModeOverride}) async {
+    await VideoDecoderPrefs.ensureLoaded();
+    final config = <String, Object?>{
+      ...profile.toMethodArguments(),
+      'decoderMode': decoderModeOverride ?? VideoDecoderPrefs.nativeMode,
+    };
     if (_lastPushed != null && _sameConfig(_lastPushed!, config)) {
       return;
     }
@@ -137,8 +143,10 @@ class PlayerProfileService {
   /// depuis la grille Live TV, dont celui que l'écran de lecture récupère
   /// ensuite : sans ce `push`, la première chaîne regardée après un
   /// démarrage d'application ignorait le profil de l'appareil.
-  static Future<void> pushForDevice(DeviceProfile profile) =>
-      push(Media3PlaybackProfile.forProfile(profile));
+  static Future<void> pushForDevice(DeviceProfile profile,
+          {int? decoderModeOverride}) =>
+      push(Media3PlaybackProfile.forProfile(profile),
+          decoderModeOverride: decoderModeOverride);
 
   static bool _sameConfig(Map<String, Object?> a, Map<String, Object?> b) {
     if (a.length != b.length) return false;

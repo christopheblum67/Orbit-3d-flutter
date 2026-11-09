@@ -8,6 +8,9 @@ import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 
 import android.content.Context;
+import android.os.Build;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -18,6 +21,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -28,6 +32,7 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import io.flutter.view.TextureRegistry;
 import java.util.ArrayList;
@@ -41,6 +46,10 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   @NonNull private final MediaItem mediaItem;
   @Nullable private final TextureRegistry.SurfaceProducer surfaceProducer;
   @Nullable private SurfaceHolder surfaceHolder;
+  @Nullable private String videoDecoderName;
+  @NonNull private String videoDecoderKind = "unknown";
+  @Nullable private final OrbitPlaybackErrorLog playbackErrorLog;
+  private boolean hasAttachedSurfaceHolder;
   @NonNull private final VideoPlayerCallbacks videoPlayerEvents;
   @NonNull private final VideoPlayerOptions options;
   @NonNull private ExoPlayer exoPlayer;
@@ -197,7 +206,8 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
         events,
         surfaceProducer,
         asset.getMediaItem(),
-        options);
+        options,
+        new OrbitPlaybackErrorLog(context.getApplicationContext()));
   }
 
   /** A closure-compatible signature since {@link java.util.function.Supplier} is API level 24. */
@@ -217,11 +227,22 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
       @Nullable TextureRegistry.SurfaceProducer surfaceProducer,
       @NonNull MediaItem mediaItem,
       @NonNull VideoPlayerOptions options) {
+    this(exoPlayerProvider, events, surfaceProducer, mediaItem, options, null);
+  }
+
+  private VideoPlayer(
+      @NonNull ExoPlayerProvider exoPlayerProvider,
+      @NonNull VideoPlayerCallbacks events,
+      @Nullable TextureRegistry.SurfaceProducer surfaceProducer,
+      @NonNull MediaItem mediaItem,
+      @NonNull VideoPlayerOptions options,
+      @Nullable OrbitPlaybackErrorLog playbackErrorLog) {
     this.exoPlayerProvider = exoPlayerProvider;
     this.videoPlayerEvents = events;
     this.surfaceProducer = surfaceProducer;
     this.mediaItem = mediaItem;
     this.options = options;
+    this.playbackErrorLog = playbackErrorLog;
     this.exoPlayer = createVideoPlayer();
     if (surfaceProducer != null) {
       surfaceProducer.setCallback(this);
@@ -249,6 +270,28 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
 
   private ExoPlayer createVideoPlayer() {
     ExoPlayer exoPlayer = exoPlayerProvider.get();
+    videoDecoderName = null;
+    videoDecoderKind = "unknown";
+    exoPlayer.addAnalyticsListener(
+        new AnalyticsListener() {
+          @Override
+          public void onVideoDecoderInitialized(
+              EventTime eventTime,
+              String decoderName,
+              long initializedTimestampMs,
+              long initializationDurationMs) {
+            videoDecoderName = decoderName;
+            videoDecoderKind = decoderKind(decoderName);
+            Log.i("OrbitDecoder", "selected=" + decoderName);
+          }
+
+          @Override
+          public void onVideoDecoderReleased(EventTime eventTime, String decoderName) {
+            if (decoderName.equals(videoDecoderName)) {
+              videoDecoderName = null;
+            }
+          }
+        });
     exoPlayer.setMediaItem(mediaItem);
     exoPlayer.prepare();
 
@@ -263,10 +306,33 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
     // sous-titres (onTracksChanged -> SubtitleDetector, journalisee
     // « OrbitSubtitle » pour valider les trois cas du cahier des charges).
     // Ré-ajouté à chaque (ré)création du player ci-dessus.
-    exoPlayer.addListener(new ExoPlayerEventListener(exoPlayer, videoPlayerEvents, wasInitialized));
+    exoPlayer.addListener(new ExoPlayerEventListener(
+        exoPlayer, videoPlayerEvents, wasInitialized, new SubtitleDetector(),
+        () -> videoDecoderKind,
+        error -> {
+          if (playbackErrorLog != null) {
+            playbackErrorLog.record(error, videoDecoderName, videoDecoderKind);
+          }
+        }));
     setAudioAttributes(exoPlayer, options.mixWithOthers);
 
     return exoPlayer;
+  }
+
+  private static String decoderKind(String name) {
+    if (name.startsWith("c2.android.") || name.startsWith("OMX.google.")) return "software";
+    if (Build.VERSION.SDK_INT < 29) return "unknown";
+    try {
+      for (MediaCodecInfo info : new MediaCodecList(MediaCodecList.ALL_CODECS).getCodecInfos()) {
+        if (info.getName().equalsIgnoreCase(name)) {
+          if (info.isSoftwareOnly()) return "software";
+          if (info.isHardwareAccelerated()) return "hardware";
+        }
+      }
+    } catch (RuntimeException error) {
+      Log.w("OrbitDecoder", "Codec classification unavailable: " + error.getClass().getSimpleName());
+    }
+    return "unknown";
   }
 
   void sendBufferingUpdate() {
@@ -630,9 +696,33 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   /** Mode SurfaceView : branche la surface de la vue native sur le lecteur. */
+  @OptIn(markerClass = UnstableApi.class)
   void attachSurfaceHolder(@NonNull SurfaceHolder holder) {
+    boolean firstAttachment = !hasAttachedSurfaceHolder;
+    hasAttachedSurfaceHolder = true;
     surfaceHolder = holder;
+    Format videoFormat = exoPlayer.getVideoFormat();
+    boolean restartForRealtek =
+        firstAttachment
+            && surfaceProducer == null
+            && "TCL".equalsIgnoreCase(Build.MANUFACTURER)
+            && "BeyondTV".equalsIgnoreCase(Build.MODEL)
+            && "BeyondTV".equalsIgnoreCase(Build.DEVICE)
+            && Build.VERSION.SDK_INT == 30
+            && "OMX.realtek.video.decoder".equals(videoDecoderName)
+            && videoFormat != null
+            && MimeTypes.VIDEO_H265.equals(videoFormat.sampleMimeType)
+            && exoPlayer.getPlaybackState() == Player.STATE_READY
+            && !exoPlayer.isCurrentMediaItemLive()
+            && !exoPlayer.isCurrentMediaItemDynamic();
+    if (restartForRealtek) {
+      Log.i("OrbitDecoder", "Restarting Realtek video after first surface attachment");
+      exoPlayer.stop();
+    }
     exoPlayer.setVideoSurfaceHolder(holder);
+    if (restartForRealtek) {
+      exoPlayer.prepare();
+    }
   }
 
   /** Mode SurfaceView : retire la surface avant sa destruction. */

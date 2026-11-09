@@ -23,8 +23,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 /// - **étroit** (téléphone en portrait) : la colonne de gauche laisserait une
 ///   largeur de logo inexploitable, donc on empile — diffusion en haut, puis les
 ///   chaînes en bandeau horizontal, puis l'EPG ;
-/// - **très large** (TV) : mêmes colonnes que « large », mais dimensionnées en
-///   proportion de l'espace disponible plutôt qu'en valeurs fixes.
+/// - **très large** (TV) : chaînes à gauche, vidéo et EPG empilés à droite.
 ///
 /// Les noms de chaînes sont affichés **tels que le panel les publie**
 /// (« |FR| TF1 FHD ») : c'est cette forme que l'utilisateur reconnaît, et la
@@ -81,8 +80,13 @@ class ChannelBrowseView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Focus(
-      autofocus: true,
       onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowDown &&
+            liveWatchFocusNode.hasPrimaryFocus &&
+            liveWatchFocusNode.focusInDirection(TraversalDirection.down)) {
+          return KeyEventResult.handled;
+        }
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.escape) {
           onBack();
@@ -117,8 +121,6 @@ class ChannelBrowseView extends ConsumerWidget {
     // Proportionnel à l'espace, pour tenir aussi bien sur un téléphone en
     // paysage que sur un écran TV.
     final listWidth = (constraints.maxWidth * 0.26).clamp(230.0, 380.0);
-    final rightWidth = constraints.maxWidth - listWidth - 1;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -138,33 +140,18 @@ class ChannelBrowseView extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: (rightWidth * 0.86).clamp(320.0, 900.0),
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: LiveChannelVideo(
-                        channel: selected,
-                        onWatch: onWatch,
-                        active: previewActive,
-                      ),
-                    ),
+                Expanded(
+                  flex: 5,
+                  child: LiveChannelVideo(
+                    channel: selected,
+                    onWatch: onWatch,
+                    active: previewActive,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Expanded(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: (rightWidth * 0.86).clamp(320.0, 900.0),
-                      ),
-                      child: _EpgList(channel: selected, dense: false),
-                    ),
-                  ),
+                  flex: 4,
+                  child: _EpgList(channel: selected, dense: false),
                 ),
               ],
             ),
@@ -519,9 +506,9 @@ class _ChannelStrip extends StatelessWidget {
   }
 }
 
-/// Les programmes diffusés sur la chaîne : le programme en cours et le
-/// suivant. Deux programmes au maximum, quelle que soit leur durée.
-class _EpgList extends ConsumerWidget {
+/// Les programmes diffusés sur la chaîne : le programme en cours et les
+/// suivants des prochaines heures.
+class _EpgList extends ConsumerStatefulWidget {
   const _EpgList({required this.channel, required this.dense});
 
   final Channel channel;
@@ -529,64 +516,109 @@ class _EpgList extends ConsumerWidget {
   /// `true` sur les écrans étroits : une ligne compacte, sans description.
   final bool dense;
 
-  /// Nombre de programmes affichés, indépendamment de leur durée.
-  static const int _maxPrograms = 2;
+  /// Nombre maximal de programmes listés (en cours + à venir, défilables).
+  static const int _maxPrograms = 8;
+
+  /// Horizon de la liste : au-delà, les programmes n'aident pas au choix.
+  static const Duration _horizon = Duration(hours: 8);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Même source de vérité que le lecteur : cache court, EPG court, repli sur
-    // le dump XMLTV global.
-    final programsAsync =
-        ref.watch(channelEpgProvider(channel.primaryEpgChannelId));
+  ConsumerState<_EpgList> createState() => _EpgListState();
+}
 
-    return programsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => Center(
-        child: Text(
-          'Guide indisponible',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ),
-      data: (programs) {
-        if (programs.isEmpty) {
-          return Center(
-            child: Text(
-              'Aucun programme disponible',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          );
+class _EpgListState extends ConsumerState<_EpgList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final programsAsync = ref.watch(channelPreviewEpgProvider(widget.channel));
+
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
         }
-        final now = DateTime.now();
-        // Deux programmes au maximum, QUELLE QUE SOIT LEUR DURÉE : un film de
-        // 2 h comme un journal de 30 min occupent la même place. On retient le
-        // programme en cours et le suivant, donc en écartant le passé.
-        final visible = programs
-            .where((p) => p.end.isAfter(now))
-            .take(_maxPrograms)
-            .toList(growable: false);
-        final current = epgCurrentProgram(programs, now);
-        if (visible.isEmpty) {
-          return Center(
-            child: Text(
-              'Aucun programme à venir',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          );
+        if (node.hasPrimaryFocus && event.logicalKey == LogicalKeyboardKey.arrowUp &&
+            (!_scrollController.hasClients || _scrollController.offset <= 0)) {
+          liveWatchFocusNode.requestFocus();
+          return KeyEventResult.handled;
         }
-        return ListView.separated(
-          padding: EdgeInsets.zero,
-          itemCount: visible.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final program = visible[index];
-            return _EpgRow(
-              program: program,
-              isCurrent: current?.start == program.start,
-              dense: dense,
-            );
-          },
-        );
+        if (node.hasPrimaryFocus && (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+                event.logicalKey == LogicalKeyboardKey.arrowUp) &&
+            _scrollController.hasClients) {
+          final position = _scrollController.position;
+          final delta =
+              event.logicalKey == LogicalKeyboardKey.arrowDown ? 72.0 : -72.0;
+          _scrollController.jumpTo(
+            (position.pixels + delta).clamp(0.0, position.maxScrollExtent),
+          );
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
       },
+      child: programsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => Center(
+          child: Text(
+            'Guide indisponible',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        data: (programs) {
+          if (programs.isEmpty) {
+            return Center(
+              child: Text(
+                'Aucun programme disponible',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            );
+          }
+          final now = DateTime.now();
+          // Programme en cours puis à venir, jusqu'à l'horizon ; la liste défile
+          // si la place manque.
+          final limit = now.add(_EpgList._horizon);
+          final visible = programs
+              .where((p) => p.end.isAfter(now) && p.start.isBefore(limit))
+              .take(_EpgList._maxPrograms)
+              .toList(growable: false);
+          final current = epgCurrentProgram(programs, now);
+          if (visible.isEmpty) {
+            return Center(
+              child: Text(
+                'Aucun programme à venir',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            );
+          }
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ListView.separated(
+              controller: _scrollController,
+              padding: EdgeInsets.zero,
+              itemCount: visible.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final program = visible[index];
+                return _EpgRow(
+                  program: program,
+                  isCurrent: current?.start == program.start,
+                  dense: widget.dense,
+                  first: index == 0,
+                );
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -597,17 +629,58 @@ class _EpgRow extends StatelessWidget {
     required this.program,
     required this.isCurrent,
     required this.dense,
+    required this.first,
   });
 
   final EPGProgram program;
   final bool isCurrent;
   final bool dense;
+  final bool first;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    return Container(
+    void showDetails() {
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(program.title),
+          content: SingleChildScrollView(
+            child: Text(
+              '${_hhmm(program.start)} - ${_hhmm(program.end)}\n\n'
+              '${program.description.isEmpty ? "Aucun résumé disponible." : program.description}',
+            ),
+          ),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fermer'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Focus(
+      canRequestFocus: false,
+      onKeyEvent: (_, event) {
+        if (first && event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          liveWatchFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TvFocus(
+        onActivate: showDetails,
+        onFocusChange: (focused) {
+          if (focused) Scrollable.ensureVisible(context);
+        },
+        child: GestureDetector(
+          onTap: showDetails,
+          child: Container(
       color: isCurrent ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
       padding: EdgeInsets.symmetric(
         horizontal: 10,
@@ -656,6 +729,9 @@ class _EpgRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+          ),
+        ),
       ),
     );
   }

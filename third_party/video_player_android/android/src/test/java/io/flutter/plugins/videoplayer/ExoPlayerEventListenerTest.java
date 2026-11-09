@@ -236,6 +236,19 @@ public final class ExoPlayerEventListenerTest {
   }
 
   @Test
+  public void onErrorIncludesActualDecoderKindAndRecordsFailure() {
+    PlaybackException error =
+        new PlaybackException("MediaCodecVideoRenderer", null, PlaybackException.ERROR_CODE_DECODING_FAILED);
+    PlaybackException[] recorded = new PlaybackException[1];
+    ExoPlayerEventListener listener = new ExoPlayerEventListener(
+        mockExoPlayer, mockCallbacks, true, new SubtitleDetector(),
+        () -> "software", failure -> recorded[0] = failure);
+    listener.onPlayerError(error);
+    org.junit.Assert.assertSame(error, recorded[0]);
+    verify(mockCallbacks).onError(eq("VideoError"), contains("orbitDecoder=software"), isNull());
+  }
+
+  @Test
   public void onErrorBehindLiveWindowSeekToDefaultAndPrepare() {
     eventListener.onPlayerError(
         new PlaybackException("SORT_OF_OK", null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW));

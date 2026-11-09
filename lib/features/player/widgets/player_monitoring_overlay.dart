@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:orbit_3d_flutter/core/widgets/error_action_focus.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/stall_detector.dart';
@@ -12,10 +13,12 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     super.key,
     this.onRetry,
     this.streamUrl,
+    this.showStall = true,
   });
 
   final VoidCallback? onRetry;
   final String? streamUrl;
+  final bool showStall;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,20 +31,19 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     final cooldownMessage =
         host != null ? circuitBreaker.cooldownMessage(host) : null;
 
-    final showOverlay =
-        !connectivity.isOnline || stallDetector.isStalling || isInCooldown;
+    final isStalling = showStall && stallDetector.isStalling;
+    final showOverlay = !connectivity.isOnline || isStalling || isInCooldown;
 
     if (!showOverlay) return const SizedBox.shrink();
 
     return Positioned.fill(
       child: IgnorePointer(
-        ignoring:
-            stallDetector.isStalling && connectivity.isOnline && !isInCooldown,
+        ignoring: isStalling && connectivity.isOnline && !isInCooldown,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           child: Container(
             key: ValueKey(
-              'overlay_${connectivity.isOnline}_${stallDetector.isStalling}_$isInCooldown',
+              'overlay_${connectivity.isOnline}_${isStalling}_$isInCooldown',
             ),
             color: Colors.black.withValues(alpha: 0.5),
             child: Center(
@@ -52,12 +54,14 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
                   children: [
                     if (!connectivity.isOnline)
                       _buildNetworkOfflineCard(context, ref),
-                    if (stallDetector.isStalling &&
-                        connectivity.isOnline &&
-                        !isInCooldown)
+                    if (isStalling && connectivity.isOnline && !isInCooldown)
                       _buildStallingCard(context, stallDetector.stallKind),
                     if (isInCooldown)
-                      _buildCooldownCard(context, cooldownMessage!),
+                      _buildCooldownCard(
+                        context,
+                        cooldownMessage!,
+                        autofocus: connectivity.isOnline,
+                      ),
                   ],
                 ),
               ),
@@ -77,6 +81,7 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
       message: 'Vérifiez votre connexion Internet.',
       actionLabel: 'Réessayer',
       onAction: onRetry,
+      autofocusAction: true,
       iconColor: scheme.error,
       backgroundColor: scheme.errorContainer.withValues(alpha: 0.9),
     );
@@ -119,7 +124,8 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildCooldownCard(BuildContext context, String message) {
+  Widget _buildCooldownCard(BuildContext context, String message,
+      {required bool autofocus}) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return _MonitorCard(
@@ -130,6 +136,7 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
       // cooldown : le cooldown est un anti-rebond, pas une sanction.
       actionLabel: l.retry,
       onAction: onRetry,
+      autofocusAction: autofocus,
       iconColor: scheme.error,
       backgroundColor: scheme.errorContainer.withValues(alpha: 0.9),
     );
@@ -145,6 +152,7 @@ class _MonitorCard extends StatelessWidget {
     this.backgroundColor,
     this.actionLabel,
     this.onAction,
+    this.autofocusAction = false,
     this.showSpinner = false,
   });
 
@@ -155,6 +163,7 @@ class _MonitorCard extends StatelessWidget {
   final Color? backgroundColor;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final bool autofocusAction;
   final bool showSpinner;
 
   @override
@@ -212,10 +221,14 @@ class _MonitorCard extends StatelessWidget {
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(actionLabel!),
+            ErrorActionFocus(
+              autofocus: autofocusAction,
+              builder: (context, focusNode) => FilledButton.icon(
+                focusNode: focusNode,
+                onPressed: onAction,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(actionLabel!),
+              ),
             ),
           ],
         ],

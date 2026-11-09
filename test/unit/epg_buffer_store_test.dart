@@ -181,7 +181,7 @@ void main() {
         '${dir.path}/${EpgBufferStore.instance.fileNameFor('k')}',
       );
       file.writeAsStringSync(jsonEncode({
-        'v': 1,
+        'v': 2,
         'writtenAt': DateTime.now().millisecondsSinceEpoch,
         'programs': [
           {'c': 'TF1', 't': 'ok', 'd': '', 's': 1767355200000, 'e': 1767357000000},
@@ -194,6 +194,29 @@ void main() {
       expect(read, isNull,
           reason: 'une entrée tronquée rend le fichier entier douteux : mieux '
               'vaut re-télécharger que mixture des programmes sans horaire',);
+    });
+
+    test('une ancienne description longue reste tronquée à la lecture',
+        () async {
+      final file = File(
+        '${dir.path}/${EpgBufferStore.instance.fileNameFor('k')}',
+      );
+      await file.writeAsString(jsonEncode({
+        'v': 2,
+        'writtenAt': DateTime.now().millisecondsSinceEpoch,
+        'programs': [
+          {
+            'c': 'TF1',
+            't': 'Programme',
+            'd': 'a' * 200,
+            's': 1767355200000,
+            'e': 1767357000000,
+          },
+        ],
+      }));
+
+      final read = await EpgBufferStore.instance.read('k');
+      expect(read!.single.description, '${'a' * 160}…');
     });
 
     test('aucun fichier temporaire ne subsiste après écriture', () async {

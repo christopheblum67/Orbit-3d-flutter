@@ -44,6 +44,16 @@ abstract class VideoAsset {
     return new HttpVideoAsset(remoteUrl, streamingFormat, new HashMap<>(httpHeaders));
   }
 
+  @NonNull
+  static VideoAsset fromRemoteUrl(
+      @Nullable String remoteUrl,
+      @NonNull StreamingFormat streamingFormat,
+      @NonNull Map<String, String> httpHeaders,
+      @NonNull WidevineMediaConfig drmConfig) {
+    return new HttpVideoAsset(
+        remoteUrl, streamingFormat, new HashMap<>(httpHeaders), drmConfig);
+  }
+
   /**
    * Returns an asset from a RTSP URL.
    *
