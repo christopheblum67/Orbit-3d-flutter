@@ -64,7 +64,7 @@ class XtreamMediaCatalogService {
           '(${parsed.firstError ?? ''})');
     }
     logDiag('Catalogue parse decode=${parsed.decodeMs}ms '
-        'build=${parsed.buildMs}ms n=${parsed.items.length}');
+        'build=${parsed.buildMs}ms text=${parsed.textMs}ms n=${parsed.items.length}');
     unawaited(traceCatalogStep(
       'vod',
       'database_sync',
@@ -90,7 +90,7 @@ class XtreamMediaCatalogService {
           '(${parsed.firstError ?? ''})');
     }
     logDiag('Catalogue parse decode=${parsed.decodeMs}ms '
-        'build=${parsed.buildMs}ms n=${parsed.items.length}');
+        'build=${parsed.buildMs}ms text=${parsed.textMs}ms n=${parsed.items.length}');
     unawaited(traceCatalogStep(
       'series',
       'database_sync',

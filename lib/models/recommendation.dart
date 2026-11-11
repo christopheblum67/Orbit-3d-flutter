@@ -85,11 +85,6 @@ class Recommendation {
   DateTime? get addedDate =>
       kind == RecommendationKind.movie ? movie!.addedDate : series!.addedDate;
 
-  bool get isNew {
-    final date = addedDate;
-    if (date == null) return false;
-    final now = DateTime.now();
-    final diff = now.difference(date);
-    return diff.inDays <= 30;
-  }
+  bool get isNew =>
+      kind == RecommendationKind.movie ? movie!.isNew : series!.isNew;
 }

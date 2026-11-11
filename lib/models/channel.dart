@@ -1,5 +1,6 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
+import 'package:orbit_3d_flutter/core/utils/xtream_taxonomy.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 
@@ -191,12 +192,7 @@ class Channel {
   String get groupLabel {
     final raw = group.trim();
     if (raw.isEmpty) return '';
-    final parts = raw.split(RegExp(r'[|;]'));
-    for (final part in parts) {
-      final trimmed = part.trim();
-      if (trimmed.isNotEmpty) return trimmed;
-    }
-    return raw;
+    return XtreamTaxonomy.primarySegment(raw);
   }
 
   String requireStreamUrl() =>

@@ -1,4 +1,5 @@
 import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
+import 'package:orbit_3d_flutter/core/utils/new_content.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 
 /// Version allégée de [Series] pour les listes/grilles.
@@ -62,13 +63,8 @@ class SeriesCompact {
     );
   }
 
-  /// Indique si la série est considérée comme "nouvelle" (ajoutée il y a moins de 30 jours).
-  bool get isNew {
-    if (addedDate == null) return false;
-    final now = DateTime.now();
-    final diff = now.difference(addedDate!);
-    return diff.inDays <= 30;
-  }
+  /// Une série reste nouvelle pendant trois jours après son ajout.
+  bool get isNew => isRecentlyAdded(addedDate);
 
   /// Label PEGI formaté pour l'affichage.
   String? get pegiLabel => pegi != null ? ageBadgeLabel(pegi!) : null;

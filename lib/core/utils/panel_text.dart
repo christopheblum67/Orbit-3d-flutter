@@ -46,6 +46,24 @@ class PanelText {
     final value = raw?.trim() ?? '';
     if (value.length < _minLength || value.length > _maxLength) return value;
 
+    // Pré-filtre sans allocation : la plupart des valeurs (URL, titres avec
+    // espaces, nombres) ne sont pas du base64. Un nombre pur n'est jamais du
+    // texte encodé, et le tester coûtait un décodage suivi d'une exception.
+    var allDigits = true;
+    for (var i = 0; i < value.length; i++) {
+      final c = value.codeUnitAt(i);
+      final isDigit = c >= 0x30 && c <= 0x39;
+      final ok = isDigit ||
+          (c >= 0x41 && c <= 0x5A) ||
+          (c >= 0x61 && c <= 0x7A) ||
+          c == 0x2B ||
+          c == 0x2F ||
+          c == 0x3D;
+      if (!ok) return value;
+      if (!isDigit) allDigits = false;
+    }
+    if (allDigits) return value;
+
     // Le base64 SANS padding est fréquent : un texte de 20 octets fait 27
     // caractères, et une garde « multiple de 4 » le rejetait. C'est
     // exactement ce qui faisait que certains titres restaient encodés dans une
@@ -95,11 +113,17 @@ class PanelText {
   /// [decode] : une URL n'est pas décodée (elle sort de l'alphabet base64), un
   /// identifiant court est ignoré, et une valeur dont le décodage ne donne pas
   /// du texte lisible est conservée telle quelle.
+  /// Temps cumulé passé dans [decodeMap] (instrumentation du démarrage).
+  static final Stopwatch decodeWatch = Stopwatch();
+
   static Map<String, dynamic> decodeMap(Map<String, dynamic> map) {
+    final top = !decodeWatch.isRunning;
+    if (top) decodeWatch.start();
     final out = <String, dynamic>{};
     map.forEach((key, value) {
       out[key] = _decodeValue(value, 0);
     });
+    if (top) decodeWatch.stop();
     return out;
   }
 
@@ -107,7 +131,9 @@ class PanelText {
     if (depth > 4) return value;
     if (value is String) return decode(value);
     if (value is Map) {
-      return decodeMap(Map<String, dynamic>.from(value));
+      return decodeMap(
+        value is Map<String, dynamic> ? value : Map<String, dynamic>.from(value),
+      );
     }
     if (value is List) {
       return [

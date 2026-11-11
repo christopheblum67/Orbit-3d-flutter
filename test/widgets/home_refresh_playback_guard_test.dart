@@ -51,11 +51,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(find.byType(RefreshProgressScreen), findsOneWidget);
+    expect(find.byType(RefreshProgressScreen), findsNothing);
     expect(loads, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     pending.complete([]);
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('does not open refresh over a player and retries after return',
@@ -114,10 +115,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
-    expect(find.byType(RefreshProgressScreen), findsOneWidget);
+    expect(find.byType(RefreshProgressScreen), findsNothing);
     expect(loads, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     pending.complete([]);
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 2));
   });
 }

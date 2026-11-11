@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/utils/xtream_taxonomy.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 
 /// Barre latérale de catégories, fixe à gauche.
@@ -29,16 +30,14 @@ class CategoriesRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.sizeOf(context).width > 600;
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: isWide ? 208 : 140,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        color: scheme.surfaceContainerLow,
         border: Border(
           right: BorderSide(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.5),
+            color: scheme.outlineVariant.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -51,7 +50,7 @@ class CategoriesRail extends StatelessWidget {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: scheme.primary,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.4,
                     ),
@@ -60,10 +59,11 @@ class CategoriesRail extends StatelessWidget {
           for (final category in categories)
             _FocusableCategoryTile(
               key: ValueKey(category.id),
-              name: category.name,
+              name: XtreamTaxonomy.cleanCategory(category.name),
               count: category.count,
               selected: category.id == selectedId,
-              initialFocus: focusSelectedOnMount && category.id == selectedId,
+              initialFocus:
+                  focusSelectedOnMount && category.id == selectedId,
               compact: !isWide,
               onTap: () => onSelected(category.id),
             ),

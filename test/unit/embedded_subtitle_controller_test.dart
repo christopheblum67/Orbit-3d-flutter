@@ -3,6 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
 import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
+import 'package:orbit_3d_flutter/features/player/subtitle_preferences.dart';
+import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Exclusivité et polling des sous-titres intégrés dans [SubtitleController].
 ///
@@ -85,6 +88,36 @@ void main() {
     // tick immédiat, pour ne pas attendre 300 ms avant le premier texte.
     expect(countOf('getCurrentCues'), greaterThanOrEqualTo(1));
 
+    ctrl.dispose();
+  });
+
+  testWidgets('series disabled choice clears native subtitles without overriding a later manual choice',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', '');
+    await PlayerTrackPrefs.setSeriesSubtitleForced('series', true);
+    final ctrl = SubtitleController();
+    final preferences = SubtitlePreferences();
+    preferences.startScan(ctrl);
+    ctrl.setEmbeddedContext(playerId: 7, tracks: [forcedTrack()]);
+    await preferences.applySeries(
+      controller: ctrl,
+      seriesId: 'series',
+      generation: 1,
+      isCurrent: () => true,
+    );
+    await tester.pump();
+    expect(countOf('clearSubtitleTracks'), 1);
+    expect(ctrl.hasActiveEmbedded, isFalse);
+    expect(ctrl.activeTrack, isNull);
+    ctrl.adoptTrack(externalTrack(), 'externe');
+    await preferences.applySeries(
+      controller: ctrl,
+      seriesId: 'series',
+      generation: 1,
+      isCurrent: () => true,
+    );
+    expect(ctrl.activeTrack, isNotNull);
     ctrl.dispose();
   });
 

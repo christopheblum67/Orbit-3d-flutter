@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -40,6 +41,7 @@ class XtreamLiveCatalogService {
     String user,
     String password,
   ) async {
+    final watch = Stopwatch()..start();
     final results = await Future.wait<Object?>([
       _liveCategoryNames(base, user, password),
       _loadBytes(
@@ -49,7 +51,24 @@ class XtreamLiveCatalogService {
       ),
     ]);
     final names = results[0]! as Map<String, String>;
-    final streams = await compute(_decodeJsonList, results[1]! as Uint8List);
+    final bytes = results[1]! as Uint8List;
+    logDiag('LIVE bytes=${bytes.length} loadMs=${watch.elapsedMilliseconds}');
+    final streams = await compute(_decodeJsonList, bytes);
+    logDiag('LIVE decoded n=${streams.length} '
+        'sinceStartMs=${watch.elapsedMilliseconds}');
+    final channels = _buildChannels(streams, names, base, user, password);
+    logDiag('LIVE built n=${channels.length} '
+        'sinceStartMs=${watch.elapsedMilliseconds}');
+    return channels;
+  }
+
+  List<Channel> _buildChannels(
+    List<dynamic> streams,
+    Map<String, String> names,
+    String base,
+    String user,
+    String password,
+  ) {
     return streams.map((entry) {
       final map = Map<String, dynamic>.from(entry);
       final categoryId = map['category_id']?.toString() ?? '';

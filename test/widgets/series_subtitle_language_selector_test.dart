@@ -85,4 +85,63 @@ void main() {
     expect(find.text('Français'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('disabled can be forced and restored', (tester) async {
+    Widget selector() => ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SeriesSubtitleLanguageSelector(
+                seriesId: 'disabled',
+                fetchTracks: () async => [],
+              ),
+            ),
+          ),
+        );
+    await tester.pumpWidget(selector());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('(Désactivés)').last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).onChanged, isNotNull);
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('disabled'), '');
+    expect(await PlayerTrackPrefs.isSeriesSubtitleForced('disabled'), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(selector());
+    await tester.pumpAndSettle();
+    expect(find.text('(Désactivés)'), findsOneWidget);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+  });
+
+  testWidgets('stream default audio can be forced and restored',
+      (tester) async {
+    Widget selector() => ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: SeriesAudioLanguageSelector(
+                seriesId: 'default',
+                fetchTracks: () async => [],
+              ),
+            ),
+          ),
+        );
+    await tester.pumpWidget(selector());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('(Défaut du flux)').last);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).onChanged, isNotNull);
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    expect(await PlayerTrackPrefs.seriesAudioLanguageFor('default'), '');
+    expect(await PlayerTrackPrefs.isSeriesAudioForced('default'), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(selector());
+    await tester.pumpAndSettle();
+    expect(find.text('(Défaut du flux)'), findsOneWidget);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+  });
 }

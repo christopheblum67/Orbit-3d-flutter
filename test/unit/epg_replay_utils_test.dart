@@ -28,6 +28,24 @@ void main() {
       );
     });
 
+    test('false pour un bloc créé pour combler un trou', () {
+      expect(
+        isReplayableProgram(
+          EPGProgram(
+            channelId: 'C1',
+            title: 'Aucune information',
+            description: '',
+            start: now.subtract(const Duration(hours: 2)),
+            end: now.subtract(const Duration(hours: 1)),
+            isDummy: true,
+          ),
+          now: now,
+          channelSupportsReplay: true,
+        ),
+        false,
+      );
+    });
+
     test('false si le programme est en cours de diffusion', () {
       expect(
         isReplayableProgram(

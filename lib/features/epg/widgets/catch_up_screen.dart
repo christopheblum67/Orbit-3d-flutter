@@ -9,6 +9,8 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/features/player/player_route_data.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
 /// Écran Catch-up (rattrapage) pour une chaîne spécifique.
 ///
@@ -236,14 +238,13 @@ class _CatchUpContentState extends ConsumerState<_CatchUpContent> {
     }
 
     if (!context.mounted) return;
-    context.pushNamed(
-      'player',
-      extra: {
-        'streamUrl': url,
-        'title': '${program.title} (replay)',
-        'contentType': 'replay',
-        'channelId': widget.channel.id,
-      },
+    context.push(
+      '/player',
+      extra: PlayerRouteData(
+        streamUrl: url,
+        title: '${program.title} (replay)',
+        contentType: PlaybackContentType.replay,
+      ),
     );
   }
 }

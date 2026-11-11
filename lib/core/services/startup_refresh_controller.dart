@@ -3,6 +3,7 @@ import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
 import 'package:orbit_3d_flutter/core/utils/catalog_diagnostic.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
+import 'package:orbit_3d_flutter/services/catalog_fetch_service.dart';
 import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -87,7 +88,9 @@ class StartupRefreshController extends RefreshStepsController {
   Future<bool> _canDeferCatalog(String kind) async {
     if (bypassCatalogCache) return false;
     final key = await _api.resolveSubscriptionCacheKey();
-    return key != null && await CatalogDiskCache.instance.hasFresh(kind, key);
+    return key != null &&
+        await CatalogDiskCache.instance.hasFresh(kind, key,
+            maxAgeLimit: CatalogFetchService.maxStaleAge);
   }
 
   final List<({String kind, Future<Object?> Function() load})> _deferred = [];
@@ -130,7 +133,26 @@ class StartupRefreshController extends RefreshStepsController {
     // s'exécutent une à une. En lançant tout en parallèle (catalogues + EPG +
     // sondages replay), on fait saturer le rate-limit (429) du panel et
     // l'ENSEMBLE échoue (catégories/flux indisponibles à l'arrivée).
+    final startupWatch = Stopwatch()..start();
     return run((step) async {
+      final stepWatch = Stopwatch()..start();
+      try {
+        await _runStep(step);
+      } finally {
+        logDiag(
+          'STARTUP step=${step.name} durationMs=${stepWatch.elapsedMilliseconds} '
+          'sinceStartMs=${startupWatch.elapsedMilliseconds} '
+          'deferredQueue=${_deferred.length}',
+        );
+      }
+    }).whenComplete(() {
+      logDiag('STARTUP total=${startupWatch.elapsedMilliseconds}ms');
+      _startDeferred();
+    });
+  }
+
+  Future<void> _runStep(StartupStep step) {
+    return () async {
       switch (step) {
         case StartupStep.live:
           hasCatalogData = (await _loadLiveChannels()).isNotEmpty;
@@ -184,6 +206,6 @@ class StartupRefreshController extends RefreshStepsController {
           // que la progression reste fluide sans latence.
           break;
       }
-    }).whenComplete(_startDeferred);
+    }();
   }
 }

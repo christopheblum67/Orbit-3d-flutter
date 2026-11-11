@@ -13,16 +13,22 @@ Future<void> applySavedAudioTrack({
   await safeAsync(
     () async {
       final pref = await PlayerTrackPrefs.audioTrackFor(mediaKey);
-      if (pref != null && pref.isEmpty) return;
+      final forced = seriesId != null &&
+          await PlayerTrackPrefs.isSeriesAudioForced(seriesId);
+      final seriesLanguage = seriesId == null
+          ? null
+          : await PlayerTrackPrefs.seriesAudioLanguageFor(seriesId);
+      if (!isCurrent()) return;
+      if (forced && seriesLanguage != null && seriesLanguage.isEmpty) return;
+      if (!forced && pref != null && pref.isEmpty) return;
 
       if (!isCurrent()) return;
       final tracks = await controller.getAudioTracks();
       if (tracks.isEmpty) return;
 
-      var trackIdToApply = pref;
+      var trackIdToApply = forced && seriesLanguage != null ? null : pref;
       if (trackIdToApply == null && seriesId != null) {
-        final forced = await PlayerTrackPrefs.isSeriesAudioForced(seriesId);
-        final lang = await PlayerTrackPrefs.seriesAudioLanguageFor(seriesId);
+        final lang = seriesLanguage;
         if (lang != null && lang.isNotEmpty) {
           final matchingTrack = tracks.firstWhereOrNull(
             (t) =>

@@ -242,7 +242,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get dataAlreadyFresh => 'Daten bereits aktuell (weniger als 30 Min.)';
+  String get dataAlreadyFresh => 'Daten bereits aktuell (weniger als 8 Std.)';
 
   @override
   String get dataAndPrivacy => 'Daten & Datenschutz';

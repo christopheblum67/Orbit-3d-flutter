@@ -115,6 +115,28 @@ void main() {
     expect(controller.actions, ['select:full:false', 'select:full:false']);
   });
 
+  test('explicit disabled choice disables again on later track scans',
+      () async {
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', '');
+    await PlayerTrackPrefs.setSeriesSubtitleForced('series', true);
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()..tracks = [forced];
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+    Future<void> apply() => prefs.applySeries(
+          controller: controller,
+          seriesId: 'series',
+          generation: 1,
+          isCurrent: () => true,
+        );
+    await apply();
+    await apply();
+    expect(controller.actions, ['disable:false', 'disable:false']);
+    controller.revision++;
+    await apply();
+    expect(controller.actions, hasLength(2));
+  });
+
   test('stale series selection does not mark generation as applied', () async {
     await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');
     final prefs = SubtitlePreferences();

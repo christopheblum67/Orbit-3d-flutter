@@ -31,6 +31,26 @@ object HardwareChannel {
                         ),
                     )
                 }
+                "setKeepScreenOn" -> {
+                    val enabled = call.argument<Boolean>("enabled") == true
+                    val activity = context as? android.app.Activity
+                    if (activity == null) {
+                        result.success(false)
+                    } else {
+                        activity.runOnUiThread {
+                            if (enabled) {
+                                activity.window.addFlags(
+                                    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                                )
+                            } else {
+                                activity.window.clearFlags(
+                                    android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                                )
+                            }
+                            result.success(true)
+                        }
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

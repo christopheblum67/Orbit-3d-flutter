@@ -19,8 +19,8 @@ final epgProgramsProvider =
   EPGProgramsNotifier.new,
 );
 
-final epgDataCacheProvider = Provider<EPGDataCache>(
-  (ref) => EPGDataCache(
+final epgDataCacheProvider = Provider<EPGDataCache>((ref) {
+  final cache = EPGDataCache(
     allowedChannelKeys: () {
       final channels = ref.read(liveChannelsProvider).value;
       if (channels == null || channels.isEmpty) return null;
@@ -31,8 +31,14 @@ final epgDataCacheProvider = Provider<EPGDataCache>(
         ],
       };
     },
-  ),
-);
+  );
+  var disposed = false;
+  ref.onDispose(() => disposed = true);
+  cache.onRevalidated = () {
+    if (!disposed) ref.invalidate(epgProgramsProvider);
+  };
+  return cache;
+});
 
 /// Cache des guides courts (get_short_epg) + service de précharge 7 jours (S4).
 final shortEpgCacheProvider = Provider<ShortEpgCache>((ref) => ShortEpgCache());

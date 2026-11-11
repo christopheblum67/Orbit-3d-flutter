@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/radio_favorites_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/utils/xtream_taxonomy.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -83,17 +85,86 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                   ),
                 ),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    SectionHeader(
-                      icon: Icons.graphic_eq,
-                      title: 'Stations',
-                      subtitle: '${radios.length} stations',
-                    ),
-                    const SizedBox(height: 8),
-                    for (final radio in radios)
-                      Padding(
+                child: Builder(builder: (context) {
+                  final countries = _countriesOf(radios);
+                  final favorites = ref.watch(radioFavoritesProvider);
+                  final onlyFavorites = _onlyFavorites && favorites.isNotEmpty;
+                  final selected = countries.contains(_country) ? _country : null;
+                  final shown = onlyFavorites
+                      ? radios.where((r) => favorites.contains(r.name)).toList()
+                      : selected == null
+                          ? radios
+                          : radios
+                              .where((r) => _countryOf(r.name) == selected)
+                              .toList();
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: shown.length + 1,
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SectionHeader(
+                              icon: Icons.graphic_eq,
+                              title: 'Stations',
+                              subtitle: '${shown.length} stations',
+                            ),
+                            if (countries.length > 1) ...[
+                              const SizedBox(height: 8),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    if (favorites.isNotEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: ChoiceChip(
+                                          avatar:
+                                              const Icon(Icons.favorite, size: 16),
+                                          label: Text('Favoris (${favorites.length})'),
+                                          selected: onlyFavorites,
+                                          onSelected: (_) => setState(
+                                              () => _onlyFavorites = true),
+                                        ),
+                                      ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        label: const Text('Toutes'),
+                                        selected:
+                                            selected == null && !onlyFavorites,
+                                        onSelected: (_) => setState(() {
+                                          _country = null;
+                                          _onlyFavorites = false;
+                                        }),
+                                      ),
+                                    ),
+                                    for (final c in countries)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: ChoiceChip(
+                                          label: Text(c),
+                                          selected:
+                                              !onlyFavorites && selected == c,
+                                          onSelected: (_) => setState(() {
+                                            _country = c;
+                                            _onlyFavorites = false;
+                                          }),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                          ],
+                        );
+                      }
+                      final radio = shown[index - 1];
+                      return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: ChannelTile(
                           title: radio.name,
@@ -139,24 +210,50 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                                     ),
                                   ),
                                 )
-                              : IconButton(
-                                  icon: Icon(
-                                    stationName == radio.name && isPlaying
-                                        ? Icons.stop_circle_outlined
-                                        : Icons.play_circle_outline,
-                                  ),
-                                  color: stationName == radio.name && isPlaying
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                  onPressed: () => _toggleStation(radio),
+                              : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ExcludeFocus(
+                                      child: IconButton(
+                                        tooltip: favorites.contains(radio.name)
+                                            ? 'Retirer des favoris'
+                                            : 'Ajouter aux favoris',
+                                        icon: Icon(
+                                          favorites.contains(radio.name)
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: favorites.contains(radio.name)
+                                              ? const Color(0xFFFF5252)
+                                              : null,
+                                        ),
+                                        onPressed: () => _toggleFavorite(radio),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        stationName == radio.name && isPlaying
+                                            ? Icons.stop_circle_outlined
+                                            : Icons.play_circle_outline,
+                                      ),
+                                      color: stationName == radio.name &&
+                                              isPlaying
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                      onPressed: () => _toggleStation(radio),
+                                    ),
+                                  ],
                                 ),
                           onTap: () => _toggleStation(radio),
+                          onLongPress: () => _toggleFavorite(radio),
                         ),
-                      ),
-                  ],
-                ),
+                      );
+                    },
+                  );
+                },),
               ),
             ],
           );
@@ -176,7 +273,32 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
   }
 
   String? _currentStationName;
+  String? _country;
+  bool _onlyFavorites = false;
   final Set<String> _unavailable = {};
+
+  /// Pays lu dans le préfixe du nom (`|BE| Antipode`), sinon « Autres ».
+  static String _countryOf(String name) => XtreamTaxonomy.countryOf(name);
+
+  static List<String> _countriesOf(List<Channel> radios) =>
+      XtreamTaxonomy.sortCountries(radios.map((r) => _countryOf(r.name)));
+
+  Future<void> _toggleFavorite(Channel radio) async {
+    final wasFavorite =
+        ref.read(radioFavoritesProvider).contains(radio.name);
+    await ref.read(radioFavoritesProvider.notifier).toggle(radio.name);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(wasFavorite
+              ? '« ${radio.name} » retiré des favoris'
+              : '« ${radio.name} » ajouté aux favoris'),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
+  }
 
   Future<void> _toggleStation(Channel radio) async {
     final radioService = ref.read(radioServiceProvider);

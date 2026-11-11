@@ -271,14 +271,14 @@ class _SeriesDetailContent extends ConsumerWidget {
     var seen = 0;
     for (final episode in episodes) {
       final isVu = watchedEpisodes.containsKey(
-            WatchedEpisodeEntry.keyFor(
-              profileId: profile?.id ?? '',
-              seriesId: baseSeries.id,
-              season: episode.season,
-              episodeNumber: episode.episodeNumber,
-              episodeId: episode.id,
-            ),
-          );
+        WatchedEpisodeEntry.keyFor(
+          profileId: profile?.id ?? '',
+          seriesId: baseSeries.id,
+          season: episode.season,
+          episodeNumber: episode.episodeNumber,
+          episodeId: episode.id,
+        ),
+      );
       if (isVu) {
         seen++;
         continue;
@@ -355,6 +355,7 @@ class _SeriesDetailContent extends ConsumerWidget {
             showCharacter: true,
             itemWidth: 120,
             imageSize: 80,
+            onActorTap: (actor) => context.push('/actor/detail', extra: actor),
           ),
         ),
     ];
@@ -539,6 +540,8 @@ class _SeriesHeader extends ConsumerWidget {
               actors: series.cast,
               title: l.mainCast,
               maxVisible: 8,
+              onActorTap: (actor) =>
+                  context.push('/actor/detail', extra: actor),
             )
           else
             Padding(
@@ -563,7 +566,7 @@ class _SeriesHeader extends ConsumerWidget {
             ),
           const SizedBox(height: 12),
           // Sélecteur de langue audio par défaut pour la série
-          _SeriesAudioLanguageSelector(seriesId: baseSeries.id),
+          SeriesAudioLanguageSelector(seriesId: baseSeries.id),
           const SizedBox(height: 16),
           // Sélecteur de langue de sous-titres par défaut pour la série
           SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
@@ -888,7 +891,9 @@ class _EpisodeTile extends ConsumerWidget {
     Future<void> setWatched(bool value) async {
       if (profileId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sélectionnez un profil pour modifier cet épisode.')),
+          const SnackBar(
+              content:
+                  Text('Sélectionnez un profil pour modifier cet épisode.')),
         );
         return;
       }
@@ -914,7 +919,9 @@ class _EpisodeTile extends ConsumerWidget {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Impossible de modifier le statut de cet épisode.')),
+            const SnackBar(
+                content:
+                    Text('Impossible de modifier le statut de cet épisode.')),
           );
         }
       }
@@ -927,11 +934,11 @@ class _EpisodeTile extends ConsumerWidget {
         builder: (_) => _ResetEpisodeDialog(
           title: isVu ? 'Réinitialiser l\'épisode ?' : 'Marquer comme vu ?',
           message: isVu && hasProgress
-                ? '« $label » sera marqué comme non vu et sa progression '
-                    'de lecture sera effacée.'
-                : isVu
-                    ? '« $label » sera marqué comme non vu pour ce profil.'
-                    : '« $label » sera marqué comme vu pour ce profil.',
+              ? '« $label » sera marqué comme non vu et sa progression '
+                  'de lecture sera effacée.'
+              : isVu
+                  ? '« $label » sera marqué comme non vu pour ce profil.'
+                  : '« $label » sera marqué comme vu pour ce profil.',
           resetLabel: isVu ? l.reset : 'Marquer comme vu',
         ),
       );
@@ -1040,9 +1047,11 @@ class _EpisodeTile extends ConsumerWidget {
                 child: GestureDetector(
                   onLongPress: onLongPress,
                   child: TooltipTheme(
-                    data: const TooltipThemeData(triggerMode: TooltipTriggerMode.manual),
+                    data: const TooltipThemeData(
+                        triggerMode: TooltipTriggerMode.manual),
                     child: IconButton(
-                      tooltip: isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
+                      tooltip:
+                          isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
                       onPressed: () => setWatched(!isVu),
                       icon: Icon(
                         isVu ? Icons.check_circle : Icons.check_circle_outline,
@@ -1062,20 +1071,23 @@ class _EpisodeTile extends ConsumerWidget {
 
 /// Sélecteur de langue audio par défaut pour une série.
 /// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
-class _SeriesAudioLanguageSelector extends ConsumerStatefulWidget {
-  const _SeriesAudioLanguageSelector({required this.seriesId});
+class SeriesAudioLanguageSelector extends ConsumerStatefulWidget {
+  const SeriesAudioLanguageSelector(
+      {super.key, required this.seriesId, this.fetchTracks});
   final String seriesId;
+  final Future<List<(String, String)>> Function()? fetchTracks;
 
   @override
-  ConsumerState<_SeriesAudioLanguageSelector> createState() =>
+  ConsumerState<SeriesAudioLanguageSelector> createState() =>
       _SeriesAudioLanguageSelectorState();
 }
 
 class _SeriesAudioLanguageSelectorState
-    extends ConsumerState<_SeriesAudioLanguageSelector> {
+    extends ConsumerState<SeriesAudioLanguageSelector> {
   String? _selectedLanguage;
   bool _forced = false;
   bool _loading = true;
+  bool _preferencesLoaded = false;
   List<(String, String)> _availableLanguages = const [];
 
   @override
@@ -1092,10 +1104,12 @@ class _SeriesAudioLanguageSelectorState
     setState(() {
       _selectedLanguage = lang;
       _forced = forced;
+      _preferencesLoaded = true;
     });
 
     // 2. Récupérer les langues réelles depuis le premier épisode jouable
-    final languages = await _fetchRealAudioLanguages();
+    final languages =
+        await (widget.fetchTracks?.call() ?? _fetchRealAudioLanguages());
 
     if (mounted) {
       setState(() {
@@ -1131,19 +1145,10 @@ class _SeriesAudioLanguageSelectorState
   }
 
   Future<void> _onLanguageChanged(String? lang) async {
-    if (lang == null || lang.isEmpty) {
-      await PlayerTrackPrefs.clearSeriesAudioPreference(widget.seriesId);
-      if (mounted) {
-        setState(() {
-          _selectedLanguage = null;
-          _forced = false;
-        });
-      }
-    } else {
-      await PlayerTrackPrefs.setSeriesAudioLanguage(widget.seriesId, lang);
-      if (mounted) {
-        setState(() => _selectedLanguage = lang);
-      }
+    if (lang == null) return;
+    await PlayerTrackPrefs.setSeriesAudioLanguage(widget.seriesId, lang);
+    if (mounted) {
+      setState(() => _selectedLanguage = lang);
     }
   }
 
@@ -1175,71 +1180,75 @@ class _SeriesAudioLanguageSelectorState
         ),
         const SizedBox(height: 8),
         Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedLanguage,
-                    decoration: const InputDecoration(
-                      labelText: 'Langue',
-                      hintText: 'Sélectionner une langue',
-                      prefixIcon: Icon(Icons.language_outlined),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: '',
-                        child: Text('(Défaut du flux)'),
-                      ),
-                      ..._availableLanguages.map(
-                        (l) => DropdownMenuItem<String>(
-                          value: l.$1,
-                          child: Text(l.$2),
-                        ),
-                      ),
-                      if (_selectedLanguage != null &&
-                          _selectedLanguage!.isNotEmpty &&
-                          !_availableLanguages.any((l) => l.$1 == _selectedLanguage))
-                        DropdownMenuItem<String>(
-                          value: _selectedLanguage,
-                          child: Text(_selectedLanguage!),
-                        ),
-                    ],
-                    onChanged: _onLanguageChanged,
-                  ),
-                  const SizedBox(height: 8),
-                  if (_loading)
-                    const Text('Recherche des pistes audio…'),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _forced,
-                        onChanged: _selectedLanguage == null
-                            ? null
-                            : (v) => _onForcedChanged(v ?? false),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          (_selectedLanguage == null)
-                              ? 'Choisissez d\'abord une langue'
-                              : _forced
-                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
-                                  : 'Appliquer seulement si disponible (sinon langue du flux)',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: (_selectedLanguage == null || !_forced)
-                                ? scheme.onSurfaceVariant
-                                : scheme.primary,
-                            fontWeight: _forced && _selectedLanguage != null
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(_selectedLanguage),
+              initialValue: _selectedLanguage,
+              decoration: const InputDecoration(
+                labelText: 'Langue',
+                hintText: 'Sélectionner une langue',
+                prefixIcon: Icon(Icons.language_outlined),
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('(Défaut du flux)'),
+                ),
+                ..._availableLanguages.map(
+                  (l) => DropdownMenuItem<String>(
+                    value: l.$1,
+                    child: Text(l.$2),
+                  ),
+                ),
+                if (_selectedLanguage != null &&
+                    _selectedLanguage!.isNotEmpty &&
+                    !_availableLanguages.any((l) => l.$1 == _selectedLanguage))
+                  DropdownMenuItem<String>(
+                    value: _selectedLanguage,
+                    child: Text(_selectedLanguage!),
+                  ),
+              ],
+              onChanged: _preferencesLoaded ? _onLanguageChanged : null,
+            ),
+            const SizedBox(height: 8),
+            if (_loading) const Text('Recherche des pistes audio…'),
+            Row(
+              children: [
+                Checkbox(
+                  value: _forced,
+                  onChanged: _selectedLanguage == null
+                      ? null
+                      : (v) => _onForcedChanged(v ?? false),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    (_selectedLanguage == null)
+                        ? 'Choisissez d\'abord une langue'
+                        : _selectedLanguage!.isEmpty
+                            ? (_forced
+                                ? 'Utiliser le défaut du flux pour tous les épisodes'
+                                : 'Utiliser le défaut du flux sauf choix par épisode')
+                            : _forced
+                                ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                : 'Appliquer seulement si disponible (sinon langue du flux)',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: (_selectedLanguage == null || !_forced)
+                          ? scheme.onSurfaceVariant
+                          : scheme.primary,
+                      fontWeight: _forced && _selectedLanguage != null
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1248,7 +1257,7 @@ class _SeriesAudioLanguageSelectorState
 /// Sélecteur de langue de sous-titres par défaut pour une série.
 /// Permet de choisir une langue (ex: FR) et de l'appliquer à tous les épisodes.
 ///
-/// Même principe que [_SeriesAudioLanguageSelector] : la préférence est
+/// Même principe que [SeriesAudioLanguageSelector] : la préférence est
 /// mémorisée par série ([PlayerTrackPrefs]) et le lecteur la ré-applique à
 /// chaque épisode. Les entrées reproduisent les pistes **intégrées** réellement
 /// présentes dans le premier épisode jouable — **une par piste**, comme la
@@ -1299,8 +1308,8 @@ class _SeriesSubtitleLanguageSelectorState
     });
 
     // 2. Récupérer les langues réelles depuis le premier épisode jouable
-    final languages = await (widget.fetchTracks?.call() ??
-        _fetchRealSubtitleLanguages());
+    final languages =
+        await (widget.fetchTracks?.call() ?? _fetchRealSubtitleLanguages());
 
     if (mounted) {
       setState(() {
@@ -1331,19 +1340,10 @@ class _SeriesSubtitleLanguageSelectorState
   }
 
   Future<void> _onLanguageChanged(String? lang) async {
-    if (lang == null || lang.isEmpty) {
-      await PlayerTrackPrefs.clearSeriesSubtitlePreference(widget.seriesId);
-      if (mounted) {
-        setState(() {
-          _selectedLanguage = null;
-          _forced = false;
-        });
-      }
-    } else {
-      await PlayerTrackPrefs.setSeriesSubtitleLanguage(widget.seriesId, lang);
-      if (mounted) {
-        setState(() => _selectedLanguage = lang);
-      }
+    if (lang == null) return;
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage(widget.seriesId, lang);
+    if (mounted) {
+      setState(() => _selectedLanguage = lang);
     }
   }
 
@@ -1414,61 +1414,63 @@ class _SeriesSubtitleLanguageSelectorState
         ),
         const SizedBox(height: 8),
         Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    key: ValueKey(_selectedLanguage),
-                    initialValue: _selectedLanguage,
-                    decoration: const InputDecoration(
-                      labelText: 'Langue des sous-titres',
-                      hintText: 'Sélectionner une langue',
-                      prefixIcon: Icon(Icons.subtitles_outlined),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: _dropdownItems(),
-                    onChanged:
-                        _preferencesLoaded ? _onLanguageChanged : null,
-                  ),
-                  const SizedBox(height: 8),
-                  if (_loading)
-                    const Text('Recherche des pistes de sous-titres…'),
-                  if (!_loading && _availableLanguages.isEmpty)
-                    const Text(
-                      'Aucune piste détectée : choisissez une langue, '
-                      'elle sera utilisée si disponible.',
-                    ),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _forced,
-                        onChanged: _selectedLanguage == null
-                            ? null
-                            : (v) => _onForcedChanged(v ?? false),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          (_selectedLanguage == null)
-                              ? 'Choisissez une langue dans le menu ci-dessus '
-                                  'pour activer cette option'
-                              : _forced
-                                  ? 'Forcer cette langue pour TOUS les épisodes de la série'
-                                  : 'Appliquer seulement si disponible (sinon langue du flux)',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: (_selectedLanguage == null || !_forced)
-                                ? scheme.onSurfaceVariant
-                                : scheme.primary,
-                            fontWeight: _forced && _selectedLanguage != null
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              key: ValueKey(_selectedLanguage),
+              initialValue: _selectedLanguage,
+              decoration: const InputDecoration(
+                labelText: 'Langue des sous-titres',
+                hintText: 'Sélectionner une langue',
+                prefixIcon: Icon(Icons.subtitles_outlined),
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
+              items: _dropdownItems(),
+              onChanged: _preferencesLoaded ? _onLanguageChanged : null,
+            ),
+            const SizedBox(height: 8),
+            if (_loading) const Text('Recherche des pistes de sous-titres…'),
+            if (!_loading && _availableLanguages.isEmpty)
+              const Text(
+                'Aucune piste détectée : choisissez une langue, '
+                'elle sera utilisée si disponible.',
+              ),
+            Row(
+              children: [
+                Checkbox(
+                  value: _forced,
+                  onChanged: _selectedLanguage == null
+                      ? null
+                      : (v) => _onForcedChanged(v ?? false),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    (_selectedLanguage == null)
+                        ? 'Choisissez une langue dans le menu ci-dessus '
+                            'pour activer cette option'
+                        : _selectedLanguage!.isEmpty
+                            ? (_forced
+                                ? 'Désactiver les sous-titres pour tous les épisodes'
+                                : 'Désactiver les sous-titres par défaut')
+                            : _forced
+                                ? 'Forcer cette langue pour TOUS les épisodes de la série'
+                                : 'Appliquer seulement si disponible (sinon langue du flux)',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: (_selectedLanguage == null || !_forced)
+                          ? scheme.onSurfaceVariant
+                          : scheme.primary,
+                      fontWeight: _forced && _selectedLanguage != null
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ],
     );
   }

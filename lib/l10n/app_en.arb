@@ -69,7 +69,7 @@
     "createNewProfile":  "Create a new profile",
     "createProfile":  "Create a profile",
     "currentProfileLabel":  "Current profile: {name}",
-    "dataAlreadyFresh":  "Data already up to date (less than 30 min)",
+    "dataAlreadyFresh":  "Data already up to date (less than 8 hours)",
     "dataAndPrivacy":  "Data \u0026 privacy",
     "deleteAll":  "Delete all",
     "deleteAllConfirm":  "Delete all?",

@@ -70,6 +70,35 @@ void main() {
     expect(controller.selected, ['fr']);
   });
 
+  test('forced stream default ignores the saved episode track', () async {
+    await PlayerTrackPrefs.setAudioTrack('episode', 'fr');
+    await PlayerTrackPrefs.setSeriesAudioLanguage('series', '');
+    await PlayerTrackPrefs.setSeriesAudioForced('series', true);
+    final controller = _Controller(() async => tracks);
+    await applySavedAudioTrack(
+      controller: controller,
+      mediaKey: 'episode',
+      seriesId: 'series',
+      isCurrent: () => true,
+    );
+    expect(controller.selected, isEmpty);
+    expect(controller.queries, 0);
+  });
+
+  test('forced series language overrides episode audio', () async {
+    await PlayerTrackPrefs.setAudioTrack('episode', 'en');
+    await PlayerTrackPrefs.setSeriesAudioLanguage('series', 'fr');
+    await PlayerTrackPrefs.setSeriesAudioForced('series', true);
+    final controller = _Controller(() async => tracks);
+    await applySavedAudioTrack(
+      controller: controller,
+      mediaKey: 'episode',
+      seriesId: 'series',
+      isCurrent: () => true,
+    );
+    expect(controller.selected, ['fr']);
+  });
+
   test('empty preference prevents querying the player', () async {
     await PlayerTrackPrefs.setAudioTrack('episode', '');
     final controller = _Controller(() async => tracks);

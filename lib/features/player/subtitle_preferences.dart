@@ -58,10 +58,22 @@ class SubtitlePreferences {
     required int generation,
     required bool Function() isCurrent,
   }) async {
-    if (seriesId == null || _seriesGeneration == generation) return;
+    if (seriesId == null ||
+        controller.manualSelectionRevision != _manualRevisionAtScan) {
+      return;
+    }
     final preference =
         await PlayerTrackPrefs.seriesSubtitleLanguageFor(seriesId);
-    if (preference == null || preference.isEmpty || !isCurrent()) return;
+    if (preference == null ||
+        !isCurrent() ||
+        controller.manualSelectionRevision != _manualRevisionAtScan) {
+      return;
+    }
+    if (preference.isEmpty) {
+      controller.disable(userInitiated: false);
+      return;
+    }
+    if (_seriesGeneration == generation) return;
 
     final track = pickEmbeddedSubtitleTrackForPreference(
       controller.embeddedTracks,

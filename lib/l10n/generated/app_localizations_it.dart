@@ -241,7 +241,7 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get dataAlreadyFresh => 'Dati già aggiornati (meno di 30 min)';
+  String get dataAlreadyFresh => 'Dati già aggiornati (meno di 8 ore)';
 
   @override
   String get dataAndPrivacy => 'Dati e privacy';

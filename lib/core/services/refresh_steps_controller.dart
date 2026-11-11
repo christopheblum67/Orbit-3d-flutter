@@ -8,7 +8,7 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 /// Vit ici (et non dans l'écran de démarrage) pour être partagée entre :
 /// — l'écran de démarrage ([StartupRefreshController]) ;
 /// — le rafraîchissement à la demande (`RefreshProgressScreen`), déclenché au
-///   lancement quand les données ont plus de 30 min, et sur « Mettre à jour ».
+///   lancement quand les données ont plus de 8 h, et sur « Mettre à jour ».
 ///
 /// `startup_refresh_controller.dart` ré-exporte cet enum : les imports
 /// existants (`show StartupStep`) continuent de fonctionner.

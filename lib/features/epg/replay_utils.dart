@@ -8,7 +8,7 @@ bool isReplayableProgram(
   required DateTime now,
   required bool channelSupportsReplay,
 }) {
-  if (!channelSupportsReplay) return false;
+  if (!channelSupportsReplay || program.isDummy) return false;
   if (program.isLive) return false;
   return program.end.isBefore(now);
 }

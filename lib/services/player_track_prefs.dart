@@ -34,7 +34,7 @@ class PlayerTrackPrefs {
     await prefs.remove('$_audioPrefix$mediaKey');
   }
 
-  /// Langue audio préférée pour une série (ex: 'fr', 'en').
+  /// Langue audio préférée : null si absente, chaîne vide pour le défaut du flux.
   static Future<String?> seriesAudioLanguageFor(String seriesId) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('$_seriesAudioPrefix$seriesId');
@@ -72,7 +72,7 @@ class PlayerTrackPrefs {
   static const String _seriesSubtitleForcedPrefix =
       'player_track.series_subtitle_forced.';
 
-  /// Langue de sous-titres préférée pour une série (ex: 'fr', 'en').
+  /// Sous-titres préférés : null si absents, chaîne vide pour les désactiver.
   static Future<String?> seriesSubtitleLanguageFor(String seriesId) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('$_seriesSubtitlePrefix$seriesId');

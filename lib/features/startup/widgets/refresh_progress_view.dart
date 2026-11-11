@@ -11,7 +11,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 ///
 /// Partagé par le démarrage ([StartupSplashScreen]) et le rafraîchissement à la
 /// demande (`RefreshProgressScreen`) : l'utilisateur voit EXACTEMENT le même
-/// écran, qu'il arrive au lancement (données > 30 min) ou via « Mettre à jour ».
+/// écran, qu'il arrive au lancement (données > 8 h) ou via « Mettre à jour ».
 ///
 /// ## Adaptatif portrait / paysage
 ///

@@ -20,7 +20,8 @@ final replaysProvider = FutureProvider<List<ReplayItem>>((ref) async {
   final filter = ref.watch(contentFilterProvider);
   final api = ref.watch(apiServiceProvider);
   ref.watch(activeSubscriptionProvider);
-  final shortEpg = replaysCache.peek ?? const <ReplayItem>[];
+  final shortEpg =
+      replaysCache.peek ?? replaysCache.stale ?? const <ReplayItem>[];
 
   final epgResult = await safeAsync<List<EPGProgram>>(
     () => ref.watch(epgProgramsProvider.future),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,32 +23,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
-  late final PageController _pageController;
+  PageController? _pageController;
+  bool? _portraitPhone;
   final Map<String, FocusNode> _carouselFocusNodes = {};
   double _currentPage = 0.0;
   String? _focusedCarouselRoute;
   bool _autoRefreshing = false;
+  DateTime? _lastSilentRefreshAttempt;
   GoRouter? _router;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _pageController = PageController(
-      initialPage: 0,
-      viewportFraction: 0.38,
-    );
-    _pageController.addListener(() {
-      if (mounted) {
-        setState(() {
-          _currentPage = _pageController.page ?? 0.0;
-        });
-      }
-    });
     // GARDE-FOU « à jour depuis » : le démarrage rapide (profil restauré →
     // /home) court-circuite l'écran de démarrage, donc ni le catalogue ni
     // l'horodatage n'étaient rechargés (affichage resté à « 98 h »). On
     // relance une mise à jour silencieuse au premier frame si les données
-    // datent de plus de 30 min (TTL EPG).
+    // datent de plus de 8 h.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _autoRefreshIfStale();
     });
@@ -56,6 +48,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final size = MediaQuery.sizeOf(context);
+    final portraitPhone = size.width < 600 && size.height > size.width;
+    if (_portraitPhone != portraitPhone) {
+      final previous = _pageController;
+      final page = _currentPage.round();
+      _currentPage = page.toDouble();
+      _portraitPhone = portraitPhone;
+      final controller = PageController(
+        initialPage: page,
+        viewportFraction: portraitPhone ? 0.68 : 0.38,
+      );
+      controller.addListener(() {
+        final value = controller.page ?? 0.0;
+        if (!mounted || !identical(_pageController, controller) ||
+            (_currentPage - value).abs() < 0.0001) {
+          return;
+        }
+        if (SchedulerBinding.instance.schedulerPhase ==
+            SchedulerPhase.persistentCallbacks) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && identical(_pageController, controller) &&
+                controller.hasClients) {
+              setState(() => _currentPage = controller.page ?? value);
+            }
+          });
+        } else {
+          setState(() => _currentPage = value);
+        }
+      });
+      _pageController = controller;
+      if (previous != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+      }
+    }
     final router = GoRouter.of(context);
     if (_router != router) {
       _router?.routeInformationProvider.removeListener(_onRouteChanged);
@@ -79,7 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _router?.routeInformationProvider.removeListener(_onRouteChanged);
-    _pageController.dispose();
+    _pageController?.dispose();
     for (final focusNode in _carouselFocusNodes.values) {
       focusNode.dispose();
     }
@@ -122,7 +148,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final nextItem = items[nextIndex];
     final nextNode = _focusNodeFor(nextItem);
     _focusedCarouselRoute = _carouselItemKey(nextItem);
-    _pageController
+    _pageController!
         .animateToPage(
       nextIndex,
       duration: const Duration(milliseconds: 220),
@@ -232,8 +258,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Future<void> _refreshAll() async {
     final l = AppLocalizations.of(context);
     final last = ref.read(lastRefreshTimestampProvider);
-    // Garde-fou : si la dernière mise à jour date de moins de 30 min
-    // (TTL EPG), on évite de re-télécharger inutilement.
+    // Garde-fou : si la dernière mise à jour date de moins de 8 h,
+    // on évite de re-télécharger inutilement.
     if (isSubscriptionRefreshFresh(last)) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -267,8 +293,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   /// Garde-fou de démarrage : si la dernière mise à jour date de plus de
-  /// 30 min (TTL EPG), on ouvre l'écran de mise à jour (4 icônes + avancement)
-  /// — le rechargement n'est plus silencieux.
+  /// 8 h, on relance la mise à jour en silence, sans fenêtre de
+  /// chargement. Le bouton « Mettre à jour » garde, lui, l'écran d'avancement.
   ///
   /// Le démarrage rapide (profil restauré → `/home`) court-circuite l'écran de
   /// démarrage : sans ce garde-fou, le bandeau « à jour depuis » restait figé
@@ -287,10 +313,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (isSubscriptionRefreshFresh(last)) {
       return;
     }
+    // Un retour depuis une section ramène sur /home : sans délai, un échec
+    // (timestamp non mis à jour) relancerait le lot à chaque appui sur Retour.
+    final lastAttempt = _lastSilentRefreshAttempt;
+    if (lastAttempt != null &&
+        DateTime.now().difference(lastAttempt) < const Duration(minutes: 5)) {
+      return;
+    }
+    _lastSilentRefreshAttempt = DateTime.now();
     _autoRefreshing = true;
     try {
       if (!mounted) return;
-      await showRefreshProgress(context);
+      await runSilentRefresh(ref: ref, isMounted: () => mounted);
     } finally {
       _autoRefreshing = false;
     }
@@ -496,6 +530,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildBottomBar(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final compact = MediaQuery.sizeOf(context).width < 600;
+    final bar = Row(
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+      children: [
+        _SubStatusChip(
+          onOpenSubscriptions: () => context.go('/subscriptions'),
+        ),
+        const SizedBox(width: 10),
+        _UpdateButton(
+          tooltip: l.updateAllData,
+          onPressed: _refreshAll,
+        ),
+        const SizedBox(width: 8),
+        if (compact)
+          const SizedBox(width: 120, child: _LastRefreshLabel())
+        else
+          const Flexible(child: _LastRefreshLabel()),
+        if (compact) const SizedBox(width: 12) else const Spacer(),
+        const _ProfileShortcut(),
+        const SizedBox(width: 8),
+        _SettingsShortcut(
+          onPressed: () => context.go('/settings'),
+        ),
+      ],
+    );
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -505,24 +564,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: Row(
-        children: [
-          _SubStatusChip(
-            onOpenSubscriptions: () => context.go('/subscriptions'),
-          ),
-          const SizedBox(width: 10),
-          _UpdateButton(
-            tooltip: l.updateAllData,
-            onPressed: _refreshAll,
-          ),
-          const Spacer(),
-          const _ProfileShortcut(),
-          const SizedBox(width: 8),
-          _SettingsShortcut(
-            onPressed: () => context.go('/settings'),
-          ),
-        ],
-      ),
+      child: compact
+          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: bar)
+          : bar,
     );
   }
 }
@@ -541,8 +585,9 @@ class _SubStatusChip extends ConsumerWidget {
     if (name.isEmpty) {
       return _NoSubscriptionChip(onTap: onOpenSubscriptions);
     }
-    return Row(
+    return IntrinsicHeight(child: Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -584,20 +629,20 @@ class _SubStatusChip extends ConsumerWidget {
             child: Tooltip(
               message: 'Changer d’abonnement',
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
                   ),
                 ),
                 child: const Text(
-                  'Changer',
+                  'Gestion Abonnement',
                   style: TextStyle(
                     color: Color(0xFF00CFE8),
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -606,7 +651,7 @@ class _SubStatusChip extends ConsumerWidget {
           ),
         ),
       ],
-    );
+    ));
   }
 }
 
@@ -618,8 +663,9 @@ class _NoSubscriptionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Row(
+    return IntrinsicHeight(child: Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -654,20 +700,20 @@ class _NoSubscriptionChip extends StatelessWidget {
             child: Tooltip(
               message: 'Ajouter ou changer d’abonnement',
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
                   ),
                 ),
                 child: const Text(
-                  'Changer',
+                  'Gestion Abonnement',
                   style: TextStyle(
                     color: Color(0xFF00CFE8),
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -676,7 +722,7 @@ class _NoSubscriptionChip extends StatelessWidget {
           ),
         ),
       ],
-    );
+    ));
   }
 }
 
@@ -860,6 +906,13 @@ class _OrbitItem {
         subtitle: 'Jusqu\'à 4 flux à la fois',
         route: '/multivideo',
       ),
+      _OrbitItem(
+        title: 'Radio',
+        icon: Icons.radio_rounded,
+        color: const Color(0xFFEF6C00),
+        subtitle: 'Stations en direct',
+        route: '/radio',
+      ),
     ];
   }
 }
@@ -897,6 +950,47 @@ class _UpdateButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+}
+
+class _LastRefreshLabel extends ConsumerStatefulWidget {
+  const _LastRefreshLabel();
+
+  @override
+  ConsumerState<_LastRefreshLabel> createState() => _LastRefreshLabelState();
+}
+
+class _LastRefreshLabelState extends ConsumerState<_LastRefreshLabel> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final last = ref.watch(lastRefreshTimestampProvider);
+    final age = last == null ? null : DateTime.now().difference(last);
+    final text = age == null || age.isNegative
+        ? 'Dernière mise à jour inconnue'
+        : 'Mis à jour il y a ${age.inMinutes} min';
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: Colors.white70, fontSize: 11),
     );
   }
 }

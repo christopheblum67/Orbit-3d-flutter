@@ -6,6 +6,17 @@ import 'package:flutter/foundation.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// `Vary: Accept-Encoding` est sans effet ici (mêmes en-têtes à chaque requête) ;
+/// tout autre `Vary` rend le contenu non réutilisable.
+bool varyBlocksCaching(String? vary) {
+  final parts = (vary ?? '')
+      .toLowerCase()
+      .split(',')
+      .map((p) => p.trim())
+      .where((p) => p.isNotEmpty);
+  return parts.any((p) => p != 'accept-encoding');
+}
+
 class CatalogHttpValidators {
   CatalogHttpValidators({Future<Directory> Function()? directory})
       : _directory = directory ?? _defaultDirectory;
@@ -76,7 +87,7 @@ class CatalogHttpValidators {
           .split(',')
           .any((part) => part.trim() == 'no-store');
       if (noStore ||
-          (vary?.trim().isNotEmpty ?? false) ||
+          varyBlocksCaching(vary) ||
           ((etag?.isEmpty ?? true) && (lastModified?.isEmpty ?? true))) {
         if (await file.exists()) await file.delete();
         return;

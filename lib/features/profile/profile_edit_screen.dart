@@ -39,7 +39,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameController = TextEditingController();
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
-  late final FocusNode _nextButtonFocus;
   final _firstAgeFocus = FocusNode(debugLabel: 'profile.firstAge');
   final _identityCardKey = GlobalKey();
   ProfileType _type = ProfileType.adult;
@@ -190,21 +189,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     (label: '55 ans et plus', min: 55, max: 100),
   ];
 
-  static List<({String label, int min, int max})> _ageRangesLocalized(
-    AppLocalizations l,
-  ) =>
-      [
-        (label: l.ageRangeUnder12, min: 0, max: 12),
-        (label: l.ageRange13to17, min: 13, max: 17),
-        (label: l.ageRange18to24, min: 18, max: 24),
-        (label: l.ageRange25to34, min: 25, max: 34),
-        (label: l.ageRange35to44, min: 35, max: 44),
-        (label: l.ageRange45to54, min: 45, max: 54),
-        (label: l.ageRange55plus, min: 55, max: 100),
-      ];
-
-  static const _genderOptions = ['Homme', 'Femme', 'Autre'];
-
   static const _genreOptions = [
     'Action',
     'Aventure',
@@ -281,7 +265,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           return KeyEventResult.ignored;
         }
         if (key == LogicalKeyboardKey.arrowDown || isSelect) {
-          _nextButtonFocus.requestFocus();
+          setState(() => _nameEditing = false);
+          _scrollToNextSection();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -291,20 +276,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           setState(() => _nameEditing = false);
         }
       });
-    _nextButtonFocus = FocusNode(
-      debugLabel: 'profile.next',
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.space ||
-                event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-          _scrollToNextSection();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-    );
   }
 
   void _scrollToNextSection() {
@@ -338,7 +309,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.dispose();
     _scrollController.dispose();
     _nameFocus.dispose();
-    _nextButtonFocus.dispose();
     _firstAgeFocus.dispose();
     super.dispose();
   }
@@ -396,10 +366,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       favoriteGenres: const [],
       avatarUrl: _remoteAvatarUrl ?? '',
     );
-  }
-
-  void _onTypeChanged(ProfileType type) {
-    setState(() => _type = type);
   }
 
   Future<void> _openPinPad() async {
@@ -554,8 +520,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildBody() {
-    final showPin = _type == ProfileType.child || _type == ProfileType.expert;
-
     return ListView(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
@@ -567,10 +531,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         _buildIdentityCard(),
         const SizedBox(height: 16),
         _buildPersonalAndTypeCard(),
-        if (showPin) ...[
-          const SizedBox(height: 16),
-          _buildPinSection(),
-        ],
+        const SizedBox(height: 16),
+        _buildPinSection(),
         const SizedBox(height: 8),
         _buildActions(),
       ],
@@ -744,130 +706,20 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               },
             ),
           ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FocusTraversalGroup(
-              policy: OrderedTraversalPolicy(),
-              child: OutlinedButton.icon(
-                focusNode: _nextButtonFocus,
-                onPressed: _scrollToNextSection,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                label: const Text('Suivant'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildPersonalAndTypeCard({Key? key}) {
-    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final ageRangesLocalized = _ageRangesLocalized(l);
     return AppCard(
       key: key,
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Âge',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'La tranche d\'âge sert aux réglages du profil',
-            style:
-                textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < ageRangesLocalized.length; i++)
-                _ProfileChoiceChip(
-                  label: ageRangesLocalized[i].label,
-                  selected: _ageRangeIndex == i,
-                  focusNode: i == 0 ? _firstAgeFocus : null,
-                  onTap: () => setState(() {
-                    _dateOfBirth = _dateForRange(i);
-                  }),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Genre',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<String>(
-              segments: [
-                for (final option in _genderOptions)
-                  ButtonSegment(value: option, label: Text(option)),
-              ],
-              selected: {_gender},
-              onSelectionChanged: (selection) =>
-                  setState(() => _gender = selection.first),
-              showSelectedIcon: true,
-            ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            'Type de profil',
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: SegmentedButton<ProfileType>(
-              segments: const [
-                ButtonSegment(
-                  value: ProfileType.adult,
-                  label: Text('Adulte'),
-                  icon: Icon(Icons.sentiment_satisfied_alt),
-                ),
-                ButtonSegment(
-                  value: ProfileType.child,
-                  label: Text('Enfant'),
-                  icon: Icon(Icons.child_care),
-                ),
-                ButtonSegment(
-                  value: ProfileType.expert,
-                  label: Text('Expert'),
-                  icon: Icon(Icons.psychology_rounded),
-                ),
-              ],
-              selected: {_type},
-              onSelectionChanged: (selection) =>
-                  _onTypeChanged(selection.first),
-              showSelectedIcon: true,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _type == ProfileType.child
-                ? 'Profil enfant · réglages par âge (gérés par PIN)'
-                : _type == ProfileType.expert
-                    ? 'Recommandations avancées · protection par PIN'
-                    : 'Accès complet aux contenus',
-            style: textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 18),
           Text(
             'Genres de films favoris',
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -886,6 +738,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               for (final genre in _genreOptions)
                 _ProfileChoiceChip(
                   label: genre,
+                  focusNode: genre == _genreOptions.first ? _firstAgeFocus : null,
                   selected: _favoriteGenres.contains(genre),
                   onTap: () => setState(() {
                     if (_favoriteGenres.contains(genre)) {

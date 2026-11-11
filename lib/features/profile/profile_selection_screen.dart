@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
@@ -188,26 +186,12 @@ class _ProfileSelectionScreenState
             const SizedBox(width: 4),
           ],
           Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                Text(
-                  'Qui regarde ?',
-                  style: textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                Text(
-                  'Sélectionnez un profil pour continuer',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            child: Text(
+              'Sélectionnez un profil pour continuer',
+              style: textTheme.bodyMedium?.copyWith(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -218,41 +202,44 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildProfileGrid(List<UserProfile> profiles, int maxProfiles) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-      scrollDirection: Axis.horizontal,
-      itemCount: profiles.length + 1,
-      itemBuilder: (context, index) {
-        final isAddCard = index == profiles.length;
-        if (isAddCard) {
+    return Center(
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: profiles.length + 1,
+        itemBuilder: (context, index) {
+          final isAddCard = index == profiles.length;
+          if (isAddCard) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 28),
+              child: SizedBox(
+                width: 150,
+                child: _AddProfileCard(
+                  index: index,
+                  autofocus: false,
+                  onTap: () => _openCreate(profiles.length, maxProfiles),
+                ),
+              ),
+            );
+          }
+          final profile = profiles[index];
           return Padding(
-            padding: const EdgeInsets.only(right: 18),
+            padding: const EdgeInsets.only(right: 28),
             child: SizedBox(
-              width: 170,
-              child: _AddProfileCard(
+              width: 150,
+              child: _ProfileCard(
+                profile: profile,
                 index: index,
-                autofocus: false,
-                onTap: () => _openCreate(profiles.length, maxProfiles),
+                autofocus: index == 0,
+                onSelect: () => _selectProfile(profile),
+                onEdit: () => _openEdit(profile),
+                onDelete: () => _openDelete(profile),
               ),
             ),
           );
-        }
-        final profile = profiles[index];
-        return Padding(
-          padding: const EdgeInsets.only(right: 18),
-          child: SizedBox(
-            width: 340,
-            child: _ProfileCard(
-              profile: profile,
-              index: index,
-              autofocus: index == 0,
-              onSelect: () => _selectProfile(profile),
-              onEdit: () => _openEdit(profile),
-              onDelete: () => _openDelete(profile),
-            ),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 
@@ -271,8 +258,8 @@ class _ProfileSelectionScreenState
             ),
             const SizedBox(height: 16),
             SizedBox(
-              width: 240,
-              height: 180,
+              width: 150,
+              height: 200,
               child: _AddProfileCard(
                 index: 0,
                 autofocus: true,
@@ -316,7 +303,7 @@ class _ProfileSelectionScreenState
                   onPressed: () => GoRouter.of(context).pop(),
                 )
               : null,
-          title: Text(l.whoIsWatching),
+          title: const SizedBox.shrink(),
           actions: [
             _ProfileSwitchButton(profile: ref.watch(currentProfileProvider)),
           ],
@@ -428,25 +415,25 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
     }
     final key = event.logicalKey;
     if (_cardNode.hasPrimaryFocus) {
-      if (key == LogicalKeyboardKey.arrowRight) {
+      if (key == LogicalKeyboardKey.arrowDown) {
         _editNode.requestFocus();
         return KeyEventResult.handled;
       }
     } else if (_editNode.hasFocus) {
-      if (key == LogicalKeyboardKey.arrowDown) {
+      if (key == LogicalKeyboardKey.arrowRight) {
         _deleteNode.requestFocus();
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.arrowLeft) {
+      if (key == LogicalKeyboardKey.arrowUp) {
         _cardNode.requestFocus();
         return KeyEventResult.handled;
       }
     } else if (_deleteNode.hasFocus) {
-      if (key == LogicalKeyboardKey.arrowUp) {
+      if (key == LogicalKeyboardKey.arrowLeft) {
         _editNode.requestFocus();
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.arrowLeft) {
+      if (key == LogicalKeyboardKey.arrowUp) {
         _cardNode.requestFocus();
         return KeyEventResult.handled;
       }
@@ -460,172 +447,105 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
         ProfileType.expert => 'expert',
       };
 
-  String get _lastActiveLabel {
-    final at = widget.profile.lastActiveAt;
-    if (at == null) return 'Nouveau profil';
-    final now = DateTime.now();
-    final diff = now.difference(at);
-    if (diff.inMinutes < 1) return 'à l\'instant';
-    if (diff.inHours < 1) return 'il y a ${diff.inMinutes} min';
-    if (now.day == at.day &&
-        DateTime(now.year, now.month, now.day) ==
-            DateTime(at.year, at.month, at.day)) {
-      return 'aujourd\'hui';
-    }
-    if (diff.inHours < 48) return 'hier';
-    return DateFormat('d MMM', 'fr_FR').format(at);
-  }
 
   Widget _buildCardContent() {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final profile = widget.profile;
-    final currentProfile = ref.watch(currentProfileProvider);
-    final isActive = currentProfile?.id == profile.id;
+    final isActive = ref.watch(currentProfileProvider)?.id == profile.id;
+    final ringColor = _focused
+        ? scheme.tertiary
+        : isActive
+            ? scheme.primary
+            : Colors.white.withValues(alpha: 0.2);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: _focused
-            ? Color.alphaBlend(
-                scheme.tertiary.withValues(alpha: 0.32),
-                scheme.surfaceContainerHigh,
-              )
-            : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        border: Border.all(
-          color: _focused
-              ? scheme.tertiary
-              : isActive
-                  ? scheme.primary
-                  : scheme.outlineVariant.withValues(alpha: 0.6),
-          width: _focused
-              ? 2.5
-              : isActive
-                  ? 2
-                  : 1,
-        ),
-        boxShadow: [
-          if (_focused)
-            BoxShadow(
-              color: scheme.tertiary.withValues(alpha: 0.45),
-              blurRadius: 24,
-              spreadRadius: 2,
-              offset: const Offset(0, 10),
-            )
-          else if (isActive)
-            BoxShadow(
-              color: scheme.primary.withValues(alpha: 0.5),
-              blurRadius: 28,
-              spreadRadius: 4,
-              offset: const Offset(0, 12),
-            )
-          else
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      child: Stack(
-        children: [
-          Row(
-            children: [
-              // Avatar (gauche)
-              Semantics(
-                button: true,
-                label: 'Modifier le profil ${profile.firstName}',
-                onTap: widget.onEdit,
-                child: GestureDetector(
-                  onTap: widget.onEdit,
-                  child: ProfileAvatar(
-                    profile: profile,
-                    size: _focused || isActive ? 88 : 80,
-                  ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: ringColor,
+                  width: _focused || isActive ? 3 : 1,
                 ),
-              ),
-              const SizedBox(width: 16),
-              // Informations (droite)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        profile.firstName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: isActive ? scheme.primary : null,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ProfileTypeBadge(profileType: profile.profileType),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            profile.hasPin
-                                ? Icons.lock_outline_rounded
-                                : Icons.history_rounded,
-                            size: 14,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              profile.hasPin
-                                  ? 'Protégé par ${profile.profileType == ProfileType.child ? 'code enfant' : 'code'}'
-                                  : 'Dernière activité : $_lastActiveLabel',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Actions (bord droit)
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _CardActionButton(
-                    focusNode: _editNode,
-                    icon: Icons.edit_rounded,
-                    tooltip: 'Modifier',
-                    onPressed: widget.onEdit,
-                  ),
-                  const SizedBox(height: 8),
-                  _CardActionButton(
-                    focusNode: _deleteNode,
-                    icon: Icons.delete_outline_rounded,
-                    tooltip: 'Supprimer',
-                    onPressed: widget.onDelete,
-                  ),
+                boxShadow: [
+                  if (_focused)
+                    BoxShadow(
+                      color: scheme.tertiary.withValues(alpha: 0.5),
+                      blurRadius: 24,
+                      spreadRadius: 2,
+                    )
+                  else if (isActive)
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.45),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    )
+                  else
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
                 ],
               ),
-            ],
-          ),
-          if (isActive)
-            const Positioned(
-              top: -8,
-              left: -8,
-              child: _ActiveBadge(),
+              child: ProfileAvatar(profile: profile, size: 120),
             ),
+            if (isActive)
+              const Positioned(
+                bottom: -6,
+                child: _ActiveBadge(),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          profile.firstName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: isActive ? scheme.primary : null,
+          ),
+        ),
+        if (profile.hasPin) ...[
+          const SizedBox(height: 2),
+          Icon(
+            Icons.lock_outline_rounded,
+            size: 14,
+            color: scheme.onSurfaceVariant,
+          ),
         ],
-      ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CardActionButton(
+              focusNode: _editNode,
+              icon: Icons.edit_rounded,
+              tooltip: 'Modifier',
+              onPressed: widget.onEdit,
+            ),
+            const SizedBox(width: 12),
+            _CardActionButton(
+              focusNode: _deleteNode,
+              icon: Icons.delete_outline_rounded,
+              tooltip: 'Supprimer',
+              onPressed: widget.onDelete,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -729,75 +649,47 @@ class _AddProfileCardState extends State<_AddProfileCard>
   Widget _buildCardContent() {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final borderColor =
-        _focused ? scheme.primary : scheme.primary.withValues(alpha: 0.45);
-    return CustomPaint(
-      painter: _DashedBorderPainter(
-        color: borderColor,
-        radius: AppConstants.radiusLg,
-      ),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color:
-              scheme.primaryContainer.withValues(alpha: _focused ? 0.35 : 0.18),
-          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-          boxShadow: [
-            if (_focused)
-              BoxShadow(
-                color: scheme.primary.withValues(alpha: 0.35),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 8),
-              ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: _focused ? 58 : 52,
-              height: _focused ? 58 : 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [scheme.primary, scheme.tertiary],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: 128,
+          height: 128,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: scheme.primaryContainer
+                .withValues(alpha: _focused ? 0.35 : 0.18),
+            border: Border.all(
+              color: _focused
+                  ? scheme.primary
+                  : scheme.primary.withValues(alpha: 0.45),
+              width: _focused ? 3 : 1.5,
+            ),
+            boxShadow: [
+              if (_focused)
+                BoxShadow(
+                  color: scheme.primary.withValues(alpha: 0.4),
+                  blurRadius: 22,
+                  spreadRadius: 2,
                 ),
-              ),
-              child: Icon(
-                Icons.add,
-                size: 30,
-                color: scheme.onPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Ajouter un profil',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              l.createNewProfile,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-            ),
-          ],
+            ],
+          ),
+          child: Icon(Icons.add_rounded, size: 52, color: scheme.primary),
         ),
-      ),
+        const SizedBox(height: 14),
+        Text(
+          l.createNewProfile,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
     );
   }
 
@@ -964,47 +856,6 @@ class _CardActionButtonState extends State<_CardActionButton> {
         ),
       ),
     );
-  }
-}
-
-/// Bordure en pointillés (carte « Ajouter un profil »).
-class _DashedBorderPainter extends CustomPainter {
-  _DashedBorderPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-    final path = Path()..addRRect(rrect);
-    const dashWidth = 6.0;
-    const dashSpace = 5.0;
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    final iterator = path.computeMetrics().iterator;
-    while (iterator.moveNext()) {
-      final metric = iterator.current;
-      var distance = 0.0;
-      while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(distance, distance + dashWidth),
-          paint,
-        );
-        distance += dashWidth + dashSpace;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.radius != radius;
   }
 }
 

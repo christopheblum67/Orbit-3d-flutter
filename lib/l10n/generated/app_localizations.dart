@@ -523,7 +523,7 @@ abstract class AppLocalizations {
   /// No description provided for @dataAlreadyFresh.
   ///
   /// In fr, this message translates to:
-  /// **'Données déjà fraîches (moins de 30 min)'**
+  /// **'Données déjà fraîches (moins de 8 h)'**
   String get dataAlreadyFresh;
 
   /// No description provided for @dataAndPrivacy.

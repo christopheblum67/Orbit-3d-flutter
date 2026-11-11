@@ -69,7 +69,7 @@
     "createNewProfile":  "إنشاء ملف شخصي جديد",
     "createProfile":  "إنشاء ملف شخصي",
     "currentProfileLabel":  "الملف الشخصي الحالي: {name}",
-    "dataAlreadyFresh":  "البيانات محدثة (أقل من 30 دقيقة)",
+    "dataAlreadyFresh":  "البيانات محدثة (أقل من 8 ساعات)",
     "dataAndPrivacy":  "البيانات والخصوصية",
     "deleteAll":  "حذف الكل",
     "deleteAllConfirm":  "هل تريد حذف الكل؟",

@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/core/services/refresh_freshness.dart';
 import 'package:orbit_3d_flutter/core/services/startup_refresh_controller.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -45,6 +46,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   bool _navigated = false;
   bool _showBranding = false;
   bool _refreshStalled = false;
+  final Stopwatch _splashWatch = Stopwatch()..start();
   String? _startingSubscriptionId;
 
   @override
@@ -130,6 +132,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // à répondre ; on le dit bien avant l'alerte de blocage.
     _slowTimer = Timer(const Duration(seconds: 4), () {
       if (mounted && !_controller.isFinished) {
+        logDiag(
+          'STARTUP slowMessageShown step=${_controller.currentStep?.name} '
+          'afterMs=${_splashWatch.elapsedMilliseconds}',
+        );
         setState(() => _providerSlow = true);
       }
     });
@@ -158,6 +164,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
           );
     }
     await Future<void>.delayed(const Duration(milliseconds: 400));
+    logDiag('STARTUP splashToProfilesMs=${_splashWatch.elapsedMilliseconds}');
     if (mounted) context.go('/profiles?startup=true');
   }
 

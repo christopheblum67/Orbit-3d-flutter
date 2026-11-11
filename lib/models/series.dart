@@ -3,6 +3,7 @@ import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     as stream_helpers;
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/core/utils/new_content.dart';
 
 class Series {
   final String id;
@@ -35,12 +36,7 @@ class Series {
     this.addedDate,
   });
 
-  bool get isNew {
-    if (addedDate == null) return false;
-    final now = DateTime.now();
-    final diff = now.difference(addedDate!);
-    return diff.inDays <= 30;
-  }
+  bool get isNew => isRecentlyAdded(addedDate);
 
   /// Copie avec le genre remplacé, sans reconstruire toute la fiche.
   ///

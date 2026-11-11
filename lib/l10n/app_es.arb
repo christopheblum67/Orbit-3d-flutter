@@ -69,7 +69,7 @@
     "createNewProfile":  "Crear un nuevo perfil",
     "createProfile":  "Crear un perfil",
     "currentProfileLabel":  "Perfil actual: {name}",
-    "dataAlreadyFresh":  "Datos ya actualizados (menos de 30 min)",
+    "dataAlreadyFresh":  "Datos ya actualizados (menos de 8 horas)",
     "dataAndPrivacy":  "Datos y privacidad",
     "deleteAll":  "Eliminar todo",
     "deleteAllConfirm":  "¿Eliminar todo?",

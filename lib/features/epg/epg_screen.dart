@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
@@ -25,6 +26,8 @@ import 'package:orbit_3d_flutter/features/epg/widgets/epg_headbar.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_timeline_controller.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/catch_up_screen.dart';
 import 'package:orbit_3d_flutter/features/epg/widgets/epg_preview_header.dart';
+import 'package:orbit_3d_flutter/features/player/player_route_data.dart';
+import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Guide TV (EPG) : affiche la Grille EPG seule.
@@ -174,9 +177,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               ),
             ValueListenableBuilder<bool>(
               valueListenable: ref.read(epgDataCacheProvider).loading,
-              builder: (context, loading, _) => loading
-                  ? const _EpgLoadingBanner()
-                  : const SizedBox.shrink(),
+              builder: (context, loading, _) =>
+                  loading ? const _EpgLoadingBanner() : const SizedBox.shrink(),
             ),
             Expanded(
               child: visible.isEmpty
@@ -201,7 +203,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                           _selectedProgram = program;
                           _selectedChannel = channel;
                         });
-                        _showProgramDetails(context, program, channel);
+                        _showProgramDetails(context, program, channel, visible);
                       },
                     ),
             ),
@@ -222,6 +224,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     BuildContext context,
     EPGProgram program,
     Channel channel,
+    List<Channel> channels,
   ) {
     final l = AppLocalizations.of(context);
     final replayable = isReplayableProgram(
@@ -235,7 +238,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetContext) => SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -290,15 +293,16 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                     icon: const Icon(Icons.play_arrow),
                     label: Text(l.watchLive),
                     onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(
-                        context,
+                      Navigator.pop(sheetContext);
+                      context.push(
                         '/player',
-                        arguments: {
-                          'streamUrl': channel.streamUrl,
-                          'title': channel.name,
-                          'contentType': 'live',
-                        },
+                        extra: PlayerRouteData(
+                          streamUrl: channel.streamUrl,
+                          title: channel.name,
+                          channels: channels,
+                          index: channels.indexOf(channel),
+                          contentType: PlaybackContentType.live,
+                        ),
                       );
                     },
                   ),
@@ -309,12 +313,31 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                     child: FilledButton.tonalIcon(
                       icon: const Icon(Icons.replay),
                       label: const Text('Replay'),
-                      onPressed: () => _playReplay(context, program, channel),
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        _playReplay(context, program, channel);
+                      },
                     ),
                   ),
                 ],
               ],
             ),
+            if (channel.supportsReplay) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CatchUpScreen(channel: channel),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.history),
+                label: const Text('Programmes en replay'),
+              ),
+            ],
           ],
         ),
       ),
@@ -367,15 +390,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
       );
       return;
     }
-    Navigator.pushNamed(
-      context,
+    context.push(
       '/player',
-      arguments: {
-        'streamUrl': url,
-        'title': '${program.title} (replay)',
-        'contentType': 'replay',
-        'channelId': channel.id,
-      },
+      extra: PlayerRouteData(
+        streamUrl: url,
+        title: '${program.title} (replay)',
+        contentType: PlaybackContentType.replay,
+      ),
     );
   }
 
@@ -657,14 +678,15 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
           ref.read(epgDataCacheProvider).invalidate();
           final channel =
               widget.channelObjects.firstWhere((c) => c.name == channelName);
-          Navigator.pushNamed(
-            context,
+          context.push(
             '/player',
-            arguments: {
-              'streamUrl': channel.streamUrl,
-              'title': channel.name,
-              'contentType': 'live',
-            },
+            extra: PlayerRouteData(
+              streamUrl: channel.streamUrl,
+              title: channel.name,
+              channels: widget.channelObjects,
+              index: widget.channelObjects.indexOf(channel),
+              contentType: PlaybackContentType.live,
+            ),
           );
         },
         onChannelLongPress: (channelName) {
@@ -755,14 +777,15 @@ class _EpgHeadbarSection extends ConsumerWidget {
                 orElse: () => null,
               ),
           onPlay: () {
-            Navigator.pushNamed(
-              context,
+            context.push(
               '/player',
-              arguments: {
-                'streamUrl': channel.streamUrl,
-                'title': channel.name,
-                'contentType': 'live',
-              },
+              extra: PlayerRouteData(
+                streamUrl: channel.streamUrl,
+                title: channel.name,
+                channels: channels,
+                index: channels.indexOf(channel),
+                contentType: PlaybackContentType.live,
+              ),
             );
           },
           onFavoriteToggle: () {
@@ -820,15 +843,15 @@ class _EpgHeadbarSection extends ConsumerWidget {
 
     void watch() {
       Navigator.pop(context);
-      Navigator.pushNamed(
-        context,
+      context.push(
         '/player',
-        arguments: {
-          'streamUrl': channel.streamUrl,
-          'title': channel.name,
-          'contentType': 'live',
-          'channelId': channel.id,
-        },
+        extra: PlayerRouteData(
+          streamUrl: channel.streamUrl,
+          title: channel.name,
+          channels: channels,
+          index: channels.indexOf(channel),
+          contentType: PlaybackContentType.live,
+        ),
       );
     }
 

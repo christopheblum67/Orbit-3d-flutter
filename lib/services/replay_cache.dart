@@ -28,6 +28,10 @@ class ReplaysCache {
   /// toute la sonde (jusqu'à 40 chaînes).
   List<ReplayItem>? get peek => isFresh ? _all : null;
 
+  /// Dernière valeur connue, même expirée (stale-while-revalidate) : mieux vaut
+  /// afficher des replays un peu anciens que rien pendant le rechargement.
+  List<ReplayItem>? get stale => _all;
+
   /// Renvoie la valeur en cache si fraîche, sinon charge via [loader] (un
   /// seul chargement à la fois, partagé entre tous les appelants).
   Future<List<ReplayItem>> fetch(

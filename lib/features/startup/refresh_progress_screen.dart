@@ -13,7 +13,7 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 /// Ouvre l'écran de mise à jour et rend `true` si une source a répondu, `false`
 /// si aucune n'a répondu ou `null` si l'utilisateur l'a quitté prématurément.
 ///
-/// À utiliser par l'accueil : au lancement quand les données ont plus de 30 min
+/// À utiliser par l'accueil : au lancement quand les données ont plus de 8 h
 /// ([HomeScreen] → `_autoRefreshIfStale`), et sur le bouton « Mettre à jour ».
 /// On pousse sur le Navigator racine pour couvrir toute la coquille
 /// (`HomeShell`) sans perturber la navigation du routeur.
@@ -26,6 +26,106 @@ Future<bool?> showRefreshProgress(BuildContext context) async {
     ),
   );
   return result;
+}
+
+const _refreshSteps = {
+  StartupStep.live,
+  StartupStep.movies,
+  StartupStep.series,
+  StartupStep.radio,
+  StartupStep.replay,
+  StartupStep.epg,
+};
+
+/// Régénère les six sources sans aucune fenêtre : utilisé au lancement quand
+/// les données sont périmées. Rend `true` si au moins une source a répondu.
+Future<bool> runSilentRefresh({
+  required WidgetRef ref,
+  required bool Function() isMounted,
+}) async {
+  final controller = RefreshStepsController(steps: _refreshSteps);
+  try {
+    final responded = await performCatalogRefresh(
+      ref: ref,
+      controller: controller,
+      isMounted: isMounted,
+      mode: 'silent',
+    );
+    return responded > 0;
+  } finally {
+    controller.dispose();
+  }
+}
+
+/// Invalide puis recharge les sources, et horodate la mise à jour si au moins
+/// l'une a répondu. Rend le nombre de sources ayant répondu.
+Future<int> performCatalogRefresh({
+  required WidgetRef ref,
+  required RefreshStepsController controller,
+  required bool Function() isMounted,
+  String mode = 'manual',
+}) async {
+  var responded = 0;
+  final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
+  // Force un vrai rechargement réseau : les providers sont NON `autoDispose`,
+  // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
+  // cache sans aucun appel réseau (rafraîchissement factice).
+  logDiag('REFRESH mode=$mode providers=invalidate start');
+  ApiService.bypassCatalogCache = true;
+  try {
+    ref.invalidate(liveChannelsAllProvider);
+    ref.invalidate(moviesProvider);
+    ref.invalidate(seriesProvider);
+    ref.invalidate(radioChannelsProvider);
+    ref.invalidate(m3uPlaylistProvider);
+    ref.invalidate(replaysProvider);
+
+    await controller.run((step) async {
+      if (!isMounted()) return;
+      final List<dynamic> list = switch (step) {
+        StartupStep.live => await ref.read(liveChannelsProvider.future),
+        StartupStep.movies => await ref.read(moviesProvider.future),
+        StartupStep.series => await ref.read(seriesProvider.future),
+        StartupStep.radio => await ref.read(radioChannelsProvider.future),
+        StartupStep.replay => await ref.read(replaysProvider.future),
+        StartupStep.epg => await _refreshEpg(ref, isMounted),
+        StartupStep.ai => const [],
+      };
+      logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
+      if (list.isNotEmpty) responded++;
+    });
+  } finally {
+    ApiService.bypassCatalogCache = false;
+  }
+
+  if (!isMounted()) return responded;
+
+  // N'horodate que si au moins une source a répondu : sinon l'étiquette
+  // « à jour depuis » mentirait (échec total du lot).
+  if (responded > 0 &&
+      subscriptionId != null &&
+      subscriptionId.isNotEmpty &&
+      ref.read(activeSubscriptionProvider)?.id == subscriptionId) {
+    ref
+        .read(lastRefreshTimestampProvider.notifier)
+        .setTimestamp(DateTime.now(), subscriptionId: subscriptionId);
+  }
+  logDiag(
+    'REFRESH mode=$mode complete responded=$responded '
+    'timestampUpdated=${responded > 0}',
+  );
+  return responded;
+}
+
+Future<List<dynamic>> _refreshEpg(
+  WidgetRef ref,
+  bool Function() isMounted,
+) async {
+  final cache = ref.read(epgDataCacheProvider);
+  final api = ref.read(apiServiceProvider);
+  final programs = await cache.loadFull(api, forceRefresh: true);
+  if (isMounted()) ref.invalidate(epgProgramsProvider);
+  return programs;
 }
 
 /// Écran plein écran de régénération des flux.
@@ -45,23 +145,14 @@ class RefreshProgressScreen extends ConsumerStatefulWidget {
 
 class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
   late final RefreshStepsController _controller;
-  int _responded = 0;
   Timer? _stallTimer;
   bool _refreshStalled = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = RefreshStepsController(
-      steps: const {
-        StartupStep.live,
-        StartupStep.movies,
-        StartupStep.series,
-        StartupStep.radio,
-        StartupStep.replay,
-        StartupStep.epg,
-      },
-    )..addListener(_onProgress);
+    _controller = RefreshStepsController(steps: _refreshSteps)
+      ..addListener(_onProgress);
     _armStallTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _run();
@@ -100,62 +191,13 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
   }
 
   Future<void> _run() async {
-    final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
-    // Force un vrai rechargement réseau : les providers sont NON `autoDispose`,
-    // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
-    // cache sans aucun appel réseau (rafraîchissement factice).
-    logDiag('REFRESH mode=manual providers=invalidate start');
-    ApiService.bypassCatalogCache = true;
-    try {
-      ref.invalidate(liveChannelsAllProvider);
-      ref.invalidate(moviesProvider);
-      ref.invalidate(seriesProvider);
-      ref.invalidate(radioChannelsProvider);
-      ref.invalidate(m3uPlaylistProvider);
-      ref.invalidate(replaysProvider);
-
-      await _controller.run((step) async {
-        final List<dynamic> list = switch (step) {
-          StartupStep.live => await ref.read(liveChannelsProvider.future),
-          StartupStep.movies => await ref.read(moviesProvider.future),
-          StartupStep.series => await ref.read(seriesProvider.future),
-          StartupStep.radio => await ref.read(radioChannelsProvider.future),
-          StartupStep.replay => await ref.read(replaysProvider.future),
-          StartupStep.epg => await _refreshEpg(),
-          StartupStep.ai => const [],
-        };
-        logDiag('REFRESH dataset=${step.name} itemCount=${list.length}');
-        if (list.isNotEmpty) _responded++;
-      });
-    } finally {
-      ApiService.bypassCatalogCache = false;
-    }
-
-    if (!mounted) return;
-
-    // N'horodate que si au moins une source a répondu : sinon l'étiquette
-    // « à jour depuis » mentirait (échec total du lot).
-    if (_responded > 0 &&
-        subscriptionId != null &&
-        subscriptionId.isNotEmpty &&
-        ref.read(activeSubscriptionProvider)?.id == subscriptionId) {
-      ref
-          .read(lastRefreshTimestampProvider.notifier)
-          .setTimestamp(DateTime.now(), subscriptionId: subscriptionId);
-    }
-    logDiag(
-      'REFRESH mode=manual complete responded=$_responded '
-      'timestampUpdated=${_responded > 0}',
+    final responded = await performCatalogRefresh(
+      ref: ref,
+      controller: _controller,
+      isMounted: () => mounted,
     );
-    Navigator.of(context).pop(_responded > 0);
-  }
-
-  Future<List<dynamic>> _refreshEpg() async {
-    final cache = ref.read(epgDataCacheProvider);
-    final api = ref.read(apiServiceProvider);
-    final programs = await cache.loadFull(api, forceRefresh: true);
-    if (mounted) ref.invalidate(epgProgramsProvider);
-    return programs;
+    if (!mounted) return;
+    Navigator.of(context).pop(responded > 0);
   }
 
   @override

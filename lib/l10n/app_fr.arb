@@ -128,7 +128,7 @@
     "createNewProfile":  "Créer un nouveau profil",
     "createProfile":  "Créer un profil",
     "currentProfileLabel":  "Profil courant : {name}",
-    "dataAlreadyFresh":  "Données déjà fraîches (moins de 30 min)",
+    "dataAlreadyFresh":  "Données déjà fraîches (moins de 8 h)",
     "dataAndPrivacy":  "Données \u0026 confidentialité",
     "deleteAll":  "Tout supprimer",
     "deleteAllConfirm":  "Tout supprimer ?",

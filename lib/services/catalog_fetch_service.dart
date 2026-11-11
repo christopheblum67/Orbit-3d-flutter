@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -25,6 +26,9 @@ class CatalogFetchService {
   final CatalogDiskCache _cache;
   final CatalogHttpValidators _validators;
   final CatalogHttpGet _get;
+  final Set<String> _revalidating = {};
+
+  static const Duration maxStaleAge = Duration(days: 7);
 
   Future<Uint8List> fetch(
     String name,
@@ -41,6 +45,27 @@ class CatalogFetchService {
       if (cached != null && cached.isNotEmpty) {
         logDiag('Catalogue $name: cache disque (${cached.length} o)');
         return cached;
+      }
+      // Stale-while-revalidate : un catalogue périmé mais récent est servi
+      // tout de suite, la mise à jour réseau se fait en arrière-plan et sera
+      // utilisée au prochain démarrage.
+      final old = await _cache.read(name, cacheKey, maxAgeLimit: maxStaleAge);
+      if (old != null && old.isNotEmpty) {
+        logDiag('Catalogue $name: cache périmé servi (${old.length} o), '
+            'revalidation en arrière-plan');
+        final id = '$name|$cacheKey';
+        if (_revalidating.add(id)) {
+          unawaited(() async {
+            try {
+              await fetch(name, cacheKey, url, useFreshCache: false);
+            } catch (_) {
+              // Échec silencieux : le cache périmé reste utilisable.
+            } finally {
+              _revalidating.remove(id);
+            }
+          }());
+        }
+        return old;
       }
     }
     final stale = await _cache.read(
@@ -70,7 +95,7 @@ class CatalogFetchService {
             .toLowerCase()
             .split(',')
             .any((part) => part.trim() == 'no-store') ||
-        (response.headers.value('vary')?.trim().isNotEmpty ?? false);
+        (varyBlocksCaching(response.headers.value('vary')));
     if (response.statusCode == 304) {
       if (headers.isNotEmpty && stale != null) {
         if (cannotStore(response)) {
@@ -94,6 +119,9 @@ class CatalogFetchService {
       throw StreamNetworkException('Réponse $name vide.');
     }
     if (cannotStore(response)) {
+      logDiag('Catalogue $name: cache disque refusé '
+          'cache-control=${response.headers.value('cache-control')} '
+          'vary=${response.headers.value('vary')}');
       await _cache.remove(name, cacheKey);
     } else {
       await traceCatalogStep(

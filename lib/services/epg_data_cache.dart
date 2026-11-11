@@ -94,9 +94,16 @@ class EPGDataCache {
     bool forceRefresh = false,
   }) async {
     if (!forceRefresh && isFresh) return _all!;
+    // Stale-while-revalidate : un guide expiré mais du jour reste affichable.
+    // On le rend tout de suite et on le renouvelle en tâche de fond, au lieu de
+    // bloquer l'écran sur un téléchargement XMLTV de plusieurs dizaines de Mo.
+    if (!forceRefresh && _inFlight == null && _isServableStale) {
+      _revalidateInBackground(api);
+      return _all!;
+    }
     final inFlight = _inFlight;
     if (inFlight != null) {
-      if (!forceRefresh) return inFlight;
+      if (!forceRefresh) return _all ?? await inFlight;
       await inFlight;
       return loadFull(api, forceRefresh: true);
     }
@@ -109,6 +116,38 @@ class EPGDataCache {
       _inFlight = null;
       _setLoading(false);
     }
+  }
+
+  static const _revalidateCooldown = Duration(minutes: 10);
+
+  /// Appelé quand un renouvellement en arrière-plan vient d'aboutir : les
+  /// consommateurs rechargent alors depuis le cache désormais frais.
+  void Function()? onRevalidated;
+
+  DateTime? _lastRevalidateAttempt;
+
+  bool get _isServableStale {
+    final fetched = _fetchedAt;
+    return _all != null &&
+        fetched != null &&
+        _sameLocalDay(fetched, DateTime.now());
+  }
+
+  void _revalidateInBackground(ApiService api) {
+    final last = _lastRevalidateAttempt;
+    if (last != null && DateTime.now().difference(last) < _revalidateCooldown) {
+      return;
+    }
+    _lastRevalidateAttempt = DateTime.now();
+    unawaited(
+      loadFull(api, forceRefresh: true).then((_) {
+        onRevalidated?.call();
+      }).catchError((Object error) {
+        LoggerService.instance.warning(
+          'EPG: renouvellement en arrière-plan échoué, guide conservé : $error',
+        );
+      }),
+    );
   }
 
   Future<List<EPGProgram>> _fetchAndFilter(

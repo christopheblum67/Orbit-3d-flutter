@@ -10,6 +10,28 @@ void main() {
     MediaCategory(id: 'films', name: 'Films'),
   ];
 
+  testWidgets('shows all panel categories without country filters',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CategoriesRail(
+            categories: const [
+              MediaCategory(id: 'fr', name: 'FRANCE'),
+              MediaCategory(id: 'it', name: 'ITALY'),
+            ],
+            selectedId: 'fr',
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.byKey(const ValueKey('fr')), findsOneWidget);
+    expect(find.byKey(const ValueKey('it')), findsOneWidget);
+  });
+
   testWidgets('focuses the selected category and supports D-pad selection',
       (tester) async {
     String? selected;

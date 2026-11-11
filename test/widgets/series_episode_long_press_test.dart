@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/watched_episode.dart';
@@ -76,7 +77,7 @@ void main() {
     favoriteGenres: const [],
   );
 
-  Future<void> open(WidgetTester tester, _WatchedService watched, _Progress progress) async {
+  Future<void> open(WidgetTester tester, _WatchedService watched, _Progress progress, {List<Actor> cast = const [], Map<int, List<Actor>> guests = const {}}) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
@@ -84,12 +85,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => const SeriesDetailScreen(seriesId: 'series')),
+      GoRoute(path: '/actor/detail', builder: (_, state) => Text('Biographie ${(state.extra as Actor).name}', textDirection: TextDirection.ltr)),
     ]);
     addTearDown(router.dispose);
     await tester.pumpWidget(ProviderScope(
       overrides: [
         seriesInfoProvider('series').overrideWith((ref) async => series),
-        seriesDetailProvider(series).overrideWith((ref) async => SeriesDetail.fromSeries(series)),
+        seriesDetailProvider(series).overrideWith((ref) async => SeriesDetail.fromSeries(series).copyWith(cast: cast, guestStarsPerSeason: guests)),
         currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
         favoritesProvider.overrideWithBuild((ref, notifier) => {}),
         watchedEpisodesServiceProvider.overrideWithValue(watched),
@@ -109,6 +111,24 @@ void main() {
     ));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('les acteurs principaux et invités ouvrent leur biographie', (tester) async {
+    final actor = Actor(id: '1', name: 'Acteur principal', character: '', profilePath: '');
+    final guest = Actor(id: '2', name: 'Acteur invité', character: '', profilePath: '', isGuestStar: true);
+    await open(tester, _WatchedService(), _Progress(), cast: [actor], guests: {1: [guest]});
+    await tester.ensureVisible(find.text('Acteur principal'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Acteur principal'));
+    await tester.pumpAndSettle();
+    expect(find.text('Biographie Acteur principal'), findsOneWidget);
+    GoRouter.of(tester.element(find.text('Biographie Acteur principal'))).pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Acteur invité'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Acteur invité'));
+    await tester.pumpAndSettle();
+    expect(find.text('Biographie Acteur invité'), findsOneWidget);
+  });
 
   testWidgets('le badge réagit à une pression longue dans les deux états', (tester) async {
     final watched = _WatchedService();

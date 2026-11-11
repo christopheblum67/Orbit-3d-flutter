@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -74,14 +75,16 @@ class CatalogDiskCache {
   }
 
   /// 	rue si un catalogue frais existe (sans le lire).
-  Future<bool> hasFresh(String name, String subscriptionKey) async {
+  Future<bool> hasFresh(String name, String subscriptionKey,
+      {Duration? maxAgeLimit}) async {
+    final limit = maxAgeLimit ?? maxAge;
     final result = await safeAsync<bool>(
       () async {
         final file = File(
           '${(await _dir()).path}/${fileNameFor(name, subscriptionKey)}',
         );
         if (!file.existsSync()) return false;
-        return DateTime.now().difference(file.lastModifiedSync()) <= maxAge;
+        return DateTime.now().difference(file.lastModifiedSync()) <= limit;
       },
       context: 'CatalogDiskCache.hasFresh',
       fallbackValue: false,
@@ -150,6 +153,7 @@ class CatalogParseResult<T> {
     this.firstError, [
     this.decodeMs = 0,
     this.buildMs = 0,
+    this.textMs = 0,
   ]);
 
   final List<T> items;
@@ -157,6 +161,7 @@ class CatalogParseResult<T> {
   final String? firstError;
   final int decodeMs;
   final int buildMs;
+  final int textMs;
 }
 
 dynamic _decodeCatalogJson(Uint8List bytes) {
@@ -188,7 +193,8 @@ CatalogParseResult<Movie> parseMoviesPayload(MoviesParseInput input) {
       continue;
     }
     try {
-      final map = Map<String, dynamic>.from(e);
+      final map =
+          e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e);
       _enrichMovieMap(map, input.categoryNames);
       final movie = Movie.fromMap(map);
       if (movie.streamId.isEmpty) {
@@ -207,6 +213,7 @@ CatalogParseResult<Movie> parseMoviesPayload(MoviesParseInput input) {
     firstError,
     decodeMs,
     sw.elapsedMilliseconds - decodeMs,
+    PanelText.decodeWatch.elapsedMilliseconds,
   );
 }
 
@@ -228,7 +235,9 @@ CatalogParseResult<Series> parseSeriesPayload(Uint8List bytes) {
       continue;
     }
     try {
-      out.add(Series.fromMap(Map<String, dynamic>.from(e)));
+      out.add(Series.fromMap(
+        e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e),
+      ));
     } catch (err) {
       firstError ??= '${err.runtimeType} -> $err';
       ignored++;
@@ -240,6 +249,7 @@ CatalogParseResult<Series> parseSeriesPayload(Uint8List bytes) {
     firstError,
     decodeMs,
     sw.elapsedMilliseconds - decodeMs,
+    PanelText.decodeWatch.elapsedMilliseconds,
   );
 }
 
