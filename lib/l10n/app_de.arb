@@ -43,6 +43,7 @@
     "bassKiller":  "Bass Killer (Schnitt \u003c 120 Hz)",
     "bassKillerSubtitle":  "Dämpft tiefe Frequenzen, um Vibrationen zu vermeiden",
     "cancel":  "Abbrechen",
+    "deleteDownload": "Löschen",
     "castToChromecast":  "Auf Chromecast senden",
     "catchUpTv":  "Sendungen nachholen",
     "categories":  "Kategorien",

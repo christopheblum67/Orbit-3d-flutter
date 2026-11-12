@@ -409,6 +409,7 @@ class _StaleOverlay extends StatelessWidget {
 class _WatchButton extends StatelessWidget {
   const _WatchButton({required this.onPressed, required this.autofocus});
 
+  static const _focusYellow = Color(0xFFFFE69B);
   final VoidCallback onPressed;
   final bool autofocus;
 
@@ -420,17 +421,17 @@ class _WatchButton extends StatelessWidget {
       builder: (context, _) {
         final focused = liveWatchFocusNode.hasFocus;
         return AnimatedScale(
-          scale: focused ? 1.3 : 1.0,
+          scale: focused ? 1.1 : 1.0,
           duration: const Duration(milliseconds: 140),
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24),
               boxShadow: focused
-                  ? const [
+                  ? [
                       BoxShadow(
-                        color: Color(0xFFFFC107),
-                        blurRadius: 22,
-                        spreadRadius: 5,
+                        color: _focusYellow.withValues(alpha: 0.6),
+                        blurRadius: 16,
+                        spreadRadius: 2,
                       ),
                     ]
                   : null,
@@ -439,7 +440,7 @@ class _WatchButton extends StatelessWidget {
               focusNode: liveWatchFocusNode,
               autofocus: autofocus,
               onPressed: onPressed,
-              icon: Icon(Icons.play_arrow_rounded, size: focused ? 34 : 24),
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
               label: Text(
                 focused ? 'REGARDER' : 'Regarder',
                 style: TextStyle(
@@ -449,9 +450,9 @@ class _WatchButton extends StatelessWidget {
               ),
               style: FilledButton.styleFrom(
                 backgroundColor:
-                    focused ? const Color(0xFFFFC107) : scheme.primary,
+                    focused ? _focusYellow : scheme.primary,
                 foregroundColor: focused ? Colors.black : scheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 visualDensity: VisualDensity.compact,
               ).copyWith(
                 side: WidgetStateProperty.resolveWith(

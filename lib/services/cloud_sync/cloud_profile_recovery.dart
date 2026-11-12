@@ -1,21 +1,27 @@
+import 'dart:convert';
+
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
 /// Manual profile-identity backup. Profile activity is not yet restored.
 class CloudProfileRecovery {
   CloudProfileRecovery({
     required EncryptedProfileCatalog catalog,
+    EncryptedScopeStore? profileScopes,
     required String? Function() currentUid,
     required Future<void> Function(
       UserProfile profile,
       void Function() checkAccount,
     ) addLocalProfile,
   })  : _catalog = catalog,
+        _profileScopes = profileScopes,
         _currentUid = currentUid,
         _addLocalProfile = addLocalProfile;
 
   final EncryptedProfileCatalog _catalog;
+  final EncryptedScopeStore? _profileScopes;
   final String? Function() _currentUid;
   final Future<void> Function(UserProfile, void Function()) _addLocalProfile;
 
@@ -63,7 +69,28 @@ class CloudProfileRecovery {
     final catalog = await load(uid, passphrase);
     final data = catalog.profiles[profileId];
     if (data == null) throw StateError('Ce profil cloud n’existe plus.');
-    final profile = validateCloudProfile(data, profileId);
+    var profile = validateCloudProfile(data, profileId);
+    final scopes = _profileScopes;
+    if (scopes != null) {
+      final current = await scopes.read(
+        uid: uid,
+        profileId: profileId,
+        scope: 'profile',
+        passphrase: passphrase,
+      );
+      _checkAccount(uid);
+      if (current != null) {
+        if (current.entries.length != 1 ||
+            !current.entries.containsKey(profileId)) {
+          throw const FormatException('Fiche cloud invalide.');
+        }
+        final value = jsonDecode(current.entries[profileId]!);
+        if (value is! Map<String, dynamic>) {
+          throw const FormatException('Fiche cloud invalide.');
+        }
+        profile = validateCloudProfile(value, profileId);
+      }
+    }
     _checkAccount(uid);
     await _addLocalProfile(profile, () => _checkAccount(uid));
   }

@@ -8,8 +8,10 @@ import 'package:orbit_3d_flutter/features/settings/cloud_profile_recovery_screen
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_profile_recovery.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
 
 class _User extends Fake implements User {
   _User(this.uid);
@@ -66,7 +68,84 @@ class _Recovery extends CloudProfileRecovery {
   }
 }
 
+class _Activity extends EncryptedActivitySyncNotifier {
+  int unlocks = 0;
+  ScopeConflictChoice? choice;
+
+  @override
+  EncryptedActivitySyncState build() => const EncryptedActivitySyncState();
+
+  @override
+  Future<void> unlock({
+    required FirebaseAuth auth,
+    required String uid,
+    required String phrase,
+    required ProfileCatalogSnapshot catalog,
+  }) async {
+    unlocks++;
+    state = const EncryptedActivitySyncState(
+      profileId: 'cloud',
+      error: 'Conflit',
+      conflictScope: 'favorites',
+    );
+  }
+
+  @override
+  Future<void> resolveConflict(ScopeConflictChoice selected) async {
+    choice = selected;
+  }
+}
+
 void main() {
+  testWidgets('requires confirmation to activate and resolve a conflict',
+      (tester) async {
+    final auth = _Auth();
+    final activity = _Activity();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        profilesProvider.overrideWith((ref) async => []),
+        encryptedActivitySyncProvider.overrideWith(() => activity),
+      ],
+      child: MaterialApp(
+        home: CloudProfileRecoveryScreen(auth: auth, recovery: _Recovery()),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'phrase');
+    await tester.tap(find.text('Charger le catalogue cloud'));
+    await tester.pumpAndSettle();
+    await tester
+        .ensureVisible(find.text('Activer la synchronisation du profil actif'));
+    await tester.tap(find.text('Activer la synchronisation du profil actif'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(activity.unlocks, 0);
+    await tester.tap(find.text('Activer la synchronisation du profil actif'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+    expect(activity.unlocks, 1);
+    await tester.ensureVisible(find.text('Garder le cloud'));
+    await tester.tap(find.text('Garder le cloud'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Annuler'));
+    await tester.pumpAndSettle();
+    expect(activity.choice, isNull);
+    await tester.tap(find.text('Garder le cloud'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirmer'));
+    await tester.pumpAndSettle();
+    expect(activity.choice, ScopeConflictChoice.cloud);
+    await tester.ensureVisible(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'nouvelle phrase');
+    await tester.pumpAndSettle();
+    expect(find.text('Profils dans le cloud'), findsNothing);
+    expect(find.text('Garder le cloud'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await auth.changes.close();
+  });
+
   testWidgets('requires explicit selection and matching phrase to publish',
       (tester) async {
     final auth = _Auth();

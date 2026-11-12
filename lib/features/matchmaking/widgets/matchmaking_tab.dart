@@ -205,28 +205,48 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
               final selected = _selectedProfileIds.contains(p.id);
               final disabled =
                   !selected && _selectedProfileIds.length >= maxAdditional;
-              return FilterChip(
-                label: Text(p.firstName),
-                selected: selected,
-                onSelected: disabled
-                    ? null
-                    : (sel) {
-                        setState(() {
-                          if (sel) {
-                            _selectedProfileIds.add(p.id);
-                          } else {
-                            _selectedProfileIds.remove(p.id);
-                          }
-                        });
-                        _reset();
-                      },
-                showCheckmark: true,
-                selectedColor: Theme.of(context).colorScheme.primaryContainer,
-                checkmarkColor: Theme.of(context).colorScheme.primary,
-                labelStyle: TextStyle(
-                  color: disabled
-                      ? Theme.of(context).colorScheme.onSurfaceVariant
-                      : null,
+              final scheme = Theme.of(context).colorScheme;
+              return AnimatedContainer(
+                key: ValueKey('matchmaking-profile-${p.id}'),
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.55),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : const [],
+                ),
+                child: FilterChip(
+                  label: Text(p.firstName),
+                  selected: selected,
+                  onSelected: disabled
+                      ? null
+                      : (sel) {
+                          setState(() {
+                            if (sel) {
+                              _selectedProfileIds.add(p.id);
+                            } else {
+                              _selectedProfileIds.remove(p.id);
+                            }
+                          });
+                          _reset();
+                        },
+                  showCheckmark: true,
+                  selectedColor: scheme.primary,
+                  checkmarkColor: scheme.onPrimary,
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? scheme.onPrimary
+                        : disabled
+                            ? scheme.onSurfaceVariant
+                            : null,
+                    fontWeight: selected ? FontWeight.w700 : null,
+                  ),
                 ),
               );
             }).toList(),

@@ -79,8 +79,10 @@ ButtonStyle _fbFocusStyle(Color normal) {
 Widget _fbPlayPause({
   required bool isPlaying,
   required VoidCallback onPressed,
+  FocusNode? focusNode,
 }) {
   return IconButton(
+    focusNode: focusNode,
     tooltip: isPlaying ? 'Pause' : 'Lecture',
     style: IconButton.styleFrom(
       backgroundColor: Colors.white.withValues(alpha: 0.22),
@@ -197,6 +199,7 @@ class LiveFooterBar extends ConsumerWidget {
     this.onPrevious,
     this.onNext,
     required this.onTogglePlayPause,
+    this.playPauseFocusNode,
     this.onPip,
     this.onSeekBack30,
     this.onSeekForward30,
@@ -218,6 +221,7 @@ class LiveFooterBar extends ConsumerWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onTogglePlayPause;
+  final FocusNode? playPauseFocusNode;
   final VoidCallback? onPip;
   final VoidCallback? onSeekBack30;
   final VoidCallback? onSeekForward30;
@@ -332,7 +336,11 @@ class LiveFooterBar extends ConsumerWidget {
                 tooltip: l.rewind30s,
                 color: Colors.white,
               ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+            _fbPlayPause(
+              isPlaying: isPlaying,
+              onPressed: onTogglePlayPause,
+              focusNode: playPauseFocusNode,
+            ),
             if (showSeek) ...[
               _fbIcon(
                 Icons.forward_30,
@@ -380,6 +388,7 @@ class VodFooterBar extends ConsumerWidget {
     required this.isPlaying,
     required this.onExit,
     required this.onTogglePlayPause,
+    this.playPauseFocusNode,
     required this.onSeekBack30,
     required this.onSeekForward30,
     this.onPip,
@@ -399,6 +408,7 @@ class VodFooterBar extends ConsumerWidget {
   final bool isPlaying;
   final VoidCallback onExit;
   final VoidCallback onTogglePlayPause;
+  final FocusNode? playPauseFocusNode;
   final VoidCallback? onPip;
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward30;
@@ -491,7 +501,11 @@ class VodFooterBar extends ConsumerWidget {
               tooltip: l.rewind30s,
               color: Colors.white,
             ),
-            _fbPlayPause(isPlaying: isPlaying, onPressed: onTogglePlayPause),
+            _fbPlayPause(
+              isPlaying: isPlaying,
+              onPressed: onTogglePlayPause,
+              focusNode: playPauseFocusNode,
+            ),
             _fbIcon(
               Icons.forward_30,
               onSeekForward30,

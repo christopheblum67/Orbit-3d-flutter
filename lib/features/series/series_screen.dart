@@ -15,6 +15,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
+import 'package:orbit_3d_flutter/providers/category_change_provider.dart';
 import 'package:orbit_3d_flutter/services/catalog_db.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
@@ -426,11 +427,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     ScrollController? scrollController,
     bool listLoading = false,
   }) {
+    final subscriptionId = ref.watch(activeSubscriptionProvider)?.id;
+    final increases = subscriptionId == null
+        ? const <String, int>{}
+        : ref.watch(categoryIncreasesProvider((
+              subscriptionId: subscriptionId,
+              catalog: CategoryCatalog.series,
+            ))).value ?? const <String, int>{};
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CategoriesRail(
           categories: railCategories,
+          increasedCounts: increases,
           selectedId: _selectedCategoryId,
           focusSelectedOnMount: ref.read(tvModeNotifierProvider).enabled,
           onSelected: (id) => setState(() => _selectedCategoryId = id),

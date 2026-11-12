@@ -32,6 +32,38 @@ void main() {
     expect(find.byKey(const ValueKey('it')), findsOneWidget);
   });
 
+  testWidgets('colors only the increased category count', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CategoriesRail(
+            categories: const [
+              MediaCategory(id: 'new', name: 'Nouveautés', count: 283),
+              MediaCategory(id: 'other', name: 'Autres', count: 10),
+            ],
+            increasedCounts: const {'new': 283, 'other': 11},
+            selectedId: 'new',
+            onSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    TextSpan countSpan(String id) {
+      final text = tester.widget<RichText>(
+        find.descendant(
+          of: find.byKey(ValueKey(id)),
+          matching: find.byType(RichText),
+        ).first,
+      );
+      final root = text.text as TextSpan;
+      final inner = root.children!.first as TextSpan;
+      return inner.children!.last as TextSpan;
+    }
+
+    expect(countSpan('new').style!.color, Colors.red.shade800);
+    expect(countSpan('other').style!.color, isNull);
+  });
+
   testWidgets('focuses the selected category and supports D-pad selection',
       (tester) async {
     String? selected;

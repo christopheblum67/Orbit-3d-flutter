@@ -16,7 +16,6 @@ import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
@@ -88,8 +87,10 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
               _ChannelBand(
                 channel: open,
                 onBack: _close,
-                onRefresh: () =>
-                    ref.invalidate(channelReplaysProvider(open.id)),
+                onRefresh: () {
+                  channelReplaysCache.invalidateChannel(open.id);
+                  ref.invalidate(channelReplaysProvider(open.id));
+                },
               ),
               Expanded(child: _ChannelReplaysView(channel: open)),
             ],
@@ -383,7 +384,7 @@ class _ChannelBand extends StatelessWidget {
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
-                if (channel.supportsReplay)
+                if (channel.archiveDays > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
@@ -411,15 +412,8 @@ class _ChannelBand extends StatelessWidget {
   /// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
   /// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
   /// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
-  static String _archiveBadgeLabel(
-    AppLocalizations l,
-    Channel channel,
-  ) {
-    final days = channel.archiveDays;
-    if (days > 0) return l.replayWindowBadge(days);
-    final hours = ApiService.archiveWindow(channel).inHours;
-    return l.replayWindowBadgeHours(hours);
-  }
+  static String _archiveBadgeLabel(AppLocalizations l, Channel channel) =>
+      l.replayWindowBadge(channel.archiveDays);
 }
 
 /// Le détail : bandeau de chaîne, onglets de jours, puis les programmes du
@@ -497,7 +491,7 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     final newestFirst = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
     final active =
         newestFirst.contains(_selectedDay) ? _selectedDay! : newestFirst.first;
-    final tabs = newestFirst.reversed.toList(growable: false);
+    final tabs = newestFirst;
     final items = byDay[active] ?? const <ReplayItem>[];
 
     return Column(
@@ -508,6 +502,7 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
           height: 48,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            reverse: true,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: tabs.length,
             separatorBuilder: (_, __) => const SizedBox(width: 8),

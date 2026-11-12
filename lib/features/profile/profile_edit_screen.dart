@@ -14,6 +14,7 @@ import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/profile_pin.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 3 — Création / Édition de profil :
@@ -49,6 +50,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   String _gender = 'Non spécifié';
   final List<String> _favoriteGenres = [];
   bool _saving = false;
+  bool _hashingPin = false;
   bool _submitted = false;
   UserProfile? _loadedTarget;
 
@@ -369,16 +371,45 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _openPinPad() async {
+    if (_hashingPin || _saving) return;
     final pin = await context.push<String>(
       '/profile/pin',
       extra: const PinPadArgs.set(),
     );
-    if (pin != null && mounted) {
-      setState(() => _pinHash = pin);
+    if (pin == null || !mounted) return;
+    final confirmation = await context.push<String>(
+      '/profile/pin',
+      extra: const PinPadArgs.set(confirmation: true),
+    );
+    if (confirmation == null || !mounted) return;
+    if (pin != confirmation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Les codes PIN ne correspondent pas.')),
+      );
+      return;
+    }
+    setState(() => _hashingPin = true);
+    try {
+      final hash = await ProfilePin.create(pin);
+      if (mounted) setState(() => _pinHash = hash);
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('création du code PIN de profil'),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de créer le code PIN.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _hashingPin = false);
     }
   }
 
   Future<void> _onPinSwitch(bool enable) async {
+    if (_hashingPin || _saving) return;
     if (enable) {
       await _openPinPad();
     } else {
@@ -387,6 +418,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Future<void> _save() async {
+    if (_hashingPin || _saving) return;
     final l = AppLocalizations.of(context);
     if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
       setState(() => _submitted = true);
@@ -412,6 +444,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             gender: _gender,
             favoriteGenres: List.of(_favoriteGenres),
             pinHash: _pinHash,
+            clearPin: _pinHash == null,
             updatedAt: now,
           );
           await ref.read(storageServiceProvider).saveProfile(updated);
@@ -788,7 +821,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         children: [
           Expanded(
             child: OutlinedButton.icon(
-              onPressed: _saving ? null : handleBack,
+              onPressed: _saving || _hashingPin ? null : handleBack,
               icon: const Icon(Icons.close_rounded),
               label: const Text('Annuler'),
             ),
@@ -796,7 +829,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           const SizedBox(width: 14),
           Expanded(
             child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
+              onPressed: _saving || _hashingPin ? null : _save,
               icon: _saving
                   ? const SizedBox(
                       width: 18,

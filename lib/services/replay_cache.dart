@@ -102,6 +102,12 @@ class ChannelReplaysCache {
     if (generation == _generation) put(channelId, items);
   }
 
+  void invalidateChannel(String channelId) {
+    _generation++;
+    _items.remove(channelId);
+    _at.remove(channelId);
+  }
+
   void invalidate() {
     _generation++;
     _items.clear();

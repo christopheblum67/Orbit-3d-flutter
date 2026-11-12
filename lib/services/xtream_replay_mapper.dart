@@ -11,7 +11,7 @@ class XtreamReplayMapper {
     required Iterable<Map> entries,
     required Channel channel,
     required DateTime now,
-    required Duration window,
+    required Duration? window,
     required bool fullGuide,
     required String Function(int startEpoch, int endEpoch) buildUrl,
     required String Function(DateTime, DateTime) formatTime,
@@ -27,7 +27,7 @@ class XtreamReplayMapper {
         map['stop_timestamp'] ?? (fullGuide ? map['stop'] : null) ?? map['end'],
       );
       if (start == null || end == null || !end.isBefore(now)) continue;
-      if (now.difference(start) > window) continue;
+      if (window != null && now.difference(start) > window) continue;
       final title = PanelText.decode(map['title']?.toString().trim() ?? '');
       if (title.isEmpty) continue;
       final startEpoch = start.millisecondsSinceEpoch ~/ 1000;

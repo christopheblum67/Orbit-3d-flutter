@@ -30,23 +30,49 @@ class _ProfileSelectionScreenState
     extends ConsumerState<ProfileSelectionScreen> {
   static const int _defaultMaxProfiles = 5;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final Map<String, FocusNode> _profileFocusNodes = {};
+  final FocusNode _addProfileNode = FocusNode(debugLabel: 'Add profile');
+  bool _authorizing = false;
+
+  @override
+  void dispose() {
+    for (final node in _profileFocusNodes.values) {
+      node.dispose();
+    }
+    _addProfileNode.dispose();
+    super.dispose();
+  }
+
+  void _focusProfile(FocusNode node) {
+    node.requestFocus();
+    final target = node.context;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 180),
+        alignment: 0.5,
+      );
+    }
+  }
 
   Future<void> _selectProfile(UserProfile profile) async {
-    // Enfant/Expert protégé par PIN : vérification avant de continuer.
-    if ((profile.isChild || profile.isExpert) && profile.hasPin) {
-      ref.read(currentProfileProvider.notifier).setUserProfile(profile);
-      final ok = await context.push<bool>(
-        '/profile/pin',
-        extra: PinPadArgs.verify(profile),
-      );
-      if (!mounted) return;
-      if (ok != true) {
-        ref.read(currentProfileProvider.notifier).setUserProfile(null);
-        ref.read(profileTypeProvider.notifier).clear();
-        return;
-      }
-    }
+    if (!await _authorize(profile) || !mounted) return;
     await _finishSelect(profile);
+  }
+
+  Future<bool> _authorize(UserProfile profile) async {
+    if (_authorizing) return false;
+    if (!profile.hasPin) return true;
+    _authorizing = true;
+    try {
+      return await context.push<bool>(
+            '/profile/pin',
+            extra: PinPadArgs.verify(profile),
+          ) ==
+          true;
+    } finally {
+      _authorizing = false;
+    }
   }
 
   Future<void> _finishSelect(UserProfile profile) async {
@@ -101,11 +127,12 @@ class _ProfileSelectionScreenState
     context.push('/profile/create');
   }
 
-  void _openEdit(UserProfile profile) {
-    context.push('/profile/edit/${profile.id}');
+  Future<void> _openEdit(UserProfile profile) async {
+    if (!await _authorize(profile) || !mounted) return;
+    await context.push('/profile/edit/${profile.id}');
   }
 
-  void _openDelete(UserProfile profile) {
+  Future<void> _openDelete(UserProfile profile) async {
     final l = AppLocalizations.of(context);
     final profiles = ref.read(profilesProvider).value ?? const [];
     if (profiles.length <= 1) {
@@ -116,6 +143,7 @@ class _ProfileSelectionScreenState
       );
       return;
     }
+    if (!await _authorize(profile) || !mounted) return;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -202,6 +230,14 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildProfileGrid(List<UserProfile> profiles, int maxProfiles) {
+    final nodes = [
+      for (final profile in profiles)
+        _profileFocusNodes.putIfAbsent(
+          profile.id,
+          () => FocusNode(debugLabel: 'Profile card'),
+        ),
+      _addProfileNode,
+    ];
     return Center(
       child: ListView.builder(
         shrinkWrap: true,
@@ -218,6 +254,10 @@ class _ProfileSelectionScreenState
                 child: _AddProfileCard(
                   index: index,
                   autofocus: false,
+                  focusNode: _addProfileNode,
+                  onMoveLeft: index > 0
+                      ? () => _focusProfile(nodes[index - 1])
+                      : null,
                   onTap: () => _openCreate(profiles.length, maxProfiles),
                 ),
               ),
@@ -229,9 +269,15 @@ class _ProfileSelectionScreenState
             child: SizedBox(
               width: 150,
               child: _ProfileCard(
+                key: ValueKey(profile.id),
                 profile: profile,
                 index: index,
                 autofocus: index == 0,
+                focusNode: nodes[index],
+                onMoveLeft: index > 0
+                    ? () => _focusProfile(nodes[index - 1])
+                    : null,
+                onMoveRight: () => _focusProfile(nodes[index + 1]),
                 onSelect: () => _selectProfile(profile),
                 onEdit: () => _openEdit(profile),
                 onDelete: () => _openDelete(profile),
@@ -263,6 +309,7 @@ class _ProfileSelectionScreenState
               child: _AddProfileCard(
                 index: 0,
                 autofocus: true,
+                focusNode: _addProfileNode,
                 onTap: () => _openCreate(0, _defaultMaxProfiles),
               ),
             ),
@@ -345,9 +392,13 @@ class _ProfileSelectionScreenState
 
 class _ProfileCard extends ConsumerStatefulWidget {
   const _ProfileCard({
+    super.key,
     required this.profile,
     required this.index,
     required this.autofocus,
+    required this.focusNode,
+    this.onMoveLeft,
+    this.onMoveRight,
     required this.onSelect,
     required this.onEdit,
     required this.onDelete,
@@ -356,6 +407,9 @@ class _ProfileCard extends ConsumerStatefulWidget {
   final UserProfile profile;
   final int index;
   final bool autofocus;
+  final FocusNode focusNode;
+  final VoidCallback? onMoveLeft;
+  final VoidCallback? onMoveRight;
   final VoidCallback onSelect;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -374,13 +428,14 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
   // La carte et ses boutons Modifier/Supprimer sont imbriqués : le parcours
   // directionnel ne descend pas dans un nœud dont le rectangle englobe déjà
   // ses enfants. On pilote donc le focus entre eux explicitement.
-  final FocusNode _cardNode = FocusNode(debugLabel: 'Profile card');
+  FocusNode get _cardNode => widget.focusNode;
   final FocusNode _editNode = FocusNode(debugLabel: 'Profile edit');
   final FocusNode _deleteNode = FocusNode(debugLabel: 'Profile delete');
 
   @override
   void initState() {
     super.initState();
+    _cardNode.addListener(_onCardFocusChanged);
     _entrance = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
@@ -398,10 +453,17 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
   @override
   void dispose() {
     _entrance.dispose();
-    _cardNode.dispose();
+    _cardNode.removeListener(_onCardFocusChanged);
     _editNode.dispose();
     _deleteNode.dispose();
     super.dispose();
+  }
+
+  void _onCardFocusChanged() {
+    final focused = _cardNode.hasPrimaryFocus;
+    if (_focused == focused) return;
+    if (focused) HapticFeedback.selectionClick();
+    setState(() => _focused = focused);
   }
 
   void _activate() {
@@ -415,6 +477,14 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
     }
     final key = event.logicalKey;
     if (_cardNode.hasPrimaryFocus) {
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        widget.onMoveLeft?.call();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowRight) {
+        widget.onMoveRight?.call();
+        return KeyEventResult.handled;
+      }
       if (key == LogicalKeyboardKey.arrowDown) {
         _editNode.requestFocus();
         return KeyEventResult.handled;
@@ -467,38 +537,42 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: ringColor,
-                  width: _focused || isActive ? 3 : 1,
+            AnimatedScale(
+              scale: _focused ? 1.08 : 1,
+              duration: const Duration(milliseconds: 180),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: ringColor,
+                    width: _focused ? 5 : isActive ? 2 : 1,
+                  ),
+                  boxShadow: [
+                    if (_focused)
+                      BoxShadow(
+                        color: scheme.tertiary.withValues(alpha: 0.7),
+                        blurRadius: 28,
+                        spreadRadius: 3,
+                      )
+                    else if (isActive)
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.3),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      )
+                    else
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
                 ),
-                boxShadow: [
-                  if (_focused)
-                    BoxShadow(
-                      color: scheme.tertiary.withValues(alpha: 0.5),
-                      blurRadius: 24,
-                      spreadRadius: 2,
-                    )
-                  else if (isActive)
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.45),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    )
-                  else
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                ],
+                child: ProfileAvatar(profile: profile, size: 120),
               ),
-              child: ProfileAvatar(profile: profile, size: 120),
             ),
             if (isActive)
               const Positioned(
@@ -515,7 +589,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
           textAlign: TextAlign.center,
           style: textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: isActive ? scheme.primary : null,
+            color: _focused ? scheme.tertiary : isActive ? scheme.primary : null,
           ),
         ),
         if (profile.hasPin) ...[
@@ -559,10 +633,6 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
       child: Focus(
         focusNode: _cardNode,
         autofocus: widget.autofocus,
-        onFocusChange: (hasFocus) {
-          if (hasFocus) HapticFeedback.selectionClick();
-          setState(() => _focused = hasFocus);
-        },
         onKeyEvent: (node, event) {
           final nav = _handleCardNavigation(event);
           if (nav == KeyEventResult.handled) return nav;
@@ -578,17 +648,12 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
         },
         child: GestureDetector(
           onTap: _activate,
-          child: AnimatedScale(
-            scale: _focused ? 1.06 : 1,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutCubic,
-            child: FadeTransition(
+          child: FadeTransition(
               opacity: _fade,
               child: ScaleTransition(
                 scale: _scale,
                 child: _buildCardContent(),
               ),
-            ),
           ),
         ),
       ),
@@ -601,11 +666,15 @@ class _AddProfileCard extends StatefulWidget {
     required this.index,
     required this.autofocus,
     required this.onTap,
+    required this.focusNode,
+    this.onMoveLeft,
   });
 
   final int index;
   final bool autofocus;
   final VoidCallback onTap;
+  final FocusNode focusNode;
+  final VoidCallback? onMoveLeft;
 
   @override
   State<_AddProfileCard> createState() => _AddProfileCardState();
@@ -701,12 +770,22 @@ class _AddProfileCardState extends State<_AddProfileCard>
       label: l.createNewProfile,
       onTap: widget.onTap,
       child: Focus(
+        focusNode: widget.focusNode,
         autofocus: widget.autofocus,
         onFocusChange: (hasFocus) {
           if (hasFocus) HapticFeedback.selectionClick();
           setState(() => _focused = hasFocus);
         },
         onKeyEvent: (node, event) {
+          if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+              event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            widget.onMoveLeft?.call();
+            return KeyEventResult.handled;
+          }
+          if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+              event.logicalKey == LogicalKeyboardKey.arrowRight) {
+            return KeyEventResult.handled;
+          }
           if (event is KeyDownEvent &&
               (event.logicalKey == LogicalKeyboardKey.select ||
                   event.logicalKey == LogicalKeyboardKey.enter ||

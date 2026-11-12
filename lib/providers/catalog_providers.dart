@@ -11,10 +11,35 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_compact.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/catalog_retry_policy.dart';
+import 'package:orbit_3d_flutter/providers/category_change_provider.dart';
 import 'package:orbit_3d_flutter/providers/content_filter_provider.dart';
 import 'package:orbit_3d_flutter/providers/core_providers.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
+
+Future<void> _recordCategoryCounts(
+  Ref ref,
+  CategoryChangeKey key,
+  Iterable<String> categoryIds,
+) async {
+  if (!ref.mounted) return;
+  try {
+    await ref.read(categoryCountTrackerProvider).record(
+          key,
+          categoryIds,
+          refresh: ApiService.bypassCatalogCache,
+        );
+    if (ref.mounted) ref.invalidate(categoryIncreasesProvider(key));
+  } catch (error, stack) {
+    LoggerService.instance.error(
+      'Impossible de sauvegarder les changements de catégories : $error',
+      tag: 'catalog',
+      error: error,
+    );
+    LoggerService.instance.error('$stack', tag: 'catalog');
+  }
+}
 
 final m3uPlaylistProvider = FutureProvider<M3uPlaylist>(
   (ref) async {
@@ -78,6 +103,11 @@ final moviesProvider = FutureProvider<List<Movie>>(
     if (sub.type == SubscriptionType.m3u) {
       return traceCatalogStep('vod', 'playlist', () async {
         final playlist = await ref.watch(m3uPlaylistProvider.future);
+        await _recordCategoryCounts(
+          ref,
+          (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
+          playlist.movies.map((m) => m.categoryId),
+        );
         return filter.visibleList(playlist.movies);
       });
     }
@@ -102,6 +132,11 @@ final moviesProvider = FutureProvider<List<Movie>>(
       vodCategoryFilterProvider.select((f) => f.hiddenVodCategoryIds),
     );
     final fetched = result.valueOrNull ?? const <Movie>[];
+    await _recordCategoryCounts(
+      ref,
+      (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
+      fetched.map((m) => m.categoryId),
+    );
     // Les catégories masquées ne sont pas gardées en mémoire (TV 2 Go).
     final movies = hiddenVod.isEmpty
         ? fetched
@@ -168,6 +203,11 @@ final seriesProvider = FutureProvider<List<Series>>(
     if (sub.type == SubscriptionType.m3u) {
       return traceCatalogStep('series', 'playlist', () async {
         final playlist = await ref.watch(m3uPlaylistProvider.future);
+        await _recordCategoryCounts(
+          ref,
+          (subscriptionId: sub.id, catalog: CategoryCatalog.series),
+          playlist.series.map((s) => s.categoryId),
+        );
         return filter.visibleList(playlist.series);
       });
     }
@@ -176,6 +216,11 @@ final seriesProvider = FutureProvider<List<Series>>(
       vodCategoryFilterProvider.select((f) => f.hiddenSeriesCategoryIds),
     );
     final fetched = await traceCatalogStep('series', 'provider_fetch', api.fetchSeries);
+    await _recordCategoryCounts(
+      ref,
+      (subscriptionId: sub.id, catalog: CategoryCatalog.series),
+      fetched.map((s) => s.categoryId),
+    );
     return filter.visibleList(
       hiddenSeries.isEmpty
           ? fetched

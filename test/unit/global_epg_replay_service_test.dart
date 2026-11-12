@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/services/global_epg_replay_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_replay_service.dart';
 
 void main() {
   test('builds eligible programs with aliases, retention and deduplication',
@@ -80,5 +81,35 @@ void main() {
       buildUrl: (_, __, ___) => '',
     );
     expect(result, isEmpty);
+  });
+
+  test('unknown archive duration does not discard older returned programs', () {
+    final now = DateTime.now();
+    final channel = Channel(
+      id: '42',
+      name: 'Channel',
+      group: '',
+      logoUrl: '',
+      streamUrl: '',
+      supportsReplay: true,
+    );
+    final start = now.subtract(const Duration(days: 6));
+    final results = const GlobalEpgReplayService().build(
+      programs: [
+        EPGProgram(
+          channelId: '42',
+          title: 'Older',
+          description: '',
+          start: start,
+          end: start.add(const Duration(hours: 1)),
+        ),
+      ],
+      channels: [channel],
+      now: now,
+      archiveWindow: XtreamReplayService.archiveWindow,
+      formatTime: (_, __) => '',
+      buildUrl: (_, __, ___) => '',
+    );
+    expect(results.map((item) => item.title), ['Older']);
   });
 }

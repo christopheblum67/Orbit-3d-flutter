@@ -7,6 +7,7 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_profile_recovery.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
 class _MemoryStore implements EncryptedDocumentStore {
   final documents = <String, Map<String, dynamic>>{};
@@ -104,6 +105,38 @@ void main() {
       throwsStateError,
     );
     expect(restored, isFalse);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('recovers the latest encrypted profile rather than the old catalog',
+      () async {
+    final memory = _MemoryStore();
+    final encrypted = EncryptedCloudStore(store: memory);
+    final scopes = EncryptedScopeStore(encrypted);
+    UserProfile? restored;
+    final recovery = CloudProfileRecovery(
+      catalog: EncryptedProfileCatalog(encrypted),
+      profileScopes: scopes,
+      currentUid: () => 'account',
+      addLocalProfile: (profile, check) async {
+        check();
+        restored = profile;
+      },
+    );
+    const phrase = 'independent private phrase';
+    await recovery.publish(
+        'account', phrase, _profile('p1', type: ProfileType.adult));
+    await scopes.write(
+      uid: 'account',
+      profileId: 'p1',
+      scope: 'profile',
+      passphrase: phrase,
+      snapshot: EncryptedScopeSnapshot(
+        revision: 0,
+        entries: {'p1': jsonEncode(_profile('p1').toMap())},
+      ),
+    );
+    await recovery.restore('account', phrase, 'p1');
+    expect(restored!.profileType, ProfileType.child);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('account changes during catalog load prevent a backup', () async {

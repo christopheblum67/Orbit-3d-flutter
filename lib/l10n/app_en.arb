@@ -43,6 +43,7 @@
     "bassKiller":  "Bass Killer (cut \u003c 120 Hz)",
     "bassKillerSubtitle":  "Attenuates low frequencies to avoid vibrations",
     "cancel":  "Cancel",
+    "deleteDownload": "Delete",
     "castToChromecast":  "Cast to Chromecast",
     "catchUpTv":  "Catch-up TV",
     "categories":  "Categories",

@@ -10,38 +10,39 @@ class HiveSync {
   static final Map<String, Completer<void>> _locks = {};
 
   /// Acquiert le lock exclusif pour une boîte.
-  static Future<void> _acquire(String boxName) async {
-    final existing = _locks[boxName];
-    if (existing != null && !existing.isCompleted) {
-      await existing.future;
-    }
-    _locks[boxName] = Completer<void>();
+  static Future<Completer<void>> _acquire(String boxName) async {
+    final previous = _locks[boxName];
+    final current = Completer<void>();
+    _locks[boxName] = current;
+    if (previous != null) await previous.future;
+    return current;
   }
 
   /// Libère le lock.
-  static void _release(String boxName) {
-    _locks[boxName]?.complete();
+  static void _release(String boxName, Completer<void> current) {
+    if (identical(_locks[boxName], current)) _locks.remove(boxName);
+    current.complete();
   }
 
   /// Exécute une opération de lecture thread-safe.
   static Future<T> read<T>(String boxName, T Function(Box) operation) async {
-    await _acquire(boxName);
+    final lock = await _acquire(boxName);
     try {
       final box = Hive.box<dynamic>(boxName);
       return operation(box);
     } finally {
-      _release(boxName);
+      _release(boxName, lock);
     }
   }
 
   /// Exécute une opération d'écriture thread-safe.
   static Future<T> write<T>(String boxName, T Function(Box) operation) async {
-    await _acquire(boxName);
+    final lock = await _acquire(boxName);
     try {
       final box = Hive.box<dynamic>(boxName);
       return operation(box);
     } finally {
-      _release(boxName);
+      _release(boxName, lock);
     }
   }
 
@@ -50,12 +51,12 @@ class HiveSync {
     String boxName,
     Future<T> Function(Box) operation,
   ) async {
-    await _acquire(boxName);
+    final lock = await _acquire(boxName);
     try {
       final box = Hive.box<dynamic>(boxName);
       return await operation(box);
     } finally {
-      _release(boxName);
+      _release(boxName, lock);
     }
   }
 
@@ -64,12 +65,12 @@ class HiveSync {
     String boxName,
     T Function(Box<V>) operation,
   ) async {
-    await _acquire(boxName);
+    final lock = await _acquire(boxName);
     try {
       final box = Hive.box<V>(boxName);
       return operation(box);
     } finally {
-      _release(boxName);
+      _release(boxName, lock);
     }
   }
 
@@ -78,12 +79,12 @@ class HiveSync {
     String boxName,
     Future<T> Function(Box<V>) operation,
   ) async {
-    await _acquire(boxName);
+    final lock = await _acquire(boxName);
     try {
       final box = Hive.box<V>(boxName);
       return await operation(box);
     } finally {
-      _release(boxName);
+      _release(boxName, lock);
     }
   }
 }

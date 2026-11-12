@@ -46,9 +46,6 @@ class XtreamReplayService {
   /// concurrents à 3 : ce réglage ne gouverne que la sonde.
   static const int _probeConcurrency = 2;
 
-  /// Fenêtre de replay : on ne remonte pas au-delà de 48h.
-  static const Duration _replayWindow = Duration(hours: 48);
-
   /// Nombre d'entrées demandées à ``get_short_epg``.
   ///
   /// Un programme TV dure en moyenne 30 à 90 minutes : 48 h de replay
@@ -318,7 +315,8 @@ class XtreamReplayService {
     _logger.info(
       'Replay ${channel.name}: ${items.length} programme(s) rejouable(s) '
       'sur ${entries.length} de l\'EPG complet '
-      '(fenêtre ${window.inDays} j, archive ${channel.archiveDays} j)',
+      '(fenêtre ${window == null ? "non déclarée" : "${window.inDays} j"}, '
+      'archive ${channel.archiveDays} j)',
       tag: 'replay',
     );
     return items;
@@ -408,11 +406,11 @@ class XtreamReplayService {
   /// Fenêtre de retroactivité d'une chaîne.
   ///
   /// `catchup-days` / `tv_archive_duration` est la fenêtre **de l'abonnement**
-  /// — 48 h, 7 jours, 14 jours selon le compte. C'est donc elle qu'on lit, et
-  /// le 48 h n'est plus qu'un repli pour les panels qui ne déclarent rien.
-  static Duration archiveWindow(Channel channel) {
+  /// — 48 h, 7 jours, 14 jours selon le compte. Si elle n'est pas déclarée,
+  /// les programmes renvoyés par le panel ne sont pas coupés arbitrairement.
+  static Duration? archiveWindow(Channel channel) {
     if (channel.archiveDays > 0) return Duration(days: channel.archiveDays);
-    return _replayWindow;
+    return null;
   }
 
   /// Programmes terminés et rejouables d'une chaîne DVR (get_short_epg).
@@ -434,8 +432,7 @@ class XtreamReplayService {
           // en pleine journée couvrent à peine deux heures, tous FUTURS : le
           // filtre « terminé uniquement » les supprimait tous et l'écran
           // finissait sur « aucun replay disponible », alors que le panel en
-          // publie. On demande explicitement une fenêtre couvrant les
-          // `_replayWindow`.
+          // publie. On demande explicitement davantage de programmes.
           'limit': '$_replayLimit',
         });
         final response = await _get(url);
@@ -460,8 +457,10 @@ class XtreamReplayService {
         final sample = <String>[];
         for (final e in list.whereType<Map>().take(6)) {
           final map = Map<String, dynamic>.from(e);
-          final s = XtreamEpgParser.parseDate(map['start_timestamp'] ?? map['start']);
-          final en = XtreamEpgParser.parseDate(map['stop_timestamp'] ?? map['end']);
+          final s =
+              XtreamEpgParser.parseDate(map['start_timestamp'] ?? map['start']);
+          final en =
+              XtreamEpgParser.parseDate(map['stop_timestamp'] ?? map['end']);
           if (s == null || en == null) {
             sample.add('?');
             continue;
@@ -469,7 +468,8 @@ class XtreamReplayService {
           final delta = now.difference(s);
           final hours = (delta.inMinutes / 60).round();
           final state = en.isBefore(now) ? 'terminé' : 'à venir';
-          final tooOld = delta > window ? ', hors fenêtre' : '';
+          final tooOld =
+              window != null && delta > window ? ', hors fenêtre' : '';
           sample.add(
             '${_formatReplayTime(s, now)} ($hours h, $state$tooOld)',
           );
@@ -477,7 +477,7 @@ class XtreamReplayService {
         if (sample.isNotEmpty) {
           _logger.info(
             'Replay ${channel.name}: entrées = ${sample.join(' | ')} '
-            '(fenêtre ${window.inDays} j)',
+            '(fenêtre ${window == null ? "non déclarée" : "${window.inDays} j"})',
             tag: 'replay',
           );
         }

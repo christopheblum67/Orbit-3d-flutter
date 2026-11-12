@@ -7,8 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_profile_recovery.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
 class CloudProfileRecoveryScreen extends ConsumerStatefulWidget {
   const CloudProfileRecoveryScreen({super.key, this.auth, this.recovery});
@@ -54,6 +57,10 @@ class _CloudProfileRecoveryScreenState
     _recovery = widget.recovery ??
         CloudProfileRecovery(
           catalog: EncryptedProfileCatalog(
+            EncryptedCloudStore(
+                store: FirestoreEncryptedDocumentStore(auth: _auth)),
+          ),
+          profileScopes: EncryptedScopeStore(
             EncryptedCloudStore(
                 store: FirestoreEncryptedDocumentStore(auth: _auth)),
           ),
@@ -170,105 +177,212 @@ class _CloudProfileRecoveryScreenState
     });
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Fiches de profils chiffrées')),
-        body: StreamBuilder<User?>(
-          stream: _authChanges,
-          builder: (context, auth) {
-            final user = auth.data;
-            if (user == null || user.isAnonymous) {
-              return const Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('Connectez-vous à un compte cloud pour continuer.'),
-              );
-            }
+  Future<void> _unlockActivity(
+      String uid, ProfileCatalogSnapshot catalog) async {
+    final phrase = _phrase.text;
+    if (!await _confirm(
+      'Synchroniser ce profil ?',
+      'La fiche, les favoris, historiques, épisodes vus et positions du profil '
+          'actif, ainsi que les préférences et abonnements, seront synchronisés '
+          'sous forme chiffrée pendant cette session. Les identifiants IPTV sont '
+          'inclus. L’abonnement actif reste choisi sur chaque appareil.',
+    )) return;
+    if (!mounted) return;
+    if (_phrase.text != phrase ||
+        _auth.currentUser?.uid != uid ||
+        !identical(_catalog, catalog)) {
+      setState(
+          () => _message = 'Le compte ou la phrase a changé. Recommencez.');
+      return;
+    }
+    await _run(() async {
+      await ref.read(encryptedActivitySyncProvider.notifier).unlock(
+            auth: _auth,
+            uid: uid,
+            phrase: phrase,
+            catalog: catalog,
+          );
+    });
+  }
 
-            final local = ref.watch(profilesProvider);
-            final catalog = _loadedUid == user.uid ? _catalog : null;
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text(
-                  'Sauvegarde manuelle des fiches de profils uniquement. '
-                  'La synchronisation des favoris, historiques, abonnements '
-                  'et préférences n’est pas encore disponible.',
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Utilisez une phrase secrète longue et unique, indépendante '
-                  'du compte, et identique sur chaque appareil. '
-                  'Si vous la perdez, les données chiffrées sont irrécupérables.',
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _phrase,
-                  obscureText: true,
-                  enableSuggestions: false,
-                  autocorrect: false,
-                  enabled: !_busy,
-                  onChanged: (_) => setState(() {
+  Future<void> _resolveConflict(ScopeConflictChoice choice) async {
+    final cloud = choice == ScopeConflictChoice.cloud;
+    if (!await _confirm(
+      'Résoudre le conflit ?',
+      'Pour les éléments en conflit de cette catégorie, la version '
+          '${cloud ? 'cloud' : 'de cet appareil'} sera conservée. '
+          'L’autre version, y compris une éventuelle suppression, sera écrasée.',
+    )) return;
+    if (!mounted) return;
+    await ref
+        .read(encryptedActivitySyncProvider.notifier)
+        .resolveConflict(choice);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = ref.watch(encryptedActivitySyncProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Fiches de profils chiffrées')),
+      body: StreamBuilder<User?>(
+        stream: _authChanges,
+        builder: (context, auth) {
+          final user = auth.data;
+          if (user == null || user.isAnonymous) {
+            return const Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Connectez-vous à un compte cloud pour continuer.'),
+            );
+          }
+
+          final local = ref.watch(profilesProvider);
+          final catalog = _loadedUid == user.uid ? _catalog : null;
+          return ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const Text(
+                'Les profils sont retrouvés manuellement. La synchronisation '
+                'chiffrée du profil actif, de son activité, des préférences '
+                'et des abonnements peut être activée pendant cette session.',
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Utilisez une phrase secrète longue et unique, indépendante '
+                'du compte, et identique sur chaque appareil. '
+                'Si vous la perdez, les données chiffrées sont irrécupérables.',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _phrase,
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                enabled: !_busy,
+                onChanged: (_) {
+                  if (activity.unlocked) {
+                    ref.read(encryptedActivitySyncProvider.notifier).lock();
+                  }
+                  setState(() {
                     _catalog = null;
                     _loadedUid = null;
-                  }),
-                  decoration:
-                      const InputDecoration(labelText: 'Phrase secrète'),
-                ),
+                  });
+                },
+                decoration: const InputDecoration(labelText: 'Phrase secrète'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _busy ? null : () => _load(user.uid),
+                child: const Text('Charger le catalogue cloud'),
+              ),
+              if (_busy) const LinearProgressIndicator(),
+              if (_message != null) Text(_message!),
+              if (activity.unlocked) ...[
                 const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _busy ? null : () => _load(user.uid),
-                  child: const Text('Charger le catalogue cloud'),
+                Text(activity.busy
+                    ? 'Synchronisation chiffrée en cours…'
+                    : activity.error ?? 'Synchronisation chiffrée active.'),
+                if (activity.conflictScope != null) ...[
+                  Text(
+                      'Catégorie en conflit : ${switch (activity.conflictScope) {
+                    'favorites' => 'favoris',
+                    'recents' => 'historique récent',
+                    'watched' => 'épisodes vus',
+                    'playback' => 'positions de lecture',
+                    'preferences' => 'préférences générales',
+                    'profile' => 'fiche du profil',
+                    'subscriptions' => 'abonnements',
+                    _ => 'données',
+                  }}'),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed: () =>
+                            _resolveConflict(ScopeConflictChoice.local),
+                        child: const Text('Garder cet appareil'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            _resolveConflict(ScopeConflictChoice.cloud),
+                        child: const Text('Garder le cloud'),
+                      ),
+                    ],
+                  ),
+                ],
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      onPressed: activity.busy
+                          ? null
+                          : () => ref
+                              .read(encryptedActivitySyncProvider.notifier)
+                              .syncAll(),
+                      child: const Text('Synchroniser maintenant'),
+                    ),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(encryptedActivitySyncProvider.notifier)
+                          .lock(),
+                      child: const Text('Verrouiller la synchronisation'),
+                    ),
+                  ],
                 ),
-                if (_busy) const LinearProgressIndicator(),
-                if (_message != null) Text(_message!),
-                if (catalog != null) ...[
-                  const SizedBox(height: 16),
-                  const Text('Profils sur cet appareil'),
-                  local.when(
-                    loading: () => const CircularProgressIndicator(),
-                    error: (_, __) =>
-                        const Text('Profils locaux indisponibles.'),
-                    data: (profiles) => Column(
-                      children: profiles
-                          .map((profile) => ListTile(
-                                title: Text(profile.firstName),
-                                subtitle: Text('Identifiant : ${profile.id}'),
-                                trailing: catalog.profiles
-                                        .containsKey(profile.id)
-                                    ? const Text('Déjà dans le cloud')
-                                    : TextButton(
-                                        onPressed: _busy
-                                            ? null
-                                            : () => _publish(user.uid, profile),
-                                        child: const Text('Sauvegarder'),
-                                      ),
-                              ))
-                          .toList(),
+              ],
+              if (catalog != null) ...[
+                const SizedBox(height: 16),
+                if (!activity.unlocked)
+                  FilledButton(
+                    onPressed:
+                        _busy ? null : () => _unlockActivity(user.uid, catalog),
+                    child: const Text(
+                        'Activer la synchronisation du profil actif'),
+                  ),
+                const Text('Profils sur cet appareil'),
+                local.when(
+                  loading: () => const CircularProgressIndicator(),
+                  error: (_, __) => const Text('Profils locaux indisponibles.'),
+                  data: (profiles) => Column(
+                    children: profiles
+                        .map((profile) => ListTile(
+                              title: Text(profile.firstName),
+                              subtitle: Text('Identifiant : ${profile.id}'),
+                              trailing: catalog.profiles.containsKey(profile.id)
+                                  ? const Text('Déjà dans le cloud')
+                                  : TextButton(
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _publish(user.uid, profile),
+                                      child: const Text('Sauvegarder'),
+                                    ),
+                            ))
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Profils dans le cloud'),
+                for (final entry in catalog.profiles.entries)
+                  ListTile(
+                    title: Text(entry.value['firstName'] as String),
+                    subtitle: Text('Identifiant : ${entry.key}'),
+                    trailing: TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _restore(
+                                user.uid,
+                                entry.key,
+                                entry.value['firstName'] as String,
+                              ),
+                      child: const Text('Récupérer'),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('Profils dans le cloud'),
-                  for (final entry in catalog.profiles.entries)
-                    ListTile(
-                      title: Text(entry.value['firstName'] as String),
-                      subtitle: Text('Identifiant : ${entry.key}'),
-                      trailing: TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _restore(
-                                  user.uid,
-                                  entry.key,
-                                  entry.value['firstName'] as String,
-                                ),
-                        child: const Text('Récupérer'),
-                      ),
-                    ),
-                ],
               ],
-            );
-          },
-        ),
-      );
+            ],
+          );
+        },
+      ),
+    );
+  }
 }
 
 class _ConfirmBackupDialog extends StatefulWidget {

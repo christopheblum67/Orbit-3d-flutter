@@ -29,6 +29,7 @@ void main() {
       epgChannelId: '1',
     );
     final now = DateTime.now();
+    var watchCalls = 0;
     await tester.pumpWidget(ProviderScope(
       overrides: [
         tvModeNotifierProvider.overrideWithValue(tvMode),
@@ -60,7 +61,7 @@ void main() {
               channels: [channel],
               selected: channel,
               onSelect: (_) {},
-              onWatch: () {},
+              onWatch: () => watchCalls++,
               onBack: () {},
               categoryName: 'Tous',
             ),
@@ -73,6 +74,16 @@ void main() {
     final guide = tester.getRect(find.text('Programme actuel'));
     expect(guide.top, greaterThanOrEqualTo(preview.bottom));
     expect(liveWatchFocusNode.hasPrimaryFocus, isTrue);
+    final watch = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'REGARDER'),
+    );
+    expect(watch.style!.backgroundColor!.resolve({WidgetState.focused}),
+        const Color(0xFFFFE69B));
+    expect(tester.getSize(find.widgetWithText(FilledButton, 'REGARDER')).height,
+        lessThanOrEqualTo(48));
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(watchCalls, 1);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(Focus.of(tester.element(find.text('Programme actuel'))).hasPrimaryFocus, isTrue);

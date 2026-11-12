@@ -17,7 +17,7 @@ class GlobalEpgReplayService {
     required List<EPGProgram> programs,
     required List<Channel> channels,
     required DateTime now,
-    required Duration Function(Channel) archiveWindow,
+    required Duration? Function(Channel) archiveWindow,
     required ReplayUrlBuilder buildUrl,
     required String Function(DateTime, DateTime) formatTime,
   }) {
@@ -43,7 +43,8 @@ class GlobalEpgReplayService {
       )) {
         continue;
       }
-      if (now.difference(program.start) > archiveWindow(channel)) continue;
+      final window = archiveWindow(channel);
+      if (window != null && now.difference(program.start) > window) continue;
 
       final startEpoch = program.start.millisecondsSinceEpoch ~/ 1000;
       final endEpoch = program.end.millisecondsSinceEpoch ~/ 1000;

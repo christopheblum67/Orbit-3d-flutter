@@ -153,6 +153,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get cancel => 'Annulla';
 
   @override
+  String get deleteDownload => 'Elimina';
+
+  @override
   String get castToChromecast => 'Trasmetti su Chromecast';
 
   @override

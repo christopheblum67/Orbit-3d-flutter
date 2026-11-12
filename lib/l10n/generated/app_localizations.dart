@@ -364,6 +364,12 @@ abstract class AppLocalizations {
   /// **'Annuler'**
   String get cancel;
 
+  /// No description provided for @deleteDownload.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer'**
+  String get deleteDownload;
+
   /// No description provided for @castToChromecast.
   ///
   /// In fr, this message translates to:

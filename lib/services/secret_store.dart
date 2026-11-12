@@ -37,6 +37,13 @@ class SecureSecretStore implements SecretStore {
     ),
   );
 
+  Future<String?> readStrict(String key) => _storage.read(key: key);
+
+  Future<void> writeStrict(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  Future<void> deleteStrict(String key) => _storage.delete(key: key);
+
   @override
   Future<String?> read(String key) async {
     final result = await safeAsync<String?>(
@@ -86,6 +93,26 @@ SecretStore _secretStore = const SecureSecretStore();
 /// Coffre actif. Les stores applicatifs (PIN, TMDB, OpenSubtitles, Xtream)
 /// passent TOUS par ce point d'injection.
 SecretStore get secretStore => _secretStore;
+
+/// Cloud synchronization must stop on a Keystore error, not treat it as empty.
+Future<String?> readSecretStrict(String key) {
+  final store = secretStore;
+  return store is SecureSecretStore ? store.readStrict(key) : store.read(key);
+}
+
+Future<void> writeSecretStrict(String key, String value) {
+  final store = secretStore;
+  return store is SecureSecretStore
+      ? store.writeStrict(key, value)
+      : store.write(key, value);
+}
+
+Future<void> deleteSecretStrict(String key) {
+  final store = secretStore;
+  return store is SecureSecretStore
+      ? store.deleteStrict(key)
+      : store.delete(key);
+}
 
 @visibleForTesting
 void overrideSecretStoreForTesting(SecretStore store) {

@@ -159,7 +159,7 @@ Future<UserProfile?> _restoreLastProfile(StorageService storage) async {
   if (lastId == null || lastId.isEmpty) return null;
   final profiles = await storage.getProfiles();
   for (final profile in profiles) {
-    if (profile.id == lastId) return profile;
+    if (profile.id == lastId) return profile.hasPin ? null : profile;
   }
   return null;
 }

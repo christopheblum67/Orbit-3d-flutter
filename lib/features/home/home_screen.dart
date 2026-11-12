@@ -30,6 +30,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   String? _focusedCarouselRoute;
   bool _autoRefreshing = false;
   DateTime? _lastSilentRefreshAttempt;
+  String? _pendingRefreshMessage;
+  String? _pendingRefreshSubscriptionId;
   GoRouter? _router;
   @override
   void initState() {
@@ -41,8 +43,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // relance une mise à jour silencieuse au premier frame si les données
     // datent de plus de 8 h.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _autoRefreshIfStale();
+      if (mounted) {
+        _showPendingRefreshMessage();
+        _autoRefreshIfStale();
+      }
     });
+  }
+
+  void _showPendingRefreshMessage() {
+    final message = _pendingRefreshMessage;
+    if (message == null) return;
+    if (ref.read(activeSubscriptionProvider)?.id !=
+        _pendingRefreshSubscriptionId) {
+      _pendingRefreshMessage = null;
+      return;
+    }
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if ((lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+        _router?.routeInformationProvider.value.uri.path != '/home' ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    _pendingRefreshMessage = null;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(message),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
@@ -92,7 +121,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void _onRouteChanged() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _autoRefreshIfStale();
+      if (mounted) {
+        _showPendingRefreshMessage();
+        _autoRefreshIfStale();
+      }
     });
   }
 
@@ -322,9 +354,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
     _lastSilentRefreshAttempt = DateTime.now();
     _autoRefreshing = true;
+    final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
     try {
       if (!mounted) return;
-      await runSilentRefresh(ref: ref, isMounted: () => mounted);
+      final responded = await runSilentRefresh(ref: ref, isMounted: () => mounted);
+      if (!mounted || ref.read(activeSubscriptionProvider)?.id != subscriptionId) {
+        return;
+      }
+      _pendingRefreshSubscriptionId = subscriptionId;
+      _pendingRefreshMessage = responded
+          ? 'Mise à jour terminée.'
+          : 'Mise à jour terminée, aucune donnée disponible.';
+      _showPendingRefreshMessage();
     } finally {
       _autoRefreshing = false;
     }
@@ -405,7 +446,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           child: Stack(
             children: [
-              Column(
+              Center(
+                child: Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
@@ -443,6 +486,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                 ],
+                ),
               ),
               if (!item.hasRoute)
                 Positioned(

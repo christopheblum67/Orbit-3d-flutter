@@ -25,6 +25,7 @@ class PlayerFooterContent extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onTogglePlayPause,
+    this.playPauseFocusNode,
     required this.onPip,
     required this.onSeekBack30,
     required this.onSeekForward30,
@@ -51,6 +52,7 @@ class PlayerFooterContent extends StatelessWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final VoidCallback onTogglePlayPause;
+  final FocusNode? playPauseFocusNode;
   final VoidCallback? onPip;
   final VoidCallback onSeekBack30;
   final VoidCallback onSeekForward30;
@@ -82,6 +84,7 @@ class PlayerFooterContent extends StatelessWidget {
           onPrevious: onPrevious,
           onNext: onNext,
           onTogglePlayPause: onTogglePlayPause,
+          playPauseFocusNode: playPauseFocusNode,
           onPip: onPip,
           onSeekBack30: null,
           onSeekForward30: null,
@@ -102,6 +105,7 @@ class PlayerFooterContent extends StatelessWidget {
           onPrevious: onPrevious,
           onNext: onNext,
           onTogglePlayPause: onTogglePlayPause,
+          playPauseFocusNode: playPauseFocusNode,
           onPip: onPip,
           onSeekBack30: onSeekBack30,
           onSeekForward30: onSeekForward30,
@@ -121,6 +125,7 @@ class PlayerFooterContent extends StatelessWidget {
           isPlaying: controller.value.isPlaying,
           onExit: onExit,
           onTogglePlayPause: onTogglePlayPause,
+          playPauseFocusNode: playPauseFocusNode,
           onPip: onPip,
           onSeekBack30: onSeekBack30,
           onSeekForward30: onSeekForward30,

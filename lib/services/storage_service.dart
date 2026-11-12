@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -9,6 +12,11 @@ import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/services/secret_store.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/subscription_cloud_record.dart';
+
+class ActiveSubscriptionSyncRemoval implements Exception {
+  const ActiveSubscriptionSyncRemoval();
+}
 
 class StorageService {
   static const String _profilesBox = 'profiles';
@@ -19,6 +27,8 @@ class StorageService {
     await Hive.openBox(_profilesBox);
     await Hive.openBox(_settingsBox);
     await Hive.openBox(_subscriptionsBox);
+    await HiveSync.writeAsync(
+        _subscriptionsBox, _recoverCloudSubscriptionJournal);
     // Migration S1 : les secrets stockés EN CLAIR par les versions précédentes
     // (PIN parental en Hive, mots de passe Xtream en Hive) rejoignent le coffre
     // sécurisé, puis sont retirés de leur ancien emplacement.
@@ -144,33 +154,209 @@ class StorageService {
   /// le mot de passe sans passer par un await, et fait tampon entre les
   /// lectures. Il est peuplé par [init] (migration) et par chaque écriture.
   final Map<String, String> _subscriptionPasswordCache = {};
+  static const _cloudSubscriptionJournal = 'cloud_subscription_journal_v1';
+  static const _cloudSubscriptionJournalPending =
+      'cloud_subscription_journal_pending_v1';
+
+  Future<void> _setSubscriptionSecret(String id, String? secret) async {
+    final key = subscriptionPasswordSecretKey(id);
+    if (secret == null || secret.isEmpty) {
+      await deleteSecretStrict(key);
+      _subscriptionPasswordCache.remove(id);
+    } else {
+      await writeSecretStrict(key, secret);
+      _subscriptionPasswordCache[id] = secret;
+    }
+  }
+
+  Future<void> _recoverCloudSubscriptionJournal(Box<dynamic> box) async {
+    final pending = await HiveSync.read(
+      _settingsBox,
+      (settings) => settings.get(_cloudSubscriptionJournalPending),
+    );
+    if (pending == null || pending == false) return;
+    if (pending != true) {
+      throw const FormatException('Journal sécurisé des abonnements invalide.');
+    }
+    final raw = await readSecretStrict(_cloudSubscriptionJournal);
+    if (raw == null) {
+      await _clearCloudSubscriptionJournalPending();
+      return;
+    }
+    final journal = jsonDecode(raw);
+    if (journal is! Map<String, dynamic> ||
+        !journal.keys.toSet().containsAll({
+          'version',
+          'id',
+          'subscription',
+          'secret',
+        }) ||
+        journal['version'] != 1 ||
+        journal['id'] is! String ||
+        (journal['id'] as String).isEmpty ||
+        (journal['secret'] != null && journal['secret'] is! String) ||
+        (journal['subscription'] != null && journal['subscription'] is! Map)) {
+      throw const FormatException('Journal sécurisé des abonnements invalide.');
+    }
+    final id = journal['id'] as String;
+    final old = journal['subscription'];
+    Subscription? previous;
+    if (old != null) {
+      final data = Map<String, dynamic>.from(old as Map);
+      final validationData = Map<String, dynamic>.from(data);
+      if (validationData['type'] == SubscriptionType.m3u.name) {
+        validationData['password'] = null;
+      }
+      SubscriptionCloudRecord.decode(id, jsonEncode(validationData));
+      if (data['isActive'] is! bool ||
+          !TestResultStatus.values
+              .any((status) => status.name == data['lastTestResult'])) {
+        throw const FormatException(
+            'Journal sécurisé des abonnements invalide.');
+      }
+      previous = Subscription.fromMap(data);
+    }
+    await _setSubscriptionSecret(id, journal['secret'] as String?);
+    if (previous == null) {
+      await box.delete(id);
+    } else {
+      await _putSubscription(box, previous);
+    }
+    await deleteSecretStrict(_cloudSubscriptionJournal);
+    await _clearCloudSubscriptionJournalPending();
+  }
+
+  Future<void> _clearCloudSubscriptionJournalPending() => HiveSync.writeAsync(
+        _settingsBox,
+        (box) => box.delete(_cloudSubscriptionJournalPending),
+      );
+
+  Future<Map<String, String>> _readCloudSubscriptions(Box<dynamic> box) async {
+    final result = <String, String>{};
+    for (final key in box.keys) {
+      final item = box.get(key);
+      if (key is! String ||
+          item is! Subscription ||
+          item.id != key ||
+          key.isEmpty) {
+        throw const FormatException('Abonnement local invalide.');
+      }
+      final password = item.type == SubscriptionType.xtream
+          ? await readSecretStrict(subscriptionPasswordSecretKey(key))
+          : null;
+      result[key] =
+          SubscriptionCloudRecord.fromSubscription(item, password).encode();
+    }
+    return result;
+  }
+
+  Future<Map<String, String>> readCloudSubscriptions() =>
+      HiveSync.writeAsync(_subscriptionsBox, (box) async {
+        await _recoverCloudSubscriptionJournal(box);
+        return _readCloudSubscriptions(box);
+      });
+
+  Future<void> applyCloudSubscriptionsIfUnchanged(
+    Map<String, String> expected,
+    Map<String, String> merged,
+    void Function() checkSession,
+  ) async {
+    final records = <String, SubscriptionCloudRecord>{
+      for (final entry in merged.entries)
+        entry.key: SubscriptionCloudRecord.decode(entry.key, entry.value),
+    };
+    await HiveSync.writeAsync(_subscriptionsBox, (box) async {
+      checkSession();
+      await _recoverCloudSubscriptionJournal(box);
+      checkSession();
+      if (!mapEquals(await _readCloudSubscriptions(box), expected)) {
+        throw StateError('Les abonnements locaux ont changé. Réessayez.');
+      }
+      checkSession();
+      for (final id in expected.keys) {
+        final old = box.get(id) as Subscription;
+        if (!merged.containsKey(id) && old.isActive) {
+          throw const ActiveSubscriptionSyncRemoval();
+        }
+      }
+      final changed = <String>{
+        for (final id in {...expected.keys, ...merged.keys})
+          if (expected[id] != merged[id]) id,
+      };
+      for (final id in changed) {
+        checkSession();
+        final old = box.get(id) as Subscription?;
+        final secret =
+            await readSecretStrict(subscriptionPasswordSecretKey(id));
+        checkSession();
+        await HiveSync.writeAsync(
+          _settingsBox,
+          (settings) => settings.put(_cloudSubscriptionJournalPending, true),
+        );
+        try {
+          await writeSecretStrict(
+            _cloudSubscriptionJournal,
+            jsonEncode({
+              'version': 1,
+              'id': id,
+              'subscription': old?.copyWith(password: '').toMap(),
+              'secret': secret,
+            }),
+          );
+          checkSession();
+          final record = records[id];
+          if (record == null || record.type == SubscriptionType.xtream) {
+            await _setSubscriptionSecret(id, record?.password);
+          }
+          checkSession();
+          if (record == null) {
+            await box.delete(id);
+          } else {
+            await _putSubscription(box, record.toSubscription(old));
+          }
+          checkSession();
+          await deleteSecretStrict(_cloudSubscriptionJournal);
+          await _clearCloudSubscriptionJournalPending();
+        } catch (_) {
+          await _recoverCloudSubscriptionJournal(box);
+          rethrow;
+        }
+      }
+    });
+  }
 
   /// Écriture d'une subscription dans Hive en GARANTISSANT que le mot de
   /// passe n'y est jamais écrit : le secret va au coffre, Hive ne reçoit
   /// qu'une valeur vide. Les flux qui réécrivent un objet hydraté
   /// (`copyWith`, `setActiveSubscription`) ne doivent pas faire repasser le
   /// secret en clair — tout passe par ce point unique.
-  void _putSubscription(Box<dynamic> box, Subscription subscription) {
-    box.put(subscription.id, subscription.copyWith(password: ''));
-  }
+  Future<void> _putSubscription(Box<dynamic> box, Subscription subscription) =>
+      box.put(subscription.id, subscription.copyWith(password: ''));
 
   Future<void> _saveSubscriptionWithSecret(Subscription subscription) async {
     final password = subscription.password;
-    if (password != null && password.isNotEmpty) {
-      // Saisie ou objet hydraté : le secret est (ré)écrit dans le coffre.
-      await secretStore.write(
-        subscriptionPasswordSecretKey(subscription.id),
-        password,
-      );
-      _subscriptionPasswordCache[subscription.id] = password;
-    }
-    // password absent/null : l'objet est peut-être NON hydraté (un flux qui
-    // réécrit sans connaître le secret) — le coffre conserve la valeur déjà
-    // enregistrée, seul Hive est réécrit sans secret.
     await HiveSync.writeAsync(
       _subscriptionsBox,
       (box) async {
-        _putSubscription(box, subscription);
+        await _recoverCloudSubscriptionJournal(box);
+        final key = subscriptionPasswordSecretKey(subscription.id);
+        final replaceSecret = password != null && password.isNotEmpty;
+        final previous = replaceSecret ? await readSecretStrict(key) : null;
+        if (replaceSecret) await writeSecretStrict(key, password);
+        try {
+          await _putSubscription(box, subscription);
+        } catch (_) {
+          if (replaceSecret) {
+            if (previous == null) {
+              await deleteSecretStrict(key);
+            } else {
+              await writeSecretStrict(key, previous);
+            }
+          }
+          rethrow;
+        }
+        if (replaceSecret)
+          _subscriptionPasswordCache[subscription.id] = password;
       },
     );
   }
@@ -185,7 +371,7 @@ class StorageService {
     final box = Hive.box(_subscriptionsBox);
     for (final sub in box.values.cast<Subscription>().toList()) {
       final secret =
-          await secretStore.read(subscriptionPasswordSecretKey(sub.id));
+          await readSecretStrict(subscriptionPasswordSecretKey(sub.id));
       if (secret != null && secret.isNotEmpty) {
         _subscriptionPasswordCache[sub.id] = secret;
       }
@@ -200,11 +386,11 @@ class StorageService {
     for (final sub in box.values.cast<Subscription>().toList()) {
       final legacy = sub.password;
       if (legacy != null && legacy.isNotEmpty) {
-        await secretStore.write(
+        await writeSecretStrict(
           subscriptionPasswordSecretKey(sub.id),
           legacy,
         );
-        box.put(sub.id, sub.copyWith(password: ''));
+        await box.put(sub.id, sub.copyWith(password: ''));
       }
     }
     await _refreshSubscriptionPasswordCache();
@@ -217,7 +403,8 @@ class StorageService {
   Future<List<Subscription>> getSubscriptions() async {
     final subs = await HiveSync.read(
       _subscriptionsBox,
-      (box) => box.values.cast<Subscription>().toList(),
+      (box) =>
+          box.values.cast<Subscription>().map((s) => s.copyWith()).toList(),
     );
     // Hydrate le mot de passe depuis le coffre pour chaque abonnement (le
     // cache mémoire évite les lectures disques répétées).
@@ -239,7 +426,7 @@ class StorageService {
   Future<Subscription?> getActiveSubscription() async {
     final sub = await HiveSync.read(_subscriptionsBox, (box) {
       for (final s in box.values) {
-        if (s.isActive) return s;
+        if (s.isActive) return (s as Subscription).copyWith();
       }
       return null;
     });
@@ -263,40 +450,44 @@ class StorageService {
       if (s.isActive) {
         final secret = _subscriptionPasswordCache[s.id];
         if (secret != null && secret.isNotEmpty) {
-          s.password = secret;
+          return (s as Subscription).copyWith(password: secret);
         }
-        return s;
+        return (s as Subscription).copyWith();
       }
     }
     return null;
   }
 
   Future<void> deleteSubscription(String id) async {
-    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.delete(id));
-    await secretStore.delete(subscriptionPasswordSecretKey(id));
-    _subscriptionPasswordCache.remove(id);
+    await HiveSync.writeAsync(_subscriptionsBox, (box) async {
+      await _recoverCloudSubscriptionJournal(box);
+      await box.delete(id);
+      await deleteSecretStrict(subscriptionPasswordSecretKey(id));
+      _subscriptionPasswordCache.remove(id);
+    });
   }
 
   Future<void> clearSubscriptions() async {
-    final ids = await HiveSync.read(
-      _subscriptionsBox,
-      (box) => box.values.cast<Subscription>().map((s) => s.id).toList(),
-    );
-    await HiveSync.writeAsync(_subscriptionsBox, (box) => box.clear());
-    for (final id in ids) {
-      await secretStore.delete(subscriptionPasswordSecretKey(id));
-    }
-    _subscriptionPasswordCache.clear();
+    await HiveSync.writeAsync(_subscriptionsBox, (box) async {
+      await _recoverCloudSubscriptionJournal(box);
+      final ids = box.values.cast<Subscription>().map((s) => s.id).toList();
+      await box.clear();
+      for (final id in ids) {
+        await deleteSecretStrict(subscriptionPasswordSecretKey(id));
+      }
+      _subscriptionPasswordCache.clear();
+    });
   }
 
   Future<void> setActiveSubscription(String id) async {
     await HiveSync.writeAsync(_subscriptionsBox, (box) async {
+      await _recoverCloudSubscriptionJournal(box);
       for (final sub in box.values) {
         final updated = sub.copyWith(isActive: sub.id == id);
         // `_putSubscription` plutôt que `box.put` : un abonnement hydraté
         // (mot de passe en mémoire) ne doit pas réécrire le secret en clair
         // dans Hive — le coffre le conserve déjà.
-        _putSubscription(box, updated);
+        await _putSubscription(box, updated);
       }
     });
     // Invalider le tampon EPG : l'ancien abonnement n'est plus valide,

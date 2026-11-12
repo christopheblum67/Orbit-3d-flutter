@@ -308,7 +308,7 @@ class DownloadTile extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: AppCard(
-        onTap: onTap,
+        focusable: false,
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,48 +316,57 @@ class DownloadTile extends ConsumerWidget {
             // Ligne principale: affiche + titre + statut
             Row(
               children: [
-                // Poster/Afficher
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 60,
-                    height: 90,
-                    child: task.posterUrl != null && task.posterUrl!.isNotEmpty
-                        ? CachedImage(
-                            imageUrl: task.posterUrl!,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) =>
-                                _posterFallback(context),
-                          )
-                        : _posterFallback(context),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Titre + métadonnées
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        task.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      if (task.episodeTitle != null) ...[
-                        Text(
-                          task.episodeTitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                  child: InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 60,
+                            height: 90,
+                            child: task.posterUrl != null &&
+                                    task.posterUrl!.isNotEmpty
+                                ? CachedImage(
+                                    imageUrl: task.posterUrl!,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) =>
+                                        _posterFallback(context),
+                                  )
+                                : _posterFallback(context),
+                          ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                task.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              if (task.episodeTitle != null) ...[
+                                Text(
+                                  task.episodeTitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant),
+                                ),
+                                const SizedBox(height: 2),
+                              ],
+                              _StatusChip(status: task.status),
+                            ],
+                          ),
+                        ),
                       ],
-                      _StatusChip(status: task.status),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -370,6 +379,15 @@ class DownloadTile extends ConsumerWidget {
                 ),
               ],
             ),
+            if (task.isFailed && task.errorMessage?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(
+                task.errorMessage!,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(color: scheme.error),
+              ),
+            ],
             // Barre de progression
             if (!task.isCompleted && !task.isFailed && !task.isCancelled) ...[
               const SizedBox(height: 12),
@@ -421,7 +439,7 @@ class DownloadTile extends ConsumerWidget {
                   TextButton.icon(
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(l.cancel),
+                    label: Text(l.deleteDownload),
                     style: TextButton.styleFrom(foregroundColor: scheme.error),
                   ),
                 ],

@@ -192,4 +192,5 @@ DownloadTask _task(String id) => DownloadTask(
       streamUrl: 'http://x/m.mkv',
       createdAt: DateTime.now(),
       contentType: 'vod',
+      status: DownloadStatus.paused,
     );

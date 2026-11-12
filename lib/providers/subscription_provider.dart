@@ -33,6 +33,13 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     state = subs;
   }
 
+  Future<void> reloadAfterCloudSync() async {
+    await _ensureLoaded();
+    final subs = await _storage.getSubscriptions();
+    if (!ref.mounted) return;
+    state = subs;
+  }
+
   Future<void> addSubscription(Subscription subscription) async {
     await _ensureLoaded();
     await _storage.saveSubscription(subscription);
@@ -107,7 +114,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     final lastRefresh = await loadLastRefresh(subscriptionId: activated.id);
     if (!ref.mounted) return;
     if (ref.read(activeSubscriptionProvider)?.id != activated.id) return;
-    ref.read(lastRefreshTimestampProvider.notifier).restoreTimestamp(lastRefresh);
+    ref
+        .read(lastRefreshTimestampProvider.notifier)
+        .restoreTimestamp(lastRefresh);
 
     final api = ref.read(apiServiceProvider);
     api.forgetSlowUrls();

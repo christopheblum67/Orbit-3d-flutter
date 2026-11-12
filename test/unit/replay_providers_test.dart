@@ -148,7 +148,7 @@ void main() {
     final oldFuture =
         container.read(public.channelReplaysProvider('42').future);
     await api.firstStarted.future;
-    public.channelReplaysCache.invalidate();
+    public.channelReplaysCache.invalidateChannel('42');
     container.invalidate(public.channelReplaysProvider('42'));
     await container.pump();
     await api.secondStarted.future;
@@ -164,6 +164,33 @@ void main() {
     await oldFuture;
     expect(public.channelReplaysCache.peek('42')!.single.id, 'new');
     listener.close();
+  });
+
+  test('refreshing a channel bypasses its cache without clearing others',
+      () async {
+    final api = _Api();
+    final container = containerFor(api);
+    addTearDown(container.dispose);
+    final listener =
+        container.listen(public.channelReplaysProvider('42'), (_, __) {});
+    addTearDown(listener.close);
+    await api.firstStarted.future;
+    api.requests.first.complete([_item('before')]);
+    await container.read(public.channelReplaysProvider('42').future);
+    public.channelReplaysCache.put('other', [_item('other')]);
+
+    public.channelReplaysCache.invalidateChannel('42');
+    container.invalidate(public.channelReplaysProvider('42'));
+    await container.pump();
+    await api.secondStarted.future;
+    api.requests.last.complete([_item('after')]);
+    expect(
+      (await container.read(public.channelReplaysProvider('42').future))
+          .single
+          .id,
+      'after',
+    );
+    expect(public.channelReplaysCache.peek('other')!.single.id, 'other');
   });
 
   test('invalidation before channels load prevents an obsolete request',

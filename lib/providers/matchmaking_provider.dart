@@ -891,7 +891,10 @@ final matchmakingTabProvider = FutureProvider.autoDispose
       .where((g) => g.isNotEmpty)
       .toSet();
 
-  final seenIds = ref.watch(seenRecoIdsProvider(profileId));
+  final seenIds = {
+    ...ref.watch(seenRecoIdsProvider(profileId)),
+    ...ref.watch(dismissedRecoIdsProvider(profileId)),
+  };
   final tmdbTitles = ref.watch(recommendationTitlesProvider);
   // Catégories masquées par abonnement : le matchmaking ne doit pas proposer
   // du contenu que l'utilisateur a choisi de cacher.

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/profile_pin.dart';
 
 /// Contexte d'ouverture du pavé PIN.
 enum PinPadMode {
@@ -17,14 +17,17 @@ enum PinPadMode {
 
 /// Arguments passés via `extra` à la route `/profile/pin`.
 class PinPadArgs {
-  const PinPadArgs.set()
+  const PinPadArgs.set({this.confirmation = false})
       : mode = PinPadMode.set,
         profile = null;
 
-  const PinPadArgs.verify(UserProfile this.profile) : mode = PinPadMode.verify;
+  const PinPadArgs.verify(UserProfile this.profile)
+      : mode = PinPadMode.verify,
+        confirmation = false;
 
   final PinPadMode mode;
   final UserProfile? profile;
+  final bool confirmation;
 
   bool get isVerify => mode == PinPadMode.verify;
 }
@@ -51,6 +54,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   int _attempts = 0;
   bool _wrong = false;
   bool _validated = false;
+  bool _checking = false;
 
   PinPadMode get _mode => widget.args.mode;
 
@@ -65,51 +69,77 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
           : 'ce profil';
       return 'Entrez le code PIN de $name';
     }
-    return 'Choisissez un code à 4 chiffres';
+    return widget.args.confirmation
+        ? 'Confirmez votre code à 4 chiffres'
+        : 'Choisissez un code à 4 chiffres';
   }
 
   void _append(String digit) {
-    if (_digits.length >= _pinLength) return;
+    if (_checking || _digits.length >= _pinLength) return;
     HapticFeedback.heavyImpact();
     setState(() {
       _digits += digit;
       _wrong = false;
     });
     if (_digits.length == _pinLength) {
-      final result = _validate();
-      if (result != null) _finish(result);
+      _submit();
     }
   }
 
   void _erase() {
-    if (_digits.isEmpty) return;
+    if (_checking || _digits.isEmpty) return;
     HapticFeedback.selectionClick();
     setState(() => _digits = _digits.substring(0, _digits.length - 1));
   }
 
   void _onOk() {
-    if (_digits.length != _pinLength) return;
-    final result = _validate();
-    if (result != null) _finish(result);
+    if (_checking || _digits.length != _pinLength) return;
+    _submit();
   }
 
-  /// Retourne la valeur de pop si la saisie est valide, sinon null.
-  Object? _validate() {
+  Future<void> _submit() async {
+    if (_checking || _validated) return;
     if (_mode == PinPadMode.set) {
-      return _digits;
+      _finish(_digits);
+      return;
     }
-    final verified = ref.read(profileTypeProvider.notifier).verifyPin(_digits);
-    if (verified) return true;
+    setState(() => _checking = true);
+    final profile = widget.args.profile;
+    bool verified;
+    try {
+      verified = profile != null && await ProfilePin.verify(profile, _digits);
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('vérification du code PIN de profil'),
+      ));
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _digits = '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de vérifier le code PIN.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (verified) {
+      _finish(true);
+      return;
+    }
     _attempts++;
     HapticFeedback.vibrate();
     if (_attempts >= _maxAttempts) {
-      return false;
+      _finish(false);
+      return;
     }
     setState(() {
+      _checking = false;
       _wrong = true;
       _digits = '';
     });
-    return null;
   }
 
   void _finish(Object? result) {
@@ -133,51 +163,56 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
       ),
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _title,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 28),
-                  _PinDots(filled: _digits.length, wrong: _wrong),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
-                    child: _wrong
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 14),
-                            child: Text(
-                              'Code incorrect — '
-                              '${_maxAttempts - _attempts} essai(s) restant(s)',
-                              style: TextStyle(
-                                color: scheme.error,
-                                fontWeight: FontWeight.w700,
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _title,
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
                               ),
-                            ),
-                          )
-                        : const SizedBox(height: 40),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildKeyGrid(),
-                ],
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    _PinDots(filled: _digits.length, wrong: _wrong),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      child: _wrong
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: Text(
+                                'Code incorrect — '
+                                '${_maxAttempts - _attempts} essai(s) restant(s)',
+                                style: TextStyle(
+                                  color: scheme.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            )
+                          : const SizedBox(height: 40),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildKeyGrid(),
+                  ],
+                ),
               ),
             ),
           ),

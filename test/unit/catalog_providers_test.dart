@@ -6,9 +6,11 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/catalog_providers.dart' as split;
+import 'package:orbit_3d_flutter/providers/category_change_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart' as public;
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _Filter extends VodCategoryFilterNotifier {
   @override
@@ -79,6 +81,7 @@ Series _series(String id, String category) => Series(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('catalog facade exports the original provider identities', () {
     expect(public.m3uPlaylistProvider, same(split.m3uPlaylistProvider));
     expect(public.liveChannelsAllProvider, same(split.liveChannelsAllProvider));
@@ -190,5 +193,28 @@ void main() {
       ['shown-series'],
     );
     expect(api.requests, 0);
+
+    api.movies.add(_movie('new-movie', 'shown'));
+    api.series.add(_series('new-series', 'shown'));
+    ApiService.bypassCatalogCache = true;
+    addTearDown(() => ApiService.bypassCatalogCache = false);
+    container.invalidate(public.moviesProvider);
+    container.invalidate(public.seriesProvider);
+    await container.read(public.moviesProvider.future);
+    await container.read(public.seriesProvider.future);
+    expect(
+      await container.read(categoryIncreasesProvider((
+        subscriptionId: 'xtream',
+        catalog: CategoryCatalog.movies,
+      )).future),
+      {'shown': 2},
+    );
+    expect(
+      await container.read(categoryIncreasesProvider((
+        subscriptionId: 'xtream',
+        catalog: CategoryCatalog.series,
+      )).future),
+      {'shown': 2},
+    );
   });
 }

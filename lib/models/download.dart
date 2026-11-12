@@ -145,6 +145,9 @@ class DownloadTask extends HiveObject {
   @HiveField(19)
   Map<String, String>? headers; // Headers HTTP personnalisés (Cloudflare, etc.)
 
+  @HiveField(20)
+  String? downloadValidator;
+
   DownloadTask({
     required this.id,
     required this.mediaItemId,
@@ -166,6 +169,7 @@ class DownloadTask extends HiveObject {
     this.episodeNumber,
     this.episodeTitle,
     this.headers,
+    this.downloadValidator,
   }) : progress = progress ?? DownloadProgress();
 
   /// Chemin local complet du fichier téléchargé.

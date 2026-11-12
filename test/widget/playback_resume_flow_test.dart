@@ -37,6 +37,10 @@ void main() {
 
   testWidgets('resume opens the episode with its saved playback position',
       (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final series = Series(
       id: 'series-1',
       title: 'Série',
@@ -100,6 +104,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(tester.takeException(), isNull);
     expect(find.text('Repris à 2 min'), findsOneWidget);
     await tester.runAsync(
       () => progressService.save('episode-episode-42', 250000, 900000),

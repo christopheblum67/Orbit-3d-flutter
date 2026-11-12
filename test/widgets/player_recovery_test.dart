@@ -637,6 +637,22 @@ void main() {
     expect(recent.entries, [
       (ContentType.series, 'series', 'Serie', episodes.first.streamUrl),
     ]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    await tester.pump();
+    expect(Focus.of(tester.element(find.byIcon(Icons.pause_rounded))).hasPrimaryFocus,
+        isTrue);
+    final initialPauses = video.calls.where((call) => call == 'pause:1').length;
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(video.calls.where((call) => call == 'pause:1'),
+        hasLength(initialPauses + 1));
+    expect(Focus.of(tester.element(find.byIcon(Icons.play_arrow_rounded))).hasPrimaryFocus,
+        isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
     video.complete(1);
     await tester.pump();
     expect(find.textContaining('Episode 2 (15 s)'), findsOneWidget);

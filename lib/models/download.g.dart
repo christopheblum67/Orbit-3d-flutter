@@ -80,13 +80,14 @@ class DownloadTaskAdapter extends TypeAdapter<DownloadTask> {
       episodeNumber: fields[17] as int?,
       episodeTitle: fields[18] as String?,
       headers: (fields[19] as Map?)?.cast<String, String>(),
+      downloadValidator: fields[20] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, DownloadTask obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -126,7 +127,9 @@ class DownloadTaskAdapter extends TypeAdapter<DownloadTask> {
       ..writeByte(18)
       ..write(obj.episodeTitle)
       ..writeByte(19)
-      ..write(obj.headers);
+      ..write(obj.headers)
+      ..writeByte(20)
+      ..write(obj.downloadValidator);
   }
 
   @override

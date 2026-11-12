@@ -43,6 +43,7 @@
     "bassKiller":  "قاطع الباص (قطع أقل من 120 هرتز)",
     "bassKillerSubtitle":  "يقلل الترددات المنخفضة لتجنب الاهتزازات",
     "cancel":  "إلغاء",
+    "deleteDownload": "حذف",
     "castToChromecast":  "إرسال إلى Chromecast",
     "catchUpTv":  "متابعة البرامج",
     "categories":  "الفئات",

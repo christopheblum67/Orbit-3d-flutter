@@ -147,6 +147,8 @@ class PlaybackProgressService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifySyncApplied() => notifyListeners();
+
   static String? _legacyIdFor(String id) {
     if (!id.startsWith(_profileKeyPrefix)) return null;
     final separator = id.indexOf(':', _profileKeyPrefix.length);

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
@@ -19,6 +20,29 @@ class SubscriptionsScreen extends ConsumerStatefulWidget {
 }
 
 class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
+  bool _refreshing = false;
+
+  Future<void> _forceRefresh() async {
+    if (_refreshing || ref.read(activeSubscriptionProvider) == null) return;
+    setState(() => _refreshing = true);
+    try {
+      final result = await showRefreshProgress(context);
+      if (!mounted || result == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            result
+                ? 'Mise à jour terminée : au moins une source actualisée.'
+                : 'Mise à jour impossible : aucune donnée reçue.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -51,6 +75,27 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 const _CategoryFilterInfoBanner(),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.center,
+                  child: OutlinedButton.icon(
+                    onPressed: activeId == null || _refreshing
+                        ? null
+                        : _forceRefresh,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text(
+                      'Forcer la mise à jour de l’abonnement actif',
+                      textAlign: TextAlign.center,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor:
+                          Theme.of(context).colorScheme.onSurfaceVariant,
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 if (activeId == null)
                   _NoActiveBanner(
@@ -333,7 +378,7 @@ class _CategoryFilterInfoBanner extends StatelessWidget {
           const SizedBox(width: 10),
           const Expanded(
             child: Text(
-              'Les catégories à masquer se règlent dans Paramètres > Filtres de catégories.',
+              'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.',
             ),
           ),
         ],

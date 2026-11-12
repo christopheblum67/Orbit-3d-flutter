@@ -3,11 +3,11 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
 /// Commandes envoyées au worker isolate.
 enum DownloadWorkerCommand {
@@ -36,6 +36,8 @@ class DownloadWorkerResponse {
   final String? errorMessage;
   final bool isComplete;
   final String? localPath;
+  final bool headersReceived;
+  final String? validator;
 
   DownloadWorkerResponse({
     required this.taskId,
@@ -44,7 +46,17 @@ class DownloadWorkerResponse {
     this.errorMessage,
     this.isComplete = false,
     this.localPath,
+    this.headersReceived = false,
+    this.validator,
   });
+}
+
+class _DownloadWorker {
+  final ReceivePort receivePort = ReceivePort();
+  final Completer<void> finished = Completer<void>();
+  Isolate? isolate;
+  SendPort? commandPort;
+  DownloadWorkerCommand? pendingCommand;
 }
 
 /// Configuration globale des téléchargements.
@@ -125,10 +137,7 @@ class DownloadManager extends ChangeNotifier {
   /// « The box "downloads" is already open and of type `Box<DownloadTask>` ».
   Future<void>? _initFuture;
   DownloadManagerConfig _config = const DownloadManagerConfig();
-  final Map<String, Isolate> _workers = {};
-  final Map<String, SendPort> _workerPorts = {};
-  final Map<String, StreamController<DownloadWorkerResponse>>
-      _responseControllers = {};
+  final Map<String, _DownloadWorker> _workers = {};
   int _activeDownloads = 0;
 
   /// Flux des tâches, alimenté une fois pour toutes à l'ouverture de la boîte.
@@ -352,6 +361,7 @@ class DownloadManager extends ChangeNotifier {
   Future<void> updateConfig(DownloadManagerConfig newConfig) async {
     _config = newConfig;
     await _saveConfig();
+    _startNextQueued();
     notifyListeners();
   }
 
@@ -435,10 +445,7 @@ class DownloadManager extends ChangeNotifier {
     );
     _logger.info('Download task created: ${task.id}');
 
-    // Auto-start si place disponible
-    if (_activeDownloads < _config.maxConcurrentDownloads) {
-      _startWorker(task.id);
-    }
+    _startNextQueued();
 
     notifyListeners();
     return task;
@@ -450,103 +457,121 @@ class DownloadManager extends ChangeNotifier {
 
     final task = _box?.get(taskId);
     if (task == null ||
-        (task.status != DownloadStatus.queued &&
-            task.status != DownloadStatus.paused)) {
+        task.status != DownloadStatus.queued ||
+        _activeDownloads >= _config.maxConcurrentDownloads) {
       return;
     }
 
-    if (_activeDownloads >= _config.maxConcurrentDownloads) {
-      return;
-    }
-
-    final receivePort = ReceivePort();
-    final controller = StreamController<DownloadWorkerResponse>.broadcast();
-    _responseControllers[taskId] = controller;
-
-    // Écouter les réponses du worker
-    receivePort.listen((message) {
-      if (message is DownloadWorkerResponse) {
-        controller.add(message);
+    final worker = _DownloadWorker();
+    _workers[taskId] = worker;
+    _activeDownloads++;
+    task.status = DownloadStatus.preparing;
+    unawaited(task.save());
+    notifyListeners();
+    worker.receivePort.listen((message) {
+      if (message is SendPort) {
+        worker.commandPort = message;
+        final pending = worker.pendingCommand;
+        if (pending != null) {
+          message.send(DownloadWorkerMessage(pending, taskId));
+        }
+      } else if (message is DownloadWorkerResponse) {
         _handleWorkerResponse(message);
+      } else if (message is List && message.length == 2) {
+        _handleWorkerError(taskId, message.first.toString());
+      } else if (message == null && identical(_workers[taskId], worker)) {
+        _handleWorkerError(
+            taskId, 'Le téléchargement s’est arrêté sans résultat.');
       }
     });
 
-    final localPath = await _getLocalPath(taskId);
-    Isolate.spawn(
-      _downloadWorkerEntry,
-      _DownloadWorkerParams(
-        taskId: taskId,
-        sendPort: receivePort.sendPort,
-        streamUrl: _box!.get(taskId)!.streamUrl,
-        headers: _getFreshHeaders(_box!.get(taskId)!),
-        drmToken: _box!.get(taskId)!.drmToken,
-        localPath: localPath,
-        config: _config,
-      ),
-    ).then((isolate) {
-      _workers[taskId] = isolate;
-      _workerPorts[taskId] = receivePort.sendPort;
-      _activeDownloads++;
-      notifyListeners();
-    }).catchError((e) {
-      _logger.error('Failed to spawn download worker for $taskId: $e');
-      _handleWorkerError(taskId, e.toString());
-    });
+    try {
+      final localPath = task.localPath.isNotEmpty
+          ? task.localPath
+          : await _getLocalPath(taskId);
+      if (task.status != DownloadStatus.preparing) {
+        _finishWorker(taskId);
+        return;
+      }
+      task.localPath = localPath;
+      await task.save();
+      if (task.status != DownloadStatus.preparing) {
+        _finishWorker(taskId);
+        return;
+      }
+      final isolate = await Isolate.spawn(
+        _downloadWorkerEntry,
+        _DownloadWorkerParams(
+          taskId: taskId,
+          sendPort: worker.receivePort.sendPort,
+          streamUrl: task.streamUrl,
+          headers: _getFreshHeaders(task),
+          drmToken: task.drmToken,
+          localPath: localPath,
+          validator: task.downloadValidator,
+        ),
+        onError: worker.receivePort.sendPort,
+        onExit: worker.receivePort.sendPort,
+        errorsAreFatal: true,
+      );
+      if (identical(_workers[taskId], worker)) {
+        worker.isolate = isolate;
+      } else {
+        isolate.kill(priority: Isolate.immediate);
+      }
+    } catch (error, stack) {
+      _logger.error('Failed to start download worker for $taskId',
+          error: error, stackTrace: stack);
+      _handleWorkerError(taskId, error.toString());
+    }
   }
 
   /// Gère les réponses du worker.
   void _handleWorkerResponse(DownloadWorkerResponse response) {
     final task = _box?.get(response.taskId);
-    if (task == null) return;
-
-    if (response.progress != null) {
-      task.updateProgress(response.progress!);
-    }
-
-    if (response.status != task.status) {
-      task.status = response.status;
-      task.save();
-    }
-
-    if (response.errorMessage != null) {
-      task.errorMessage = response.errorMessage;
-      task.save();
-    }
-
-    if (response.isComplete) {
-      // If download completed successfully, set the local path on the task
-      if (response.localPath != null && response.localPath!.isNotEmpty) {
-        task.localPath = response.localPath!;
-        task.save();
+    if (task != null && task.status != DownloadStatus.cancelled) {
+      if (response.headersReceived) {
+        task.downloadValidator = response.validator;
       }
-      _cleanupWorker(response.taskId);
-      _activeDownloads--;
-      notifyListeners();
-      // Démarrer le suivant en queue
-      _startNextQueued();
-    } else {
-      notifyListeners();
+      if (response.progress != null) {
+        task.progress = response.progress!;
+      }
+      if (response.status == DownloadStatus.completed ||
+          (task.status != DownloadStatus.paused &&
+              task.status != DownloadStatus.queued)) {
+        task.status = response.status;
+        task.errorMessage = response.errorMessage;
+        if (response.status == DownloadStatus.completed) {
+          task.completedAt = DateTime.now();
+        }
+      }
+      task.updatedAt = DateTime.now();
+      unawaited(task.save());
     }
+    if (response.isComplete) _finishWorker(response.taskId);
+    notifyListeners();
   }
 
   void _handleWorkerError(String taskId, String error) {
     final task = _box?.get(taskId);
-    if (task != null) {
+    if (task != null &&
+        task.status != DownloadStatus.cancelled &&
+        task.status != DownloadStatus.paused &&
+        task.status != DownloadStatus.queued) {
       task.fail(error);
-      task.save();
     }
-    _cleanupWorker(taskId);
-    _activeDownloads--;
+    _finishWorker(taskId);
     notifyListeners();
-    _startNextQueued();
   }
 
-  void _cleanupWorker(String taskId) {
-    _workers[taskId]?.kill(priority: Isolate.immediate);
-    _workers.remove(taskId);
-    _workerPorts.remove(taskId);
-    _responseControllers[taskId]?.close();
-    _responseControllers.remove(taskId);
+  void _finishWorker(String taskId) {
+    final worker = _workers.remove(taskId);
+    if (worker == null) return;
+    worker.isolate?.kill(priority: Isolate.immediate);
+    worker.receivePort.close();
+    _activeDownloads--;
+    worker.finished.complete();
+    _startNextQueued();
   }
 
   /// Démarre le prochain téléchargement en attente.
@@ -558,6 +583,7 @@ class DownloadManager extends ChangeNotifier {
       ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
     for (final task in queued) {
+      if (_workers.containsKey(task.id)) continue;
       if (_activeDownloads < _config.maxConcurrentDownloads) {
         _startWorker(task.id);
       } else {
@@ -583,8 +609,8 @@ class DownloadManager extends ChangeNotifier {
     }
     if (interrupted.isNotEmpty) {
       _logger.info('Recovered ${interrupted.length} interrupted downloads');
-      _startNextQueued();
     }
+    _startNextQueued();
   }
 
   /// Envoie une commande au worker.
@@ -593,10 +619,12 @@ class DownloadManager extends ChangeNotifier {
     DownloadWorkerCommand command, {
     dynamic payload,
   }) {
-    final port = _workerPorts[taskId];
-    if (port != null) {
-      port.send(DownloadWorkerMessage(command, taskId, payload: payload));
-    }
+    final worker = _workers[taskId];
+    if (worker == null) return;
+    worker.pendingCommand = command;
+    worker.commandPort?.send(
+      DownloadWorkerMessage(command, taskId, payload: payload),
+    );
   }
 
   /// Met en pause un téléchargement.
@@ -604,10 +632,14 @@ class DownloadManager extends ChangeNotifier {
     final task = _box?.get(taskId);
     if (task == null) return;
 
-    if (task.status == DownloadStatus.downloading) {
+    if (task.status == DownloadStatus.downloading ||
+        task.status == DownloadStatus.preparing) {
+      final worker = _workers[taskId];
+      task.status = DownloadStatus.paused;
       _sendCommand(taskId, DownloadWorkerCommand.pause);
-      task.pause();
+      await task.save();
       notifyListeners();
+      if (worker != null) await worker.finished.future;
     }
   }
 
@@ -617,11 +649,8 @@ class DownloadManager extends ChangeNotifier {
     if (task == null) return;
 
     if (task.status == DownloadStatus.paused) {
-      if (_activeDownloads < _config.maxConcurrentDownloads) {
-        _startWorker(taskId);
-      } else {
-        task.resume();
-      }
+      task.resume();
+      _startNextQueued();
       notifyListeners();
     }
   }
@@ -631,11 +660,11 @@ class DownloadManager extends ChangeNotifier {
     final task = _box?.get(taskId);
     if (task == null) return;
 
-    _sendCommand(taskId, DownloadWorkerCommand.cancel);
+    final worker = _workers[taskId];
     task.cancel();
-    _cleanupWorker(taskId);
-    if (task.isActive) _activeDownloads--;
+    _sendCommand(taskId, DownloadWorkerCommand.cancel);
     notifyListeners();
+    if (worker != null) await worker.finished.future;
   }
 
   /// Supprime un téléchargement (fichier + entrée Hive).
@@ -643,16 +672,13 @@ class DownloadManager extends ChangeNotifier {
     final task = _box?.get(taskId);
     if (task == null) return;
 
-    if (task.isActive) {
+    if (_workers.containsKey(taskId)) {
       await cancel(taskId);
     }
 
     // Supprimer le fichier local
     if (task.isFileExists) {
-      await safeAsync<void>(
-        () => File(task.localPath).delete(),
-        context: 'DownloadManager.delete',
-      );
+      await File(task.localPath).delete();
     }
 
     // Typée, pour la même raison que `createTask`.
@@ -673,9 +699,7 @@ class DownloadManager extends ChangeNotifier {
     task.status = DownloadStatus.queued;
     task.save();
 
-    if (_activeDownloads < _config.maxConcurrentDownloads) {
-      _startWorker(taskId);
-    }
+    _startNextQueued();
     notifyListeners();
   }
 
@@ -690,7 +714,7 @@ class DownloadManager extends ChangeNotifier {
   Future<String> resolveDownloadsDirectory() async {
     if (_downloadsDirectory != null) return _downloadsDirectory!;
     var base = _config.downloadDirectory;
-    if (!base.startsWith('/')) {
+    if (!path.isAbsolute(base)) {
       try {
         base = '${(await getApplicationDocumentsDirectory()).path}/$base';
       } on Object catch (e) {
@@ -727,14 +751,18 @@ class DownloadManager extends ChangeNotifier {
     _config = config;
     _downloadsDirectory = null;
     await _saveConfig();
+    _startNextQueued();
     notifyListeners();
   }
 
   @override
   void dispose() {
-    for (final taskId in _workers.keys) {
-      _cleanupWorker(taskId);
+    for (final worker in _workers.values) {
+      worker.isolate?.kill(priority: Isolate.immediate);
+      worker.receivePort.close();
+      if (!worker.finished.isCompleted) worker.finished.complete();
     }
+    _workers.clear();
     super.dispose();
   }
 }
@@ -747,7 +775,7 @@ class _DownloadWorkerParams {
   final Map<String, String>? headers;
   final String? drmToken;
   final String localPath;
-  final DownloadManagerConfig config;
+  final String? validator;
 
   _DownloadWorkerParams({
     required this.taskId,
@@ -756,42 +784,27 @@ class _DownloadWorkerParams {
     required this.headers,
     required this.drmToken,
     required this.localPath,
-    required this.config,
+    required this.validator,
   });
 }
 
 /// Point d'entrée du worker isolate.
-void _downloadWorkerEntry(_DownloadWorkerParams params) {
+Future<void> _downloadWorkerEntry(_DownloadWorkerParams params) async {
   final receivePort = ReceivePort();
   params.sendPort.send(receivePort.sendPort);
 
-  final httpClient = HttpClient();
-  httpClient.badCertificateCallback =
-      (X509Certificate cert, String host, int port) => true;
-
-  HttpClientRequest? currentRequest;
-  IOSink? currentSink;
-  bool isPaused = false;
-  bool isCancelled = false;
-  int pausedBytes = 0;
-
-  // Écouter les commandes du thread principal
-  final streamSubscription = receivePort.listen((dynamic message) {
+  final httpClient = HttpClient()..autoUncompress = false;
+  DownloadStatus? stopped;
+  receivePort.listen((dynamic message) {
     if (message is DownloadWorkerMessage) {
       switch (message.command) {
         case DownloadWorkerCommand.cancel:
-          isCancelled = true;
-          currentRequest?.close();
-          currentSink?.close();
+          stopped = DownloadStatus.cancelled;
+          httpClient.close(force: true);
           break;
         case DownloadWorkerCommand.pause:
-          isPaused = true;
-          currentRequest?.close();
-          currentSink?.close();
-          break;
-        case DownloadWorkerCommand.resume:
-          isPaused = false;
-          // Le resume relancera _runDownload avec le bon offset
+          stopped = DownloadStatus.paused;
+          httpClient.close(force: true);
           break;
         default:
           break;
@@ -799,195 +812,176 @@ void _downloadWorkerEntry(_DownloadWorkerParams params) {
     }
   });
 
-  // Démarrer le téléchargement
-  _runDownload(
-    params,
-    httpClient,
-    onRequestCreated: (req) => currentRequest = req,
-    onSinkCreated: (sink) => currentSink = sink,
-    getPaused: () => isPaused,
-    getCancelled: () => isCancelled,
-    getPausedBytes: () => pausedBytes,
-    setPausedBytes: (bytes) => pausedBytes = bytes,
-  );
-  streamSubscription.cancel();
+  try {
+    await _runDownload(params, httpClient, () => stopped);
+  } finally {
+    httpClient.close(force: true);
+    receivePort.close();
+  }
 }
 
 Future<void> _runDownload(
   _DownloadWorkerParams params,
-  HttpClient httpClient, {
-  required Function(HttpClientRequest) onRequestCreated,
-  required Function(IOSink) onSinkCreated,
-  required bool Function() getPaused,
-  required bool Function() getCancelled,
-  required int Function() getPausedBytes,
-  required void Function(int) setPausedBytes,
-}) async {
-  httpClient.badCertificateCallback = (cert, host, port) => true;
-
-  while (true) {
-    if (getCancelled()) {
-      params.sendPort.send(
-        DownloadWorkerResponse(
-          taskId: params.taskId,
-          status: DownloadStatus.cancelled,
-          isComplete: true,
-        ),
-      );
-      return;
+  HttpClient httpClient,
+  DownloadStatus? Function() stopped,
+) async {
+  final file = File(params.localPath);
+  RandomAccessFile? output;
+  var bytesDownloaded = 0;
+  var totalBytes = 0;
+  var status = DownloadStatus.failed;
+  String? failure;
+  var discardPartial = false;
+  try {
+    final existingBytes = await file.exists() ? await file.length() : 0;
+    var offset = params.validator == null ? 0 : existingBytes;
+    Future<HttpClientResponse> getResponse(int from) async {
+      final request =
+          await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
+      params.headers?.forEach((key, value) => request.headers.set(key, value));
+      request.headers.removeAll(HttpHeaders.rangeHeader);
+      request.headers.removeAll(HttpHeaders.ifRangeHeader);
+      request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
+      if (params.drmToken != null) {
+        request.headers.add(HttpHeaders.cookieHeader, params.drmToken!);
+      }
+      if (from > 0) {
+        request.headers.set(HttpHeaders.rangeHeader, 'bytes=$from-');
+        request.headers.set(HttpHeaders.ifRangeHeader, params.validator!);
+      }
+      return request.close();
     }
 
-    final result = await safeAsync<void>(
-      () async {
-        // Construire la requête
-        final request =
-            await httpClient.openUrl('GET', Uri.parse(params.streamUrl));
-        onRequestCreated(request);
+    var response = await getResponse(offset);
+    if (offset > 0 &&
+        response.statusCode == HttpStatus.requestedRangeNotSatisfiable) {
+      await response.drain<void>();
+      offset = 0;
+      response = await getResponse(0);
+    }
+    if (response.statusCode != HttpStatus.ok &&
+        response.statusCode != HttpStatus.partialContent) {
+      throw HttpException('HTTP ${response.statusCode}');
+    }
 
-        // Ajouter les headers
-        if (params.headers != null) {
-          params.headers!.forEach((key, value) {
-            request.headers.add(key, value);
-          });
-        }
-        if (params.drmToken != null) {
-          request.headers.add('Cookie', params.drmToken!);
-        }
+    var start = 0;
+    if (response.statusCode == HttpStatus.partialContent) {
+      final range = response.headers.value(HttpHeaders.contentRangeHeader);
+      final match = range == null
+          ? null
+          : RegExp(r'^bytes (\d+)-(\d+)/(\d+)$').firstMatch(range);
+      if (offset == 0 || match == null || int.parse(match[1]!) != offset) {
+        throw const FormatException('Réponse Range invalide');
+      }
+      start = offset;
+      totalBytes = int.parse(match[3]!);
+      if (int.parse(match[2]!) != totalBytes - 1 || start >= totalBytes) {
+        throw const FormatException('Taille Range invalide');
+      }
+    } else {
+      totalBytes = response.contentLength > 0 ? response.contentLength : 0;
+    }
 
-        // Support Range pour resume
-        final resumeFromBytes = getPausedBytes();
-        if (resumeFromBytes > 0) {
-          request.headers.add('Range', 'bytes=$resumeFromBytes-');
-        }
+    final etag = response.headers.value(HttpHeaders.etagHeader);
+    final validator = etag != null && !etag.startsWith('W/')
+        ? etag
+        : response.headers.value(HttpHeaders.lastModifiedHeader);
+    if (start > 0 && validator != null && validator != params.validator) {
+      throw const FormatException('Le contenu a changé pendant la reprise');
+    }
+    output =
+        await file.open(mode: start > 0 ? FileMode.append : FileMode.write);
+    bytesDownloaded = start;
+    params.sendPort.send(DownloadWorkerResponse(
+      taskId: params.taskId,
+      status: DownloadStatus.downloading,
+      headersReceived: true,
+      validator: validator,
+      progress: DownloadProgress(
+        totalBytes: totalBytes,
+        bytesDownloaded: bytesDownloaded,
+      ),
+    ));
 
-        final response = await request.close();
-
-        if (response.statusCode != 200 && response.statusCode != 206) {
-          throw Exception('HTTP ${response.statusCode}');
-        }
-
-        // Fichier de sortie
-        final file = File(params.localPath);
-        if (!file.parent.existsSync()) {
-          file.parent.createSync(recursive: true);
-        }
-        final mode = getPausedBytes() > 0 ? FileMode.append : FileMode.write;
-        final sink = file.openWrite(mode: mode);
-        onSinkCreated(sink);
-
-        int totalBytes = response.contentLength;
-        if (response.statusCode == 206 &&
-            response.headers.value('content-range') != null) {
-          final contentRange = response.headers.value('content-range')!;
-          final parts = contentRange.split('/');
-          if (parts.length == 2) {
-            totalBytes = int.tryParse(parts[1]) ?? 0;
-          }
-        }
-
-        int bytesDownloaded = getPausedBytes();
-        final stopwatch = Stopwatch()..start();
-        final head = <int>[];
-
-        params.sendPort.send(
-          DownloadWorkerResponse(
-            taskId: params.taskId,
-            status: DownloadStatus.downloading,
-            progress: DownloadProgress(
-              totalBytes: totalBytes,
-              bytesDownloaded: bytesDownloaded,
-            ),
-          ),
-        );
-
-        await for (final chunk in response) {
-          // Détection, au tout début d'un téléchargement (jamais en reprise),
-          // d'une playlist HLS/DASH SAVAIT réponse : un simple GET sur un flux
-          // .m3u8/.mpd sauverait la playlist (quelques Ko) et marquerait la
-          // tâche « terminée » à tort.
-          if (getPausedBytes() == 0 && head.length < _manifestHeadLimit) {
-            head.addAll(chunk);
-            if (head.length >= _manifestHeadLimit &&
-                _isPlaylistManifest(head)) {
-              throw Exception(
-                'Ce flux est une playlist HLS/DASH (m3u8/mpd) : le '
-                'téléchargement direct n\'est pas supporté.',
-              );
-            }
-          }
-
-          while (getPaused() && !getCancelled()) {
-            await Future.delayed(const Duration(milliseconds: 100));
-          }
-          if (getCancelled()) {
-            await sink.flush();
-            await sink.close();
-            params.sendPort.send(
-              DownloadWorkerResponse(
-                taskId: params.taskId,
-                status: DownloadStatus.cancelled,
-                isComplete: true,
-              ),
-            );
-            return;
-          }
-
-          sink.add(chunk);
-          bytesDownloaded += chunk.length;
-
-          final elapsed = stopwatch.elapsed;
-          final speed = elapsed.inMilliseconds > 0
-              ? bytesDownloaded / (elapsed.inMilliseconds / 1000)
-              : 0.0;
-          final remaining = speed > 0 && totalBytes > 0
-              ? Duration(
-                  seconds: ((totalBytes - bytesDownloaded) / speed).round(),
-                )
-              : Duration.zero;
-
-          params.sendPort.send(
-            DownloadWorkerResponse(
-              taskId: params.taskId,
-              status: DownloadStatus.downloading,
-              progress: DownloadProgress(
-                bytesDownloaded: bytesDownloaded,
-                totalBytes: totalBytes,
-                speedBytesPerSec: speed,
-                estimatedTimeRemaining: remaining,
-              ),
-            ),
+    final stopwatch = Stopwatch()..start();
+    final head = <int>[];
+    await for (final chunk in response) {
+      if (stopped() != null) break;
+      if (start == 0 && head.length < _manifestHeadLimit) {
+        head.addAll(chunk.take(_manifestHeadLimit - head.length));
+        if (head.length >= _manifestHeadLimit && _isPlaylistManifest(head)) {
+          discardPartial = true;
+          throw const FormatException(
+            'Ce flux est une playlist HLS/DASH : téléchargement direct non supporté.',
           );
         }
-
-        await sink.flush();
-        await sink.close();
-
-        params.sendPort.send(
-          DownloadWorkerResponse(
-            taskId: params.taskId,
-            status: DownloadStatus.completed,
-            progress: DownloadProgress(
-              bytesDownloaded: totalBytes,
-              totalBytes: totalBytes,
-            ),
-            isComplete: true,
-            localPath: params.localPath,
-          ),
-        );
-      },
-      context: 'DownloadManager._runDownload',
-    );
-    if (result.isFailure) {
-      params.sendPort.send(
-        DownloadWorkerResponse(
-          taskId: params.taskId,
-          status: DownloadStatus.failed,
-          errorMessage: result.errorOrNull?.message,
+      }
+      await output.writeFrom(chunk);
+      bytesDownloaded += chunk.length;
+      final elapsed = stopwatch.elapsedMilliseconds;
+      final speed =
+          elapsed > 0 ? (bytesDownloaded - start) * 1000 / elapsed : 0.0;
+      final remaining = speed > 0 && totalBytes > bytesDownloaded
+          ? Duration(seconds: ((totalBytes - bytesDownloaded) / speed).round())
+          : Duration.zero;
+      params.sendPort.send(DownloadWorkerResponse(
+        taskId: params.taskId,
+        status: DownloadStatus.downloading,
+        progress: DownloadProgress(
+          bytesDownloaded: bytesDownloaded,
+          totalBytes: totalBytes,
+          speedBytesPerSec: speed,
+          estimatedTimeRemaining: remaining,
         ),
-      );
-      return;
+      ));
     }
-    return;
+    if (stopped() != null) return;
+    if (start == 0 && _isPlaylistManifest(head)) {
+      discardPartial = true;
+      throw const FormatException(
+        'Ce flux est une playlist HLS/DASH : téléchargement direct non supporté.',
+      );
+    }
+    if (totalBytes > 0 && bytesDownloaded != totalBytes) {
+      throw const FormatException('Téléchargement incomplet');
+    }
+    status = DownloadStatus.completed;
+  } catch (error) {
+    if (stopped() == null) {
+      failure = error.toString();
+    }
+  } finally {
+    if (output != null) {
+      try {
+        await output.close();
+      } catch (error) {
+        status = DownloadStatus.failed;
+        failure = error.toString();
+      }
+    }
+    if (discardPartial && await file.exists()) {
+      try {
+        await file.delete();
+        bytesDownloaded = 0;
+      } catch (error) {
+        failure = '$failure; suppression du fichier temporaire : $error';
+      }
+    }
+    status = stopped() ?? status;
+    params.sendPort.send(DownloadWorkerResponse(
+      taskId: params.taskId,
+      status: status,
+      errorMessage: failure,
+      headersReceived: discardPartial,
+      progress: DownloadProgress(
+        bytesDownloaded: bytesDownloaded,
+        totalBytes: status == DownloadStatus.completed && totalBytes == 0
+            ? bytesDownloaded
+            : totalBytes,
+      ),
+      isComplete: true,
+      localPath: params.localPath,
+    ));
   }
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
@@ -18,18 +19,40 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 /// L'annulation ne modifie rien et laisse la recommandation en place.
 ///
 /// Retourne `true` si l'utilisateur a validé, `false` sinon.
+enum _Decision { seen, notInterested }
+
 Future<bool> showProlongDecision(
   BuildContext context,
   WidgetRef ref,
   Recommendation reco,
 ) async {
-  final confirmed = await showModalBottomSheet<bool>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => _ProlongDecisionSheet(reco: reco),
-  );
-  if (confirmed != true) return false;
+  final heldKeys = HardwareKeyboard.instance.logicalKeysPressed.intersection({
+    LogicalKeyboardKey.select,
+    LogicalKeyboardKey.enter,
+    LogicalKeyboardKey.space,
+    LogicalKeyboardKey.gameButtonA,
+  });
+  KeyEventResult blockHeldKey(KeyEvent event) {
+    if (!heldKeys.contains(event.logicalKey)) return KeyEventResult.ignored;
+    if (event is KeyUpEvent) heldKeys.remove(event.logicalKey);
+    return KeyEventResult.handled;
+  }
+
+  if (heldKeys.isNotEmpty) {
+    FocusManager.instance.addEarlyKeyEventHandler(blockHeldKey);
+  }
+  _Decision? decision;
+  try {
+    decision = await showModalBottomSheet<_Decision>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (_) => _ProlongDecisionSheet(reco: reco),
+    );
+  } finally {
+    FocusManager.instance.removeEarlyKeyEventHandler(blockHeldKey);
+  }
+  if (decision == null || !context.mounted) return false;
 
   // L'effet n'est appliqué qu'après validation explicite : c'est ce qui
   // distingue un choix d'un geste accidentel.
@@ -39,22 +62,32 @@ Future<bool> showProlongDecision(
   // enfant n'affecte pas les propositions du profil parent.
   final profile = ref.read(currentProfileProvider);
   if (profile != null) {
-    await ref.read(seenRecoIdsProvider(profile.id).notifier).add(reco.id);
+    final notifier = decision == _Decision.seen
+        ? ref.read(seenRecoIdsProvider(profile.id).notifier)
+        : ref.read(dismissedRecoIdsProvider(profile.id).notifier);
+    await notifier.add(reco.id);
   }
-  ref.invalidate(matchmakingTabProvider);
+  if (context.mounted) ref.invalidate(matchmakingTabProvider);
   return true;
 }
 
-class _ProlongDecisionSheet extends StatelessWidget {
+class _ProlongDecisionSheet extends StatefulWidget {
   const _ProlongDecisionSheet({required this.reco});
 
   final Recommendation reco;
 
   @override
+  State<_ProlongDecisionSheet> createState() => _ProlongDecisionSheetState();
+}
+
+class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
+  _Decision? _selected;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final isMovie = reco.kind == RecommendationKind.movie;
+    final isMovie = widget.reco.kind == RecommendationKind.movie;
 
     return SafeArea(
       child: Padding(
@@ -72,7 +105,7 @@ class _ProlongDecisionSheet extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              reco.title,
+              widget.reco.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall
@@ -84,28 +117,32 @@ class _ProlongDecisionSheet extends StatelessWidget {
               label: isMovie ? 'Film déjà vu' : 'Série déjà vue',
               detail: 'Retiré des prochaines suggestions',
               autofocus: true,
-              onTap: () => Navigator.of(context).pop(true),
+              selected: _selected == _Decision.seen,
+              onTap: () => setState(() => _selected = _Decision.seen),
             ),
             const SizedBox(height: 8),
             _DecisionTile(
               icon: Icons.thumb_down_alt_outlined,
               label: 'Pas intéressé',
               detail: 'Écarté définitivement des suggestions',
-              onTap: () => Navigator.of(context).pop(true),
+              selected: _selected == _Decision.notInterested,
+              onTap: () => setState(() => _selected = _Decision.notInterested),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
+                    onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Annuler'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
+                    onPressed: _selected == null
+                        ? null
+                        : () => Navigator.of(context).pop(_selected),
                     child: const Text('Confirmer'),
                   ),
                 ),
@@ -124,6 +161,7 @@ class _DecisionTile extends StatelessWidget {
     required this.label,
     required this.detail,
     required this.onTap,
+    required this.selected,
     this.autofocus = false,
   });
 
@@ -131,13 +169,15 @@ class _DecisionTile extends StatelessWidget {
   final String label;
   final String detail;
   final VoidCallback onTap;
+  final bool selected;
   final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: scheme.surfaceContainerHighest,
+      color:
+          selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         autofocus: autofocus,

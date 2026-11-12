@@ -208,6 +208,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
   final FocusNode _nextEpisodeFocus = FocusNode(debugLabel: 'NextEpisode');
+  final FocusNode _playPauseFocus = FocusNode(debugLabel: 'PlayerPlayPause');
   final FocusScopeNode _footerScope = FocusScopeNode(debugLabel: 'PlayerFooter');
   final FocusScopeNode _playerErrorScope = FocusScopeNode(debugLabel: 'PlayerErrors');
 
@@ -349,6 +350,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
     _focusNode.dispose();
     _nextEpisodeFocus.dispose();
+    _playPauseFocus.dispose();
     _footerScope.dispose();
     _playerErrorScope.dispose();
     final disposal = _disposeActive();
@@ -421,9 +423,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_footerVisible || _footerScope.hasFocus ||
             _status != _PlayerStatus.ready || _playerErrorScope.hasFocus) return;
-        final targets = _footerScope.traversalDescendants
-            .where((n) => n.canRequestFocus && !n.skipTraversal);
-        if (targets.isNotEmpty) targets.first.requestFocus();
+        if (_playPauseFocus.context != null && _playPauseFocus.canRequestFocus) {
+          _playPauseFocus.requestFocus();
+        }
       });
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -1807,6 +1809,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                   onPrevious: _hasPrevious ? _goPrevious : null,
                                   onNext: _hasNext ? _goNext : null,
                                   onTogglePlayPause: _togglePlayPause,
+                                  playPauseFocusNode: _playPauseFocus,
                                   onPip: _pipSupported == true ? _enterPip : null,
                                   onSeekBack30: () =>
                                       _seekBy(const Duration(seconds: -30)),

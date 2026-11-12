@@ -134,6 +134,12 @@ void main() {
         tester.widget<AnimatedContainer>(circleFor(route)).decoration!
             as BoxDecoration;
 
+    final liveIcon = find.descendant(
+      of: find.byKey(const ValueKey('/live')),
+      matching: find.byIcon(Icons.tv_rounded),
+    );
+    expect(tester.getCenter(liveIcon).dx,
+        closeTo(tester.getCenter(circleFor('/live')).dx, 1));
     expect(
       find.byWidgetPredicate((widget) =>
           widget is AnimatedContainer &&

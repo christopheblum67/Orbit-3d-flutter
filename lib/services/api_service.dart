@@ -576,7 +576,7 @@ class ApiService {
     startEpoch: startEpoch, endEpoch: endEpoch,
   );
 
-  static Duration archiveWindow(Channel channel) =>
+  static Duration? archiveWindow(Channel channel) =>
       XtreamReplayService.archiveWindow(channel);
 
   // ---------- EPG (XMLTV) ----------

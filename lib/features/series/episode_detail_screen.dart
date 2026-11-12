@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/media_action_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
@@ -90,6 +91,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
     final progress = ref.watch(playbackProgressServiceProvider).get(progressId);
     final hasProgress = progress?.hasProgress ?? false;
     final scheme = Theme.of(context).colorScheme;
+    final isTvLayout = MediaQuery.sizeOf(context).width >= 900;
     final profile = ref.watch(currentProfileProvider);
     final isWatched = profile != null &&
         ref.watch(watchedEpisodesProvider).containsKey(
@@ -187,10 +189,12 @@ class EpisodeDetailScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
+            FocusTraversalGroup(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                children: [
+                  MediaActionButton(
                     autofocus: ref.watch(tvModeNotifierProvider).enabled,
                     onPressed: episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
@@ -199,16 +203,11 @@ class EpisodeDetailScreen extends ConsumerWidget {
                               progressId: progressId,
                             )
                         : null,
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(l.start),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                    icon: Icons.play_arrow_rounded,
+                    label: l.start,
+                    isTvLayout: isTvLayout,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
+                  MediaActionButton(
                     onPressed: hasProgress && episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
                               context,
@@ -217,36 +216,37 @@ class EpisodeDetailScreen extends ConsumerWidget {
                               positionMs: progress!.positionMs,
                             )
                         : null,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: const Text('Reprendre'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                    icon: Icons.replay_rounded,
+                    label: 'Reprendre',
+                    isTvLayout: isTvLayout,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: profile == null || isWatched
-                  ? null
-                  : () async {
-                      try {
-                        await ref
-                            .read(watchedEpisodesProvider.notifier)
-                            .record(series, episode);
-                      } catch (_) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Impossible de marquer cet épisode comme vu.'),
-                            ),
-                          );
-                        }
-                      }
-                    },
-              icon: Icon(isWatched ? Icons.check_circle : Icons.check_circle_outline),
-              label: Text(isWatched ? 'Épisode déjà vu' : 'Marquer comme vu'),
+                  MediaActionButton(
+                    onPressed: profile == null || isWatched
+                        ? null
+                        : () async {
+                            try {
+                              await ref
+                                  .read(watchedEpisodesProvider.notifier)
+                                  .record(series, episode);
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Impossible de marquer cet épisode comme vu.'),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    icon: isWatched
+                        ? Icons.check_circle
+                        : Icons.check_circle_outline,
+                    label: isWatched ? 'Épisode déjà vu' : 'Marquer comme vu',
+                    isTvLayout: isTvLayout,
+                  ),
+                ],
+              ),
             ),
             if (hasProgress && progress != null && progress.durationMs > 0) ...[
               const SizedBox(height: 16),

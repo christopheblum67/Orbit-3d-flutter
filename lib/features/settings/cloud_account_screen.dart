@@ -120,9 +120,9 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
-            'La synchronisation complète n’est pas encore disponible. '
-            'Les fiches de profils peuvent être sauvegardées et récupérées '
-            'manuellement après connexion.',
+            'Après connexion, retrouvez vos profils et activez la '
+            'synchronisation chiffrée du profil actif, de son activité, '
+            'des préférences et des abonnements.',
           ),
           const SizedBox(height: 8),
           const Text(
@@ -147,16 +147,19 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Compte connecté : ${snapshot.data!.email ?? 'Google'}'),
+                    Text(
+                        'Compte connecté : ${snapshot.data!.email ?? 'Google'}'),
                     TextButton(
                       onPressed: _busy
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => const CloudProfileRecoveryScreen(),
+                                  builder: (_) =>
+                                      const CloudProfileRecoveryScreen(),
                                 ),
                               ),
-                      child: const Text('Sauvegarder ou récupérer les fiches de profils'),
+                      child: const Text(
+                          'Sauvegarder ou récupérer les fiches de profils'),
                     ),
                   ],
                 );

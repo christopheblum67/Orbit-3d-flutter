@@ -400,23 +400,10 @@ class _MovieDetailContent extends ConsumerWidget {
                       positionMs: progress!.positionMs,
                     )
                 : null,
+            onTrailer: detail.trailerUrl == null
+                ? null
+                : () => _launchTrailer(context, detail.trailerUrl!),
           ),
-          // Bande-annonce
-          if (detail.trailerUrl != null) ...[
-            const SizedBox(height: 12),
-            Center(
-              child: OutlinedButton.icon(
-                onPressed: () => _launchTrailer(context, detail.trailerUrl!),
-                icon: const Icon(Icons.play_circle_outline),
-                label: const Text('Bande-annonce'),
-                style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                  foregroundColor: Colors.redAccent,
-                ),
-              ),
-            ),
-          ],
           if (hasProgress && progress != null && progress.durationMs > 0) ...[
             const SizedBox(height: 16),
             LinearProgressIndicator(value: progress.fraction),

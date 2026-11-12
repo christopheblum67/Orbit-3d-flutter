@@ -96,6 +96,44 @@ void main() {
     expect(result.single.streamUrl, contains('/timeshift/u/p/60/'));
   });
 
+  for (final fullGuide in [true, false]) {
+    test(
+        'undeclared retention keeps all returned programs in '
+        '${fullGuide ? "full" : "short"} guide', () async {
+      final now = DateTime.now();
+      final api = service(get: (url) async {
+        final action = Uri.parse(url).queryParameters['action'];
+        return Response<dynamic>(
+          requestOptions: RequestOptions(path: url),
+          data: action == 'get_simple_data_table' && !fullGuide
+              ? <dynamic>[]
+              : {
+                  'epg_listings': [
+                    program(
+                        now.subtract(const Duration(days: 6)),
+                        now.subtract(const Duration(days: 6, hours: -1)),
+                        'Ancien programme'),
+                    program(now.subtract(const Duration(hours: 3)),
+                        now.subtract(const Duration(hours: 2)), 'Recent'),
+                    program(now.add(const Duration(hours: 1)),
+                        now.add(const Duration(hours: 2)), 'Future'),
+                  ],
+                },
+        );
+      });
+
+      final unknown = await api.fetchChannelReplays(channel('1', days: 0));
+      expect(unknown.map((item) => item.title),
+          containsAll(['Ancien programme', 'Recent']));
+      expect(unknown.map((item) => item.title), isNot(contains('Future')));
+      final twoDays = await api.fetchChannelReplays(channel('1', days: 2));
+      expect(twoDays.map((item) => item.title), ['Recent']);
+      final sevenDays = await api.fetchChannelReplays(channel('1', days: 7));
+      expect(sevenDays.map((item) => item.title),
+          containsAll(['Ancien programme', 'Recent']));
+    });
+  }
+
   test('falls back to short guide when the full guide is empty', () async {
     final now = DateTime.now();
     final actions = <String>[];
