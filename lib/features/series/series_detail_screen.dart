@@ -160,7 +160,7 @@ class _SeriesDetailContent extends ConsumerWidget {
 
     if (seasons.isEmpty) {
       return CustomScrollView(
-        scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
+        cacheExtent: 1500,
         slivers: [
           header,
           resumeSliver,
@@ -178,7 +178,7 @@ class _SeriesDetailContent extends ConsumerWidget {
     if (seasons.length == 1) {
       final season = seasons.first;
       return CustomScrollView(
-        scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
+        cacheExtent: 1500,
         slivers: [
           header,
           resumeSliver,
@@ -217,7 +217,7 @@ class _SeriesDetailContent extends ConsumerWidget {
               children: [
                 for (final season in seasons)
                   CustomScrollView(
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(1500),
+                    cacheExtent: 1500,
                     slivers: [
                       header,
                       resumeSliver,

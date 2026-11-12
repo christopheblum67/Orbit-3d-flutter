@@ -7,8 +7,18 @@ import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/series_detail.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/watched_episode.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
+import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
+
+class _WatchedService extends WatchedEpisodesService {
+  @override
+  Future<List<WatchedEpisodeEntry>> loadForProfile(String profileId) async =>
+      [];
+}
 
 class _Progress extends PlaybackProgressService {
   bool cleared = false;
@@ -33,6 +43,13 @@ void main() {
   testWidgets('long press opens reset with navigable TV buttons',
       (tester) async {
     final progress = _Progress();
+    final profile = UserProfile(
+      id: 'profile',
+      firstName: 'Test',
+      dateOfBirth: DateTime(2000),
+      gender: 'male',
+      favoriteGenres: const [],
+    );
     final series = Series(
       id: 'series',
       title: 'Série',
@@ -65,11 +82,14 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+          currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+          favoritesProvider.overrideWithBuild((ref, notifier) => {}),
           seriesInfoProvider('series').overrideWith((ref) async => series),
           seriesDetailProvider(series)
               .overrideWith((ref) async => SeriesDetail.fromSeries(series)),
           playbackProgressServiceProvider.overrideWith((ref) => progress),
+          watchedEpisodesServiceProvider
+              .overrideWithValue(_WatchedService()),
         ],
         child: MaterialApp.router(
           locale: const Locale('fr'),

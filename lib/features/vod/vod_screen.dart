@@ -563,7 +563,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                       )
                     : GridView.builder(
                         controller: scrollController,
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+                        cacheExtent: 900,
                         padding:
                             const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         gridDelegate: mediaCardGridDelegate(

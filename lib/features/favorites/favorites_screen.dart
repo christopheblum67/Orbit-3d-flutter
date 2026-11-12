@@ -127,7 +127,7 @@ class FavoritesLiveSection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 500,
       padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
@@ -260,7 +260,7 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 500,
       padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
@@ -413,7 +413,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 500,
       padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
@@ -492,7 +492,7 @@ class FavoritesReplaySection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 500,
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
       itemBuilder: (context, index) {

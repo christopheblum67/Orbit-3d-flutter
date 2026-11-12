@@ -58,7 +58,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           return RefreshIndicator(
             onRefresh: _loadHistory,
             child: ListView.builder(
-              scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+              cacheExtent: 500,
               padding: const EdgeInsets.all(16),
               addAutomaticKeepAlives: false,
               itemCount: hist.length,

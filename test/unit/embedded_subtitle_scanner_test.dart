@@ -115,6 +115,8 @@ void main() {
     scanner.stopPlayer(old);
     await tester.pump(const Duration(seconds: 1));
     expect(published, ['2']);
+    scanner.stop();
+    await tester.pump();
   });
 
   testWidgets('replacement invalidates callbacks from the same player',
@@ -146,6 +148,8 @@ void main() {
     releaseCallback.complete();
     await tester.pump();
     expect(oldCurrentAfterAwait, isFalse);
+    scanner.stop();
+    await tester.pump();
   });
 
   testWidgets('ignores a response after the generation becomes stale',
@@ -189,5 +193,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(attempts, 2);
     expect(published, ['1']);
+    scanner.stop();
+    await tester.pump();
   });
 }

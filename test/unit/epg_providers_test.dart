@@ -71,7 +71,14 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
+    var disposed = false;
+    void disposeContainer() {
+      if (disposed) return;
+      disposed = true;
+      container.dispose();
+    }
+
+    addTearDown(disposeContainer);
     final firstListener =
         container.listen(public.channelPreviewEpgProvider(first), (_, __) {});
     await tester.pump(const Duration(milliseconds: 900));
@@ -97,6 +104,8 @@ void main() {
     firstListener.close();
     thirdListener.close();
     await tester.pump();
+    disposeContainer();
+    await tester.pump();
   });
 
   testWidgets('M3U preview never requests the Xtream short guide',
@@ -117,7 +126,14 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
+    var disposed = false;
+    void disposeContainer() {
+      if (disposed) return;
+      disposed = true;
+      container.dispose();
+    }
+
+    addTearDown(disposeContainer);
     final listener = container.listen(
       public.channelPreviewEpgProvider(_channel('m3u')),
       (_, __) {},
@@ -128,6 +144,8 @@ void main() {
     cache.pending.complete([]);
     await tester.pump();
     listener.close();
+    await tester.pump();
+    disposeContainer();
     await tester.pump();
   });
 }

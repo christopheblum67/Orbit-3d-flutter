@@ -500,7 +500,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                       )
                     : CustomScrollView(
                         controller: scrollController,
-                        scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+                        cacheExtent: 900,
                         slivers: [
                           SliverToBoxAdapter(
                             child: SectionHeader(

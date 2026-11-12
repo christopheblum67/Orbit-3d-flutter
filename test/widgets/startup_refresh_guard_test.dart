@@ -47,7 +47,7 @@ void main() {
         certificatePinningInitializerProvider.overrideWith((ref) {}),
         lastRefreshTimestampProvider.overrideWithBuild(
           (ref, notifier) => DateTime.now().subtract(
-            Duration(minutes: fresh ? 29 : 30),
+            Duration(minutes: fresh ? 7 * 60 + 59 : 8 * 60),
           ),
         ),
       ]);

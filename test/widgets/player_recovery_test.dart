@@ -252,6 +252,7 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await tester.pump();
       });
+      debugDefaultTargetPlatformOverride = null;
     });
   }
   testWidgets('a Cloudflare challenge stops recovery without a new player',
@@ -309,6 +310,7 @@ void main() {
     expect(find.text(l.openProviderWebsite), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   for (final config in [
@@ -378,6 +380,7 @@ void main() {
       }
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
     });
   }
 
@@ -470,6 +473,7 @@ void main() {
       await tester.pump();
       expect(video.calls.where((call) => call == 'dispose:1'), hasLength(1));
       expect(video.calls.where((call) => call == 'dispose:2'), hasLength(1));
+      debugDefaultTargetPlatformOverride = null;
     });
   }
 
@@ -544,6 +548,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     expect(video.calls.where((call) => call == 'dispose:3'), hasLength(1));
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('next episode countdown stops after three episodes', (tester) async {
@@ -696,6 +701,7 @@ void main() {
     expect(find.textContaining('Episode 4'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+    debugDefaultTargetPlatformOverride = null;
   });
 
   for (final externalAvailable in [false, true]) {
@@ -833,6 +839,7 @@ void main() {
       );
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
     });
   }
 }

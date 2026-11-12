@@ -1071,7 +1071,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         '(ou TMDB_API_KEY dans assets/config/runtime.env).',
                   )
                 : GridView.builder(
-                    scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+                    cacheExtent: 500,
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     addAutomaticKeepAlives: false,
                     gridDelegate: mediaCardGridDelegate(

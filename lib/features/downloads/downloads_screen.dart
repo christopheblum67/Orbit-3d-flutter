@@ -176,7 +176,7 @@ class DownloadList extends StatelessWidget {
       });
 
     return ListView.builder(
-      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      cacheExtent: 500,
       padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: sorted.length,
