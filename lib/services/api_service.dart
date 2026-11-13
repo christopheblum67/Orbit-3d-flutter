@@ -18,6 +18,7 @@ import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/search.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/utils/panel_text.dart';
 import 'package:orbit_3d_flutter/services/api_rate_limiter.dart';
 import 'package:orbit_3d_flutter/services/api_transport.dart';
@@ -195,6 +196,48 @@ class ApiService {
 
   static String? rateLimitResetHint(Headers? headers) =>
       ApiTransport.rateLimitResetHint(headers);
+
+  /// Retourne vrai uniquement si la configuration est refusée ou inaccessible.
+  Future<bool> isXtreamConfigurationInvalid(Subscription subscription) async {
+    final base = subscription.baseUrl?.trim() ?? '';
+    final username = subscription.username ?? '';
+    final password = subscription.password ?? '';
+    final uri = Uri.tryParse(base);
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        username.trim().isEmpty ||
+        password.isEmpty) {
+      return true;
+    }
+    final url = _playerApiUrl(base, 'player_api.php', {
+      'username': username,
+      'password': password,
+    });
+    try {
+      final response = await get(url);
+      final data = response.data;
+      if (data is! Map) return false;
+      final info = data['user_info'];
+      final auth = info is Map ? info['auth'] : data['auth'];
+      return auth == 0 || auth == '0' || auth == false;
+    } on StreamNetworkException catch (error) {
+      final original = error.original;
+      if (original is! DioException) return false;
+      return _isConfigurationConnectionError(original);
+    } on DioException catch (error) {
+      return _isConfigurationConnectionError(error);
+    }
+  }
+
+  static bool _isConfigurationConnectionError(DioException error) {
+    final status = error.response?.statusCode;
+    return status == 401 ||
+        status == 403 ||
+        status == 404 ||
+        error.type == DioExceptionType.connectionError;
+  }
 
   // ---------- Informations du compte (validité) ----------
   /// Récupère la date d'expiration du compte Xtream via

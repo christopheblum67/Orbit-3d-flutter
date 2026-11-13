@@ -19,6 +19,25 @@ class _Api extends ApiService {
   Future<String?> resolveSubscriptionCacheKey() async => null;
 }
 
+class _XtreamApi extends _Api {
+  _XtreamApi(this.check);
+  final Future<bool> check;
+
+  @override
+  Future<bool> isXtreamConfigurationInvalid(Subscription subscription) => check;
+
+  @override
+  Future<DateTime?> fetchExpiration() async => null;
+}
+
+class _Subscriptions extends SubscriptionsNotifier {
+  @override
+  List<Subscription> build() => [];
+
+  @override
+  Future<void> refreshValidity(String id, {ApiService? api}) async {}
+}
+
 class _PendingEpg extends EPGDataCache {
   final pending = Completer<List<EPGProgram>>();
   int calls = 0;
@@ -34,6 +53,131 @@ class _PendingEpg extends EPGDataCache {
 }
 
 void main() {
+  testWidgets('invalid Xtream settings return to subscriptions during loading',
+      (tester) async {
+    final check = Completer<bool>();
+    final live = Completer<List<Channel>>();
+    final subscription = Subscription(
+      id: 'subscription',
+      name: 'Subscription',
+      type: SubscriptionType.xtream,
+      baseUrl: 'https://example.test',
+      username: 'user',
+      password: 'pass',
+      createdAt: DateTime(2026),
+    );
+    final router = GoRouter(
+      initialLocation: '/startup',
+      routes: [
+        GoRoute(
+            path: '/startup', builder: (_, __) => const StartupSplashScreen()),
+        GoRoute(
+          path: '/subscriptions',
+          builder: (_, state) => Scaffold(
+            body: Text(
+                'Subscriptions ${state.uri.queryParameters['connectionError']}'),
+          ),
+        ),
+        GoRoute(path: '/profiles', builder: (_, __) => const Text('Profiles')),
+      ],
+    );
+    addTearDown(router.dispose);
+    final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => subscription),
+      subscriptionsProvider.overrideWith(_Subscriptions.new),
+      apiServiceProvider.overrideWithValue(_XtreamApi(check.future)),
+      liveChannelsProvider.overrideWith((ref) => live.future),
+      certificatePinningInitializerProvider.overrideWith((ref) {}),
+      lastRefreshTimestampProvider.overrideWithBuild((ref, notifier) => null),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pump();
+    check.complete(true);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Subscriptions 1'), findsOneWidget);
+    expect(find.text('Profiles'), findsNothing);
+    live.complete([]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  });
+
+  testWidgets('valid Xtream settings continue to profiles', (tester) async {
+    final check = Completer<bool>();
+    final subscription = Subscription(
+      id: 'subscription',
+      name: 'Subscription',
+      type: SubscriptionType.xtream,
+      baseUrl: 'https://example.test',
+      username: 'user',
+      password: 'pass',
+      createdAt: DateTime(2026),
+    );
+    final router = GoRouter(
+      initialLocation: '/startup',
+      routes: [
+        GoRoute(
+          path: '/startup',
+          builder: (_, __) => const StartupSplashScreen(),
+        ),
+        GoRoute(
+          path: '/subscriptions',
+          builder: (_, __) => const Text('Subscriptions'),
+        ),
+        GoRoute(
+          path: '/profiles',
+          builder: (_, __) => const Scaffold(body: Text('Profiles')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    final epg = _PendingEpg();
+    final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => subscription),
+      subscriptionsProvider.overrideWith(_Subscriptions.new),
+      apiServiceProvider.overrideWithValue(_XtreamApi(check.future)),
+      epgDataCacheProvider.overrideWithValue(epg),
+      liveChannelsProvider.overrideWith((ref) async => <Channel>[]),
+      moviesProvider.overrideWith((ref) async => <Movie>[]),
+      seriesProvider.overrideWith((ref) async => <Series>[]),
+      radioChannelsProvider.overrideWith((ref) async => <Channel>[]),
+      certificatePinningInitializerProvider.overrideWith((ref) {}),
+      lastRefreshTimestampProvider.overrideWithBuild((ref, notifier) => null),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.text('Profiles'), findsNothing);
+    check.complete(false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    expect(find.text('Profiles'), findsOneWidget);
+    expect(find.text('Subscriptions'), findsNothing);
+    epg.pending.complete([]);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final fresh in [true, false]) {
     testWidgets('startup ${fresh ? 'skips' : 'starts'} refresh',
         (tester) async {

@@ -44,10 +44,13 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   Timer? _slowTimer;
   bool _providerSlow = false;
   bool _navigated = false;
+  bool _finishing = false;
+  bool _invalidConfiguration = false;
   bool _showBranding = false;
   bool _refreshStalled = false;
   final Stopwatch _splashWatch = Stopwatch()..start();
   String? _startingSubscriptionId;
+  Future<bool>? _configurationCheck;
 
   @override
   void initState() {
@@ -65,6 +68,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       loadRadioChannels: () => container.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
       deferredStillValid: () =>
+          !_invalidConfiguration &&
           container.read(activeSubscriptionProvider)?.id == _startingSubscriptionId,
       steps: widget.remainingPhase
           ? StartupRefreshController.remainingSteps
@@ -114,9 +118,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       _providerSlow = false;
     });
     _armStallTimer();
-    if (_controller.isFinished && !_navigated) {
-      _navigated = true;
+    if (_controller.isFinished && !_navigated && !_finishing) {
+      _finishing = true;
       if (widget.remainingPhase) {
+        _navigated = true;
         _finishRemainingPhase();
       } else {
         _finishInitialPhase();
@@ -147,6 +152,14 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   }
 
   Future<void> _finishInitialPhase() async {
+    final invalid = await _configurationCheck;
+    if (!mounted || _navigated) return;
+    if (invalid == true &&
+        ref.read(activeSubscriptionProvider)?.id == _startingSubscriptionId) {
+      _openInvalidSubscription();
+      return;
+    }
+    _navigated = true;
     // Le catalogue vient d'être chargé : horodater tout de suite évite qu'un
     // rafraîchissement « périmé » ne relance un second chargement complet.
     final subscription = ref.read(activeSubscriptionProvider);
@@ -213,12 +226,45 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<void> _kickOff() async {
     if (!widget.remainingPhase) {
+      final subscription = ref.read(activeSubscriptionProvider);
+      if (subscription != null &&
+          subscription.type == SubscriptionType.xtream) {
+        _configurationCheck = _checkConfiguration(subscription);
+        unawaited(
+          _configurationCheck!.then((invalid) {
+            if (invalid &&
+                mounted &&
+                !_navigated &&
+                ref.read(activeSubscriptionProvider)?.id ==
+                    _startingSubscriptionId) {
+              _openInvalidSubscription();
+            }
+          }),
+        );
+      }
       // Vérification de validité en parallèle : elle ne doit pas retarder le
       // chargement des chaînes quand le panel répond lentement.
       unawaited(_refreshSubscriptionValidity());
     }
     if (!mounted) return;
     await _controller.start();
+  }
+
+  Future<bool> _checkConfiguration(Subscription subscription) async {
+    final result = await safeAsync<bool>(
+      () => ref
+          .read(apiServiceProvider)
+          .isXtreamConfigurationInvalid(subscription)
+          .timeout(const Duration(seconds: 20)),
+      context: 'StartupSplashScreen.checkConfiguration',
+    );
+    return result.valueOrNull ?? false;
+  }
+
+  void _openInvalidSubscription() {
+    _invalidConfiguration = true;
+    _navigated = true;
+    context.go('/subscriptions?connectionError=1');
   }
 
   Future<bool> _checkAutoResume() async {

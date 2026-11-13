@@ -48,6 +48,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     final l = AppLocalizations.of(context);
     final subs = ref.watch(subscriptionsProvider);
     final activeId = ref.watch(activeSubscriptionProvider)?.id;
+    final connectionError =
+        GoRouterState.of(context).uri.queryParameters['connectionError'] == '1';
 
     return Scaffold(
       appBar: AppBar(
@@ -74,6 +76,20 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (connectionError) ...[
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Connexion impossible ou identifiants refusés. '
+                        'Vérifiez l’adresse du serveur, le nom d’utilisateur, '
+                        'le mot de passe et votre connexion Internet.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 const _CategoryFilterInfoBanner(),
                 const SizedBox(height: 12),
                 Align(
