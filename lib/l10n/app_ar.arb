@@ -447,5 +447,6 @@
     "avatarCategoryCharacters":  "شخصيات",
     "avatarCategorySmileys":  "مزاح",
     "avatarCategoryBlackWhite":  "أبيض وأسود",
-    "avatarCategoryPixels":  "بكسلات"
+    "avatarCategoryPixels":  "بكسلات",
+    "unassignedLegacyLibraryItems": "بعض المفضلات أو التنزيلات القديمة مخفية لأن اشتراكها الأصلي غير معروف. لا تزال محفوظة."
 }

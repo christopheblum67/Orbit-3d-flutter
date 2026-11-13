@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 class _EmptyProgress extends PlaybackProgressService {
@@ -62,8 +63,9 @@ void main() {
         tmdbMovieRecommendationsProvider.overrideWith((ref, id) => load()),
         tmdbSimilarMoviesProvider.overrideWith((ref, id) async => []),
         currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
         playbackProgressServiceProvider.overrideWith((ref) => _EmptyProgress()),
-        downloadTasksStreamProvider.overrideWith((ref) => const Stream.empty()),
+        downloadTasksStreamProvider.overrideWith((ref) => const AsyncData([])),
         moviesProvider.overrideWith((ref) async => <Movie>[]),
       ],
       child: MaterialApp.router(

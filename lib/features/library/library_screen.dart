@@ -8,6 +8,24 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
+final _hasUnassignedLegacyItemsProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final subscriptions = ref.watch(subscriptionsProvider);
+  if (subscriptions.isEmpty) return false;
+  final profile = ref.watch(currentProfileProvider);
+  ref.watch(favoritesProvider);
+  ref.watch(downloadTasksStreamProvider.select((tasks) => tasks.value?.length));
+  final favorites = profile == null
+      ? const <FavoriteEntry>[]
+      : await ref.read(favoritesServiceProvider).loadForProfile(profile.id);
+  if (favorites.any((entry) => entry.subscriptionId.isEmpty)) return true;
+  if (!ref.mounted) return false;
+  final manager = ref.read(downloadManagerProvider);
+  await manager.init();
+  return manager.currentTasks.any(
+      (task) => task.subscriptionId == null || task.subscriptionId!.isEmpty);
+});
+
 /// Écran « Mes contenus » : deux onglets, Favoris et Téléchargements.
 ///
 /// ## Pourquoi un écran unique
@@ -68,6 +86,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final favorites = ref.watch(favoritesProvider);
+    final hasUnassignedLegacyItems =
+        ref.watch(_hasUnassignedLegacyItemsProvider).value ?? false;
 
     final favCounts = <ContentType, int>{
       for (final type in ContentType.values)
@@ -110,32 +130,42 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
+      body: Column(
         children: [
-          Column(
-            children: [
-              ContentTypeSelector(
-                selected: _favoritesType,
-                counts: favCounts,
-                onChanged: (t) => setState(() => _favoritesType = t),
-              ),
-              Expanded(child: _favoritesBody()),
-            ],
-          ),
-          Column(
-            children: [
-              ContentTypeSelector(
-                selected: _downloadsType,
-                counts: dlCounts,
-                // Le direct n'est pas téléchargeable : proposer « Live » et
-                // « Replay » ne montrerait qu'une liste vide.
-                types: const [ContentType.vod, ContentType.series],
-                onChanged: (t) => setState(() => _downloadsType = t),
-              ),
-              Expanded(child: DownloadsSection(type: _downloadsType)),
-            ],
-          ),
+          if (hasUnassignedLegacyItems)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(l.unassignedLegacyLibraryItems),
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                Column(
+                  children: [
+                    ContentTypeSelector(
+                      selected: _favoritesType,
+                      counts: favCounts,
+                      onChanged: (t) => setState(() => _favoritesType = t),
+                    ),
+                    Expanded(child: _favoritesBody()),
+                  ],
+                ),
+                Column(
+                  children: [
+                    ContentTypeSelector(
+                      selected: _downloadsType,
+                      counts: dlCounts,
+                      // Le direct n'est pas téléchargeable.
+                      types: const [ContentType.vod, ContentType.series],
+                      onChanged: (t) => setState(() => _downloadsType = t),
+                    ),
+                    Expanded(child: DownloadsSection(type: _downloadsType)),
+                  ],
+                ),
+              ],
+            ),
+          )
         ],
       ),
     );

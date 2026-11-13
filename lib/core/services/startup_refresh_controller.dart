@@ -4,7 +4,6 @@ import 'package:orbit_3d_flutter/core/utils/catalog_diagnostic.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/services/catalog_disk_cache.dart';
 import 'package:orbit_3d_flutter/services/catalog_fetch_service.dart';
-import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -95,12 +94,6 @@ class StartupRefreshController extends RefreshStepsController {
 
   final List<({String kind, Future<Object?> Function() load})> _deferred = [];
 
-  Future<bool> _canDeferEpg() async {
-    if (bypassCatalogCache) return false;
-    final key = await _api.resolveSubscriptionCacheKey();
-    return key != null && await EpgBufferStore.instance.hasUsable(key);
-  }
-
   void _deferInBackground(String kind, Future<Object?> Function() load) {
     logDiag('CATALOG kind=$kind step=deferred state=queued');
     _deferred.add((kind: kind, load: load));
@@ -120,8 +113,23 @@ class StartupRefreshController extends RefreshStepsController {
         if (_deferredStillValid?.call() == false) return;
         try {
           await traceCatalogStep(item.kind, 'deferred', item.load);
+          if (item.kind == 'epg' && _deferredStillValid?.call() != false) {
+            _epgCache?.onRevalidated?.call();
+          }
         } catch (_) {
-          // traceCatalogStep records the failure without exposing its contents.
+          if (item.kind == 'epg') {
+            await Future<void>.delayed(const Duration(seconds: 5));
+            await _playbackGate.waitUntilIdle();
+            if (_deferredStillValid?.call() == false) return;
+            try {
+              await traceCatalogStep(item.kind, 'retry', item.load);
+              if (_deferredStillValid?.call() != false) {
+                _epgCache?.onRevalidated?.call();
+              }
+            } catch (_) {
+              // traceCatalogStep records the failure without exposing its contents.
+            }
+          }
         }
         await Future<void>.delayed(const Duration(milliseconds: 800));
       }
@@ -188,19 +196,12 @@ class StartupRefreshController extends RefreshStepsController {
           // générales, pour un écran que presque personne n'ouvre.
           break;
         case StartupStep.epg:
-          // Précharge le guide dans le cache partagé, une seule fois : la grille
-          // EPG l'utilise ensuite sans re-télécharger le XMLTV. Avec un tampon
-          // du jour déjà sur disque, le chargement se fait en arrière-plan.
+          // Le guide ne doit jamais retarder le choix du profil, même sans cache.
           final cache = _epgCache;
-          if (cache != null) {
-            if (await _canDeferEpg()) {
-              _deferInBackground('epg', () => cache.loadFull(_api));
-            } else {
-              await traceCatalogStep('epg', 'load', () => cache.loadFull(_api));
-            }
-          } else {
-            await traceCatalogStep('epg', 'load', _api.fetchEpg);
-          }
+          _deferInBackground(
+            'epg',
+            cache == null ? _api.fetchEpg : () => cache.loadFull(_api),
+          );
         case StartupStep.ai:
           // Étape purement indicative : marquée instantanément comme faite pour
           // que la progression reste fluide sans latence.

@@ -1447,4 +1447,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Pixels';
+
+  @override
+  String get unassignedLegacyLibraryItems =>
+      'Some older favorites or downloads are hidden because their original subscription is unknown. They are still saved.';
 }

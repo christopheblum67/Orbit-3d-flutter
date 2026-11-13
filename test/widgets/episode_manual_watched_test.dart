@@ -83,7 +83,7 @@ void main() {
         tvModeNotifierProvider.overrideWithValue(tvMode),
         currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
         favoritesProvider.overrideWithBuild((ref, notifier) => {}),
-        downloadTasksStreamProvider.overrideWith((ref) => Stream.value([])),
+        downloadTasksStreamProvider.overrideWith((ref) => const AsyncData([])),
         watchedEpisodesServiceProvider.overrideWithValue(service),
         playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
       ],

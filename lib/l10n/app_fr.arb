@@ -506,5 +506,6 @@
     "avatarCategoryCharacters":  "Personnages",
     "avatarCategorySmileys":  "Smileys",
     "avatarCategoryBlackWhite":  "Noir \u0026 Blanc",
-    "avatarCategoryPixels":  "Pixels"
+    "avatarCategoryPixels":  "Pixels",
+    "unassignedLegacyLibraryItems": "Certains anciens favoris ou téléchargements ne sont pas affichés : leur abonnement d’origine est inconnu. Ils restent conservés."
 }

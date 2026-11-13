@@ -84,4 +84,31 @@ void main() {
     await expectLater(scope.applyIfUnchanged(old, {}, () {}), throwsStateError);
     expect((await scope.read()).length, 2);
   });
+
+  test('synchronise les favoris de plusieurs abonnements sans collision',
+      () async {
+    final scope =
+        LocalProfileActivityScope('p1', ProfileActivityKind.favorites);
+    final a = FavoriteEntry(
+      id: 'same',
+      title: 'A',
+      profileId: 'p1',
+      subscriptionId: 'sub:a',
+      type: ContentType.vod,
+    );
+    final b = FavoriteEntry(
+      id: 'same',
+      title: 'B',
+      profileId: 'p1',
+      subscriptionId: 'sub:b',
+      type: ContentType.vod,
+    );
+    final merged = {
+      a.key: jsonEncode(a.toJson()),
+      b.key: jsonEncode(b.toJson()),
+    };
+    await scope.applyIfUnchanged({}, merged, () {});
+    expect(await scope.read(), merged);
+    expect(a.key, isNot(b.key));
+  });
 }

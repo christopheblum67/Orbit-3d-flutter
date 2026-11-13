@@ -8,6 +8,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/movie_detail.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 class _EmptyProgress extends PlaybackProgressService {
@@ -48,10 +49,11 @@ void main() {
         overrides: [
           movieDetailProvider(movie).overrideWith((ref) async => detail),
           currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+          favoritesProvider.overrideWithBuild((ref, notifier) => {}),
           playbackProgressServiceProvider
               .overrideWith((ref) => _EmptyProgress()),
           downloadTasksStreamProvider
-              .overrideWith((ref) => const Stream.empty()),
+              .overrideWith((ref) => const AsyncData([])),
         ],
         child: MaterialApp.router(
           locale: const Locale('fr'),

@@ -7,59 +7,19 @@ import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
+import 'package:orbit_3d_flutter/providers/download_providers.dart';
 import 'package:orbit_3d_flutter/services/download_manager.dart';
 
 /// Écran de gestion des téléchargements hors-ligne.
-class DownloadsScreen extends ConsumerStatefulWidget {
+class DownloadsScreen extends ConsumerWidget {
   const DownloadsScreen({super.key});
 
   @override
-  ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
-}
-
-class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
-  final DownloadManager _downloadManager = DownloadManager();
-
-  /// Affecté dans `initState()`, donc avant le premier `build()`.
-  ///
-  /// Ne dépend pas de l'`await` de `init()` : `tasksStream` est un getter sur
-  /// le singleton `DownloadManager`. Avant ce correctif, le champ était `late`
-  /// et affecté APRÈS l'ouverture de Hive — or `_firstBuild()` appelle
-  /// `initState()` puis `build()` dans le même frame, donc le premier rendu
-  /// levait `LateInitializationError`.
-  late final Stream<List<DownloadTask>> _tasksStream;
-
-  /// Dérivation mémorisée.
-  ///
-  /// `StreamBuilder(stream: source.map(...))` construisait un NOUVEAU stream à
-  /// chaque `build`, donc le builder se réabonnait à la source à chaque
-  /// reconstruction — donc perdait son état et reprenait depuis le début du
-  /// flux Hive.
-  late final Stream<int> _activeCountStream;
-
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tasksStream = _downloadManager.tasksStream;
-    _activeCountStream =
-        _tasksStream.map((tasks) => tasks.where((t) => t.isActive).length);
-    _initDownloadManager();
-  }
-
-  Future<void> _initDownloadManager() async {
-    await _downloadManager.init();
-    // Garde obligatoire : l'utilisateur peut être resté sur l'écran pendant
-    // l'ouverture de Hive. `setState` sur un State démonté est une exception.
-    if (!mounted) return;
-    setState(() => _ready = true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final tasks = ref.watch(downloadTasksStreamProvider);
+    final activeCount = tasks.value?.where((task) => task.isActive).length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -72,46 +32,32 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             : null,
         title: Text(l.downloads),
         actions: [
-          Consumer(
-            builder: (context, ref, _) {
-              return StreamBuilder<int>(
-                stream: _activeCountStream,
-                builder: (context, snapshot) {
-                  final activeCount = snapshot.data ?? 0;
-                  if (activeCount == 0) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Center(
-                      child: Chip(
-                        label: Text(l.activeCountOngoing(activeCount)),
-                        avatar: Icon(
-                          Icons.download_for_offline,
-                          size: 16,
-                          color: scheme.onPrimaryContainer,
-                        ),
-                        backgroundColor: scheme.primaryContainer,
-                        labelStyle: TextStyle(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+          if (activeCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Chip(
+                  label: Text(l.activeCountOngoing(activeCount)),
+                  avatar: Icon(
+                    Icons.download_for_offline,
+                    size: 16,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                  backgroundColor: scheme.primaryContainer,
+                  labelStyle: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
-      body: StreamBuilder<List<DownloadTask>>(
-        stream: _tasksStream,
-        builder: (context, snapshot) {
-          // Tant que Hive n'est pas ouvert, le flux n'émet rien : on affiche
-          // le loader pour éviter un "aucun téléchargement" trompeur.
-          if (!_ready || snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final tasks = snapshot.data ?? [];
+      body: tasks.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) =>
+            Center(child: Text(l.downloadFailed(error.toString()))),
+        data: (tasks) {
           if (tasks.isEmpty) {
             return EmptyState(
               icon: Icons.download_for_offline_outlined,

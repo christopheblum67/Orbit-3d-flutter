@@ -447,5 +447,6 @@
     "avatarCategoryCharacters":  "Figuren",
     "avatarCategorySmileys":  "Smileys",
     "avatarCategoryBlackWhite":  "Schwarz \u0026 Weiß",
-    "avatarCategoryPixels":  "Pixel"
+    "avatarCategoryPixels":  "Pixel",
+    "unassignedLegacyLibraryItems": "Einige ältere Favoriten oder Downloads werden nicht angezeigt, weil ihr ursprüngliches Abonnement unbekannt ist. Sie bleiben gespeichert."
 }

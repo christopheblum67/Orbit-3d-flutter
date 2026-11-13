@@ -38,8 +38,22 @@ class FavoriteToggle extends ConsumerWidget {
 
     Future<void> onToggle() async {
       final wasFavorite = isFavorite;
-      await ref.read(favoritesProvider.notifier).toggle(entry);
-      if (!showMessage || !context.mounted) return;
+      final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
+      try {
+        await ref.read(favoritesProvider.notifier).toggle(entry);
+      } on StateError catch (error) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(error.message)));
+        }
+        return;
+      }
+      if (!showMessage ||
+          !context.mounted ||
+          ref.read(currentProfileProvider)?.id != profile?.id ||
+          ref.read(activeSubscriptionProvider)?.id != subscriptionId) {
+        return;
+      }
       final messenger = ScaffoldMessenger.of(context);
       messenger
         ..hideCurrentSnackBar()

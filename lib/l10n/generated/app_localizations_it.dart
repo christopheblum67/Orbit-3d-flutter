@@ -1463,4 +1463,8 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Pixel';
+
+  @override
+  String get unassignedLegacyLibraryItems =>
+      'Alcuni vecchi preferiti o download non sono visibili perché l\'abbonamento originale è sconosciuto. Sono comunque conservati.';
 }

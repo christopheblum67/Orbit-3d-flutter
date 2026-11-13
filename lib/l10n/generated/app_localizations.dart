@@ -2769,6 +2769,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Pixels'**
   String get avatarCategoryPixels;
+
+  /// No description provided for @unassignedLegacyLibraryItems.
+  ///
+  /// In fr, this message translates to:
+  /// **'Certains anciens favoris ou téléchargements ne sont pas affichés : leur abonnement d’origine est inconnu. Ils restent conservés.'**
+  String get unassignedLegacyLibraryItems;
 }
 
 class _AppLocalizationsDelegate

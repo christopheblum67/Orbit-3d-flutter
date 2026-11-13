@@ -148,6 +148,9 @@ class DownloadTask extends HiveObject {
   @HiveField(20)
   String? downloadValidator;
 
+  @HiveField(21)
+  String? subscriptionId;
+
   DownloadTask({
     required this.id,
     required this.mediaItemId,
@@ -170,6 +173,7 @@ class DownloadTask extends HiveObject {
     this.episodeTitle,
     this.headers,
     this.downloadValidator,
+    this.subscriptionId,
   }) : progress = progress ?? DownloadProgress();
 
   /// Chemin local complet du fichier téléchargé.

@@ -551,7 +551,7 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  testWidgets('next episode countdown stops after three episodes', (tester) async {
+  Future<void> testNextEpisode(WidgetTester tester, String cancelMode) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     SharedPreferences.setMockInitialValues({});
@@ -661,6 +661,28 @@ void main() {
     video.complete(1);
     await tester.pump();
     expect(find.textContaining('Episode 2 (15 s)'), findsOneWidget);
+    if (cancelMode != 'none') {
+      if (cancelMode == 'remote') {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        expect(Focus.of(tester.element(find.text('Annuler'))).hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      } else {
+        await tester.tap(find.text('Annuler'));
+      }
+      await tester.pump();
+      expect(find.text('Annuler'), findsNothing);
+      expect(find.textContaining('Episode 2 (15 s)'), findsNothing);
+      await tester.pump(const Duration(seconds: 16));
+      expect(video.next, 1);
+      video.complete(1);
+      await tester.pump();
+      expect(find.text('Annuler'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+      return;
+    }
     await tester.pump(const Duration(seconds: 14));
     expect(video.next, 1);
     await tester.pump(const Duration(seconds: 1));
@@ -702,7 +724,12 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
     debugDefaultTargetPlatformOverride = null;
-  });
+  }
+
+  for (final cancelMode in ['none', 'remote', 'touch']) {
+    testWidgets('next episode countdown: $cancelMode',
+        (tester) => testNextEpisode(tester, cancelMode));
+  }
 
   for (final externalAvailable in [false, true]) {
     testWidgets(

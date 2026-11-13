@@ -1463,4 +1463,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'Pixels';
+
+  @override
+  String get unassignedLegacyLibraryItems =>
+      'Certains anciens favoris ou téléchargements ne sont pas affichés : leur abonnement d’origine est inconnu. Ils restent conservés.';
 }

@@ -447,5 +447,6 @@
     "avatarCategoryCharacters":  "Personajes",
     "avatarCategorySmileys":  "Smileys",
     "avatarCategoryBlackWhite":  "Negro y Blanco",
-    "avatarCategoryPixels":  "Pixels"
+    "avatarCategoryPixels":  "Pixels",
+    "unassignedLegacyLibraryItems": "Algunos favoritos o descargas antiguos no se muestran porque se desconoce su suscripción original. Se conservan."
 }

@@ -40,8 +40,12 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     setState(() => _busy = true);
     final l = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
     final result = await safeAsync<void>(
       () async {
+        if (subscriptionId == null || subscriptionId.isEmpty) {
+          throw StateError('Aucun abonnement actif.');
+        }
         final manager = ref.read(downloadManagerProvider);
         await manager.init();
         await manager.createTask(
@@ -50,6 +54,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
           streamUrl: widget.streamUrl,
           posterUrl: widget.posterUrl,
           contentType: widget.contentType,
+          subscriptionId: subscriptionId,
         );
         messenger.showSnackBar(
           SnackBar(

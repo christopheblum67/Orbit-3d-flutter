@@ -203,8 +203,6 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 failureMessage: _refreshStalled
                     ? _stalledMessage(_controller.currentStep?.label)
                     : null,
-                onOpenSubscriptions:
-                    _refreshStalled ? () => context.go('/subscriptions') : null,
               ),
             ),
           ],
@@ -370,6 +368,6 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         step == null ? 'la vérification de l’abonnement' : '« $step »';
     return '$label ne signale aucune progression depuis '
         '${kRefreshStallTimeout.inSeconds} secondes. Le serveur peut être '
-        'lent ou indisponible ; vous pouvez vérifier l’abonnement.';
+        'lent ou indisponible.';
   }
 }

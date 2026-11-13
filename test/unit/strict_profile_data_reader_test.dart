@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/strict_profile_data_reader.dart';
 
 void main() {
@@ -65,5 +66,18 @@ void main() {
       }),
     );
     await expectLater(reader.watchedEpisodes('p1'), throwsFormatException);
+  });
+
+  test('reads favorites with subscription-scoped keys', () async {
+    const favorite = FavoriteEntry(
+      profileId: 'p1',
+      subscriptionId: 'sub:a',
+      type: ContentType.vod,
+      id: '1',
+      title: 'Film',
+    );
+    await Hive.box('favorites')
+        .put(favorite.key, jsonEncode(favorite.toJson()));
+    expect(await reader.favorites('p1'), [favorite]);
   });
 }

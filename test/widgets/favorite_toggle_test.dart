@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -39,9 +40,18 @@ void main() {
     await tester.runAsync(() async {
       service = FavoritesService();
       await service.init();
+      final subscription = Subscription(
+        id: 'sub-a',
+        name: 'A',
+        type: SubscriptionType.m3u,
+        createdAt: DateTime(2020),
+      );
       container = ProviderContainer(
         overrides: [
           favoritesServiceProvider.overrideWithValue(service),
+          activeSubscriptionProvider.overrideWith((ref) => subscription),
+          subscriptionsProvider
+              .overrideWithBuild((ref, notifier) => [subscription]),
           currentProfileProvider.overrideWithBuild(
             (ref, notifier) => UserProfile(
               id: 'test_profile',

@@ -14,27 +14,55 @@ final favoritesProvider =
 );
 
 class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
+  int _revision = 0;
+  String? _scope;
+  Future<void>? _pendingLoad;
+
   @override
   Map<String, FavoriteEntry> build() {
     ref.listen(currentProfileProvider, (_, __) => _load());
-    _load();
+    ref.listen(activeSubscriptionProvider, (_, __) => _load());
+    ref.listen(subscriptionsProvider, (_, __) => _load());
+    _load(initial: true);
     return const {};
   }
 
-  void _load() {
+  void _load({bool initial = false}) {
     final profile = ref.read(currentProfileProvider);
-    if (profile == null) {
-      state = const {};
+    final subscription = ref.read(activeSubscriptionProvider);
+    final scope =
+        profile == null || subscription == null || subscription.id.isEmpty
+            ? null
+            : '${profile.id}\u0000${subscription.id}';
+    final revision = ++_revision;
+    if (!initial && scope != _scope) state = const {};
+    _scope = scope;
+    if (profile == null || subscription == null || subscription.id.isEmpty) {
+      _pendingLoad = null;
       return;
     }
-    _loadForProfile(profile.id);
+    _pendingLoad = _loadForProfile(profile.id, subscription.id, revision);
   }
 
-  Future<void> _loadForProfile(String profileId) async {
+  Future<void> _loadForProfile(
+    String profileId,
+    String subscriptionId,
+    int revision,
+  ) async {
     final service = ref.read(favoritesServiceProvider);
-    final entries = await service.loadForProfile(profileId);
-    if (!ref.mounted) return;
-    state = {for (final e in entries) e.key: e};
+    final entries = await service.loadForSubscription(
+      profileId,
+      subscriptionId,
+      canMigrateLegacy: () {
+        if (!ref.mounted || revision != _revision) return false;
+        final subscriptions = ref.read(subscriptionsProvider);
+        return subscriptions.length == 1 &&
+            subscriptions.single.id == subscriptionId &&
+            ref.read(activeSubscriptionProvider)?.id == subscriptionId;
+      },
+    );
+    if (!ref.mounted || revision != _revision) return;
+    state = {for (final e in entries) e.profileKey: e};
   }
 
   bool isFavorite(ContentType type, String id) {
@@ -70,25 +98,42 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
 
   Future<void> toggle(FavoriteEntry entry) async {
     final profile = ref.read(currentProfileProvider);
-    if (profile == null) return;
+    final subscription = ref.read(activeSubscriptionProvider);
+    if (profile == null || subscription == null || subscription.id.isEmpty) {
+      throw StateError('Un profil et un abonnement actifs sont nécessaires.');
+    }
+    await _pendingLoad;
+    if (!ref.mounted ||
+        ref.read(currentProfileProvider)?.id != profile.id ||
+        ref.read(activeSubscriptionProvider)?.id != subscription.id) {
+      return;
+    }
+    _revision++;
     final entryWithProfile = FavoriteEntry(
       type: entry.type,
       id: entry.id,
       title: entry.title,
       profileId: profile.id,
+      subscriptionId: subscription.id,
       posterUrl: entry.posterUrl,
       subtitle: entry.subtitle,
       streamUrl: entry.streamUrl,
     );
     final service = ref.read(favoritesServiceProvider);
-    if (state.containsKey(entryWithProfile.key)) {
+    if (state.containsKey(entryWithProfile.profileKey)) {
       await service.remove(entryWithProfile.key);
+      if (!ref.mounted || _scope != '${profile.id}\u0000${subscription.id}') {
+        return;
+      }
       final next = Map<String, FavoriteEntry>.from(state)
-        ..remove(entryWithProfile.key);
+        ..remove(entryWithProfile.profileKey);
       state = next;
     } else {
       await service.save(entryWithProfile);
-      state = {...state, entryWithProfile.key: entryWithProfile};
+      if (!ref.mounted || _scope != '${profile.id}\u0000${subscription.id}') {
+        return;
+      }
+      state = {...state, entryWithProfile.profileKey: entryWithProfile};
     }
   }
 
@@ -96,20 +141,30 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     final profile = ref.read(currentProfileProvider);
     if (profile == null) return;
     final key = '${profile.id}:${type.name}:$id';
-    if (!state.containsKey(key)) return;
+    final entry = state[key];
+    if (entry == null) return;
+    _revision++;
     final next = Map<String, FavoriteEntry>.from(state)..remove(key);
     state = next;
     final service = ref.read(favoritesServiceProvider);
-    await service.remove(key);
+    await service.remove(entry.key);
   }
 
   Future<void> clearAll() async {
     if (state.isEmpty) return;
     final service = ref.read(favoritesServiceProvider);
-    for (final key in state.keys.toList()) {
-      await service.remove(key);
+    _revision++;
+    final entries = state.values.toList();
+    final scope = _scope;
+    for (final entry in entries) {
+      await service.remove(entry.key);
     }
-    state = const {};
+    if (!ref.mounted || scope != _scope) return;
+    final next = Map<String, FavoriteEntry>.from(state);
+    for (final entry in entries) {
+      next.remove(entry.profileKey);
+    }
+    state = next;
   }
 
   /// Applique les changements imposés par la synchronisation cloud (S2).
@@ -118,16 +173,12 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     required Set<String> removes,
   }) async {
     final service = ref.read(favoritesServiceProvider);
-    final next = Map<String, FavoriteEntry>.from(state);
     for (final e in entries) {
-      next[e.key] = e;
       await service.save(e);
     }
     for (final key in removes) {
-      if (next.remove(key) != null) {
-        await service.remove(key);
-      }
+      await service.remove(key);
     }
-    state = next;
+    if (ref.mounted) _load();
   }
 }

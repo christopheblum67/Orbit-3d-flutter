@@ -1435,4 +1435,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get avatarCategoryPixels => 'بكسلات';
+
+  @override
+  String get unassignedLegacyLibraryItems =>
+      'بعض المفضلات أو التنزيلات القديمة مخفية لأن اشتراكها الأصلي غير معروف. لا تزال محفوظة.';
 }

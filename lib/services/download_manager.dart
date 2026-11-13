@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
@@ -397,6 +398,21 @@ class DownloadManager extends ChangeNotifier {
   /// Récupère une tâche par son ID.
   DownloadTask? getTask(String id) => _box?.get(id);
 
+  Future<void> assignLegacyTasks(
+    String subscriptionId,
+    bool Function() canAssign,
+  ) async {
+    await HiveSync.writeBoxAsync<DownloadTask, void>(_boxName, (box) async {
+      for (final task in box.values.toList()) {
+        if (!canAssign()) return;
+        if (task.subscriptionId == null || task.subscriptionId!.isEmpty) {
+          task.subscriptionId = subscriptionId;
+          await task.save();
+        }
+      }
+    });
+  }
+
   /// Crée une nouvelle tâche de téléchargement.
   Future<DownloadTask> createTask({
     required String mediaItemId,
@@ -405,6 +421,7 @@ class DownloadManager extends ChangeNotifier {
     String? posterUrl,
     String? drmToken,
     required String contentType,
+    String? subscriptionId,
     String? seriesId,
     int? seasonNumber,
     int? episodeNumber,
@@ -419,13 +436,14 @@ class DownloadManager extends ChangeNotifier {
     await init();
 
     final task = DownloadTask(
-      id: 'dl_${mediaItemId}_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'dl_${const Uuid().v4()}',
       mediaItemId: mediaItemId,
       title: title,
       posterUrl: posterUrl,
       streamUrl: streamUrl,
       drmToken: drmToken,
       contentType: contentType,
+      subscriptionId: subscriptionId,
       seriesId: seriesId,
       seasonNumber: seasonNumber,
       episodeNumber: episodeNumber,

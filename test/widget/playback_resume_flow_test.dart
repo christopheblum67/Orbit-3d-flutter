@@ -10,6 +10,7 @@ import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 
 void main() {
@@ -89,10 +90,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          favoritesProvider.overrideWithBuild((ref, notifier) => {}),
           playbackProgressServiceProvider
               .overrideWith((ref) => progressService),
           downloadTasksStreamProvider.overrideWith(
-            (ref) => const Stream.empty(),
+            (ref) => const AsyncData([]),
           ),
         ],
         child: MaterialApp.router(

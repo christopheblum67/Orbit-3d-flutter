@@ -208,6 +208,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
   final FocusNode _nextEpisodeFocus = FocusNode(debugLabel: 'NextEpisode');
+  final FocusNode _cancelNextEpisodeFocus = FocusNode(debugLabel: 'CancelNextEpisode');
   final FocusNode _playPauseFocus = FocusNode(debugLabel: 'PlayerPlayPause');
   final FocusScopeNode _footerScope = FocusScopeNode(debugLabel: 'PlayerFooter');
   final FocusScopeNode _playerErrorScope = FocusScopeNode(debugLabel: 'PlayerErrors');
@@ -350,6 +351,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
     _focusNode.dispose();
     _nextEpisodeFocus.dispose();
+    _cancelNextEpisodeFocus.dispose();
     _playPauseFocus.dispose();
     _footerScope.dispose();
     _playerErrorScope.dispose();
@@ -1071,6 +1073,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         _lastErrorDescription = 'Impossible de libérer le lecteur précédent.';
         _setStatus(_PlayerStatus.error);
       }
+
       return;
     }
     if (!mounted || generation != _generation ||
@@ -1094,6 +1097,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         consecutiveEpisodes: widget.consecutiveEpisodes + 1,
       ),
     );
+  }
+
+  void _cancelNextEpisode() {
+    _nextEpisodeTimer?.cancel();
+    setState(() => _nextEpisode = null);
+    _focusNode.requestFocus();
   }
 
   /// Ré-applique la piste audio choisie précédemment pour ce contenu
@@ -1831,12 +1840,62 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                             bottom: _footerVisible ? 130 : 24,
                             child: Align(
                               alignment: Alignment.bottomRight,
-                              child: FilledButton(
-                                focusNode: _nextEpisodeFocus,
-                                onPressed: () => _playNextEpisode(),
-                                child: Text(
-                                  'Épisode suivant : ${_nextEpisode!.title} '
-                                  '${_nextEpisodeTimer?.isActive == true ? "($_nextEpisodeSeconds s)" : ""}',
+                              child: Focus(
+                                canRequestFocus: false,
+                                onKeyEvent: (_, event) {
+                                  if (event is! KeyDownEvent) {
+                                    return KeyEventResult.ignored;
+                                  }
+                                  final key = event.logicalKey;
+                                  final isRtl = Directionality.of(context) ==
+                                      TextDirection.rtl;
+                                  final towardCancel = isRtl
+                                      ? LogicalKeyboardKey.arrowLeft
+                                      : LogicalKeyboardKey.arrowRight;
+                                  final towardNext = isRtl
+                                      ? LogicalKeyboardKey.arrowRight
+                                      : LogicalKeyboardKey.arrowLeft;
+                                  if (key == towardCancel &&
+                                      _nextEpisodeFocus.hasFocus) {
+                                    _cancelNextEpisodeFocus.requestFocus();
+                                    return KeyEventResult.handled;
+                                  }
+                                  if (key == towardNext &&
+                                      _cancelNextEpisodeFocus.hasFocus) {
+                                    _nextEpisodeFocus.requestFocus();
+                                    return KeyEventResult.handled;
+                                  }
+                                  if ((key == LogicalKeyboardKey.select ||
+                                          key == LogicalKeyboardKey.enter ||
+                                          key == LogicalKeyboardKey.gameButtonA) &&
+                                      _cancelNextEpisodeFocus.hasFocus) {
+                                    _cancelNextEpisode();
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                },
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: FilledButton(
+                                        focusNode: _nextEpisodeFocus,
+                                        onPressed: _playNextEpisode,
+                                        child: Text(
+                                          'Épisode suivant : ${_nextEpisode!.title} '
+                                          '${_nextEpisodeTimer?.isActive == true ? "($_nextEpisodeSeconds s)" : ""}',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      focusNode: _cancelNextEpisodeFocus,
+                                      onPressed: _cancelNextEpisode,
+                                      child: Text(AppLocalizations.of(context).cancel),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

@@ -7,8 +7,11 @@ import 'package:orbit_3d_flutter/features/library/library_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
+import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/favorites_service.dart';
 
 /// Écran « Mes contenus » : deux onglets, quatre types de contenu.
 ///
@@ -21,6 +24,18 @@ class _FakeFavoritesNotifier extends FavoritesNotifier {
   Map<String, FavoriteEntry> build() => const {};
 }
 
+class _LegacyFavoritesService extends FavoritesService {
+  @override
+  Future<List<FavoriteEntry>> loadForProfile(String profileId) async => [
+        FavoriteEntry(
+          type: ContentType.vod,
+          id: 'legacy',
+          title: 'Ancien',
+          profileId: profileId,
+        ),
+      ];
+}
+
 void main() {
   Widget wrap(Widget child) {
     return ProviderScope(
@@ -29,8 +44,9 @@ void main() {
         // démarrent le gestionnaire de téléchargements. Les remplacer garde le
         // test centré sur la structure d'onglets.
         favoritesProvider.overrideWith(_FakeFavoritesNotifier.new),
+        subscriptionsProvider.overrideWithBuild((ref, notifier) => []),
         downloadTasksStreamProvider
-            .overrideWith((ref) => Stream.value(const <DownloadTask>[])),
+            .overrideWith((ref) => const AsyncData(<DownloadTask>[])),
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -68,7 +84,46 @@ void main() {
     expect(ContentType.values, hasLength(4));
   });
 
-  testWidgets('« tout supprimer » n’apparaît que sur les favoris', (tester) async {
+  testWidgets('signale les anciens éléments dont l’abonnement est inconnu',
+      (tester) async {
+    final subscriptions = [
+      for (final id in ['a', 'b'])
+        Subscription(
+          id: id,
+          name: id,
+          type: SubscriptionType.m3u,
+          createdAt: DateTime(2020),
+        ),
+    ];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        favoritesProvider.overrideWith(_FakeFavoritesNotifier.new),
+        favoritesServiceProvider.overrideWithValue(_LegacyFavoritesService()),
+        subscriptionsProvider
+            .overrideWithBuild((ref, notifier) => subscriptions),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => UserProfile(
+              id: 'p',
+              firstName: 'Test',
+              dateOfBirth: DateTime(2000),
+              gender: 'male',
+              favoriteGenres: const [],
+            )),
+        downloadTasksStreamProvider.overrideWith((ref) => const AsyncData([])),
+      ],
+      child: const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: LibraryScreen(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('leur abonnement d’origine est inconnu'),
+        findsOneWidget);
+  });
+
+  testWidgets('« tout supprimer » n’apparaît que sur les favoris',
+      (tester) async {
     await tester.pumpWidget(wrap(const LibraryScreen()));
     await tester.pumpAndSettle();
 

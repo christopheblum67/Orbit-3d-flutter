@@ -7,7 +7,9 @@ import 'package:orbit_3d_flutter/models/search.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/catalog_providers.dart';
 import 'package:orbit_3d_flutter/providers/core_providers.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/metadata_providers.dart';
+import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/services/search_index_service.dart';
 import 'package:orbit_3d_flutter/services/search_service.dart';
@@ -18,6 +20,8 @@ final searchIndexServiceProvider = Provider<SearchIndexService>(
 );
 
 final searchServiceProvider = Provider<SearchService>((ref) {
+  ref.watch(activeSubscriptionProvider);
+  ref.watch(favoritesProvider);
   final service = SearchService(
     api: ref.watch(apiServiceProvider),
     tmdb: ref.watch(tmdbServiceProvider),
@@ -25,7 +29,7 @@ final searchServiceProvider = Provider<SearchService>((ref) {
     loadFavorites: () async {
       final profile = ref.read(currentProfileProvider);
       if (profile == null) return <FavoriteEntry>[];
-      return ref.read(favoritesServiceProvider).loadForProfile(profile.id);
+      return ref.read(favoritesProvider).values.toList();
     },
     loadRecentlyWatched: () async {
       final profile = ref.read(currentProfileProvider);

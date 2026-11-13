@@ -28,6 +28,7 @@ class FavoriteEntry {
     required this.id,
     required this.title,
     this.profileId = '',
+    this.subscriptionId = '',
     this.posterUrl = '',
     this.subtitle = '',
     this.streamUrl = '',
@@ -37,18 +38,35 @@ class FavoriteEntry {
   final String id;
   final String title;
   final String profileId;
+  final String subscriptionId;
   final String posterUrl;
   final String subtitle;
   final String streamUrl;
 
-  String get key =>
+  String get profileKey =>
       profileId.isEmpty ? '${type.name}:$id' : '$profileId:${type.name}:$id';
+
+  String get key => subscriptionId.isEmpty
+      ? profileKey
+      : '$profileId:subscription:${Uri.encodeComponent(subscriptionId)}:${type.name}:$id';
+
+  FavoriteEntry forSubscription(String subscriptionId) => FavoriteEntry(
+        type: type,
+        id: id,
+        title: title,
+        profileId: profileId,
+        subscriptionId: subscriptionId,
+        posterUrl: posterUrl,
+        subtitle: subtitle,
+        streamUrl: streamUrl,
+      );
 
   Map<String, dynamic> toJson() => {
         'type': type.name,
         'id': id,
         'title': title,
         'profileId': profileId,
+        'subscriptionId': subscriptionId,
         'posterUrl': posterUrl,
         'subtitle': subtitle,
         'streamUrl': streamUrl,
@@ -61,6 +79,7 @@ class FavoriteEntry {
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       profileId: (json['profileId'] ?? '').toString(),
+      subscriptionId: (json['subscriptionId'] ?? '').toString(),
       posterUrl: (json['posterUrl'] ?? '').toString(),
       subtitle: (json['subtitle'] ?? '').toString(),
       streamUrl: (json['streamUrl'] ?? '').toString(),
