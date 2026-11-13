@@ -661,8 +661,11 @@ class _SubscriptionFormDialogState
   final _passwordFocus = FocusNode();
   final _m3uFocus = FocusNode();
   final _submitFocus = FocusNode();
+  final _typeKey = GlobalKey();
+  late final Map<FocusNode, GlobalKey> _fieldKeys;
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = false;
+  FocusNode? _editingFocus;
 
   @override
   void initState() {
@@ -676,8 +679,29 @@ class _SubscriptionFormDialogState
       _passwordController.text = sub.password ?? '';
       _m3uUrlController.text = sub.m3uUrl ?? '';
     }
+    _fieldKeys = {
+      for (final focus in [
+        _nameFocus,
+        _baseUrlFocus,
+        _usernameFocus,
+        _passwordFocus,
+        _m3uFocus,
+      ])
+        focus: GlobalKey(),
+    };
+    for (final focus in _fieldKeys.keys) {
+      focus.onKeyEvent = _handleTextFieldKey;
+      focus.addListener(() {
+        if (!mounted) return;
+        if (focus.hasPrimaryFocus && ref.read(tvModeNotifierProvider).enabled) {
+          _ensureVisible(_fieldKeys[focus]!);
+        } else if (!focus.hasFocus && _editingFocus == focus) {
+          setState(() => _editingFocus = null);
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nameFocus.requestFocus();
+      if (mounted) _nameFocus.requestFocus();
     });
   }
 
@@ -698,12 +722,80 @@ class _SubscriptionFormDialogState
   }
 
   void _requestFocus(FocusNode focus) {
-    if (mounted) {
-      // Use post-frame callback to avoid mutating layers during build/layout
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) FocusScope.of(context).requestFocus(focus);
-      });
+    if (mounted) focus.requestFocus();
+  }
+
+  void _ensureVisible(GlobalKey key) {
+    final target = key.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 120),
+    );
+  }
+
+  KeyEventResult _handleTextFieldKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
     }
+    final mode = ref.read(tvModeNotifierProvider);
+    final key = event.logicalKey;
+    if (!mode.enabled) return KeyEventResult.ignored;
+    if (_editingFocus == node) {
+      if (key == LogicalKeyboardKey.escape ||
+          key == LogicalKeyboardKey.goBack ||
+          key == LogicalKeyboardKey.gameButtonB) {
+        setState(() => _editingFocus = null);
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.select ||
+          key == LogicalKeyboardKey.gameButtonA) {
+        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+        return KeyEventResult.handled;
+      }
+      if (key != LogicalKeyboardKey.arrowUp &&
+          key != LogicalKeyboardKey.arrowDown) {
+        return KeyEventResult.ignored;
+      }
+      setState(() => _editingFocus = null);
+    }
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      if (key == LogicalKeyboardKey.arrowDown && node == _baseUrlFocus) {
+        _requestFocus(_usernameFocus);
+      } else if (key == LogicalKeyboardKey.arrowDown &&
+          node == _usernameFocus) {
+        _requestFocus(_passwordFocus);
+      } else if (key == LogicalKeyboardKey.arrowUp && node == _usernameFocus) {
+        _requestFocus(_baseUrlFocus);
+      } else if (key == LogicalKeyboardKey.arrowUp && node == _passwordFocus) {
+        _requestFocus(_usernameFocus);
+      } else if (key == LogicalKeyboardKey.arrowDown &&
+          (node == _passwordFocus || node == _m3uFocus)) {
+        _requestFocus(_submitFocus);
+      } else {
+        node.focusInDirection(
+          switch (key) {
+            LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+            LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+            LogicalKeyboardKey.arrowLeft => TraversalDirection.left,
+            _ => TraversalDirection.right,
+          },
+        );
+      }
+      return KeyEventResult.handled;
+    }
+    if (event is KeyDownEvent &&
+        (key == LogicalKeyboardKey.select ||
+            key == LogicalKeyboardKey.enter ||
+            key == LogicalKeyboardKey.gameButtonA)) {
+      setState(() => _editingFocus = node);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Widget _buildTvTextField({
@@ -717,19 +809,44 @@ class _SubscriptionFormDialogState
     Widget? suffixIcon,
     List<TextInputFormatter>? inputFormatters,
   }) {
-    return TextFormField(
-      controller: controller,
-      focusNode: focusNode,
-      decoration: InputDecoration(
-        labelText: labelText,
-        suffixIcon: suffixIcon,
-      ),
-      keyboardType: keyboardType,
-      obscureText: obscureText,
-      inputFormatters: inputFormatters,
-      textInputAction: TextInputAction.next,
-      onEditingComplete: () => _requestFocus(nextFocusNode),
-      validator: validator,
+    return ListenableBuilder(
+      listenable: ref.read(tvModeNotifierProvider),
+      builder: (context, _) {
+        final tvMode = ref.read(tvModeNotifierProvider).enabled;
+        final scheme = Theme.of(context).colorScheme;
+        return TextFormField(
+          key: _fieldKeys[focusNode],
+          controller: controller,
+          focusNode: focusNode,
+          readOnly: tvMode && _editingFocus != focusNode,
+          decoration: InputDecoration(
+            labelText: labelText,
+            suffixIcon: suffixIcon,
+            border: tvMode ? const OutlineInputBorder() : null,
+            focusedBorder: tvMode
+                ? OutlineInputBorder(
+                    borderSide: BorderSide(color: scheme.primary, width: 3),
+                  )
+                : null,
+          ),
+          keyboardType: keyboardType,
+          obscureText: obscureText,
+          inputFormatters: inputFormatters,
+          textInputAction: TextInputAction.next,
+          onTap: () {
+            if (tvMode && _editingFocus != focusNode) {
+              setState(() => _editingFocus = focusNode);
+            }
+          },
+          onEditingComplete: () {
+            if (_editingFocus == focusNode) {
+              setState(() => _editingFocus = null);
+            }
+            _requestFocus(nextFocusNode);
+          },
+          validator: validator,
+        );
+      },
     );
   }
 
@@ -760,21 +877,30 @@ class _SubscriptionFormDialogState
                     validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                   ),
                   const SizedBox(height: 16),
-                  SegmentedButton<SubscriptionType>(
-                    segments: [
-                      ButtonSegment(
-                        value: SubscriptionType.xtream,
-                        label: Text(l.xtreamCodes),
-                      ),
-                      ButtonSegment(
-                        value: SubscriptionType.m3u,
-                        label: Text(l.m3uPlaylist),
-                      ),
-                    ],
-                    selected: {_type},
-                    onSelectionChanged: (Set<SubscriptionType> newSelection) {
-                      setState(() => _type = newSelection.first);
+                  Focus(
+                    canRequestFocus: false,
+                    onFocusChange: (focused) {
+                      if (focused && ref.read(tvModeNotifierProvider).enabled) {
+                        _ensureVisible(_typeKey);
+                      }
                     },
+                    child: SegmentedButton<SubscriptionType>(
+                      key: _typeKey,
+                      segments: [
+                        ButtonSegment(
+                          value: SubscriptionType.xtream,
+                          label: Text(l.xtreamCodes),
+                        ),
+                        ButtonSegment(
+                          value: SubscriptionType.m3u,
+                          label: Text(l.m3uPlaylist),
+                        ),
+                      ],
+                      selected: {_type},
+                      onSelectionChanged: (Set<SubscriptionType> newSelection) {
+                        setState(() => _type = newSelection.first);
+                      },
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_type == SubscriptionType.xtream) ...[
