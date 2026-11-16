@@ -4,7 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
-import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/download.dart';
 import 'package:orbit_3d_flutter/providers/download_providers.dart';
@@ -275,7 +275,7 @@ class DownloadTile extends ConsumerWidget {
                             height: 90,
                             child: task.posterUrl != null &&
                                     task.posterUrl!.isNotEmpty
-                                ? CachedImage(
+                                ? OrbitCachedImage(
                                     imageUrl: task.posterUrl!,
                                     fit: BoxFit.cover,
                                     errorWidget: (_, __, ___) =>

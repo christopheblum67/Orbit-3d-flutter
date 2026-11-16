@@ -25,8 +25,6 @@ void main() {
       contentId: 'series',
       isSeries: true,
       streamId: 'episode',
-      season: 2,
-      episode: 3,
     );
     container.read(public.activeSubtitleContextProvider.notifier).set(context);
     expect(

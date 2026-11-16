@@ -53,12 +53,11 @@ class SearchService {
   final Future<List<RecentEntry>> Function()? _loadRecentlyWatched;
 
   /// Charge le catalogue (Live + VOD + Séries) pour alimenter l'index FTS5.
-  final Future<SearchCatalogue> Function()? _loadCatalogue;
+  final Future<SearchCatalogue?> Function()? _loadCatalogue;
+  final String? _subscriptionId;
 
   /// Service FTS5 SQLite pour la recherche plein-texte persistante.
   final SearchFtsService _fts = SearchFtsService.instance;
-
-  Future<void>? _indexingJob;
 
   SearchService({
     required ApiService api,
@@ -66,13 +65,15 @@ class SearchService {
     required TvmazeService tvmaze,
     Future<List<FavoriteEntry>> Function()? loadFavorites,
     Future<List<RecentEntry>> Function()? loadRecentlyWatched,
-    Future<SearchCatalogue> Function()? loadCatalogue,
+    Future<SearchCatalogue?> Function()? loadCatalogue,
+    String? subscriptionId,
   })  : _api = api,
         _tmdb = tmdb,
         _tvmaze = tvmaze,
         _loadFavorites = loadFavorites,
         _loadRecentlyWatched = loadRecentlyWatched,
-        _loadCatalogue = loadCatalogue {
+        _loadCatalogue = loadCatalogue,
+        _subscriptionId = subscriptionId {
     _initHistoryBox();
   }
 
@@ -248,15 +249,31 @@ class SearchService {
     ].join(',');
     final remoteKey =
         '${filterType?.name ?? 'all'}|$normalized|${hiddenKey.hashCode}';
+    final remoteGeneration = _remoteGeneration;
     final cachedRemote = _cachedRemote(remoteKey);
 
     // 1. Paralléliser les 3 branches : local, FTS, remote
-    await _ensureCatalogueIndexed();
+    final catalogue = await _loadCatalogue?.call();
+    final subscriptionId = _subscriptionId;
     final results = await Future.wait<List<SearchItem>>([
       _searchLocal(normalized, l),
-      _fts.search(query: query, type: filterType).then(
-            (hits) => hits.map((h) => h.toSearchItem()).toList(),
-          ),
+      if (catalogue != null && subscriptionId != null)
+        safeAsync<List<SearchItem>>(
+          () async {
+            final hits = await _fts.searchCatalogue(
+              subscriptionId: subscriptionId,
+              movies: catalogue.movies,
+              series: catalogue.series,
+              channels: catalogue.channels,
+              query: normalized,
+              type: filterType,
+            );
+            return hits.map((h) => h.toSearchItem()).toList();
+          },
+          context: 'SearchService.search FTS',
+        ).then((result) => result.getOrElse(const <SearchItem>[]))
+      else
+        Future.value(const <SearchItem>[]),
       if (cachedRemote != null)
         Future<List<SearchItem>>.value(cachedRemote)
       else
@@ -266,12 +283,27 @@ class SearchService {
     final localResults = results[0];
     final ftsResults = results[1];
     final remoteResults = results[2];
-    if (cachedRemote == null) {
+    if (cachedRemote == null && remoteGeneration == _remoteGeneration) {
       _cacheRemote(remoteKey, remoteResults);
     }
     // 4. Fusion & déduplication
+    final indexedByKey = {
+      for (final item in ftsResults) '${item.type}:${item.id}': item,
+    };
     final allItems = <SearchItem>[];
-    allItems.addAll(localResults);
+    for (final item in localResults) {
+      final indexed = indexedByKey['${item.type}:${item.id}'];
+      allItems.add(
+        indexed == null
+            ? item
+            : item.copyWith(
+                posterUrl: indexed.posterUrl,
+                streamUrl: indexed.streamUrl,
+                categoryId: indexed.categoryId,
+                originalObject: indexed.originalObject,
+              ),
+      );
+    }
     allItems.addAll(ftsResults);
     allItems.addAll(remoteResults);
 
@@ -365,34 +397,6 @@ class SearchService {
     return items;
   }
 
-  /// Initialise l'index FTS5 et l'alimente avec le catalogue local (une fois).
-  Future<void> _ensureCatalogueIndexed() async {
-    if (_fts.isReady) return;
-    final job = _indexingJob;
-    if (job != null) return job;
-    final future = () async {
-      await safeAsync<void>(
-        () async {
-          await _fts.init();
-          final loader = _loadCatalogue;
-          if (loader == null) return;
-          // L'index est persistant : on ne le reconstruit que s'il est vide.
-          if (await _fts.count > 0) return;
-          final catalogue = await loader();
-          await _fts.rebuild(
-            movies: catalogue.movies,
-            series: catalogue.series,
-            channels: catalogue.channels,
-          );
-        },
-        context: 'SearchService._ensureCatalogueIndexed',
-      );
-      _indexingJob = null;
-    }();
-    _indexingJob = future;
-    return future;
-  }
-
   Future<List<SearchItem>> _searchRemote(
     String query, {
     SearchType? filterType,
@@ -439,6 +443,12 @@ class SearchService {
   /// Xtream alors que le résultat était identique quelques secondes plus tôt.
   /// La clé inclut le filtre de type pour ne pas mélanger les jeux.
   final Map<String, _RemoteCacheEntry> _remoteCache = {};
+  int _remoteGeneration = 0;
+
+  void invalidateCatalogueCache() {
+    _remoteGeneration++;
+    _remoteCache.clear();
+  }
 
   /// Nombre maximal d'entrées (les quelques dernières requêtes suffisent).
   static const int _remoteCacheMaxEntries = 40;

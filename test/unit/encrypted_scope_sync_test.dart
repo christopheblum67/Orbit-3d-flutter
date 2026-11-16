@@ -40,9 +40,11 @@ class _Remote extends EncryptedScopeStore {
     required String scope,
     required String passphrase,
     required EncryptedScopeSnapshot snapshot,
+    void Function()? checkSession,
   }) async {
     if (failWrite) throw StateError('offline');
     onWrite?.call();
+    checkSession?.call();
     if ((this.snapshot?.revision ?? 0) != snapshot.revision) {
       throw const CloudSyncConflict();
     }

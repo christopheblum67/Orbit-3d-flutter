@@ -224,6 +224,7 @@ class EncryptedScopeSynchronizer {
         passphrase: passphrase,
         snapshot: EncryptedScopeSnapshot(
             revision: cloud?.revision ?? 0, entries: merged),
+        checkSession: checkSession,
       );
     }
     checkSession();

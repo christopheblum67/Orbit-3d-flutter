@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -11,6 +13,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart' as public;
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class _Filter extends VodCategoryFilterNotifier {
   @override
@@ -81,7 +84,21 @@ Series _series(String id, String category) => Series(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
+  late Directory dir;
+  late CategoryCountTracker tracker;
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    dir = await Directory.systemTemp.createTemp('catalog_providers_test_');
+    tracker = CategoryCountTracker.forTesting(
+      '${dir.path}${Platform.pathSeparator}changes.db',
+    );
+  });
+  tearDown(() async {
+    await tracker.close();
+    await dir.delete(recursive: true);
+  });
   test('catalog facade exports the original provider identities', () {
     expect(public.m3uPlaylistProvider, same(split.m3uPlaylistProvider));
     expect(public.liveChannelsAllProvider, same(split.liveChannelsAllProvider));
@@ -109,6 +126,7 @@ void main() {
     final api = _Api(playlist);
     final container = ProviderContainer(
       overrides: [
+        categoryCountTrackerProvider.overrideWithValue(tracker),
         public.apiServiceProvider.overrideWithValue(api),
         public.activeSubscriptionProvider.overrideWithValue(
           Subscription(
@@ -167,6 +185,7 @@ void main() {
       ..series.addAll([_series('shown-series', 'shown'), _series('hidden-series', 'hidden')]);
     final container = ProviderContainer(
       overrides: [
+        categoryCountTrackerProvider.overrideWithValue(tracker),
         public.apiServiceProvider.overrideWithValue(api),
         public.activeSubscriptionProvider.overrideWithValue(
           Subscription(
@@ -203,18 +222,18 @@ void main() {
     await container.read(public.moviesProvider.future);
     await container.read(public.seriesProvider.future);
     expect(
-      await container.read(categoryIncreasesProvider((
+      (await container.read(categoryIncreasesProvider((
         subscriptionId: 'xtream',
         catalog: CategoryCatalog.movies,
-      )).future),
-      {'shown': 2},
+      )).future)).categories,
+      {'shown': (total: 2, added: 1)},
     );
     expect(
-      await container.read(categoryIncreasesProvider((
+      (await container.read(categoryIncreasesProvider((
         subscriptionId: 'xtream',
         catalog: CategoryCatalog.series,
-      )).future),
-      {'shown': 2},
+      )).future)).categories,
+      {'shown': (total: 2, added: 1)},
     );
   });
 }

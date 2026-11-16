@@ -81,6 +81,18 @@ class CurrentProfileNotifier extends Notifier<UserProfile?> {
   UserProfile? build() => null;
 
   void setUserProfile(UserProfile? profile) => state = profile;
+
+  Future<void> setMultiTvEnabled(bool enabled) async {
+    final profile = state;
+    if (profile == null) return;
+    final updated = profile.copyWith(
+      settings: {...profile.settings, 'multiTvEnabled': enabled},
+    );
+    await ref.read(storageServiceProvider).saveProfile(updated);
+    if (!ref.mounted) return;
+    if (state?.id == profile.id) state = updated;
+    ref.invalidate(profilesProvider);
+  }
 }
 
 final sourceTypeProvider = FutureProvider<String?>((ref) async {

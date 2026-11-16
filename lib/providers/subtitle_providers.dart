@@ -13,10 +13,6 @@ class SubtitleContext {
     required this.contentId,
     required this.isSeries,
     this.streamId = '',
-    this.title = '',
-    this.year = 0,
-    this.season = 0,
-    this.episode = 0,
   });
 
   final String contentId;
@@ -24,10 +20,6 @@ class SubtitleContext {
 
   /// Pour une série, identifiant du flux de l'épisode, distinct de contentId.
   final String streamId;
-  final String title;
-  final int year;
-  final int season;
-  final int episode;
 }
 
 class ActiveSubtitleContextNotifier extends Notifier<SubtitleContext?> {

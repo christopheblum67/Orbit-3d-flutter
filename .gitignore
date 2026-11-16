@@ -53,3 +53,6 @@ third_party/*/build/
 
 # Journaux de build locaux
 build_apk.log
+
+# Dépendances locales du service de couplage Firebase
+/functions/node_modules/

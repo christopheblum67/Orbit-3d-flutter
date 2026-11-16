@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/radio_favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
@@ -15,6 +17,7 @@ import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/local_profile_activity_scope.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/local_preferences_scope.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/local_profile_scope.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/local_radio_favorites_scope.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/local_subscription_scope.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 
@@ -26,21 +29,26 @@ enum _SyncKind {
   preferences,
   profile,
   subscriptions,
+  radioFavorites,
 }
 
 class EncryptedActivitySyncState {
   const EncryptedActivitySyncState({
     this.profileId,
+    this.profileIds = const {},
     this.busy = false,
     this.error,
     this.conflictScope,
+    this.conflictProfileId,
     this.lastSyncAt,
   });
 
   final String? profileId;
+  final Set<String> profileIds;
   final bool busy;
   final String? error;
   final String? conflictScope;
+  final String? conflictProfileId;
   final DateTime? lastSyncAt;
 
   bool get unlocked => profileId != null;
@@ -65,13 +73,15 @@ class EncryptedActivitySyncNotifier
   String? _uid;
   String? _phrase;
   String? _profileId;
+  Set<String> _profileIds = const {};
+  bool _lockOnProfileChange = true;
   FirebaseAuth? _auth;
   StreamSubscription<User?>? _authChanges;
   Timer? _debounce;
   Timer? _poll;
   final _listeners = <ProviderSubscription<dynamic>>[];
-  final _dirty = <_SyncKind>{};
-  final _choices = <_SyncKind, ScopeConflictChoice>{};
+  final _dirty = <(String?, _SyncKind)>{};
+  final _choices = <(String?, _SyncKind), ScopeConflictChoice>{};
   var _generation = 0;
   var _busy = false;
 
@@ -96,16 +106,19 @@ class EncryptedActivitySyncNotifier
     required String uid,
     required String phrase,
     required ProfileCatalogSnapshot catalog,
+    Set<String>? profileIds,
   }) async {
     if (_busy) throw StateError('Une synchronisation est déjà en cours.');
     final profileId = ref.read(currentProfileProvider)?.id;
+    final selected =
+        profileIds ?? (profileId == null ? <String>{} : {profileId});
     final user = auth.currentUser;
     if (user == null || user.isAnonymous || user.uid != uid) {
       throw StateError('Le compte cloud a changé.');
     }
     if (phrase.isEmpty ||
-        profileId == null ||
-        !catalog.profiles.containsKey(profileId)) {
+        selected.isEmpty ||
+        selected.any((id) => !catalog.profiles.containsKey(id))) {
       throw StateError(
         'Sélectionnez un profil actif déjà sauvegardé dans ce compte.',
       );
@@ -113,11 +126,17 @@ class EncryptedActivitySyncNotifier
     lock();
     _uid = uid;
     _phrase = phrase;
-    _profileId = profileId;
+    _profileIds = Set.unmodifiable(selected);
+    _profileId = profileId != null && selected.contains(profileId)
+        ? profileId
+        : selected.first;
+    _lockOnProfileChange = profileIds == null;
     _auth = auth;
     final generation = _generation;
     _listeners.addAll([
       ref.listen(favoritesProvider, (_, __) => _changed(_SyncKind.favorites)),
+      ref.listen(radioFavoritesProvider,
+          (_, __) => _changed(_SyncKind.radioFavorites)),
       ref.listen(
           recentlyWatchedProvider, (_, __) => _changed(_SyncKind.recents)),
       ref.listen(
@@ -127,23 +146,33 @@ class EncryptedActivitySyncNotifier
       ref.listen(
           preferencesProvider, (_, __) => _changed(_SyncKind.preferences)),
       ref.listen(currentProfileProvider, (_, profile) {
-        if (_profileId != null && profile?.id != _profileId) lock();
-        if (_profileId != null && profile?.id == _profileId) {
+        if (_lockOnProfileChange &&
+            _profileId != null &&
+            profile?.id != _profileId) {
+          lock();
+        }
+        if (profile != null && _profileIds.contains(profile.id)) {
           _changed(_SyncKind.profile);
         }
       }),
-      ref.listen(profilesProvider, (_, __) => _changed(_SyncKind.profile)),
+      ref.listen(profilesProvider, (_, __) {
+        for (final id in _profileIds) {
+          _changed(_SyncKind.profile, profileId: id);
+        }
+      }),
       ref.listen(
           subscriptionsProvider, (_, __) => _changed(_SyncKind.subscriptions)),
     ]);
     _authChanges = auth.authStateChanges().listen((user) {
       if (user == null || user.isAnonymous || user.uid != uid) lock();
     });
-    _dirty.addAll(_SyncKind.values);
-    state = EncryptedActivitySyncState(profileId: profileId);
+    _markAllDirty();
+    state = EncryptedActivitySyncState(
+        profileId: _profileId, profileIds: _profileIds);
     _poll = Timer.periodic(const Duration(minutes: 5), (_) {
-      if (_generation != generation) return;
-      _dirty.addAll(_SyncKind.values);
+      if (_generation != generation || _busy || state.conflictScope != null)
+        return;
+      _markAllDirty();
       unawaited(syncNow());
     });
     await syncNow();
@@ -154,6 +183,7 @@ class EncryptedActivitySyncNotifier
     _phrase = null;
     _uid = null;
     _profileId = null;
+    _profileIds = const {};
     _auth = null;
     _debounce?.cancel();
     _poll?.cancel();
@@ -168,16 +198,37 @@ class EncryptedActivitySyncNotifier
     if (ref.mounted) state = const EncryptedActivitySyncState();
   }
 
-  void _changed(_SyncKind kind) {
+  bool _isGlobal(_SyncKind kind) =>
+      kind == _SyncKind.preferences || kind == _SyncKind.subscriptions;
+
+  void _markAllDirty() {
+    for (final kind in _SyncKind.values) {
+      if (_isGlobal(kind)) {
+        _dirty.add((null, kind));
+      } else {
+        for (final id in _profileIds) {
+          _dirty.add((id, kind));
+        }
+      }
+    }
+  }
+
+  void _changed(_SyncKind kind, {String? profileId}) {
     if (_phrase == null) return;
-    _dirty.add(kind);
+    final id = _isGlobal(kind)
+        ? null
+        : (profileId ?? ref.read(currentProfileProvider)?.id);
+    if (!_isGlobal(kind) && !_profileIds.contains(id)) return;
+    _dirty.add((id, kind));
     _debounce?.cancel();
-    _debounce = Timer(const Duration(seconds: 30), () => unawaited(syncNow()));
+    _debounce = Timer(const Duration(seconds: 30), () {
+      if (state.conflictScope == null) unawaited(syncNow());
+    });
   }
 
   Future<void> syncAll() {
     if (_phrase == null) return Future.value();
-    _dirty.addAll(_SyncKind.values);
+    _markAllDirty();
     return syncNow();
   }
 
@@ -185,8 +236,14 @@ class EncryptedActivitySyncNotifier
     final name = state.conflictScope;
     if (_phrase == null || _busy || name == null) return Future.value();
     final kind = _SyncKind.values.byName(name);
-    _choices[kind] = choice;
-    _dirty.add(kind);
+    final task = (state.conflictProfileId, kind);
+    _choices[task] = choice;
+    _dirty.remove(task);
+    final pending = _dirty.toList();
+    _dirty
+      ..clear()
+      ..add(task)
+      ..addAll(pending);
     return syncNow();
   }
 
@@ -197,6 +254,7 @@ class EncryptedActivitySyncNotifier
     final phrase = _phrase!;
     final profileId = _profileId!;
     final generation = _generation;
+    String? currentProfileId;
     void checkSession() {
       final user = _auth?.currentUser;
       if (!ref.mounted ||
@@ -204,14 +262,20 @@ class EncryptedActivitySyncNotifier
           user == null ||
           user.isAnonymous ||
           user.uid != uid ||
-          ref.read(currentProfileProvider)?.id != profileId) {
+          (_lockOnProfileChange &&
+              ref.read(currentProfileProvider)?.id != profileId)) {
         throw StateError('La session cloud a changé.');
+      }
+      if (currentProfileId != null &&
+          !Hive.box<dynamic>('profiles').containsKey(currentProfileId)) {
+        throw StateError('Le profil local est introuvable.');
       }
     }
 
     _busy = true;
     state = EncryptedActivitySyncState(
       profileId: profileId,
+      profileIds: _profileIds,
       busy: true,
       lastSyncAt: state.lastSyncAt,
     );
@@ -220,42 +284,51 @@ class EncryptedActivitySyncNotifier
       final synchronizer = ref.read(encryptedScopeSynchronizerProvider);
       while (_dirty.isNotEmpty) {
         checkSession();
-        final kind = _dirty.first;
+        final task = _dirty.first;
+        final (taskProfileId, kind) = task;
         currentKind = kind;
-        _dirty.remove(kind);
+        currentProfileId = taskProfileId;
+        _dirty.remove(task);
         try {
           final changed = await synchronizer.synchronize(
             uid: uid,
-            profileId:
-                kind == _SyncKind.preferences || kind == _SyncKind.subscriptions
-                    ? '__global__'
-                    : profileId,
+            profileId: taskProfileId ?? '__global__',
             scope: kind.name,
             passphrase: phrase,
             local: switch (kind) {
               _SyncKind.preferences => LocalPreferencesScope(),
-              _SyncKind.profile => LocalProfileScope(profileId),
+              _SyncKind.profile => LocalProfileScope(taskProfileId!),
               _SyncKind.subscriptions =>
                 LocalSubscriptionScope(ref.read(storageServiceProvider)),
+              _SyncKind.radioFavorites =>
+                LocalRadioFavoritesScope(taskProfileId!),
               _ => LocalProfileActivityScope(
-                  profileId,
+                  taskProfileId!,
                   ProfileActivityKind.values.byName(kind.name),
                 ),
             },
             checkSession: checkSession,
-            conflictChoice: _choices.remove(kind),
+            conflictChoice: _choices.remove(task),
           );
           checkSession();
           if (changed) {
             switch (kind) {
               case _SyncKind.favorites:
-                ref.invalidate(favoritesProvider);
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref.invalidate(favoritesProvider);
+                }
               case _SyncKind.recents:
-                ref.invalidate(recentlyWatchedProvider);
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref.invalidate(recentlyWatchedProvider);
+                }
               case _SyncKind.watched:
-                ref.invalidate(watchedEpisodesProvider);
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref.invalidate(watchedEpisodesProvider);
+                }
               case _SyncKind.playback:
-                ref.read(playbackProgressServiceProvider).notifySyncApplied();
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref.read(playbackProgressServiceProvider).notifySyncApplied();
+                }
               case _SyncKind.preferences:
                 ref.invalidate(preferencesProvider);
               case _SyncKind.profile:
@@ -263,11 +336,13 @@ class EncryptedActivitySyncNotifier
                     await ref.read(storageServiceProvider).getProfiles();
                 checkSession();
                 final profile =
-                    profiles.where((p) => p.id == profileId).firstOrNull;
+                    profiles.where((p) => p.id == taskProfileId).firstOrNull;
                 if (profile == null) throw StateError('Profil introuvable.');
-                ref
-                    .read(currentProfileProvider.notifier)
-                    .setUserProfile(profile);
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref
+                      .read(currentProfileProvider.notifier)
+                      .setUserProfile(profile);
+                }
                 ref.invalidate(profilesProvider);
               case _SyncKind.subscriptions:
                 await ref
@@ -275,16 +350,21 @@ class EncryptedActivitySyncNotifier
                     .reloadAfterCloudSync();
                 checkSession();
                 ref.invalidate(activeSubscriptionProvider);
+              case _SyncKind.radioFavorites:
+                if (ref.read(currentProfileProvider)?.id == taskProfileId) {
+                  ref.invalidate(radioFavoritesProvider);
+                }
             }
           }
         } catch (_) {
-          _dirty.add(kind);
+          if (generation == _generation) _dirty.add(task);
           rethrow;
         }
       }
       if (ref.mounted && generation == _generation) {
         state = EncryptedActivitySyncState(
           profileId: profileId,
+          profileIds: _profileIds,
           lastSyncAt: DateTime.now(),
         );
       }
@@ -297,7 +377,8 @@ class EncryptedActivitySyncNotifier
     } on ScopeMergeConflict {
       _showError(generation,
           'Modifications concurrentes : choisissez quelle version conserver.',
-          conflictScope: currentKind?.name);
+          conflictScope: currentKind?.name,
+          conflictProfileId: currentProfileId);
     } on CloudSyncConflict {
       _showError(generation, 'Le cloud a changé ailleurs. Réessayez.');
     } on SecretBoxAuthenticationError {
@@ -317,13 +398,16 @@ class EncryptedActivitySyncNotifier
     }
   }
 
-  void _showError(int generation, String message, {String? conflictScope}) {
+  void _showError(int generation, String message,
+      {String? conflictScope, String? conflictProfileId}) {
     if (!ref.mounted || generation != _generation) return;
     state = EncryptedActivitySyncState(
       profileId: _profileId,
+      profileIds: _profileIds,
       lastSyncAt: state.lastSyncAt,
       error: message,
       conflictScope: conflictScope,
+      conflictProfileId: conflictProfileId,
     );
   }
 }

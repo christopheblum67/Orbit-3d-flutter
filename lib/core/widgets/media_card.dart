@@ -34,6 +34,7 @@ class MediaCard extends ConsumerWidget {
     this.onTap,
     this.onLongPress,
     this.isNew = false,
+    this.highlightTitle = false,
     this.topBadge,
     this.matchPercent, // % d'affinité matchmaking (affiché sur la ligne méta)
     this.voteCount, // Nombre de votes (ex: TMDB) - affiché sur la ligne méta
@@ -87,6 +88,9 @@ class MediaCard extends ConsumerWidget {
 
   /// Affiche le badge "NOUVEAU" si true.
   final bool isNew;
+
+  /// Met en évidence une nouveauté détectée depuis la dernière mise à jour.
+  final bool highlightTitle;
 
   /// Widget superposé en haut-gauche du poster (ex. numéro de rang FlixPatrol).
   final Widget? topBadge;
@@ -263,8 +267,7 @@ class MediaCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (rating > 0)
-                            _RatingBadge(rating: rating),
+                          if (rating > 0) _RatingBadge(rating: rating),
                           if (rating > 0 &&
                               matchPercent != null &&
                               matchPercent! > 0)
@@ -309,7 +312,14 @@ class MediaCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                          fontWeight: highlightTitle
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                          color: highlightTitle
+                              ? (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.redAccent.shade100
+                                  : Colors.red.shade800)
+                              : null,
                           fontSize: titleFontSize ?? (compactLayout ? 13 : 15),
                         ),
                   ),

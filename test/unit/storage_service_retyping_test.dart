@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/services/profile_pin.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 
 /// P6 — Retypage profond des lectures Hive.
@@ -67,5 +68,44 @@ void main() {
       reason: 'le round-trip Hive ne doit pas laisser de maps non retypées',
     );
     expect(subtree!['k'], 'v');
+  });
+
+  test('profile PIN survives reopening, replacement and removal', () async {
+    final firstHash = await ProfilePin.create('1234');
+    final profile = UserProfile(
+      id: 'pin-profile',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: 'other',
+      favoriteGenres: const [],
+      pinHash: firstHash,
+      settings: const {'multiTvEnabled': false},
+    );
+    await storage.saveProfile(profile);
+    await Hive.close();
+    await storage.init();
+    var restored = (await storage.getProfiles()).single;
+    expect(restored.hasPin, isTrue);
+    expect(restored.pinHash, firstHash);
+    expect(await ProfilePin.verify(restored, '1234'), isTrue);
+    expect(await ProfilePin.verify(restored, '9999'), isFalse);
+    expect(restored.multiTvEnabled, isFalse);
+
+    final secondHash = await ProfilePin.create('5678');
+    await storage.saveProfile(restored.copyWith(pinHash: secondHash));
+    await Hive.close();
+    await storage.init();
+    restored = (await storage.getProfiles()).single;
+    expect(restored.pinHash, secondHash);
+    expect(await ProfilePin.verify(restored, '5678'), isTrue);
+    expect(await ProfilePin.verify(restored, '1234'), isFalse);
+
+    await storage.saveProfile(restored.copyWith(clearPin: true));
+    await Hive.close();
+    await storage.init();
+    restored = (await storage.getProfiles()).single;
+    expect(restored.hasPin, isFalse);
+    expect(restored.pinHash, isNull);
+    expect(restored.multiTvEnabled, isFalse);
   });
 }

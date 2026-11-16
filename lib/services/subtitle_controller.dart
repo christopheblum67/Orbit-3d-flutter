@@ -14,7 +14,7 @@ class SubtitleController extends ChangeNotifier {
   final Map<String, SubtitleTrack> _loadedTracks = {};
 
   /// Lecteur pour lequel l'utilisateur a explicitement choisi une piste
-  /// EXTERNE (OpenSubtitles, piste du panel, URL manuelle).
+  /// EXTERNE (piste du panel, URL manuelle).
   ///
   /// Garde d'exclusivité lue par [setEmbeddedContext] : tant que la découverte
   /// intégrée parle de CE lecteur, elle ne doit pas ré-adopter la sélection
@@ -25,10 +25,6 @@ class SubtitleController extends ChangeNotifier {
   /// redeviennent prioritaires — aucune remise à zéro globale n'est requise,
   /// ce qui éviterait de faire fuir le choix d'un contenu à l'autre.
   int? _externalPlayerId;
-
-  /// Pistes adoptées depuis une source externe (recherche en ligne),
-  /// indexées sur leur libellé faute d'URL connue.
-  final Map<String, SubtitleTrack> _adoptedTracks = {};
 
   /// Pistes annoncées par le panel, discovery compris.
   ///
@@ -302,25 +298,8 @@ class SubtitleController extends ChangeNotifier {
     await loadAndSetTrack(ref.url, language: ref.language, label: ref.label);
   }
 
-  /// Adopte une piste déjà téléchargée (recherche en ligne).
-  ///
-  /// Le contrôleur ne connaissait que les pistes qu'il avait lui-même
-  /// chargées depuis une URL : sans cette porte d'entrée, un sous-titre
-  /// trouvé en ligne ne pouvait pas être activé une fois téléchargé.
-  void adoptTrack(SubtitleTrack track, String label) {
-    // L'URL n'est pas connue ici ; la piste est indexée sur son libellé, ce qui
-    // suffit à l'identifier pour l'affiche et à la désactivation.
-    _cancelEmbeddedForExternal();
-    _externalPlayerId = _embeddedBridge?.playerId;
-    _adoptedTracks[label] = track;
-    _activeTrack = track;
-    _activeTrackUrl = label;
-    _manualSelectionRevision++;
-    notifyListeners();
-  }
-
   void setActiveTrack(String url) {
-    final track = _loadedTracks[url] ?? _adoptedTracks[url];
+    final track = _loadedTracks[url];
     if (track == null) return;
     _cancelEmbeddedForExternal();
     _externalPlayerId = _embeddedBridge?.playerId;
@@ -343,7 +322,6 @@ class SubtitleController extends ChangeNotifier {
     _cancelEmbeddedForExternal();
     _externalPlayerId = null;
     _loadedTracks.clear();
-    _adoptedTracks.clear();
     _activeTrack = null;
     _activeTrackUrl = null;
     notifyListeners();
@@ -363,7 +341,7 @@ class SubtitleController extends ChangeNotifier {
   ///
   /// Éteint la piste externe (titre, URL, garde d'exclusivité) et l'état
   /// intégré courant (pistes, piste active, cues, polling), mais :
-  ///  - ne vide PAS la bibliothèque `_loadedTracks`/`_adoptedTracks` : les
+  ///  - ne vide PAS la bibliothèque `_loadedTracks` : les
   ///    pistes déjà téléchargées restent re-sélectionnables pour le nouveau
   ///    contenu ;
   ///  - ne parle PAS au canal natif : la découverte du nouveau contenu repart
@@ -439,7 +417,7 @@ class SubtitleController extends ChangeNotifier {
       //
       // Sans cette garde, media3 — qui auto-sélectionne sa piste texte
       // quelques secondes APRÈS le début de la lecture — reprenait
-      // l'affichage et masquait le sous-titre OpenSubtitles choisi
+      // l'affichage et masquait le sous-titre externe choisi
       // entre-temps : l'utilisateur lisait « les sous-titres en ligne ne se
       // lisent plus » alors que le contrôleur n'avait fait que changer de
       // piste active.

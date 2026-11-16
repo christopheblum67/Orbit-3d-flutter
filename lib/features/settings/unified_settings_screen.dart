@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
+import 'package:orbit_3d_flutter/features/settings/widgets/update_dialog.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -714,6 +716,13 @@ class _AdvancedSection extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionDiagnostics),
+        if (Platform.isAndroid)
+          _NavTile(
+            icon: Icons.system_update_alt,
+            title: l.updateTitle,
+            subtitle: l.updateSettingsSubtitle,
+            onTap: () => showUpdateDialog(context),
+          ),
         _NavTile(
           icon: Icons.cleaning_services_outlined,
           title: l.clearCaches,

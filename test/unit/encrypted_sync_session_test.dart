@@ -10,12 +10,14 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/core_providers.dart';
+import 'package:orbit_3d_flutter/providers/radio_favorites_provider.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
 import 'package:orbit_3d_flutter/services/favorites_service.dart';
+import 'package:orbit_3d_flutter/services/radio_favorites_store.dart';
 import 'package:orbit_3d_flutter/services/secret_store.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,6 +102,7 @@ void main() {
       profileId: 'profile',
       streamUrl: 'https://private.example.test/stream',
     ));
+    await RadioFavoritesStore.toggle('profile', 'Private radio station');
     final documents = _Documents();
     final container = ProviderContainer(overrides: [
       storageServiceProvider.overrideWithValue(storage),
@@ -124,11 +127,42 @@ void main() {
       final state = container.read(encryptedActivitySyncProvider);
       expect(state.error, isNull);
       expect(state.lastSyncAt, isNotNull);
-      expect(documents.documents, hasLength(7));
+      expect(documents.documents, hasLength(8));
       final stored = jsonEncode(documents.documents);
       expect(stored, isNot(contains('secret-password')));
       expect(stored, isNot(contains('private.example.test')));
       expect(stored, isNot(contains('Alex')));
+      expect(stored, isNot(contains('Private radio station')));
+      final radio = await EncryptedScopeStore(
+        EncryptedCloudStore(store: documents),
+      ).read(
+        uid: 'account',
+        profileId: 'profile',
+        scope: 'radioFavorites',
+        passphrase: 'phrase secrète suffisamment longue',
+      );
+      expect(radio?.entries, {'Private radio station': '1'});
+      final radioUpdated = Completer<void>();
+      final radioListener = container.listen(radioFavoritesProvider, (_, next) {
+        if (next.contains('Another station') && !radioUpdated.isCompleted) {
+          radioUpdated.complete();
+        }
+      }, fireImmediately: true);
+      await EncryptedScopeStore(EncryptedCloudStore(store: documents)).write(
+        uid: 'account',
+        profileId: 'profile',
+        scope: 'radioFavorites',
+        passphrase: 'phrase secrète suffisamment longue',
+        snapshot: EncryptedScopeSnapshot(
+          revision: radio!.revision,
+          entries: {...radio.entries, 'Another station': '1'},
+        ),
+      );
+      await container.read(encryptedActivitySyncProvider.notifier).syncAll();
+      await radioUpdated.future.timeout(const Duration(seconds: 5));
+      expect(container.read(radioFavoritesProvider),
+          {'Private radio station', 'Another station'});
+      radioListener.close();
       expect((Hive.box('subscriptions').get('source') as Subscription).password,
           isEmpty);
     } finally {

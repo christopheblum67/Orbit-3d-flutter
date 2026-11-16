@@ -11,16 +11,24 @@ import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 ///
 /// Remplace l'index en mémoire par une base SQLite FTS5 persistante avec :
 /// - Table FTS5 `search_index` avec BM25 natif
-/// - Persistance across restarts (pas de rebuild au démarrage)
+/// - Reconstruction à partir du catalogue courant après redémarrage
 /// - BM25 ranking natif + filtres type/source
 /// - Mise à jour incrémentale possible
 /// - Support synonymes/accents via tokenizer unicode61
 class SearchFtsService {
-  SearchFtsService._();
+  SearchFtsService._() : _testPath = null;
+  SearchFtsService.forTesting(this._testPath);
   static final SearchFtsService instance = SearchFtsService._();
 
+  final String? _testPath;
   Database? _db;
   bool _initialized = false;
+  Future<void> _queue = Future.value();
+  String? _indexedSubscription;
+  List<Movie>? _indexedMovies;
+  List<Series>? _indexedSeries;
+  List<Channel>? _indexedChannels;
+  Map<String, Object> _indexedEntries = {};
 
   static const String _dbName = 'orbit_search.db';
   static const int _schemaVersion = 1;
@@ -28,8 +36,7 @@ class SearchFtsService {
   /// Initialise la base et crée les tables FTS5 si nécessaire.
   Future<void> init() async {
     if (_initialized) return;
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, _dbName);
+    final path = _testPath ?? join(await getDatabasesPath(), _dbName);
 
     _db = await openDatabase(
       path,
@@ -63,14 +70,6 @@ class SearchFtsService {
         tokenize = "unicode61 remove_diacritics 1"
       );
     ''');
-
-    // Index auxiliaire pour filtres rapides par type/source
-    await db.execute('''
-      CREATE INDEX IF NOT EXISTS idx_search_type ON search_index(type);
-    ''');
-    await db.execute('''
-      CREATE INDEX IF NOT EXISTS idx_search_source ON search_index(source);
-    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -98,29 +97,65 @@ class SearchFtsService {
   }) async {
     if (!isReady) await init();
 
-    final batch = _db!.batch();
+    final entries = <String, Object>{};
+    await _db!.transaction((txn) async {
+      await txn.delete('search_index');
+      var batch = txn.batch();
+      var count = 0;
+      Future<void> add(Iterable<Object> items) async {
+        for (final item in items) {
+          final row = _toFtsRow(item);
+          entries['${row['type']}:${row['id']}'] = item;
+          batch.insert('search_index', row);
+          if (++count == 500) {
+            await batch.commit(noResult: true);
+            batch = txn.batch();
+            count = 0;
+            await Future<void>.delayed(Duration.zero);
+          }
+        }
+      }
 
-    // Vider l'index
-    batch.delete('search_index');
-
-    // Films
-    for (final m in movies) {
-      batch.insert('search_index', _toFtsRow(m));
-    }
-
-    // Séries
-    for (final s in series) {
-      batch.insert('search_index', _toFtsRow(s));
-    }
-
-    // Chaînes
-    for (final c in channels) {
-      batch.insert('search_index', _toFtsRow(c));
-    }
-
-    await batch.commit(noResult: true);
+      await add(movies);
+      await add(series);
+      await add(channels);
+      if (count != 0) await batch.commit(noResult: true);
+    });
+    _indexedEntries = entries;
     LoggerService.instance.info(
-        'SearchFtsService rebuild: ${movies.length} films, ${series.length} séries, ${channels.length} chaînes');
+      'SearchFtsService rebuild: ${movies.length} films, ${series.length} séries, ${channels.length} chaînes',
+    );
+  }
+
+  /// La reconstruction et la recherche sont sérialisées entre abonnements.
+  Future<List<SearchFtsHit>> searchCatalogue({
+    required String subscriptionId,
+    required List<Movie> movies,
+    required List<Series> series,
+    required List<Channel> channels,
+    required String query,
+    SearchType? type,
+  }) {
+    final result = Completer<List<SearchFtsHit>>();
+    _queue = _queue.then((_) async {
+      try {
+        await init();
+        if (_indexedSubscription != subscriptionId ||
+            !identical(_indexedMovies, movies) ||
+            !identical(_indexedSeries, series) ||
+            !identical(_indexedChannels, channels)) {
+          await rebuild(movies: movies, series: series, channels: channels);
+          _indexedSubscription = subscriptionId;
+          _indexedMovies = movies;
+          _indexedSeries = series;
+          _indexedChannels = channels;
+        }
+        result.complete(await search(query: query, type: type));
+      } catch (error, stack) {
+        result.completeError(error, stack);
+      }
+    });
+    return result.future;
   }
 
   /// Insère ou met à jour une entrée unique (mise à jour incrémentale).
@@ -158,7 +193,7 @@ class SearchFtsService {
         .trim()
         .split(RegExp(r'\s+'))
         .where((t) => t.isNotEmpty)
-        .map((t) => '$t*')
+        .map((t) => '"${t.replaceAll('"', '""')}"*')
         .join(' ');
 
     final whereClauses = <String>[];
@@ -204,6 +239,7 @@ class SearchFtsService {
             streamUrl: (r['stream_url'] as String?) ?? '',
             categoryId: (r['category_id'] as String?) ?? '',
             rank: (r['rank'] as num).toDouble(),
+            originalObject: _indexedEntries['${r['type']}:${r['id']}'],
           ),
         )
         .toList();
@@ -233,6 +269,7 @@ class SearchFtsService {
   Future<void> clear() async {
     if (!isReady) return;
     await _db!.delete('search_index');
+    _indexedSubscription = null;
   }
 
   /// Ferme la base.
@@ -241,6 +278,11 @@ class SearchFtsService {
       await _db!.close();
       _db = null;
       _initialized = false;
+      _indexedSubscription = null;
+      _indexedMovies = null;
+      _indexedSeries = null;
+      _indexedChannels = null;
+      _indexedEntries = {};
     }
   }
 
@@ -318,6 +360,7 @@ class SearchFtsHit {
     required this.streamUrl,
     required this.categoryId,
     required this.rank,
+    this.originalObject,
   });
 
   final String id;
@@ -329,6 +372,7 @@ class SearchFtsHit {
   final String streamUrl;
   final String categoryId;
   final double rank; // BM25 score (plus bas = meilleur)
+  final Object? originalObject;
 
   /// Convertit vers SearchItem pour compatibilité UI existante.
   SearchItem toSearchItem() {
@@ -343,7 +387,7 @@ class SearchFtsHit {
       score:
           1.0 - (rank / 100).clamp(0.0, 1.0), // conversion BM25 -> score 0..1
       source: source,
-      originalObject: null,
+      originalObject: originalObject,
     );
   }
 }

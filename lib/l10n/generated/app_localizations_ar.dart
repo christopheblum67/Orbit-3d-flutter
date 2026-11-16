@@ -1217,120 +1217,6 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get subtitleSearchOnline => 'ابحث عبر الإنترنت';
-
-  @override
-  String get subtitleSearchOnlineInfo =>
-      'لا يوفّر المزوّد شيئًا لهذا المحتوى. قد يعثر البحث عبر الإنترنت على ترجمة.';
-
-  @override
-  String get subtitleSearchOnlineRunning => 'جارٍ البحث…';
-
-  @override
-  String get subtitleOnlineResults => 'ترجمات عُثر عليها عبر الإنترنت';
-
-  @override
-  String get subtitleOnlineEmpty =>
-      'لم يُعثر على ترجمة عبر الإنترنت لهذا المحتوى.';
-
-  @override
-  String subtitleOnlineDownloads(Object count) {
-    return '$count تنزيل';
-  }
-
-  @override
-  String get subtitleOnlineNoTmdb =>
-      'تعذّر تحديد هذا المحتوى على TMDB: يحتاج البحث عبر الإنترنت إلى معرّفه.';
-
-  @override
-  String get opensubtitlesKeyLabel =>
-      'البحث عن ترجمة عبر الإنترنت (OpenSubtitles)';
-
-  @override
-  String get opensubtitlesKeyHint => 'مفتاح API — اختياري';
-
-  @override
-  String get opensubtitlesKeyActive => 'المفتاح محفوظ: حصة تنزيل أعلى.';
-
-  @override
-  String get opensubtitlesKeyAnonymous =>
-      'بدون مفتاح: البحث متاح، 5 تنزيلات لكل عنوان IP كل 24 ساعة.';
-
-  @override
-  String get opensubtitlesKeyDelete => 'امسح المفتاح';
-
-  @override
-  String get opensubtitlesKeyCheck => 'التحقق من المفتاح';
-
-  @override
-  String get opensubtitlesKeyChecking => 'جارٍ التحقق…';
-
-  @override
-  String get opensubtitlesKeyValid => 'مفتاح صالح: الخدمة تقبله.';
-
-  @override
-  String get opensubtitlesKeyRejected =>
-      'تم رفض المفتاح من الخدمة: تحقق من أنك لصقته كاملًا.';
-
-  @override
-  String get opensubtitlesKeyUnreachable =>
-      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
-
-  @override
-  String get opensubtitlesLoginLabel => 'تسجيل الدخول إلى حساب OpenSubtitles';
-
-  @override
-  String get opensubtitlesLoginHintUsername => 'اسم المستخدم';
-
-  @override
-  String get opensubtitlesLoginHintPassword => 'كلمة المرور';
-
-  @override
-  String get opensubtitlesLoginActive =>
-      'تم حفظ الحساب: ستتمكن التنزيلات من تسجيل الدخول.';
-
-  @override
-  String get opensubtitlesLoginNone =>
-      'لا يوجد حساب: يبقى التنزيل مرفوضًا (503).';
-
-  @override
-  String get opensubtitlesLoginDelete => 'امسح الحساب';
-
-  @override
-  String get opensubtitlesLoginConnect => 'تسجيل الدخول / التحقق';
-
-  @override
-  String get opensubtitlesLoginConnecting => 'جارٍ تسجيل الدخول…';
-
-  @override
-  String get opensubtitlesLoginValid =>
-      'تم قبول الحساب: أصدرت الخدمة رمزًا مميزًا.';
-
-  @override
-  String get opensubtitlesLoginRejected =>
-      'تم رفض بيانات الدخول: تحقق من اسم المستخدم وكلمة المرور.';
-
-  @override
-  String get opensubtitlesLoginUnreachable =>
-      'الخدمة غير متاحة: تحقق من اتصالك وأعد المحاولة.';
-
-  @override
-  String get subtitleOnlineNoApiKey =>
-      'مفتاح OpenSubtitles API مفقود: أدخله في الإعدادات لتفعيل البحث عبر الإنترنت.';
-
-  @override
-  String get subtitleOnlineKeyRejected =>
-      'تم رفض مفتاح OpenSubtitles API: إنه موجود، لكن الخدمة ترفضه. تحقق منه في الإعدادات.';
-
-  @override
-  String get subtitleOnlineQuota =>
-      'تم بلوغ حصة تنزيل OpenSubtitles اليوم. أعد المحاولة غدًا.';
-
-  @override
-  String get subtitleOnlineNeedsLogin =>
-      'يتطلب تنزيل OpenSubtitles حسابًا مسجَّل الدخول، وليس مفتاح API فقط: البحث يعمل، لكن يتم رفض التنزيل.';
-
-  @override
   String get favorites => 'المفضلة';
 
   @override
@@ -1386,9 +1272,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'بيانات API وإعدادات الشبكة. هذه الإعدادات تربط حسابك بخدمات خارجية: مفتاح مشترك يستهلك حصته، وإعداد شبكة خاطئ قد يمنع التطبيق من البدء.';
 
   @override
-  String get advancedSubtitlesProvider => 'مزوّد الترجمة';
-
-  @override
   String get advancedStatus => 'حالة بيانات الاعتماد';
 
   @override
@@ -1432,6 +1315,62 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get avatarCategoryBlackWhite => 'أبيض وأسود';
+
+  @override
+  String get updateTitle => 'التحديثات';
+
+  @override
+  String get updateSettingsSubtitle => 'التحقق من أحدث إصدار رسمي على GitHub';
+
+  @override
+  String get updateChecking => 'جارٍ البحث عن تحديثات…';
+
+  @override
+  String get updateCurrent => 'أحدث إصدار متاح مثبت بالفعل.';
+
+  @override
+  String get updateAvailable => 'يتوفر إصدار جديد:';
+
+  @override
+  String get updateDownloading => 'جارٍ تنزيل ملف APK والتحقق منه…';
+
+  @override
+  String get updateReady => 'جارٍ فتح مثبت Android…';
+
+  @override
+  String get updatePermission =>
+      'اسمح لـ Orbit بتثبيت التطبيقات غير المعروفة في إعدادات Android، ثم عد إلى هنا وأعد المحاولة.';
+
+  @override
+  String get updateNoRelease => 'لا يوجد إصدار مستقر متاح على GitHub.';
+
+  @override
+  String get updateAssetError =>
+      'الإصدار لا يحتوي على ملف APK الرسمي الشامل أو معلومات التحقق منه.';
+
+  @override
+  String get updateInvalidApk =>
+      'ملف APK غير متوافق أو موقّع بمفتاح آخر أو ليس بإصدار Android أحدث. أُلغي التثبيت.';
+
+  @override
+  String get updateIntegrityError =>
+      'فشل التحقق من الملف الذي تم تنزيله. أُلغي التثبيت.';
+
+  @override
+  String get updateGenericError =>
+      'فشل التحديث. تحقق من الاتصال وأعد المحاولة.';
+
+  @override
+  String get updateLater => 'لاحقاً';
+
+  @override
+  String get updateInstall => 'تحديث';
+
+  @override
+  String get updateRetryInstall => 'إعادة محاولة التثبيت';
+
+  @override
+  String get updateRetry => 'إعادة المحاولة';
 
   @override
   String get avatarCategoryPixels => 'بكسلات';

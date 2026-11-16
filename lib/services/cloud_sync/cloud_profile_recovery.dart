@@ -61,6 +61,47 @@ class CloudProfileRecovery {
     _checkAccount(uid);
   }
 
+  /// Publishes missing identities together without replacing existing ones.
+  Future<ProfileCatalogSnapshot> publishMissing(
+    String uid,
+    String passphrase,
+    List<UserProfile> profiles, {
+    void Function()? checkProfiles,
+  }) async {
+    _checkAccount(uid);
+    final selected = <String, Map<String, dynamic>>{};
+    for (final profile in profiles) {
+      if (selected.containsKey(profile.id)) {
+        throw StateError('Un profil a été sélectionné plusieurs fois.');
+      }
+      final data = profile.toMap();
+      validateCloudProfile(data, profile.id);
+      selected[profile.id] = data;
+    }
+    if (selected.isEmpty) throw StateError('Sélectionnez au moins un profil.');
+    final catalog = await load(uid, passphrase);
+    checkProfiles?.call();
+    final missing = Map<String, Map<String, dynamic>>.fromEntries(
+      selected.entries
+          .where((entry) => !catalog.profiles.containsKey(entry.key)),
+    );
+    if (missing.isEmpty) return catalog;
+    _checkAccount(uid);
+    final combined = {...catalog.profiles, ...missing};
+    final revision = await _catalog.save(
+      uid: uid,
+      passphrase: passphrase,
+      snapshot: ProfileCatalogSnapshot(
+          revision: catalog.revision, profiles: combined),
+      checkSession: () {
+        _checkAccount(uid);
+        checkProfiles?.call();
+      },
+    );
+    _checkAccount(uid);
+    return ProfileCatalogSnapshot(revision: revision, profiles: combined);
+  }
+
   Future<void> restore(
     String uid,
     String passphrase,

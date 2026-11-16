@@ -9,8 +9,6 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/home_widget_provider.dart';
-import 'package:orbit_3d_flutter/providers/opensubtitles_api_key_provider.dart';
-import 'package:orbit_3d_flutter/providers/opensubtitles_credentials_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
@@ -30,17 +28,8 @@ class _OrbitAppState extends ConsumerState<OrbitApp> {
     // Riverpod 3 : build() doit être passé avant toute utilisation du notifier.
     ref.read(advancedSettingsProvider);
     ref.read(tmdbApiKeyOverrideProvider);
-    ref.read(openSubtitlesApiKeyProvider);
-    ref.read(openSubtitlesCredentialsProvider);
     unawaited(ref.read(advancedSettingsProvider.notifier).load());
     unawaited(ref.read(tmdbApiKeyOverrideProvider.notifier).load());
-    // Clé OpenSubtitles pour la recherche de sous-titres en ligne. Facultative :
-    // sans elle, la recherche fonctionne mais avec un quota de téléchargement
-    // anonyme bien plus bas.
-    unawaited(ref.read(openSubtitlesApiKeyProvider.notifier).load());
-    // Compte OpenSubtitles pour les téléchargements authentifiés. Facultatif :
-    // sans lui, /download reste refusé (503) même avec une clé valide.
-    unawaited(ref.read(openSubtitlesCredentialsProvider.notifier).load());
     // Analytics : init non bloquante (fire-and-forget après le premier frame).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(ref.read(analyticsServiceProvider).init());

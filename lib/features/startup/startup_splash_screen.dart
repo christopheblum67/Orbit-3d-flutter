@@ -46,6 +46,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   bool _navigated = false;
   bool _finishing = false;
   bool _invalidConfiguration = false;
+  bool _abandoned = false;
   bool _showBranding = false;
   bool _refreshStalled = false;
   final Stopwatch _splashWatch = Stopwatch()..start();
@@ -68,7 +69,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       loadRadioChannels: () => container.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
       deferredStillValid: () =>
-          !_invalidConfiguration &&
+          !_invalidConfiguration && !_abandoned &&
           container.read(activeSubscriptionProvider)?.id == _startingSubscriptionId,
       steps: widget.remainingPhase
           ? StartupRefreshController.remainingSteps
@@ -216,6 +217,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 failureMessage: _refreshStalled
                     ? _stalledMessage(_controller.currentStep?.label)
                     : null,
+                onOpenHome: _refreshStalled ? () => _leaveLoading('/home') : null,
+                onOpenSubscriptions: _refreshStalled
+                    ? () => _leaveLoading('/subscriptions')
+                    : null,
               ),
             ),
           ],
@@ -265,6 +270,16 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     _invalidConfiguration = true;
     _navigated = true;
     context.go('/subscriptions?connectionError=1');
+  }
+
+  void _leaveLoading(String destination) {
+    if (_navigated) return;
+    _navigated = true;
+    _abandoned = true;
+    if (destination == '/home') {
+      ref.read(startupRefreshAttemptProvider.notifier).markCompleted();
+    }
+    context.go(destination);
   }
 
   Future<bool> _checkAutoResume() async {

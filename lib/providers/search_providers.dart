@@ -19,8 +19,9 @@ final searchIndexServiceProvider = Provider<SearchIndexService>(
   (ref) => SearchIndexService(),
 );
 
-final searchServiceProvider = Provider<SearchService>((ref) {
-  ref.watch(activeSubscriptionProvider);
+final Provider<SearchService> searchServiceProvider =
+    Provider<SearchService>((ref) {
+  final subscriptionId = ref.watch(activeSubscriptionProvider)?.id;
   ref.watch(favoritesProvider);
   final service = SearchService(
     api: ref.watch(apiServiceProvider),
@@ -39,17 +40,42 @@ final searchServiceProvider = Provider<SearchService>((ref) {
           .loadForProfile(profile.id);
     },
     loadCatalogue: () async {
-      final movies = ref.read(moviesProvider).value ?? const <Movie>[];
-      final series = ref.read(seriesProvider).value ?? const <Series>[];
-      final channels =
-          ref.read(liveChannelsProvider).value ?? const <Channel>[];
+      if (!ref.mounted ||
+          subscriptionId == null ||
+          ref.read(activeSubscriptionProvider)?.id != subscriptionId) {
+        return null;
+      }
+      final movieState = ref.read(moviesProvider);
+      final seriesState = ref.read(seriesProvider);
+      final channelState = ref.read(liveChannelsProvider);
+      if (movieState.isLoading ||
+          seriesState.isLoading ||
+          channelState.isLoading ||
+          movieState.hasError ||
+          seriesState.hasError ||
+          channelState.hasError) {
+        return null;
+      }
+      final movies = movieState.value ?? const <Movie>[];
+      final series = seriesState.value ?? const <Series>[];
+      final channels = channelState.value ?? const <Channel>[];
       return SearchCatalogue(
         movies: movies,
         series: series,
         channels: channels,
       );
     },
+    subscriptionId: subscriptionId,
   );
+  void refreshSearch<T>(AsyncValue<T>? previous, AsyncValue<T> next) {
+    service.invalidateCatalogueCache();
+    ref.invalidate(searchProvider);
+    ref.invalidate(searchFilteredProvider);
+  }
+
+  ref.listen(moviesProvider, refreshSearch);
+  ref.listen(seriesProvider, refreshSearch);
+  ref.listen(liveChannelsProvider, refreshSearch);
   ref.onDispose(service.dispose);
   return service;
 });

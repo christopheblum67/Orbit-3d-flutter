@@ -48,6 +48,7 @@ class HardwareSpecs {
     required this.sdkInt,
     required this.connection,
     required this.recommendedProfile,
+    this.chipset = '',
   });
 
   final String deviceName;
@@ -59,6 +60,17 @@ class HardwareSpecs {
   final int sdkInt;
   final ConnectionKind connection;
   final DeviceProfile recommendedProfile;
+  final String chipset;
+
+  bool get limitMultiView =>
+      isTv &&
+      (lowRam ||
+          (totalRamMb > 0 && totalRamMb < 3072) ||
+          chipset.toLowerCase().contains('realtek') ||
+          RegExp(r'\brtd\d', caseSensitive: false).hasMatch(chipset));
+
+  int safeMaxMultiView(DeviceProfile profile) =>
+      limitMultiView && profile.maxMultiView > 2 ? 2 : profile.maxMultiView;
 
   String get memoryLabel => totalRamMb > 0
       ? (totalRamMb >= 1024
@@ -85,6 +97,12 @@ class HardwareDetectorService {
 
   static const MethodChannel _memoryChannel = MethodChannel('orbit/hardware');
 
+  static bool _isTv(AndroidDeviceInfo info) =>
+      info.systemFeatures.contains('android.software.leanback');
+
+  static Future<bool> isTv() async =>
+      _isTv(await DeviceInfoPlugin().androidInfo);
+
   static Future<HardwareSpecs> analyze() async {
     final android = DeviceInfoPlugin().androidInfo;
     String deviceName = 'Appareil Android';
@@ -94,6 +112,7 @@ class HardwareDetectorService {
     var sdkInt = 0;
     var totalRamMb = 0;
     var lowRam = false;
+    var chipset = '';
 
     final info = (await safeAsync<AndroidDeviceInfo>(
       () => android,
@@ -103,9 +122,10 @@ class HardwareDetectorService {
     if (info != null) {
       deviceName = '${info.brand} ${info.model}'.trim();
       brand = info.brand;
-      isTv = info.systemFeatures.contains('android.software.leanback');
+      isTv = _isTv(info);
       isPhysical = info.isPhysicalDevice;
       sdkInt = info.version.sdkInt;
+      chipset = '${info.hardware} ${info.board}';
     }
     // Diagnostic non bloquant : valeurs par défaut conservées.
 
@@ -146,6 +166,7 @@ class HardwareDetectorService {
       lowRam: lowRam,
       sdkInt: sdkInt,
       connection: connection,
+      chipset: chipset,
       recommendedProfile: _recommend(
         totalRamMb: totalRamMb,
         lowRam: lowRam,

@@ -532,7 +532,7 @@ class ApiService {
     buildApiUrl: _playerApiUrl,
   );
 
-  Future<({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>
+  Future<({List<SubtitleTrackRef> tracks, bool guessed})>
       discoverSubtitles(String contentId, {required bool isSeries, String? streamId}) =>
       _subtitleService.discoverSubtitles(contentId, isSeries: isSeries, streamId: streamId);
 

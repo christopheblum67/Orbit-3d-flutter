@@ -21,13 +21,13 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 Future<void> _recordCategoryCounts(
   Ref ref,
   CategoryChangeKey key,
-  Iterable<String> categoryIds,
+  Iterable<CatalogItemIdentity> items,
 ) async {
   if (!ref.mounted) return;
   try {
     await ref.read(categoryCountTrackerProvider).record(
           key,
-          categoryIds,
+          items,
           refresh: ApiService.bypassCatalogCache,
         );
     if (ref.mounted) ref.invalidate(categoryIncreasesProvider(key));
@@ -106,7 +106,10 @@ final moviesProvider = FutureProvider<List<Movie>>(
         await _recordCategoryCounts(
           ref,
           (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
-          playlist.movies.map((m) => m.categoryId),
+          playlist.movies.map((m) => (
+                id: movieChangeId(m, isM3u: true),
+                categoryId: m.categoryId,
+              )),
         );
         return filter.visibleList(playlist.movies);
       });
@@ -135,7 +138,7 @@ final moviesProvider = FutureProvider<List<Movie>>(
     await _recordCategoryCounts(
       ref,
       (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
-      fetched.map((m) => m.categoryId),
+      fetched.map((m) => (id: movieChangeId(m, isM3u: false), categoryId: m.categoryId)),
     );
     // Les catégories masquées ne sont pas gardées en mémoire (TV 2 Go).
     final movies = hiddenVod.isEmpty
@@ -206,7 +209,7 @@ final seriesProvider = FutureProvider<List<Series>>(
         await _recordCategoryCounts(
           ref,
           (subscriptionId: sub.id, catalog: CategoryCatalog.series),
-          playlist.series.map((s) => s.categoryId),
+          playlist.series.map((s) => (id: s.id, categoryId: s.categoryId)),
         );
         return filter.visibleList(playlist.series);
       });
@@ -219,7 +222,7 @@ final seriesProvider = FutureProvider<List<Series>>(
     await _recordCategoryCounts(
       ref,
       (subscriptionId: sub.id, catalog: CategoryCatalog.series),
-      fetched.map((s) => s.categoryId),
+      fetched.map((s) => (id: s.id, categoryId: s.categoryId)),
     );
     return filter.visibleList(
       hiddenSeries.isEmpty

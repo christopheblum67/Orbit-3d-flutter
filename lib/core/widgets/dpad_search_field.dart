@@ -14,11 +14,15 @@ class DpadSearchField extends ConsumerStatefulWidget {
     required this.controller,
     required this.hint,
     required this.onChanged,
+    this.autofocus = false,
+    this.onNavigateDown,
   });
 
   final TextEditingController controller;
   final String hint;
   final ValueChanged<String> onChanged;
+  final bool autofocus;
+  final VoidCallback? onNavigateDown;
 
   @override
   ConsumerState<DpadSearchField> createState() => _DpadSearchFieldState();
@@ -55,8 +59,7 @@ class _DpadSearchFieldState extends ConsumerState<DpadSearchField> {
       if (key == LogicalKeyboardKey.select ||
           key == LogicalKeyboardKey.enter ||
           key == LogicalKeyboardKey.gameButtonA) {
-        setState(() => _editing = true);
-        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+        _startEditing();
         return KeyEventResult.handled;
       }
       final direction = switch (key) {
@@ -67,20 +70,40 @@ class _DpadSearchFieldState extends ConsumerState<DpadSearchField> {
         _ => null,
       };
       if (direction != null) {
-        node.focusInDirection(direction);
+        if (direction == TraversalDirection.down &&
+            widget.onNavigateDown != null) {
+          widget.onNavigateDown!();
+        } else {
+          node.focusInDirection(direction);
+        }
         return KeyEventResult.handled;
       }
     } else if (key == LogicalKeyboardKey.arrowDown ||
         key == LogicalKeyboardKey.arrowUp) {
       setState(() => _editing = false);
-      node.focusInDirection(
-        key == LogicalKeyboardKey.arrowDown
-            ? TraversalDirection.down
-            : TraversalDirection.up,
-      );
+      if (key == LogicalKeyboardKey.arrowDown &&
+          widget.onNavigateDown != null) {
+        widget.onNavigateDown!();
+      } else {
+        node.focusInDirection(
+          key == LogicalKeyboardKey.arrowDown
+              ? TraversalDirection.down
+              : TraversalDirection.up,
+        );
+      }
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  void _startEditing() {
+    if (_editing) return;
+    setState(() => _editing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _editing && _focus.hasFocus) {
+        SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+      }
+    });
   }
 
   @override
@@ -93,10 +116,11 @@ class _DpadSearchFieldState extends ConsumerState<DpadSearchField> {
         return TextField(
           controller: widget.controller,
           focusNode: _focus,
+          autofocus: widget.autofocus,
           readOnly: dpad && !_editing,
           onChanged: widget.onChanged,
           onTap: () {
-            if (!_editing) setState(() => _editing = true);
+            _startEditing();
           },
           onEditingComplete: () {
             setState(() => _editing = false);

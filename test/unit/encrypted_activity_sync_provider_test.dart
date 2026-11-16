@@ -55,6 +55,8 @@ class _Sync extends EncryptedScopeSynchronizer {
           baselines: HiveScopeBaselineStore(),
         );
   final scopes = <String>[];
+  final calls = <(String, String, ScopeConflictChoice?)>[];
+  (String, String)? conflict;
   Completer<void>? gate;
   final started = Completer<void>();
 
@@ -69,9 +71,13 @@ class _Sync extends EncryptedScopeSynchronizer {
     ScopeConflictChoice? conflictChoice,
   }) async {
     scopes.add(scope);
+    calls.add((profileId, scope, conflictChoice));
     if (!started.isCompleted) started.complete();
     if (gate != null) await gate!.future;
     checkSession();
+    if (conflict == (profileId, scope) && conflictChoice == null) {
+      throw ScopeMergeConflict({'conflict'});
+    }
     return false;
   }
 }
@@ -97,6 +103,7 @@ void main() {
     ]) {
       await Hive.openBox(name);
     }
+    await Hive.box('profiles').putAll({'p1': {}, 'p2': {}});
   });
   tearDown(() async {
     await Hive.close();
@@ -153,6 +160,7 @@ void main() {
       'preferences',
       'profile',
       'subscriptions',
+      'radioFavorites',
     });
     expect(container.read(encryptedActivitySyncProvider).unlocked, isTrue);
     container
@@ -193,5 +201,138 @@ void main() {
     await operation;
     expect(container.read(encryptedActivitySyncProvider).unlocked, isFalse);
     expect(sync.scopes, hasLength(1));
+  });
+
+  test('removing a selected profile stops its in-flight synchronization',
+      () async {
+    final sync = _Sync()..gate = Completer<void>();
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    final operation =
+        container.read(encryptedActivitySyncProvider.notifier).unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+      }),
+      profileIds: {'p1'},
+    );
+    await sync.started.future;
+    await Hive.box('profiles').delete('p1');
+    sync.gate!.complete();
+    await operation;
+    expect(container.read(encryptedActivitySyncProvider).error, isNotNull);
+    expect(sync.calls, hasLength(1));
+  });
+
+  testWidgets('periodic polling does not restart a slow sync', (tester) async {
+    final sync = _Sync()..gate = Completer<void>();
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    final operation =
+        container.read(encryptedActivitySyncProvider.notifier).unlock(
+              auth: auth,
+              uid: 'account',
+              phrase: 'phrase',
+              catalog: ProfileCatalogSnapshot(
+                revision: 1,
+                profiles: {
+                  'p1': {'id': 'p1', 'firstName': 'Alex'}
+                },
+              ),
+            );
+    await tester.pump();
+    expect(sync.scopes, ['favorites']);
+    await tester.pump(const Duration(minutes: 5));
+    sync.gate!.complete();
+    await tester.pump();
+    await operation;
+    expect(sync.scopes, hasLength(8));
+    expect(container.read(encryptedActivitySyncProvider).busy, isFalse);
+    expect(container.read(encryptedActivitySyncProvider).lastSyncAt, isNotNull);
+    container.read(encryptedActivitySyncProvider.notifier).lock();
+  });
+
+  test('synchronizes each selected profile and global scopes once', () async {
+    final sync = _Sync();
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    final notifier = container.read(encryptedActivitySyncProvider.notifier);
+    await notifier.unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+        'p2': {'id': 'p2', 'firstName': 'Alex'},
+      }),
+      profileIds: {'p1', 'p2'},
+    );
+    final calls = sync.calls.map((call) => (call.$1, call.$2)).toSet();
+    expect(calls.where((call) => call.$1 == 'p1'), hasLength(6));
+    expect(calls.where((call) => call.$1 == 'p2'), hasLength(6));
+    expect(calls.where((call) => call.$1 == '__global__'), hasLength(2));
+    container
+        .read(currentProfileProvider.notifier)
+        .setUserProfile(profile('p2'));
+    expect(container.read(encryptedActivitySyncProvider).unlocked, isTrue);
+  });
+
+  test('conflicts are resolved only for the affected profile', () async {
+    final sync = _Sync()..conflict = ('p2', 'favorites');
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    final notifier = container.read(encryptedActivitySyncProvider.notifier);
+    await notifier.unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+        'p2': {'id': 'p2', 'firstName': 'Alex'},
+      }),
+      profileIds: {'p1', 'p2'},
+    );
+    expect(
+        container.read(encryptedActivitySyncProvider).conflictProfileId, 'p2');
+    await notifier.resolveConflict(ScopeConflictChoice.local);
+    expect(
+        sync.calls, contains(('p2', 'favorites', ScopeConflictChoice.local)));
+    expect(sync.calls,
+        isNot(contains(('p1', 'favorites', ScopeConflictChoice.local))));
+    expect(container.read(encryptedActivitySyncProvider).error, isNull);
   });
 }

@@ -34,7 +34,6 @@ void main() {
     );
     expect(params['action'], 'get_series_info');
     expect(params['series_id'], 'series-1');
-    expect(result.tmdbId, 42);
     expect(result.guessed, isFalse);
     expect(result.tracks.single.url, 'https://example.test/123_fr.srt');
   });

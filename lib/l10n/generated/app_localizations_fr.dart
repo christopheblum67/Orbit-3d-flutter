@@ -1243,121 +1243,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get subtitleSearchOnline => 'Rechercher en ligne';
-
-  @override
-  String get subtitleSearchOnlineInfo =>
-      'Le panel ne propose rien pour ce contenu. Une recherche en ligne peut trouver un sous-titre.';
-
-  @override
-  String get subtitleSearchOnlineRunning => 'Recherche en cours…';
-
-  @override
-  String get subtitleOnlineResults => 'Sous-titres trouvés en ligne';
-
-  @override
-  String get subtitleOnlineEmpty =>
-      'Aucun sous-titre trouvé en ligne pour ce contenu.';
-
-  @override
-  String subtitleOnlineDownloads(Object count) {
-    return '$count téléchargements';
-  }
-
-  @override
-  String get subtitleOnlineNoTmdb =>
-      'Impossible d\'identifier ce contenu sur TMDB : la recherche en ligne a besoin de son identifiant.';
-
-  @override
-  String get opensubtitlesKeyLabel =>
-      'Recherche de sous-titres en ligne (OpenSubtitles)';
-
-  @override
-  String get opensubtitlesKeyHint => 'Clé API — facultative';
-
-  @override
-  String get opensubtitlesKeyActive =>
-      'Clé enregistrée : quota de téléchargement relevé.';
-
-  @override
-  String get opensubtitlesKeyAnonymous =>
-      'Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.';
-
-  @override
-  String get opensubtitlesKeyDelete => 'Effacer la clé';
-
-  @override
-  String get opensubtitlesKeyCheck => 'Vérifier la clé';
-
-  @override
-  String get opensubtitlesKeyChecking => 'Vérification en cours…';
-
-  @override
-  String get opensubtitlesKeyValid => 'Clé valide : le service l\'accepte.';
-
-  @override
-  String get opensubtitlesKeyRejected =>
-      'Clé refusée par le service : vérifiez que vous l\'avez copiée en entier.';
-
-  @override
-  String get opensubtitlesKeyUnreachable =>
-      'Service injoignable : vérifiez votre connexion et réessayez.';
-
-  @override
-  String get opensubtitlesLoginLabel => 'Connexion au compte OpenSubtitles';
-
-  @override
-  String get opensubtitlesLoginHintUsername => 'Identifiant';
-
-  @override
-  String get opensubtitlesLoginHintPassword => 'Mot de passe';
-
-  @override
-  String get opensubtitlesLoginActive =>
-      'Compte enregistré : les téléchargements pourront se connecter.';
-
-  @override
-  String get opensubtitlesLoginNone =>
-      'Aucun compte : le téléchargement reste refusé (503).';
-
-  @override
-  String get opensubtitlesLoginDelete => 'Effacer le compte';
-
-  @override
-  String get opensubtitlesLoginConnect => 'Se connecter / vérifier';
-
-  @override
-  String get opensubtitlesLoginConnecting => 'Connexion en cours…';
-
-  @override
-  String get opensubtitlesLoginValid =>
-      'Compte accepté : le service délivre un jeton.';
-
-  @override
-  String get opensubtitlesLoginRejected =>
-      'Identifiants refusés : vérifiez l\'identifiant et le mot de passe.';
-
-  @override
-  String get opensubtitlesLoginUnreachable =>
-      'Service injoignable : vérifiez votre connexion et réessayez.';
-
-  @override
-  String get subtitleOnlineNoApiKey =>
-      'Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.';
-
-  @override
-  String get subtitleOnlineKeyRejected =>
-      'Clé API OpenSubtitles refusée : elle est présente mais le service la rejette. Vérifiez sa validité dans Réglages.';
-
-  @override
-  String get subtitleOnlineQuota =>
-      'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.';
-
-  @override
-  String get subtitleOnlineNeedsLogin =>
-      'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.';
-
-  @override
   String get favorites => 'Favoris';
 
   @override
@@ -1414,9 +1299,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Identifiants d\'API et paramètres réseau. Ces réglages engagent votre compte auprès de services tiers : une clé partagée consomme son quota, et une mauvaise manipulation du réseau peut empêcher l\'application de démarrer.';
 
   @override
-  String get advancedSubtitlesProvider => 'Fournisseur de sous-titres';
-
-  @override
   String get advancedStatus => 'État des identifiants';
 
   @override
@@ -1460,6 +1342,65 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get avatarCategoryBlackWhite => 'Noir & Blanc';
+
+  @override
+  String get updateTitle => 'Mises à jour';
+
+  @override
+  String get updateSettingsSubtitle =>
+      'Vérifier la dernière version officielle sur GitHub';
+
+  @override
+  String get updateChecking => 'Vérification en cours…';
+
+  @override
+  String get updateCurrent =>
+      'Vous utilisez déjà la dernière version disponible.';
+
+  @override
+  String get updateAvailable => 'Une nouvelle version est disponible :';
+
+  @override
+  String get updateDownloading => 'Téléchargement et vérification de l’APK…';
+
+  @override
+  String get updateReady => 'Ouverture de l’installateur Android…';
+
+  @override
+  String get updatePermission =>
+      'Autorisez Orbit à installer des applications inconnues dans les réglages Android, puis revenez ici et réessayez.';
+
+  @override
+  String get updateNoRelease =>
+      'Aucune release stable n’est disponible sur GitHub.';
+
+  @override
+  String get updateAssetError =>
+      'La release ne contient pas l’APK universel officiel ou ses informations de vérification.';
+
+  @override
+  String get updateInvalidApk =>
+      'APK incompatible, signé avec une autre clé ou version Android non supérieure. Installation annulée.';
+
+  @override
+  String get updateIntegrityError =>
+      'La vérification du fichier téléchargé a échoué. Installation annulée.';
+
+  @override
+  String get updateGenericError =>
+      'La mise à jour a échoué. Vérifiez la connexion et réessayez.';
+
+  @override
+  String get updateLater => 'Plus tard';
+
+  @override
+  String get updateInstall => 'Mettre à jour';
+
+  @override
+  String get updateRetryInstall => 'Réessayer l’installation';
+
+  @override
+  String get updateRetry => 'Réessayer';
 
   @override
   String get avatarCategoryPixels => 'Pixels';

@@ -11,7 +11,7 @@ import 'package:orbit_3d_flutter/models/movie.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
-import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -614,10 +614,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           leading: item.posterUrl.isNotEmpty
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: CachedImage(
+                  child: OrbitCachedImage(
                     imageUrl: item.posterUrl,
                     width: 56,
                     height: 84,
+                    memCacheWidth:
+                        (56 * MediaQuery.devicePixelRatioOf(context)).ceil(),
                     fit: BoxFit.cover,
                     errorWidget: (_, __, ___) => _placeholderIcon(item.type),
                   ),

@@ -40,7 +40,8 @@ class UserProfile {
 
   bool get isChild => profileType == ProfileType.child;
   bool get isExpert => profileType == ProfileType.expert;
-  bool get hasPin => pinHash != null;
+  bool get hasPin => pinHash != null && pinHash!.trim().isNotEmpty;
+  bool get multiTvEnabled => settings['multiTvEnabled'] != false;
 
   int get age => DateTime.now().difference(dateOfBirth).inDays ~/ 365;
 
@@ -110,7 +111,8 @@ class UserProfile {
         (e) => e.name == '${map['profileType']}',
         orElse: () => ProfileType.adult,
       ),
-      pinHash: map['pinHash']?.toString(),
+      pinHash: (map.containsKey('pinHash') ? map['pinHash'] : map['pin_hash'])
+          ?.toString(),
       settings: mapOf(map['settings']),
       lastActiveAt: map['lastActiveAt'] != null
           ? DateTime.tryParse('${map['lastActiveAt']}')

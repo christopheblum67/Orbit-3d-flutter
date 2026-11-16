@@ -11,6 +11,7 @@ import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart'
 
 class _MemoryStore implements EncryptedDocumentStore {
   final documents = <String, Map<String, dynamic>>{};
+  int writes = 0;
   void Function()? afterRead;
 
   @override
@@ -31,6 +32,7 @@ class _MemoryStore implements EncryptedDocumentStore {
     if ((documents[key]?['revision'] ?? 0) != expectedRevision) {
       throw const CloudSyncConflict();
     }
+    writes++;
     documents[key] = data;
   }
 }
@@ -48,6 +50,45 @@ UserProfile _profile(String id, {ProfileType type = ProfileType.child}) =>
     );
 
 void main() {
+  test('rejects changed profiles before a grouped publication', () async {
+    final store = _MemoryStore();
+    final recovery = CloudProfileRecovery(
+      catalog: EncryptedProfileCatalog(EncryptedCloudStore(store: store)),
+      currentUid: () => 'account',
+      addLocalProfile: (_, __) async {},
+    );
+    await expectLater(
+      recovery.publishMissing('account', '123456', [_profile('one')],
+          checkProfiles: () => throw StateError('changed')),
+      throwsStateError,
+    );
+    expect(store.writes, 0);
+  });
+
+  test(
+      'publishes selected missing profiles atomically without replacing others',
+      () async {
+    final store = _MemoryStore();
+    final recovery = CloudProfileRecovery(
+      catalog: EncryptedProfileCatalog(EncryptedCloudStore(store: store)),
+      currentUid: () => 'account',
+      addLocalProfile: (_, __) async {},
+    );
+    const secret = '1234567890';
+    await recovery.publish('account', secret, _profile('existing'));
+    final before =
+        (await recovery.load('account', secret)).profiles['existing'];
+    final result = await recovery.publishMissing('account', secret, [
+      _profile('existing', type: ProfileType.adult),
+      _profile('one'),
+      _profile('two'),
+    ]);
+    expect(store.writes, 2);
+    expect(result.profiles.keys, containsAll(['existing', 'one', 'two']));
+    expect(result.profiles['existing'], before);
+    expect((await recovery.load('account', secret)).profiles, result.profiles);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   test(
       'encrypted manual backup and explicit recovery preserve local identities',
       () async {

@@ -15,6 +15,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
@@ -149,6 +150,13 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           sort: sort,
           limit: limit,
           offset: offset,
+        ),
+        fetchAfter: (limit, last) => CatalogDb.instance.queryMovies(
+          subKey,
+          filter: filter,
+          sort: sort,
+          limit: limit,
+          after: last == null ? null : CatalogCursor.fromMovie(last),
         ),
         onChange: () {
           if (mounted) setState(() {});
@@ -489,19 +497,20 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     ScrollController? scrollController,
     bool listLoading = false,
   }) {
-    final subscriptionId = ref.watch(activeSubscriptionProvider)?.id;
-    final increases = subscriptionId == null
-        ? const <String, int>{}
+    final subscription = ref.watch(activeSubscriptionProvider);
+    final subscriptionId = subscription?.id;
+    final changes = subscriptionId == null
+        ? const CategoryChanges()
         : ref.watch(categoryIncreasesProvider((
               subscriptionId: subscriptionId,
               catalog: CategoryCatalog.movies,
-            ))).value ?? const <String, int>{};
+            ))).value ?? const CategoryChanges();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CategoriesRail(
           categories: railCategories,
-          increasedCounts: increases,
+          increasedCounts: changes.categories,
           selectedId: _selectedCategoryId,
           focusSelectedOnMount: ref.read(tvModeNotifierProvider).enabled,
           onSelected: (id) => setState(() => _selectedCategoryId = id),
@@ -578,6 +587,12 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                                 ? null
                                 : ValueKey(movie.id),
                             movie: movie,
+                            highlightTitle: changes.newIds.contains(
+                              movieChangeId(
+                                movie,
+                                isM3u: subscription?.type == SubscriptionType.m3u,
+                              ),
+                            ),
                             enrichment: enrichments[movie.id],
                             affinity: affinity,
                           );
@@ -616,11 +631,13 @@ class _VodTile extends ConsumerWidget {
     required this.movie,
     required this.enrichment,
     required this.affinity,
+    required this.highlightTitle,
   });
 
   final Movie movie;
   final TmdbRankEntry? enrichment;
   final ProfileAffinityScorer? affinity;
+  final bool highlightTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -674,6 +691,7 @@ class _VodTile extends ConsumerWidget {
       child: MediaCard(
         ratingAboveAffinity: true,
         title: movie.title,
+        highlightTitle: highlightTitle,
         posterUrl: movie.posterUrl.isNotEmpty
             ? movie.posterUrl
             : (enrichment?.posterUrl ?? ''),

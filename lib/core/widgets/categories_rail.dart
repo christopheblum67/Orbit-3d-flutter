@@ -27,7 +27,7 @@ class CategoriesRail extends StatelessWidget {
   final ValueChanged<String> onSelected;
   final String title;
   final bool focusSelectedOnMount;
-  final Map<String, int> increasedCounts;
+  final Map<String, ({int total, int added})> increasedCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -63,10 +63,11 @@ class CategoriesRail extends StatelessWidget {
               key: ValueKey(category.id),
               name: XtreamTaxonomy.cleanCategory(category.name),
               count: category.count,
-              countIncreased: increasedCounts[category.id] == category.count,
+              addedCount: increasedCounts[category.id]?.total == category.count
+                  ? increasedCounts[category.id]!.added
+                  : 0,
               selected: category.id == selectedId,
-              initialFocus:
-                  focusSelectedOnMount && category.id == selectedId,
+              initialFocus: focusSelectedOnMount && category.id == selectedId,
               compact: !isWide,
               onTap: () => onSelected(category.id),
             ),
@@ -85,7 +86,7 @@ class _FocusableCategoryTile extends StatefulWidget {
     required this.onTap,
     required this.initialFocus,
     this.count = 0,
-    this.countIncreased = false,
+    this.addedCount = 0,
   });
 
   final String name;
@@ -94,7 +95,7 @@ class _FocusableCategoryTile extends StatefulWidget {
   final VoidCallback onTap;
   final bool initialFocus;
   final int count;
-  final bool countIncreased;
+  final int addedCount;
 
   @override
   State<_FocusableCategoryTile> createState() => _FocusableCategoryTileState();
@@ -194,13 +195,16 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
                     if (widget.count > 0)
                       TextSpan(
                         text: ' (${widget.count})',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    if (widget.addedCount > 0)
+                      TextSpan(
+                        text: ' (+${widget.addedCount})',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: widget.countIncreased
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.redAccent.shade100
-                                  : Colors.red.shade800)
-                              : null,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.redAccent.shade100
+                              : Colors.red.shade800,
                         ),
                       ),
                   ],

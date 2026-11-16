@@ -65,13 +65,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           IconButton(
             tooltip: l.addSubscription,
             icon: const Icon(Icons.add_rounded),
-            onPressed: () => _showAddSubscriptionDialog(context, ref),
+            onPressed: () => _showAddSubscriptionDialog(context),
           ),
         ],
       ),
       body: subs.isEmpty
           ? _EmptyState(
-              onAdd: () => _showAddSubscriptionDialog(context, ref),
+              onAdd: () => _showAddSubscriptionDialog(context),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -115,7 +115,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                 const SizedBox(height: 12),
                 if (activeId == null)
                   _NoActiveBanner(
-                    onAdd: () => _showAddSubscriptionDialog(context, ref),
+                    onAdd: () => _showAddSubscriptionDialog(context),
                   ),
                 Wrap(
                   alignment: WrapAlignment.center,
@@ -145,15 +145,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               isActive: isActive,
               onTap: () async {
                 if (!isActive) {
-                  await ref
-                      .read(subscriptionsProvider.notifier)
-                      .setActive(sub.id);
-                  if (!context.mounted) return;
-                  // Régénère complètement les flux (catalogue, EPG, replays)
-                  // via l'écran de démarrage, comme au lancement de l'app :
-                  // après la bascule on arrive sur l'accueil avec les données
-                  // du nouvel abonnement.
-                  context.go('/startup');
+                  await _activateSubscription(sub);
                 }
               },
               onTest: () =>
@@ -167,13 +159,35 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     ];
   }
 
-  void _showAddSubscriptionDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
+  Future<void> _activateSubscription(Subscription sub) async {
+    try {
+      await ref.read(subscriptionsProvider.notifier).setActive(sub.id);
+      if (mounted) context.go('/startup');
+    } catch (e, st) {
+      LoggerService.instance.error(
+        'SubscriptionsScreen.activateSubscription failed',
+        error: e,
+        stackTrace: st,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d’activer l’abonnement.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showAddSubscriptionDialog(BuildContext context) async {
+    final added = await showDialog<Subscription>(
       context: context,
-      builder: (_) => _SubscriptionFormDialog(
-        onSaved: () => ref.invalidate(subscriptionsProvider),
-      ),
+      builder: (_) => const _SubscriptionFormDialog(),
     );
+    if (!context.mounted || added == null) return;
+    final activate = await showDialog<bool>(
+      context: context,
+      builder: (_) => _AddedSubscriptionDialog(subscription: added),
+    );
+    if (activate == true && mounted) await _activateSubscription(added);
   }
 
   void _showEditSubscriptionDialog(
@@ -185,7 +199,6 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       context: context,
       builder: (_) => _SubscriptionFormDialog(
         subscription: sub,
-        onSaved: () => ref.invalidate(subscriptionsProvider),
       ),
     );
   }
@@ -327,7 +340,7 @@ class _EmptyState extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -652,11 +665,158 @@ class _ActiveBadge extends StatelessWidget {
   }
 }
 
+class _AddedSubscriptionDialog extends ConsumerStatefulWidget {
+  const _AddedSubscriptionDialog({required this.subscription});
+
+  final Subscription subscription;
+
+  @override
+  ConsumerState<_AddedSubscriptionDialog> createState() =>
+      _AddedSubscriptionDialogState();
+}
+
+class _AddedSubscriptionDialogState
+    extends ConsumerState<_AddedSubscriptionDialog> {
+  bool _testing = false;
+  String? _result;
+  final _testFocus = FocusNode();
+  final _activateFocus = FocusNode();
+  final _cancelFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _testFocus.dispose();
+    _activateFocus.dispose();
+    _cancelFocus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleNavigation(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_testFocus.hasFocus) {
+        (_testing ? _cancelFocus : _activateFocus).requestFocus();
+      } else if (_activateFocus.hasFocus) {
+        _cancelFocus.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_cancelFocus.hasFocus) {
+        (_testing ? _testFocus : _activateFocus).requestFocus();
+      } else if (_activateFocus.hasFocus) {
+        _testFocus.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Future<void> _test() async {
+    if (_testing) return;
+    setState(() {
+      _testing = true;
+      _result = null;
+    });
+    try {
+      await ref.read(subscriptionsProvider.notifier).testConnection(
+            widget.subscription,
+          );
+      if (!mounted) return;
+      final updated = ref
+          .read(subscriptionsProvider)
+          .where((sub) => sub.id == widget.subscription.id)
+          .firstOrNull;
+      final message = switch (updated?.lastTestResult) {
+        TestResultStatus.success => 'Test de connexion réussi.',
+        TestResultStatus.error => ConnectionErrorAnalyzer.analyze(
+            updated?.lastTestError ?? '',
+            type: widget.subscription.type,
+          ).message,
+        _ => 'Le résultat du test est indisponible.',
+      };
+      setState(() => _result = message);
+    } catch (e, st) {
+      LoggerService.instance.error(
+        'AddedSubscriptionDialog.test failed',
+        error: e,
+        stackTrace: st,
+      );
+      if (mounted) {
+        setState(() => _result = 'Impossible de terminer le test de connexion.');
+      }
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Abonnement ajouté'),
+      content: SingleChildScrollView(
+        child: Focus(
+          canRequestFocus: false,
+          onKeyEvent: _handleNavigation,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('« ${widget.subscription.name} » est enregistré. '
+                  'Vous pouvez tester la connexion puis activer l’abonnement.'),
+              if (_testing || _result != null) ...[
+                const SizedBox(height: 16),
+                Text(_testing ? 'Test de connexion en cours…' : _result!),
+              ],
+              const SizedBox(height: 16),
+              TvFocus(
+                autofocus: true,
+                focusNode: _testFocus,
+                onActivate: _testing ? null : _test,
+                child: ExcludeFocus(
+                  child: OutlinedButton(
+                    onPressed: _testing ? null : _test,
+                    child: const Text('Tester'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TvFocus(
+                focusNode: _activateFocus,
+                onActivate: _testing ? null : () => Navigator.pop(context, true),
+                child: ExcludeFocus(
+                  child: FilledButton(
+                    onPressed:
+                        _testing ? null : () => Navigator.pop(context, true),
+                    child: const Text('Activer'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TvFocus(
+                focusNode: _cancelFocus,
+                onActivate: () => Navigator.pop(context, false),
+                child: ExcludeFocus(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Annuler'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SubscriptionFormDialog extends ConsumerStatefulWidget {
   final Subscription? subscription;
-  final VoidCallback onSaved;
 
-  const _SubscriptionFormDialog({this.subscription, required this.onSaved});
+  const _SubscriptionFormDialog({this.subscription});
 
   @override
   ConsumerState<_SubscriptionFormDialog> createState() =>
@@ -681,7 +841,9 @@ class _SubscriptionFormDialogState
   late final Map<FocusNode, GlobalKey> _fieldKeys;
   SubscriptionType _type = SubscriptionType.xtream;
   bool _obscurePassword = false;
+  bool _saving = false;
   FocusNode? _editingFocus;
+  double _keyboardInset = 0;
 
   @override
   void initState() {
@@ -709,8 +871,8 @@ class _SubscriptionFormDialogState
       focus.onKeyEvent = _handleTextFieldKey;
       focus.addListener(() {
         if (!mounted) return;
-        if (focus.hasPrimaryFocus && ref.read(tvModeNotifierProvider).enabled) {
-          _ensureVisible(_fieldKeys[focus]!);
+        if (focus.hasPrimaryFocus) {
+          _scheduleEnsureVisible(focus);
         } else if (!focus.hasFocus && _editingFocus == focus) {
           setState(() => _editingFocus = null);
         }
@@ -719,6 +881,18 @@ class _SubscriptionFormDialogState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _nameFocus.requestFocus();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset > _keyboardInset) {
+      for (final focus in _fieldKeys.keys) {
+        if (focus.hasPrimaryFocus) _scheduleEnsureVisible(focus);
+      }
+    }
+    _keyboardInset = inset;
   }
 
   @override
@@ -749,6 +923,14 @@ class _SubscriptionFormDialogState
       alignment: 0.5,
       duration: const Duration(milliseconds: 120),
     );
+  }
+
+  void _scheduleEnsureVisible(FocusNode focus) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && focus.hasPrimaryFocus) {
+        _ensureVisible(_fieldKeys[focus]!);
+      }
+    });
   }
 
   KeyEventResult _handleTextFieldKey(FocusNode node, KeyEvent event) {
@@ -874,17 +1056,25 @@ class _SubscriptionFormDialogState
     final nextAfterName =
         _type == SubscriptionType.xtream ? _baseUrlFocus : _m3uFocus;
 
-    return AlertDialog(
-      title: Text(isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement'),
-      content: SizedBox(
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      insetAnimationDuration: Duration.zero,
+      child: SizedBox(
         width: 400,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
             child: FocusTraversalGroup(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Text(
+                    isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 16),
                   _buildTvTextField(
                     controller: _nameController,
                     focusNode: _nameFocus,
@@ -966,29 +1156,37 @@ class _SubscriptionFormDialogState
                       validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  OverflowBar(
+                    alignment: MainAxisAlignment.end,
+                    spacing: 8,
+                    children: [
+                      TextButton(
+                        onPressed:
+                            _saving ? null : () => Navigator.pop(context),
+                        child: const Text('Annuler'),
+                      ),
+                      FilledButton(
+                        focusNode: _submitFocus,
+                        onPressed: _saving ? null : _save,
+                        child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Annuler'),
-        ),
-        FilledButton(
-          focusNode: _submitFocus,
-          onPressed: _save,
-          child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
-        ),
-      ],
     );
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     final formState = _formKey.currentState;
     if (formState == null || !formState.validate()) return;
+    setState(() => _saving = true);
 
     final id = widget.subscription?.id ??
         DateTime.now().millisecondsSinceEpoch.toString();
@@ -1035,8 +1233,7 @@ class _SubscriptionFormDialogState
       } else {
         await ref.read(subscriptionsProvider.notifier).addSubscription(sub);
       }
-      widget.onSaved();
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, sub);
     } catch (e, st) {
       LoggerService.instance.error(
         '_SubscriptionFormDialog._save failed',
@@ -1048,6 +1245,8 @@ class _SubscriptionFormDialogState
           SnackBar(content: Text('Erreur lors de la sauvegarde : $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }

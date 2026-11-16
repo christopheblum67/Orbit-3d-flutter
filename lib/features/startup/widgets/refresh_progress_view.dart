@@ -30,6 +30,7 @@ class RefreshProgressView extends StatelessWidget {
     this.visibleSteps,
     this.showBranding = true,
     this.failureMessage,
+    this.onOpenHome,
     this.onOpenSubscriptions,
   });
 
@@ -50,6 +51,7 @@ class RefreshProgressView extends StatelessWidget {
 
   /// Explains why progress appears stalled and offers a route back to subscriptions.
   final String? failureMessage;
+  final VoidCallback? onOpenHome;
   final VoidCallback? onOpenSubscriptions;
 
   @override
@@ -159,17 +161,31 @@ class RefreshProgressView extends StatelessWidget {
             fontSize: 14,
           ),
         ),
-        if (failureMessage != null && onOpenSubscriptions != null) ...[
+        if (failureMessage != null &&
+            (onOpenHome != null || onOpenSubscriptions != null)) ...[
           const SizedBox(height: 16),
-          TvFocus(
-            autofocus: true,
-            onActivate: onOpenSubscriptions,
-            child: OutlinedButton.icon(
-              onPressed: onOpenSubscriptions,
-              icon: const Icon(Icons.settings_ethernet),
-              label: const Text('Vérifier l’abonnement'),
+          if (onOpenHome != null)
+            TvFocus(
+              autofocus: true,
+              onActivate: onOpenHome,
+              child: OutlinedButton.icon(
+                onPressed: onOpenHome,
+                icon: const Icon(Icons.home_outlined),
+                label: const Text('Retour à l’accueil'),
+              ),
             ),
-          ),
+          if (onOpenHome != null && onOpenSubscriptions != null)
+            const SizedBox(height: 8),
+          if (onOpenSubscriptions != null)
+            TvFocus(
+              autofocus: onOpenHome == null,
+              onActivate: onOpenSubscriptions,
+              child: OutlinedButton.icon(
+                onPressed: onOpenSubscriptions,
+                icon: const Icon(Icons.settings_ethernet),
+                label: const Text('Vérifier l’abonnement'),
+              ),
+            ),
         ],
         const SizedBox(height: 16),
         ClipRRect(

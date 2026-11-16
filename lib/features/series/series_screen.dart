@@ -134,6 +134,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           limit: limit,
           offset: offset,
         ),
+        fetchAfter: (limit, last) => CatalogDb.instance.querySeries(
+          subKey,
+          filter: filter,
+          sort: sort,
+          limit: limit,
+          after: last == null ? null : CatalogCursor.fromSeries(last),
+        ),
         onChange: () {
           if (mounted) setState(() {});
         },
@@ -428,18 +435,18 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     bool listLoading = false,
   }) {
     final subscriptionId = ref.watch(activeSubscriptionProvider)?.id;
-    final increases = subscriptionId == null
-        ? const <String, int>{}
+    final changes = subscriptionId == null
+        ? const CategoryChanges()
         : ref.watch(categoryIncreasesProvider((
               subscriptionId: subscriptionId,
               catalog: CategoryCatalog.series,
-            ))).value ?? const <String, int>{};
+            ))).value ?? const CategoryChanges();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CategoriesRail(
           categories: railCategories,
-          increasedCounts: increases,
+          increasedCounts: changes.categories,
           selectedId: _selectedCategoryId,
           focusSelectedOnMount: ref.read(tvModeNotifierProvider).enabled,
           onSelected: (id) => setState(() => _selectedCategoryId = id),
@@ -567,6 +574,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                         ? null
                                         : ValueKey(series.id),
                                     series: series,
+                                    highlightTitle: changes.newIds.contains(series.id),
                                     affinity: affinity,
                                     onOpen: onOpen,
                                     onLongPress: onLongPress,
@@ -616,12 +624,14 @@ class _SeriesTile extends ConsumerWidget {
     required this.affinity,
     required this.onOpen,
     required this.onLongPress,
+    required this.highlightTitle,
   });
 
   final Series series;
   final ProfileAffinityScorer? affinity;
   final VoidCallback onOpen;
   final VoidCallback onLongPress;
+  final bool highlightTitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -659,6 +669,7 @@ class _SeriesTile extends ConsumerWidget {
       child: MediaCard(
         ratingAboveAffinity: true,
         title: series.title,
+        highlightTitle: highlightTitle,
         posterUrl: series.coverUrl,
         year: series.year,
         // Catégorie retirée de la tuile (comme sur les chaînes) :

@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
@@ -41,6 +42,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
   final _firstAgeFocus = FocusNode(debugLabel: 'profile.firstAge');
+  final _saveFocus = FocusNode(debugLabel: 'profile.save');
   final _identityCardKey = GlobalKey();
   ProfileType _type = ProfileType.adult;
   String _selectedDiceBearCategory = 'characters';
@@ -312,6 +314,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _scrollController.dispose();
     _nameFocus.dispose();
     _firstAgeFocus.dispose();
+    _saveFocus.dispose();
     super.dispose();
   }
 
@@ -340,7 +343,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (selectedAvatar.isNotEmpty) {
       _selectedDiceBearCategory = selectedAvatar.first.category;
     }
-    _pinHash = profile.pinHash;
+    _pinHash = profile.hasPin ? profile.pinHash : null;
     _captureBaseline();
   }
 
@@ -389,9 +392,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       return;
     }
     setState(() => _hashingPin = true);
+    var confirmed = false;
     try {
       final hash = await ProfilePin.create(pin);
-      if (mounted) setState(() => _pinHash = hash);
+      if (mounted) {
+        setState(() => _pinHash = hash);
+        confirmed = true;
+      }
     } catch (error, stack) {
       FlutterError.reportError(FlutterErrorDetails(
         exception: error,
@@ -404,7 +411,14 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _hashingPin = false);
+      if (mounted) {
+        setState(() => _hashingPin = false);
+        if (confirmed && ref.read(tvModeNotifierProvider).enabled) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _saveFocus.requestFocus();
+          });
+        }
+      }
     }
   }
 
@@ -586,7 +600,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: Form(key: _formKey, child: body),
+            child: DpadScope(child: Form(key: _formKey, child: body)),
           ),
         ),
       ),
@@ -771,7 +785,8 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               for (final genre in _genreOptions)
                 _ProfileChoiceChip(
                   label: genre,
-                  focusNode: genre == _genreOptions.first ? _firstAgeFocus : null,
+                  focusNode:
+                      genre == _genreOptions.first ? _firstAgeFocus : null,
                   selected: _favoriteGenres.contains(genre),
                   onTap: () => setState(() {
                     if (_favoriteGenres.contains(genre)) {
@@ -797,7 +812,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             icon: Icons.pin_outlined,
             title: l.protectWithPin,
             subtitle: _pinHash != null
-                ? 'Un code PIN de 4 chiffres est défini'
+                ? (_pinHash == _basePinHash
+                    ? 'Un code PIN de 4 chiffres est actif'
+                    : 'Code PIN confirmé. Enregistrez le profil pour l’activer.')
                 : 'Demander un code PIN à la sélection du profil',
             value: _pinHash != null,
             onChanged: _onPinSwitch,
@@ -829,6 +846,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           const SizedBox(width: 14),
           Expanded(
             child: FilledButton.icon(
+              focusNode: _saveFocus,
               onPressed: _saving || _hashingPin ? null : _save,
               icon: _saving
                   ? const SizedBox(

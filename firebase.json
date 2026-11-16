@@ -1,0 +1,15 @@
+{
+  "functions": {
+    "source": "functions",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "*.test.js",
+      ".env*",
+      "*firebase-adminsdk*.json",
+      "service_account.json",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ]
+  }
+}

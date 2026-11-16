@@ -36,5 +36,6 @@ class MainActivity : FlutterActivity() {
         HardwareChannel.register(flutterEngine, this)
         PipChannel.register(flutterEngine, this)
         PlaybackServiceChannel.register(flutterEngine, this)
+        UpdateChannel.register(flutterEngine, this)
     }
 }

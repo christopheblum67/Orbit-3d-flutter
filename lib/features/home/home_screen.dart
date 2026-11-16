@@ -90,14 +90,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       );
       controller.addListener(() {
         final value = controller.page ?? 0.0;
-        if (!mounted || !identical(_pageController, controller) ||
+        if (!mounted ||
+            !identical(_pageController, controller) ||
             (_currentPage - value).abs() < 0.0001) {
           return;
         }
         if (SchedulerBinding.instance.schedulerPhase ==
             SchedulerPhase.persistentCallbacks) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && identical(_pageController, controller) &&
+            if (mounted &&
+                identical(_pageController, controller) &&
                 controller.hasClients) {
               setState(() => _currentPage = controller.page ?? value);
             }
@@ -172,14 +174,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final currentIndex = items.indexWhere(
       (item) => _carouselItemKey(item) == _focusedCarouselRoute,
     );
-    final nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= items.length) {
+    if (currentIndex < 0 || items.isEmpty) {
       return KeyEventResult.ignored;
     }
+    final nextIndex = (currentIndex + direction + items.length) % items.length;
 
     final nextItem = items[nextIndex];
     final nextNode = _focusNodeFor(nextItem);
     _focusedCarouselRoute = _carouselItemKey(nextItem);
+    if ((direction < 0 && currentIndex == 0) ||
+        (direction > 0 && currentIndex == items.length - 1)) {
+      _pageController!.jumpToPage(nextIndex);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _focusedCarouselRoute == _carouselItemKey(nextItem)) {
+          nextNode.requestFocus();
+        }
+      });
+      return KeyEventResult.handled;
+    }
     _pageController!
         .animateToPage(
       nextIndex,
@@ -266,7 +278,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
-    final items = _OrbitItem.buildAll(isM3u: isM3u, l: l);
+    final multiTvEnabled =
+        ref.watch(currentProfileProvider.select((p) => p?.multiTvEnabled)) ??
+            true;
+    final items = _OrbitItem.buildAll(
+      isM3u: isM3u,
+      multiTvEnabled: multiTvEnabled,
+      l: l,
+    );
 
     return PopScope(
       canPop: false,
@@ -357,8 +376,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
     try {
       if (!mounted) return;
-      final responded = await runSilentRefresh(ref: ref, isMounted: () => mounted);
-      if (!mounted || ref.read(activeSubscriptionProvider)?.id != subscriptionId) {
+      final responded =
+          await runSilentRefresh(ref: ref, isMounted: () => mounted);
+      if (!mounted ||
+          ref.read(activeSubscriptionProvider)?.id != subscriptionId) {
         return;
       }
       _pendingRefreshSubscriptionId = subscriptionId;
@@ -421,135 +442,138 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         final size = constraints.biggest.shortestSide.clamp(0.0, 290.0);
         return Center(
           child: GestureDetector(
-        onTap: () => _openItem(context, item),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: size,
-          height: size,
-          padding: EdgeInsets.all(size * 0.1),
-          decoration: BoxDecoration(
-            color: focused ? const Color(0xFF1E222D) : const Color(0xFF141720),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: focused ? item.color : Colors.white10,
-              width: focused ? 2.5 : 1,
-            ),
-            boxShadow: hasFocus
-                ? [
-                    BoxShadow(
-                      color: item.color.withValues(alpha: 0.35),
-                      blurRadius: 25,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : [],
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(size * 0.045),
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(item.icon, size: size * 0.2, color: item.color),
-                  ),
-                  SizedBox(height: size * 0.045),
-                  Text(
-                    item.title,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: (size * 0.075).clamp(12.0, 22.0),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: size * 0.025),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      item.subtitle,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: (size * 0.045).clamp(10.0, 13.0),
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ],
+            onTap: () => _openItem(context, item),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: size,
+              height: size,
+              padding: EdgeInsets.all(size * 0.1),
+              decoration: BoxDecoration(
+                color:
+                    focused ? const Color(0xFF1E222D) : const Color(0xFF141720),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: focused ? item.color : Colors.white10,
+                  width: focused ? 2.5 : 1,
                 ),
+                boxShadow: hasFocus
+                    ? [
+                        BoxShadow(
+                          color: item.color.withValues(alpha: 0.35),
+                          blurRadius: 25,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : [],
               ),
-              if (!item.hasRoute)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border:
-                          Border.all(color: item.color.withValues(alpha: 0.3)),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Text(
-                        'Bientôt',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+              child: Stack(
+                children: [
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(size * 0.045),
+                          decoration: BoxDecoration(
+                            color: item.color.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(item.icon,
+                              size: size * 0.2, color: item.color),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-              if (item.route == '/favorites')
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: Consumer(
-                    builder: (context, ref, _) {
-                      final count = ref.watch(favoritesProvider).length;
-                      if (count == 0) return const SizedBox.shrink();
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: item.color,
-                          borderRadius: BorderRadius.circular(999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: item.color.withValues(alpha: 0.5),
-                              blurRadius: 12,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          '$count',
-                          style: const TextStyle(
+                        SizedBox(height: size * 0.045),
+                        Text(
+                          item.title,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: (size * 0.075).clamp(12.0, 22.0),
+                            fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      );
-                    },
+                        SizedBox(height: size * 0.025),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            item.subtitle,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: (size * 0.045).clamp(10.0, 13.0),
+                              color: Colors.white.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-            ],
-          ),
-        ),
+                  if (!item.hasRoute)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: item.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: item.color.withValues(alpha: 0.3)),
+                        ),
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Text(
+                            'Bientôt',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (item.route == '/favorites')
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final count = ref.watch(favoritesProvider).length;
+                          if (count == 0) return const SizedBox.shrink();
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: item.color,
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: item.color.withValues(alpha: 0.5),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              '$count',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
@@ -629,7 +653,8 @@ class _SubStatusChip extends ConsumerWidget {
     if (name.isEmpty) {
       return _NoSubscriptionChip(onTap: onOpenSubscriptions);
     }
-    return IntrinsicHeight(child: Row(
+    return IntrinsicHeight(
+        child: Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -674,7 +699,8 @@ class _SubStatusChip extends ConsumerWidget {
               message: 'Changer d’abonnement',
               child: Container(
                 alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -707,7 +733,8 @@ class _NoSubscriptionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return IntrinsicHeight(child: Row(
+    return IntrinsicHeight(
+        child: Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -745,7 +772,8 @@ class _NoSubscriptionChip extends StatelessWidget {
               message: 'Ajouter ou changer d’abonnement',
               child: Container(
                 alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF00CFE8).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -884,6 +912,7 @@ class _OrbitItem {
 
   static List<_OrbitItem> buildAll({
     required bool isM3u,
+    required bool multiTvEnabled,
     required AppLocalizations l,
   }) {
     return [
@@ -943,7 +972,7 @@ class _OrbitItem {
         route: '/replay',
         refreshCategory: _RefreshCategory.replay,
       ),
-      _OrbitItem(
+      if (multiTvEnabled) _OrbitItem(
         title: l.multiScreen,
         icon: Icons.grid_view_rounded,
         color: const Color(0xFF26A69A),
@@ -996,7 +1025,6 @@ class _UpdateButton extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _LastRefreshLabel extends ConsumerStatefulWidget {

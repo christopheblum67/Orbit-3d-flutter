@@ -71,6 +71,7 @@ class EncryptedCloudStore {
     required String passphrase,
     required Map<String, dynamic> payload,
     required int expectedRevision,
+    void Function()? checkSession,
   }) async {
     if (expectedRevision < 0) {
       throw ArgumentError.value(expectedRevision, 'expectedRevision');
@@ -82,6 +83,7 @@ class EncryptedCloudStore {
       documentId: _authenticatedDocumentId(documentId, expectedRevision + 1),
     );
     final nextRevision = expectedRevision + 1;
+    checkSession?.call();
     await _store.writeIfRevisionMatches(uid, documentId, expectedRevision, {
       'revision': nextRevision,
       'envelope': envelope,

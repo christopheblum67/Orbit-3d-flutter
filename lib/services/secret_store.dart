@@ -6,8 +6,8 @@ import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 ///
 /// ## Pourquoi
 ///
-/// Les secrets étaient stockés EN CLAIR dans SharedPreferences (clé OpenSubtitles,
-/// mot de passe du compte, override TMDB) et dans Hive (PIN parental, mot de
+/// Les secrets étaient stockés EN CLAIR dans SharedPreferences (override TMDB)
+/// et dans Hive (PIN parental, mot de
 /// passe Xtream). Un appareil rooté, un backup applicatif ou une lecture du
 /// fichier de préférences les lisait tels quels. La migration S1 remplace ces
 /// stockages par [flutter_secure_storage] (Android : chiffrement RSA OAEP +
@@ -90,7 +90,7 @@ class InMemorySecretStore implements SecretStore {
 
 SecretStore _secretStore = const SecureSecretStore();
 
-/// Coffre actif. Les stores applicatifs (PIN, TMDB, OpenSubtitles, Xtream)
+/// Coffre actif. Les stores applicatifs (PIN, TMDB, Xtream)
 /// passent TOUS par ce point d'injection.
 SecretStore get secretStore => _secretStore;
 

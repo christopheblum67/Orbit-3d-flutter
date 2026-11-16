@@ -37,6 +37,23 @@ const _refreshSteps = {
   StartupStep.epg,
 };
 
+final _activeRefreshLeases = <Object>{};
+
+class _CatalogRefreshLease {
+  final Object _token = Object();
+
+  void acquire() {
+    _activeRefreshLeases.add(_token);
+    ApiService.bypassCatalogCache = true;
+  }
+
+  void release() {
+    if (_activeRefreshLeases.remove(_token)) {
+      ApiService.bypassCatalogCache = _activeRefreshLeases.isNotEmpty;
+    }
+  }
+}
+
 /// Régénère les six sources sans aucune fenêtre : utilisé au lancement quand
 /// les données sont périmées. Rend `true` si au moins une source a répondu.
 Future<bool> runSilentRefresh({
@@ -64,6 +81,20 @@ Future<int> performCatalogRefresh({
   required RefreshStepsController controller,
   required bool Function() isMounted,
   String mode = 'manual',
+}) =>
+    _performCatalogRefresh(
+      ref: ref,
+      controller: controller,
+      isMounted: isMounted,
+      mode: mode,
+    );
+
+Future<int> _performCatalogRefresh({
+  required WidgetRef ref,
+  required RefreshStepsController controller,
+  required bool Function() isMounted,
+  String mode = 'manual',
+  _CatalogRefreshLease? lease,
 }) async {
   var responded = 0;
   final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
@@ -71,7 +102,8 @@ Future<int> performCatalogRefresh({
   // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
   // cache sans aucun appel réseau (rafraîchissement factice).
   logDiag('REFRESH mode=$mode providers=invalidate start');
-  ApiService.bypassCatalogCache = true;
+  final refreshLease = lease ?? _CatalogRefreshLease();
+  refreshLease.acquire();
   try {
     ref.invalidate(liveChannelsAllProvider);
     ref.invalidate(moviesProvider);
@@ -95,7 +127,7 @@ Future<int> performCatalogRefresh({
       if (list.isNotEmpty) responded++;
     });
   } finally {
-    ApiService.bypassCatalogCache = false;
+    refreshLease.release();
   }
 
   if (!isMounted()) return responded;
@@ -147,6 +179,8 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
   late final RefreshStepsController _controller;
   Timer? _stallTimer;
   bool _refreshStalled = false;
+  bool _leaving = false;
+  final _lease = _CatalogRefreshLease();
 
   @override
   void initState() {
@@ -161,6 +195,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
 
   @override
   void dispose() {
+    _lease.release();
     _stallTimer?.cancel();
     _controller.removeListener(_onProgress);
     _controller.dispose();
@@ -184,19 +219,23 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     });
   }
 
-  void _openSubscriptions() {
+  void _leaveLoading(String destination) {
+    if (_leaving) return;
+    _leaving = true;
+    _lease.release();
     final router = GoRouter.of(context);
     Navigator.of(context, rootNavigator: true).pop<bool?>();
-    router.go('/subscriptions');
+    router.go(destination);
   }
 
   Future<void> _run() async {
-    final responded = await performCatalogRefresh(
+    final responded = await _performCatalogRefresh(
       ref: ref,
       controller: _controller,
-      isMounted: () => mounted,
+      isMounted: () => mounted && !_leaving,
+      lease: _lease,
     );
-    if (!mounted) return;
+    if (!mounted || _leaving) return;
     Navigator.of(context).pop(responded > 0);
   }
 
@@ -216,7 +255,10 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
               failureMessage: _refreshStalled
                   ? _stalledMessage(_controller.currentStep?.label)
                   : null,
-              onOpenSubscriptions: _refreshStalled ? _openSubscriptions : null,
+              onOpenHome: _refreshStalled ? () => _leaveLoading('/home') : null,
+              onOpenSubscriptions: _refreshStalled
+                  ? () => _leaveLoading('/subscriptions')
+                  : null,
             ),
           ),
         ),

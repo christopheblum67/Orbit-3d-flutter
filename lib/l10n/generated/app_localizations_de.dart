@@ -1241,121 +1241,6 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get subtitleSearchOnline => 'Online suchen';
-
-  @override
-  String get subtitleSearchOnlineInfo =>
-      'Der Anbieter bietet für diesen Inhalt nichts an. Eine Online-Suche findet möglicherweise einen Untertitel.';
-
-  @override
-  String get subtitleSearchOnlineRunning => 'Suche läuft…';
-
-  @override
-  String get subtitleOnlineResults => 'Online gefundene Untertitel';
-
-  @override
-  String get subtitleOnlineEmpty =>
-      'Kein Untertitel online für diesen Inhalt gefunden.';
-
-  @override
-  String subtitleOnlineDownloads(Object count) {
-    return '$count Downloads';
-  }
-
-  @override
-  String get subtitleOnlineNoTmdb =>
-      'Dieser Inhalt konnte auf TMDB nicht identifiziert werden: Die Online-Suche benötigt seine Kennung.';
-
-  @override
-  String get opensubtitlesKeyLabel => 'Online-Untertitelsuche (OpenSubtitles)';
-
-  @override
-  String get opensubtitlesKeyHint => 'API-Schlüssel — optional';
-
-  @override
-  String get opensubtitlesKeyActive =>
-      'Schlüssel gespeichert: höheres Download-Limit.';
-
-  @override
-  String get opensubtitlesKeyAnonymous =>
-      'Kein Schlüssel: Suche möglich, 5 Downloads pro IP und 24 h.';
-
-  @override
-  String get opensubtitlesKeyDelete => 'Schlüssel löschen';
-
-  @override
-  String get opensubtitlesKeyCheck => 'Schlüssel prüfen';
-
-  @override
-  String get opensubtitlesKeyChecking => 'Prüfung läuft…';
-
-  @override
-  String get opensubtitlesKeyValid =>
-      'Gültiger Schlüssel: Der Dienst akzeptiert ihn.';
-
-  @override
-  String get opensubtitlesKeyRejected =>
-      'Schlüssel vom Dienst abgelehnt: Prüfen Sie, ob Sie ihn vollständig eingefügt haben.';
-
-  @override
-  String get opensubtitlesKeyUnreachable =>
-      'Dienst nicht erreichbar: Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.';
-
-  @override
-  String get opensubtitlesLoginLabel => 'Anmeldung am OpenSubtitles-Konto';
-
-  @override
-  String get opensubtitlesLoginHintUsername => 'Benutzername';
-
-  @override
-  String get opensubtitlesLoginHintPassword => 'Passwort';
-
-  @override
-  String get opensubtitlesLoginActive =>
-      'Konto gespeichert: Downloads können sich anmelden.';
-
-  @override
-  String get opensubtitlesLoginNone =>
-      'Kein Konto: Downloads bleiben abgelehnt (503).';
-
-  @override
-  String get opensubtitlesLoginDelete => 'Konto löschen';
-
-  @override
-  String get opensubtitlesLoginConnect => 'Anmelden / prüfen';
-
-  @override
-  String get opensubtitlesLoginConnecting => 'Anmeldung läuft…';
-
-  @override
-  String get opensubtitlesLoginValid =>
-      'Konto akzeptiert: Der Dienst hat ein Token ausgestellt.';
-
-  @override
-  String get opensubtitlesLoginRejected =>
-      'Zugangsdaten abgelehnt: Prüfen Sie Benutzername und Passwort.';
-
-  @override
-  String get opensubtitlesLoginUnreachable =>
-      'Dienst nicht erreichbar: Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.';
-
-  @override
-  String get subtitleOnlineNoApiKey =>
-      'OpenSubtitles-API-Schlüssel fehlt: In den Einstellungen eintragen, um die Online-Suche zu aktivieren.';
-
-  @override
-  String get subtitleOnlineKeyRejected =>
-      'OpenSubtitles-API-Schlüssel abgelehnt: Er ist eingetragen, aber der Dienst weist ihn zurück. Prüfen Sie ihn in den Einstellungen.';
-
-  @override
-  String get subtitleOnlineQuota =>
-      'OpenSubtitles-Download-Limit für heute erreicht. Morgen erneut versuchen.';
-
-  @override
-  String get subtitleOnlineNeedsLogin =>
-      'Der OpenSubtitles-Download erfordert ein angemeldetes Konto, nicht nur den API-Schlüssel: Die Suche funktioniert, aber der Download wird abgelehnt.';
-
-  @override
   String get favorites => 'Favoriten';
 
   @override
@@ -1412,9 +1297,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'API-Zugangsdaten und Netzwerkeinstellungen. Diese Einstellungen binden Ihr Konto an Drittanbieter: Ein geteilter Schlüssel verbraucht dessen Kontingent, und eine falsche Netzwerkeinstellung kann den Start der App verhindern.';
 
   @override
-  String get advancedSubtitlesProvider => 'Untertitel-Anbieter';
-
-  @override
   String get advancedStatus => 'Status der Zugangsdaten';
 
   @override
@@ -1459,6 +1341,65 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get avatarCategoryBlackWhite => 'Schwarz & Weiß';
+
+  @override
+  String get updateTitle => 'Updates';
+
+  @override
+  String get updateSettingsSubtitle =>
+      'Neueste offizielle GitHub-Version prüfen';
+
+  @override
+  String get updateChecking => 'Suche nach Updates…';
+
+  @override
+  String get updateCurrent =>
+      'Die neueste verfügbare Version ist bereits installiert.';
+
+  @override
+  String get updateAvailable => 'Eine neue Version ist verfügbar:';
+
+  @override
+  String get updateDownloading => 'APK wird heruntergeladen und geprüft…';
+
+  @override
+  String get updateReady => 'Android-Installationsprogramm wird geöffnet…';
+
+  @override
+  String get updatePermission =>
+      'Erlaube Orbit in den Android-Einstellungen die Installation unbekannter Apps, kehre zurück und versuche es erneut.';
+
+  @override
+  String get updateNoRelease =>
+      'Auf GitHub ist keine stabile Version verfügbar.';
+
+  @override
+  String get updateAssetError =>
+      'Die Version enthält nicht die offizielle universelle APK oder ihre Prüfdaten.';
+
+  @override
+  String get updateInvalidApk =>
+      'Die APK ist inkompatibel, anders signiert oder hat keine höhere Android-Version. Installation abgebrochen.';
+
+  @override
+  String get updateIntegrityError =>
+      'Die Prüfung der heruntergeladenen Datei ist fehlgeschlagen. Installation abgebrochen.';
+
+  @override
+  String get updateGenericError =>
+      'Das Update ist fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.';
+
+  @override
+  String get updateLater => 'Später';
+
+  @override
+  String get updateInstall => 'Aktualisieren';
+
+  @override
+  String get updateRetryInstall => 'Installation erneut versuchen';
+
+  @override
+  String get updateRetry => 'Erneut versuchen';
 
   @override
   String get avatarCategoryPixels => 'Pixel';

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class ProfilePreferencesScreen extends ConsumerWidget {
   const ProfilePreferencesScreen({super.key});
@@ -14,6 +15,23 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
+    final profile = ref.watch(currentProfileProvider);
+
+    Future<void> setMultiTv(bool enabled) async {
+      try {
+        await ref
+            .read(currentProfileProvider.notifier)
+            .setMultiTvEnabled(enabled);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d’enregistrer le réglage Multi TV.'),
+            ),
+          );
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -92,6 +110,30 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                 );
               }
             },
+          ),
+          const Divider(height: 1),
+          Focus(
+            canRequestFocus: profile != null,
+            onKeyEvent: (node, event) {
+              if (profile != null &&
+                  event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.select ||
+                      event.logicalKey == LogicalKeyboardKey.enter ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+                setMultiTv(!profile.multiTvEnabled);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: SwitchListTile(
+              secondary: const Icon(Icons.grid_view_rounded),
+              title: const Text('Multi TV'),
+              subtitle: const Text(
+                'Afficher et autoriser la lecture multi-écran pour ce profil.',
+              ),
+              value: profile?.multiTvEnabled ?? true,
+              onChanged: profile == null ? null : setMultiTv,
+            ),
           ),
           const Divider(height: 1),
           SwitchListTile(

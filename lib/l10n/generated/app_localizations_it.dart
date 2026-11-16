@@ -1243,121 +1243,6 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get subtitleSearchOnline => 'Cerca online';
-
-  @override
-  String get subtitleSearchOnlineInfo =>
-      'Il provider non offre nulla per questo contenuto. Una ricerca online può trovare un sottotitolo.';
-
-  @override
-  String get subtitleSearchOnlineRunning => 'Ricerca in corso…';
-
-  @override
-  String get subtitleOnlineResults => 'Sottotitoli trovati online';
-
-  @override
-  String get subtitleOnlineEmpty =>
-      'Nessun sottotitolo trovato online per questo contenuto.';
-
-  @override
-  String subtitleOnlineDownloads(Object count) {
-    return '$count download';
-  }
-
-  @override
-  String get subtitleOnlineNoTmdb =>
-      'Impossibile identificare questo contenuto su TMDB: la ricerca online ne richiede l\'identificatore.';
-
-  @override
-  String get opensubtitlesKeyLabel =>
-      'Ricerca sottotitoli online (OpenSubtitles)';
-
-  @override
-  String get opensubtitlesKeyHint => 'Chiave API — facoltativa';
-
-  @override
-  String get opensubtitlesKeyActive =>
-      'Chiave salvata: quota di download più alta.';
-
-  @override
-  String get opensubtitlesKeyAnonymous =>
-      'Nessuna chiave: ricerca disponibile, 5 download per IP ogni 24 h.';
-
-  @override
-  String get opensubtitlesKeyDelete => 'Cancella la chiave';
-
-  @override
-  String get opensubtitlesKeyCheck => 'Verifica la chiave';
-
-  @override
-  String get opensubtitlesKeyChecking => 'Verifica in corso…';
-
-  @override
-  String get opensubtitlesKeyValid => 'Chiave valida: il servizio la accetta.';
-
-  @override
-  String get opensubtitlesKeyRejected =>
-      'Chiave rifiutata dal servizio: controlla di averla incollata per intero.';
-
-  @override
-  String get opensubtitlesKeyUnreachable =>
-      'Servizio irraggiungibile: controlla la connessione e riprova.';
-
-  @override
-  String get opensubtitlesLoginLabel => 'Accesso all\'account OpenSubtitles';
-
-  @override
-  String get opensubtitlesLoginHintUsername => 'Nome utente';
-
-  @override
-  String get opensubtitlesLoginHintPassword => 'Password';
-
-  @override
-  String get opensubtitlesLoginActive =>
-      'Account salvato: i download potranno accedere.';
-
-  @override
-  String get opensubtitlesLoginNone =>
-      'Nessun account: il download resta rifiutato (503).';
-
-  @override
-  String get opensubtitlesLoginDelete => 'Cancella l\'account';
-
-  @override
-  String get opensubtitlesLoginConnect => 'Accedi / verifica';
-
-  @override
-  String get opensubtitlesLoginConnecting => 'Accesso in corso…';
-
-  @override
-  String get opensubtitlesLoginValid =>
-      'Account accettato: il servizio ha emesso un token.';
-
-  @override
-  String get opensubtitlesLoginRejected =>
-      'Credenziali rifiutate: controlla nome utente e password.';
-
-  @override
-  String get opensubtitlesLoginUnreachable =>
-      'Servizio irraggiungibile: controlla la connessione e riprova.';
-
-  @override
-  String get subtitleOnlineNoApiKey =>
-      'Chiave API OpenSubtitles mancante: inseriscila nelle Impostazioni per attivare la ricerca online.';
-
-  @override
-  String get subtitleOnlineKeyRejected =>
-      'Chiave API OpenSubtitles rifiutata: è configurata, ma il servizio la respinge. Verificala nelle Impostazioni.';
-
-  @override
-  String get subtitleOnlineQuota =>
-      'Quota di download OpenSubtitles raggiunto per oggi. Riprova domani.';
-
-  @override
-  String get subtitleOnlineNeedsLogin =>
-      'Il download di OpenSubtitles richiede un account connesso, non solo la chiave API: la ricerca funziona, ma il download viene rifiutato.';
-
-  @override
   String get favorites => 'Preferiti';
 
   @override
@@ -1414,9 +1299,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'Credenziali API e impostazioni di rete. Queste impostazioni vincolano il tuo account a servizi di terze parti: una chiave condivisa consuma la sua quota e un\'impostazione di rete errata può impedire l\'avvio dell\'app.';
 
   @override
-  String get advancedSubtitlesProvider => 'Fornitore di sottotitoli';
-
-  @override
   String get advancedStatus => 'Stato delle credenziali';
 
   @override
@@ -1460,6 +1342,64 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get avatarCategoryBlackWhite => 'Nero e Bianco';
+
+  @override
+  String get updateTitle => 'Aggiornamenti';
+
+  @override
+  String get updateSettingsSubtitle =>
+      'Controlla l’ultima versione ufficiale su GitHub';
+
+  @override
+  String get updateChecking => 'Ricerca aggiornamenti…';
+
+  @override
+  String get updateCurrent => 'È già installata l’ultima versione disponibile.';
+
+  @override
+  String get updateAvailable => 'È disponibile una nuova versione:';
+
+  @override
+  String get updateDownloading => 'Download e verifica dell’APK…';
+
+  @override
+  String get updateReady => 'Apertura del programma di installazione Android…';
+
+  @override
+  String get updatePermission =>
+      'Consenti a Orbit di installare app sconosciute nelle impostazioni Android, poi torna qui e riprova.';
+
+  @override
+  String get updateNoRelease =>
+      'Nessuna versione stabile disponibile su GitHub.';
+
+  @override
+  String get updateAssetError =>
+      'La versione non contiene l’APK universale ufficiale o i dati di verifica.';
+
+  @override
+  String get updateInvalidApk =>
+      'APK incompatibile, firmato con un’altra chiave o senza una versione Android superiore. Installazione annullata.';
+
+  @override
+  String get updateIntegrityError =>
+      'La verifica del file scaricato è fallita. Installazione annullata.';
+
+  @override
+  String get updateGenericError =>
+      'Aggiornamento non riuscito. Controlla la connessione e riprova.';
+
+  @override
+  String get updateLater => 'Più tardi';
+
+  @override
+  String get updateInstall => 'Aggiorna';
+
+  @override
+  String get updateRetryInstall => 'Riprova l’installazione';
+
+  @override
+  String get updateRetry => 'Riprova';
 
   @override
   String get avatarCategoryPixels => 'Pixel';

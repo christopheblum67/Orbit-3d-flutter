@@ -1229,119 +1229,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get subtitleSearchOnline => 'Search online';
-
-  @override
-  String get subtitleSearchOnlineInfo =>
-      'The provider offers nothing for this content. An online search may find a subtitle.';
-
-  @override
-  String get subtitleSearchOnlineRunning => 'Searching…';
-
-  @override
-  String get subtitleOnlineResults => 'Subtitles found online';
-
-  @override
-  String get subtitleOnlineEmpty =>
-      'No subtitle found online for this content.';
-
-  @override
-  String subtitleOnlineDownloads(Object count) {
-    return '$count downloads';
-  }
-
-  @override
-  String get subtitleOnlineNoTmdb =>
-      'This content could not be identified on TMDB: the online search needs its id.';
-
-  @override
-  String get opensubtitlesKeyLabel => 'Online subtitle search (OpenSubtitles)';
-
-  @override
-  String get opensubtitlesKeyHint => 'API key — optional';
-
-  @override
-  String get opensubtitlesKeyActive => 'Key saved: higher download quota.';
-
-  @override
-  String get opensubtitlesKeyAnonymous =>
-      'No key: search works, 5 downloads per IP per 24 h.';
-
-  @override
-  String get opensubtitlesKeyDelete => 'Clear the key';
-
-  @override
-  String get opensubtitlesKeyCheck => 'Check the key';
-
-  @override
-  String get opensubtitlesKeyChecking => 'Checking…';
-
-  @override
-  String get opensubtitlesKeyValid => 'Valid key: the service accepts it.';
-
-  @override
-  String get opensubtitlesKeyRejected =>
-      'Key rejected by the service: check that you pasted the whole key.';
-
-  @override
-  String get opensubtitlesKeyUnreachable =>
-      'Service unreachable: check your connection and try again.';
-
-  @override
-  String get opensubtitlesLoginLabel => 'OpenSubtitles account login';
-
-  @override
-  String get opensubtitlesLoginHintUsername => 'Username';
-
-  @override
-  String get opensubtitlesLoginHintPassword => 'Password';
-
-  @override
-  String get opensubtitlesLoginActive =>
-      'Account saved: downloads will be able to sign in.';
-
-  @override
-  String get opensubtitlesLoginNone =>
-      'No account: downloads stay refused (503).';
-
-  @override
-  String get opensubtitlesLoginDelete => 'Delete account';
-
-  @override
-  String get opensubtitlesLoginConnect => 'Sign in / verify';
-
-  @override
-  String get opensubtitlesLoginConnecting => 'Signing in…';
-
-  @override
-  String get opensubtitlesLoginValid =>
-      'Account accepted: the service issued a token.';
-
-  @override
-  String get opensubtitlesLoginRejected =>
-      'Credentials rejected: check your username and password.';
-
-  @override
-  String get opensubtitlesLoginUnreachable =>
-      'Service unreachable: check your connection and retry.';
-
-  @override
-  String get subtitleOnlineNoApiKey =>
-      'OpenSubtitles API key missing: enter it in Settings to enable online search.';
-
-  @override
-  String get subtitleOnlineKeyRejected =>
-      'OpenSubtitles API key rejected: it is set, but the service refuses it. Check it in Settings.';
-
-  @override
-  String get subtitleOnlineQuota =>
-      'OpenSubtitles download quota reached for today. Try again tomorrow.';
-
-  @override
-  String get subtitleOnlineNeedsLogin =>
-      'OpenSubtitles download requires a signed-in account, not just the API key: search works, but the download is refused.';
-
-  @override
   String get favorites => 'Favorites';
 
   @override
@@ -1398,9 +1285,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'API credentials and network settings. These settings commit your account to third-party services: a shared key uses up its quota, and a wrong network setting can stop the app from starting.';
 
   @override
-  String get advancedSubtitlesProvider => 'Subtitle provider';
-
-  @override
   String get advancedStatus => 'Credential status';
 
   @override
@@ -1444,6 +1328,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avatarCategoryBlackWhite => 'Black & White';
+
+  @override
+  String get updateTitle => 'Updates';
+
+  @override
+  String get updateSettingsSubtitle =>
+      'Check the latest official GitHub release';
+
+  @override
+  String get updateChecking => 'Checking for updates…';
+
+  @override
+  String get updateCurrent => 'You already have the latest available version.';
+
+  @override
+  String get updateAvailable => 'A new version is available:';
+
+  @override
+  String get updateDownloading => 'Downloading and verifying the APK…';
+
+  @override
+  String get updateReady => 'Opening the Android installer…';
+
+  @override
+  String get updatePermission =>
+      'Allow Orbit to install unknown apps in Android settings, then return here and retry.';
+
+  @override
+  String get updateNoRelease => 'No stable release is available on GitHub.';
+
+  @override
+  String get updateAssetError =>
+      'The release does not contain the official universal APK or its verification information.';
+
+  @override
+  String get updateInvalidApk =>
+      'The APK is incompatible, signed with another key, or does not have a higher Android version. Installation cancelled.';
+
+  @override
+  String get updateIntegrityError =>
+      'The downloaded file failed verification. Installation cancelled.';
+
+  @override
+  String get updateGenericError =>
+      'The update failed. Check your connection and retry.';
+
+  @override
+  String get updateLater => 'Later';
+
+  @override
+  String get updateInstall => 'Update';
+
+  @override
+  String get updateRetryInstall => 'Retry installation';
+
+  @override
+  String get updateRetry => 'Retry';
 
   @override
   String get avatarCategoryPixels => 'Pixels';

@@ -42,7 +42,7 @@ class CatalogDb {
   CatalogDb.forTesting(this._testPath, {this.afterBatchForTesting});
 
   static const String _dbName = 'orbit_catalog.db';
-  static const int _schemaVersion = 2;
+  static const int _schemaVersion = 3;
   static const int _insertChunk = 500;
   static int _nextGeneration = 0;
 
@@ -138,6 +138,9 @@ class CatalogDb {
           await db.execute(
             'CREATE INDEX idx_items_title ON items(kind, sub_key, title_key)',
           );
+          await db.execute(
+            'CREATE INDEX idx_items_cat_title ON items(kind, sub_key, category_id, title_key, id)',
+          );
           await db.execute('''
             CREATE TABLE meta (
               kind INTEGER NOT NULL,
@@ -170,6 +173,11 @@ class CatalogDb {
                 PRIMARY KEY (kind, data_key)
               ) WITHOUT ROWID
             ''');
+          }
+          if (oldVersion < 3) {
+            await db.execute(
+              'CREATE INDEX idx_items_cat_title ON items(kind, sub_key, category_id, title_key, id)',
+            );
           }
         },
       );
@@ -599,6 +607,7 @@ class CatalogDb {
     CatalogSort sort = CatalogSort.recentlyAdded,
     int limit = 120,
     int offset = 0,
+    CatalogCursor? after,
   }) async {
     final rows = await _page(
       CatalogKind.vod,
@@ -607,6 +616,7 @@ class CatalogDb {
       sort,
       limit,
       offset,
+      after,
     );
     return [
       for (final r in rows)
@@ -634,6 +644,7 @@ class CatalogDb {
     CatalogSort sort = CatalogSort.recentlyAdded,
     int limit = 120,
     int offset = 0,
+    CatalogCursor? after,
   }) async {
     final rows = await _page(
       CatalogKind.series,
@@ -642,6 +653,7 @@ class CatalogDb {
       sort,
       limit,
       offset,
+      after,
     );
     return [
       for (final r in rows)
@@ -669,20 +681,72 @@ class CatalogDb {
     CatalogSort sort,
     int limit,
     int offset,
+    CatalogCursor? after,
   ) async {
     final db = await _db();
     if (db == null) return const [];
+    final stopwatch = kDebugMode ? (Stopwatch()..start()) : null;
     try {
       final q = _where(kind, subKey, filter);
+      final cursor = after == null ? null : _after(sort, after);
       return await db.rawQuery(
         'SELECT id, title, poster, stream_id, ext, year, genre, rating, '
         'category_id, pegi, added FROM items WHERE ${q.clause} '
+        '${cursor == null ? '' : 'AND ${cursor.clause} '}'
         'ORDER BY ${_orderBy(sort)} LIMIT ? OFFSET ?',
-        [...q.args, limit, offset],
+        [...q.args, ...?cursor?.args, limit, after == null ? offset : 0],
       );
-    } catch (_) {
+    } catch (error) {
+      LoggerService.instance.error(
+        'CatalogDb : lecture de page impossible (${error.runtimeType})',
+        tag: 'db',
+      );
       return const [];
+    } finally {
+      if (stopwatch != null) {
+        debugPrint(
+          'CATALOG_PAGE kind=${kind.name} sort=${sort.name} '
+          'cursor=${after != null} durationUs=${stopwatch.elapsedMicroseconds}',
+        );
+      }
     }
+  }
+
+  static ({String clause, List<Object> args}) _after(
+    CatalogSort sort,
+    CatalogCursor cursor,
+  ) {
+    final title = cursor.title.toLowerCase();
+    if (sort == CatalogSort.title) {
+      return (
+        clause: '(title_key >= ? AND '
+            '(title_key > ? OR (title_key = ? AND id > ?)))',
+        args: [title, title, title, cursor.id],
+      );
+    }
+    if (sort == CatalogSort.titleDesc) {
+      return (
+        clause: '(title_key <= ? AND '
+            '(title_key < ? OR (title_key = ? AND id > ?)))',
+        args: [title, title, title, cursor.id],
+      );
+    }
+    final (column, value, descending) = switch (sort) {
+      CatalogSort.recentlyAdded => ('added', cursor.added, true),
+      CatalogSort.recentlyAddedAsc => ('added', cursor.added, false),
+      CatalogSort.rating => ('rating', cursor.rating, true),
+      CatalogSort.ratingAsc => ('rating', cursor.rating, false),
+      CatalogSort.year => ('year', cursor.year, true),
+      CatalogSort.yearAsc => ('year', cursor.year, false),
+      _ => throw StateError('Tri incompatible avec le curseur'),
+    };
+    final operator = descending ? '<' : '>';
+    return (
+      clause: '($column $operator= ? AND ($column $operator ? OR '
+          '($column = ? AND (title_key > ? OR '
+          '(title_key = ? AND id > ?)))))',
+      args: [value, value, value, title, title, cursor.id],
+    );
   }
 
   static String _orderBy(CatalogSort sort) {
@@ -743,10 +807,8 @@ class CatalogDb {
     return (clause: clause.toString(), args: args);
   }
 
-  static String _escapeLike(String s) => s
-      .replaceAll('\\', '\\\\')
-      .replaceAll('%', '\\%')
-      .replaceAll('_', '\\_');
+  static String _escapeLike(String s) =>
+      s.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
 
   static int _asInt(Object? v) => v is num ? v.toInt() : 0;
 
@@ -756,6 +818,39 @@ class CatalogDb {
         ? null
         : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
   }
+}
+
+/// Dernière entrée affichée, avec les clés de tri et de départage SQLite.
+class CatalogCursor {
+  const CatalogCursor({
+    required this.id,
+    required this.title,
+    required this.added,
+    required this.rating,
+    required this.year,
+  });
+
+  factory CatalogCursor.fromMovie(Movie movie) => CatalogCursor(
+        id: movie.id,
+        title: movie.title,
+        added: (movie.addedDate?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+        rating: movie.rating,
+        year: movie.year,
+      );
+
+  factory CatalogCursor.fromSeries(Series series) => CatalogCursor(
+        id: series.id,
+        title: series.title,
+        added: (series.addedDate?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+        rating: series.rating,
+        year: series.year,
+      );
+
+  final String id;
+  final String title;
+  final int added;
+  final double rating;
+  final int year;
 }
 
 /// Filtre commun aux requêtes de catalogue.

@@ -32,4 +32,17 @@ void main() {
     expect(existing.copyWith(firstName: 'Autre').pinHash, '1234');
     expect(existing.copyWith(clearPin: true).pinHash, isNull);
   });
+
+  test('PIN state and legacy key are read without reviving a cleared PIN', () {
+    expect(profile(null).hasPin, isFalse);
+    expect(profile('  ').hasPin, isFalse);
+    expect(profile('hash').hasPin, isTrue);
+    final map = profile('hash').toMap();
+    expect(UserProfile.fromMap(map).pinHash, 'hash');
+    map.remove('pinHash');
+    map['pin_hash'] = 'legacy-hash';
+    expect(UserProfile.fromMap(map).pinHash, 'legacy-hash');
+    map['pinHash'] = null;
+    expect(UserProfile.fromMap(map).hasPin, isFalse);
+  });
 }

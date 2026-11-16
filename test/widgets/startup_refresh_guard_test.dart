@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
+import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
@@ -232,13 +234,145 @@ void main() {
       expect(loads, fresh ? 0 : 1);
       if (!fresh) {
         await tester.pump(const Duration(seconds: 60));
-        expect(find.text('Vérifier l’abonnement'), findsNothing);
+        expect(find.text('Retour à l’accueil'), findsOneWidget);
+        expect(find.text('Vérifier l’abonnement'), findsOneWidget);
         expect(find.text('Profiles'), findsNothing);
       }
       await tester.pumpWidget(const SizedBox.shrink());
       live.complete([]);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+    });
+  }
+
+  for (final destination in ['home', 'subscriptions']) {
+    testWidgets('stalled startup allows leaving for $destination',
+        (tester) async {
+      final live = Completer<List<Channel>>();
+      final subscription = Subscription(
+        id: 'subscription',
+        name: 'Subscription',
+        type: SubscriptionType.m3u,
+        createdAt: DateTime(2026),
+      );
+      final router = GoRouter(
+        initialLocation: '/startup',
+        routes: [
+          GoRoute(
+            path: '/startup',
+            builder: (_, __) => const StartupSplashScreen(),
+          ),
+          GoRoute(path: '/home', builder: (_, __) => const Text('Home')),
+          GoRoute(
+            path: '/subscriptions',
+            builder: (_, __) => const Text('Subscriptions'),
+          ),
+          GoRoute(
+              path: '/profiles', builder: (_, __) => const Text('Profiles')),
+        ],
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(overrides: [
+        activeSubscriptionProvider.overrideWith((ref) => subscription),
+        apiServiceProvider.overrideWithValue(_Api()),
+        liveChannelsProvider.overrideWith((ref) => live.future),
+        certificatePinningInitializerProvider.overrideWith((ref) {}),
+        lastRefreshTimestampProvider.overrideWithBuild((ref, notifier) => null),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 59));
+      expect(find.text('Retour à l’accueil'), findsNothing);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Retour à l’accueil'), findsOneWidget);
+      expect(find.text('Vérifier l’abonnement'), findsOneWidget);
+      if (destination == 'home') {
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text(destination == 'home' ? 'Home' : 'Subscriptions'),
+          findsOneWidget);
+      live.complete([]);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(find.text('Profiles'), findsNothing);
+      expect(find.text(destination == 'home' ? 'Home' : 'Subscriptions'),
+          findsOneWidget);
+    });
+  }
+
+  for (final destination in ['home', 'subscriptions']) {
+    testWidgets(
+        'manual refresh allows leaving for $destination after a later stall',
+        (tester) async {
+      final movies = Completer<List<Movie>>();
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (context, _) => Scaffold(
+              body: TextButton(
+                onPressed: () => showRefreshProgress(context),
+                child: const Text('Refresh'),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/subscriptions',
+            builder: (_, __) => const Text('Subscriptions'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(overrides: [
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        apiServiceProvider.overrideWithValue(_Api()),
+        liveChannelsProvider.overrideWith((ref) async => <Channel>[]),
+        moviesProvider.overrideWith((ref) => movies.future),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ));
+      await tester.tap(find.text('Refresh'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('0 %'), findsNothing);
+      await tester.pump(const Duration(seconds: 60));
+      expect(find.text('Retour à l’accueil'), findsOneWidget);
+      expect(find.text('Vérifier l’abonnement'), findsOneWidget);
+      expect(ApiService.bypassCatalogCache, isTrue);
+      await tester.tap(find.text(destination == 'home'
+          ? 'Retour à l’accueil'
+          : 'Vérifier l’abonnement'));
+      await tester.pumpAndSettle();
+      final destinationText =
+          destination == 'home' ? 'Refresh' : 'Subscriptions';
+      expect(find.text(destinationText), findsOneWidget);
+      expect(ApiService.bypassCatalogCache, isFalse);
+      movies.complete([]);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      expect(find.text(destinationText), findsOneWidget);
     });
   }
 

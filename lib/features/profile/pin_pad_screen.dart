@@ -35,7 +35,7 @@ class PinPadArgs {
 /// Sprint 3 — pavé numérique TV :
 /// - navigation au d-pad (flèches) entre les touches,
 /// - retour haptique (selection sur focus, impact sur saisie),
-/// - 4 chiffres avec auto-validation (+ bouton OK),
+/// - 4 chiffres, confirmation explicite pour la création,
 /// - affichage des points ●.
 class PinPadScreen extends ConsumerStatefulWidget {
   const PinPadScreen({super.key, required this.args});
@@ -55,6 +55,13 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   bool _wrong = false;
   bool _validated = false;
   bool _checking = false;
+  final _confirmFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _confirmFocus.dispose();
+    super.dispose();
+  }
 
   PinPadMode get _mode => widget.args.mode;
 
@@ -82,7 +89,11 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
       _wrong = false;
     });
     if (_digits.length == _pinLength) {
-      _submit();
+      if (_mode == PinPadMode.verify) {
+        _submit();
+      } else {
+        _confirmFocus.requestFocus();
+      }
     }
   }
 
@@ -211,6 +222,12 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildKeyGrid(),
+                    if (_mode == PinPadMode.set) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                          'Après 4 chiffres, appuyez sur ✓ pour valider.',
+                          textAlign: TextAlign.center),
+                    ],
                   ],
                 ),
               ),
@@ -249,6 +266,8 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                 label: Icons.check_rounded,
                 autofocus: false,
                 primary: true,
+                focusNode: _confirmFocus,
+                semanticsLabel: 'Valider le code PIN',
                 onActivate: _onOk,
               ),
             ],
@@ -284,12 +303,16 @@ class _PinKey extends StatefulWidget {
     required this.onActivate,
     this.autofocus = false,
     this.primary = false,
+    this.focusNode,
+    this.semanticsLabel,
   });
 
   final Object label;
   final VoidCallback onActivate;
   final bool autofocus;
   final bool primary;
+  final FocusNode? focusNode;
+  final String? semanticsLabel;
 
   @override
   State<_PinKey> createState() => _PinKeyState();
@@ -308,6 +331,7 @@ class _PinKeyState extends State<_PinKey> {
     final scheme = Theme.of(context).colorScheme;
     final primaryColor = widget.primary ? scheme.tertiary : scheme.primary;
     return Focus(
+      focusNode: widget.focusNode,
       autofocus: widget.autofocus,
       onFocusChange: (hasFocus) {
         if (hasFocus) HapticFeedback.selectionClick();
@@ -324,62 +348,70 @@ class _PinKeyState extends State<_PinKey> {
         }
         return KeyEventResult.ignored;
       },
-      child: GestureDetector(
-        onTap: _activate,
-        child: AnimatedScale(
-          scale: _focused ? 1.08 : 1,
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          child: AnimatedContainer(
+      child: Semantics(
+        button: true,
+        label: widget.semanticsLabel,
+        child: GestureDetector(
+          onTap: _activate,
+          child: AnimatedScale(
+            scale: _focused ? 1.08 : 1,
             duration: const Duration(milliseconds: 140),
-            width: 84,
-            height: 84,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: _focused
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [primaryColor, Lighten.color(primaryColor)],
-                    )
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        scheme.surfaceContainerLow,
-                        scheme.surfaceContainerHigh,
-                      ],
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              width: 84,
+              height: 84,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: _focused
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [primaryColor, Lighten.color(primaryColor)],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.surfaceContainerLow,
+                          scheme.surfaceContainerHigh,
+                        ],
+                      ),
+                border: Border.all(
+                  color: _focused
+                      ? primaryColor
+                      : scheme.outlineVariant.withValues(alpha: 0.6),
+                  width: _focused ? 2.5 : 1,
+                ),
+                boxShadow: [
+                  if (_focused)
+                    BoxShadow(
+                      color: primaryColor.withValues(alpha: 0.45),
+                      blurRadius: 22,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
                     ),
-              border: Border.all(
-                color: _focused
-                    ? primaryColor
-                    : scheme.outlineVariant.withValues(alpha: 0.6),
-                width: _focused ? 2.5 : 1,
+                ],
               ),
-              boxShadow: [
-                if (_focused)
-                  BoxShadow(
-                    color: primaryColor.withValues(alpha: 0.45),
-                    blurRadius: 22,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-              ],
+              child: widget.label is IconData
+                  ? Icon(
+                      widget.label as IconData,
+                      size: 34,
+                      color: _focused ? scheme.onPrimary : scheme.onSurface,
+                    )
+                  : Text(
+                      widget.label as String,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color:
+                                _focused ? scheme.onPrimary : scheme.onSurface,
+                          ),
+                    ),
             ),
-            child: widget.label is IconData
-                ? Icon(
-                    widget.label as IconData,
-                    size: 34,
-                    color: _focused ? scheme.onPrimary : scheme.onSurface,
-                  )
-                : Text(
-                    widget.label as String,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: _focused ? scheme.onPrimary : scheme.onSurface,
-                        ),
-                  ),
           ),
         ),
       ),

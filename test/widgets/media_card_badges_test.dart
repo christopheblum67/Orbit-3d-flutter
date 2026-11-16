@@ -11,6 +11,62 @@ class _TestPreferences extends PreferencesNotifier {
 }
 
 void main() {
+  for (final brightness in [Brightness.light, Brightness.dark]) {
+    testWidgets('highlighted titles are red and bold in $brightness',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [preferencesProvider.overrideWith(_TestPreferences.new)],
+          child: MaterialApp(
+            theme: ThemeData(brightness: brightness),
+            home: const Scaffold(
+              body: Row(
+                children: [
+                  SizedBox(
+                    width: 160,
+                    height: 300,
+                    child: MediaCard(
+                      title: 'Nouveauté',
+                      posterUrl: '',
+                      year: 0,
+                      genre: '',
+                      rating: 0,
+                      ageLabel: null,
+                      fallbackIcon: Icons.movie,
+                      highlightTitle: true,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 160,
+                    height: 300,
+                    child: MediaCard(
+                      title: 'Existant',
+                      posterUrl: '',
+                      year: 0,
+                      genre: '',
+                      rating: 0,
+                      ageLabel: null,
+                      fallbackIcon: Icons.movie,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final highlighted = tester.widget<Text>(find.text('Nouveauté'));
+      final existing = tester.widget<Text>(find.text('Existant'));
+      expect(
+          highlighted.style!.color,
+          brightness == Brightness.dark
+              ? Colors.redAccent.shade100
+              : Colors.red.shade800);
+      expect(highlighted.style!.fontWeight, FontWeight.w900);
+      expect(existing.style!.color, isNot(highlighted.style!.color));
+    });
+  }
+
   testWidgets('rating is above affinity and new badge avoids age badge',
       (tester) async {
     await tester.pumpWidget(

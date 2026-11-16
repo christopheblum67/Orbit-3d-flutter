@@ -5,45 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/core/utils/language_label.dart';
-import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/providers/opensubtitles_service_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/opensubtitles_service.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_discovery.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-
-/// Nature d'une erreur de recherche en ligne, telle qu'elle se présente à
-/// l'utilisateur.
-///
-/// La distinction qui compte — **clé absente ≠ clé refusée** — est extraite du
-/// widget pour être verrouillée par un test : c'est elle qui décidait si
-/// l'utilisateur devait saisir une clé (absente) ou vérifier celle qu'il a
-/// déjà saisie (refusée). Les confondre envoyait « ressaisir la clé » à
-/// quelqu'un qui venait de la saisir.
-enum SubtitleOnlineErrorKind {
-  noApiKey,
-  keyRejected,
-  quota,
-  needsLogin,
-  unknown
-}
-
-/// Classe une erreur OpenSubtitles par la conduite à tenir.
-SubtitleOnlineErrorKind classifySubtitleOnlineError(String text) {
-  // L'absence de clé est levée par `_requireApiKey` AVANT toute requête : son
-  // message ne porte aucun code HTTP, il faut donc le tester avant les codes.
-  if (text.contains('Clé API OpenSubtitles absente')) {
-    return SubtitleOnlineErrorKind.noApiKey;
-  }
-  if (text.contains('http=401') || text.contains('http=403')) {
-    return SubtitleOnlineErrorKind.keyRejected;
-  }
-  if (text.contains('http=429')) return SubtitleOnlineErrorKind.quota;
-  if (text.contains('http=503')) return SubtitleOnlineErrorKind.needsLogin;
-  return SubtitleOnlineErrorKind.unknown;
-}
 
 /// Sous-fenêtre « Détails du flux » ouverte depuis la footerbar (icône ⚙️).
 ///
@@ -131,26 +97,6 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   /// 0 = aucune vérification en cours.
   int _subtitleVerifying = 0;
 
-  /// Recherche en ligne : résultats, état d'avancement, erreur.
-  ///
-  /// Volontairement déclenchée par un bouton et non au chargement : une
-  /// requête externe à l'ouverture du panneau coûterait de la latence et du
-  /// quota pour rien, quand le panel fournit déjà ses pistes.
-  List<OpenSubtitlesHit> _onlineHits = const [];
-  bool _onlineSearching = false;
-  int? _onlineBusyId;
-  String? _onlineError;
-
-  /// Identifiant TMDB fourni par le panel pour ce contenu.
-  ///
-  /// Recoveru de la reponse get_vod_info / get_series_info. Prefere a
-  /// notre propre recherche TMDB : elle ne demande aucune cle API, alors que
-  /// l'utilisateur n'en saisit pas toujours une.
-  int _panelTmdbId = 0;
-
-  /// Une recherche a-t-elle déjà été lancée ? Sert à distinguer « pas encore
-  /// cherché » de « cherché, rien trouvé ».
-  bool _onlineSearched = false;
   String? _subtitleError;
 
   @override
@@ -174,8 +120,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
         _subtitleError = null;
       });
     }
-    final result = await safeAsync<
-        ({List<SubtitleTrackRef> tracks, bool guessed, int tmdbId})>(
+    final result =
+        await safeAsync<({List<SubtitleTrackRef> tracks, bool guessed})>(
       () => ref.read(apiServiceProvider).discoverSubtitles(
             ctx.contentId,
             isSeries: ctx.isSeries,
@@ -185,11 +131,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     );
     if (!mounted) return;
     final found = result.valueOrNull ??
-        (tracks: const <SubtitleTrackRef>[], guessed: false, tmdbId: 0);
-
-    // Identifiant TMDB publié par le panel : il épargne la recherche TMDB, et
-    // donc une clé API que l'utilisateur n'a pas forcément saisie.
-    if (found.tmdbId > 0) _panelTmdbId = found.tmdbId;
+        (tracks: const <SubtitleTrackRef>[], guessed: false);
 
     if (!result.isSuccess) {
       setState(() {
@@ -326,164 +268,6 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     );
   }
 
-  /// Recherche un sous-titre EN LIGNE, quand le panel n'en propose aucun.
-  ///
-  /// Le panel peut ne publier aucun sous-titre et ne pas servir le chemin
-  /// `/subtitles/...` — mesuré : réponse vide. OpenSubtitles est alors la seule
-  /// source restante. On ne l'interroge que sur action explicite, jamais au
-  /// chargement, pour ne pas consommer de quota ni introduire de latence à
-  /// l'ouverture du panneau.
-  Future<void> _searchOnline() async {
-    final ctx = ref.read(activeSubtitleContextProvider);
-    final l = AppLocalizations.of(context);
-    // `setState` est indispensable : sans lui, l'erreur est écrite dans le
-    // champ mais l'écran ne se redessine pas, et l'utilisateur voit un bouton
-    // qui ne semble ne faire rien.
-    if (ctx == null || ctx.title.trim().isEmpty) {
-      setState(() {
-        _onlineError = l.subtitleOnlineNoTmdb;
-        _onlineSearched = true;
-      });
-      return;
-    }
-    setState(() {
-      _onlineSearching = true;
-      _onlineError = null;
-    });
-
-    // Service fourni par le graphe Riverpod : il porte la clé courante, et la
-    // remplace quand l'utilisateur en enregistre une nouvelle. Le construire
-    // ici à partir d'un `ref.read` figerait la clé au moment de la recherche.
-    final service = ref.read(openSubtitlesServiceProvider);
-
-    try {
-      // Deux voies, dans cet ordre :
-      //
-      // 1. l'identifiant que le panel a lui-même publié dans sa réponse. Il est
-      //    déjà connu, donc gratuit et instantané ;
-      // 2. à défaut, notre recherche par titre, qui exige une clé API TMDB.
-      //
-      // La 2e voie échouait sur un message « impossible d'identifier le
-      // contenu » alors que la 1e avait la réponse sous les yeux depuis le
-      // chargement du panneau.
-      final resolved = _panelTmdbId;
-      if (resolved <= 0) {
-        final cleaned = OpenSubtitlesService.cleanSearchTitle(ctx.title);
-        if (cleaned.isEmpty) {
-          if (!mounted) return;
-          LoggerService.instance.info(
-            'opensubtitles : aucun identifiant TMDB et titre inexploitable',
-          );
-          setState(() {
-            _onlineSearching = false;
-            _onlineSearched = true;
-            _onlineError = l.subtitleOnlineNoTmdb;
-          });
-          return;
-        }
-        final hits = await service.searchByTitle(
-          cleaned,
-          season: ctx.isSeries ? ctx.season : null,
-          episode: ctx.isSeries ? ctx.episode : null,
-        );
-        if (!mounted) return;
-        setState(() {
-          _onlineSearching = false;
-          _onlineSearched = true;
-          _onlineHits = hits;
-        });
-        if (hits.isEmpty) {
-          setState(() => _onlineError = l.subtitleOnlineEmpty);
-        }
-        return;
-      }
-
-      final hits = ctx.isSeries
-          ? await service.searchEpisode(
-              resolved,
-              season: ctx.season,
-              episode: ctx.episode,
-            )
-          : await service.searchMovie(resolved);
-      if (!mounted) return;
-      setState(() {
-        _onlineSearching = false;
-        _onlineSearched = true;
-        _onlineHits = hits;
-      });
-      if (hits.isEmpty) {
-        // Ce chemin ne posait AUCUN message : la recherche par identifiant
-        // pouvait échouer ou ne rien trouver, et l'utilisateur ne lisait rien
-        // du tout — ni résultat, ni explication.
-        setState(() => _onlineError = l.subtitleOnlineEmpty);
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _onlineSearching = false;
-        _onlineSearched = true;
-        _onlineError = _onlineErrorText(error, l);
-      });
-    }
-  }
-
-  /// Message d'erreur conceived pour l'utilisateur, pas pour un journal.
-  ///
-  /// Un 401 sans clé se traduisait par une suite de messages techniques
-  /// (« SubtitlePayloadException : … http=401 ») qui ne disait pas ce qu'il
-  /// fallait faire. La conduite à tenir est une seule : saisir la clé dans les
-  /// réglages.
-  ///
-  /// Un 401 AVEC clé se traduisait par le même message « clé absente » alors
-  /// que la clé est là mais refusée : l'utilisateur se retrouvait face à un
-  /// messsage qui le priait de saisir une clé déjà saisie. Depuis, les deux
-  /// cas sont distincts : absente ≠ refusée.
-  String _onlineErrorText(Object error, AppLocalizations l) {
-    final text = '$error';
-    // Le 503 de `/download` a une cause documentée et unique : OpenSubtitles
-    // exige DEUX en-têtes sur cet endpoint, `Api-Key` ET `Authorization: Bearer`
-    // (obtenu via `/login`). La clé seule suffit à la recherche, d'où la
-    // confusion : la recherche fonctionne, le téléchargement échoue.
-    //
-    // Et contre-intuitif : l'en-tête manquant ne renvoie pas 401 mais 503
-    // « Service unavailable » — d'où l'absence de piste côté clé.
-    switch (classifySubtitleOnlineError(text)) {
-      case SubtitleOnlineErrorKind.noApiKey:
-        return l.subtitleOnlineNoApiKey;
-      case SubtitleOnlineErrorKind.keyRejected:
-        return l.subtitleOnlineKeyRejected;
-      case SubtitleOnlineErrorKind.quota:
-        return l.subtitleOnlineQuota;
-      case SubtitleOnlineErrorKind.needsLogin:
-        return l.subtitleOnlineNeedsLogin;
-      case SubtitleOnlineErrorKind.unknown:
-        return text;
-    }
-  }
-
-  /// Télécharge un sous-titre en ligne et l'active.
-  Future<void> _selectOnline(OpenSubtitlesHit hit) async {
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _onlineBusyId = hit.fileId);
-    final service = ref.read(openSubtitlesServiceProvider);
-    try {
-      final track = await service.download(hit, language: hit.language);
-      if (!mounted) return;
-      ref.read(subtitleControllerProvider).adoptTrack(track, hit.label);
-      setState(() => _onlineBusyId = null);
-      messenger.showSnackBar(
-        SnackBar(content: Text(hit.label)),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _onlineBusyId = null);
-      final l = AppLocalizations.of(context);
-      messenger.showSnackBar(
-        SnackBar(content: Text('${l.subtitleUnavailableToast} : $error')),
-      );
-    }
-  }
-
   VideoTrack? _videoTrackFor(String id) {
     for (final track in _videoTracks) {
       if (track.id == id) return track;
@@ -498,8 +282,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height *
-              (widget.isLive ? 1 : 0.8),
+          maxHeight:
+              MediaQuery.of(context).size.height * (widget.isLive ? 1 : 0.8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -789,23 +573,15 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     }
 
     if (_subtitleError != null) {
-      // L'explication ne doit pas fermer la porte : quand le panel ne sert
-      // rien, la recherche en ligne est la seule voie restante. Ce retour
-      // anticipé la masquait — l'utilisateur lisait « indisponible » sans
-      // aucun moyen d'agir, ce qui est le pire des deux mondes.
       return [
         _EmptyRow(label: l.subtitleUnavailable, info: _subtitleError!),
-        ..._buildOnlineRow(l),
       ];
     }
 
     final tracks = _subtitleTracks;
     if (tracks.isEmpty) {
-      // Aucune piste du panel : on propose la recherche en ligne, qui est la
-      // seule source restante quand le panel ne sert rien.
       return [
         _EmptyRow(label: l.subtitleNoTrack, info: l.subtitleNoTrackInfo),
-        ..._buildOnlineRow(l),
       ];
     }
 
@@ -879,73 +655,6 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       ),
     );
   }
-
-  /// Recherche en ligne : bouton, état d'avancement, résultats.
-  ///
-  /// Toujours en BAS de la liste, jamais à la place des pistes du panel : la
-  /// source de l'abonnement reste prioritaire, et une source externe n'est
-  /// proposée que lorsque le panel n'a rien donné.
-  List<Widget> _buildOnlineRow(AppLocalizations l) {
-    if (_onlineSearching) {
-      return [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l.subtitleSearchOnlineRunning,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ];
-    }
-
-    if (_onlineError != null) {
-      return [
-        _EmptyRow(label: l.subtitleUnavailable, info: _onlineError!),
-        _onlineButton(l),
-      ];
-    }
-
-    if (_onlineHits.isEmpty) {
-      return [
-        if (_onlineSearched) _EmptyRow(label: '', info: l.subtitleOnlineEmpty),
-        _onlineButton(l),
-      ];
-    }
-
-    return [
-      _EmptyRow(label: l.subtitleOnlineResults, info: ''),
-      for (final hit in _onlineHits)
-        _TrackTile(
-          title: hit.label,
-          // Le nombre de téléchargements est le meilleur proxy de fiabilité,
-          // l'API ne renvoyant plus le nom du fichier.
-          subtitle: l.subtitleOnlineDownloads(hit.downloadCount),
-          selected: false,
-          onTap: _onlineBusyId == hit.fileId ? () {} : () => _selectOnline(hit),
-        ),
-    ];
-  }
-
-  Widget _onlineButton(AppLocalizations l) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-        child: OutlinedButton.icon(
-          onPressed: _searchOnline,
-          icon: const Icon(Icons.travel_explore, size: 18),
-          label: Text(l.subtitleSearchOnline),
-        ),
-      );
 
   Widget _sectionTitle(String label) {
     final scheme = Theme.of(context).colorScheme;

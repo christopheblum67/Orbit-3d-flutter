@@ -2,24 +2,40 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_profile_recovery_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/tv_pairing_screen.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_account_service.dart';
 
 class CloudAccountScreen extends StatefulWidget {
-  const CloudAccountScreen({super.key, this.service});
+  const CloudAccountScreen({super.key, this.service, this.tvDetector});
 
   final CloudAccountService? service;
+  @visibleForTesting
+  final Future<bool> Function()? tvDetector;
 
   @override
   State<CloudAccountScreen> createState() => _CloudAccountScreenState();
 }
 
 class _CloudAccountScreenState extends State<CloudAccountScreen> {
+  static final _focusedButtonStyle = ButtonStyle(
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (states) =>
+          states.contains(WidgetState.focused) ? const Color(0xFFFFC107) : null,
+    ),
+    foregroundColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.focused) ? Colors.black : null,
+    ),
+  );
+
   final _email = TextEditingController();
   final _password = TextEditingController();
   CloudAccountService? _service;
   String? _error;
   bool _busy = false;
+  bool? _isTv = qrPairingAvailable ? null : false;
 
   @override
   void initState() {
@@ -28,6 +44,24 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
       _service = widget.service ?? CloudAccountService();
     } on FirebaseException {
       _error = 'Firebase n’est pas disponible sur cet appareil.';
+    }
+    if (qrPairingAvailable) _detectTv();
+  }
+
+  Future<void> _detectTv() async {
+    try {
+      final isTv =
+          await (widget.tvDetector?.call() ?? HardwareDetectorService.isTv());
+      if (mounted) setState(() => _isTv = isTv);
+    } catch (error, stack) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          context: ErrorDescription('while detecting the TV for cloud pairing'),
+        ),
+      );
+      if (mounted) setState(() => _isTv = false);
     }
   }
 
@@ -125,10 +159,11 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
             'des préférences et des abonnements.',
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Si un compte est déjà connecté, Google lui sera lié sans changer '
-            'son identifiant. Les comptes distincts ne sont pas fusionnés.',
-          ),
+          if (_isTv == false)
+            const Text(
+              'Si un compte est déjà connecté, Google lui sera lié sans changer '
+              'son identifiant. Les comptes distincts ne sont pas fusionnés.',
+            ),
           const SizedBox(height: 16),
           if (service != null)
             StreamBuilder<User?>(
@@ -137,8 +172,46 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                 if (snapshot.hasError) {
                   return const Text('Impossible de lire l’état du compte.');
                 }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text('Vérification du compte…');
+                }
                 if (!snapshot.hasData) {
-                  return const Text('Aucun compte cloud connecté.');
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Aucun compte cloud connecté.'),
+                      if (qrPairingAvailable)
+                        TextButton(
+                          autofocus: true,
+                          style: _focusedButtonStyle,
+                          onPressed: _busy
+                              ? null
+                              : () async {
+                                  final result = await Navigator.of(context)
+                                      .push<PairingResult>(
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const TvPairingScreen()),
+                                  );
+                                  if (!context.mounted || result == null)
+                                    return;
+                                  if (result.cleanupFailed) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(const SnackBar(
+                                      content: Text(
+                                          'Compte associé, mais le nettoyage de la session temporaire a échoué.'),
+                                    ));
+                                  }
+                                  await Navigator.of(context)
+                                      .push(MaterialPageRoute<void>(
+                                    builder: (_) => CloudProfileRecoveryScreen(
+                                        initialPhrase: result.phrase),
+                                  ));
+                                },
+                          child: const Text('Associer cette TV par QR code'),
+                        ),
+                    ],
+                  );
                 }
                 if (snapshot.data!.isAnonymous) {
                   return const Text(
@@ -150,6 +223,8 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                     Text(
                         'Compte connecté : ${snapshot.data!.email ?? 'Google'}'),
                     TextButton(
+                      autofocus: true,
+                      style: _focusedButtonStyle,
                       onPressed: _busy
                           ? null
                           : () => Navigator.of(context).push(
@@ -158,8 +233,8 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                       const CloudProfileRecoveryScreen(),
                                 ),
                               ),
-                      child: const Text(
-                          'Sauvegarder ou récupérer les fiches de profils'),
+                      child:
+                          const Text('Configurer la synchronisation chiffrée'),
                     ),
                   ],
                 );
@@ -223,7 +298,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                         }),
                 child: const Text('Mot de passe oublié'),
               ),
-              if (service != null)
+              if (service != null && _isTv == false)
                 StreamBuilder<User?>(
                   stream: service.authStateChanges,
                   builder: (context, snapshot) {

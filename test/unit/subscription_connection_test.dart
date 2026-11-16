@@ -17,6 +17,34 @@ class _FailingApi extends ApiService {
   }
 }
 
+class _RejectedApi extends ApiService {
+  @override
+  Future<Response<dynamic>> get(String url) async => Response<dynamic>(
+        requestOptions: RequestOptions(path: url),
+        data: {
+          'user_info': {'auth': 0},
+        },
+        statusCode: 200,
+      );
+}
+
+class _SuccessfulApi extends ApiService {
+  int expiryCalls = 0;
+
+  @override
+  Future<Response<dynamic>> get(String url) async => Response<dynamic>(
+        requestOptions: RequestOptions(path: url),
+        data: <dynamic>[],
+        statusCode: 200,
+      );
+
+  @override
+  Future<DateTime?> fetchExpiration() async {
+    expiryCalls++;
+    return DateTime(2030);
+  }
+}
+
 void main() {
   late StorageService storage;
   late Directory tempDir;
@@ -120,5 +148,53 @@ void main() {
     // Même tâche `refreshValidity` lancée sans `await` par `addSubscription` :
     // on la laisse se terminer dans le test courant (voir test précédent).
     await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
+
+  test('testConnection détecte des identifiants refusés malgré HTTP 200',
+      () async {
+    final container = ProviderContainer(
+      overrides: [storageServiceProvider.overrideWithValue(storage)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(subscriptionsProvider.notifier);
+    final sub = Subscription(
+      id: 'rejected',
+      name: 'Test',
+      type: SubscriptionType.xtream,
+      baseUrl: 'https://example.test',
+      username: 'user',
+      password: 'pass',
+      createdAt: DateTime.now(),
+    );
+    await notifier.addSubscription(sub);
+    await notifier.testConnection(sub, api: _RejectedApi());
+    expect(container.read(subscriptionsProvider).single.lastTestResult,
+        TestResultStatus.error);
+  });
+
+  test(
+      'le test d’un abonnement inactif ne récupère pas la date du compte actif',
+      () async {
+    final container = ProviderContainer(
+      overrides: [storageServiceProvider.overrideWithValue(storage)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(subscriptionsProvider.notifier);
+    final sub = Subscription(
+      id: 'inactive',
+      name: 'Test',
+      type: SubscriptionType.xtream,
+      baseUrl: 'https://example.test',
+      username: 'user',
+      password: 'pass',
+      createdAt: DateTime.now(),
+    );
+    final api = _SuccessfulApi();
+    await notifier.addSubscription(sub);
+    await notifier.testConnection(sub, api: api);
+    expect(container.read(subscriptionsProvider).single.lastTestResult,
+        TestResultStatus.success);
+    expect(container.read(subscriptionsProvider).single.validUntil, isNull);
+    expect(api.expiryCalls, 0);
   });
 }

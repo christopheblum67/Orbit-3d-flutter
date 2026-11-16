@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,11 +13,16 @@ import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Accent de marque, partagé avec le reste de l'application.
 const Color _kAccent = Color(0xFF00CFE8);
+
+final multiViewHardwareProvider = FutureProvider<HardwareSpecs>(
+  (ref) => HardwareDetectorService.analyze(),
+);
 
 /// Dimensions (colonnes, lignes) de la grille multi-vue pour [count] flux.
 ///
@@ -54,6 +61,29 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   /// Toutes les tuiles jouent en continu (« simultanément »), mais une seule
   /// porte le son : sans cela, quatre flux parlaient en même temps.
   int _activeIndex = 0;
+  Future<void>? _playerConfiguration;
+  Future<void> _startupQueue = Future<void>.value();
+
+  Future<void> _waitForStartup() {
+    final configuration = _playerConfiguration ??=
+        PlayerProfileService.pushForDevice(ref.read(deviceProfileProvider));
+    final turn = _startupQueue.then((_) async {
+      try {
+        await configuration;
+      } catch (_) {
+        if (identical(_playerConfiguration, configuration)) {
+          _playerConfiguration = null;
+        }
+        rethrow;
+      }
+    });
+    _startupQueue = turn.then(
+      (_) => Future<void>.delayed(const Duration(milliseconds: 150)),
+      onError: (Object _, StackTrace __) =>
+          Future<void>.delayed(const Duration(milliseconds: 150)),
+    );
+    return turn;
+  }
 
   /// Libère tous les lecteurs (appelé par la gestion du bouton retour).
   void disposeAllControllers() {
@@ -91,6 +121,9 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     }
     if (_selectedChannels.length >= maxStreams) {
       HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum : $maxStreams flux sur cet appareil.')),
+      );
       return;
     }
     setState(() {
@@ -107,44 +140,23 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   }
 
   Future<void> _openPicker(List<Channel> channels, int maxStreams) async {
-    final searchController = TextEditingController();
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: const Color(0xFF161A22),
-        builder: (sheetContext) {
-          final l = AppLocalizations.of(sheetContext);
-          return StatefulBuilder(
-            builder: (sheetContext, setSheetState) {
-              final query = searchController.text.trim().toLowerCase();
-              final filtered = query.isEmpty
-                  ? channels
-                  : channels
-                      .where((c) => c.name.toLowerCase().contains(query))
-                      .toList(growable: false);
-              return _ChannelPickerSheet(
-                title: l.addChannel,
-                hint: l.searchChannel,
-                closeLabel: l.close,
-                removeLabel: l.removeChannel,
-                controller: searchController,
-                onQueryChanged: () => setSheetState(() {}),
-                channels: filtered,
-                isSelected: _isSelected,
-                canAddMore: _selectedChannels.length < maxStreams,
-                onToggle: (channel) {
-                  _toggleChannel(channel, maxStreams);
-                  setSheetState(() {});
-                },
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      searchController.dispose();
-    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF161A22),
+      builder: (sheetContext) {
+        final l = AppLocalizations.of(sheetContext);
+        return _ChannelPickerSheet(
+          title: l.addChannel,
+          hint: l.searchChannel,
+          closeLabel: l.close,
+          channels: channels,
+          isSelected: _isSelected,
+          canAddMore: () => _selectedChannels.length < maxStreams,
+          onToggle: (channel) => _toggleChannel(channel, maxStreams),
+        );
+      },
+    );
   }
 
   AppBar _buildAppBar(
@@ -185,9 +197,55 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final profile = ref.watch(currentProfileProvider);
+    ref.listen(currentProfileProvider, (previous, next) {
+      if (previous?.id != next?.id || next?.multiTvEnabled == false) {
+        disposeAllControllers();
+      }
+    });
+    if (profile?.multiTvEnabled == false) {
+      return Scaffold(
+        appBar: _buildAppBar(context, title: l.multiVideo),
+        body: const Center(
+          child: Text(
+            'Multi TV est désactivée pour ce profil. '
+            'Activez-la dans les préférences du profil.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    ref.listen(deviceProfileProvider, (previous, next) {
+      if (previous == next) return;
+      disposeAllControllers();
+      final configuration = _playerConfiguration;
+      if (configuration != null) {
+        _playerConfiguration = configuration.then(
+          (_) => PlayerProfileService.pushForDevice(next),
+        );
+      }
+    });
     final channelsAsync = ref.watch(liveChannelsProvider);
     final deviceProfile = ref.watch(deviceProfileProvider);
-    final maxStreams = deviceProfile.maxMultiView;
+    final hardware = ref.watch(multiViewHardwareProvider);
+    if (hardware.isLoading) {
+      return Scaffold(
+        appBar: _buildAppBar(context, title: l.multiVideo),
+        body: const LoadingState(message: 'Analyse de l’appareil…'),
+      );
+    }
+    if (hardware.hasError) {
+      return Scaffold(
+        appBar: _buildAppBar(context, title: l.multiVideo),
+        body: ErrorState(
+          icon: Icons.error_outline,
+          title: 'Analyse de l’appareil impossible',
+          message: userFriendlyError(hardware.error!),
+          onRetry: () => ref.invalidate(multiViewHardwareProvider),
+        ),
+      );
+    }
+    final maxStreams = hardware.requireValue.safeMaxMultiView(deviceProfile);
 
     if (maxStreams <= 0) {
       return Scaffold(
@@ -222,8 +280,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
           message: userFriendlyError(err),
           onRetry: () => ref.invalidate(liveChannelsAllProvider),
         ),
-        data: (channels) =>
-            _buildBody(context, channels, maxStreams, deviceProfile),
+        data: (channels) => _buildBody(context, channels, maxStreams),
       ),
     );
   }
@@ -232,7 +289,6 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     BuildContext context,
     List<Channel> channels,
     int maxStreams,
-    DeviceProfile profile,
   ) {
     final l = AppLocalizations.of(context);
 
@@ -252,18 +308,19 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
           _selectedChannels.length,
           landscape: landscape,
         );
-        return Column(
+        final width = constraints.maxWidth / dims.columns;
+        final height = constraints.maxHeight / dims.rows;
+        return Stack(
           children: [
-            for (var row = 0; row < dims.rows; row++)
-              Expanded(
-                child: Row(
-                  children: [
-                    for (var col = 0; col < dims.columns; col++)
-                      Expanded(
-                        child: _buildCell(row * dims.columns + col, profile),
-                      ),
-                  ],
-                ),
+            const Positioned.fill(child: ColoredBox(color: Colors.black)),
+            for (var index = 0; index < _selectedChannels.length; index++)
+              Positioned(
+                key: ValueKey<String>(_selectedChannels[index].id),
+                left: (index % dims.columns) * width,
+                top: (index ~/ dims.columns) * height,
+                width: width,
+                height: height,
+                child: _buildCell(index),
               ),
           ],
         );
@@ -271,17 +328,12 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     );
   }
 
-  Widget _buildCell(int index, DeviceProfile profile) {
-    if (index >= _selectedChannels.length) {
-      // Cellule de remplissage (3 flux dans une grille 2×2) : elle garde la
-      // place pour que les tuiles présentes ne soient pas déformées.
-      return const ColoredBox(color: Colors.black);
-    }
+  Widget _buildCell(int index) {
     final channel = _selectedChannels[index];
     return VideoTile(
       key: ValueKey<String>(channel.id),
       url: channel.streamUrl,
-      profile: profile,
+      waitForStartup: _waitForStartup,
       title: channel.name,
       active: index == _activeIndex,
       onActivate: () => setState(() => _activeIndex = index),
@@ -320,6 +372,7 @@ class _EmptyMultiView extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
+              autofocus: true,
               onPressed: onAdd,
               style: FilledButton.styleFrom(backgroundColor: _kAccent),
               icon: const Icon(Icons.add_rounded, color: Colors.black),
@@ -340,14 +393,11 @@ class _EmptyMultiView extends StatelessWidget {
 /// Remplace la barre de `FilterChip` de 120 px qui listait toutes les chaînes
 /// en vrac, sans recherche ni indication de sélection, et consommait une bande
 /// d'écran fixe au détriment de la vidéo.
-class _ChannelPickerSheet extends StatelessWidget {
+class _ChannelPickerSheet extends StatefulWidget {
   const _ChannelPickerSheet({
     required this.title,
     required this.hint,
     required this.closeLabel,
-    required this.removeLabel,
-    required this.controller,
-    required this.onQueryChanged,
     required this.channels,
     required this.isSelected,
     required this.canAddMore,
@@ -357,110 +407,144 @@ class _ChannelPickerSheet extends StatelessWidget {
   final String title;
   final String hint;
   final String closeLabel;
-  final String removeLabel;
-  final TextEditingController controller;
-  final VoidCallback onQueryChanged;
   final List<Channel> channels;
   final bool Function(Channel) isSelected;
-  final bool canAddMore;
+  final bool Function() canAddMore;
   final void Function(Channel) onToggle;
+
+  @override
+  State<_ChannelPickerSheet> createState() => _ChannelPickerSheetState();
+}
+
+class _ChannelPickerSheetState extends State<_ChannelPickerSheet> {
+  final _controller = TextEditingController();
+  final _firstChannelFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _firstChannelFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final height = MediaQuery.sizeOf(context).height * 0.75;
+    final media = MediaQuery.of(context);
+    final height = (media.size.height - media.viewInsets.bottom) * 0.75;
+    final query = _controller.text.trim().toLowerCase();
+    final channels = query.isEmpty
+        ? widget.channels
+        : widget.channels
+            .where((c) => c.name.toLowerCase().contains(query))
+            .toList();
 
-    return SizedBox(
-      height: height,
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                TvFocus(
-                  onActivate: () => Navigator.of(context).pop(),
-                  child: IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: closeLabel,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: controller,
-              onChanged: (_) => onQueryChanged(),
-              decoration: InputDecoration(
-                hintText: hint,
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                border: const OutlineInputBorder(),
+    return Padding(
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: SizedBox(
+        height: height,
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView.builder(
-              itemCount: channels.length,
-              itemBuilder: (context, index) {
-                final channel = channels[index];
-                final selected = isSelected(channel);
-                return TvFocus(
-                  autofocus: index == 0,
-                  onActivate: () => onToggle(channel),
-                  child: ListTile(
-                    selected: selected,
-                    leading: Icon(
-                      Icons.live_tv_outlined,
-                      color: selected ? scheme.primary : null,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    title: Text(
-                      channel.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: channel.groupLabel.isEmpty
-                        ? null
-                        : Text(
-                            channel.groupLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                    trailing: Icon(
-                      selected ? Icons.check_circle : Icons.add_circle_outline,
-                      color: selected
-                          ? scheme.primary
-                          : (canAddMore ? null : Colors.white24),
-                    ),
-                    onTap: () => onToggle(channel),
                   ),
-                );
-              },
+                  TvFocus(
+                    onActivate: () => Navigator.of(context).pop(),
+                    child: IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: widget.closeLabel,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DpadSearchField(
+                controller: _controller,
+                hint: widget.hint,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                onNavigateDown: () {
+                  if (channels.isNotEmpty) _firstChannelFocus.requestFocus();
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: channels.isEmpty
+                  ? const Center(child: Text('Aucune chaîne trouvée.'))
+                  : ListView.builder(
+                      itemCount: channels.length,
+                      itemBuilder: (context, index) {
+                        final channel = channels[index];
+                        final selected = widget.isSelected(channel);
+                        return TvFocus(
+                          key: ValueKey(channel.id),
+                          focusNode: index == 0 ? _firstChannelFocus : null,
+                          onActivate: () {
+                            widget.onToggle(channel);
+                            setState(() {});
+                          },
+                          child: ListTile(
+                            selected: selected,
+                            leading: Icon(
+                              Icons.live_tv_outlined,
+                              color: selected ? scheme.primary : null,
+                            ),
+                            title: Text(
+                              channel.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: channel.groupLabel.isEmpty
+                                ? null
+                                : Text(
+                                    channel.groupLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            trailing: Icon(
+                              selected
+                                  ? Icons.check_circle
+                                  : Icons.add_circle_outline,
+                              color: selected
+                                  ? scheme.primary
+                                  : (widget.canAddMore()
+                                      ? null
+                                      : Colors.white24),
+                            ),
+                            onTap: () {
+                              widget.onToggle(channel);
+                              setState(() {});
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -475,7 +559,7 @@ class VideoTile extends StatefulWidget {
   const VideoTile({
     super.key,
     required this.url,
-    required this.profile,
+    required this.waitForStartup,
     required this.title,
     required this.active,
     required this.onActivate,
@@ -484,8 +568,7 @@ class VideoTile extends StatefulWidget {
 
   final String url;
 
-  /// Profil d'appareil servant à configurer le lecteur avant sa création.
-  final DeviceProfile profile;
+  final Future<void> Function() waitForStartup;
   final String title;
   final bool active;
   final VoidCallback onActivate;
@@ -497,8 +580,10 @@ class VideoTile extends StatefulWidget {
 
 class _VideoTileState extends State<VideoTile> {
   VideoPlayerController? _controller;
+  Future<void>? _pendingDisposal;
   int _generation = 0;
   bool _failed = false;
+  bool _focused = false;
 
   @override
   void initState() {
@@ -520,7 +605,12 @@ class _VideoTileState extends State<VideoTile> {
   void _applyVolume() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
-    controller.setVolume(widget.active ? 1.0 : 0.0);
+    unawaited(
+      safeAsync<void>(
+        () => controller.setVolume(widget.active ? 1.0 : 0.0),
+        context: 'MultiVideoScreen._VideoTileState.volume',
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -532,44 +622,56 @@ class _VideoTileState extends State<VideoTile> {
       old.removeListener(_onControllerUpdate);
       await old.dispose();
     }
-    if (!mounted) return;
-
-    // Protection : configuration unique et sécurisée du profil média
-    try {
-      await PlayerProfileService.pushForDevice(widget.profile);
-    } catch (e) {
-      debugPrint('Orbit3D multivideo config error: $e');
-    }
-
+    await _pendingDisposal;
     if (!mounted || gen != _generation) return;
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    final startup = await safeAsync<void>(
+      widget.waitForStartup,
+      context: 'MultiVideoScreen._VideoTileState.configure',
+    );
+
+    if (!mounted || gen != _generation) return;
+    if (startup.isFailure) {
+      setState(() => _failed = true);
+      return;
+    }
+
+    final uri = safeSync<Uri>(
+      () => Uri.parse(widget.url),
+      context: 'MultiVideoScreen._VideoTileState.url',
+    );
+    if (uri.isFailure) {
+      setState(() => _failed = true);
+      return;
+    }
+
+    final controller = VideoPlayerController.networkUrl(uri.getOrThrow());
     _controller = controller;
     controller.addListener(_onControllerUpdate);
     final result = await safeAsync<void>(
-      () => controller.initialize(),
+      () async {
+        await controller.initialize();
+        if (!mounted || gen != _generation || controller.value.hasError) {
+          return;
+        }
+        await controller.setVolume(widget.active ? 1.0 : 0.0);
+        if (!mounted || gen != _generation) return;
+        await controller.play();
+      },
       context: 'MultiVideoScreen._VideoTileState.load',
     );
-    if (result.isFailure || !mounted || gen != _generation) {
+    if (result.isFailure ||
+        controller.value.hasError ||
+        !mounted ||
+        gen != _generation) {
       if (_controller == controller) {
         _controller = null;
         controller.removeListener(_onControllerUpdate);
         await controller.dispose();
       }
-      if (mounted) setState(() => _failed = true);
+      if (mounted && gen == _generation) setState(() => _failed = true);
       return;
     }
-
-    if (controller.value.hasError) {
-      if (mounted) setState(() => _failed = true);
-      return;
-    }
-
-    // Règle métier principale : Lecture vidéo active en permanence sur tous les flux,
-    // mais le son dépend de l'état `active`.
-    await controller.setVolume(widget.active ? 1.0 : 0.0);
-    await controller.play();
-
     if (mounted) setState(() {});
   }
 
@@ -577,7 +679,16 @@ class _VideoTileState extends State<VideoTile> {
     if (!mounted) return;
     final controller = _controller;
     if (controller == null || !controller.value.hasError) return;
+    if (_failed) return;
     setState(() => _failed = true);
+    _controller = null;
+    controller.removeListener(_onControllerUpdate);
+    _pendingDisposal = Future<void>.delayed(Duration.zero, () async {
+      await safeAsync<void>(
+        controller.dispose,
+        context: 'MultiVideoScreen._VideoTileState.disposeFailed',
+      );
+    });
   }
 
   @override
@@ -595,90 +706,128 @@ class _VideoTileState extends State<VideoTile> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onActivate,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(color: Colors.black, child: _buildVideo()),
-          if (widget.active)
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: _kAccent, width: 3),
-                ),
-              ),
-            ),
-          // Nom de la chaîne (bas-gauche)
-          Positioned(
-            left: 8,
-            right: 56,
-            bottom: 8,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    widget.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+    return Focus(
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.select ||
+                  event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
+            widget.onActivate();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onActivate,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: Colors.black, child: _buildVideo()),
+              if (widget.active || _focused)
+                IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _focused ? Colors.white : _kAccent,
+                        width: _focused ? 5 : 3,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          // Indicateur son (haut-gauche) : la tuile active porte le son.
-          Positioned(
-            left: 8,
-            top: 8,
-            child: Tooltip(
-              message: l.activeAudio,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(
-                    widget.active ? Icons.volume_up : Icons.volume_off,
-                    size: 16,
-                    color: widget.active ? _kAccent : Colors.white54,
+              // Nom de la chaîne (bas-gauche)
+              Positioned(
+                left: 8,
+                right: 56,
+                bottom: 8,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        widget.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          // Retirer cette tuile (haut-droite)
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Tooltip(
-              message: l.removeChannel,
-              child: IconButton(
-                icon: const Icon(Icons.close, size: 18),
-                color: Colors.white,
-                onPressed: widget.onRemove,
+              // Indicateur son (haut-gauche) : la tuile active porte le son.
+              Positioned(
+                left: 8,
+                top: 8,
+                child: Tooltip(
+                  message: l.activeAudio,
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        widget.active ? Icons.volume_up : Icons.volume_off,
+                        size: 16,
+                        color: widget.active ? _kAccent : Colors.white54,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              // Retirer cette tuile (haut-droite)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Tooltip(
+                  message: l.removeChannel,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    color: Colors.white,
+                    onPressed: widget.onRemove,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        ));
   }
 
   Widget _buildVideo() {
     final controller = _controller;
+    if (_failed) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Lecture indisponible',
+              style: TextStyle(color: Colors.white),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _load();
+                });
+              },
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      );
+    }
     if (controller != null && controller.value.isInitialized) {
       // `contain` et non `cover` : on remplit toute la cellule mais on ne rogne
       // jamais le flux (une chaîne d'info en 4:3 ne doit pas perdre ses bords).
@@ -686,15 +835,6 @@ class _VideoTileState extends State<VideoTile> {
         child: AspectRatio(
           aspectRatio: controller.value.aspectRatio,
           child: VideoPlayer(controller),
-        ),
-      );
-    }
-    if (_failed) {
-      return Center(
-        child: Icon(
-          Icons.live_tv_rounded,
-          color: Theme.of(context).colorScheme.error,
-          size: 32,
         ),
       );
     }

@@ -1,6 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Ces collections sont accessibles uniquement aux fonctions serveur.
+    match /pairing_sessions_v1/{sessionId} {
+      allow read, write: if false;
+    }
+    match /pairing_owners_v1/{userId} {
+      allow read, write: if false;
+    }
     // Chaque installation anonyme ne peut accéder qu'à ses propres snapshots.
     match /users/{userId}/orbit_sync/{docId} {
       allow read, write: if request.auth != null

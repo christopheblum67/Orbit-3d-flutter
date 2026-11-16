@@ -1,11 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/subtitle_controller.dart';
-import 'package:orbit_3d_flutter/services/subtitle_parser.dart';
 import 'package:orbit_3d_flutter/features/player/subtitle_preferences.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class _RealHttpOverrides extends HttpOverrides {}
 
 /// Exclusivité et polling des sous-titres intégrés dans [SubtitleController].
 ///
@@ -61,11 +64,30 @@ void main() {
         mimeType: null,
       );
 
-  SubtitleTrack externalTrack() => const SubtitleTrack(
-        language: 'fr',
-        label: 'externe',
-        cues: <SubtitleCue>[],
-      );
+  Future<void> selectExternal(
+    WidgetTester tester,
+    SubtitleController controller,
+  ) async {
+    await tester.runAsync(() async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) {
+        request.response.write('1\n00:00:00,000 --> 00:00:01,000\nBonjour\n');
+        request.response.close();
+      });
+      try {
+        await HttpOverrides.runWithHttpOverrides(
+          () => controller.loadAndSetTrack(
+            'http://127.0.0.1:${server.port}/subtitle.srt',
+            language: 'fr',
+            label: 'externe',
+          ),
+          _RealHttpOverrides(),
+        );
+      } finally {
+        await server.close(force: true);
+      }
+    });
+  }
 
   int countOf(String method) => calls.where((c) => c.method == method).length;
 
@@ -91,7 +113,8 @@ void main() {
     ctrl.dispose();
   });
 
-  testWidgets('series disabled choice clears native subtitles without overriding a later manual choice',
+  testWidgets(
+      'series disabled choice clears native subtitles without overriding a later manual choice',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', '');
@@ -110,7 +133,7 @@ void main() {
     expect(countOf('clearSubtitleTracks'), 1);
     expect(ctrl.hasActiveEmbedded, isFalse);
     expect(ctrl.activeTrack, isNull);
-    ctrl.adoptTrack(externalTrack(), 'externe');
+    await selectExternal(tester, ctrl);
     await preferences.applySeries(
       controller: ctrl,
       seriesId: 'series',
@@ -199,7 +222,7 @@ void main() {
     ctrl.setEmbeddedContext(playerId: 7, tracks: [forcedTrack(), fullTrack()]);
 
     // Une piste externe prend le relais : l'intégrée est éteinte.
-    ctrl.adoptTrack(externalTrack(), 'externe');
+    await selectExternal(tester, ctrl);
     expect(ctrl.activeTrack, isNotNull);
     expect(ctrl.hasActiveEmbedded, isFalse);
 
@@ -229,7 +252,7 @@ void main() {
     expect(ctrl.hasActiveEmbedded, isTrue);
     expect(countOf('clearSubtitleTracks'), 0);
 
-    ctrl.adoptTrack(externalTrack(), 'externe');
+    await selectExternal(tester, ctrl);
     await tester.pump(); // laisse partir l'appel clearTracks (async)
 
     expect(ctrl.hasActiveEmbedded, isFalse);
@@ -244,17 +267,15 @@ void main() {
     ctrl.dispose();
   });
 
-  testWidgets(
-      'une vague intégrée TARDIVE ne vole pas la piste externe (OpenSubtitles)',
+  testWidgets('une vague intégrée TARDIVE ne vole pas la piste externe',
       (tester) async {
-    // Régression observée par l'utilisateur : « les sous-titres OpenSubtitles
-    // ne se lisent plus » alors que les intégrés fonctionnent.
+    // Une sélection native tardive ne doit pas masquer la piste externe.
     //
     // Séquence réelle. media3 auto-sélectionne une piste texte quelques
     // SECONDES après le début de la lecture, pas au premier sondage : au
     // démarrage, les pistes texte du manifeste sont souvent connues mais
     // aucune n'est encore sélectionnée. Si l'utilisateur choisit un
-    // sous-titre OpenSubtitles dans cette fenêtre, sa piste est adoptée avec
+    // sous-titre externe dans cette fenêtre, sa piste est chargée avec
     // `_activeEmbeddedTrackId == null` — donc `_cancelEmbeddedForExternal`
     // sortait sans rien couper. Quand media3 sélectionnait enfin sa piste
     // (souvent la « forced ») ET que la liste s'enrichissait, la signature
@@ -271,8 +292,8 @@ void main() {
       reason: 'media3 n\'a encore rien auto-sélectionné',
     );
 
-    // 2. L'utilisateur choisit un sous-titre OpenSubtitles.
-    ctrl.adoptTrack(externalTrack(), 'OpenSubtitles FR');
+    // 2. L'utilisateur choisit un sous-titre externe.
+    await selectExternal(tester, ctrl);
     expect(ctrl.activeTrack, isNotNull);
     expect(ctrl.hasActiveEmbedded, isFalse);
 
@@ -293,7 +314,7 @@ void main() {
       isFalse,
       reason: 'une piste intégrée apparue APRÈS le choix externe ne doit pas '
           'reprendre l\'affichage : l\'overlay intégré masquerait le '
-          'sous-titre OpenSubtitles, qui « ne se lit plus »',
+          'sous-titre externe',
     );
     expect(
       ctrl.activeTrack,
@@ -316,7 +337,7 @@ void main() {
     expect(ctrl.hasActiveEmbedded, isFalse);
     calls.clear();
 
-    ctrl.adoptTrack(externalTrack(), 'OpenSubtitles FR');
+    await selectExternal(tester, ctrl);
     await tester.pump();
 
     expect(
@@ -524,10 +545,10 @@ void main() {
 
   testWidgets('le contenu suivant ne garde pas la piste externe du précédent',
       (tester) async {
-    // Bug préexistant hors OpenSubtitles : le contrôleur est partagé par toute
+    // Le contrôleur est partagé par toute
     // l'app (Provider non autoDispose) et `_activeTrack` n'était JAMAIS
     // réinitialisé entre deux contenus. Après un film sous-titré
-    // (OpenSubtitles) puis un zapping / un autre film, les cues de l'ANCIENNE
+    // puis un zapping / un autre film, les cues de l'ANCIENNE
     // piste continuaient de s'afficher sur le NOUVEAU contenu. Le correctif
     // expose `resetForNewContent()`, appelé par le player à chaque changement
     // de contenu.
@@ -536,7 +557,7 @@ void main() {
     // Contenu A : contexte posé, l'utilisateur choisit un sous-titre externe.
     ctrl.setEmbeddedContext(playerId: 7, tracks: [forcedTrack(), fullTrack()]);
     await tester.pump();
-    ctrl.adoptTrack(externalTrack(), 'OpenSubtitles FR');
+    await selectExternal(tester, ctrl);
     expect(ctrl.activeTrack, isNotNull);
 
     // Changement de contenu : l'écran appelle le reset avant de basculer.

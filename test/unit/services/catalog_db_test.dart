@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/services/catalog_db.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -100,6 +101,101 @@ void main() {
     expect(await ids(CatalogSort.recentlyAddedAsc), ['1', '3', '2']);
   });
 
+  test('pagination par curseur respecte tous les tris et les doublons',
+      () async {
+    final movies = [
+      _movie(
+        'a',
+        'Même titre',
+        year: 2000,
+        rating: 7,
+        added: DateTime.utc(2024),
+      ),
+      _movie(
+        'b',
+        'Même titre',
+        year: 2000,
+        rating: 7,
+        added: DateTime.utc(2024),
+      ),
+      _movie('c', 'Autre', year: 2001, rating: 7, added: DateTime.utc(2023)),
+      _movie('d', 'Dernier', year: 2000, rating: 9, added: DateTime.utc(2024)),
+      _movie('e', 'Exclu', category: 'c2'),
+    ];
+    await db.replaceMovies(sub, 'cursor', movies);
+    final series = [
+      for (final m in movies)
+        Series(
+          id: m.id,
+          title: m.title,
+          description: '',
+          coverUrl: m.posterUrl,
+          year: m.year,
+          genre: m.genre,
+          director: '',
+          rating: m.rating,
+          pegi: '',
+          episodes: const [],
+          categoryId: m.categoryId,
+          addedDate: m.addedDate,
+        ),
+    ];
+    await db.replaceSeries(sub, 'cursor', series);
+    const filter = CatalogFilter(categoryId: 'c1');
+    for (final sort in CatalogSort.values) {
+      final expectedMovies =
+          await db.queryMovies(sub, filter: filter, sort: sort);
+      final expectedSeries =
+          await db.querySeries(sub, filter: filter, sort: sort);
+      final movieIds = <String>[];
+      final seriesIds = <String>[];
+      CatalogCursor? movieCursor;
+      CatalogCursor? seriesCursor;
+      for (var i = 0; i < 5; i++) {
+        final page = await db.queryMovies(
+          sub,
+          filter: filter,
+          sort: sort,
+          limit: 1,
+          after: movieCursor,
+        );
+        if (page.isEmpty) break;
+        movieIds.add(page.single.id);
+        movieCursor = CatalogCursor.fromMovie(page.single);
+      }
+      for (var i = 0; i < 5; i++) {
+        final page = await db.querySeries(
+          sub,
+          filter: filter,
+          sort: sort,
+          limit: 1,
+          after: seriesCursor,
+        );
+        if (page.isEmpty) break;
+        seriesIds.add(page.single.id);
+        seriesCursor = CatalogCursor.fromSeries(page.single);
+      }
+      expect(movieIds, expectedMovies.map((m) => m.id), reason: sort.name);
+      expect(seriesIds, expectedSeries.map((s) => s.id), reason: sort.name);
+    }
+  });
+
+  test('le plan SQLite utilise l’index catégorie et titre', () async {
+    final raw = await openDatabase('${dir.path}\\t.db', readOnly: true);
+    final plan = await raw.rawQuery(
+      'EXPLAIN QUERY PLAN SELECT id FROM items '
+      'WHERE kind = ? AND sub_key = ? AND category_id = ? '
+      'AND title_key >= ? AND '
+      '(title_key > ? OR (title_key = ? AND id > ?)) '
+      'ORDER BY title_key, id LIMIT ?',
+      [0, sub, 'c1', 'alpha', 'alpha', 'alpha', '1', 72],
+    );
+    expect(
+      plan.map((row) => row['detail']).join(' '),
+      contains('idx_items_cat_title'),
+    );
+  });
+
   test('filtres : catégorie, recherche, ids, masquage, pagination', () async {
     final cat = await db.queryMovies(
       sub,
@@ -146,7 +242,8 @@ void main() {
     expect(m.posterUrl, 'p1');
   });
 
-  test('la pagination conserve un ordre stable pour les titres identiques', () async {
+  test('la pagination conserve un ordre stable pour les titres identiques',
+      () async {
     await db.replaceMovies(sub, 'duplicates', [
       _movie('3', 'Identique'),
       _movie('1', 'Identique'),
@@ -155,7 +252,8 @@ void main() {
     for (final sort in CatalogSort.values) {
       final ids = <String>[];
       for (var offset = 0; offset < 3; offset++) {
-        final page = await db.queryMovies(sub, sort: sort, limit: 1, offset: offset);
+        final page =
+            await db.queryMovies(sub, sort: sort, limit: 1, offset: offset);
         ids.add(page.single.id);
       }
       expect(ids, ['1', '2', '3'], reason: sort.name);
@@ -226,7 +324,8 @@ void main() {
       'WHERE kind = ? AND sub_key = ? ORDER BY title_key LIMIT ?',
       [CatalogKind.vod.index, 'key', 72],
     );
-    expect(plan.map((row) => row['detail']).join(), contains('idx_items_title'));
+    expect(
+        plan.map((row) => row['detail']).join(), contains('idx_items_title'));
   });
 
   test('suppression après remplacement retire le catalogue actif', () async {
@@ -249,7 +348,8 @@ void main() {
     expect(await db.count(CatalogKind.vod, 'abandoned'), 0);
   });
 
-  test('reprend le nettoyage des générations abandonnées au redémarrage', () async {
+  test('reprend le nettoyage des générations abandonnées au redémarrage',
+      () async {
     final path = '${dir.path}\\t.db';
     final raw = await databaseFactory.openDatabase(path);
     for (final key in ['interrupted-stage', 'previous-generation']) {
@@ -294,7 +394,8 @@ void main() {
     );
     final first = staged.replaceMovies(sub, 'first', [_movie('1', 'Premier')]);
     await paused.future;
-    final second = staged.replaceMovies(sub, 'second', [_movie('2', 'Deuxième')]);
+    final second =
+        staged.replaceMovies(sub, 'second', [_movie('2', 'Deuxième')]);
     final clear = staged.clear(kind: CatalogKind.vod, subKey: sub);
     resume.complete();
     await Future.wait([first, second, clear]);
@@ -329,14 +430,25 @@ void main() {
             )
           ''');
           await db.insert('items', {
-            'kind': 0, 'sub_key': sub, 'id': 'legacy', 'title': 'Ancien',
-            'title_key': 'ancien', 'search_key': 'ancien', 'poster': '',
-            'year': 0, 'genre': '', 'rating': 0, 'category_id': '',
+            'kind': 0,
+            'sub_key': sub,
+            'id': 'legacy',
+            'title': 'Ancien',
+            'title_key': 'ancien',
+            'search_key': 'ancien',
+            'poster': '',
+            'year': 0,
+            'genre': '',
+            'rating': 0,
+            'category_id': '',
             'added': 0,
           });
           await db.insert('meta', {
-            'kind': 0, 'sub_key': sub, 'signature': 'old',
-            'count': 1, 'updated_at': 0,
+            'kind': 0,
+            'sub_key': sub,
+            'signature': 'old',
+            'count': 1,
+            'updated_at': 0,
           });
         },
       ),

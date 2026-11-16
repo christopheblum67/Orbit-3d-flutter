@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:orbit_3d_flutter/core/utils/image_cache_config.dart';
 import 'package:orbit_3d_flutter/core/utils/poster_metrics.dart';
 
@@ -9,7 +12,7 @@ import 'package:orbit_3d_flutter/core/utils/poster_metrics.dart';
 ///
 /// Utilise `OrbitCacheManager` (5000 objets max, TTL 30 jours).
 /// Placeholder/error unifiés pour cohérence UX.
-class OrbitCachedImage extends StatelessWidget {
+class OrbitCachedImage extends StatefulWidget {
   const OrbitCachedImage({
     super.key,
     required this.imageUrl,
@@ -42,26 +45,99 @@ class OrbitCachedImage extends StatelessWidget {
   final int? maxHeightDiskCache;
 
   @override
-  Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
-      return errorWidget?.call(context, imageUrl, Exception('Empty URL')) ??
-          const SizedBox.shrink();
-    }
+  State<OrbitCachedImage> createState() => _OrbitCachedImageState();
+}
 
-    return _ScrollGate(
-      placeholder: (context) => (placeholder ??
-          (context, url) => const SizedBox.expand())(context, imageUrl),
-      child: () => PosterMetrics.enabled
-          ? _PosterProbe(
-              key: ValueKey(imageUrl),
-              builder: (probe) => _image(probe),
-            )
-          : _image(null),
+class _OrbitCachedImageState extends State<OrbitCachedImage> {
+  static const _maxPendingRetries = 4;
+  static int _pendingRetries = 0;
+  Timer? _retry;
+  int _attempt = 0;
+
+  void _cancelRetry() {
+    if (_retry != null) {
+      _retry!.cancel();
+      _retry = null;
+      _pendingRetries--;
+    }
+  }
+
+  @override
+  void didUpdateWidget(OrbitCachedImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _cancelRetry();
+      _attempt = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancelRetry();
+    super.dispose();
+  }
+
+  void _retryIfTransient(Object error) {
+    final retryable = error is SocketException ||
+        error is TimeoutException ||
+        (error is HttpExceptionWithStatus &&
+            (error.statusCode == 408 ||
+                error.statusCode >= 500));
+    if (!retryable ||
+        _attempt != 0 ||
+        _retry != null ||
+        _pendingRetries >= _maxPendingRetries) {
+      return;
+    }
+    _pendingRetries++;
+    _retry = Timer(
+      Duration(milliseconds: 1000 + widget.imageUrl.hashCode.abs() % 500),
+      () {
+        _retry = null;
+        _pendingRetries--;
+        if (mounted) setState(() => _attempt++);
+      },
     );
   }
 
-  Widget _image(_PosterProbeState? probe) {
-    final basePlaceholder = placeholder ??
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrl.isEmpty) {
+      return widget.errorWidget
+              ?.call(context, widget.imageUrl, Exception('Empty URL')) ??
+          const SizedBox.shrink();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = widget.width ?? constraints.maxWidth;
+        final decodeWidth = widget.memCacheWidth ??
+            (widget.memCacheHeight != null
+                ? null
+                : logicalWidth.isFinite && logicalWidth > 0
+                    ? math.min(
+                        800,
+                        (logicalWidth * MediaQuery.devicePixelRatioOf(context))
+                            .ceil(),
+                      )
+                    : 800);
+        return _ScrollGate(
+          placeholder: (context) => (widget.placeholder ??
+              (context, url) =>
+                  const SizedBox.expand())(context, widget.imageUrl),
+          child: () => PosterMetrics.enabled
+              ? _PosterProbe(
+                  key: ValueKey(widget.imageUrl),
+                  builder: (probe) => _image(probe, decodeWidth),
+                )
+              : _image(null, decodeWidth),
+        );
+      },
+    );
+  }
+
+  Widget _image(_PosterProbeState? probe, int? decodeWidth) {
+    final basePlaceholder = widget.placeholder ??
         (context, url) => const Center(
               child: SizedBox(
                 width: 24,
@@ -69,27 +145,28 @@ class OrbitCachedImage extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             );
-    final baseError = errorWidget ??
+    final baseError = widget.errorWidget ??
         (context, url, error) => const Icon(
               Icons.broken_image,
               color: Colors.grey,
               size: 32,
             );
     return CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: width,
-      height: height,
-      fit: fit,
+      key: ValueKey(_attempt),
+      imageUrl: widget.imageUrl,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
       imageBuilder: probe == null
           ? null
           : (context, provider) {
               probe.onImage();
               return Image(
                 image: provider,
-                width: width,
-                height: height,
-                fit: fit,
-                filterQuality: filterQuality,
+                width: widget.width,
+                height: widget.height,
+                fit: widget.fit,
+                filterQuality: widget.filterQuality,
               );
             },
       placeholder: (context, url) {
@@ -98,15 +175,16 @@ class OrbitCachedImage extends StatelessWidget {
       },
       errorWidget: (context, url, error) {
         probe?.onError();
+        _retryIfTransient(error);
         return baseError(context, url, error);
       },
-      memCacheWidth: memCacheWidth,
-      memCacheHeight: memCacheHeight,
-      fadeInDuration: fadeInDuration,
-      fadeOutDuration: fadeOutDuration,
-      filterQuality: filterQuality,
-      maxWidthDiskCache: maxWidthDiskCache ?? 800,
-      maxHeightDiskCache: maxHeightDiskCache ?? 800,
+      memCacheWidth: decodeWidth,
+      memCacheHeight: widget.memCacheHeight,
+      fadeInDuration: widget.fadeInDuration,
+      fadeOutDuration: widget.fadeOutDuration,
+      filterQuality: widget.filterQuality,
+      maxWidthDiskCache: widget.maxWidthDiskCache ?? 800,
+      maxHeightDiskCache: widget.maxHeightDiskCache ?? 800,
       cacheManager: OrbitCacheManager.shared,
     );
   }

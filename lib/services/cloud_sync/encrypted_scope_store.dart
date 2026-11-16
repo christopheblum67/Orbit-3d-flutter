@@ -57,6 +57,7 @@ class EncryptedScopeStore {
     required String scope,
     required String passphrase,
     required EncryptedScopeSnapshot snapshot,
+    void Function()? checkSession,
   }) {
     final documentId = _documentId(profileId, scope);
     final payload = <String, dynamic>{
@@ -76,6 +77,7 @@ class EncryptedScopeStore {
       passphrase: passphrase,
       payload: payload,
       expectedRevision: snapshot.revision,
+      checkSession: checkSession,
     );
   }
 }

@@ -31,7 +31,8 @@ final catalogDbKeyProvider =
   if (sub == null || sub.type == SubscriptionType.m3u) return null;
   if (!ref.watch(contentFilterProvider).isPermissive) return null;
   return traceCatalogStep(kind.name, 'database_key', () async {
-    final key = await ref.watch(apiServiceProvider).resolveSubscriptionCacheKey();
+    final key =
+        await ref.watch(apiServiceProvider).resolveSubscriptionCacheKey();
     if (key == null) return null;
     final db = CatalogDb.instance;
     if (!db.isAvailable) return null;
@@ -50,11 +51,13 @@ class CatalogPager<T> {
   CatalogPager({
     required this.fetch,
     required this.onChange,
+    this.fetchAfter,
     this.pageSize = 72,
     this.diagnosticKind,
   });
 
   final Future<List<T>> Function(int limit, int offset) fetch;
+  final Future<List<T>> Function(int limit, T? after)? fetchAfter;
   final void Function() onChange;
   final int pageSize;
   final String? diagnosticKind;
@@ -81,10 +84,12 @@ class CatalogPager<T> {
     if (loading || done) return;
     loading = true;
     final gen = _generation;
+    Future<List<T>> fetchPage() => fetchAfter != null
+        ? fetchAfter!(pageSize, items.isEmpty ? null : items.last)
+        : fetch(pageSize, items.length);
     final page = diagnosticKind != null && items.isEmpty
-        ? await traceCatalogStep(
-            diagnosticKind!, 'first_page', () => fetch(pageSize, items.length))
-        : await fetch(pageSize, items.length);
+        ? await traceCatalogStep(diagnosticKind!, 'first_page', fetchPage)
+        : await fetchPage();
     if (gen != _generation) return;
     items.addAll(page);
     if (page.length < pageSize) done = true;

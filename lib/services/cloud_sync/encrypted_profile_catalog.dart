@@ -51,6 +51,7 @@ class EncryptedProfileCatalog {
     required String uid,
     required String passphrase,
     required ProfileCatalogSnapshot snapshot,
+    void Function()? checkSession,
   }) async {
     for (final entry in snapshot.profiles.entries) {
       if (entry.key.isEmpty ||
@@ -72,6 +73,7 @@ class EncryptedProfileCatalog {
       passphrase: passphrase,
       payload: payload,
       expectedRevision: snapshot.revision,
+      checkSession: checkSession,
     );
   }
 

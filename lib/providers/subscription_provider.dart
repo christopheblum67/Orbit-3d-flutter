@@ -45,7 +45,7 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     await _storage.saveSubscription(subscription);
     if (!ref.mounted) return;
     state = [...state, subscription];
-    if (subscription.type == SubscriptionType.xtream) {
+    if (subscription.type == SubscriptionType.xtream && subscription.isActive) {
       refreshValidity(subscription.id);
     }
   }
@@ -56,7 +56,7 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     if (!ref.mounted) return;
     state =
         state.map((s) => s.id == subscription.id ? subscription : s).toList();
-    if (subscription.type == SubscriptionType.xtream) {
+    if (subscription.type == SubscriptionType.xtream && subscription.isActive) {
       refreshValidity(subscription.id);
     }
   }
@@ -200,7 +200,15 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
           }
           final url =
               buildXtreamTestUrl(sub.baseUrl!, sub.username!, sub.password!);
-          await apiService.get(url);
+          final response = await apiService.get(url);
+          final data = response.data;
+          if (data is Map) {
+            final info = data['user_info'];
+            final auth = info is Map ? info['auth'] : data['auth'];
+            if (auth == 0 || auth == '0' || auth == false) {
+              throw Exception('invalid credentials');
+            }
+          }
         } else {
           if (sub.m3uUrl == null) {
             throw Exception('URL M3U manquante');
@@ -220,7 +228,8 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
           latencyMs: stopwatch.elapsedMilliseconds,
         );
         // Après un test réussi, rafraîchit la date d'expiration (Xtream).
-        if (sub.type == SubscriptionType.xtream) {
+        if (sub.type == SubscriptionType.xtream &&
+            state.any((item) => item.id == sub.id && item.isActive)) {
           await refreshValidity(sub.id, api: apiService);
         }
       } else {

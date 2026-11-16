@@ -6,9 +6,11 @@ import 'package:orbit_3d_flutter/providers/catalog_db_provider.dart';
 void main() {
   test('les signatures distinguent les ensembles de même taille', () {
     expect(catalogSetSignature({'b', 'a'}), catalogSetSignature({'a', 'b'}));
-    expect(catalogSetSignature({'a', 'b'}), isNot(catalogSetSignature({'a', 'c'})));
+    expect(catalogSetSignature({'a', 'b'}),
+        isNot(catalogSetSignature({'a', 'c'})));
     expect(catalogSetSignature(null), isNot(catalogSetSignature({})));
-    expect(catalogSetSignature({'a,b'}), isNot(catalogSetSignature({'a', 'b'})));
+    expect(
+        catalogSetSignature({'a,b'}), isNot(catalogSetSignature({'a', 'b'})));
   });
 
   test('les pages sont chargées une fois à la demande', () async {
@@ -47,5 +49,26 @@ void main() {
     expect(pager.items, [2]);
     expect(pager.loaded, isTrue);
     expect(pager.loading, isFalse);
+  });
+
+  test('la page suivante utilise la dernière entrée comme curseur', () async {
+    final cursors = <int?>[];
+    final pager = CatalogPager<int>(
+      pageSize: 2,
+      fetch: (_, __) => throw StateError('OFFSET ne doit pas être utilisé'),
+      fetchAfter: (limit, after) async {
+        cursors.add(after);
+        return [1, 2, 3]
+            .where((value) => after == null || value > after)
+            .take(limit)
+            .toList();
+      },
+      onChange: () {},
+    );
+    await pager.reset();
+    await pager.loadMore();
+    expect(pager.items, [1, 2, 3]);
+    expect(cursors, [null, 2]);
+    expect(pager.done, isTrue);
   });
 }

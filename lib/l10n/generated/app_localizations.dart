@@ -2368,198 +2368,6 @@ abstract class AppLocalizations {
   /// **'Vérification des sous-titres… ({count})'**
   String subtitleVerifying(Object count);
 
-  /// No description provided for @subtitleSearchOnline.
-  ///
-  /// In fr, this message translates to:
-  /// **'Rechercher en ligne'**
-  String get subtitleSearchOnline;
-
-  /// No description provided for @subtitleSearchOnlineInfo.
-  ///
-  /// In fr, this message translates to:
-  /// **'Le panel ne propose rien pour ce contenu. Une recherche en ligne peut trouver un sous-titre.'**
-  String get subtitleSearchOnlineInfo;
-
-  /// No description provided for @subtitleSearchOnlineRunning.
-  ///
-  /// In fr, this message translates to:
-  /// **'Recherche en cours…'**
-  String get subtitleSearchOnlineRunning;
-
-  /// No description provided for @subtitleOnlineResults.
-  ///
-  /// In fr, this message translates to:
-  /// **'Sous-titres trouvés en ligne'**
-  String get subtitleOnlineResults;
-
-  /// No description provided for @subtitleOnlineEmpty.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucun sous-titre trouvé en ligne pour ce contenu.'**
-  String get subtitleOnlineEmpty;
-
-  /// No description provided for @subtitleOnlineDownloads.
-  ///
-  /// In fr, this message translates to:
-  /// **'{count} téléchargements'**
-  String subtitleOnlineDownloads(Object count);
-
-  /// No description provided for @subtitleOnlineNoTmdb.
-  ///
-  /// In fr, this message translates to:
-  /// **'Impossible d\'identifier ce contenu sur TMDB : la recherche en ligne a besoin de son identifiant.'**
-  String get subtitleOnlineNoTmdb;
-
-  /// No description provided for @opensubtitlesKeyLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Recherche de sous-titres en ligne (OpenSubtitles)'**
-  String get opensubtitlesKeyLabel;
-
-  /// No description provided for @opensubtitlesKeyHint.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé API — facultative'**
-  String get opensubtitlesKeyHint;
-
-  /// No description provided for @opensubtitlesKeyActive.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé enregistrée : quota de téléchargement relevé.'**
-  String get opensubtitlesKeyActive;
-
-  /// No description provided for @opensubtitlesKeyAnonymous.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucune clé : recherche possible, 5 téléchargements par IP et par 24 h.'**
-  String get opensubtitlesKeyAnonymous;
-
-  /// No description provided for @opensubtitlesKeyDelete.
-  ///
-  /// In fr, this message translates to:
-  /// **'Effacer la clé'**
-  String get opensubtitlesKeyDelete;
-
-  /// No description provided for @opensubtitlesKeyCheck.
-  ///
-  /// In fr, this message translates to:
-  /// **'Vérifier la clé'**
-  String get opensubtitlesKeyCheck;
-
-  /// No description provided for @opensubtitlesKeyChecking.
-  ///
-  /// In fr, this message translates to:
-  /// **'Vérification en cours…'**
-  String get opensubtitlesKeyChecking;
-
-  /// No description provided for @opensubtitlesKeyValid.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé valide : le service l\'accepte.'**
-  String get opensubtitlesKeyValid;
-
-  /// No description provided for @opensubtitlesKeyRejected.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé refusée par le service : vérifiez que vous l\'avez copiée en entier.'**
-  String get opensubtitlesKeyRejected;
-
-  /// No description provided for @opensubtitlesKeyUnreachable.
-  ///
-  /// In fr, this message translates to:
-  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
-  String get opensubtitlesKeyUnreachable;
-
-  /// No description provided for @opensubtitlesLoginLabel.
-  ///
-  /// In fr, this message translates to:
-  /// **'Connexion au compte OpenSubtitles'**
-  String get opensubtitlesLoginLabel;
-
-  /// No description provided for @opensubtitlesLoginHintUsername.
-  ///
-  /// In fr, this message translates to:
-  /// **'Identifiant'**
-  String get opensubtitlesLoginHintUsername;
-
-  /// No description provided for @opensubtitlesLoginHintPassword.
-  ///
-  /// In fr, this message translates to:
-  /// **'Mot de passe'**
-  String get opensubtitlesLoginHintPassword;
-
-  /// No description provided for @opensubtitlesLoginActive.
-  ///
-  /// In fr, this message translates to:
-  /// **'Compte enregistré : les téléchargements pourront se connecter.'**
-  String get opensubtitlesLoginActive;
-
-  /// No description provided for @opensubtitlesLoginNone.
-  ///
-  /// In fr, this message translates to:
-  /// **'Aucun compte : le téléchargement reste refusé (503).'**
-  String get opensubtitlesLoginNone;
-
-  /// No description provided for @opensubtitlesLoginDelete.
-  ///
-  /// In fr, this message translates to:
-  /// **'Effacer le compte'**
-  String get opensubtitlesLoginDelete;
-
-  /// No description provided for @opensubtitlesLoginConnect.
-  ///
-  /// In fr, this message translates to:
-  /// **'Se connecter / vérifier'**
-  String get opensubtitlesLoginConnect;
-
-  /// No description provided for @opensubtitlesLoginConnecting.
-  ///
-  /// In fr, this message translates to:
-  /// **'Connexion en cours…'**
-  String get opensubtitlesLoginConnecting;
-
-  /// No description provided for @opensubtitlesLoginValid.
-  ///
-  /// In fr, this message translates to:
-  /// **'Compte accepté : le service délivre un jeton.'**
-  String get opensubtitlesLoginValid;
-
-  /// No description provided for @opensubtitlesLoginRejected.
-  ///
-  /// In fr, this message translates to:
-  /// **'Identifiants refusés : vérifiez l\'identifiant et le mot de passe.'**
-  String get opensubtitlesLoginRejected;
-
-  /// No description provided for @opensubtitlesLoginUnreachable.
-  ///
-  /// In fr, this message translates to:
-  /// **'Service injoignable : vérifiez votre connexion et réessayez.'**
-  String get opensubtitlesLoginUnreachable;
-
-  /// No description provided for @subtitleOnlineNoApiKey.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé API OpenSubtitles absente : saisissez-la dans Réglages pour activer la recherche en ligne.'**
-  String get subtitleOnlineNoApiKey;
-
-  /// No description provided for @subtitleOnlineKeyRejected.
-  ///
-  /// In fr, this message translates to:
-  /// **'Clé API OpenSubtitles refusée : elle est présente mais le service la rejette. Vérifiez sa validité dans Réglages.'**
-  String get subtitleOnlineKeyRejected;
-
-  /// No description provided for @subtitleOnlineQuota.
-  ///
-  /// In fr, this message translates to:
-  /// **'Quota de téléchargement OpenSubtitles atteint pour aujourd\'hui. Réessayez demain.'**
-  String get subtitleOnlineQuota;
-
-  /// No description provided for @subtitleOnlineNeedsLogin.
-  ///
-  /// In fr, this message translates to:
-  /// **'Le téléchargement OpenSubtitles exige un compte connecté, pas seulement la clé API : la recherche fonctionne, mais le téléchargement est refusé.'**
-  String get subtitleOnlineNeedsLogin;
-
   /// No description provided for @favorites.
   ///
   /// In fr, this message translates to:
@@ -2668,12 +2476,6 @@ abstract class AppLocalizations {
   /// **'Identifiants d\'API et paramètres réseau. Ces réglages engagent votre compte auprès de services tiers : une clé partagée consomme son quota, et une mauvaise manipulation du réseau peut empêcher l\'application de démarrer.'**
   String get advancedSettingsIntro;
 
-  /// No description provided for @advancedSubtitlesProvider.
-  ///
-  /// In fr, this message translates to:
-  /// **'Fournisseur de sous-titres'**
-  String get advancedSubtitlesProvider;
-
   /// No description provided for @advancedStatus.
   ///
   /// In fr, this message translates to:
@@ -2763,6 +2565,108 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Noir & Blanc'**
   String get avatarCategoryBlackWhite;
+
+  /// No description provided for @updateTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mises à jour'**
+  String get updateTitle;
+
+  /// No description provided for @updateSettingsSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifier la dernière version officielle sur GitHub'**
+  String get updateSettingsSubtitle;
+
+  /// No description provided for @updateChecking.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification en cours…'**
+  String get updateChecking;
+
+  /// No description provided for @updateCurrent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous utilisez déjà la dernière version disponible.'**
+  String get updateCurrent;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une nouvelle version est disponible :'**
+  String get updateAvailable;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargement et vérification de l’APK…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateReady.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouverture de l’installateur Android…'**
+  String get updateReady;
+
+  /// No description provided for @updatePermission.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autorisez Orbit à installer des applications inconnues dans les réglages Android, puis revenez ici et réessayez.'**
+  String get updatePermission;
+
+  /// No description provided for @updateNoRelease.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune release stable n’est disponible sur GitHub.'**
+  String get updateNoRelease;
+
+  /// No description provided for @updateAssetError.
+  ///
+  /// In fr, this message translates to:
+  /// **'La release ne contient pas l’APK universel officiel ou ses informations de vérification.'**
+  String get updateAssetError;
+
+  /// No description provided for @updateInvalidApk.
+  ///
+  /// In fr, this message translates to:
+  /// **'APK incompatible, signé avec une autre clé ou version Android non supérieure. Installation annulée.'**
+  String get updateInvalidApk;
+
+  /// No description provided for @updateIntegrityError.
+  ///
+  /// In fr, this message translates to:
+  /// **'La vérification du fichier téléchargé a échoué. Installation annulée.'**
+  String get updateIntegrityError;
+
+  /// No description provided for @updateGenericError.
+  ///
+  /// In fr, this message translates to:
+  /// **'La mise à jour a échoué. Vérifiez la connexion et réessayez.'**
+  String get updateGenericError;
+
+  /// No description provided for @updateLater.
+  ///
+  /// In fr, this message translates to:
+  /// **'Plus tard'**
+  String get updateLater;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre à jour'**
+  String get updateInstall;
+
+  /// No description provided for @updateRetryInstall.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réessayer l’installation'**
+  String get updateRetryInstall;
+
+  /// No description provided for @updateRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réessayer'**
+  String get updateRetry;
 
   /// No description provided for @avatarCategoryPixels.
   ///

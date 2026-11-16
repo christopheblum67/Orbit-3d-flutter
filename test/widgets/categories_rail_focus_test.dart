@@ -32,7 +32,8 @@ void main() {
     expect(find.byKey(const ValueKey('it')), findsOneWidget);
   });
 
-  testWidgets('colors only the increased category count', (tester) async {
+  testWidgets('shows additions separately only for matching category counts',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -41,7 +42,10 @@ void main() {
               MediaCategory(id: 'new', name: 'Nouveautés', count: 283),
               MediaCategory(id: 'other', name: 'Autres', count: 10),
             ],
-            increasedCounts: const {'new': 283, 'other': 11},
+            increasedCounts: const {
+              'new': (total: 283, added: 2),
+              'other': (total: 11, added: 1),
+            },
             selectedId: 'new',
             onSelected: (_) {},
           ),
@@ -50,17 +54,22 @@ void main() {
     );
     TextSpan countSpan(String id) {
       final text = tester.widget<RichText>(
-        find.descendant(
-          of: find.byKey(ValueKey(id)),
-          matching: find.byType(RichText),
-        ).first,
+        find
+            .descendant(
+              of: find.byKey(ValueKey(id)),
+              matching: find.byType(RichText),
+            )
+            .first,
       );
       final root = text.text as TextSpan;
       final inner = root.children!.first as TextSpan;
       return inner.children!.last as TextSpan;
     }
 
+    expect(countSpan('new').text, ' (+2)');
     expect(countSpan('new').style!.color, Colors.red.shade800);
+    expect(countSpan('new').style!.fontWeight, FontWeight.w800);
+    expect(countSpan('other').text, ' (10)');
     expect(countSpan('other').style!.color, isNull);
   });
 

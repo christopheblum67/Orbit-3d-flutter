@@ -63,7 +63,7 @@ class ProfileTypeNotifier extends Notifier<ProfileTypeState> {
 
   Future<bool> verifyPin(String input) {
     final currentProfile = ref.read(currentProfileProvider);
-    if (currentProfile == null || currentProfile.pinHash == null) {
+    if (currentProfile == null || !currentProfile.hasPin) {
       return Future.value(false);
     }
     return ProfilePin.verify(currentProfile, input);

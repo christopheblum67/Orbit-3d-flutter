@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:orbit_3d_flutter/services/radio_favorites_store.dart';
 
 /// Noms des stations radio favorites du profil courant.
 final radioFavoritesProvider =
@@ -9,6 +9,8 @@ final radioFavoritesProvider =
 );
 
 class RadioFavoritesNotifier extends Notifier<Set<String>> {
+  int _generation = 0;
+
   @override
   Set<String> build() {
     ref.listen(currentProfileProvider, (_, __) => _load());
@@ -16,29 +18,33 @@ class RadioFavoritesNotifier extends Notifier<Set<String>> {
     return const {};
   }
 
-  String? get _key {
-    final id = ref.read(currentProfileProvider)?.id;
-    return id == null ? null : 'radio_favorites_$id';
-  }
-
   Future<void> _load() async {
-    final key = _key;
-    if (key == null) {
+    final generation = ++_generation;
+    final profileId = ref.read(currentProfileProvider)?.id;
+    if (profileId == null) {
       state = const {};
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    if (!ref.mounted) return;
-    state = (prefs.getStringList(key) ?? const <String>[]).toSet();
+    state = const {};
+    final favorites = await RadioFavoritesStore.read(profileId);
+    if (!ref.mounted ||
+        generation != _generation ||
+        ref.read(currentProfileProvider)?.id != profileId) {
+      return;
+    }
+    state = favorites;
   }
 
   Future<void> toggle(String stationName) async {
-    final key = _key;
-    if (key == null) return;
-    final next = {...state};
-    if (!next.remove(stationName)) next.add(stationName);
+    final profileId = ref.read(currentProfileProvider)?.id;
+    if (profileId == null) return;
+    final generation = ++_generation;
+    final next = await RadioFavoritesStore.toggle(profileId, stationName);
+    if (!ref.mounted ||
+        generation != _generation ||
+        ref.read(currentProfileProvider)?.id != profileId) {
+      return;
+    }
     state = next;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(key, next.toList());
   }
 }
