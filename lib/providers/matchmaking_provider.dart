@@ -910,6 +910,8 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   // favoris, cas où le score ne dépend pas du genre.
   final affinityTmdb = ref.watch(tmdbAffinityServiceProvider);
   final useRealGenre = favoriteGenres.isNotEmpty;
+  final favoriteMovieIds = _favoriteIdsOf(ref, ContentType.vod);
+  final favoriteSeriesIds = _favoriteIdsOf(ref, ContentType.series);
   Recommendation movieReco(Movie m) {
     if (!useRealGenre) {
       return Recommendation(kind: RecommendationKind.movie, movie: m);
@@ -942,7 +944,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
     // Iterable paresseux : pas de liste de 99 569 `Recommendation` en mémoire.
     recos: movies.map(movieReco),
     favoriteGenres: favoriteGenres,
-    favoriteIds: _favoriteIdsOf(ref, ContentType.vod),
+    favoriteIds: favoriteMovieIds,
     seenIds: seenIds,
     tmdbTitles: tmdbTitles,
     sessionFilters: sessionFilters,
@@ -953,7 +955,7 @@ final matchmakingTabProvider = FutureProvider.autoDispose
   final scoredSeries = await _rankByAffinity(
     recos: series.map(seriesReco),
     favoriteGenres: favoriteGenres,
-    favoriteIds: _favoriteIdsOf(ref, ContentType.series),
+    favoriteIds: favoriteSeriesIds,
     seenIds: seenIds,
     tmdbTitles: tmdbTitles,
     sessionFilters: sessionFilters,

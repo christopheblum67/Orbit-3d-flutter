@@ -1,5 +1,6 @@
 {
     "@@locale":  "fr",
+    "refreshRecommendations": "Actualiser les recommandations",
     "localVideoProxy": "Relais vidéo local expérimental",
     "localVideoProxySubtitle": "Pour les films et séries du lecteur interne, avec cache disque limité.",
     "@accountDeviceProfileSubtitle":  {

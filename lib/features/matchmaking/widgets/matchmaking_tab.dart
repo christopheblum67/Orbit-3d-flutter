@@ -139,20 +139,40 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 500;
+          final refresh = IconButton(
+            tooltip: l.refreshRecommendations,
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _reset();
+              ref.invalidate(matchmakingTabProvider);
+              ref.invalidate(matchmakingGroupTabProvider);
+              ref.invalidate(flixPatrolMoviesProvider);
+              ref.invalidate(flixPatrolTvProvider);
+              ref.invalidate(flixPatrolTrendingMoviesProvider);
+              ref.invalidate(flixPatrolTrendingTvProvider);
+              ref.invalidate(flixPatrolTopRatedMoviesProvider);
+              ref.invalidate(flixPatrolTopRatedTvProvider);
+              ref.invalidate(flixPatrolNowPlayingMoviesProvider);
+              ref.invalidate(flixPatrolUpcomingMoviesProvider);
+              ref.invalidate(flixPatrolOnTheAirTvProvider);
+              ref.invalidate(flixPatrolAiringTodayTvProvider);
+            },
+          );
+          final mode = Expanded(
             child: SegmentedButton<_TabMode>(
               segments: [
                 ButtonSegment(
                   value: _TabMode.single,
                   label: Text(l.forYou),
-                  icon: const Icon(Icons.person_outline),
+                  icon: compact ? null : const Icon(Icons.person_outline),
                 ),
                 ButtonSegment(
                   value: _TabMode.group,
                   label: Text(l.groupMode),
-                  icon: const Icon(Icons.groups_outlined),
+                  icon: compact ? null : const Icon(Icons.groups_outlined),
                 ),
               ],
               selected: {_mode},
@@ -162,16 +182,32 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
                 _reset();
               },
             ),
-          ),
-          const SizedBox(width: 10),
-          _SortMenu(
+          );
+          final sort = _SortMenu(
             value: _sort,
             onChanged: (value) {
               setState(() => _sort = value);
               _reset();
             },
-          ),
-        ],
+          );
+          return compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(children: [refresh, mode]),
+                    const SizedBox(height: 8),
+                    sort,
+                  ],
+                )
+              : Row(
+                  children: [
+                    refresh,
+                    mode,
+                    const SizedBox(width: 10),
+                    sort,
+                  ],
+                );
+        },
       ),
     );
   }
@@ -305,6 +341,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   Widget _buildSingle(UserProfile profile) {
     final async = ref.watch(matchmakingTabProvider(profile.id));
     return async.when(
+      skipLoadingOnRefresh: false,
       data: (tab) {
         final list = _sortScored(_isMovie ? tab.movies : tab.series);
         if (list.isEmpty) return _emptyState();
@@ -385,6 +422,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
     final group = profileGroupCacheKey([profile.id, ..._selectedProfileIds]);
     final async = ref.watch(matchmakingGroupTabProvider(group));
     return async.when(
+      skipLoadingOnRefresh: false,
       data: (tab) {
         final list = _sortGrouped(_isMovie ? tab.movies : tab.series);
         if (list.isEmpty) return _emptyState(group: true);

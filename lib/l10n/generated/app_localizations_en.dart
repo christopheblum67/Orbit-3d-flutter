@@ -9,6 +9,9 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get refreshRecommendations => 'Refresh recommendations';
+
+  @override
   String get localVideoProxy => 'Experimental local video proxy';
 
   @override

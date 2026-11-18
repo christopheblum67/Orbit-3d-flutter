@@ -40,6 +40,57 @@ void main() {
   );
   final other = profile.copyWith(id: 'two', firstName: 'Camille');
 
+  testWidgets('refresh rebuilds solo and group recommendations from the D-pad',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var soloBuilds = 0;
+    var groupBuilds = 0;
+    final container = ProviderContainer(
+      overrides: [
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+        matchmakingTabProvider.overrideWith((ref, id) async {
+          soloBuilds++;
+          return (movies: <ScoredReco>[], series: <ScoredReco>[]);
+        }),
+        matchmakingGroupTabProvider.overrideWith((ref, key) async {
+          groupBuilds++;
+          return (movies: <GroupReco>[], series: <GroupReco>[]);
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final groupKey = profileGroupCacheKey(['one', 'two']);
+    final groupSubscription = container.listen(
+      matchmakingGroupTabProvider(groupKey),
+      (_, __) {},
+    );
+    addTearDown(groupSubscription.close);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: MatchmakingTab(kind: RecommendationKind.movie)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(soloBuilds, 1);
+    expect(groupBuilds, 1);
+    final refresh = find.byTooltip('Actualiser les recommandations');
+    expect(refresh, findsOneWidget);
+    Focus.of(tester.element(find.byIcon(Icons.refresh))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(soloBuilds, 2);
+    expect(groupBuilds, 2);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final kind in RecommendationKind.values) {
     for (final group in [false, true]) {
       testWidgets('${kind.name} ${group ? "group" : "solo"} opens the menu',

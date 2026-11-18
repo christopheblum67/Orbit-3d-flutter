@@ -1,8 +1,25 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/services/profile_pin.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const nativeChannel = MethodChannel('orbit/profile_pin');
+  const knownHash = 'pbkdf2-sha256\$120000\$AAECAwQFBgcICQoLDA0ODw==\$'
+      'UHAyHKNNva/pslNx0cD4O8r+Bz+64fInTwCm1saOmJk=';
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(nativeChannel, (_) async => null);
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(nativeChannel, null);
+  });
+
   UserProfile profile(String? pin) => UserProfile(
         id: 'one',
         firstName: 'Alex',
@@ -23,6 +40,46 @@ void main() {
         await ProfilePin.verify(
             profile('pbkdf2-sha256\$999999999\$x\$y'), '1234'),
         isFalse);
+  });
+
+  test('existing PBKDF2 vector works on the Dart fallback', () async {
+    expect(await ProfilePin.verify(profile(knownHash), '1234'), isTrue);
+    expect(await ProfilePin.verify(profile(knownHash), '0000'), isFalse);
+  });
+
+  test('Android uses the native result and falls back only if unsupported',
+      () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(nativeChannel, null);
+    });
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var calls = 0;
+    messenger.setMockMethodCallHandler(nativeChannel, (call) async {
+      calls++;
+      expect(call.method, 'derive');
+      expect(call.arguments['iterations'], 120000);
+      expect(call.arguments['pin'], '1234');
+      expect(
+        call.arguments['salt'],
+        Uint8List.fromList(List.generate(16, (i) => i)),
+      );
+      return Uint8List.fromList(base64Decode(knownHash.split(r'$').last));
+    });
+    expect(await ProfilePin.verify(profile(knownHash), '1234'), isTrue);
+    expect(calls, 1);
+    messenger.setMockMethodCallHandler(nativeChannel, (_) async => null);
+    expect(await ProfilePin.verify(profile(knownHash), '1234'), isTrue);
+    messenger.setMockMethodCallHandler(nativeChannel, (_) async {
+      throw PlatformException(code: 'DERIVATION_FAILED');
+    });
+    await expectLater(
+      ProfilePin.verify(profile(knownHash), '1234'),
+      throwsA(isA<PlatformException>()),
+    );
   });
 
   test('existing PINs still work and can explicitly be removed', () async {

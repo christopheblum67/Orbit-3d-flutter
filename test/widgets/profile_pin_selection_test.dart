@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -71,15 +73,20 @@ Future<void> _saveProtectedProfile(WidgetTester tester,
 void main() {
   late Directory cacheDirectory;
   const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+  const pinChannel = MethodChannel('orbit/profile_pin');
   setUpAll(() {
     cacheDirectory = Directory.systemTemp.createTempSync('orbit_pin_widget_');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
             pathChannel, (_) async => cacheDirectory.path);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pinChannel, (_) async => null);
   });
   tearDownAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathChannel, null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pinChannel, null);
     if (cacheDirectory.existsSync()) {
       await cacheDirectory.delete(recursive: true);
     }
@@ -609,6 +616,42 @@ void main() {
     expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
     await enter('1234');
     expect(result, isTrue);
+  });
+
+  testWidgets('PIN pad displays verification while derivation is pending',
+      (tester) async {
+    final pending = Completer<Uint8List?>();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pinChannel, (_) => pending.future);
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(pinChannel, (_) async => null);
+    });
+    final profile = UserProfile(
+      id: 'private',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: '',
+      favoriteGenres: const [],
+      pinHash: 'pbkdf2-sha256\$120000\$AAECAwQFBgcICQoLDA0ODw==\$'
+          'UHAyHKNNva/pslNx0cD4O8r+Bz+64fInTwCm1saOmJk=',
+    );
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: PinPadScreen(args: PinPadArgs.verify(profile)),
+      ),
+    ));
+    for (final digit in ['1', '2', '3', '4']) {
+      await tester.tap(find.text(digit));
+      await tester.pump();
+    }
+    expect(find.text('Vérification en cours…'), findsOneWidget);
+    pending.complete(Uint8List(32));
+    await tester.pumpAndSettle();
+    expect(find.text('Vérification en cours…'), findsNothing);
+    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
   });
 
   testWidgets('adult PIN gates selection, editing and deletion',

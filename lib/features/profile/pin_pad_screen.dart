@@ -207,10 +207,12 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                 textHeight(_subtitle, subtitleStyle) +
                 12 +
                 22 +
-                (_wrong
+                (_wrong || _checking
                     ? 14 +
-                        textHeight(errorText,
-                            const TextStyle(fontWeight: FontWeight.w700))
+                        textHeight(
+                          _checking ? 'Vérification en cours…' : errorText,
+                          const TextStyle(fontWeight: FontWeight.w700),
+                        )
                     : 0) +
                 12 +
                 32 +
@@ -249,13 +251,17 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                         AnimatedSize(
                           duration: const Duration(milliseconds: 180),
                           curve: Curves.easeOut,
-                          child: _wrong
+                          child: _wrong || _checking
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 14),
                                   child: Text(
-                                    errorText,
+                                    _checking
+                                        ? 'Vérification en cours…'
+                                        : errorText,
                                     style: TextStyle(
-                                      color: scheme.error,
+                                      color: _checking
+                                          ? scheme.onSurfaceVariant
+                                          : scheme.error,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),

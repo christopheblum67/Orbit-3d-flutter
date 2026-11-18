@@ -106,6 +106,12 @@ abstract class AppLocalizations {
     Locale('it')
   ];
 
+  /// No description provided for @refreshRecommendations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualiser les recommandations'**
+  String get refreshRecommendations;
+
   /// No description provided for @localVideoProxy.
   ///
   /// In fr, this message translates to:

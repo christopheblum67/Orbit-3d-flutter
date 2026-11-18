@@ -3,22 +3,42 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 
 class ProfilePin {
   static const _iterations = 120000;
   static const _prefix = 'pbkdf2-sha256';
+  static const _channel = MethodChannel('orbit/profile_pin');
 
   static Future<List<int>> _derive(
-          String pin, List<int> salt, int iterations) =>
-      Isolate.run(() async {
-        final key = await Pbkdf2(
-          macAlgorithm: Hmac.sha256(),
-          iterations: iterations,
-          bits: 256,
-        ).deriveKey(secretKey: SecretKey(utf8.encode(pin)), nonce: salt);
-        return key.extractBytes();
+    String pin,
+    List<int> salt,
+    int iterations,
+  ) async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final result = await _channel.invokeMethod<Uint8List>('derive', {
+        'pin': pin,
+        'salt': Uint8List.fromList(salt),
+        'iterations': iterations,
       });
+      if (result != null) {
+        if (result.length != 32) {
+          throw StateError('Invalid native PIN hash length');
+        }
+        return result;
+      }
+    }
+    return Isolate.run(() async {
+      final key = await Pbkdf2(
+        macAlgorithm: Hmac.sha256(),
+        iterations: iterations,
+        bits: 256,
+      ).deriveKey(secretKey: SecretKey(utf8.encode(pin)), nonce: salt);
+      return key.extractBytes();
+    });
+  }
 
   static Future<String> create(String pin) async {
     if (!RegExp(r'^\d{4}$').hasMatch(pin)) {

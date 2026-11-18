@@ -1,5 +1,6 @@
 {
     "@@locale":  "de",
+    "refreshRecommendations": "Empfehlungen aktualisieren",
     "localVideoProxy": "Experimenteller lokaler Video-Proxy",
     "localVideoProxySubtitle": "Für Filme und Serien im internen Player, mit begrenztem Festplattencache.",
     "accountDeviceProfile":  "Geräteprofil \u0026 Diagnose",

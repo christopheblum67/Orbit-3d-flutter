@@ -9,6 +9,9 @@ class AppLocalizationsAr extends AppLocalizations {
   AppLocalizationsAr([String locale = 'ar']) : super(locale);
 
   @override
+  String get refreshRecommendations => 'تحديث التوصيات';
+
+  @override
   String get localVideoProxy => 'وكيل فيديو محلي تجريبي';
 
   @override

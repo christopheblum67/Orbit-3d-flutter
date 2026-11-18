@@ -42,6 +42,7 @@ class MainActivity : FlutterActivity() {
         PlayerConfigChannel.register(flutterEngine, this)
         ExternalPlayerChannel.register(flutterEngine, this)
         HardwareChannel.register(flutterEngine, this)
+        ProfilePinChannel.register(flutterEngine)
         PipChannel.register(flutterEngine, this)
         PlaybackServiceChannel.register(flutterEngine, this)
         UpdateChannel.register(flutterEngine, this)

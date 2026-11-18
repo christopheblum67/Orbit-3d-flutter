@@ -1,5 +1,6 @@
 {
     "@@locale":  "ar",
+    "refreshRecommendations": "تحديث التوصيات",
     "localVideoProxy": "وكيل فيديو محلي تجريبي",
     "localVideoProxySubtitle": "للأفلام والمسلسلات في المشغل الداخلي، مع تخزين مؤقت محدود على القرص.",
     "accountDeviceProfile":  "ملف الجهاز والتشخيص",

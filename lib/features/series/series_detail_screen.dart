@@ -124,7 +124,7 @@ class SeriesDetailScreen extends ConsumerWidget {
   }
 }
 
-class _SeriesDetailContent extends ConsumerWidget {
+class _SeriesDetailContent extends ConsumerStatefulWidget {
   const _SeriesDetailContent({
     required this.detail,
     required this.baseSeries,
@@ -134,7 +134,18 @@ class _SeriesDetailContent extends ConsumerWidget {
   final Series baseSeries;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SeriesDetailContent> createState() =>
+      _SeriesDetailContentState();
+}
+
+class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
+  int? _selectedSeason;
+
+  SeriesDetail get detail => widget.detail;
+  Series get baseSeries => widget.baseSeries;
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final episodesBySeason = <int, List<Episode>>{};
@@ -150,94 +161,79 @@ class _SeriesDetailContent extends ConsumerWidget {
     // Section « Reprendre » : épisodes avec une progression en cours
     // (0 < % regardé < 80 %), affichée au-dessus des saisons.
     final resumeEpisodes = _resumeEpisodesFor(ref);
-    final resumeSliver = resumeEpisodes.isEmpty
-        ? const SliverToBoxAdapter(child: SizedBox.shrink())
-        : SliverToBoxAdapter(
-            child: _ResumeSection(
-              series: baseSeries,
-              episodes: resumeEpisodes,
+    final season = seasons.contains(_selectedSeason)
+        ? _selectedSeason
+        : seasons.firstOrNull;
+    final scrollView = CustomScrollView(
+      cacheExtent: 1500,
+      slivers: [
+        header,
+        if (resumeEpisodes.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(
+                  icon: Icons.replay_rounded,
+                  title: 'Reprendre',
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    '${resumeEpisodes.length} '
+                    '${resumeEpisodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                _episodeActionsHint(context),
+              ],
             ),
-          );
-
-    if (seasons.isEmpty) {
-      return CustomScrollView(
-        cacheExtent: 1500,
-        slivers: [
-          header,
-          resumeSliver,
+          ),
+          _episodeCarousel(resumeEpisodes, resume: true),
+        ],
+        if (season == null)
           SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.video_library_outlined,
               title: l.noEpisodes,
               message: 'Cette série ne propose pas encore d\'épisodes.',
             ),
-          ),
-        ],
-      );
-    }
-
-    if (seasons.length == 1) {
-      final season = seasons.first;
-      return CustomScrollView(
-        cacheExtent: 1500,
-        slivers: [
-          header,
-          resumeSliver,
+          )
+        else ...[
+          if (seasons.length > 1)
+            SliverToBoxAdapter(
+              child: Material(
+                color: scheme.surface,
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  onTap: (index) =>
+                      setState(() => _selectedSeason = seasons[index]),
+                  tabs: [
+                    for (final number in seasons)
+                      Tab(text: l.seasonNumber(number)),
+                  ],
+                ),
+              ),
+            ),
           ..._seasonSlivers(
             context,
             ref: ref,
             season: season,
             episodes: episodesBySeason[season]!,
             total: episodesBySeason[season]!.length,
-            compact: false,
+            compact: seasons.length > 1,
             l: l,
           ),
         ],
-      );
-    }
-
-    // Plusieurs saisons : TabBar horizontale pour alléger la liste, une seule
-    // saison visible à la fois (au lieu de les empiler verticalement).
+      ],
+    );
+    if (seasons.length < 2) return scrollView;
     return DefaultTabController(
+      key: ValueKey(seasons.join(',')),
       length: seasons.length,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Material(
-            color: scheme.surface,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                for (final season in seasons) Tab(text: 'Saison $season'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                for (final season in seasons)
-                  CustomScrollView(
-                    cacheExtent: 1500,
-                    slivers: [
-                      header,
-                      resumeSliver,
-                      ..._seasonSlivers(
-                        context,
-                        ref: ref,
-                        season: season,
-                        episodes: episodesBySeason[season]!,
-                        total: episodesBySeason[season]!.length,
-                        compact: true,
-                        l: l,
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      initialIndex: seasons.indexOf(season!),
+      child: scrollView,
     );
   }
 
@@ -336,16 +332,8 @@ class _SeriesDetailContent extends ConsumerWidget {
             subtitle: _seasonSubtitle(total: total, seen: seen),
           ),
         ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        sliver: SliverList.builder(
-          itemCount: episodes.length,
-          itemBuilder: (context, index) => _EpisodeTile(
-            series: baseSeries,
-            episode: episodes[index],
-          ),
-        ),
-      ),
+      SliverToBoxAdapter(child: _episodeActionsHint(context)),
+      _episodeCarousel(episodes, season: season),
       //Invités spéciaux pour cette saison
       if (guests.isNotEmpty)
         SliverToBoxAdapter(
@@ -360,6 +348,28 @@ class _SeriesDetailContent extends ConsumerWidget {
           ),
         ),
     ];
+  }
+
+  Widget _episodeActionsHint(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+        child: Text(
+          'Maintenez OK pour marquer comme vu ou réinitialiser.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      );
+
+  Widget _episodeCarousel(List<Episode> episodes,
+      {bool resume = false, int? season}) {
+    return SliverToBoxAdapter(
+      child: _EpisodeCarousel(
+        key: ValueKey(resume ? 'resume-carousel' : 'season-carousel-$season'),
+        series: baseSeries,
+        episodes: episodes,
+        resume: resume,
+      ),
+    );
   }
 
   String _seasonSubtitle({required int total, required int seen}) {
@@ -547,7 +557,9 @@ class _SeriesHeader extends ConsumerWidget {
           else
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
+              child: Wrap(
+                spacing: 16,
+                runSpacing: 4,
                 children: [
                   Text(
                     l.mainCast,
@@ -555,7 +567,6 @@ class _SeriesHeader extends ConsumerWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const Spacer(),
                   Text(
                     'Non disponible',
                     style: textTheme.bodySmall?.copyWith(
@@ -721,37 +732,105 @@ const Color _watchedGreen = Color(0xFF66BB6A);
 /// tout en restant reprenable.
 const double _autoWatchedThreshold = 0.8;
 
-/// Section « Reprendre » : liste les épisodes de la série dont la lecture est
-/// en cours (0 % < regardés < 80 %), pour relancer facilement.
-class _ResumeSection extends ConsumerWidget {
-  const _ResumeSection({required this.series, required this.episodes});
+class _EpisodeCarousel extends StatefulWidget {
+  const _EpisodeCarousel({
+    super.key,
+    required this.series,
+    required this.episodes,
+    required this.resume,
+  });
 
   final Series series;
   final List<Episode> episodes;
+  final bool resume;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<_EpisodeCarousel> createState() => _EpisodeCarouselState();
+}
+
+class _EpisodeCarouselState extends State<_EpisodeCarousel> {
+  int? _focusedIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SectionHeader(
-          icon: Icons.replay_rounded,
-          title: 'Reprendre',
-          subtitle: '${episodes.length} '
-              '${episodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
-        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Column(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+          child: Text(
+            _focusedIndex == null || _focusedIndex! >= widget.episodes.length
+                ? '${widget.episodes.length} épisodes'
+                : '${_focusedIndex! + 1} / ${widget.episodes.length}',
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+        SizedBox(
+          height: 165 + 110 * textScale,
+          child: Stack(
             children: [
-              for (final episode in episodes)
-                _EpisodeTile(series: series, episode: episode),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _EpisodeOrbitPainter(scheme.primary),
+                  ),
+                ),
+              ),
+              ListView.builder(
+                scrollDirection: Axis.horizontal,
+                cacheExtent: 500,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                itemCount: widget.episodes.length,
+                itemExtent: 190,
+                itemBuilder: (context, index) => _EpisodeTile(
+                  key: ValueKey(
+                      '${widget.resume ? 'resume' : 'season'}-episode-$index'),
+                  series: widget.series,
+                  episode: widget.episodes[index],
+                  onFocus: () {
+                    if (_focusedIndex != index) {
+                      setState(() => _focusedIndex = index);
+                    }
+                  },
+                ),
+              ),
             ],
           ),
         ),
       ],
     );
   }
+}
+
+class _EpisodeOrbitPainter extends CustomPainter {
+  const _EpisodeOrbitPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Rect.fromCenter(
+      center: Offset(size.width / 2, 68),
+      width: size.width * 1.05,
+      height: 120,
+    );
+    canvas.drawOval(
+      bounds,
+      Paint()
+        ..color = color.withValues(alpha: 0.28)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_EpisodeOrbitPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _ResetEpisodeDialog extends StatefulWidget {
@@ -854,10 +933,16 @@ class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
 }
 
 class _EpisodeTile extends ConsumerWidget {
-  const _EpisodeTile({required this.series, required this.episode});
+  const _EpisodeTile({
+    super.key,
+    required this.series,
+    required this.episode,
+    required this.onFocus,
+  });
 
   final Series series;
   final Episode episode;
+  final VoidCallback onFocus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -871,10 +956,17 @@ class _EpisodeTile extends ConsumerWidget {
           .substring(series.title.length)
           .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
     }
-    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)').hasMatch(episodeTitle);
+    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)', caseSensitive: false)
+        .hasMatch(episodeTitle);
     final label = episodeTitle.isNotEmpty
         ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
         : 'Épisode $number';
+    final titleBelow = hasNumber
+        ? episodeTitle
+            .replaceFirst(
+                RegExp(r'^S\d+E\d+\s*[-–—]?\s*', caseSensitive: false), '')
+            .trim()
+        : episodeTitle;
     final canPlay = episode.streamUrl.isNotEmpty;
     final profileId = ref.watch(currentProfileProvider)?.id ?? '';
     final watched = ref.watch(watchedEpisodesProvider).containsKey(
@@ -965,121 +1057,195 @@ class _EpisodeTile extends ConsumerWidget {
       await setWatched(!isVu);
     }
 
-    return TvFocus(
-      onActivate: onOpen,
-      onLongPress: onLongPress,
-      onFocusChange: (focused) {
-        if (!focused) return;
-        Scrollable.ensureVisible(
-          context,
-          alignment: 0.4,
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: AppCard(
-          focusable: false,
-          onTap: canPlay ? onOpen : null,
-          onLongPress: onLongPress,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                canPlay ? Icons.play_circle_outline : Icons.play_circle,
-                color: canPlay ? scheme.primary : scheme.outline,
-                size: 30,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
+    return Semantics(
+      container: true,
+      label:
+          '${series.title}, $label${isVu ? ', Vu' : ''}${inProgress ? ', Reprendre' : ''}',
+      child: GestureDetector(
+        onTap: canPlay ? onOpen : null,
+        onLongPress: onLongPress,
+        child: Column(
+          children: [
+            TvFocus(
+              circular: true,
+              onActivate: onOpen,
+              onLongPress: onLongPress,
+              onFocusChange: (focused) {
+                if (!focused) return;
+                onFocus();
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.4,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                );
+              },
+              child: Container(
+                width: 112,
+                height: 112,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.primaryContainer,
+                      scheme.surfaceContainerHighest,
+                    ],
+                  ),
+                  border: Border.all(
+                    color: isVu
+                        ? _watchedGreen
+                        : scheme.primary.withValues(alpha: 0.6),
+                    width: 2,
+                  ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isVu ? scheme.onSurfaceVariant : null,
-                          ),
-                    ),
-                    if (inProgress &&
-                        progress != null &&
-                        progress.durationMs > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: progress.fraction,
-                            minHeight: 3,
-                            backgroundColor:
-                                scheme.onSurfaceVariant.withValues(alpha: 0.15),
+                    if (series.coverUrl.isNotEmpty)
+                      Positioned.fill(
+                        child: ClipOval(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              OrbitCachedImage(
+                                imageUrl: series.coverUrl,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const SizedBox.shrink(),
+                                errorWidget: (_, __, ___) =>
+                                    const SizedBox.shrink(),
+                              ),
+                              ColoredBox(
+                                color: Colors.black.withValues(alpha: 0.6),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          canPlay
+                              ? Icons.play_circle_outline
+                              : Icons.play_circle,
+                          color: series.coverUrl.isNotEmpty
+                              ? Colors.white
+                              : canPlay
+                                  ? scheme.primary
+                                  : scheme.outline,
+                          size: 30,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              number,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: series.coverUrl.isNotEmpty
+                                        ? Colors.white
+                                        : null,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: ExcludeFocus(
+                        child: GestureDetector(
+                          onLongPress: onLongPress,
+                          child: TooltipTheme(
+                            data: const TooltipThemeData(
+                                triggerMode: TooltipTriggerMode.manual),
+                            child: IconButton(
+                              tooltip: isVu
+                                  ? 'Marquer comme non vu'
+                                  : 'Marquer comme vu',
+                              onPressed: () => setWatched(!isVu),
+                              icon: Icon(
+                                isVu
+                                    ? Icons.check_circle
+                                    : Icons.check_circle_outline,
+                                color: isVu
+                                    ? _watchedGreen
+                                    : series.coverUrl.isNotEmpty
+                                        ? Colors.white
+                                        : scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (inProgress) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Reprendre',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ] else if (isVu) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _watchedGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Vu',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: _watchedGreen,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ],
-              const SizedBox(width: 4),
-              ExcludeFocus(
-                child: GestureDetector(
-                  onLongPress: onLongPress,
-                  child: TooltipTheme(
-                    data: const TooltipThemeData(
-                        triggerMode: TooltipTriggerMode.manual),
-                    child: IconButton(
-                      tooltip:
-                          isVu ? 'Marquer comme non vu' : 'Marquer comme vu',
-                      onPressed: () => setWatched(!isVu),
-                      icon: Icon(
-                        isVu ? Icons.check_circle : Icons.check_circle_outline,
-                        color: isVu ? _watchedGreen : scheme.onSurfaceVariant,
-                      ),
+            ),
+            const SizedBox(height: 8),
+            Tooltip(
+              message: series.title,
+              child: Text(
+                series.title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Tooltip(
+              message: label,
+              child: Text(
+                titleBelow.isEmpty ? 'Épisode' : titleBelow,
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isVu ? scheme.onSurfaceVariant : null,
+                    ),
+              ),
+            ),
+            if (inProgress && progress != null && progress.durationMs > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: progress.fraction,
+                    minHeight: 3,
+                    backgroundColor:
+                        scheme.onSurfaceVariant.withValues(alpha: 0.15),
                   ),
                 ),
               ),
-            ],
-          ),
+            if (inProgress || isVu)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  inProgress && isVu
+                      ? 'Vu · Reprendre'
+                      : inProgress
+                          ? 'Reprendre'
+                          : 'Vu',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: inProgress ? scheme.primary : _watchedGreen,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+          ],
         ),
       ),
     );
