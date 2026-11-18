@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/navigation/app_router.dart' as app;
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/features/profile/pin_pad_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
@@ -22,6 +24,48 @@ class _Storage extends StorageService {
   Future<void> saveProfile(UserProfile profile) async => saved = profile;
   @override
   Future<void> setSetting(String key, dynamic value) async {}
+}
+
+Future<void> _waitForConfirmedPin(WidgetTester tester) async {
+  final scrollable = find
+      .descendant(
+        of: find.byType(ListView).first,
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  await tester.scrollUntilVisible(
+    find.byType(SwitchListTile),
+    300,
+    scrollable: scrollable,
+  );
+  final confirmation =
+      find.text('Code PIN confirmé. Enregistrez le profil pour l’activer.');
+  for (var i = 0; i < 50 && confirmation.evaluate().isEmpty; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+  }
+  expect(confirmation, findsOneWidget);
+  expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value, isTrue);
+}
+
+Future<void> _saveProtectedProfile(WidgetTester tester,
+    {required bool editing}) async {
+  final button = find.text(editing
+      ? 'Enregistrer et activer la protection'
+      : 'Créer le profil et activer la protection');
+  final scrollable = find
+      .descendant(
+        of: find.byType(ListView).first,
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  await tester.scrollUntilVisible(button, 200, scrollable: scrollable);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -42,7 +86,7 @@ void main() {
   });
   for (final editing in [false, true]) {
     testWidgets(
-        'confirmed PIN is saved when ${editing ? 'editing' : 'creating'}',
+        'confirmed PIN is saved explicitly when ${editing ? 'editing' : 'creating'}',
         (tester) async {
       final storage = _Storage();
       final existing = UserProfile(
@@ -137,30 +181,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Confirmer PIN'));
       await tester.pumpAndSettle();
-      final save = find.text(editing ? 'Enregistrer' : 'Créer le profil');
-      await tester.scrollUntilVisible(save, 300, scrollable: scrollable);
-      await tester.ensureVisible(save);
-      await tester.pumpAndSettle();
-      final saveButton = find.ancestor(
-        of: save,
-        matching: find.byWidgetPredicate((widget) => widget is FilledButton),
-      );
-      for (var i = 0; i < 50; i++) {
-        if (saveButton.evaluate().isEmpty) {
-          await tester.scrollUntilVisible(save, 300, scrollable: scrollable);
-          await tester.ensureVisible(save);
-          await tester.pump();
-        }
-        if (tester.widget<FilledButton>(saveButton).onPressed != null) break;
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)),
-        );
-        await tester.pump();
-      }
-      await tester.ensureVisible(save);
-      await tester.pumpAndSettle();
-      await tester.tap(save);
-      await tester.pumpAndSettle();
+      await _waitForConfirmedPin(tester);
+      expect(storage.saved, isNull);
+      await _saveProtectedProfile(tester, editing: editing);
       expect(storage.saved, isNotNull);
       expect(storage.saved!.hasPin, isTrue);
       expect(storage.saved!.pinHash, isNot('1234'));
@@ -173,7 +196,7 @@ void main() {
     });
   }
 
-  testWidgets('real PIN pad confirms twice before saving protection',
+  testWidgets('real PIN pad confirms twice and activates protection',
       (tester) async {
     final storage = _Storage();
     final tvMode = TvModeNotifier();
@@ -183,16 +206,17 @@ void main() {
         path: '/',
         builder: (context, _) => Scaffold(
           body: TextButton(
-            onPressed: () => context.push('/create'),
+            onPressed: () => context.push('/profile/create'),
             child: const Text('Ouvrir'),
           ),
         ),
       ),
-      GoRoute(path: '/create', builder: (_, __) => const ProfileEditScreen()),
-      GoRoute(
-        path: '/profile/pin',
-        builder: (_, state) => PinPadScreen(args: state.extra! as PinPadArgs),
-      ),
+      app.router.configuration.routes
+          .whereType<GoRoute>()
+          .firstWhere((route) => route.path == '/profile/create'),
+      app.router.configuration.routes
+          .whereType<GoRoute>()
+          .firstWhere((route) => route.path == '/profile/pin'),
     ]);
     addTearDown(router.dispose);
     await tester.pumpWidget(ProviderScope(
@@ -221,51 +245,195 @@ void main() {
         .first;
     await tester.scrollUntilVisible(find.byType(SwitchListTile), 300,
         scrollable: scrollable);
+    await tester.ensureVisible(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
-    for (final digit in ['1', '2', '3', '4']) {
-      await tester.tap(find.text(digit));
+    for (var i = 0; i < 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pump();
     }
     expect(find.text('Choisissez un code à 4 chiffres'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.text('Confirmez votre code à 4 chiffres'), findsOneWidget);
-    for (final digit in ['1', '2', '3', '4']) {
-      await tester.tap(find.text(digit));
+    for (var i = 0; i < 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pump();
     }
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
+    await _waitForConfirmedPin(tester);
+    expect(storage.saved, isNull);
+    await _saveProtectedProfile(tester, editing: false);
+    expect(storage.saved?.hasPin, isTrue);
+    expect(storage.saved?.firstName, 'Alex');
+    expect(
+        await tester.runAsync(() => ProfilePin.verify(storage.saved!, '1111')),
+        isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('phone activates protection after the double PIN entry',
+      (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final profile = UserProfile(
+      id: 'existing',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: 'Homme',
+      favoriteGenres: const [],
+    );
+    final storage = _Storage();
+    final router = GoRouter(initialLocation: '/', routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: TextButton(
+            onPressed: () => context.push('/profile/edit/existing'),
+            child: const Text('Ouvrir'),
+          ),
+        ),
+      ),
+      app.router.configuration.routes
+          .whereType<GoRoute>()
+          .firstWhere((route) => route.path == '/profile/edit/:id'),
+      app.router.configuration.routes
+          .whereType<GoRoute>()
+          .firstWhere((route) => route.path == '/profile/pin'),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storage),
+        profilesProvider.overrideWith((ref) async => [profile]),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    final scrollable = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(find.byType(TextFormField), 300,
+        scrollable: scrollable);
+    await tester.enterText(find.byType(TextFormField), 'Alex modifié');
+    tester.testTextInput.hide();
     await tester.scrollUntilVisible(find.byType(SwitchListTile), 300,
         scrollable: scrollable);
-    for (var i = 0; i < 50; i++) {
-      if (tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value) {
-        break;
-      }
-      await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pump();
-    }
-    expect(tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        isTrue);
-    expect(storage.saved, isNull);
-    await tester.scrollUntilVisible(find.text('Créer le profil'), 300,
-        scrollable: scrollable);
+    await tester.ensureVisible(find.byType(SwitchListTile));
     await tester.pumpAndSettle();
-    final saveButton = tester.widget<FilledButton>(
-      find.ancestor(
-        of: find.text('Créer le profil'),
-        matching: find.byType(FilledButton),
-      ),
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    for (var entry = 0; entry < 2; entry++) {
+      for (final digit in ['1', '2', '3', '4']) {
+        await tester.tap(find.text(digit));
+        await tester.pump();
+      }
+      await tester.tap(find.byIcon(Icons.check_rounded));
+      await tester.pumpAndSettle();
+    }
+    await _waitForConfirmedPin(tester);
+    expect(storage.saved, isNull);
+    await _saveProtectedProfile(tester, editing: true);
+    expect(storage.saved?.hasPin, isTrue);
+    expect(storage.saved?.firstName, 'Alex modifié');
+    expect(
+      await tester.runAsync(() => ProfilePin.verify(storage.saved!, '1234')),
+      isTrue,
     );
-    expect(saveButton.focusNode?.hasPrimaryFocus, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 11));
+  });
+
+  testWidgets('TV PIN pad fits its controls in a 540p viewport',
+      (tester) async {
+    tester.view.physicalSize = const Size(960, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(initialLocation: '/pin', routes: [
+      GoRoute(
+        path: '/pin',
+        builder: (_, __) => const PinPadScreen(args: PinPadArgs.set()),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    for (final control in [
+      for (var i = 0; i <= 9; i++) find.text('$i'),
+      find.byIcon(Icons.backspace_outlined),
+      find.byIcon(Icons.check_rounded),
+      find.text('Après 4 chiffres, appuyez sur ✓ pour valider.'),
+    ]) {
+      final rect = tester.getRect(control);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(960));
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(540), reason: '$control');
+      expect(control.hitTestable(), findsOneWidget);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('D-pad reveals validation on a very short screen',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(initialLocation: '/', routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: TextButton(
+            onPressed: () => context.push('/pin'),
+            child: const Text('Ouvrir'),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/pin',
+        builder: (_, __) => const PinPadScreen(args: PinPadArgs.set()),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+    }
+    expect(find.byIcon(Icons.check_rounded).hitTestable(), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
-    expect(storage.saved?.hasPin, isTrue);
-    expect(
-        await tester.runAsync(() => ProfilePin.verify(storage.saved!, '1234')),
-        isTrue);
+    expect(find.text('Ouvrir'), findsOneWidget);
   });
 
   testWidgets('a mismatched confirmation does not enable a PIN',
@@ -377,6 +545,72 @@ void main() {
     expect(storage.saved!.pinHash, isNull);
   });
 
+  testWidgets('verification attempts reset when the PIN pad is reopened',
+      (tester) async {
+    final profile = UserProfile(
+      id: 'private',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: '',
+      favoriteGenres: const [],
+      pinHash: '1234',
+    );
+    bool? result;
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, _) => Scaffold(
+          body: TextButton(
+            onPressed: () async {
+              result = await context.push<bool>(
+                '/profile/pin',
+                extra: PinPadArgs.verify(profile),
+              );
+            },
+            child: const Text('Ouvrir'),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/pin',
+        builder: (_, state) => PinPadScreen(args: state.extra! as PinPadArgs),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+
+    Future<void> enter(String pin) async {
+      for (final digit in pin.split('')) {
+        await tester.tap(find.text(digit));
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    await enter('0000');
+    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
+    await enter('0000');
+    expect(find.textContaining('1 essai(s) restant(s)'), findsOneWidget);
+    await enter('0000');
+    expect(result, isFalse);
+    expect(find.text('Ouvrir'), findsOneWidget);
+
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    await enter('0000');
+    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
+    await enter('1234');
+    expect(result, isTrue);
+  });
+
   testWidgets('adult PIN gates selection, editing and deletion',
       (tester) async {
     final protected = UserProfile(
@@ -385,7 +619,7 @@ void main() {
       dateOfBirth: DateTime(1990),
       gender: '',
       favoriteGenres: const [],
-      pinHash: '1234',
+      pinHash: await tester.runAsync(() => ProfilePin.create('1234')),
     );
     final previous = UserProfile(
       id: 'previous',
@@ -401,7 +635,9 @@ void main() {
       ),
       GoRoute(
         path: '/profile/pin',
-        builder: (_, state) => PinPadScreen(args: state.extra! as PinPadArgs),
+        builder: (_, state) => ModalBackHandling(
+          child: PinPadScreen(args: state.extra! as PinPadArgs),
+        ),
       ),
       GoRoute(
         path: '/profile/edit/:id',
@@ -429,6 +665,23 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    Future<void> enterPin(String pin, Finder result) async {
+      for (final digit in pin.split('')) {
+        await tester.ensureVisible(find.text(digit));
+        await tester.tap(find.text(digit));
+        await tester.pump();
+      }
+      for (var attempt = 0;
+          attempt < 100 && result.evaluate().isEmpty;
+          attempt++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+    }
+
     final card = find.byKey(const ValueKey('private'));
     final avatar = find.descendant(
       of: card,
@@ -438,11 +691,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Code PIN requis'), findsOneWidget);
     expect(container.read(currentProfileProvider)?.id, 'previous');
-    for (final digit in ['0', '0', '0', '0']) {
-      await tester.ensureVisible(find.text(digit));
-      await tester.tap(find.text(digit));
-      await tester.pumpAndSettle();
-    }
+    await enterPin('0000', find.textContaining('Code incorrect'));
     expect(find.textContaining('Code incorrect'), findsOneWidget);
     await tester.tap(find.byTooltip('Annuler'));
     await tester.pumpAndSettle();
@@ -469,11 +718,7 @@ void main() {
 
     await tester.tap(avatar);
     await tester.pumpAndSettle();
-    for (final digit in ['1', '2', '3', '4']) {
-      await tester.ensureVisible(find.text(digit));
-      await tester.tap(find.text(digit));
-      await tester.pumpAndSettle();
-    }
+    await enterPin('1234', find.text('Profil ouvert'));
     expect(find.text('Profil ouvert'), findsOneWidget);
     expect(container.read(currentProfileProvider)?.id, 'private');
   });

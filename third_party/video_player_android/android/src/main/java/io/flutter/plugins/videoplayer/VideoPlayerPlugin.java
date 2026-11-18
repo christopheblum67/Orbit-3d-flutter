@@ -5,10 +5,18 @@
 package io.flutter.plugins.videoplayer;
 
 import android.app.UiModeManager;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.LongSparseArray;
+import android.view.PixelCopy;
+import android.view.SurfaceView;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import io.flutter.FlutterInjector;
 import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -31,6 +39,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
   private MethodChannel trackChannel;
   private final VideoPlayerOptions options = new VideoPlayerOptions();
   private final java.util.Set<Long> surfaceViewPlayers = new java.util.HashSet<>();
+  private final Map<Long, SurfaceView> surfaceViews = new HashMap<>();
   private long nextSurfaceViewId = 1_000_000_000L;
   private final PendingWidevineConfigurations pendingWidevine = new PendingWidevineConfigurations();
 
@@ -53,7 +62,8 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     binding
         .getPlatformViewRegistry()
         .registerViewFactory(
-            SurfaceViewFactory.VIEW_TYPE, new SurfaceViewFactory(videoPlayers::get));
+            SurfaceViewFactory.VIEW_TYPE,
+            new SurfaceViewFactory(videoPlayers::get, surfaceViews));
   }
 
   @Override
@@ -76,6 +86,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     }
     videoPlayers.clear();
     surfaceViewPlayers.clear();
+    surfaceViews.clear();
   }
 
   public void onDestroy() {
@@ -269,6 +280,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
         result.success(surfaceViewPlayers.contains(playerId));
         return;
       }
+      if ("sampleGreenFrame".equals(call.method)) {
+        sampleGreenFrame(surfaceViews.get(playerId), result);
+        return;
+      }
       switch (call.method) {
         case "getAudioTracks":
           result.success(getPlayer(playerId).getAudioTracks());
@@ -322,6 +337,57 @@ public class VideoPlayerPlugin implements FlutterPlugin, AndroidVideoPlayerApi {
     } catch (IllegalStateException e) {
       result.error("NoPlayer", e.getMessage(), null);
     }
+  }
+
+  private void sampleGreenFrame(
+      @Nullable SurfaceView surfaceView, @NonNull MethodChannel.Result result) {
+    if (surfaceView == null
+        || Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+        || !surfaceView.isAttachedToWindow()
+        || surfaceView.getWidth() <= 0
+        || surfaceView.getHeight() <= 0
+        || !surfaceView.getHolder().getSurface().isValid()) {
+      result.success(null);
+      return;
+    }
+
+    Bitmap bitmap = Bitmap.createBitmap(96, 54, Bitmap.Config.ARGB_8888);
+    try {
+      PixelCopy.request(
+          surfaceView,
+          bitmap,
+          copyResult -> {
+            try {
+              result.success(
+                  copyResult == PixelCopy.SUCCESS ? greenPixelRatio(bitmap) : null);
+            } finally {
+              bitmap.recycle();
+            }
+          },
+          new Handler(Looper.getMainLooper()));
+    } catch (IllegalArgumentException error) {
+      bitmap.recycle();
+      Log.w(TAG, "Unable to sample video surface: " + error.getClass().getSimpleName());
+      result.success(null);
+    }
+  }
+
+  private static double greenPixelRatio(@NonNull Bitmap bitmap) {
+    int width = bitmap.getWidth();
+    int height = bitmap.getHeight();
+    int[] pixels = new int[width * height];
+    bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+
+    int greenPixels = 0;
+    for (int pixel : pixels) {
+      int red = Color.red(pixel);
+      int green = Color.green(pixel);
+      int blue = Color.blue(pixel);
+      if (green >= 100 && green - red >= 64 && green - blue >= 64) {
+        greenPixels++;
+      }
+    }
+    return greenPixels / (double) pixels.length;
   }
 
   private interface KeyForAssetFn {

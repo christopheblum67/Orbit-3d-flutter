@@ -67,7 +67,12 @@ void main() {
     }
 
     expect(countSpan('new').text, ' (+2)');
-    expect(countSpan('new').style!.color, Colors.red.shade800);
+    expect(
+      countSpan('new').style!.color,
+      Theme.of(tester.element(find.byKey(const ValueKey('new'))))
+          .colorScheme
+          .error,
+    );
     expect(countSpan('new').style!.fontWeight, FontWeight.w800);
     expect(countSpan('other').text, ' (10)');
     expect(countSpan('other').style!.color, isNull);

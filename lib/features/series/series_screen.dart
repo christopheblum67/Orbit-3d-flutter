@@ -149,8 +149,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
       if (_dbScroll.hasClients) _dbScroll.jumpTo(0);
       Future.microtask(pager.reset);
     }
-    final countsSignature =
-        '$subKey|$revision|${catalogSetSignature(hidden)}|'
+    final countsSignature = '$subKey|$revision|${catalogSetSignature(hidden)}|'
         '${catalogSetSignature(favIds)}|${catalogSetSignature(recentIds)}';
     if (countsSignature != _dbCountsSignature) {
       _dbCountsSignature = countsSignature;
@@ -246,182 +245,181 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
         ),
       );
     }
-    if (dbKeyAsync.isLoading && !dbKeyAsync.hasValue) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
     _pager?.invalidate();
     _pager = null;
     _dbSignature = '';
     _dbCountsSignature = '';
     return Scaffold(
       body: ref.watch(seriesProvider).when(
-        data: (seriesList) {
-          if (seriesList.isEmpty) {
-            return EmptyState(
-              icon: Icons.tv,
-              title: l.noSeriesAvailable,
-              message: 'La bibliothèque de séries est vide pour le moment.',
-            );
-          }
-          final serverCategories = (categoriesAsync.value ?? <MediaCategory>[])
-              .where((c) => !hiddenCategories.contains(c.id))
-              .toList(growable: false);
-          // Liste filtrée par catégories masquées. Nommée différemment de
-          // `visibleSeries` (plus bas) qui ne fait que réordonner le tri.
-          final categoryVisibleSeries = hiddenCategories.isEmpty
-              ? seriesList
-              : seriesList
-                  .where((s) => !hiddenCategories.contains(s.categoryId))
-                  .toList(growable: false);
-          final categories = _withRealCounts(
-            serverCategories,
-            categoryVisibleSeries.map((s) => s.categoryId),
-          );
-          final seriesFavIds = favoriteEntries.values
-              .where((e) => e.type == ContentType.series)
-              .map((e) => e.id)
-              .toSet();
-          final seriesRecentIds = recentEntries.values
-              .where((e) => e.type == ContentType.series)
-              .map((e) => e.id)
-              .toSet();
-          final railCategories = <MediaCategory>[
-            MediaCategory(
-              id: '',
-              name: 'Tous',
-              count: categoryVisibleSeries.length,
-            ),
-            MediaCategory(
-              id: 'fav',
-              name: 'Favoris',
-              count: categoryVisibleSeries
-                  .where((s) => seriesFavIds.contains(s.id))
-                  .length,
-            ),
-            MediaCategory(
-              id: 'recent',
-              name: 'Récemment',
-              count: categoryVisibleSeries
-                  .where((s) => seriesRecentIds.contains(s.id))
-                  .length,
-            ),
-            ...categories,
-          ];
-          final q = _query.trim().toLowerCase();
-          final List<Series> filteredSeries;
-          if (_selectedCategoryId == 'fav') {
-            final favIds = favoriteEntries.values
-                .where((e) => e.type == ContentType.series)
-                .map((e) => e.id)
-                .toSet();
-            filteredSeries = categoryVisibleSeries
-                .where((s) => favIds.contains(s.id))
-                .toList();
-          } else if (_selectedCategoryId == 'recent') {
-            final recentIds = recentEntries.values
-                .where((e) => e.type == ContentType.series)
-                .map((e) => e.id)
-                .toSet();
-            filteredSeries = categoryVisibleSeries
-                .where((s) => recentIds.contains(s.id))
-                .toList();
-          } else if (_selectedCategoryId.isEmpty) {
-            filteredSeries = categoryVisibleSeries;
-          } else {
-            filteredSeries = categoryVisibleSeries
-                .where((s) => s.categoryId == _selectedCategoryId)
-                .toList();
-          }
-          final queryFiltered = q.isEmpty
-              ? filteredSeries
-              : filteredSeries
-                  .where(
-                    (s) =>
-                        s.title.toLowerCase().contains(q) ||
-                        s.genre.toLowerCase().contains(q),
-                  )
-                  .toList();
-          final List<Series> visibleSeries;
-          if (_selectedSortMode == SortMode.affinity ||
-              _selectedSortMode == SortMode.affinityAsc) {
-            // Tri par affinité : réutilise la logique corrective du matchmaking
-            // (ProfileAffinityScorer → profileAffinityWithSignals). Le genre réel
-            // TMDB est lu **sans réseau** dans le cache Hive partagé (même source
-            // que le badge de tuile, écrit par `searchTvLight`) ; faute de cache,
-            // on part du genre catalogue, que la formule corrige déjà via ses
-            // alias canoniques (« Horreur, Mystère, … »). Sans profil ni genres
-            // favoris, l'affinité n'a pas de sens : on rend la liste filtrée
-            // telle quelle plutôt que de dégrader en tri par note.
-            final scorer = ref.read(profileAffinityScorerProvider);
-            if (scorer == null || scorer.favoriteGenres.isEmpty) {
-              visibleSeries = queryFiltered;
-            } else {
-              final tmdb = ref.read(tmdbAffinityServiceProvider);
-              final descending = _selectedSortMode != SortMode.affinityAsc;
-              visibleSeries = sortByAffinityDesc(
-                queryFiltered,
-                descending: descending,
-                score: (s) {
-                  final realGenre = tmdb
-                          .peekTvLight(
-                            s.title,
-                            year: s.year > 0 ? s.year : null,
-                          )
-                          ?.genreNames ??
-                      '';
-                  final scoring =
-                      realGenre.isNotEmpty ? s.withGenre(realGenre) : s;
-                  return scorer.percentForSeries(scoring).toDouble();
-                },
-                title: (s) => s.title,
+            data: (seriesList) {
+              if (seriesList.isEmpty) {
+                return EmptyState(
+                  icon: Icons.tv,
+                  title: l.noSeriesAvailable,
+                  message: 'La bibliothèque de séries est vide pour le moment.',
+                );
+              }
+              final serverCategories =
+                  (categoriesAsync.value ?? <MediaCategory>[])
+                      .where((c) => !hiddenCategories.contains(c.id))
+                      .toList(growable: false);
+              // Liste filtrée par catégories masquées. Nommée différemment de
+              // `visibleSeries` (plus bas) qui ne fait que réordonner le tri.
+              final categoryVisibleSeries = hiddenCategories.isEmpty
+                  ? seriesList
+                  : seriesList
+                      .where((s) => !hiddenCategories.contains(s.categoryId))
+                      .toList(growable: false);
+              final categories = _withRealCounts(
+                serverCategories,
+                categoryVisibleSeries.map((s) => s.categoryId),
               );
-            }
-          } else {
-            final libraryManager = ref.read(mediaLibraryManagerProvider);
-            final mediaItems = queryFiltered
-                .map(
-                  (s) => MediaItem(
-                    id: s.id,
-                    title: s.title,
-                    streamUrl: '', // Series n'ont pas de streamUrl direct
-                    posterUrl: s.coverUrl,
-                    categoryId: s.categoryId,
-                    rating: s.rating,
-                    releaseYear: s.year,
-                    durationMinutes: 0,
-                    // Date d'ajout réelle du panel (champ Xtream `added`) : voir
-                    // le même correctif côté Films.
-                    addedDate: s.addedDate,
-                  ),
-                )
-                .toList();
-            final sortedItems =
-                libraryManager.applySort(mediaItems, _selectedSortMode);
-            final seriesById = <String, Series>{
-              for (final s in queryFiltered)
-                if (s.id.isNotEmpty) s.id: s,
-            };
-            visibleSeries = sortedItems.map<Series>((item) {
-              return seriesById[item.id] ??
-                  queryFiltered.firstWhere(
-                    (s) => s.id == item.id,
-                    orElse: () => queryFiltered.first,
+              final seriesFavIds = favoriteEntries.values
+                  .where((e) => e.type == ContentType.series)
+                  .map((e) => e.id)
+                  .toSet();
+              final seriesRecentIds = recentEntries.values
+                  .where((e) => e.type == ContentType.series)
+                  .map((e) => e.id)
+                  .toSet();
+              final railCategories = <MediaCategory>[
+                MediaCategory(
+                  id: '',
+                  name: 'Tous',
+                  count: categoryVisibleSeries.length,
+                ),
+                MediaCategory(
+                  id: 'fav',
+                  name: 'Favoris',
+                  count: categoryVisibleSeries
+                      .where((s) => seriesFavIds.contains(s.id))
+                      .length,
+                ),
+                MediaCategory(
+                  id: 'recent',
+                  name: 'Récemment',
+                  count: categoryVisibleSeries
+                      .where((s) => seriesRecentIds.contains(s.id))
+                      .length,
+                ),
+                ...categories,
+              ];
+              final q = _query.trim().toLowerCase();
+              final List<Series> filteredSeries;
+              if (_selectedCategoryId == 'fav') {
+                final favIds = favoriteEntries.values
+                    .where((e) => e.type == ContentType.series)
+                    .map((e) => e.id)
+                    .toSet();
+                filteredSeries = categoryVisibleSeries
+                    .where((s) => favIds.contains(s.id))
+                    .toList();
+              } else if (_selectedCategoryId == 'recent') {
+                final recentIds = recentEntries.values
+                    .where((e) => e.type == ContentType.series)
+                    .map((e) => e.id)
+                    .toSet();
+                filteredSeries = categoryVisibleSeries
+                    .where((s) => recentIds.contains(s.id))
+                    .toList();
+              } else if (_selectedCategoryId.isEmpty) {
+                filteredSeries = categoryVisibleSeries;
+              } else {
+                filteredSeries = categoryVisibleSeries
+                    .where((s) => s.categoryId == _selectedCategoryId)
+                    .toList();
+              }
+              final queryFiltered = q.isEmpty
+                  ? filteredSeries
+                  : filteredSeries
+                      .where(
+                        (s) =>
+                            s.title.toLowerCase().contains(q) ||
+                            s.genre.toLowerCase().contains(q),
+                      )
+                      .toList();
+              final List<Series> visibleSeries;
+              if (_selectedSortMode == SortMode.affinity ||
+                  _selectedSortMode == SortMode.affinityAsc) {
+                // Tri par affinité : réutilise la logique corrective du matchmaking
+                // (ProfileAffinityScorer → profileAffinityWithSignals). Le genre réel
+                // TMDB est lu **sans réseau** dans le cache Hive partagé (même source
+                // que le badge de tuile, écrit par `searchTvLight`) ; faute de cache,
+                // on part du genre catalogue, que la formule corrige déjà via ses
+                // alias canoniques (« Horreur, Mystère, … »). Sans profil ni genres
+                // favoris, l'affinité n'a pas de sens : on rend la liste filtrée
+                // telle quelle plutôt que de dégrader en tri par note.
+                final scorer = ref.read(profileAffinityScorerProvider);
+                if (scorer == null || scorer.favoriteGenres.isEmpty) {
+                  visibleSeries = queryFiltered;
+                } else {
+                  final tmdb = ref.read(tmdbAffinityServiceProvider);
+                  final descending = _selectedSortMode != SortMode.affinityAsc;
+                  visibleSeries = sortByAffinityDesc(
+                    queryFiltered,
+                    descending: descending,
+                    score: (s) {
+                      final realGenre = tmdb
+                              .peekTvLight(
+                                s.title,
+                                year: s.year > 0 ? s.year : null,
+                              )
+                              ?.genreNames ??
+                          '';
+                      final scoring =
+                          realGenre.isNotEmpty ? s.withGenre(realGenre) : s;
+                      return scorer.percentForSeries(scoring).toDouble();
+                    },
+                    title: (s) => s.title,
                   );
-            }).toList();
-          }
-          return _layout(context, l, railCategories, visibleSeries, affinity);
-        },
-        loading: () => const LoadingState(
-          message:
-              'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
-        ),
-        error: (err, _) => ErrorState(
-          icon: Icons.tv,
-          title: l.seriesUnavailable,
-          message: userFriendlyError(err),
-          onRetry: () => ref.invalidate(seriesProvider),
-        ),
-      ),
+                }
+              } else {
+                final libraryManager = ref.read(mediaLibraryManagerProvider);
+                final mediaItems = queryFiltered
+                    .map(
+                      (s) => MediaItem(
+                        id: s.id,
+                        title: s.title,
+                        streamUrl: '', // Series n'ont pas de streamUrl direct
+                        posterUrl: s.coverUrl,
+                        categoryId: s.categoryId,
+                        rating: s.rating,
+                        releaseYear: s.year,
+                        durationMinutes: 0,
+                        // Date d'ajout réelle du panel (champ Xtream `added`) : voir
+                        // le même correctif côté Films.
+                        addedDate: s.addedDate,
+                      ),
+                    )
+                    .toList();
+                final sortedItems =
+                    libraryManager.applySort(mediaItems, _selectedSortMode);
+                final seriesById = <String, Series>{
+                  for (final s in queryFiltered)
+                    if (s.id.isNotEmpty) s.id: s,
+                };
+                visibleSeries = sortedItems.map<Series>((item) {
+                  return seriesById[item.id] ??
+                      queryFiltered.firstWhere(
+                        (s) => s.id == item.id,
+                        orElse: () => queryFiltered.first,
+                      );
+                }).toList();
+              }
+              return _layout(
+                  context, l, railCategories, visibleSeries, affinity);
+            },
+            loading: () => const LoadingState(
+              message:
+                  'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+            ),
+            error: (err, _) => ErrorState(
+              icon: Icons.tv,
+              title: l.seriesUnavailable,
+              message: userFriendlyError(err),
+              onRetry: () => ref.invalidate(seriesProvider),
+            ),
+          ),
     );
   }
 
@@ -437,10 +435,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     final subscriptionId = ref.watch(activeSubscriptionProvider)?.id;
     final changes = subscriptionId == null
         ? const CategoryChanges()
-        : ref.watch(categoryIncreasesProvider((
-              subscriptionId: subscriptionId,
-              catalog: CategoryCatalog.series,
-            ))).value ?? const CategoryChanges();
+        : ref
+                .watch(categoryIncreasesProvider((
+                  subscriptionId: subscriptionId,
+                  catalog: CategoryCatalog.series,
+                )))
+                .value ??
+            const CategoryChanges();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -470,8 +471,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     IconButton(
                       tooltip: l.searchSeries,
                       icon: const Icon(Icons.tv),
-                      onPressed: () =>
-                          context.push('/search?type=series'),
+                      onPressed: () => context.push('/search?type=series'),
                     ),
                     SortToolbarButtons(
                       mode: _selectedSortMode,
@@ -490,102 +490,102 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 child: visibleSeries.isEmpty && listLoading
                     ? const Center(child: CircularProgressIndicator())
                     : visibleSeries.isEmpty
-                    ? EmptyState(
-                        icon: Icons.tv,
-                        title: _selectedCategoryId == 'fav'
-                            ? 'Aucune série favorite'
-                            : _selectedCategoryId == 'recent'
-                                ? 'Aucune série récente'
-                                : 'Aucun résultat',
-                        message: _selectedCategoryId == 'fav'
-                            ? 'Appuie sur le cœur d\'une série pour la '
-                                'retrouver ici.'
-                            : _selectedCategoryId == 'recent'
-                                ? 'Les séries regardées s\'afficheront ici.'
-                                : 'Aucune série ne correspond à cette '
-                                    'recherche.',
-                      )
-                    : CustomScrollView(
-                        controller: scrollController,
-                        cacheExtent: 900,
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: SectionHeader(
-                              icon: Icons.auto_awesome,
-                              title: l.series,
-                              subtitle: '${visibleSeries.length} titres',
-                            ),
-                          ),
-                          SliverPadding(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                            sliver: SliverGrid(
-                              gridDelegate: mediaCardGridDelegate(
-                                context,
-                                childAspectRatio: 0.62,
+                        ? EmptyState(
+                            icon: Icons.tv,
+                            title: _selectedCategoryId == 'fav'
+                                ? 'Aucune série favorite'
+                                : _selectedCategoryId == 'recent'
+                                    ? 'Aucune série récente'
+                                    : 'Aucun résultat',
+                            message: _selectedCategoryId == 'fav'
+                                ? 'Appuie sur le cœur d\'une série pour la '
+                                    'retrouver ici.'
+                                : _selectedCategoryId == 'recent'
+                                    ? 'Les séries regardées s\'afficheront ici.'
+                                    : 'Aucune série ne correspond à cette '
+                                        'recherche.',
+                          )
+                        : CustomScrollView(
+                            controller: scrollController,
+                            cacheExtent: 900,
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: SectionHeader(
+                                  icon: Icons.auto_awesome,
+                                  title: l.series,
+                                  subtitle: '${visibleSeries.length} titres',
+                                ),
                               ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final series = visibleSeries[index];
-                                  void onOpen() {
-                                    context.push(
-                                      '/series/detail?id=${Uri.encodeComponent(series.id)}'
-                                      '&title=${Uri.encodeComponent(series.title)}',
-                                    );
-                                  }
+                              SliverPadding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                sliver: SliverGrid(
+                                  gridDelegate: mediaCardGridDelegate(
+                                    context,
+                                    childAspectRatio: 0.62,
+                                  ),
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      final series = visibleSeries[index];
+                                      void onOpen() {
+                                        context.push(
+                                          '/series/detail?id=${Uri.encodeComponent(series.id)}'
+                                          '&title=${Uri.encodeComponent(series.title)}',
+                                        );
+                                      }
 
-                                  void onLongPress() {
-                                    final notifier = ref
-                                        .read(favoritesProvider.notifier);
-                                    final wasFavorite =
-                                        notifier.isFavorite(
-                                      ContentType.series,
-                                      series.id,
-                                    );
-                                    notifier.toggle(
-                                      FavoriteEntry(
-                                        type: ContentType.series,
-                                        id: series.id,
-                                        title: series.title,
-                                        posterUrl: series.coverUrl,
-                                        subtitle: series.year > 0
-                                            ? '${series.year}'
-                                            : series.genre,
-                                      ),
-                                    );
-                                    ScaffoldMessenger.of(context)
-                                      ..hideCurrentSnackBar()
-                                      ..showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            wasFavorite
-                                                ? '« ${series.title} » retiré des favoris'
-                                                : '« ${series.title} » ajouté aux favoris',
+                                      void onLongPress() {
+                                        final notifier = ref
+                                            .read(favoritesProvider.notifier);
+                                        final wasFavorite = notifier.isFavorite(
+                                          ContentType.series,
+                                          series.id,
+                                        );
+                                        notifier.toggle(
+                                          FavoriteEntry(
+                                            type: ContentType.series,
+                                            id: series.id,
+                                            title: series.title,
+                                            posterUrl: series.coverUrl,
+                                            subtitle: series.year > 0
+                                                ? '${series.year}'
+                                                : series.genre,
                                           ),
-                                          duration: const Duration(
-                                            milliseconds: 1500,
-                                          ),
-                                        ),
+                                        );
+                                        ScaffoldMessenger.of(context)
+                                          ..hideCurrentSnackBar()
+                                          ..showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                wasFavorite
+                                                    ? '« ${series.title} » retiré des favoris'
+                                                    : '« ${series.title} » ajouté aux favoris',
+                                              ),
+                                              duration: const Duration(
+                                                milliseconds: 1500,
+                                              ),
+                                            ),
+                                          );
+                                      }
+
+                                      return _SeriesTile(
+                                        key: scrollController == null
+                                            ? null
+                                            : ValueKey(series.id),
+                                        series: series,
+                                        highlightTitle:
+                                            changes.newIds.contains(series.id),
+                                        affinity: affinity,
+                                        onOpen: onOpen,
+                                        onLongPress: onLongPress,
                                       );
-                                  }
-
-                                  return _SeriesTile(
-                                    key: scrollController == null
-                                        ? null
-                                        : ValueKey(series.id),
-                                    series: series,
-                                    highlightTitle: changes.newIds.contains(series.id),
-                                    affinity: affinity,
-                                    onOpen: onOpen,
-                                    onLongPress: onLongPress,
-                                  );
-                                },
-                                childCount: visibleSeries.length,
+                                    },
+                                    childCount: visibleSeries.length,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
               ),
             ],
           ),

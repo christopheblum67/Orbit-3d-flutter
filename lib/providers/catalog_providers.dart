@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/utils/catalog_diagnostic.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
@@ -103,13 +105,15 @@ final moviesProvider = FutureProvider<List<Movie>>(
     if (sub.type == SubscriptionType.m3u) {
       return traceCatalogStep('vod', 'playlist', () async {
         final playlist = await ref.watch(m3uPlaylistProvider.future);
-        await _recordCategoryCounts(
-          ref,
-          (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
-          playlist.movies.map((m) => (
-                id: movieChangeId(m, isM3u: true),
-                categoryId: m.categoryId,
-              )),
+        unawaited(
+          _recordCategoryCounts(
+            ref,
+            (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
+            playlist.movies.map((m) => (
+                  id: movieChangeId(m, isM3u: true),
+                  categoryId: m.categoryId,
+                )),
+          ),
         );
         return filter.visibleList(playlist.movies);
       });
@@ -135,10 +139,14 @@ final moviesProvider = FutureProvider<List<Movie>>(
       vodCategoryFilterProvider.select((f) => f.hiddenVodCategoryIds),
     );
     final fetched = result.valueOrNull ?? const <Movie>[];
-    await _recordCategoryCounts(
-      ref,
-      (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
-      fetched.map((m) => (id: movieChangeId(m, isM3u: false), categoryId: m.categoryId)),
+    unawaited(
+      _recordCategoryCounts(
+        ref,
+        (subscriptionId: sub.id, catalog: CategoryCatalog.movies),
+        fetched.map(
+          (m) => (id: movieChangeId(m, isM3u: false), categoryId: m.categoryId),
+        ),
+      ),
     );
     // Les catégories masquées ne sont pas gardées en mémoire (TV 2 Go).
     final movies = hiddenVod.isEmpty
@@ -206,10 +214,12 @@ final seriesProvider = FutureProvider<List<Series>>(
     if (sub.type == SubscriptionType.m3u) {
       return traceCatalogStep('series', 'playlist', () async {
         final playlist = await ref.watch(m3uPlaylistProvider.future);
-        await _recordCategoryCounts(
-          ref,
-          (subscriptionId: sub.id, catalog: CategoryCatalog.series),
-          playlist.series.map((s) => (id: s.id, categoryId: s.categoryId)),
+        unawaited(
+          _recordCategoryCounts(
+            ref,
+            (subscriptionId: sub.id, catalog: CategoryCatalog.series),
+            playlist.series.map((s) => (id: s.id, categoryId: s.categoryId)),
+          ),
         );
         return filter.visibleList(playlist.series);
       });
@@ -218,11 +228,14 @@ final seriesProvider = FutureProvider<List<Series>>(
     final hiddenSeries = ref.watch(
       vodCategoryFilterProvider.select((f) => f.hiddenSeriesCategoryIds),
     );
-    final fetched = await traceCatalogStep('series', 'provider_fetch', api.fetchSeries);
-    await _recordCategoryCounts(
-      ref,
-      (subscriptionId: sub.id, catalog: CategoryCatalog.series),
-      fetched.map((s) => (id: s.id, categoryId: s.categoryId)),
+    final fetched =
+        await traceCatalogStep('series', 'provider_fetch', api.fetchSeries);
+    unawaited(
+      _recordCategoryCounts(
+        ref,
+        (subscriptionId: sub.id, catalog: CategoryCatalog.series),
+        fetched.map((s) => (id: s.id, categoryId: s.categoryId)),
+      ),
     );
     return filter.visibleList(
       hiddenSeries.isEmpty

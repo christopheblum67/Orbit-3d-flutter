@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_profile_recovery_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/tv_pairing_screen.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
@@ -154,9 +155,8 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
-            'Après connexion, retrouvez vos profils et activez la '
-            'synchronisation chiffrée du profil actif, de son activité, '
-            'des préférences et des abonnements.',
+            'Connectez-vous pour retrouver vos profils et leurs données sur '
+            'vos appareils. Vos données sont chiffrées.',
           ),
           const SizedBox(height: 8),
           if (_isTv == false)
@@ -205,7 +205,9 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                   await Navigator.of(context)
                                       .push(MaterialPageRoute<void>(
                                     builder: (_) => CloudProfileRecoveryScreen(
-                                        initialPhrase: result.phrase),
+                                      initialPhrase: result.phrase,
+                                      initialProfileIds: result.profileIds,
+                                    ),
                                   ));
                                 },
                           child: const Text('Associer cette TV par QR code'),
@@ -234,18 +236,20 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                 ),
                               ),
                       child:
-                          const Text('Configurer la synchronisation chiffrée'),
+                          const Text('Retrouver mes profils sur mes appareils'),
                     ),
                   ],
                 );
               },
             ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(labelText: 'Adresse e-mail'),
+          DpadScope(
+            child: TextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Adresse e-mail'),
+            ),
           ),
           const SizedBox(height: 12),
           TextField(

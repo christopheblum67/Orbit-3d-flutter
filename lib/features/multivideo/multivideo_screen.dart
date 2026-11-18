@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -332,6 +332,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     final channel = _selectedChannels[index];
     return VideoTile(
       key: ValueKey<String>(channel.id),
+      index: index,
       url: channel.streamUrl,
       waitForStartup: _waitForStartup,
       title: channel.name,
@@ -558,6 +559,7 @@ class _ChannelPickerSheetState extends State<_ChannelPickerSheet> {
 class VideoTile extends StatefulWidget {
   const VideoTile({
     super.key,
+    required this.index,
     required this.url,
     required this.waitForStartup,
     required this.title,
@@ -566,6 +568,7 @@ class VideoTile extends StatefulWidget {
     required this.onRemove,
   });
 
+  final int index;
   final String url;
 
   final Future<void> Function() waitForStartup;
@@ -580,7 +583,8 @@ class VideoTile extends StatefulWidget {
 
 class _VideoTileState extends State<VideoTile> {
   VideoPlayerController? _controller;
-  Future<void>? _pendingDisposal;
+  Future<AsyncResult<void>>? _pendingDisposal;
+  Timer? _startupTimer;
   int _generation = 0;
   bool _failed = false;
   bool _focused = false;
@@ -588,13 +592,22 @@ class _VideoTileState extends State<VideoTile> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.index == 0) {
+      _load();
+    } else {
+      _startupTimer = Timer(
+        Duration(milliseconds: widget.index * 250),
+        _load,
+      );
+    }
   }
 
   @override
   void didUpdateWidget(VideoTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url) {
+      _startupTimer?.cancel();
+      _startupTimer = null;
       _load();
     } else if (oldWidget.active != widget.active) {
       _applyVolume();
@@ -620,10 +633,17 @@ class _VideoTileState extends State<VideoTile> {
     _controller = null;
     if (old != null) {
       old.removeListener(_onControllerUpdate);
-      await old.dispose();
+      _pendingDisposal = safeAsync<void>(
+        old.dispose,
+        context: 'MultiVideoScreen._VideoTileState.dispose',
+      );
     }
-    await _pendingDisposal;
+    final disposal = await _pendingDisposal;
     if (!mounted || gen != _generation) return;
+    if (disposal?.isFailure == true) {
+      setState(() => _failed = true);
+      return;
+    }
 
     final startup = await safeAsync<void>(
       widget.waitForStartup,
@@ -667,7 +687,11 @@ class _VideoTileState extends State<VideoTile> {
       if (_controller == controller) {
         _controller = null;
         controller.removeListener(_onControllerUpdate);
-        await controller.dispose();
+        _pendingDisposal = safeAsync<void>(
+          controller.dispose,
+          context: 'MultiVideoScreen._VideoTileState.dispose',
+        );
+        await _pendingDisposal;
       }
       if (mounted && gen == _generation) setState(() => _failed = true);
       return;
@@ -683,22 +707,29 @@ class _VideoTileState extends State<VideoTile> {
     setState(() => _failed = true);
     _controller = null;
     controller.removeListener(_onControllerUpdate);
-    _pendingDisposal = Future<void>.delayed(Duration.zero, () async {
-      await safeAsync<void>(
+    _pendingDisposal = Future<AsyncResult<void>>.delayed(
+      Duration.zero,
+      () => safeAsync<void>(
         controller.dispose,
         context: 'MultiVideoScreen._VideoTileState.disposeFailed',
-      );
-    });
+      ),
+    );
   }
 
   @override
   void dispose() {
     _generation++;
+    _startupTimer?.cancel();
     final controller = _controller;
     _controller = null;
     if (controller != null) {
       controller.removeListener(_onControllerUpdate);
-      controller.dispose();
+      unawaited(
+        safeAsync<void>(
+          controller.dispose,
+          context: 'MultiVideoScreen._VideoTileState.dispose',
+        ),
+      );
     }
     super.dispose();
   }

@@ -77,6 +77,7 @@ class TvFocus extends ConsumerStatefulWidget {
   final void Function(bool focused)? onFocusChange;
   final bool autofocus;
   final bool enableTvEffects;
+  final bool circular;
 
   const TvFocus({
     super.key,
@@ -87,6 +88,7 @@ class TvFocus extends ConsumerStatefulWidget {
     this.onFocusChange,
     this.autofocus = false,
     this.enableTvEffects = true,
+    this.circular = false,
   });
 
   @override
@@ -242,7 +244,10 @@ class _TvFocusState extends ConsumerState<TvFocus>
               curve: Curves.easeOut,
               decoration: tvMode && _isFocused
                   ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      shape:
+                          widget.circular ? BoxShape.circle : BoxShape.rectangle,
+                      borderRadius:
+                          widget.circular ? null : BorderRadius.circular(12),
                       border: Border.all(color: scheme.primary, width: 3),
                       boxShadow: [
                         BoxShadow(

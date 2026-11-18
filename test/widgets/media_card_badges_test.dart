@@ -59,9 +59,7 @@ void main() {
       final existing = tester.widget<Text>(find.text('Existant'));
       expect(
           highlighted.style!.color,
-          brightness == Brightness.dark
-              ? Colors.redAccent.shade100
-              : Colors.red.shade800);
+          Theme.of(tester.element(find.text('Nouveauté'))).colorScheme.error);
       expect(highlighted.style!.fontWeight, FontWeight.w900);
       expect(existing.style!.color, isNot(highlighted.style!.color));
     });

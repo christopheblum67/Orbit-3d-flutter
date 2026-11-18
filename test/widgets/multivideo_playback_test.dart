@@ -44,6 +44,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   final cancelled = <int>[];
   final volumes = <int, double>{};
   final played = <int>[];
+  Completer<void>? disposeGate;
 
   @override
   Future<void> init() async {}
@@ -96,6 +97,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   Future<Duration> getPosition(int playerId) async => Duration.zero;
   @override
   Future<void> dispose(int playerId) async {
+    await disposeGate?.future;
     disposed.add(playerId);
     unawaited(events[playerId]!.close());
   }
@@ -116,6 +118,159 @@ void main() {
     );
     expect(specs().safeMaxMultiView(DeviceProfile.ultra), 4);
     expect(specs().safeMaxMultiView(DeviceProfile.eco), 0);
+  });
+
+  testWidgets('tiles stagger startup and cancel a removed pending tile',
+      (tester) async {
+    final previous = VideoPlayerPlatform.instance;
+    final platform = _VideoPlatform();
+    VideoPlayerPlatform.instance = platform;
+    addTearDown(() => VideoPlayerPlatform.instance = previous);
+
+    Widget tiles(List<int> indices) => MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Row(
+              children: [
+                for (final index in indices)
+                  Expanded(
+                    child: VideoTile(
+                      key: ValueKey(index),
+                      index: index,
+                      url: 'https://example.test/$index',
+                      waitForStartup: () async {},
+                      title: '$index',
+                      active: index == 0,
+                      onActivate: () {},
+                      onRemove: () {},
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(tiles([0, 1, 2, 3]));
+    await tester.pump();
+    expect(platform.created.length, 1);
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(platform.created.length, 1);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(platform.created.length, 2);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+    expect(platform.created.length, 3);
+    await tester.pump(const Duration(milliseconds: 249));
+    expect(platform.created.length, 3);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(platform.created.length, 4);
+    await tester.pumpWidget(tiles([0, 1, 2]));
+    await tester.pumpWidget(tiles([0, 1, 2, 3]));
+    await tester.pumpWidget(tiles([0, 1, 2]));
+    await tester.pump(const Duration(milliseconds: 750));
+    expect(platform.created.length, 4);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    for (var i = 0; i < 10 && platform.disposed.length < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(platform.disposed, containsAll([1, 2, 3, 4]));
+  });
+
+  testWidgets('changing a pending tile URL cancels its original startup',
+      (tester) async {
+    final previous = VideoPlayerPlatform.instance;
+    final platform = _VideoPlatform();
+    VideoPlayerPlatform.instance = platform;
+    addTearDown(() => VideoPlayerPlatform.instance = previous);
+    Widget tile(String url) => MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: VideoTile(
+              index: 2,
+              url: url,
+              waitForStartup: () async {},
+              title: 'Test',
+              active: true,
+              onActivate: () {},
+              onRemove: () {},
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(tile('https://example.test/old'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(tile('https://example.test/new'));
+    await tester.pump();
+    expect(platform.created.length, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(platform.created.length, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    for (var i = 0; i < 10 && platform.disposed.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(platform.disposed, [1]);
+  });
+
+  testWidgets('reloading waits for the previous decoder to be released',
+      (tester) async {
+    final previous = VideoPlayerPlatform.instance;
+    final platform = _VideoPlatform();
+    VideoPlayerPlatform.instance = platform;
+    addTearDown(() => VideoPlayerPlatform.instance = previous);
+    Widget tile(String url) => MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: VideoTile(
+              index: 0,
+              url: url,
+              waitForStartup: () async {},
+              title: 'Test',
+              active: true,
+              onActivate: () {},
+              onRemove: () {},
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(tile('https://example.test/first'));
+    await tester.pump();
+    expect(platform.created, [1]);
+    platform.disposeGate = Completer<void>();
+    await tester.pumpWidget(tile('https://example.test/second'));
+    await tester.pumpWidget(tile('https://example.test/third'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+    expect(platform.created, [1]);
+    platform.disposeGate!.complete();
+    platform.disposeGate = null;
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+    expect(platform.created, [1, 2]);
+    expect(platform.disposed, [1]);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+    expect(platform.disposed, [1, 2]);
   });
 
   testWidgets('remote can search, select a channel and focus its video',
@@ -270,14 +425,16 @@ void main() {
     expect(platform.created, [1]);
     expect(platform.played, [1]);
     await tester.tap(find.widgetWithText(ListTile, 'Channel 1'));
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(platform.created, [1, 2]);
     expect(platform.disposed, isEmpty);
     expect(platform.volumes[1], 1);
     expect(platform.volumes[2], 0);
     await tester.tap(find.widgetWithText(ListTile, 'Channel 2'));
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 550));
     await tester.pump();
     expect(platform.created, [1, 2, 3]);
     expect(platform.disposed, isEmpty);
@@ -285,7 +442,7 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Channel 3'));
     await tester.pump(const Duration(milliseconds: 50));
     expect(platform.created, [1, 2, 3]);
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 750));
     await tester.pump();
     expect(platform.created, [1, 2, 3, 4]);
     await tester.tap(find.widgetWithText(ListTile, 'Channel 0'));

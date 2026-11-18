@@ -131,6 +131,35 @@ void main() {
     expect(Focus.of(tester.element(createButton)).hasPrimaryFocus, isTrue);
   });
 
+  testWidgets('TV can move up from the email field to the pairing button',
+      (tester) async {
+    if (!qrPairingAvailable) return;
+    await tester.pumpWidget(MaterialApp(
+      home: CloudAccountScreen(
+        service: _FakeAccountService(),
+        tvDetector: () async => true,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final pairingButton = find.text('Associer cette TV par QR code');
+    final emailField = find.byType(TextField).first;
+    await tester.ensureVisible(emailField);
+    await tester.tap(emailField);
+    await tester.pump();
+    expect(
+      tester
+          .widget<EditableText>(find.byType(EditableText).first)
+          .focusNode
+          .hasFocus,
+      isTrue,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(Focus.of(tester.element(pairingButton)).hasPrimaryFocus, isTrue);
+  });
+
   testWidgets(
       'TV hides Google linking for connected accounts when QR is enabled',
       (tester) async {
@@ -160,10 +189,11 @@ void main() {
       home: CloudAccountScreen(service: service, tvDetector: () async => true),
     ));
     await tester.pumpAndSettle();
-    final button = find.text('Configurer la synchronisation chiffrée');
+    final button = find.text('Retrouver mes profils sur mes appareils');
     expect(Focus.of(tester.element(button)).hasPrimaryFocus, isTrue);
     final syncButton = tester.widget<TextButton>(
-      find.widgetWithText(TextButton, 'Configurer la synchronisation chiffrée'),
+      find.widgetWithText(
+          TextButton, 'Retrouver mes profils sur mes appareils'),
     );
     expect(syncButton.style!.backgroundColor!.resolve({WidgetState.focused}),
         const Color(0xFFFFC107));

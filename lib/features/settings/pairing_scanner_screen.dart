@@ -10,10 +10,14 @@ class PairingScannerScreen extends StatefulWidget {
     super.key,
     required this.phrase,
     required this.uid,
+    this.profileIds = const {},
+    this.profileNames = const [],
   });
 
   final String phrase;
   final String uid;
+  final Set<String> profileIds;
+  final List<String> profileNames;
 
   @override
   State<PairingScannerScreen> createState() => _PairingScannerScreenState();
@@ -115,8 +119,12 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
         throw StateError('Le compte cloud a changé.');
       }
       await CloudPairingService.prepareAppCheck();
-      await CloudPairingService()
-          .approve(invitation, widget.phrase, widget.uid);
+      await CloudPairingService().approve(
+        invitation,
+        widget.phrase,
+        widget.uid,
+        profileIds: widget.profileIds,
+      );
       if (mounted) {
         setState(() {
           _success = true;
@@ -186,6 +194,14 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
                     const Text(
                       'N’acceptez que si les deux codes sont identiques et que vous contrôlez la TV.',
                     ),
+                    if (widget.profileNames.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'La TV sélectionnera automatiquement : '
+                          '${widget.profileNames.join(', ')}.',
+                        ),
+                      ),
                     FilledButton(
                       onPressed:
                           _processing || _accountChanged ? null : _approve,

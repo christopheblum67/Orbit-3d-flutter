@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart';
 
-class _MemoryStore implements EncryptedDocumentStore {
+class _MemoryStore
+    implements EncryptedDocumentStore, EncryptedCloudMaintenance {
   final documents = <String, Map<String, dynamic>>{};
 
   @override
@@ -23,6 +25,22 @@ class _MemoryStore implements EncryptedDocumentStore {
       throw const CloudSyncConflict();
     }
     documents[key] = data;
+  }
+
+  @override
+  Future<void> deleteDocument(String uid, String documentId) async {
+    documents.remove('$uid/$documentId');
+  }
+
+  @override
+  Future<int> deleteAllData(String uid) async {
+    final keys = documents.keys
+        .where((key) => key.startsWith('$uid/') && key != '$uid/__control__')
+        .toList();
+    for (final key in keys) {
+      documents.remove(key);
+    }
+    return keys.length;
   }
 }
 
@@ -82,5 +100,43 @@ void main() {
           uid: 'user-b', documentId: 'profile-a', passphrase: passphrase),
       isNull,
     );
+  });
+
+  test('reset rotates the code and makes old encrypted documents unreadable',
+      () async {
+    final backing = _MemoryStore();
+    final store = EncryptedCloudStore(store: backing);
+    await store.write(
+      uid: 'user-a',
+      documentId: 'profile-a',
+      passphrase: 'old-code',
+      payload: {'name': 'old profile'},
+      expectedRevision: 0,
+    );
+
+    await store.advanceGeneration(
+      uid: 'user-a',
+      passphrase: 'new-code',
+      reset: true,
+    );
+    await store.deleteAllData('user-a');
+
+    expect(
+      await store.read(
+        uid: 'user-a',
+        documentId: 'profile-a',
+        passphrase: 'new-code',
+      ),
+      isNull,
+    );
+    await expectLater(
+      store.read(
+        uid: 'user-a',
+        documentId: 'profile-a',
+        passphrase: 'old-code',
+      ),
+      throwsA(isA<SecretBoxAuthenticationError>()),
+    );
+    expect(backing.documents.keys, {'user-a/__control__'});
   });
 }

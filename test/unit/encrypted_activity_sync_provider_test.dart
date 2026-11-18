@@ -46,6 +46,17 @@ class _UnusedDocumentStore implements EncryptedDocumentStore {
       throw UnimplementedError();
 }
 
+class _NoCloudChanges implements EncryptedCloudChangeSource {
+  @override
+  Stream<String> watch(String uid) => Stream<String>.multi((_) {});
+}
+
+class _CloudChanges implements EncryptedCloudChangeSource {
+  final controller = StreamController<String>.broadcast(sync: true);
+  @override
+  Stream<String> watch(String uid) => controller.stream;
+}
+
 class _Sync extends EncryptedScopeSynchronizer {
   _Sync()
       : super(
@@ -57,6 +68,8 @@ class _Sync extends EncryptedScopeSynchronizer {
   final scopes = <String>[];
   final calls = <(String, String, ScopeConflictChoice?)>[];
   (String, String)? conflict;
+  (String, String)? revisionConflict;
+  int revisionFailures = 0;
   Completer<void>? gate;
   final started = Completer<void>();
 
@@ -75,6 +88,10 @@ class _Sync extends EncryptedScopeSynchronizer {
     if (!started.isCompleted) started.complete();
     if (gate != null) await gate!.future;
     checkSession();
+    if (revisionConflict == (profileId, scope) && revisionFailures > 0) {
+      revisionFailures--;
+      throw const CloudSyncConflict();
+    }
     if (conflict == (profileId, scope) && conflictChoice == null) {
       throw ScopeMergeConflict({'conflict'});
     }
@@ -123,6 +140,7 @@ void main() {
     final sync = _Sync();
     final auth = _Auth();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),
@@ -173,6 +191,7 @@ void main() {
     final sync = _Sync()..gate = Completer<void>();
     final auth = _Auth();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),
@@ -194,6 +213,12 @@ void main() {
               ),
             );
     await sync.started.future;
+    final running = container.read(encryptedActivitySyncProvider);
+    expect(running.busy, isTrue);
+    expect(running.currentScope, 'favorites');
+    expect(running.currentProfileId, 'p1');
+    expect(running.completedScopes, 0);
+    expect(running.totalScopes, 8);
     auth.user = _User('different');
     auth.changes.add(auth.user);
     await Future<void>.delayed(Duration.zero);
@@ -208,6 +233,7 @@ void main() {
     final sync = _Sync()..gate = Completer<void>();
     final auth = _Auth();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),
@@ -238,6 +264,7 @@ void main() {
     final sync = _Sync()..gate = Completer<void>();
     final auth = _Auth();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),
@@ -270,10 +297,52 @@ void main() {
     container.read(encryptedActivitySyncProvider.notifier).lock();
   });
 
-  test('synchronizes each selected profile and global scopes once', () async {
+  testWidgets('remote changes synchronize only the selected scope promptly',
+      (tester) async {
     final sync = _Sync();
     final auth = _Auth();
+    final changes = _CloudChanges();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(changes),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await changes.controller.close();
+      await auth.changes.close();
+    });
+    final notifier = container.read(encryptedActivitySyncProvider.notifier);
+    await notifier.unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+      }),
+    );
+    sync.calls.clear();
+    changes.controller.add(EncryptedScopeStore.documentId('p2', 'favorites'));
+    await tester.pump(const Duration(seconds: 2));
+    expect(sync.calls, isEmpty);
+    changes.controller.add(EncryptedScopeStore.documentId('p1', 'favorites'));
+    changes.controller.add(EncryptedScopeStore.documentId('p1', 'favorites'));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(sync.calls.map((call) => (call.$1, call.$2)), [('p1', 'favorites')]);
+    notifier.lock();
+    changes.controller.add(EncryptedScopeStore.documentId('p1', 'favorites'));
+    await tester.pump(const Duration(seconds: 2));
+    expect(sync.calls, hasLength(1));
+  });
+
+  test('startup conflict source is applied to the initial synchronization',
+      () async {
+    final sync = _Sync()..conflict = ('p1', 'favorites');
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),
@@ -282,6 +351,179 @@ void main() {
       container.dispose();
       await auth.changes.close();
     });
+
+    await container.read(encryptedActivitySyncProvider.notifier).unlock(
+          auth: auth,
+          uid: 'account',
+          phrase: 'phrase',
+          catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+            'p1': {'id': 'p1', 'firstName': 'Alex'},
+          }),
+          initialConflictChoice: ScopeConflictChoice.cloud,
+        );
+
+    expect(sync.calls.first, ('p1', 'favorites', ScopeConflictChoice.cloud));
+    expect(
+      container.read(encryptedActivitySyncProvider).error,
+      isNull,
+    );
+    expect(container.read(encryptedActivitySyncProvider).unlocked, isTrue);
+  });
+
+  test('remote control changes pause the active synchronization session',
+      () async {
+    final sync = _Sync();
+    final auth = _Auth();
+    final changes = _CloudChanges();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(changes),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await changes.controller.close();
+      await auth.changes.close();
+    });
+    final notifier = container.read(encryptedActivitySyncProvider.notifier);
+    await notifier.unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+      }),
+    );
+
+    changes.controller.add(EncryptedCloudStore.controlDocumentId);
+
+    final state = container.read(encryptedActivitySyncProvider);
+    expect(state.unlocked, isFalse);
+    expect(state.error, contains('Le partage Cloud a changé'));
+  });
+
+  testWidgets('remote changes during an active sync are not lost',
+      (tester) async {
+    final sync = _Sync()..gate = Completer<void>();
+    final auth = _Auth();
+    final changes = _CloudChanges();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(changes),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await changes.controller.close();
+      await auth.changes.close();
+    });
+    final operation =
+        container.read(encryptedActivitySyncProvider.notifier).unlock(
+              auth: auth,
+              uid: 'account',
+              phrase: 'phrase',
+              catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+                'p1': {'id': 'p1', 'firstName': 'Alex'},
+              }),
+            );
+    await tester.pump();
+    changes.controller.add(EncryptedScopeStore.documentId('p1', 'favorites'));
+    await tester.pump(const Duration(seconds: 1));
+    sync.gate!.complete();
+    await tester.pump();
+    await operation;
+    expect(sync.calls.where((call) => call.$2 == 'favorites'), hasLength(2));
+    container.read(encryptedActivitySyncProvider.notifier).lock();
+  });
+
+  testWidgets(
+      'listener errors are visible and periodic fallback remains active',
+      (tester) async {
+    final sync = _Sync();
+    final auth = _Auth();
+    final changes = _CloudChanges();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(changes),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await changes.controller.close();
+      await auth.changes.close();
+    });
+    final notifier = container.read(encryptedActivitySyncProvider.notifier);
+    await notifier.unlock(
+      auth: auth,
+      uid: 'account',
+      phrase: 'phrase',
+      catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+        'p1': {'id': 'p1', 'firstName': 'Alex'},
+      }),
+    );
+    sync.calls.clear();
+    changes.controller.addError(StateError('network'));
+    expect(container.read(encryptedActivitySyncProvider).realtimeError,
+        contains('vérification périodique'));
+    await tester.pump(const Duration(minutes: 5));
+    await tester.pump();
+    expect(sync.calls, hasLength(8));
+    expect(
+        container.read(encryptedActivitySyncProvider).realtimeError, isNotNull);
+    notifier.lock();
+  });
+
+  test('concurrent cloud revisions are retried', () async {
+    final sync = _Sync()
+      ..revisionConflict = ('p1', 'favorites')
+      ..revisionFailures = 2;
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    await container.read(encryptedActivitySyncProvider.notifier).unlock(
+          auth: auth,
+          uid: 'account',
+          phrase: 'phrase',
+          catalog: ProfileCatalogSnapshot(revision: 1, profiles: {
+            'p1': {'id': 'p1', 'firstName': 'Alex'},
+          }),
+        );
+    expect(sync.calls.where((call) => call.$2 == 'favorites'), hasLength(3));
+    expect(container.read(encryptedActivitySyncProvider).error, isNull);
+  });
+
+  test('synchronizes each selected profile and global scopes once', () async {
+    final sync = _Sync();
+    final auth = _Auth();
+    final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
+      encryptedScopeSynchronizerProvider.overrideWithValue(sync),
+      currentProfileProvider
+          .overrideWithBuild((ref, notifier) => profile('p1')),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await auth.changes.close();
+    });
+    final progress = <(int, int)>[];
+    final subscription =
+        container.listen(encryptedActivitySyncProvider, (previous, next) {
+      if (next.busy && next.totalScopes > 0) {
+        progress.add((next.completedScopes, next.totalScopes));
+      }
+    });
+    addTearDown(subscription.close);
     final notifier = container.read(encryptedActivitySyncProvider.notifier);
     await notifier.unlock(
       auth: auth,
@@ -297,6 +539,8 @@ void main() {
     expect(calls.where((call) => call.$1 == 'p1'), hasLength(6));
     expect(calls.where((call) => call.$1 == 'p2'), hasLength(6));
     expect(calls.where((call) => call.$1 == '__global__'), hasLength(2));
+    expect(progress, [for (var i = 0; i < 14; i++) (i, 14)]);
+    expect(container.read(encryptedActivitySyncProvider).lastSyncAt, isNotNull);
     container
         .read(currentProfileProvider.notifier)
         .setUserProfile(profile('p2'));
@@ -307,6 +551,7 @@ void main() {
     final sync = _Sync()..conflict = ('p2', 'favorites');
     final auth = _Auth();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(_NoCloudChanges()),
       encryptedScopeSynchronizerProvider.overrideWithValue(sync),
       currentProfileProvider
           .overrideWithBuild((ref, notifier) => profile('p1')),

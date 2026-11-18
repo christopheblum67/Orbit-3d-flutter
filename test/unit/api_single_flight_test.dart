@@ -108,6 +108,34 @@ void main() {
       gate.complete();
     });
 
+    test('un nouvel abonnement ne rejoint pas une requête encore en cours',
+        () async {
+      final oldTarget = Completer<int>();
+      final previous = api.singleFlightForTest<int>(
+        'live',
+        () => oldTarget.future,
+      );
+
+      api.onSubscriptionChanged();
+
+      var newTargetCalls = 0;
+      final current = await api.singleFlightForTest<int>(
+        'live',
+        () async {
+          newTargetCalls++;
+          return 2;
+        },
+      );
+
+      expect(current, 2);
+      expect(newTargetCalls, 1);
+      expect(api.inFlightCount, 0);
+
+      oldTarget.complete(1);
+      expect(await previous, 1);
+      expect(api.inFlightCount, 0);
+    });
+
     test('deux appels séquentiels ne partagent rien', () async {
       final first = await api.singleFlightForTest<int>('k', () async => 1);
       final second = await api.singleFlightForTest<int>('k', () async => 2);

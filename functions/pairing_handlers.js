@@ -50,10 +50,10 @@ function createHandlers({db, authService, Timestamp, HttpsError}) {
 
   async function approveTvPairing(request) {
     const auth = authenticate(request, false);
-    const {secret, publicKey, phrase} = request.data || {};
+    const {secret, publicKey, phrase, profiles} = request.data || {};
     const ref = sessionReference(secret);
     try { decode32(publicKey); } catch (_) { throw invalid(); }
-    if (!validEnvelope(phrase)) throw invalid();
+    if (!validEnvelope(phrase) || (profiles != null && !validEnvelope(profiles))) throw invalid();
     const initial = (await ref.get()).data();
     if (!validSession(initial) || initial.status !== 'pending' || initial.publicKey !== publicKey) throw invalid();
     const user = await authService.getUser(auth.uid);
@@ -68,6 +68,7 @@ function createHandlers({db, authService, Timestamp, HttpsError}) {
         approvedUid: auth.uid,
         accountLabel: (user.email || user.displayName || 'Compte Google').slice(0, 256),
         phrase,
+        profiles: profiles || null,
         token: tokenEnvelope,
       });
     });
@@ -93,7 +94,12 @@ function createHandlers({db, authService, Timestamp, HttpsError}) {
       if (!validSession(data) || data.ownerUid !== auth.uid || data.status !== 'approved') throw invalid();
       tx.delete(ref);
       tx.delete(owner);
-      return {uid: data.approvedUid, phrase: data.phrase, token: data.token};
+      return {
+        uid: data.approvedUid,
+        phrase: data.phrase,
+        profiles: data.profiles || null,
+        token: data.token,
+      };
     });
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -9,7 +10,8 @@ import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_cloud_store.dart'
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
-class _MemoryStore implements EncryptedDocumentStore {
+class _MemoryStore
+    implements EncryptedDocumentStore, EncryptedCloudMaintenance {
   final documents = <String, Map<String, dynamic>>{};
   int writes = 0;
   void Function()? afterRead;
@@ -34,6 +36,22 @@ class _MemoryStore implements EncryptedDocumentStore {
     }
     writes++;
     documents[key] = data;
+  }
+
+  @override
+  Future<void> deleteDocument(String uid, String documentId) async {
+    documents.remove('$uid/$documentId');
+  }
+
+  @override
+  Future<int> deleteAllData(String uid) async {
+    final keys = documents.keys
+        .where((key) => key.startsWith('$uid/') && key != '$uid/__control__')
+        .toList();
+    for (final key in keys) {
+      documents.remove(key);
+    }
+    return keys.length;
   }
 }
 
@@ -227,4 +245,77 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  test('deletes only the selected cloud profile and its activity', () async {
+    final backing = _MemoryStore();
+    final encrypted = EncryptedCloudStore(store: backing);
+    final recovery = CloudProfileRecovery(
+      catalog: EncryptedProfileCatalog(encrypted),
+      profileScopes: EncryptedScopeStore(encrypted),
+      currentUid: () => 'account',
+      addLocalProfile: (_, __) async {},
+    );
+    const phrase = '123456';
+    await recovery.publish('account', phrase, _profile('one'));
+    await recovery.publish('account', phrase, _profile('two'));
+    final scopes = EncryptedScopeStore(encrypted);
+    for (final id in ['one', 'two']) {
+      await scopes.write(
+        uid: 'account',
+        profileId: id,
+        scope: 'favorites',
+        passphrase: phrase,
+        snapshot: EncryptedScopeSnapshot(
+          revision: 0,
+          entries: {'movie': 'favorite'},
+        ),
+      );
+    }
+
+    await recovery.deleteCloudProfile('account', phrase, 'one');
+
+    expect((await recovery.load('account', phrase)).profiles.keys, ['two']);
+    expect(
+      await scopes.read(
+        uid: 'account',
+        profileId: 'one',
+        scope: 'favorites',
+        passphrase: phrase,
+      ),
+      isNull,
+    );
+    expect(
+      (await scopes.read(
+        uid: 'account',
+        profileId: 'two',
+        scope: 'favorites',
+        passphrase: phrase,
+      ))
+          ?.entries,
+      {'movie': 'favorite'},
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('cloud reset invalidates the old code and retains an empty catalog',
+      () async {
+    final backing = _MemoryStore();
+    final encrypted = EncryptedCloudStore(store: backing);
+    final recovery = CloudProfileRecovery(
+      catalog: EncryptedProfileCatalog(encrypted),
+      currentUid: () => 'account',
+      addLocalProfile: (_, __) async {},
+    );
+    await recovery.publish('account', 'old-code', _profile('one'));
+
+    await recovery.resetCloud('account', 'new-code');
+
+    final empty = await recovery.load('account', 'new-code');
+    expect(empty.profiles, isEmpty);
+    expect(empty.verified, isTrue);
+    await expectLater(
+      recovery.load('account', 'old-code'),
+      throwsA(isA<SecretBoxAuthenticationError>()),
+    );
+    expect(backing.documents.keys, {'account/__control__'});
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

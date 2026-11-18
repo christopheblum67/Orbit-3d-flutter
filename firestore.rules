@@ -21,9 +21,10 @@ service cloud.firestore {
       function validEnvelope() {
         let data = request.resource.data;
         let envelope = data.envelope;
-        return data.keys().hasOnly(['revision', 'envelope'])
-          && data.keys().hasAll(['revision', 'envelope'])
+        return data.keys().hasOnly(['revision', 'generation', 'envelope'])
+          && data.keys().hasAll(['revision', 'generation', 'envelope'])
           && data.revision is int && data.revision > 0
+          && data.generation is int && data.generation >= 0
           && envelope is map
           && envelope.keys().hasOnly(['version', 'salt', 'nonce', 'ciphertext', 'mac'])
           && envelope.keys().hasAll(['version', 'salt', 'nonce', 'ciphertext', 'mac'])
@@ -31,11 +32,28 @@ service cloud.firestore {
           && envelope.salt is string && envelope.nonce is string
           && envelope.ciphertext is string && envelope.mac is string;
       }
+      function currentGeneration() {
+        let controlPath = /databases/$(database)/documents/users/$(userId)/encrypted_sync/__control__;
+        return exists(controlPath) ? get(controlPath).data.generation : 0;
+      }
       allow read: if isOwner();
-      allow create: if isOwner() && validEnvelope()
-        && request.resource.data.revision == 1;
-      allow update: if isOwner() && validEnvelope()
-        && request.resource.data.revision == resource.data.revision + 1;
+      allow create: if isOwner() && validEnvelope() && (
+        (docId == '__control__'
+          && request.resource.data.revision == 1
+          && request.resource.data.generation == 1)
+        || (docId != '__control__'
+          && request.resource.data.revision == 1
+          && request.resource.data.generation == currentGeneration())
+      );
+      allow update: if isOwner() && validEnvelope() && (
+        (docId == '__control__'
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.generation == resource.data.generation + 1)
+        || (docId != '__control__'
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.generation == currentGeneration())
+      );
+      allow delete: if isOwner() && docId != '__control__';
     }
   }
 }

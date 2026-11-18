@@ -41,6 +41,11 @@ class EncryptedActivitySyncState {
     this.conflictScope,
     this.conflictProfileId,
     this.lastSyncAt,
+    this.currentScope,
+    this.currentProfileId,
+    this.completedScopes = 0,
+    this.totalScopes = 0,
+    this.realtimeError,
   });
 
   final String? profileId;
@@ -50,9 +55,34 @@ class EncryptedActivitySyncState {
   final String? conflictScope;
   final String? conflictProfileId;
   final DateTime? lastSyncAt;
+  final String? currentScope;
+  final String? currentProfileId;
+  final int completedScopes;
+  final int totalScopes;
+  final String? realtimeError;
 
   bool get unlocked => profileId != null;
+
+  EncryptedActivitySyncState withRealtimeError(String? message) =>
+      EncryptedActivitySyncState(
+        profileId: profileId,
+        profileIds: profileIds,
+        busy: busy,
+        error: error,
+        conflictScope: conflictScope,
+        conflictProfileId: conflictProfileId,
+        lastSyncAt: lastSyncAt,
+        currentScope: currentScope,
+        currentProfileId: currentProfileId,
+        completedScopes: completedScopes,
+        totalScopes: totalScopes,
+        realtimeError: message,
+      );
 }
+
+final encryptedCloudChangesProvider = Provider<EncryptedCloudChangeSource>(
+  (ref) => FirestoreEncryptedCloudChangeSource(),
+);
 
 final encryptedScopeSynchronizerProvider = Provider<EncryptedScopeSynchronizer>(
   (ref) => EncryptedScopeSynchronizer(
@@ -75,8 +105,10 @@ class EncryptedActivitySyncNotifier
   String? _profileId;
   Set<String> _profileIds = const {};
   bool _lockOnProfileChange = true;
+  ScopeConflictChoice? _initialConflictChoice;
   FirebaseAuth? _auth;
   StreamSubscription<User?>? _authChanges;
+  StreamSubscription<String>? _cloudChanges;
   Timer? _debounce;
   Timer? _poll;
   final _listeners = <ProviderSubscription<dynamic>>[];
@@ -93,6 +125,7 @@ class EncryptedActivitySyncNotifier
       _debounce?.cancel();
       _poll?.cancel();
       _authChanges?.cancel();
+      _cloudChanges?.cancel();
       for (final listener in _listeners) {
         listener.close();
       }
@@ -107,6 +140,7 @@ class EncryptedActivitySyncNotifier
     required String phrase,
     required ProfileCatalogSnapshot catalog,
     Set<String>? profileIds,
+    ScopeConflictChoice? initialConflictChoice,
   }) async {
     if (_busy) throw StateError('Une synchronisation est déjà en cours.');
     final profileId = ref.read(currentProfileProvider)?.id;
@@ -126,6 +160,7 @@ class EncryptedActivitySyncNotifier
     lock();
     _uid = uid;
     _phrase = phrase;
+    _initialConflictChoice = initialConflictChoice;
     _profileIds = Set.unmodifiable(selected);
     _profileId = profileId != null && selected.contains(profileId)
         ? profileId
@@ -169,6 +204,46 @@ class EncryptedActivitySyncNotifier
     _markAllDirty();
     state = EncryptedActivitySyncState(
         profileId: _profileId, profileIds: _profileIds);
+    final documents = <String, (String?, _SyncKind)>{};
+    for (final kind in _SyncKind.values) {
+      if (_isGlobal(kind)) {
+        documents[EncryptedScopeStore.documentId('__global__', kind.name)] =
+            (null, kind);
+      } else {
+        for (final id in _profileIds) {
+          documents[EncryptedScopeStore.documentId(id, kind.name)] = (id, kind);
+        }
+      }
+    }
+    void watchFailed() {
+      if (!ref.mounted || _generation != generation) return;
+      state = state.withRealtimeError(
+        'Écoute cloud indisponible : vérification périodique maintenue.',
+      );
+    }
+
+    try {
+      _cloudChanges = ref.read(encryptedCloudChangesProvider).watch(uid).listen(
+        (documentId) {
+          if (!ref.mounted || _generation != generation) return;
+          if (documentId == EncryptedCloudStore.controlDocumentId) {
+            lock(
+              message: 'Le partage Cloud a changé. La synchronisation est '
+                  'en pause : actualisez la liste des profils avant de reprendre.',
+            );
+            return;
+          }
+          final task = documents[documentId];
+          if (task == null) return;
+          _dirty.add(task);
+          _scheduleSync();
+        },
+        onError: (Object error, StackTrace stack) => watchFailed(),
+        onDone: watchFailed,
+      );
+    } catch (_) {
+      watchFailed();
+    }
     _poll = Timer.periodic(const Duration(minutes: 5), (_) {
       if (_generation != generation || _busy || state.conflictScope != null)
         return;
@@ -178,24 +253,30 @@ class EncryptedActivitySyncNotifier
     await syncNow();
   }
 
-  void lock() {
+  void lock({String? message}) {
     _generation++;
     _phrase = null;
     _uid = null;
     _profileId = null;
     _profileIds = const {};
+    _initialConflictChoice = null;
     _auth = null;
     _debounce?.cancel();
+    _debounce = null;
     _poll?.cancel();
     _authChanges?.cancel();
     _authChanges = null;
+    _cloudChanges?.cancel();
+    _cloudChanges = null;
     for (final listener in _listeners) {
       listener.close();
     }
     _listeners.clear();
     _dirty.clear();
     _choices.clear();
-    if (ref.mounted) state = const EncryptedActivitySyncState();
+    if (ref.mounted) {
+      state = EncryptedActivitySyncState(error: message);
+    }
   }
 
   bool _isGlobal(_SyncKind kind) =>
@@ -220,8 +301,13 @@ class EncryptedActivitySyncNotifier
         : (profileId ?? ref.read(currentProfileProvider)?.id);
     if (!_isGlobal(kind) && !_profileIds.contains(id)) return;
     _dirty.add((id, kind));
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(seconds: 30), () {
+    _scheduleSync();
+  }
+
+  void _scheduleSync() {
+    if (_debounce != null) return;
+    _debounce = Timer(const Duration(seconds: 1), () {
+      _debounce = null;
       if (state.conflictScope == null) unawaited(syncNow());
     });
   }
@@ -250,6 +336,7 @@ class EncryptedActivitySyncNotifier
   Future<void> syncNow() async {
     if (_busy || _phrase == null || _profileId == null || _uid == null) return;
     _debounce?.cancel();
+    _debounce = null;
     final uid = _uid!;
     final phrase = _phrase!;
     final profileId = _profileId!;
@@ -278,8 +365,10 @@ class EncryptedActivitySyncNotifier
       profileIds: _profileIds,
       busy: true,
       lastSyncAt: state.lastSyncAt,
+      realtimeError: state.realtimeError,
     );
     _SyncKind? currentKind;
+    var completedScopes = 0;
     try {
       final synchronizer = ref.read(encryptedScopeSynchronizerProvider);
       while (_dirty.isNotEmpty) {
@@ -289,27 +378,49 @@ class EncryptedActivitySyncNotifier
         currentKind = kind;
         currentProfileId = taskProfileId;
         _dirty.remove(task);
+        state = EncryptedActivitySyncState(
+          profileId: profileId,
+          profileIds: _profileIds,
+          busy: true,
+          lastSyncAt: state.lastSyncAt,
+          currentScope: kind.name,
+          currentProfileId: taskProfileId,
+          completedScopes: completedScopes,
+          totalScopes: completedScopes + _dirty.length + 1,
+          realtimeError: state.realtimeError,
+        );
         try {
-          final changed = await synchronizer.synchronize(
-            uid: uid,
-            profileId: taskProfileId ?? '__global__',
-            scope: kind.name,
-            passphrase: phrase,
-            local: switch (kind) {
-              _SyncKind.preferences => LocalPreferencesScope(),
-              _SyncKind.profile => LocalProfileScope(taskProfileId!),
-              _SyncKind.subscriptions =>
-                LocalSubscriptionScope(ref.read(storageServiceProvider)),
-              _SyncKind.radioFavorites =>
-                LocalRadioFavoritesScope(taskProfileId!),
-              _ => LocalProfileActivityScope(
-                  taskProfileId!,
-                  ProfileActivityKind.values.byName(kind.name),
-                ),
-            },
-            checkSession: checkSession,
-            conflictChoice: _choices.remove(task),
-          );
+          final choice = _choices.remove(task) ?? _initialConflictChoice;
+          var retries = 0;
+          late bool changed;
+          while (true) {
+            try {
+              changed = await synchronizer.synchronize(
+                uid: uid,
+                profileId: taskProfileId ?? '__global__',
+                scope: kind.name,
+                passphrase: phrase,
+                local: switch (kind) {
+                  _SyncKind.preferences => LocalPreferencesScope(),
+                  _SyncKind.profile => LocalProfileScope(taskProfileId!),
+                  _SyncKind.subscriptions =>
+                    LocalSubscriptionScope(ref.read(storageServiceProvider)),
+                  _SyncKind.radioFavorites =>
+                    LocalRadioFavoritesScope(taskProfileId!),
+                  _ => LocalProfileActivityScope(
+                      taskProfileId!,
+                      ProfileActivityKind.values.byName(kind.name),
+                    ),
+                },
+                checkSession: checkSession,
+                conflictChoice: choice,
+              );
+              break;
+            } on CloudSyncConflict {
+              checkSession();
+              if (++retries > 2) rethrow;
+            }
+          }
           checkSession();
           if (changed) {
             switch (kind) {
@@ -356,16 +467,19 @@ class EncryptedActivitySyncNotifier
                 }
             }
           }
+          completedScopes++;
         } catch (_) {
           if (generation == _generation) _dirty.add(task);
           rethrow;
         }
       }
       if (ref.mounted && generation == _generation) {
+        _initialConflictChoice = null;
         state = EncryptedActivitySyncState(
           profileId: profileId,
           profileIds: _profileIds,
           lastSyncAt: DateTime.now(),
+          realtimeError: state.realtimeError,
         );
       }
     } on ActiveSubscriptionSyncRemoval {
@@ -408,6 +522,7 @@ class EncryptedActivitySyncNotifier
       error: message,
       conflictScope: conflictScope,
       conflictProfileId: conflictProfileId,
+      realtimeError: state.realtimeError,
     );
   }
 }

@@ -93,6 +93,33 @@ void main() {
     );
   });
 
+  test('encrypts selected profile IDs and rejects invalid selections',
+      () async {
+    final key = await X25519().newKeyPair();
+    final invite = PairingInvitation(
+      secret: secret,
+      publicKey: base64Url
+          .encode((await key.extractPublicKey()).bytes)
+          .replaceAll('=', ''),
+    );
+    final session = TvPairingSession(
+      invitation: invite,
+      keyPair: key,
+      ownerUid: 'temporary',
+      expiresAt: DateTime.utc(2030),
+    );
+    final envelope = await service.encryptProfileIds(invite, ['p1', 'p2']);
+    expect(envelope.values.join(), isNot(contains('p1')));
+    expect(
+      jsonDecode(await service.decrypt(envelope, session, 'profiles')),
+      ['p1', 'p2'],
+    );
+    await expectLater(
+      service.encryptProfileIds(invite, ['same', 'same']),
+      throwsStateError,
+    );
+  });
+
   test('decrypts a token encrypted by the Node.js Firebase function', () async {
     final key = await X25519().newKeyPairFromSeed(List<int>.filled(32, 7));
     expect(
@@ -134,6 +161,7 @@ void main() {
       expiresAt: DateTime.utc(2030),
     );
     final phrase = await service.encryptPhrase(invitation, 'phrase secrète');
+    final profiles = await service.encryptProfileIds(invitation, ['p1', 'p2']);
     final owner = _MutableAuth(_User('temporary', true));
     final target = _MutableAuth(null);
     var calls = 0;
@@ -147,6 +175,7 @@ void main() {
         return {
           'uid': 'account',
           'phrase': phrase,
+          'profiles': profiles,
           'token': {
             'key': '-NdKuysICRnYhdXNPty5yJ490VPI-UC3G-w7o_oN-jQ',
             'nonce': 'fChyiJMSw8IxOBvR',
@@ -159,6 +188,7 @@ void main() {
     final result = await pairing.consume(session, target);
     expect(result.uid, 'account');
     expect(result.phrase, 'phrase secrète');
+    expect(result.profileIds, {'p1', 'p2'});
     expect(target.token, 'test-token');
     await expectLater(pairing.consume(session, target), throwsStateError);
     expect(calls, 1);

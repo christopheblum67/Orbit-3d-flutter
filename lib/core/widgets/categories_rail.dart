@@ -202,9 +202,7 @@ class _FocusableCategoryTileState extends State<_FocusableCategoryTile> {
                         text: ' (+${widget.addedCount})',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.redAccent.shade100
-                              : Colors.red.shade800,
+                          color: scheme.error,
                         ),
                       ),
                   ],

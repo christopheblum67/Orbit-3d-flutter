@@ -11,9 +11,17 @@ class EncryptedScopeStore {
 
   static const _schemaVersion = 1;
   static const _maxPlaintextBytes = 700000;
+  static const profileScopes = [
+    'favorites',
+    'radioFavorites',
+    'recents',
+    'watched',
+    'playback',
+    'profile',
+  ];
   final EncryptedCloudStore _store;
 
-  String _documentId(String profileId, String scope) {
+  static String documentId(String profileId, String scope) {
     if (profileId.isEmpty || scope.isEmpty) {
       throw ArgumentError('Profile and scope are required.');
     }
@@ -32,7 +40,7 @@ class EncryptedScopeStore {
   }) async {
     final document = await _store.read(
       uid: uid,
-      documentId: _documentId(profileId, scope),
+      documentId: documentId(profileId, scope),
       passphrase: passphrase,
     );
     if (document == null) return null;
@@ -59,7 +67,7 @@ class EncryptedScopeStore {
     required EncryptedScopeSnapshot snapshot,
     void Function()? checkSession,
   }) {
-    final documentId = _documentId(profileId, scope);
+    final documentId = EncryptedScopeStore.documentId(profileId, scope);
     final payload = <String, dynamic>{
       'schemaVersion': _schemaVersion,
       'profileId': profileId,
@@ -79,6 +87,15 @@ class EncryptedScopeStore {
       expectedRevision: snapshot.revision,
       checkSession: checkSession,
     );
+  }
+
+  Future<void> deleteProfile({
+    required String uid,
+    required String profileId,
+  }) async {
+    for (final scope in profileScopes) {
+      await _store.deleteDocument(uid, documentId(profileId, scope));
+    }
   }
 }
 

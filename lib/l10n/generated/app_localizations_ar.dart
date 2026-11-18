@@ -756,6 +756,49 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يمكن تشغيل هذا الفيلم أو هذه الحلقة حاليًا. أعد المحاولة أو تحقق من الاتصال وتنسيق الملف.';
 
   @override
+  String get greenScreenDetectedTitle => 'تم اكتشاف مشكلة في عرض الفيديو';
+
+  @override
+  String get externalPlayerLimitationsTitle => 'قيود المشغلات الخارجية';
+
+  @override
+  String get externalPlayerLimitationsDescription =>
+      'لا ينقل Orbit تفضيلات الصوت والترجمة إلى VLC أو MX Player؛ اختر المسارات في المشغل الخارجي. في المسلسلات، تبدأ الحلقة التالية تلقائيًا فقط إذا أكد MX Player انتهاء التشغيل؛ وإلا فابدأها يدويًا بعد العودة إلى Orbit. ينطبق هذا أيضًا على المشغل الاحتياطي.';
+
+  @override
+  String get actorShowFilmography => 'عرض الأعمال';
+
+  @override
+  String get actorFilmographyUnavailable => 'قائمة الأعمال غير متاحة.';
+
+  @override
+  String get actorCreditFilm => 'فيلم';
+
+  @override
+  String get actorCreditSeries => 'مسلسل';
+
+  @override
+  String actorCreditRole(String role) {
+    return 'الدور: $role';
+  }
+
+  @override
+  String get actorCreditTmdbUnavailable => 'تفاصيل TMDB غير متاحة.';
+
+  @override
+  String get actorCreditSynopsisUnavailable => 'الملخص غير متاح.';
+
+  @override
+  String get actorCreditCatalogUnconfirmed => 'لا يوجد تطابق مؤكد في الكتالوج.';
+
+  @override
+  String get actorCreditOpenCatalog => 'عرض في الكتالوج';
+
+  @override
+  String get greenScreenDetectedMessage =>
+      'تم اكتشاف مشكلة في الصورة (شاشة خضراء). قد لا يتمكن المشغل الحالي من فك ترميز هذا البث بشكل صحيح. جرّب مشغلًا آخر من الإعدادات > المشغل > محركات التشغيل، ثم أعد تشغيل الفيديو.';
+
+  @override
   String get retrySearch => 'إعادة محاولة البحث';
 
   @override
@@ -1309,6 +1352,15 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get avatarCategoryCharacters => 'شخصيات';
+
+  @override
+  String get avatarCategorySuperheroes => 'أبطال خارقون';
+
+  @override
+  String get avatarCategoryAnimals => 'حيوانات';
+
+  @override
+  String get avatarCategoryFlowers => 'زهور';
 
   @override
   String get avatarCategorySmileys => 'مزاح';

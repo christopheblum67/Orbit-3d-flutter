@@ -94,6 +94,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
   }
 
   Future<void> _onActiveSubscriptionChanged(Subscription activated) async {
+    final api = ref.read(apiServiceProvider);
+    api.onSubscriptionChanged();
+
     ref.invalidate(activeSubscriptionProvider);
 
     // Les caches globaux ne sont pas dépendants de activeSubscriptionProvider.
@@ -118,12 +121,8 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
         .read(lastRefreshTimestampProvider.notifier)
         .restoreTimestamp(lastRefresh);
 
-    final api = ref.read(apiServiceProvider);
-    api.forgetSlowUrls();
-    api.rateLimiter.onNewTarget();
-
     if (activated.type == SubscriptionType.xtream) {
-      unawaited(refreshValidity(activated.id));
+      unawaited(refreshValidity(activated.id, api: api));
     }
   }
 

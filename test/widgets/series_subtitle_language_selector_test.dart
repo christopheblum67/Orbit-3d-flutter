@@ -144,4 +144,66 @@ void main() {
     expect(find.text('(Défaut du flux)'), findsOneWidget);
     expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
   });
+
+  for (final width in [360.0, 260.0]) {
+    for (final subtitles in [false, true]) {
+      testWidgets(
+          'track preferences adapt to width $width, subtitles: $subtitles',
+          (tester) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: subtitles
+                  ? SeriesSubtitleLanguageSelector(
+                      seriesId: 'layout',
+                      fetchTracks: () async => [('fr', 'Français')],
+                    )
+                  : SeriesAudioLanguageSelector(
+                      seriesId: 'layout',
+                      fetchTracks: () async => [('fr', 'Français')],
+                    ),
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final dropdown =
+            tester.getRect(find.byType(DropdownButtonFormField<String>));
+        final checkbox = tester.getRect(find.byType(Checkbox));
+        if (width >= 320) {
+          expect(checkbox.left, greaterThan(dropdown.right));
+          expect(checkbox.top, lessThan(dropdown.bottom));
+        } else {
+          expect(checkbox.top, greaterThanOrEqualTo(dropdown.bottom));
+        }
+      });
+    }
+  }
+
+  testWidgets('long track labels fit with enlarged text', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final label = 'Français sous-titrage malentendant version longue';
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('long', label);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+          child: Scaffold(
+            body: SeriesSubtitleLanguageSelector(
+              seriesId: 'long',
+              fetchTracks: () async => [(label, label)],
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }

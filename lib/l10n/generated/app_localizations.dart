@@ -1510,6 +1510,84 @@ abstract class AppLocalizations {
   /// **'Impossible de lancer ce film ou cet épisode pour le moment. Réessaie ou vérifie la connexion et le format du fichier.'**
   String get playbackUnavailableMessage;
 
+  /// No description provided for @greenScreenDetectedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Problème d’image détecté'**
+  String get greenScreenDetectedTitle;
+
+  /// No description provided for @externalPlayerLimitationsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Limites des lecteurs externes'**
+  String get externalPlayerLimitationsTitle;
+
+  /// No description provided for @externalPlayerLimitationsDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avec VLC ou MX Player, les préférences audio et sous-titres d’Orbit ne sont pas transmises : choisissez les pistes dans le lecteur externe. Pour les séries, l’épisode suivant démarre automatiquement uniquement si MX Player confirme la fin ; sinon, lancez-le manuellement au retour dans Orbit. Cela concerne aussi le lecteur de secours.'**
+  String get externalPlayerLimitationsDescription;
+
+  /// No description provided for @actorShowFilmography.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir la filmographie'**
+  String get actorShowFilmography;
+
+  /// No description provided for @actorFilmographyUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Filmographie indisponible.'**
+  String get actorFilmographyUnavailable;
+
+  /// No description provided for @actorCreditFilm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Film'**
+  String get actorCreditFilm;
+
+  /// No description provided for @actorCreditSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Série'**
+  String get actorCreditSeries;
+
+  /// No description provided for @actorCreditRole.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rôle : {role}'**
+  String actorCreditRole(String role);
+
+  /// No description provided for @actorCreditTmdbUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Détails TMDB indisponibles.'**
+  String get actorCreditTmdbUnavailable;
+
+  /// No description provided for @actorCreditSynopsisUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synopsis indisponible.'**
+  String get actorCreditSynopsisUnavailable;
+
+  /// No description provided for @actorCreditCatalogUnconfirmed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Correspondance non confirmée dans le catalogue.'**
+  String get actorCreditCatalogUnconfirmed;
+
+  /// No description provided for @actorCreditOpenCatalog.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir dans le catalogue'**
+  String get actorCreditOpenCatalog;
+
+  /// No description provided for @greenScreenDetectedMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une anomalie d’image (écran vert) a été détectée. Le moteur actuel ne semble pas décoder correctement ce flux. Essayez un autre moteur dans Réglages > Lecteur > Moteurs de lecture, puis relancez la lecture.'**
+  String get greenScreenDetectedMessage;
+
   /// No description provided for @retrySearch.
   ///
   /// In fr, this message translates to:
@@ -2553,6 +2631,24 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Personnages'**
   String get avatarCategoryCharacters;
+
+  /// No description provided for @avatarCategorySuperheroes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Super-héros'**
+  String get avatarCategorySuperheroes;
+
+  /// No description provided for @avatarCategoryAnimals.
+  ///
+  /// In fr, this message translates to:
+  /// **'Animaux'**
+  String get avatarCategoryAnimals;
+
+  /// No description provided for @avatarCategoryFlowers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fleurs'**
+  String get avatarCategoryFlowers;
 
   /// No description provided for @avatarCategorySmileys.
   ///

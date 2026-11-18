@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -111,11 +112,31 @@ class ProfileAvatar extends StatelessWidget {
         ? _optionForId(avatarUrl.substring(avatarIconPrefix.length))
         : null;
     final isLegacyOrbital = avatarUrl.startsWith(legacyOrbitGradientPrefix);
-    final isRemote = avatarUrl.isNotEmpty && !isIconAvatar && !isLegacyOrbital;
+    final isLocalAsset = avatarUrl.startsWith(avatarAssetPrefix);
+    final isRemote = avatarUrl.isNotEmpty &&
+        !isIconAvatar &&
+        !isLegacyOrbital &&
+        !isLocalAsset;
 
     final Widget content;
     if (option != null) {
       content = Icon(option.icon, size: size * 0.5, color: Colors.white);
+    } else if (isLocalAsset) {
+      content = Image.asset(
+        avatarUrl.substring(avatarAssetPrefix.length),
+        fit: BoxFit.cover,
+        width: size,
+        height: size,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (context, error, stack) => Text(
+          initial,
+          style: TextStyle(
+            color: scheme.onPrimary,
+            fontSize: size * 0.42,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
     } else if (isRemote) {
       content = OrbitCachedImage(
         imageUrl: avatarUrl,

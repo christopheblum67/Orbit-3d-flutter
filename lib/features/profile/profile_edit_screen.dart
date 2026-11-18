@@ -392,12 +392,10 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       return;
     }
     setState(() => _hashingPin = true);
-    var confirmed = false;
     try {
       final hash = await ProfilePin.create(pin);
       if (mounted) {
         setState(() => _pinHash = hash);
-        confirmed = true;
       }
     } catch (error, stack) {
       FlutterError.reportError(FlutterErrorDetails(
@@ -413,11 +411,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     } finally {
       if (mounted) {
         setState(() => _hashingPin = false);
-        if (confirmed && ref.read(tvModeNotifierProvider).enabled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _saveFocus.requestFocus();
-          });
-        }
       }
     }
   }
@@ -436,6 +429,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final l = AppLocalizations.of(context);
     if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
       setState(() => _submitted = true);
+      _nameFocus.requestFocus();
+      final focusContext = _nameFocus.context;
+      if (focusContext != null) Scrollable.ensureVisible(focusContext);
       return;
     }
     setState(() => _saving = true);
@@ -612,47 +608,47 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     return AppCard(
       padding: const EdgeInsets.all(20),
       color: Colors.transparent,
-      child: Row(
-        children: [
-          ValueListenableBuilder<TextEditingValue>(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final avatar = ValueListenableBuilder<TextEditingValue>(
             valueListenable: _nameController,
-            builder: (context, value, _) {
-              return ProfileAvatar(
-                profile: _avatarPreviewProfile(),
-                size: 104,
-              );
-            },
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Thème d\'avatar',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Choisissez un style, puis un avatar dans la grille',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildThemeSelector(),
-              ],
+            builder: (context, value, _) => ProfileAvatar(
+              profile: _avatarPreviewProfile(),
+              size: 104,
             ),
-          ),
-        ],
+          );
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Thème d\'avatar',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              Text(
+                'Choisissez un style, puis un avatar dans la grille',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 12),
+              _buildThemeSelector(),
+            ],
+          );
+          if (constraints.maxWidth < 480) {
+            return Column(children: [
+              avatar,
+              const SizedBox(height: 16),
+              details,
+            ]);
+          }
+          return Row(children: [
+            avatar,
+            const SizedBox(width: 20),
+            Expanded(child: details),
+          ]);
+        },
       ),
     );
   }
@@ -826,6 +822,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               subtitle: l.enterNew4DigitPin,
               onTap: _openPinPad,
             ),
+          if (_hashingPin)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text('Création du code PIN…'),
+            ),
         ],
       ),
     );
@@ -855,7 +856,15 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
                   : const Icon(Icons.save_outlined),
-              label: Text(_isEdit ? 'Enregistrer' : 'Créer le profil'),
+              label: Text(
+                _pinHash != null && _pinHash != _basePinHash
+                    ? _isEdit
+                        ? 'Enregistrer et activer la protection'
+                        : 'Créer le profil et activer la protection'
+                    : _isEdit
+                        ? 'Enregistrer'
+                        : 'Créer le profil',
+              ),
             ),
           ),
         ],
@@ -952,14 +961,16 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
                 ),
                 const SizedBox(width: 6),
               ],
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: highlighted
-                      ? scheme.onPrimaryContainer
-                      : scheme.onSurface,
+              Flexible(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: highlighted
+                        ? scheme.onPrimaryContainer
+                        : scheme.onSurface,
+                  ),
                 ),
               ),
             ],

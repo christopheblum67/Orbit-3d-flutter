@@ -45,7 +45,74 @@ class _TestingNotifier extends SubscriptionsTestingNotifier {
   Set<String> build() => const {};
 }
 
+class _DuplicateSubscriptionsNotifier extends SubscriptionsNotifier {
+  @override
+  List<Subscription> build() {
+    Subscription xtream(String id, String? password) => Subscription(
+          id: id,
+          name: id,
+          type: SubscriptionType.xtream,
+          baseUrl: 'https://panel.example/',
+          username: 'user',
+          password: password,
+          createdAt: DateTime(2026),
+        );
+    Subscription m3u(String id, String url) => Subscription(
+          id: id,
+          name: id,
+          type: SubscriptionType.m3u,
+          m3uUrl: url,
+          createdAt: DateTime(2026),
+        );
+    return [
+      xtream('xtream-a', 'pass'),
+      xtream('xtream-b', 'pass')
+        ..baseUrl = 'https://panel.example/player_api.php',
+      xtream('different-password', 'other'),
+      xtream('missing-password-a', null),
+      xtream('missing-password-b', null),
+      m3u('m3u-a', 'https://list.example/playlist?token=secret'),
+      m3u('m3u-b', 'https://list.example/playlist?token=secret'),
+      m3u('different-list', 'https://list.example/other?token=secret'),
+      m3u('missing-url-a', ''),
+      m3u('missing-url-b', ''),
+    ];
+  }
+}
+
 void main() {
+  testWidgets('marks matching sources without removing subscriptions',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const SubscriptionsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        subscriptionsProvider.overrideWith(_DuplicateSubscriptionsNotifier.new),
+        subscriptionsTestingProvider.overrideWith(_TestingNotifier.new),
+        activeSubscriptionProvider.overrideWithValue(null),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Doublon possible'), findsNWidgets(4));
+    expect(find.textContaining('Aucun n’a été supprimé'), findsOneWidget);
+    expect(find.text('different-password'), findsOneWidget);
+    expect(find.text('missing-password-a'), findsOneWidget);
+    expect(find.text('different-list'), findsOneWidget);
+    expect(find.textContaining('token=secret'), findsNothing);
+  });
+
   testWidgets('shows where category filters are configured', (tester) async {
     final router = GoRouter(
       routes: [

@@ -731,6 +731,142 @@ void main() {
         (tester) => testNextEpisode(tester, cancelMode));
   }
 
+  for (final result in ['stopped', 'completed', 'cancelled']) {
+    testWidgets('external episode return: $result', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({});
+      PlayerProfileService.invalidate();
+      final monitor = _Online();
+      addTearDown(monitor.dispose);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      for (final name in ['orbit/night_focus', 'orbit/player_config']) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+        addTearDown(() => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      }
+      const channel = MethodChannel('orbit/external_player');
+      final calls = <Map<Object?, Object?>>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(Map<Object?, Object?>.from(call.arguments as Map));
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final episodes = List.generate(
+        2,
+        (i) => Episode(
+          id: '$i',
+          title: 'Episode ${i + 1}',
+          season: 1,
+          episodeNumber: i + 1,
+          streamUrl: 'https://example.test/$i.mp4',
+        ),
+      );
+      final series = Series(
+        id: 'series',
+        title: 'Serie',
+        description: '',
+        coverUrl: '',
+        year: 0,
+        genre: '',
+        director: '',
+        rating: 0,
+        pegi: '',
+        episodes: episodes,
+      );
+      final router = GoRouter(initialLocation: '/player', routes: [
+        GoRoute(
+          path: '/player',
+          builder: (_, state) {
+            final data = state.extra as PlayerRouteData?;
+            return PlayerScreen(
+              key: ValueKey(data?.streamUrl ?? episodes.first.streamUrl),
+              streamUrl: data?.streamUrl ?? episodes.first.streamUrl,
+              contentType: PlaybackContentType.series,
+              series: data?.series ?? series,
+              episode: data?.episode ?? episodes.first,
+              consecutiveEpisodes: data?.consecutiveEpisodes ?? 1,
+            );
+          },
+        ),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          connectivityMonitorProvider.overrideWithValue(monitor),
+          subtitleControllerProvider.overrideWith((ref) => _Subtitles()),
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
+          rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
+          activeSubscriptionProvider.overrideWithValue(null),
+          advancedSettingsProvider.overrideWithBuild((ref, notifier) =>
+              const AdvancedSettings(
+                playerSeries: PlayerPerTypeConfig(primary: PlayerEngine.mxPlayer),
+              )),
+        ],
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ));
+      for (var i = 0; i < 30 && calls.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump();
+      expect(calls, hasLength(1));
+      expect(find.textContaining('Épisode suivant : Episode 2'), findsOneWidget);
+      expect(find.textContaining('préférences d’Orbit'), findsOneWidget);
+      final session = calls.first['session'] as int;
+      Future<void> sendResult(int sessionId, bool value) async {
+        await messenger.handlePlatformMessage(
+          channel.name,
+          const StandardMethodCodec().encodeMethodCall(MethodCall(
+            'playbackFinished',
+            {'session': sessionId, 'completed': value},
+          )),
+          (_) {},
+        );
+        await tester.pump();
+      }
+
+      await sendResult(session + 100, true);
+      expect(find.textContaining('(15 s)'), findsNothing);
+      await sendResult(session, result != 'stopped');
+      if (result != 'stopped') {
+        expect(find.textContaining('(15 s)'), findsOneWidget);
+        if (result == 'cancelled') {
+          await tester.tap(find.text('Annuler'));
+          await tester.pump();
+          expect(
+            tester.widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Épisode suivant : Episode 2'),
+            ).focusNode!.hasFocus,
+            isTrue,
+          );
+          await tester.pump(const Duration(seconds: 16));
+          expect(calls, hasLength(1));
+          await tester.tap(find.textContaining('Épisode suivant : Episode 2'));
+        } else {
+          await tester.pump(const Duration(seconds: 15));
+        }
+      } else {
+        await tester.pump(const Duration(seconds: 16));
+        expect(calls, hasLength(1));
+        await tester.tap(find.textContaining('Épisode suivant : Episode 2'));
+      }
+      for (var i = 0; i < 30 && calls.length < 2; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(calls, hasLength(2));
+      expect(calls.last['url'], episodes[1].streamUrl);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
+
   for (final externalAvailable in [false, true]) {
     testWidgets(
         'restores position and handles external player: $externalAvailable',

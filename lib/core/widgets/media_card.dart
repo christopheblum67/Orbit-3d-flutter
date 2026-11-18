@@ -237,14 +237,14 @@ class MediaCard extends ConsumerWidget {
                           vertical: ratingAboveAffinity ? 2 : 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.redAccent,
+                          color: scheme.error,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           'NOUVEAU',
                           style:
                               Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.white,
+                                    color: scheme.onError,
                                     fontWeight: FontWeight.w800,
                                     fontSize: ratingAboveAffinity ? 7 : 10,
                                   ),
@@ -315,11 +315,7 @@ class MediaCard extends ConsumerWidget {
                           fontWeight: highlightTitle
                               ? FontWeight.w900
                               : FontWeight.w700,
-                          color: highlightTitle
-                              ? (Theme.of(context).brightness == Brightness.dark
-                                  ? Colors.redAccent.shade100
-                                  : Colors.red.shade800)
-                              : null,
+                          color: highlightTitle ? scheme.error : null,
                           fontSize: titleFontSize ?? (compactLayout ? 13 : 15),
                         ),
                   ),

@@ -33,6 +33,17 @@ void main() {
     expect(existing.copyWith(clearPin: true).pinHash, isNull);
   });
 
+  test('malformed or unsupported PIN hashes never verify', () async {
+    for (final hash in [
+      'unknown\$120000\$salt\$hash',
+      'pbkdf2-sha256\$120000\$%%%\$bad',
+      'pbkdf2-sha256\$0\$c2FsdA==\$aGFzaA==',
+      'pbkdf2-sha256\$120000\$c2FsdA==\$aGFzaA==',
+    ]) {
+      expect(await ProfilePin.verify(profile(hash), '1234'), isFalse);
+    }
+  });
+
   test('PIN state and legacy key are read without reviving a cleared PIN', () {
     expect(profile(null).hasPin, isFalse);
     expect(profile('  ').hasPin, isFalse);

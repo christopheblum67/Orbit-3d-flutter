@@ -14,6 +14,7 @@ class VideoErrorState extends StatelessWidget {
     this.providerMessage,
     this.onContinueWaiting,
     this.autoFocusRetry = false,
+    this.additionalActions,
   });
 
   final String title;
@@ -24,6 +25,7 @@ class VideoErrorState extends StatelessWidget {
   final String? providerMessage;
   final VoidCallback? onContinueWaiting;
   final bool autoFocusRetry;
+  final Widget? additionalActions;
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +96,10 @@ class VideoErrorState extends StatelessWidget {
                       onPressed: onContinueWaiting,
                       child: Text(l.playbackContinueWaiting),
                     ),
+                  ],
+                  if (additionalActions != null) ...[
+                    const SizedBox(height: 12),
+                    additionalActions!,
                   ],
                   if (onProviderWebsite != null) ...[
                     const SizedBox(height: 12),

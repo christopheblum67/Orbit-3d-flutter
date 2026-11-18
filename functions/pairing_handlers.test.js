@@ -75,7 +75,7 @@ test('requires a valid owner, correct QR key, approval and single consumption', 
   await assert.rejects(handlers.approveTvPairing(phone({secret, publicKey: Buffer.alloc(32, 1).toString('base64url'), phrase})), {code: 'failed-precondition'});
   assert.deepEqual(await handlers.checkTvPairing(tv({secret})), {status: 'pending'});
   const results = await Promise.allSettled([
-    handlers.approveTvPairing(phone({secret, publicKey, phrase})),
+    handlers.approveTvPairing(phone({secret, publicKey, phrase, profiles: phrase})),
     handlers.approveTvPairing(phone({secret, publicKey, phrase}, 'other')),
   ]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
@@ -90,6 +90,7 @@ test('requires a valid owner, correct QR key, approval and single consumption', 
   const success = [first, second].filter((r) => r.status === 'fulfilled');
   assert.equal(success.length, 1);
   assert.equal(success[0].value.phrase, phrase);
+  assert.equal(success[0].value.profiles, phrase);
   assert.equal(JSON.stringify(success[0].value.token).includes('token-for-'), false);
   assert.equal(db.docs.has(`pairing_sessions_v1/${digest(secret)}`), false);
 });

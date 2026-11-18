@@ -166,6 +166,39 @@ void main() {
     expect(container.read(lastRefreshTimestampProvider), isNull);
   });
 
+  test('la bascule ne rejoint pas une requête bloquée sur l’ancien abonnement',
+      () async {
+    final storage = _MemoryStorageService([
+      _subscription('old', active: true),
+      _subscription('new', active: false),
+    ]);
+    final api = ApiService();
+    final oldTarget = Completer<int>();
+    final previous = api.singleFlightForTest<int>(
+      'live_channels',
+      () => oldTarget.future,
+    );
+    final container = ProviderContainer(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storage),
+        apiServiceProvider.overrideWithValue(api),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(subscriptionsProvider.notifier).setActive('new');
+
+    final current = await api.singleFlightForTest<int>(
+      'live_channels',
+      () async => 2,
+    );
+    expect(current, 2);
+
+    oldTarget.complete(1);
+    expect(await previous, 1);
+    expect(api.inFlightCount, 0);
+  });
+
   test('une réponse replay ancienne ne survit pas à la bascule', () async {
     final storage = _MemoryStorageService([
       _subscription('old', active: true),

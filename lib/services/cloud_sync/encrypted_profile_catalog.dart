@@ -16,13 +16,21 @@ class EncryptedProfileCatalog {
     required String uid,
     required String passphrase,
   }) async {
+    final controlVerified = await _store.hasVerifiedControl(
+      uid: uid,
+      passphrase: passphrase,
+    );
     final document = await _store.read(
       uid: uid,
       documentId: documentId,
       passphrase: passphrase,
     );
     if (document == null) {
-      return ProfileCatalogSnapshot(revision: 0, profiles: const {});
+      return ProfileCatalogSnapshot(
+        revision: 0,
+        profiles: const {},
+        verified: controlVerified,
+      );
     }
     final payload = document.payload;
     final rawProfiles = payload['profiles'];
@@ -43,8 +51,30 @@ class EncryptedProfileCatalog {
       profiles[entry.key as String] = profile;
     }
     return ProfileCatalogSnapshot(
-        revision: document.revision, profiles: profiles);
+      revision: document.revision,
+      profiles: profiles,
+      verified: true,
+    );
   }
+
+  Future<int> advanceGeneration({
+    required String uid,
+    required String passphrase,
+    required bool reset,
+  }) =>
+      _store.advanceGeneration(
+        uid: uid,
+        passphrase: passphrase,
+        reset: reset,
+      );
+
+  Future<int> deleteAllData(String uid) => _store.deleteAllData(uid);
+
+  Future<bool> hasVerifiedControl({
+    required String uid,
+    required String passphrase,
+  }) =>
+      _store.hasVerifiedControl(uid: uid, passphrase: passphrase);
 
   /// Requires the last explicitly loaded revision; concurrent updates fail.
   Future<int> save({
@@ -107,6 +137,7 @@ class ProfileCatalogSnapshot {
   ProfileCatalogSnapshot({
     required this.revision,
     required Map<String, Map<String, dynamic>> profiles,
+    this.verified = false,
   }) : profiles = Map<String, Map<String, dynamic>>.unmodifiable(
           profiles.map(
             (key, value) =>
@@ -116,4 +147,5 @@ class ProfileCatalogSnapshot {
 
   final int revision;
   final Map<String, Map<String, dynamic>> profiles;
+  final bool verified;
 }

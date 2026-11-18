@@ -1,6 +1,7 @@
 package com.example.orbit_3d_flutter
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.view.KeyEvent
@@ -8,6 +9,13 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
+    @Deprecated("External players return their playback result through this callback")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (!ExternalPlayerChannel.onActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data)
+        }
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val handled = super.dispatchKeyEvent(event)
         if (event.action == KeyEvent.ACTION_DOWN &&

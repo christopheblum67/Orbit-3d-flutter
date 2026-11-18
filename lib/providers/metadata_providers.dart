@@ -186,6 +186,15 @@ final tmdbPersonDetailProvider =
   return ref.watch(tmdbServiceProvider).getPersonDetail(personId);
 });
 
+final tmdbFilmographySynopsisProvider =
+    FutureProvider.autoDispose.family<String?, MovieCredit>((ref, credit) async {
+  ref.watch(tmdbApiKeyOverrideProvider);
+  final tmdb = ref.watch(tmdbServiceProvider);
+  return credit.isTv
+      ? (await tmdb.getTvDetail(credit.tmdbId))?.description
+      : (await tmdb.getMovieDetail(credit.tmdbId))?.description;
+});
+
 /// Recherche TMDB d'une personne par nom (acteurs hors TMDB) → ID (0 si absent)
 final tmdbPersonSearchProvider = FutureProvider.autoDispose.family<int, String>(
   (ref, name) async {

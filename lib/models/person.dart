@@ -6,6 +6,7 @@ class MovieCredit {
   final String character;
   final String posterPath;
   final double voteAverage;
+  final bool isTv;
 
   const MovieCredit({
     required this.tmdbId,
@@ -14,19 +15,25 @@ class MovieCredit {
     this.character = '',
     this.posterPath = '',
     this.voteAverage = 0,
+    this.isTv = false,
   });
 
   static const String _imageBase = 'https://image.tmdb.org/t/p';
 
   factory MovieCredit.fromTmdbJson(Map<String, dynamic> json) {
+    final isTv = json['media_type'] == 'tv';
     return MovieCredit(
       tmdbId: json['id'] as int? ?? 0,
-      title:
-          json['title'] as String? ?? json['original_title'] as String? ?? '',
-      year: _parseYear(json['release_date']),
+      title: json['title'] as String? ??
+          json['name'] as String? ??
+          json['original_title'] as String? ??
+          json['original_name'] as String? ??
+          '',
+      year: _parseYear(isTv ? json['first_air_date'] : json['release_date']),
       character: json['character'] as String? ?? '',
       posterPath: json['poster_path'] as String? ?? '',
       voteAverage: (json['vote_average'] as num?)?.toDouble() ?? 0,
+      isTv: isTv,
     );
   }
 
@@ -55,6 +62,7 @@ class PersonDetail {
   final String knownForDepartment;
   final List<MovieCredit> knownFor;
   final List<MovieCredit> movieCredits;
+  final List<MovieCredit> credits;
 
   const PersonDetail({
     required this.id,
@@ -70,6 +78,7 @@ class PersonDetail {
     this.knownForDepartment = '',
     this.knownFor = const [],
     this.movieCredits = const [],
+    this.credits = const [],
   });
 
   static const String _imageBase = 'https://image.tmdb.org/t/p';
@@ -88,11 +97,11 @@ class PersonDetail {
     final crewCredits = (credits['crew'] as List<dynamic>? ?? [])
         .map((c) => MovieCredit.fromTmdbJson(Map<String, dynamic>.from(c)))
         .toList();
-    final seen = <int>{};
-    final movieCredits = <MovieCredit>[];
+    final seen = <String>{};
+    final allCredits = <MovieCredit>[];
     for (final credit in castCredits + crewCredits) {
-      if (credit.tmdbId > 0 && seen.add(credit.tmdbId)) {
-        movieCredits.add(credit);
+      if (credit.tmdbId > 0 && seen.add('${credit.isTv}:${credit.tmdbId}')) {
+        allCredits.add(credit);
       }
     }
     final fallbackKnownFor =
@@ -113,7 +122,8 @@ class PersonDetail {
       profilePath: json['profile_path'] as String? ?? '',
       knownForDepartment: json['known_for_department'] as String? ?? '',
       knownFor: fallbackKnownFor,
-      movieCredits: movieCredits,
+      movieCredits: allCredits.where((credit) => !credit.isTv).toList(),
+      credits: allCredits,
     );
   }
 

@@ -56,6 +56,12 @@ class _Documents implements EncryptedDocumentStore {
   }
 }
 
+class _Changes implements EncryptedCloudChangeSource {
+  final controller = StreamController<String>.broadcast(sync: true);
+  @override
+  Stream<String> watch(String uid) => controller.stream;
+}
+
 void main() {
   test('unlocked session uploads all requested categories as encrypted data',
       () async {
@@ -104,7 +110,9 @@ void main() {
     ));
     await RadioFavoritesStore.toggle('profile', 'Private radio station');
     final documents = _Documents();
+    final changes = _Changes();
     final container = ProviderContainer(overrides: [
+      encryptedCloudChangesProvider.overrideWithValue(changes),
       storageServiceProvider.overrideWithValue(storage),
       currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
       encryptedScopeSynchronizerProvider.overrideWithValue(
@@ -158,8 +166,9 @@ void main() {
           entries: {...radio.entries, 'Another station': '1'},
         ),
       );
-      await container.read(encryptedActivitySyncProvider.notifier).syncAll();
-      await radioUpdated.future.timeout(const Duration(seconds: 5));
+      changes.controller
+          .add(EncryptedScopeStore.documentId('profile', 'radioFavorites'));
+      await radioUpdated.future.timeout(const Duration(seconds: 60));
       expect(container.read(radioFavoritesProvider),
           {'Private radio station', 'Another station'});
       radioListener.close();
@@ -167,6 +176,7 @@ void main() {
           isEmpty);
     } finally {
       container.dispose();
+      await changes.controller.close();
       await Hive.close();
       await dir.delete(recursive: true);
       restoreSecretStoreForTesting();

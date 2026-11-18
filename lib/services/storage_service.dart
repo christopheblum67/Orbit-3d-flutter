@@ -83,6 +83,35 @@ class StorageService {
     });
   }
 
+  Future<List<UserProfile>> clearProfilePins() =>
+      HiveSync.writeAsync(_profilesBox, (box) async {
+        final profiles = <UserProfile>[];
+        for (final key in box.keys.toList()) {
+          final value = box.get(key);
+          if (value is! Map) {
+            throw const FormatException(
+              'Une fiche de profil est illisible. Aucun PIN n’a été supprimé.',
+            );
+          }
+          profiles.add(UserProfile.fromMap(deepRetypeMap(value)));
+        }
+
+        final timestamp = DateTime.now();
+        final updated = profiles
+            .where((profile) => profile.hasPin)
+            .map((profile) => profile.copyWith(
+                  clearPin: true,
+                  updatedAt: timestamp,
+                ))
+            .toList();
+        if (updated.isNotEmpty) {
+          await box.putAll({
+            for (final profile in updated) profile.id: profile.toMap(),
+          });
+        }
+        return updated;
+      });
+
   Future<void> deleteProfile(String id) async {
     await HiveSync.writeAsync(_profilesBox, (box) => box.delete(id));
   }

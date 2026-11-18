@@ -8,7 +8,11 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart'
-    show tmdbServiceProvider;
+    show
+        currentProfileProvider,
+        profilesProvider,
+        storageServiceProvider,
+        tmdbServiceProvider;
 
 /// Code d'accès à l'écran des réglages sensibles.
 ///
@@ -95,6 +99,97 @@ class AdvancedSettingsScreen extends ConsumerStatefulWidget {
 
 class _AdvancedSettingsScreenState
     extends ConsumerState<AdvancedSettingsScreen> {
+  bool _removingProfilePins = false;
+
+  Future<void> _removeProfilePins() async {
+    if (_removingProfilePins) return;
+    var removalStarted = false;
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final profiles = await storage.getProfiles();
+      if (!mounted) return;
+      final count = profiles.where((profile) => profile.hasPin).length;
+      if (count == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun profil ne possède de code PIN.')),
+        );
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => DpadScope(
+          child: AlertDialog(
+            title: const Text('Supprimer les codes PIN des profils ?'),
+            content: Text(
+              'Les codes PIN seront retirés de $count profil(s). '
+              'Les profils et leurs données resteront sur cet appareil. '
+              'Les changements pourront être synchronisés avec les appareils '
+              'partagés dans le Cloud.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                autofocus: true,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                  foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Supprimer les PIN'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      setState(() => _removingProfilePins = true);
+      removalStarted = true;
+      final clearedProfiles = await storage.clearProfilePins();
+      if (!mounted) return;
+      final current = ref.read(currentProfileProvider);
+      if (current != null &&
+          clearedProfiles.any((profile) => profile.id == current.id)) {
+        ref.read(currentProfileProvider.notifier).setUserProfile(
+              current.copyWith(clearPin: true, updatedAt: DateTime.now()),
+            );
+      }
+      ref.invalidate(profilesProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            clearedProfiles.isEmpty
+                ? 'Aucun code PIN à supprimer.'
+                : 'Codes PIN supprimés de ${clearedProfiles.length} profil(s).',
+          ),
+        ),
+      );
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('suppression des codes PIN des profils'),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Impossible de supprimer les codes PIN. Réessayez.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && removalStarted) {
+        setState(() => _removingProfilePins = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
@@ -127,6 +222,38 @@ class _AdvancedSettingsScreenState
           const SizedBox(height: 24),
           SettingsSectionTitle(l.sectionTmdb),
           const TmdbApiKeyTile(),
+          const SizedBox(height: 24),
+          const SettingsSectionTitle('Protection des profils'),
+          Text(
+            'Retirez les codes PIN de tous les profils de cet appareil. '
+            'Les profils et leurs données ne seront pas supprimés.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton.tonalIcon(
+              onPressed: _removingProfilePins ? null : _removeProfilePins,
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.errorContainer,
+                foregroundColor: scheme.onErrorContainer,
+              ),
+              icon: _removingProfilePins
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.lock_open_rounded),
+              label: Text(
+                _removingProfilePins
+                    ? 'Suppression des PIN…'
+                    : 'Supprimer les codes PIN des profils',
+              ),
+            ),
+          ),
           const SizedBox(height: 24),
           SettingsSectionTitle(l.advancedStatus),
           _KeyStatus(

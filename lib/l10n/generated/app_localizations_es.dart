@@ -773,6 +773,51 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se puede reproducir esta película o episodio ahora. Reinténtalo o comprueba la conexión y el formato del archivo.';
 
   @override
+  String get greenScreenDetectedTitle => 'Problema de imagen detectado';
+
+  @override
+  String get externalPlayerLimitationsTitle =>
+      'Limitaciones de reproductores externos';
+
+  @override
+  String get externalPlayerLimitationsDescription =>
+      'Orbit no transmite las preferencias de audio y subtítulos a VLC ni a MX Player: selecciona las pistas en el reproductor externo. En series, el siguiente episodio solo se inicia automáticamente si MX Player confirma el final; de lo contrario, inícialo manualmente al volver a Orbit. Esto también se aplica al reproductor alternativo.';
+
+  @override
+  String get actorShowFilmography => 'Ver filmografía';
+
+  @override
+  String get actorFilmographyUnavailable => 'Filmografía no disponible.';
+
+  @override
+  String get actorCreditFilm => 'Película';
+
+  @override
+  String get actorCreditSeries => 'Serie';
+
+  @override
+  String actorCreditRole(String role) {
+    return 'Papel: $role';
+  }
+
+  @override
+  String get actorCreditTmdbUnavailable => 'Detalles de TMDB no disponibles.';
+
+  @override
+  String get actorCreditSynopsisUnavailable => 'Sinopsis no disponible.';
+
+  @override
+  String get actorCreditCatalogUnconfirmed =>
+      'No hay coincidencia confirmada en el catálogo.';
+
+  @override
+  String get actorCreditOpenCatalog => 'Ver en el catálogo';
+
+  @override
+  String get greenScreenDetectedMessage =>
+      'Se detectó un problema de imagen (pantalla verde). Es posible que el reproductor actual no pueda decodificar este flujo correctamente. Prueba otro reproductor en Ajustes > Reproductor > Motores de reproducción y vuelve a iniciar la reproducción.';
+
+  @override
   String get retrySearch => 'Reintentar búsqueda';
 
   @override
@@ -1333,6 +1378,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get avatarCategoryCharacters => 'Personajes';
+
+  @override
+  String get avatarCategorySuperheroes => 'Superhéroes';
+
+  @override
+  String get avatarCategoryAnimals => 'Animales';
+
+  @override
+  String get avatarCategoryFlowers => 'Flores';
 
   @override
   String get avatarCategorySmileys => 'Smileys';

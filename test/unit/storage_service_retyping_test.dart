@@ -108,4 +108,41 @@ void main() {
     expect(restored.pinHash, isNull);
     expect(restored.multiTvEnabled, isFalse);
   });
+
+  test('clearProfilePins removes all PINs while preserving profile data',
+      () async {
+    final hash = await ProfilePin.create('1234');
+    final protected = UserProfile(
+      id: 'protected',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: 'other',
+      favoriteGenres: const ['Action'],
+      pinHash: hash,
+    );
+    final unprotected = UserProfile(
+      id: 'unprotected',
+      firstName: 'Camille',
+      dateOfBirth: DateTime(1992),
+      gender: 'other',
+      favoriteGenres: const ['Drama'],
+    );
+    await storage.saveProfile(protected);
+    await storage.saveProfile(unprotected);
+
+    final cleared = await storage.clearProfilePins();
+    final profiles = await storage.getProfiles();
+
+    expect(cleared, hasLength(1));
+    expect(cleared.single.id, 'protected');
+    expect(profiles, hasLength(2));
+    final reloaded =
+        profiles.singleWhere((profile) => profile.id == 'protected');
+    expect(reloaded.hasPin, isFalse);
+    expect(reloaded.firstName, 'Alex');
+    expect(reloaded.favoriteGenres, ['Action']);
+    expect(
+        profiles.singleWhere((profile) => profile.id == 'unprotected').hasPin,
+        isFalse);
+  });
 }

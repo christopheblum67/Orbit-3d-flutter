@@ -174,6 +174,13 @@ class ApiService {
 
   void forgetSlowUrls() => _transport.forgetSlowUrls();
 
+  void onSubscriptionChanged() {
+    _subscriptionGeneration++;
+    _inFlight.clear();
+    forgetSlowUrls();
+    rateLimiter.onNewTarget();
+  }
+
   ApiService({
     ConditionalPlaylistCache? playlistCache,
     CatalogDiskCache? catalogCache,
@@ -298,8 +305,11 @@ class ApiService {
   ///
   /// Le regroupement se fait ICI, dans la couche réseau, et pas aux points
   /// d'appel : c'est le seul endroit où l'on est sûr de tout rabattre, y
-  /// compris les appelants futurs.
+  /// compris les appelants futurs. Les clés sont aussi isolées entre les
+  /// abonnements afin qu'une requête encore en cours sur l'ancien ne bloque pas
+  /// le chargement du nouvel abonnement.
   final Map<String, Future<Object?>> _inFlight = <String, Future<Object?>>{};
+  int _subscriptionGeneration = 0;
 
   /// Exécute [body] une seule fois par [key] tant qu'elle est en cours.
   ///
@@ -307,11 +317,12 @@ class ApiService {
   /// l'achèvement, y compris en cas d'erreur : un vol raté ne doit pas
   /// contaminer les tentatives suivantes.
   Future<T> _singleFlight<T>(String key, Future<T> Function() body) {
-    final existing = _inFlight[key];
+    final scopedKey = '$_subscriptionGeneration:$key';
+    final existing = _inFlight[scopedKey];
     if (existing != null) return existing.then((value) => value as T);
 
     final completer = Completer<T>();
-    _inFlight[key] = completer.future;
+    _inFlight[scopedKey] = completer.future;
 
     // `Future.sync` est indispensable : `body()` peut lever de façon
     // SYNCHRONE, avant de rendre son Future. Sans cet enveloppe, l'exception
@@ -320,11 +331,11 @@ class ApiService {
     // C'est un bug trouvé par un test, pas une précaution théorique.
     Future<T>.sync(body).then(
       (value) {
-        _inFlight.remove(key);
+        _inFlight.remove(scopedKey);
         completer.complete(value);
       },
       onError: (Object error, StackTrace stack) {
-        _inFlight.remove(key);
+        _inFlight.remove(scopedKey);
         completer.completeError(error, stack);
       },
     );
@@ -346,8 +357,7 @@ class ApiService {
       _singleFlight(key, body);
 
   Future<List<Channel>> fetchLiveChannels() {
-    // La clé inclut le type d'abonnement : changer d'abonnement doit produire
-    // une nouvelle requête, pas_share celle de l'ancien panel.
+    // Changer d'abonnement change la génération des clés single-flight.
     return _singleFlight('live_channels', () => _fetchLiveChannels());
   }
 

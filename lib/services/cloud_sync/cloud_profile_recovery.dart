@@ -102,6 +102,53 @@ class CloudProfileRecovery {
     return ProfileCatalogSnapshot(revision: revision, profiles: combined);
   }
 
+  Future<void> deleteCloudProfile(
+    String uid,
+    String passphrase,
+    String profileId,
+  ) async {
+    _checkAccount(uid);
+    final catalog = await load(uid, passphrase);
+    if (!catalog.profiles.containsKey(profileId)) {
+      throw StateError('Ce profil cloud n’existe plus.');
+    }
+    await _catalog.advanceGeneration(
+      uid: uid,
+      passphrase: passphrase,
+      reset: false,
+    );
+    _checkAccount(uid);
+    await _profileScopes?.deleteProfile(uid: uid, profileId: profileId);
+    _checkAccount(uid);
+    final remaining = Map<String, Map<String, dynamic>>.from(catalog.profiles)
+      ..remove(profileId);
+    await _catalog.save(
+      uid: uid,
+      passphrase: passphrase,
+      snapshot: ProfileCatalogSnapshot(
+        revision: catalog.revision,
+        profiles: remaining,
+      ),
+      checkSession: () => _checkAccount(uid),
+    );
+    _checkAccount(uid);
+  }
+
+  Future<void> resetCloud(String uid, String newPassphrase) async {
+    _checkAccount(uid);
+    if (newPassphrase.isEmpty) {
+      throw StateError('Saisissez un nouveau code cloud.');
+    }
+    await _catalog.advanceGeneration(
+      uid: uid,
+      passphrase: newPassphrase,
+      reset: true,
+    );
+    _checkAccount(uid);
+    await _catalog.deleteAllData(uid);
+    _checkAccount(uid);
+  }
+
   Future<void> restore(
     String uid,
     String passphrase,

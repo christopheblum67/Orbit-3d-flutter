@@ -595,7 +595,7 @@ class TmdbService {
   Future<PersonDetail?> getPersonDetail(int personId) async {
     if (!hasApiKey) return null;
 
-    final cacheKey = _cacheKey('person', personId.toString());
+    final cacheKey = _cacheKey('person_combined', personId.toString());
     final cached = _getCached(cacheKey, (d) {
       final person = d['person'] as Map<String, dynamic>? ?? {};
       final credits = d['credits'] as Map<String, dynamic>?;
@@ -609,7 +609,7 @@ class TmdbService {
         final detailResponse = await _dio.get('/person/$personId');
         if (detailResponse.data == null) return null;
         final creditsResponse =
-            await _dio.get('/person/$personId/movie_credits');
+            await _dio.get('/person/$personId/combined_credits');
         final credits = creditsResponse.data as Map<String, dynamic>? ??
             const <String, dynamic>{};
         final detail = PersonDetail.fromTmdbJson(
@@ -640,6 +640,7 @@ class TmdbService {
             posterPath: c.posterPath,
             year: c.year,
             rating: c.voteAverage,
+            isTv: c.isTv,
           ),
         )
         .toList();

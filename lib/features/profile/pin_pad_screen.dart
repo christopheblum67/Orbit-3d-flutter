@@ -173,97 +173,142 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
         ),
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _title,
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
-                              ),
-                      textAlign: TextAlign.center,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final textWidth = (constraints.maxWidth - 48).clamp(1.0, 432.0);
+            final defaultStyle = DefaultTextStyle.of(context).style;
+            double textHeight(String text, TextStyle? style) {
+              final painter = TextPainter(
+                text: TextSpan(text: text, style: defaultStyle.merge(style)),
+                textDirection: Directionality.of(context),
+                textScaler: MediaQuery.textScalerOf(context),
+                locale: Localizations.maybeLocaleOf(context),
+              )..layout(maxWidth: textWidth);
+              final height = painter.height;
+              painter.dispose();
+              return height;
+            }
+
+            final titleStyle =
+                Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    );
+            final subtitleStyle = Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: scheme.onSurfaceVariant);
+            const instruction = 'Après 4 chiffres, appuyez sur ✓ pour valider.';
+            final errorText = 'Code incorrect — '
+                '${_maxAttempts - _attempts} essai(s) restant(s)';
+            final reservedHeight = 16 +
+                textHeight(_title, titleStyle) +
+                8 +
+                textHeight(_subtitle, subtitleStyle) +
+                12 +
+                22 +
+                (_wrong
+                    ? 14 +
+                        textHeight(errorText,
+                            const TextStyle(fontWeight: FontWeight.w700))
+                    : 0) +
+                12 +
+                32 +
+                (_mode == PinPadMode.set
+                    ? 8 + textHeight(instruction, null)
+                    : 0);
+            final maxKeySize =
+                ((constraints.maxWidth - 64) / 3).clamp(1.0, 84.0);
+            final keySize = ((constraints.maxHeight - reservedHeight) / 4)
+                .clamp(48.0, 84.0)
+                .clamp(1.0, maxKeySize);
+            return Center(
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _title,
+                          style: titleStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _subtitle,
+                          style: subtitleStyle,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        _PinDots(filled: _digits.length, wrong: _wrong),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          child: _wrong
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: Text(
+                                    errorText,
+                                    style: TextStyle(
+                                      color: scheme.error,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildKeyGrid(keySize),
+                        if (_mode == PinPadMode.set) ...[
+                          const SizedBox(height: 8),
+                          const Text(instruction, textAlign: TextAlign.center),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 28),
-                    _PinDots(filled: _digits.length, wrong: _wrong),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
-                      child: _wrong
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 14),
-                              child: Text(
-                                'Code incorrect — '
-                                '${_maxAttempts - _attempts} essai(s) restant(s)',
-                                style: TextStyle(
-                                  color: scheme.error,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            )
-                          : const SizedBox(height: 40),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildKeyGrid(),
-                    if (_mode == PinPadMode.set) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                          'Après 4 chiffres, appuyez sur ✓ pour valider.',
-                          textAlign: TextAlign.center),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildKeyGrid() {
+  Widget _buildKeyGrid(double keySize) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildKeyRow(const ['1', '2', '3']),
-        _buildKeyRow(const ['4', '5', '6']),
-        _buildKeyRow(const ['7', '8', '9']),
+        _buildKeyRow(const ['1', '2', '3'], keySize),
+        _buildKeyRow(const ['4', '5', '6'], keySize),
+        _buildKeyRow(const ['7', '8', '9'], keySize),
         Padding(
-          padding: const EdgeInsets.only(top: 14),
+          padding: const EdgeInsets.only(top: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _PinKey(
                 label: Icons.backspace_outlined,
+                size: keySize,
                 autofocus: false,
                 onActivate: _erase,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               _PinKey(
                 label: '0',
+                size: keySize,
                 autofocus: false,
                 onActivate: () => _append('0'),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 8),
               _PinKey(
                 label: Icons.check_rounded,
+                size: keySize,
                 autofocus: false,
                 primary: true,
                 focusNode: _confirmFocus,
@@ -277,16 +322,17 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
     );
   }
 
-  Widget _buildKeyRow(List<String> digits) {
+  Widget _buildKeyRow(List<String> digits, double keySize) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           for (var i = 0; i < digits.length; i++) ...[
-            if (i > 0) const SizedBox(width: 14),
+            if (i > 0) const SizedBox(width: 8),
             _PinKey(
               label: digits[i],
+              size: keySize,
               autofocus: digits[i] == '1' && !_validated,
               onActivate: () => _append(digits[i]),
             ),
@@ -301,6 +347,7 @@ class _PinKey extends StatefulWidget {
   const _PinKey({
     required this.label,
     required this.onActivate,
+    required this.size,
     this.autofocus = false,
     this.primary = false,
     this.focusNode,
@@ -309,6 +356,7 @@ class _PinKey extends StatefulWidget {
 
   final Object label;
   final VoidCallback onActivate;
+  final double size;
   final bool autofocus;
   final bool primary;
   final FocusNode? focusNode;
@@ -336,6 +384,19 @@ class _PinKeyState extends State<_PinKey> {
       onFocusChange: (hasFocus) {
         if (hasFocus) HapticFeedback.selectionClick();
         setState(() => _focused = hasFocus);
+        if (hasFocus) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !_focused) return;
+            Scrollable.ensureVisible(
+              context,
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+            );
+            Scrollable.ensureVisible(
+              context,
+              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+            );
+          });
+        }
       },
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent &&
@@ -359,8 +420,8 @@ class _PinKeyState extends State<_PinKey> {
             curve: Curves.easeOut,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 140),
-              width: 84,
-              height: 84,
+              width: widget.size,
+              height: widget.size,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,

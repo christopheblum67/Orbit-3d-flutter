@@ -98,6 +98,28 @@ class AnalyticsRouteObserver extends NavigatorObserver {
   }
 }
 
+class _ProfileFormRoute extends StatefulWidget {
+  const _ProfileFormRoute({this.profileId});
+
+  final String? profileId;
+
+  @override
+  State<_ProfileFormRoute> createState() => _ProfileFormRouteState();
+}
+
+class _ProfileFormRouteState extends State<_ProfileFormRoute> {
+  final _editKey = GlobalKey<ProfileEditScreenState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return FormBackHandlerScope(
+      onWillPop: () async =>
+          (await _editKey.currentState?.confirmLeave()) ?? true,
+      child: ProfileEditScreen(key: _editKey, profileId: widget.profileId),
+    );
+  }
+}
+
 final GoRouter router = GoRouter(
   initialLocation: routerInitialLocation,
   observers: <NavigatorObserver>[AnalyticsRouteObserver(AnalyticsService())],
@@ -123,30 +145,12 @@ final GoRouter router = GoRouter(
     ),
     GoRoute(
       path: '/profile/create',
-      builder: (context, state) {
-        final editKey = GlobalKey<ProfileEditScreenState>();
-        return FormBackHandlerScope(
-          onWillPop: () async {
-            return (await editKey.currentState?.confirmLeave()) ?? true;
-          },
-          child: ProfileEditScreen(key: editKey),
-        );
-      },
+      builder: (context, state) => const _ProfileFormRoute(),
     ),
     GoRoute(
       path: '/profile/edit/:id',
-      builder: (context, state) {
-        final editKey = GlobalKey<ProfileEditScreenState>();
-        return FormBackHandlerScope(
-          onWillPop: () async {
-            return (await editKey.currentState?.confirmLeave()) ?? true;
-          },
-          child: ProfileEditScreen(
-            key: editKey,
-            profileId: state.pathParameters['id'],
-          ),
-        );
-      },
+      builder: (context, state) =>
+          _ProfileFormRoute(profileId: state.pathParameters['id']),
     ),
     GoRoute(
       path: '/profile/pin',

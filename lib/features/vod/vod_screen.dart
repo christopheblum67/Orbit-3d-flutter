@@ -111,10 +111,10 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     Set<String> recentIds,
   ) {
     return CatalogFilter(
-      categoryId: (_selectedCategoryId == 'fav' ||
-              _selectedCategoryId == 'recent')
-          ? ''
-          : _selectedCategoryId,
+      categoryId:
+          (_selectedCategoryId == 'fav' || _selectedCategoryId == 'recent')
+              ? ''
+              : _selectedCategoryId,
       hiddenCategories: hidden,
       onlyIds: _selectedCategoryId == 'fav'
           ? favIds
@@ -166,8 +166,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
       if (_dbScroll.hasClients) _dbScroll.jumpTo(0);
       Future.microtask(pager.reset);
     }
-    final countsSignature =
-        '$subKey|$revision|${catalogSetSignature(hidden)}|'
+    final countsSignature = '$subKey|$revision|${catalogSetSignature(hidden)}|'
         '${catalogSetSignature(favIds)}|${catalogSetSignature(recentIds)}';
     if (countsSignature != _dbCountsSignature) {
       _dbCountsSignature = countsSignature;
@@ -409,9 +408,6 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ),
       );
     }
-    if (dbKeyAsync.isLoading && !dbKeyAsync.hasValue) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
     _pager?.invalidate();
     _pager = null;
     _dbSignature = '';
@@ -471,7 +467,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             ...categories,
           ];
 
-          return _layout(context, l, railCategories, visibleMovies, enrichments, affinity);
+          return _layout(
+              context, l, railCategories, visibleMovies, enrichments, affinity);
         },
         loading: () => const LoadingState(
           message:
@@ -501,10 +498,13 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     final subscriptionId = subscription?.id;
     final changes = subscriptionId == null
         ? const CategoryChanges()
-        : ref.watch(categoryIncreasesProvider((
-              subscriptionId: subscriptionId,
-              catalog: CategoryCatalog.movies,
-            ))).value ?? const CategoryChanges();
+        : ref
+                .watch(categoryIncreasesProvider((
+                  subscriptionId: subscriptionId,
+                  catalog: CategoryCatalog.movies,
+                )))
+                .value ??
+            const CategoryChanges();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -553,51 +553,51 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                 child: visibleMovies.isEmpty && listLoading
                     ? const Center(child: CircularProgressIndicator())
                     : visibleMovies.isEmpty
-                    ? EmptyState(
-                        icon: Icons.movie_outlined,
-                        title: _selectedCategoryId == 'fav'
-                            ? l.noFavoriteMovies
-                            : _selectedCategoryId == 'recent'
-                                ? 'Aucun film récent'
-                                : _selectedCategoryId.isEmpty
-                                    ? 'Aucun résultat'
-                                    : 'Aucun film dans cette catégorie',
-                        message: _selectedCategoryId == 'fav'
-                            ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
-                            : _selectedCategoryId == 'recent'
-                                ? 'Les films regardés s\'afficheront ici.'
-                                : _selectedCategoryId.isEmpty
-                                    ? 'Aucun film ne correspond à cette recherche.'
-                                    : 'Aucun film ne correspond à cette catégorie.',
-                      )
-                    : GridView.builder(
-                        controller: scrollController,
-                        cacheExtent: 900,
-                        padding:
-                            const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        gridDelegate: mediaCardGridDelegate(
-                          context,
-                          childAspectRatio: 0.55,
-                        ),
-                        itemCount: visibleMovies.length,
-                        itemBuilder: (context, index) {
-                          final movie = visibleMovies[index];
-                          return _VodTile(
-                            key: scrollController == null
-                                ? null
-                                : ValueKey(movie.id),
-                            movie: movie,
-                            highlightTitle: changes.newIds.contains(
-                              movieChangeId(
-                                movie,
-                                isM3u: subscription?.type == SubscriptionType.m3u,
-                              ),
+                        ? EmptyState(
+                            icon: Icons.movie_outlined,
+                            title: _selectedCategoryId == 'fav'
+                                ? l.noFavoriteMovies
+                                : _selectedCategoryId == 'recent'
+                                    ? 'Aucun film récent'
+                                    : _selectedCategoryId.isEmpty
+                                        ? 'Aucun résultat'
+                                        : 'Aucun film dans cette catégorie',
+                            message: _selectedCategoryId == 'fav'
+                                ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
+                                : _selectedCategoryId == 'recent'
+                                    ? 'Les films regardés s\'afficheront ici.'
+                                    : _selectedCategoryId.isEmpty
+                                        ? 'Aucun film ne correspond à cette recherche.'
+                                        : 'Aucun film ne correspond à cette catégorie.',
+                          )
+                        : GridView.builder(
+                            controller: scrollController,
+                            cacheExtent: 900,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                            gridDelegate: mediaCardGridDelegate(
+                              context,
+                              childAspectRatio: 0.55,
                             ),
-                            enrichment: enrichments[movie.id],
-                            affinity: affinity,
-                          );
-                        },
-                      ),
+                            itemCount: visibleMovies.length,
+                            itemBuilder: (context, index) {
+                              final movie = visibleMovies[index];
+                              return _VodTile(
+                                key: scrollController == null
+                                    ? null
+                                    : ValueKey(movie.id),
+                                movie: movie,
+                                highlightTitle: changes.newIds.contains(
+                                  movieChangeId(
+                                    movie,
+                                    isM3u: subscription?.type ==
+                                        SubscriptionType.m3u,
+                                  ),
+                                ),
+                                enrichment: enrichments[movie.id],
+                                affinity: affinity,
+                              );
+                            },
+                          ),
               ),
             ],
           ),

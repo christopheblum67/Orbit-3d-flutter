@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +46,51 @@ class _Api extends ApiService {
   Future<List<Series>> fetchSeries() async => series;
 }
 
+class _WaitingCategoryCountTracker extends CategoryCountTracker {
+  _WaitingCategoryCountTracker(super.databasePath) : super.forTesting();
+
+  int _pending = 0;
+  Completer<void> _idle = Completer<void>()..complete();
+
+  Future<void> waitForWrites() => _idle.future;
+
+  @override
+  Future<void> record(
+    CategoryChangeKey key,
+    Iterable<CatalogItemIdentity> items, {
+    required bool refresh,
+  }) async {
+    if (_pending++ == 0) _idle = Completer<void>();
+    try {
+      await super.record(key, items, refresh: refresh);
+    } finally {
+      if (--_pending == 0) _idle.complete();
+    }
+  }
+}
+
+class _BlockingCategoryCountTracker extends CategoryCountTracker {
+  _BlockingCategoryCountTracker(this.release);
+
+  final Completer<void> release;
+  final Completer<void> started = Completer<void>();
+  final Completer<void> finished = Completer<void>();
+  int calls = 0;
+  int _completed = 0;
+
+  @override
+  Future<void> record(
+    CategoryChangeKey key,
+    Iterable<CatalogItemIdentity> items, {
+    required bool refresh,
+  }) async {
+    calls++;
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    if (++_completed == 2) finished.complete();
+  }
+}
+
 Channel _channel(String id, String category) => Channel(
       id: id,
       name: id,
@@ -87,11 +133,11 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
   late Directory dir;
-  late CategoryCountTracker tracker;
+  late _WaitingCategoryCountTracker tracker;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     dir = await Directory.systemTemp.createTemp('catalog_providers_test_');
-    tracker = CategoryCountTracker.forTesting(
+    tracker = _WaitingCategoryCountTracker(
       '${dir.path}${Platform.pathSeparator}changes.db',
     );
   });
@@ -110,8 +156,10 @@ void main() {
     expect(public.moviesCompactProvider, same(split.moviesCompactProvider));
     expect(public.seriesCompactProvider, same(split.seriesCompactProvider));
     expect(public.vodCategoriesProvider, same(split.vodCategoriesProvider));
-    expect(public.seriesCategoriesProvider, same(split.seriesCategoriesProvider));
-    expect(public.liveCategoriesFromM3UProvider, same(split.liveCategoriesFromM3UProvider));
+    expect(
+        public.seriesCategoriesProvider, same(split.seriesCategoriesProvider));
+    expect(public.liveCategoriesFromM3UProvider,
+        same(split.liveCategoriesFromM3UProvider));
   });
 
   test('M3U shares one playlist, preserves filters, categories and projections',
@@ -141,12 +189,16 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-    expect((await container.read(public.liveChannelsAllProvider.future)).length, 2);
+    expect((await container.read(public.liveChannelsAllProvider.future)).length,
+        2);
     expect(
-      (await container.read(public.liveChannelsProvider.future)).map((c) => c.id),
+      (await container.read(public.liveChannelsProvider.future))
+          .map((c) => c.id),
       ['a'],
     );
-    expect((await container.read(public.radioChannelsProvider.future)).single.id, 'radio');
+    expect(
+        (await container.read(public.radioChannelsProvider.future)).single.id,
+        'radio');
     expect(
       (await container.read(public.vodCategoriesProvider.future))
           .map((category) => (category.id, category.count)),
@@ -159,17 +211,22 @@ void main() {
     );
     await container.read(public.moviesProvider.future);
     await container.read(public.seriesProvider.future);
+    await tracker.waitForWrites();
     expect(
-      (await container.read(public.moviesCompactProvider.future)).map((m) => m.id),
+      (await container.read(public.moviesCompactProvider.future))
+          .map((m) => m.id),
       ['movie', 'other'],
     );
     expect(
-      (await container.read(public.seriesCompactProvider.future)).map((s) => s.id),
+      (await container.read(public.seriesCompactProvider.future))
+          .map((s) => s.id),
       ['visible-series', 'other-series'],
     );
-    final detail = container.listen(public.seriesInfoProvider(visible.id), (_, __) {});
+    final detail =
+        container.listen(public.seriesInfoProvider(visible.id), (_, __) {});
     addTearDown(detail.close);
-    expect(await container.read(public.seriesInfoProvider(visible.id).future), same(visible));
+    expect(await container.read(public.seriesInfoProvider(visible.id).future),
+        same(visible));
     expect(api.requests, 1);
   });
 
@@ -181,8 +238,12 @@ void main() {
       movies: [],
       series: [],
     ))
-      ..movies.addAll([_movie('shown-movie', 'shown'), _movie('hidden-movie', 'hidden')])
-      ..series.addAll([_series('shown-series', 'shown'), _series('hidden-series', 'hidden')]);
+      ..movies.addAll(
+          [_movie('shown-movie', 'shown'), _movie('hidden-movie', 'hidden')])
+      ..series.addAll([
+        _series('shown-series', 'shown'),
+        _series('hidden-series', 'hidden')
+      ]);
     final container = ProviderContainer(
       overrides: [
         categoryCountTrackerProvider.overrideWithValue(tracker),
@@ -201,14 +262,17 @@ void main() {
     addTearDown(container.dispose);
     final movies = await container.read(public.moviesProvider.future);
     final series = await container.read(public.seriesProvider.future);
+    await tracker.waitForWrites();
     expect(movies.map((movie) => movie.id), ['shown-movie']);
     expect(series.map((item) => item.id), ['shown-series']);
     expect(
-      (await container.read(public.moviesCompactProvider.future)).map((m) => m.id),
+      (await container.read(public.moviesCompactProvider.future))
+          .map((m) => m.id),
       ['shown-movie'],
     );
     expect(
-      (await container.read(public.seriesCompactProvider.future)).map((s) => s.id),
+      (await container.read(public.seriesCompactProvider.future))
+          .map((s) => s.id),
       ['shown-series'],
     );
     expect(api.requests, 0);
@@ -221,19 +285,62 @@ void main() {
     container.invalidate(public.seriesProvider);
     await container.read(public.moviesProvider.future);
     await container.read(public.seriesProvider.future);
+    await tracker.waitForWrites();
     expect(
       (await container.read(categoryIncreasesProvider((
         subscriptionId: 'xtream',
         catalog: CategoryCatalog.movies,
-      )).future)).categories,
+      )).future))
+          .categories,
       {'shown': (total: 2, added: 1)},
     );
     expect(
       (await container.read(categoryIncreasesProvider((
         subscriptionId: 'xtream',
         catalog: CategoryCatalog.series,
-      )).future)).categories,
+      )).future))
+          .categories,
       {'shown': (total: 2, added: 1)},
     );
+  });
+
+  test('catalog providers do not wait for novelty database writes', () async {
+    final release = Completer<void>();
+    final slowTracker = _BlockingCategoryCountTracker(release);
+    final api = _Api(const M3uPlaylist(
+      channels: [],
+      radios: [],
+      movies: [],
+      series: [],
+    ))
+      ..movies.add(_movie('movie', 'shown'))
+      ..series.add(_series('series', 'shown'));
+    final container = ProviderContainer(
+      overrides: [
+        categoryCountTrackerProvider.overrideWithValue(slowTracker),
+        public.apiServiceProvider.overrideWithValue(api),
+        public.activeSubscriptionProvider.overrideWithValue(
+          Subscription(
+            id: 'xtream',
+            name: 'Xtream',
+            type: SubscriptionType.xtream,
+            createdAt: DateTime(2020),
+          ),
+        ),
+        vodCategoryFilterProvider.overrideWith(_Filter.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final movies = await container.read(public.moviesProvider.future);
+    final series = await container.read(public.seriesProvider.future);
+
+    expect(movies.map((movie) => movie.id), ['movie']);
+    expect(series.map((item) => item.id), ['series']);
+    await slowTracker.started.future;
+    expect(slowTracker.calls, 2);
+
+    release.complete();
+    await slowTracker.finished.future;
   });
 }

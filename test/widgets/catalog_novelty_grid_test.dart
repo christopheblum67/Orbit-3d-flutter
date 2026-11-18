@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,6 +66,7 @@ void main() {
         episodes: const [],
         categoryId: 'cat',
       );
+      final unresolvedDatabaseKey = Completer<String?>();
       await tester.pumpWidget(ProviderScope(
         overrides: [
           activeSubscriptionProvider.overrideWithValue(Subscription(
@@ -76,7 +79,8 @@ void main() {
           vodCategoryFilterProvider.overrideWith(_Filters.new),
           subscriptionsProvider.overrideWithBuild((ref, notifier) => []),
           profileAffinityScorerProvider.overrideWith((ref) => null),
-          catalogDbKeyProvider(kind).overrideWith((ref) async => null),
+          catalogDbKeyProvider(kind)
+              .overrideWith((ref) => unresolvedDatabaseKey.future),
           categoryIncreasesProvider((subscriptionId: 'sub', catalog: catalog))
               .overrideWith((ref) async => const CategoryChanges(
                     categories: {'cat': (total: 2, added: 1)},
@@ -127,9 +131,16 @@ void main() {
           isFalse);
       final title = tester
           .widget<Text>(find.text(isMovie ? 'Nouveau film' : 'Nouvelle série'));
-      expect(title.style!.color, Colors.red.shade800);
+      expect(
+        title.style!.color,
+        Theme.of(tester.element(find.text(isMovie ? 'Nouveau film' : 'Nouvelle série')))
+            .colorScheme
+            .error,
+      );
       expect(title.style!.fontWeight, FontWeight.w900);
       expect(find.textContaining('(+1)', findRichText: true), findsOneWidget);
+      unresolvedDatabaseKey.complete(null);
+      await tester.pump();
     });
   }
 }

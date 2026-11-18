@@ -30,12 +30,16 @@ final catalogDbKeyProvider =
   final sub = ref.watch(activeSubscriptionProvider);
   if (sub == null || sub.type == SubscriptionType.m3u) return null;
   if (!ref.watch(contentFilterProvider).isPermissive) return null;
-  return traceCatalogStep(kind.name, 'database_key', () async {
-    final key =
-        await ref.watch(apiServiceProvider).resolveSubscriptionCacheKey();
-    if (key == null) return null;
-    final db = CatalogDb.instance;
-    if (!db.isAvailable) return null;
+  final api = ref.watch(apiServiceProvider);
+  final key = await traceCatalogStep(
+    kind.name,
+    'database_subscription_key',
+    api.resolveSubscriptionCacheKey,
+  );
+  if (key == null) return null;
+  final db = CatalogDb.instance;
+  if (!db.isAvailable) return null;
+  return traceCatalogStep(kind.name, 'database_lookup', () async {
     return await db.hasData(kind, key) ? key : null;
   });
 });

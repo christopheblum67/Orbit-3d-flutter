@@ -185,6 +185,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   _PlayerStatus _status = _PlayerStatus.loading;
   bool _handlingError = false;
   bool _externalPlaybackLaunched = false;
+  int? _externalSession;
+  bool _externalCompleted = false;
+  StreamSubscription<ExternalPlaybackResult>? _externalResultsSubscription;
+  bool _greenScreenDetected = false;
   late final PlaybackProgressWriter _progressWriter;
   late final SubtitleController _subtitleController;
   late final WatchedEpisodesNotifier _watchedEpisodes;
@@ -268,6 +272,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _subtitleController = ref.read(subtitleControllerProvider);
     _watchedEpisodes = ref.read(watchedEpisodesProvider.notifier);
     _checkpoint = PlaybackCheckpoint(widget.initialPositionMs);
+    _externalResultsSubscription = externalPlaybackResults.listen((result) {
+      if (!mounted || result.session != _externalSession) return;
+      _externalSession = null;
+      _externalCompleted = result.completed;
+      if (_externalPlaybackLaunched && result.completed) _offerNextEpisode();
+    });
     WidgetsBinding.instance.addObserver(this);
     // Contexte de découverte des sous-titres pour le contenu lu. Renseigné
     // ici (et non au moment de l'appui sur l'icône) pour que la feuille puisse
@@ -329,6 +339,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void dispose() {
     _setKeepScreenOn(false);
+    _externalSession = null;
+    unawaited(_externalResultsSubscription?.cancel());
     _embeddedScanner.stop();
     _refreshLease.release();
     WidgetsBinding.instance.removeObserver(this);
@@ -508,6 +520,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _handlingError = false;
     _autoRecoveryAttempts = 0;
     _externalPlaybackLaunched = false;
+    _externalSession = null;
+    _externalCompleted = false;
+    _nextEpisodeTimer?.cancel();
+    _nextEpisode = null;
+    _greenScreenDetected = false;
     _lastErrorDescription = null;
     _startAttempt();
     _startPreload();
@@ -757,15 +774,35 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<bool> _launchConfiguredExternal(PlayerEngine engine) async {
-    return launchExternalPlayback(
+    final session = newExternalPlaybackSession();
+    _externalSession = session;
+    _externalCompleted = false;
+    final launched = await launchExternalPlayback(
       engine: engine,
       url: _activeStreamUrl,
+      session: session,
     );
+    if (!launched && _externalSession == session) _externalSession = null;
+    return launched;
   }
 
   void _showExternalPlaybackState() {
     _externalPlaybackLaunched = true;
     _setStatus(_PlayerStatus.error);
+    if (_externalCompleted) _offerNextEpisode();
+  }
+
+  void _onGreenScreenDetected() {
+    if (!mounted || _status != _PlayerStatus.ready || _greenScreenDetected) {
+      return;
+    }
+
+    _greenScreenDetected = true;
+    _saveProgress(preserveOnError: true);
+    final controller = _controller;
+    _controller = null;
+    _setStatus(_PlayerStatus.error);
+    if (controller != null) unawaited(_disposeController(controller));
   }
 
   Future<bool> _tryPlay(int gen, String url) async {
@@ -1012,8 +1049,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (mounted) setState(() {});
     }
     if (controller != null && !controller.value.hasError &&
-        controller.value.isCompleted &&
-        !_completionHandled && widget.contentType == PlaybackContentType.series) {
+        controller.value.isCompleted && !_completionHandled &&
+        widget.contentType == PlaybackContentType.series) {
       _completionHandled = true;
       _offerNextEpisode();
     }
@@ -1097,7 +1134,29 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _cancelNextEpisode() {
     _nextEpisodeTimer?.cancel();
     setState(() => _nextEpisode = null);
-    _focusNode.requestFocus();
+    if (_externalPlaybackLaunched) {
+      _nextEpisodeFocus.requestFocus();
+    } else {
+      _focusNode.requestFocus();
+    }
+  }
+
+  Episode? get _externalNextEpisode {
+    final series = widget.series;
+    final episode = widget.episode;
+    if (widget.contentType != PlaybackContentType.series ||
+        series == null ||
+        episode == null) {
+      return null;
+    }
+    return nextPlayableEpisode(series, episode);
+  }
+
+  void _playExternalNextEpisode() {
+    final next = _externalNextEpisode;
+    if (next == null) return;
+    _nextEpisode = next;
+    unawaited(_playNextEpisode());
   }
 
   /// Ré-applique la piste audio choisie précédemment pour ce contenu
@@ -1296,6 +1355,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     final gen = ++_generation;
     _autoRecoveryAttempts = 0;
     _externalPlaybackLaunched = false;
+    _greenScreenDetected = false;
     _decoderModeOverride = null;
     _checkpoint.reset();
     _resumePlaying = true;
@@ -1524,6 +1584,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       _handlingError = false;
       _autoRecoveryAttempts = 0;
       _externalPlaybackLaunched = false;
+      _externalSession = null;
+      _externalCompleted = false;
+      _nextEpisodeTimer?.cancel();
+      _nextEpisode = null;
+      _greenScreenDetected = false;
       _adjacentPlayers.clear();
       _disposeActive();
       _setStatus(_PlayerStatus.loading);
@@ -1641,6 +1706,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Future<void> _cleanup() {
     _generation++;
+    _externalSession = null;
     _embeddedScanner.stop();
     _restoreSystemUi();
     _footerTimer?.cancel();
@@ -1745,10 +1811,25 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                     ),
               _PlayerStatus.error => PlayerErrorView(
                   externalPlaybackLaunched: _externalPlaybackLaunched,
+                  greenScreenDetected: _greenScreenDetected,
                   errorDescription: _lastErrorDescription,
                   contentType: widget.contentType,
                   onRetry: _retry,
                   onProviderWebsite: _openProviderWebsite,
+                  nextEpisodeTitle: _externalNextEpisode?.title,
+                  nextEpisodeSeconds: _nextEpisodeTimer?.isActive == true
+                      ? _nextEpisodeSeconds
+                      : null,
+                  nextEpisodeFocus: _nextEpisodeFocus,
+                  cancelNextEpisodeFocus: _cancelNextEpisodeFocus,
+                  onNextEpisode: _externalPlaybackLaunched &&
+                          _externalNextEpisode != null
+                      ? _playExternalNextEpisode
+                      : null,
+                  onCancelNextEpisode: _externalPlaybackLaunched &&
+                          _nextEpisodeTimer?.isActive == true
+                      ? _cancelNextEpisode
+                      : null,
                 ),
               _PlayerStatus.ready => player != null
                   ? Stack(
@@ -1777,6 +1858,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                               onTap: _showFooterBar,
                               streamUrl: _activeStreamUrl,
                               onRetry: _retry,
+                              onGreenScreenDetected: _onGreenScreenDetected,
                               watchBuffering:
                                   widget.contentType != PlaybackContentType.live,
                             ),
@@ -1904,5 +1986,4 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       ),
     );
   }
-
 }

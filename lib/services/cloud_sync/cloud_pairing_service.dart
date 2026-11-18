@@ -99,10 +99,17 @@ class TvPairingSession {
 }
 
 class PairingResult {
-  const PairingResult(this.uid, this.phrase, {this.cleanupFailed = false});
+  const PairingResult(
+    this.uid,
+    this.phrase, {
+    this.cleanupFailed = false,
+    this.profileIds = const {},
+  });
+
   final String uid;
   final String phrase;
   final bool cleanupFailed;
+  final Set<String> profileIds;
 }
 
 class CloudPairingService {
@@ -183,11 +190,36 @@ class CloudPairingService {
   Future<Map<String, String>> encryptPhrase(
     PairingInvitation invite,
     String phrase,
+  ) =>
+      _encryptPayload(invite, phrase, 'phrase');
+
+  @visibleForTesting
+  Future<Map<String, String>> encryptProfileIds(
+    PairingInvitation invite,
+    Iterable<String> profileIds,
   ) async {
-    final data = utf8.encode(phrase);
+    final ids = profileIds.toList();
+    if (ids.length > 100 ||
+        ids.toSet().length != ids.length ||
+        ids.any((id) =>
+            id.isEmpty ||
+            id.length > 128 ||
+            id.contains('/') ||
+            id.contains(':'))) {
+      throw StateError('La sélection des profils est invalide.');
+    }
+    return _encryptPayload(invite, jsonEncode(ids), 'profiles');
+  }
+
+  Future<Map<String, String>> _encryptPayload(
+    PairingInvitation invite,
+    String plaintext,
+    String kind,
+  ) async {
+    final data = utf8.encode(plaintext);
     if (data.isEmpty || data.length > 2048) {
       throw StateError(
-        'La phrase secrète doit contenir entre 1 et 2048 octets.',
+        'Les données de couplage doivent contenir entre 1 et 2048 octets.',
       );
     }
     final ephemeral = await _exchange.newKeyPair();
@@ -198,7 +230,7 @@ class CloudPairingService {
         type: KeyPairType.x25519,
       ),
     );
-    const label = 'orbit-pairing/v1/phrase';
+    final label = 'orbit-pairing/v1/$kind';
     final key = await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
       secretKey: shared,
       nonce: _decode(invite.secret, length: 32),
@@ -249,18 +281,17 @@ class CloudPairingService {
     );
   }
 
-  Future<void> approve(
-    PairingInvitation invite,
-    String phrase,
-    String uid,
-  ) async {
+  Future<void> approve(PairingInvitation invite, String phrase, String uid,
+      {Iterable<String> profileIds = const []}) async {
     _checkUser(uid, anonymous: false);
     final encrypted = await encryptPhrase(invite, phrase);
+    final encryptedProfiles = await encryptProfileIds(invite, profileIds);
     _checkUser(uid, anonymous: false);
     await _call('approveTvPairing', {
       'secret': invite.secret,
       'publicKey': invite.publicKey,
       'phrase': encrypted,
+      'profiles': encryptedProfiles,
     });
     _checkUser(uid, anonymous: false);
   }
@@ -298,6 +329,12 @@ class CloudPairingService {
     if (phrase.isEmpty || token.isEmpty) {
       throw const FormatException('Données de couplage invalides.');
     }
+    final rawProfiles = response['profiles'];
+    final profileIds = rawProfiles == null
+        ? <String>{}
+        : _decodeProfileIds(
+            await decrypt(rawProfiles, session, 'profiles'),
+          );
     _checkUser(session.ownerUid, anonymous: true);
     if (targetAuth.currentUser != null) {
       throw StateError('Le compte cloud a changé.');
@@ -312,7 +349,26 @@ class CloudPairingService {
     if (targetAuth.currentUser?.uid != uid) {
       throw StateError('Le compte cloud a changé.');
     }
-    return PairingResult(uid, phrase);
+    return PairingResult(uid, phrase, profileIds: profileIds);
+  }
+
+  Set<String> _decodeProfileIds(String plaintext) {
+    final decoded = jsonDecode(plaintext);
+    if (decoded is! List ||
+        decoded.length > 100 ||
+        decoded.any((id) =>
+            id is! String ||
+            id.isEmpty ||
+            id.length > 128 ||
+            id.contains('/') ||
+            id.contains(':'))) {
+      throw const FormatException('Sélection des profils invalide.');
+    }
+    final ids = decoded.cast<String>();
+    if (ids.toSet().length != ids.length) {
+      throw const FormatException('Sélection des profils invalide.');
+    }
+    return Set.unmodifiable(ids);
   }
 
   Future<void> cancel(TvPairingSession session) async {

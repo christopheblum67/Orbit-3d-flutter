@@ -13,6 +13,7 @@ void main() {
     Future<void> render({
       required String? error,
       required bool external,
+      bool greenScreenDetected = false,
       required PlaybackContentType contentType,
     }) =>
         tester.pumpWidget(
@@ -24,6 +25,7 @@ void main() {
               body: PlayerErrorView(
                 errorDescription: error,
                 externalPlaybackLaunched: external,
+                greenScreenDetected: greenScreenDetected,
                 contentType: contentType,
                 onRetry: () {},
                 onProviderWebsite: () => opened++,
@@ -60,5 +62,13 @@ void main() {
     );
     expect(find.text(l.playbackUnavailableTitle), findsOneWidget);
     expect(find.text(l.openProviderWebsite), findsNothing);
+    await render(
+      error: null,
+      external: false,
+      greenScreenDetected: true,
+      contentType: PlaybackContentType.vod,
+    );
+    expect(find.text(l.greenScreenDetectedTitle), findsOneWidget);
+    expect(find.text(l.greenScreenDetectedMessage), findsOneWidget);
   });
 }

@@ -39,6 +39,7 @@ class _PlayerEngineConfigSheetState
 
   // Focus nodes for TV/D-pad navigation
   final _closeFocus = FocusNode();
+  final _externalInfoFocus = FocusNode();
   final _cancelFocus = FocusNode();
   final _saveFocus = FocusNode();
   final _vodSubtitleFocus = FocusNode();
@@ -54,6 +55,7 @@ class _PlayerEngineConfigSheetState
   @override
   void dispose() {
     _closeFocus.dispose();
+    _externalInfoFocus.dispose();
     _cancelFocus.dispose();
     _saveFocus.dispose();
     _vodSubtitleFocus.dispose();
@@ -106,6 +108,26 @@ class _PlayerEngineConfigSheetState
 
   void _setVodSubtitleMode(VodSubtitleMode mode) {
     setState(() => _vodSubtitleModeDraft = mode);
+  }
+
+  void _showExternalPlayerInfo() {
+    final l = AppLocalizations.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.externalPlayerLimitationsTitle),
+        content: SingleChildScrollView(
+          child: Text(l.externalPlayerLimitationsDescription),
+        ),
+        actions: [
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l.close),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -180,6 +202,7 @@ class _PlayerEngineConfigSheetState
         child: DropdownButton<PlayerEngine>(
           value: value,
           isDense: true,
+          isExpanded: true,
           focusNode: focusNode,
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           items: items,
@@ -229,6 +252,7 @@ class _PlayerEngineConfigSheetState
         child: DropdownButton<T>(
           value: value,
           isDense: true,
+          isExpanded: true,
           focusNode: focusNode,
           borderRadius: BorderRadius.circular(AppConstants.radiusLg),
           items: items,
@@ -244,6 +268,7 @@ class _PlayerEngineConfigSheetState
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     // Build dropdown items once
     final dropdownItems = [
@@ -252,6 +277,7 @@ class _PlayerEngineConfigSheetState
           value: e,
           child: Text(
             e.label,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
               color: e.isExternal ? null : scheme.primary,
@@ -292,7 +318,38 @@ class _PlayerEngineConfigSheetState
                       ),
                     ),
                     Focus(
-                      focusNode: _closeFocus,
+                      canRequestFocus: false,
+                      skipTraversal: true,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                          if (event.logicalKey ==
+                                  (isRtl
+                                      ? LogicalKeyboardKey.arrowLeft
+                                      : LogicalKeyboardKey.arrowRight) ||
+                              event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                            _requestFocus(_closeFocus);
+                            return KeyEventResult.handled;
+                          }
+                          if (event.logicalKey ==
+                              LogicalKeyboardKey.arrowDown) {
+                            _requestFocus(
+                              _primaryFocusNodes[PlaybackContentType.live]!,
+                            );
+                            return KeyEventResult.handled;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: IconButton(
+                        focusNode: _externalInfoFocus,
+                        tooltip: l.externalPlayerLimitationsTitle,
+                        onPressed: _showExternalPlayerInfo,
+                        icon: const Icon(Icons.info_outline),
+                      ),
+                    ),
+                    Focus(
+                      canRequestFocus: false,
+                      skipTraversal: true,
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent &&
                             (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -300,6 +357,14 @@ class _PlayerEngineConfigSheetState
                                 event.logicalKey ==
                                     LogicalKeyboardKey.gameButtonA)) {
                           Navigator.of(context).pop();
+                          return KeyEventResult.handled;
+                        }
+                        if (event is KeyDownEvent &&
+                            event.logicalKey ==
+                                (isRtl
+                                    ? LogicalKeyboardKey.arrowRight
+                                    : LogicalKeyboardKey.arrowLeft)) {
+                          _requestFocus(_externalInfoFocus);
                           return KeyEventResult.handled;
                         }
                         if (event is KeyDownEvent &&
@@ -317,6 +382,7 @@ class _PlayerEngineConfigSheetState
                         return KeyEventResult.ignored;
                       },
                       child: IconButton(
+                        focusNode: _closeFocus,
                         tooltip: 'Annuler',
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
@@ -406,28 +472,34 @@ class _PlayerEngineConfigSheetState
                             const Icon(Icons.memory_outlined, size: 18),
                             const SizedBox(width: 10),
                             const Expanded(child: Text('Décodage vidéo')),
-                            _buildTvSubtitleDropdownButton<VideoDecoderMode>(
-                              focusNode: _decoderFocus,
-                              nextFocusNode: _cancelFocus,
-                              prevFocusNode: _fallbackFocusNodes[
-                                  PlaybackContentType.replay]!,
-                              value: _decoderModeDraft,
-                              onChanged: (mode) {
-                                if (_decoderLoaded) {
-                                  setState(() => _decoderModeDraft = mode);
-                                }
-                              },
-                              items: const [
-                                DropdownMenuItem(
-                                    value: VideoDecoderMode.auto,
-                                    child: Text('Auto (recommandé)')),
-                                DropdownMenuItem(
-                                    value: VideoDecoderMode.hardware,
-                                    child: Text('Matériel')),
-                                DropdownMenuItem(
-                                    value: VideoDecoderMode.software,
-                                    child: Text('Logiciel')),
-                              ],
+                            Expanded(
+                              child: _buildTvSubtitleDropdownButton<
+                                  VideoDecoderMode>(
+                                focusNode: _decoderFocus,
+                                nextFocusNode: _cancelFocus,
+                                prevFocusNode: _fallbackFocusNodes[
+                                    PlaybackContentType.replay]!,
+                                value: _decoderModeDraft,
+                                onChanged: (mode) {
+                                  if (_decoderLoaded) {
+                                    setState(() => _decoderModeDraft = mode);
+                                  }
+                                },
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: VideoDecoderMode.auto,
+                                      child: Text('Auto (recommandé)',
+                                          overflow: TextOverflow.ellipsis)),
+                                  DropdownMenuItem(
+                                      value: VideoDecoderMode.hardware,
+                                      child: Text('Matériel',
+                                          overflow: TextOverflow.ellipsis)),
+                                  DropdownMenuItem(
+                                      value: VideoDecoderMode.software,
+                                      child: Text('Logiciel',
+                                          overflow: TextOverflow.ellipsis)),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -456,7 +528,8 @@ class _PlayerEngineConfigSheetState
                   children: [
                     Expanded(
                       child: Focus(
-                        focusNode: _cancelFocus,
+                        canRequestFocus: false,
+                        skipTraversal: true,
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent &&
                               (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -482,6 +555,7 @@ class _PlayerEngineConfigSheetState
                           return KeyEventResult.ignored;
                         },
                         child: OutlinedButton.icon(
+                          focusNode: _cancelFocus,
                           onPressed: () => Navigator.of(context).pop(),
                           icon: const Icon(Icons.close),
                           label: Text(l.cancel),
@@ -491,7 +565,8 @@ class _PlayerEngineConfigSheetState
                     const SizedBox(width: 12),
                     Expanded(
                       child: Focus(
-                        focusNode: _saveFocus,
+                        canRequestFocus: false,
+                        skipTraversal: true,
                         onKeyEvent: (node, event) {
                           if (event is KeyDownEvent &&
                               (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -517,6 +592,7 @@ class _PlayerEngineConfigSheetState
                           return KeyEventResult.ignored;
                         },
                         child: FilledButton.icon(
+                          focusNode: _saveFocus,
                           onPressed: _save,
                           icon: const Icon(Icons.save_outlined),
                           label: Text(l.save),
@@ -591,15 +667,15 @@ class _TypeSection extends StatelessWidget {
   static const _subtitleModeItems = <DropdownMenuItem<VodSubtitleMode>>[
     DropdownMenuItem(
       value: VodSubtitleMode.defaultSelection,
-      child: Text('Par défaut'),
+      child: Text('Par défaut', overflow: TextOverflow.ellipsis),
     ),
     DropdownMenuItem(
       value: VodSubtitleMode.disabled,
-      child: Text('Sans sous-titres'),
+      child: Text('Sans sous-titres', overflow: TextOverflow.ellipsis),
     ),
     DropdownMenuItem(
       value: VodSubtitleMode.forcedOnly,
-      child: Text('Sous-titres forcés'),
+      child: Text('Sous-titres forcés', overflow: TextOverflow.ellipsis),
     ),
   ];
 
@@ -718,13 +794,15 @@ class _EngineRow extends StatelessWidget {
           Expanded(
             child: Text(label, style: const TextStyle(fontSize: 13)),
           ),
-          buildTvDropdown(
-            focusNode: focusNode,
-            nextFocusNode: nextFocusNode,
-            prevFocusNode: prevFocusNode,
-            value: value,
-            onChanged: onChanged,
-            items: dropdownItems,
+          Expanded(
+            child: buildTvDropdown(
+              focusNode: focusNode,
+              nextFocusNode: nextFocusNode,
+              prevFocusNode: prevFocusNode,
+              value: value,
+              onChanged: onChanged,
+              items: dropdownItems,
+            ),
           ),
         ],
       ),
@@ -772,13 +850,15 @@ class _SubtitleModeRow extends StatelessWidget {
             const Expanded(
               child: Text('Sous-titres VOD', style: TextStyle(fontSize: 13)),
             ),
-            buildTvDropdown(
-              focusNode: focusNode,
-              nextFocusNode: nextFocusNode,
-              prevFocusNode: prevFocusNode,
-              value: value,
-              onChanged: onChanged,
-              items: items,
+            Expanded(
+              child: buildTvDropdown(
+                focusNode: focusNode,
+                nextFocusNode: nextFocusNode,
+                prevFocusNode: prevFocusNode,
+                value: value,
+                onChanged: onChanged,
+                items: items,
+              ),
             ),
           ],
         ),

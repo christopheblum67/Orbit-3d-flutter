@@ -10,6 +10,31 @@ import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
+import 'package:orbit_3d_flutter/services/xtream_url_builder.dart';
+
+bool _sameSubscriptionSource(Subscription a, Subscription b) {
+  if (a.id == b.id || a.type != b.type) return false;
+  final aUrl = a.type == SubscriptionType.xtream
+      ? XtreamUrlBuilder.trimBaseUrl(a.baseUrl ?? '')
+      : (a.m3uUrl ?? '').trim();
+  final bUrl = b.type == SubscriptionType.xtream
+      ? XtreamUrlBuilder.trimBaseUrl(b.baseUrl ?? '')
+      : (b.m3uUrl ?? '').trim();
+  final uri = Uri.tryParse(aUrl);
+  if (aUrl != bUrl ||
+      uri == null ||
+      !['http', 'https'].contains(uri.scheme) ||
+      uri.host.isEmpty) {
+    return false;
+  }
+  if (a.type == SubscriptionType.m3u) return true;
+  return a.username != null &&
+      a.username!.trim().isNotEmpty &&
+      a.password != null &&
+      a.password!.isNotEmpty &&
+      a.username == b.username &&
+      a.password == b.password;
+}
 
 class SubscriptionsScreen extends ConsumerStatefulWidget {
   const SubscriptionsScreen({super.key});
@@ -48,6 +73,10 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     final l = AppLocalizations.of(context);
     final subs = ref.watch(subscriptionsProvider);
     final activeId = ref.watch(activeSubscriptionProvider)?.id;
+    final duplicateIds = <String>{
+      for (final sub in subs)
+        if (subs.any((other) => _sameSubscriptionSource(sub, other))) sub.id,
+    };
     final connectionError =
         GoRouterState.of(context).uri.queryParameters['connectionError'] == '1';
 
@@ -92,12 +121,32 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                 ],
                 const _CategoryFilterInfoBanner(),
                 const SizedBox(height: 12),
+                if (duplicateIds.isNotEmpty) ...[
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.content_copy_rounded),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Doublon possible : plusieurs abonnements ont la '
+                              'même configuration. Aucun n’a été supprimé ; '
+                              'leurs favoris peuvent être différents.',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Align(
                   alignment: Alignment.center,
                   child: OutlinedButton.icon(
-                    onPressed: activeId == null || _refreshing
-                        ? null
-                        : _forceRefresh,
+                    onPressed:
+                        activeId == null || _refreshing ? null : _forceRefresh,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     label: const Text(
                       'Forcer la mise à jour de l’abonnement actif',
@@ -121,7 +170,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                   alignment: WrapAlignment.center,
                   spacing: 44,
                   runSpacing: 40,
-                  children: _buildSubCards(context, ref, subs, activeId),
+                  children: _buildSubCards(
+                      context, ref, subs, activeId, duplicateIds),
                 ),
               ],
             ),
@@ -133,6 +183,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     WidgetRef ref,
     List<Subscription> subs,
     String? activeId,
+    Set<String> duplicateIds,
   ) {
     return [
       for (var index = 0; index < subs.length; index++) ...[
@@ -143,6 +194,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             return _SubscriptionCard(
               subscription: sub,
               isActive: isActive,
+              isPossibleDuplicate: duplicateIds.contains(sub.id),
               onTap: () async {
                 if (!isActive) {
                   await _activateSubscription(sub);
@@ -419,6 +471,7 @@ class _CategoryFilterInfoBanner extends StatelessWidget {
 class _SubscriptionCard extends ConsumerWidget {
   final Subscription subscription;
   final bool isActive;
+  final bool isPossibleDuplicate;
   final VoidCallback onTap;
   final Future<void> Function() onTest;
   final VoidCallback onEdit;
@@ -427,6 +480,7 @@ class _SubscriptionCard extends ConsumerWidget {
   const _SubscriptionCard({
     required this.subscription,
     required this.isActive,
+    required this.isPossibleDuplicate,
     required this.onTap,
     required this.onTest,
     required this.onEdit,
@@ -458,7 +512,8 @@ class _SubscriptionCard extends ConsumerWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppConstants.radiusLg),
         color: scheme.surfaceContainerLowest.withValues(alpha: 0.5),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
+        border:
+            Border.all(color: scheme.outlineVariant.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -470,7 +525,8 @@ class _SubscriptionCard extends ConsumerWidget {
               child: Semantics(
                 button: true,
                 label: 'Abonnement ${subscription.name}'
-                    '${isActive ? ', actif' : ''}',
+                    '${isActive ? ', actif' : ''}'
+                    '${isPossibleDuplicate ? ', doublon possible' : ''}',
                 child: Container(
                   width: 240,
                   height: 240,
@@ -503,13 +559,25 @@ class _SubscriptionCard extends ConsumerWidget {
                         size: 30,
                         color: scheme.primary,
                       ),
-                      Text(
-                        isXtream ? 'XTREAM' : 'M3U',
-                        style: textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isXtream ? 'XTREAM' : 'M3U',
+                            style: textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (isPossibleDuplicate) ...[
+                            const SizedBox(width: 6),
+                            const Tooltip(
+                              message: 'Doublon possible',
+                              child: Icon(Icons.content_copy_rounded, size: 18),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -745,7 +813,8 @@ class _AddedSubscriptionDialogState
         stackTrace: st,
       );
       if (mounted) {
-        setState(() => _result = 'Impossible de terminer le test de connexion.');
+        setState(
+            () => _result = 'Impossible de terminer le test de connexion.');
       }
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -785,7 +854,8 @@ class _AddedSubscriptionDialogState
               const SizedBox(height: 8),
               TvFocus(
                 focusNode: _activateFocus,
-                onActivate: _testing ? null : () => Navigator.pop(context, true),
+                onActivate:
+                    _testing ? null : () => Navigator.pop(context, true),
                 child: ExcludeFocus(
                   child: FilledButton(
                     onPressed:

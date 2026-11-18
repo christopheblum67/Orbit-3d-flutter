@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import io.flutter.plugin.common.StandardMessageCodec;
 import io.flutter.plugin.platform.PlatformView;
 import io.flutter.plugin.platform.PlatformViewFactory;
+import java.util.Map;
 
 /**
  * Vue native SurfaceView pour le rendu vidéo. Contrairement à la texture Flutter, la surface est
@@ -24,28 +25,38 @@ final class SurfaceViewFactory extends PlatformViewFactory {
   static final String VIEW_TYPE = "orbit/video_surface_view";
 
   private final PlayerLookup lookup;
+  private final Map<Long, SurfaceView> surfaceViews;
 
-  SurfaceViewFactory(@NonNull PlayerLookup lookup) {
+  SurfaceViewFactory(
+      @NonNull PlayerLookup lookup, @NonNull Map<Long, SurfaceView> surfaceViews) {
     super(StandardMessageCodec.INSTANCE);
     this.lookup = lookup;
+    this.surfaceViews = surfaceViews;
   }
 
   @NonNull
   @Override
   public PlatformView create(Context context, int viewId, @Nullable Object args) {
     long playerId = args instanceof Number ? ((Number) args).longValue() : -1L;
-    return new Holder(context, playerId, lookup);
+    return new Holder(context, playerId, lookup, surfaceViews);
   }
 
   private static final class Holder implements PlatformView, SurfaceHolder.Callback {
     private final SurfaceView view;
     private final long playerId;
     private final PlayerLookup lookup;
+    private final Map<Long, SurfaceView> surfaceViews;
 
-    Holder(Context context, long playerId, PlayerLookup lookup) {
+    Holder(
+        Context context,
+        long playerId,
+        PlayerLookup lookup,
+        Map<Long, SurfaceView> surfaceViews) {
       this.view = new SurfaceView(context);
       this.playerId = playerId;
       this.lookup = lookup;
+      this.surfaceViews = surfaceViews;
+      surfaceViews.put(playerId, view);
       view.getHolder().addCallback(this);
     }
 
@@ -58,6 +69,9 @@ final class SurfaceViewFactory extends PlatformViewFactory {
     @Override
     public void dispose() {
       view.getHolder().removeCallback(this);
+      if (surfaceViews.get(playerId) == view) {
+        surfaceViews.remove(playerId);
+      }
       VideoPlayer player = lookup.find(playerId);
       if (player != null) {
         player.detachSurfaceHolder(view.getHolder());

@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import 'package:orbit_3d_flutter/core/utils/json_retyping.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
+import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/features/settings/pairing_scanner_screen.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -20,13 +21,30 @@ import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.d
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
+String _scopeLabel(String scope) => switch (scope) {
+      'favorites' => 'favoris',
+      'radioFavorites' => 'favoris radio',
+      'recents' => 'historique récent',
+      'watched' => 'épisodes vus',
+      'playback' => 'positions de lecture',
+      'preferences' => 'préférences générales',
+      'profile' => 'fiche du profil',
+      'subscriptions' => 'abonnements',
+      _ => 'données',
+    };
+
 class CloudProfileRecoveryScreen extends ConsumerStatefulWidget {
   const CloudProfileRecoveryScreen(
-      {super.key, this.auth, this.recovery, this.initialPhrase});
+      {super.key,
+      this.auth,
+      this.recovery,
+      this.initialPhrase,
+      this.initialProfileIds = const {}});
 
   final FirebaseAuth? auth;
   final CloudProfileRecovery? recovery;
   final String? initialPhrase;
+  final Set<String> initialProfileIds;
 
   @override
   ConsumerState<CloudProfileRecoveryScreen> createState() =>
@@ -43,15 +61,19 @@ class _CloudProfileRecoveryScreenState
   String? _loadedUid;
   String? _message;
   bool _busy = false;
+  String? _progress;
   bool _obscurePhrase = true;
   bool _legacyPhrase = false;
+  bool _requestSyncCompletionDialog = false;
   final _selectedProfiles = <String>{};
+  late final Set<String> _pendingAutoSyncProfiles;
   String? _activeUid;
   StreamSubscription<User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    _pendingAutoSyncProfiles = Set.of(widget.initialProfileIds);
     _auth = widget.auth ?? FirebaseAuth.instance;
     if (widget.initialPhrase != null) _phrase.text = widget.initialPhrase!;
     if (widget.initialPhrase?.isNotEmpty == true &&
@@ -72,6 +94,7 @@ class _CloudProfileRecoveryScreenState
         _obscurePhrase = true;
         _legacyPhrase = false;
         _selectedProfiles.clear();
+        _pendingAutoSyncProfiles.clear();
       });
     });
     _recovery = widget.recovery ??
@@ -119,6 +142,7 @@ class _CloudProfileRecoveryScreenState
     setState(() {
       _busy = true;
       _message = null;
+      _progress = null;
     });
     var succeeded = false;
     try {
@@ -141,17 +165,24 @@ class _CloudProfileRecoveryScreenState
     } on StateError catch (error) {
       _message = error.message.toString();
     } catch (_) {
-      _message = 'Opération impossible. Aucune donnée cloud n’a été supprimée.';
+      _message =
+          'Opération impossible. Vérifiez le réseau puis actualisez le Cloud.';
     } finally {
       if (!succeeded && errorPrefix != null && _message != null) {
         _message = '$errorPrefix $_message';
       }
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progress = null;
+        });
+      }
     }
     return succeeded;
   }
 
-  Future<bool> _confirm(String title, String detail) async =>
+  Future<bool> _confirm(String title, String detail,
+          {bool focusConfirm = false}) async =>
       await showDialog<bool>(
         context: context,
         builder: (context) => DpadScope(
@@ -159,6 +190,56 @@ class _CloudProfileRecoveryScreenState
             title: Text(title),
             scrollable: true,
             content: Text(detail),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                autofocus: focusConfirm,
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+        ),
+      ) ??
+      false;
+
+  Future<bool> _confirmProfiles(List<UserProfile> profiles) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (context) => DpadScope(
+          child: AlertDialog(
+            title: const Text('Partager ces profils ?'),
+            scrollable: true,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final profile in profiles)
+                  ListTile(
+                    leading: ProfileAvatar(profile: profile, size: 40),
+                    title: Text(profile.firstName),
+                    subtitle: profiles
+                                .where((other) =>
+                                    other.firstName.trim().toLowerCase() ==
+                                    profile.firstName.trim().toLowerCase())
+                                .length >
+                            1
+                        ? Text('Même nom — identifiant : ${profile.id}')
+                        : null,
+                  ),
+                const Text(
+                  'Les profils manquants seront ajoutés sans remplacer ceux '
+                  'qui existent. Leurs favoris et leur activité seront '
+                  'partagés, ainsi que les préférences et abonnements, avec '
+                  'leurs identifiants IPTV. Ces données sont chiffrées.\n\n'
+                  'Deux profils de même nom restent séparés. Si des données '
+                  'sont différentes, vous choisirez lesquelles garder.',
+                ),
+              ],
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -174,31 +255,98 @@ class _CloudProfileRecoveryScreenState
       ) ??
       false;
 
+  Future<ScopeConflictChoice?> _chooseInitialSource() =>
+      showDialog<ScopeConflictChoice>(
+        context: context,
+        builder: (context) => DpadScope(
+          child: AlertDialog(
+            title: const Text('Choisir la source en cas de conflit'),
+            scrollable: true,
+            content: const Text(
+              'Les ajouts différents seront réunis sur les deux appareils. '
+              'Si une même donnée a été modifiée des deux côtés, la source '
+              'choisie ici sera conservée et envoyée à l’autre appareil. '
+              'Ce choix s’applique à tous les conflits du démarrage.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              OutlinedButton(
+                onPressed: () =>
+                    Navigator.pop(context, ScopeConflictChoice.local),
+                child: const Text('Cet appareil est la source'),
+              ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.pop(context, ScopeConflictChoice.cloud),
+                child: const Text('Le Cloud est la source'),
+              ),
+            ],
+          ),
+        ),
+      );
+
   Future<void> _load(String uid, {bool afterPublish = false}) async {
-    await _run(() async {
+    ProfileCatalogSnapshot? loaded;
+    final success = await _run(() async {
       if (_phrase.text.isEmpty) {
-        throw StateError(_legacyPhrase
-            ? 'Saisissez votre phrase secrète.'
-            : 'Saisissez votre code cloud.');
+        throw StateError('Demande le code à un adulte.');
       }
       if (!_legacyPhrase && !RegExp(r'^[0-9]{3,10}$').hasMatch(_phrase.text)) {
-        throw StateError('Saisissez un code de 3 à 10 chiffres.');
+        throw StateError('Le code doit contenir de 3 à 10 chiffres.');
       }
-      final loaded = await _recovery.load(uid, _phrase.text);
+      final phrase = _phrase.text;
+      final snapshot = await _recovery.load(uid, phrase);
+      loaded = snapshot;
       if (!mounted) return;
-      _catalog = loaded;
+      if (_auth.currentUser?.uid != uid || _phrase.text != phrase) {
+        throw StateError('Le compte ou le secret a changé. Recommencez.');
+      }
+      _catalog = snapshot;
       _loadedUid = uid;
       _message = afterPublish
           ? 'Fiche sauvegardée. Catalogue actualisé.'
-          : loaded.revision == 0
-              ? 'Aucun catalogue cloud : le secret ne peut pas encore être vérifié.'
-              : loaded.profiles.isEmpty
-                  ? 'Secret valide. Aucun profil dans ce catalogue cloud.'
-                  : 'Secret valide. Catalogue chargé. Choisissez un profil.';
+          : snapshot.revision == 0
+              ? snapshot.verified
+                  ? 'Accès confirmé. Aucun profil sauvegardé.'
+                  : 'Aucune sauvegarde trouvée : votre code ne peut pas encore être vérifié.'
+              : snapshot.profiles.isEmpty
+                  ? 'Accès confirmé. Aucun profil sauvegardé.'
+                  : 'Accès confirmé. Choisissez les profils à partager.';
     },
         errorPrefix: afterPublish
             ? 'Fiche sauvegardée, mais le catalogue n’a pas pu être actualisé.'
             : null);
+    if (!success ||
+        !mounted ||
+        afterPublish ||
+        _pendingAutoSyncProfiles.isEmpty) {
+      return;
+    }
+    final snapshot = loaded!;
+    final requested = Set<String>.of(_pendingAutoSyncProfiles);
+    _pendingAutoSyncProfiles.clear();
+    final missing = requested.difference(snapshot.profiles.keys.toSet());
+    if (missing.isNotEmpty) {
+      setState(() => _message =
+          'Les profils choisis sur le téléphone ne sont plus disponibles. '
+              'Actualisez la liste et sélectionnez-les à nouveau.');
+      return;
+    }
+    List<UserProfile>? localProfiles;
+    final localLoadSucceeded = await _run(() async {
+      localProfiles = await ref.read(profilesProvider.future);
+    });
+    if (!localLoadSucceeded || !mounted || localProfiles == null) return;
+    setState(() {
+      _selectedProfiles
+        ..clear()
+        ..addAll(requested);
+      _message = 'Profils reçus du téléphone. Démarrage du partage…';
+    });
+    await _syncSelected(uid, localProfiles!, confirm: false);
   }
 
   Future<void> _publish(String uid, UserProfile profile) async {
@@ -245,6 +393,158 @@ class _CloudProfileRecoveryScreenState
     });
   }
 
+  Future<void> _deleteCloudProfile(String uid, String id, String name) async {
+    if (!await _confirm(
+      'Supprimer $name du Cloud ?',
+      'La fiche et les données synchronisées de ce profil seront supprimées '
+          'du Cloud. Le profil local sur cet appareil ne sera pas supprimé. '
+          'Les autres appareils seront mis en pause et devront actualiser '
+          'leur liste.',
+    )) {
+      return;
+    }
+    if (!mounted || _auth.currentUser?.uid != uid) return;
+    final activity = ref.read(encryptedActivitySyncProvider);
+    if (activity.busy) {
+      setState(() => _message =
+          'Attendez la fin de la synchronisation avant la suppression.');
+      return;
+    }
+    if (activity.unlocked) {
+      ref.read(encryptedActivitySyncProvider.notifier).lock();
+    }
+    final phrase = _phrase.text;
+    final removed = await _run(() async {
+      await _recovery.deleteCloudProfile(uid, phrase, id);
+      if (!mounted) return;
+      _selectedProfiles.remove(id);
+      _catalog = null;
+      _loadedUid = null;
+    });
+    if (removed && mounted && _auth.currentUser?.uid == uid) {
+      await _load(uid);
+    }
+  }
+
+  Future<String?> _requestCloudResetCode(String currentCode) async {
+    var code = '';
+    var confirmation = '';
+    String? error;
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => DpadScope(
+        child: StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Repartir de zéro sur le Cloud ?'),
+            scrollable: true,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tous les profils et leurs données partagées seront '
+                  'supprimés du Cloud. Les profils locaux seront conservés. '
+                  'Les autres appareils devront saisir ce nouveau code. '
+                  'Cette action est irréversible.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('cloud-reset-code'),
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (value) => code = value,
+                  decoration: const InputDecoration(labelText: 'Nouveau code'),
+                ),
+                TextField(
+                  key: const ValueKey('cloud-reset-confirmation'),
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (value) => confirmation = value,
+                  decoration:
+                      const InputDecoration(labelText: 'Confirmer le code'),
+                  onSubmitted: (_) {
+                    if (!_validResetCode(code, confirmation, currentCode)) {
+                      setDialogState(() => error =
+                          'Saisissez un nouveau code de 3 à 10 chiffres et '
+                              'confirmez-le à l’identique.');
+                    } else {
+                      Navigator.pop(dialogContext, code);
+                    }
+                  },
+                ),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (!_validResetCode(code, confirmation, currentCode)) {
+                    setDialogState(() => error =
+                        'Saisissez un nouveau code de 3 à 10 chiffres et '
+                            'confirmez-le à l’identique.');
+                  } else {
+                    Navigator.pop(dialogContext, code);
+                  }
+                },
+                child: const Text('Réinitialiser'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _validResetCode(String code, String confirmation, String currentCode) =>
+      RegExp(r'^[0-9]{3,10}$').hasMatch(code) &&
+      code != currentCode &&
+      confirmation == code;
+
+  Future<void> _resetCloud(String uid) async {
+    if (ref.read(encryptedActivitySyncProvider).busy) {
+      setState(() => _message =
+          'Attendez la fin de la synchronisation avant la réinitialisation.');
+      return;
+    }
+    final newCode = await _requestCloudResetCode(_phrase.text);
+    if (newCode == null || !mounted || _auth.currentUser?.uid != uid) return;
+    if (ref.read(encryptedActivitySyncProvider).unlocked) {
+      ref.read(encryptedActivitySyncProvider.notifier).lock();
+    }
+    final reset = await _run(() async {
+      await _recovery.resetCloud(uid, newCode);
+      if (!mounted) return;
+      _phrase.text = newCode;
+      _legacyPhrase = false;
+      _selectedProfiles.clear();
+      _catalog = ProfileCatalogSnapshot(
+        revision: 0,
+        profiles: const {},
+        verified: true,
+      );
+      _loadedUid = uid;
+      _message =
+          'Cloud réinitialisé. Le nouveau code est actif ; les profils locaux '
+          'ont été conservés.';
+    });
+    if (reset && mounted) setState(() {});
+  }
+
   Future<void> _unlockActivity(
       String uid, ProfileCatalogSnapshot catalog) async {
     final phrase = _phrase.text;
@@ -255,6 +555,8 @@ class _CloudProfileRecoveryScreenState
           'sous forme chiffrée pendant cette session. Les identifiants IPTV sont '
           'inclus. L’abonnement actif reste choisi sur chaque appareil.',
     )) return;
+    final initialConflictChoice = await _chooseInitialSource();
+    if (initialConflictChoice == null) return;
     if (!mounted) return;
     if (_phrase.text != phrase ||
         _auth.currentUser?.uid != uid ||
@@ -269,29 +571,38 @@ class _CloudProfileRecoveryScreenState
             uid: uid,
             phrase: phrase,
             catalog: catalog,
+            initialConflictChoice: initialConflictChoice,
           );
     });
   }
 
   Future<void> _syncSelected(
-      String uid, List<UserProfile> localProfiles) async {
-    final selected = localProfiles
+    String uid,
+    List<UserProfile> localProfiles, {
+    bool confirm = true,
+  }) async {
+    final catalog = _catalog;
+    if (catalog == null) return;
+    final localSelected = localProfiles
         .where((profile) => _selectedProfiles.contains(profile.id))
         .toList();
-    if (selected.isEmpty) return;
+    final localIds = localProfiles.map((profile) => profile.id).toSet();
+    final cloudOnly = catalog.profiles.entries
+        .where((entry) =>
+            !localIds.contains(entry.key) &&
+            _selectedProfiles.contains(entry.key))
+        .toList();
+    if (localSelected.isEmpty && cloudOnly.isEmpty) return;
     final phrase = _phrase.text;
-    final catalog = _catalog;
-    final names = selected
-        .map((profile) => '${profile.firstName} (${profile.id})')
-        .join(', ');
-    if (!await _confirm(
-      'Synchroniser les profils sélectionnés ?',
-      'Profils : $names. Les fiches absentes seront sauvegardées, puis '
-          'leurs favoris, historiques, épisodes vus et positions seront '
-          'synchronisés. Les préférences et abonnements communs, y compris '
-          'les identifiants IPTV, sont aussi synchronisés sous forme chiffrée. '
-          'Un conflit nécessitera votre choix.',
-    )) return;
+    final selectedProfiles = [
+      ...localSelected,
+      ...cloudOnly.map((entry) => UserProfile.fromMap(entry.value)),
+    ];
+    final names =
+        selectedProfiles.map((profile) => profile.firstName).join(', ');
+    if (confirm && !await _confirmProfiles(selectedProfiles)) return;
+    final initialConflictChoice = await _chooseInitialSource();
+    if (initialConflictChoice == null) return;
     if (!mounted) return;
     if (_auth.currentUser?.uid != uid ||
         _phrase.text != phrase ||
@@ -300,7 +611,7 @@ class _CloudProfileRecoveryScreenState
           () => _message = 'Le compte ou le secret a changé. Recommencez.');
       return;
     }
-    if (catalog?.revision == 0) {
+    if (confirm && catalog.revision == 0) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => _ConfirmBackupDialog(
@@ -312,6 +623,14 @@ class _CloudProfileRecoveryScreenState
       );
       if (confirmed != true || !mounted) return;
     }
+    if (ref.read(encryptedActivitySyncProvider).busy) {
+      setState(() => _message =
+          'Une synchronisation est en cours. Attendez la fin avant de modifier la sélection.');
+      return;
+    }
+    if (ref.read(encryptedActivitySyncProvider).unlocked) {
+      ref.read(encryptedActivitySyncProvider.notifier).lock();
+    }
     ProfileCatalogSnapshot? updated;
     final saved = await _run(() async {
       if (_auth.currentUser?.uid != uid ||
@@ -320,13 +639,55 @@ class _CloudProfileRecoveryScreenState
         throw StateError('Le compte ou le secret a changé. Recommencez.');
       }
       final fresh = await ref.refresh(profilesProvider.future);
+      if (!mounted) return;
+      if (_auth.currentUser?.uid != uid ||
+          _phrase.text != phrase ||
+          !identical(_catalog, catalog)) {
+        throw StateError('Le compte ou le secret a changé. Recommencez.');
+      }
       final freshById = {for (final profile in fresh) profile.id: profile};
-      for (final profile in selected) {
+      for (final profile in localSelected) {
         if (freshById[profile.id] == null ||
             jsonEncode(freshById[profile.id]!.toMap()) !=
                 jsonEncode(profile.toMap())) {
           throw StateError('Les profils ont changé. Vérifiez votre sélection.');
         }
+      }
+      for (final (index, entry) in cloudOnly.indexed) {
+        if (freshById.containsKey(entry.key)) {
+          throw StateError('Les profils ont changé. Vérifiez votre sélection.');
+        }
+        setState(() => _progress =
+            'Récupération des fiches : ${index + 1} / ${cloudOnly.length}.');
+        try {
+          await _recovery.restore(uid, phrase, entry.key);
+        } finally {
+          if (mounted) ref.invalidate(profilesProvider);
+        }
+        if (!mounted ||
+            _auth.currentUser?.uid != uid ||
+            _phrase.text != phrase ||
+            !identical(_catalog, catalog)) {
+          throw StateError('Le compte ou le secret a changé. Recommencez.');
+        }
+      }
+      final restoredProfiles = await ref.refresh(profilesProvider.future);
+      if (!mounted) return;
+      if (_auth.currentUser?.uid != uid ||
+          _phrase.text != phrase ||
+          !identical(_catalog, catalog)) {
+        throw StateError('Le compte ou le secret a changé. Recommencez.');
+      }
+      final restoredById = {
+        for (final profile in restoredProfiles) profile.id: profile
+      };
+      final selected = <UserProfile>[...localSelected];
+      for (final entry in cloudOnly) {
+        final profile = restoredById[entry.key];
+        if (profile == null) {
+          throw StateError('Une fiche récupérée est introuvable. Réessayez.');
+        }
+        selected.add(profile);
       }
       void checkProfiles() {
         final box = Hive.box<dynamic>('profiles');
@@ -342,6 +703,8 @@ class _CloudProfileRecoveryScreenState
         }
       }
 
+      setState(
+          () => _progress = 'Vérification et sauvegarde des fiches cloud.');
       updated = await _recovery.publishMissing(
         uid,
         phrase,
@@ -354,18 +717,51 @@ class _CloudProfileRecoveryScreenState
       }
       _catalog = updated;
       _loadedUid = uid;
-    });
+    },
+        errorPrefix: cloudOnly.isEmpty
+            ? null
+            : 'Certaines fiches ont peut-être été récupérées. Vérifiez la liste avant de réessayer.');
     if (!saved || !mounted || updated == null) return;
-    await _run(() async {
+    final syncStarted = await _run(() async {
+      setState(() => _progress = 'Démarrage de la synchronisation.');
       await ref.read(encryptedActivitySyncProvider.notifier).unlock(
             auth: _auth,
             uid: uid,
             phrase: phrase,
             catalog: updated!,
-            profileIds: selected.map((profile) => profile.id).toSet(),
+            profileIds: {
+              ...localSelected.map((profile) => profile.id),
+              ...cloudOnly.map((entry) => entry.key),
+            },
+            initialConflictChoice: initialConflictChoice,
           );
     }, errorPrefix: 'Les fiches ont été sauvegardées.');
+    final activity = ref.read(encryptedActivitySyncProvider);
+    if (confirm &&
+        syncStarted &&
+        mounted &&
+        activity.error == null &&
+        activity.lastSyncAt != null) {
+      await _showSyncCompletionDialog();
+    }
   }
+
+  Future<void> _showSyncCompletionDialog() => showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Synchronisation terminée'),
+          content: const Text(
+            'Les profils sélectionnés et leurs données ont bien été '
+            'synchronisés avec le Cloud.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
 
   Future<void> _resolveConflict(ScopeConflictChoice choice) async {
     final cloud = choice == ScopeConflictChoice.cloud;
@@ -374,18 +770,57 @@ class _CloudProfileRecoveryScreenState
       'Pour les éléments en conflit de cette catégorie, la version '
           '${cloud ? 'cloud' : 'de cet appareil'} sera conservée. '
           'L’autre version, y compris une éventuelle suppression, sera écrasée.',
+      focusConfirm: true,
     )) return;
     if (!mounted) return;
+    _requestSyncCompletionDialog = true;
     await ref
         .read(encryptedActivitySyncProvider.notifier)
         .resolveConflict(choice);
   }
 
+  Future<void> _syncAllManually() async {
+    final activity = ref.read(encryptedActivitySyncProvider);
+    if (!activity.unlocked || activity.busy) return;
+    _requestSyncCompletionDialog = true;
+    await ref.read(encryptedActivitySyncProvider.notifier).syncAll();
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(encryptedActivitySyncProvider, (previous, next) {
+      if (previous?.busy != true || next.busy) {
+        return;
+      }
+      if (next.error != null) {
+        _requestSyncCompletionDialog = false;
+        return;
+      }
+      if (next.lastSyncAt == null || _catalog == null) return;
+      final showCompletionDialog = _requestSyncCompletionDialog;
+      _requestSyncCompletionDialog = false;
+      final uid = _loadedUid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            uid == null ||
+            _busy ||
+            ref.read(encryptedActivitySyncProvider).busy ||
+            _auth.currentUser?.uid != uid ||
+            _catalog == null ||
+            ModalRoute.of(context)?.isCurrent != true) {
+          return;
+        }
+        unawaited(() async {
+          if (showCompletionDialog) {
+            await _showSyncCompletionDialog();
+          }
+          if (mounted) await _load(uid);
+        }());
+      });
+    });
     final activity = ref.watch(encryptedActivitySyncProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Synchronisation chiffrée')),
+      appBar: AppBar(title: const Text('Mes profils sur mes appareils')),
       body: StreamBuilder<User?>(
         stream: _authChanges,
         builder: (context, auth) {
@@ -406,42 +841,53 @@ class _CloudProfileRecoveryScreenState
               child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              const Text(
-                '1. Connectez le téléphone à un compte cloud non anonyme '
-                '(Google ou e-mail). Pour associer une TV, ouvrez le QR code '
-                'sur la TV, scannez-le sur le téléphone et confirmez les codes.\n'
-                '2. Saisissez votre code cloud et validez pour charger le catalogue.\n'
-                '3. Cochez les profils de cet appareil à synchroniser, puis confirmez. '
-                'Pour un profil présent uniquement dans le cloud, récupérez-le d’abord.\n'
-                '4. La synchronisation démarre après confirmation. '
-                'En cas de conflit, choisissez la version à conserver.',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        catalog == null
+                            ? Icons.cloud_outlined
+                            : Icons.people_alt_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          catalog == null
+                              ? 'Un adulte prépare le code. Ensuite, choisis '
+                                  'les profils à partager.'
+                              : 'Coche les profils que tu veux retrouver sur '
+                                  'tes appareils, puis appuie sur Partager.',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Un code court peut être deviné si les données chiffrées sont '
-                'copiées. Préférez un code long et unique. Utilisez le même '
-                'secret sur chaque appareil : sa perte rend les données '
-                'chiffrées irrécupérables.',
-              ),
-              SwitchListTile(
-                title: const Text('Utiliser une ancienne phrase secrète'),
-                value: _legacyPhrase,
-                onChanged: _busy
-                    ? null
-                    : (value) {
-                        if (activity.unlocked) {
-                          ref
-                              .read(encryptedActivitySyncProvider.notifier)
-                              .lock();
-                        }
-                        setState(() {
-                          _legacyPhrase = value;
-                          _phrase.clear();
-                          _catalog = null;
-                          _loadedUid = null;
-                          _message = null;
-                        });
-                      },
+              Card(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.hourglass_top_rounded),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'La première mise à jour peut prendre plus de '
+                          '10 minutes. Garde Orbit ouvert jusqu’à la fin.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -467,12 +913,14 @@ class _CloudProfileRecoveryScreenState
                     _catalog = null;
                     _loadedUid = null;
                     _message = null;
+                    _selectedProfiles.clear();
+                    _pendingAutoSyncProfiles.clear();
                   });
                 },
                 decoration: InputDecoration(
                   labelText: _legacyPhrase
-                      ? 'Phrase secrète'
-                      : 'Code cloud (3 à 10 chiffres)',
+                      ? 'Phrase secrète (ancien format)'
+                      : 'Code donné par l’adulte',
                   suffixIcon: IconButton(
                     tooltip: _legacyPhrase
                         ? (_obscurePhrase
@@ -492,181 +940,419 @@ class _CloudProfileRecoveryScreenState
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _busy ? null : () => _load(user.uid),
-                child: const Text('Charger le catalogue cloud'),
+                child: Text(catalog == null
+                    ? 'Voir mes profils'
+                    : 'Actualiser la liste'),
               ),
-              if (qrPairingAvailable)
-                OutlinedButton(
-                  onPressed: _busy || _phrase.text.isEmpty || catalog == null
-                      ? null
-                      : () =>
-                          Navigator.of(context).push(MaterialPageRoute<void>(
-                            builder: (_) => PairingScannerScreen(
-                              phrase: _phrase.text,
-                              uid: user.uid,
-                            ),
-                          )),
-                  child: const Text('Associer une TV par QR code'),
+              ExpansionTile(
+                title: const Text('Options pour un adulte'),
+                children: [
+                  SwitchListTile(
+                    title: const Text('Utiliser une ancienne phrase secrète'),
+                    value: _legacyPhrase,
+                    onChanged: _busy
+                        ? null
+                        : (value) {
+                            if (activity.unlocked) {
+                              ref
+                                  .read(encryptedActivitySyncProvider.notifier)
+                                  .lock();
+                            }
+                            setState(() {
+                              _legacyPhrase = value;
+                              _phrase.clear();
+                              _catalog = null;
+                              _loadedUid = null;
+                              _message = null;
+                              _selectedProfiles.clear();
+                              _pendingAutoSyncProfiles.clear();
+                            });
+                          },
+                  ),
+                  if (qrPairingAvailable)
+                    OutlinedButton(
+                      onPressed: _busy ||
+                              _phrase.text.isEmpty ||
+                              catalog == null
+                          ? null
+                          : () {
+                              final selected = Set<String>.of(
+                                _selectedProfiles,
+                              );
+                              if (selected.any(
+                                  (id) => !catalog.profiles.containsKey(id))) {
+                                setState(() => _message =
+                                    'Partagez d’abord les profils sélectionnés '
+                                        'pour les rendre disponibles sur la TV.');
+                                return;
+                              }
+                              Navigator.of(context)
+                                  .push(MaterialPageRoute<void>(
+                                builder: (_) => PairingScannerScreen(
+                                  phrase: _phrase.text,
+                                  uid: user.uid,
+                                  profileIds: selected,
+                                  profileNames: selected
+                                      .map((id) => catalog
+                                          .profiles[id]!['firstName'] as String)
+                                      .toList(),
+                                ),
+                              ));
+                            },
+                      child: const Text('Associer une TV par QR code'),
+                    ),
+                  if (catalog != null)
+                    TextButton(
+                      onPressed: _busy ? null : () => _resetCloud(user.uid),
+                      child: const Text(
+                          'Supprimer tout le Cloud et repartir de zéro'),
+                    ),
+                ],
+              ),
+              if (_busy && !activity.busy) const LinearProgressIndicator(),
+              if (_progress != null && !activity.busy) Text(_progress!),
+              if (_message != null)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(_message!),
+                  ),
                 ),
-              if (_busy) const LinearProgressIndicator(),
-              if (_message != null) Text(_message!),
-              if (activity.unlocked) ...[
+              if (activity.unlocked ||
+                  activity.busy ||
+                  activity.error != null) ...[
                 const SizedBox(height: 12),
-                Text(activity.busy
-                    ? 'Synchronisation chiffrée en cours…'
-                    : activity.error ?? 'Synchronisation chiffrée active.'),
+                if (activity.realtimeError != null)
+                  Text(activity.realtimeError!),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              activity.busy
+                                  ? Icons.sync_rounded
+                                  : activity.conflictScope != null
+                                      ? Icons.warning_amber_rounded
+                                      : Icons.cloud_done_rounded,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                activity.busy
+                                    ? 'Mise à jour en cours…'
+                                    : activity.conflictScope != null
+                                        ? 'Un adulte doit choisir les données à garder.'
+                                        : activity.error ??
+                                            'Le partage est activé.',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (activity.busy) ...[
+                          const SizedBox(height: 12),
+                          LinearProgressIndicator(
+                            value: activity.totalScopes == 0
+                                ? null
+                                : activity.completedScopes /
+                                    activity.totalScopes,
+                          ),
+                          if (activity.totalScopes > 0)
+                            Text(
+                              'Fait : ${(100 * activity.completedScopes / activity.totalScopes).floor()} %',
+                            ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Cela peut prendre plus de 10 minutes. Garde '
+                            'Orbit ouvert.',
+                          ),
+                        ] else if (activity.error == null &&
+                            activity.lastSyncAt != null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Les changements sont partagés automatiquement.',
+                            ),
+                          ),
+                        if (activity.busy && activity.currentScope != null)
+                          Text(
+                            'En ce moment : ${_scopeLabel(activity.currentScope!)}'
+                            '${activity.currentProfileId == null ? '' : ' — ${catalog?.profiles[activity.currentProfileId]?['firstName'] ?? 'profil'}'}.',
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
                 if (activity.conflictScope != null) ...[
+                  const Text(
+                    'Cet appareil et l’autre appareil ne sont pas d’accord. '
+                    'Demande à un adulte de choisir la bonne version.',
+                  ),
                   if (activity.conflictProfileId != null)
                     Text(
                         'Profil en conflit : ${catalog?.profiles[activity.conflictProfileId]?['firstName'] ?? activity.conflictProfileId} '
                         '(${activity.conflictProfileId})'),
-                  Text(
-                      'Catégorie en conflit : ${switch (activity.conflictScope) {
-                    'favorites' => 'favoris',
-                    'radioFavorites' => 'favoris radio',
-                    'recents' => 'historique récent',
-                    'watched' => 'épisodes vus',
-                    'playback' => 'positions de lecture',
-                    'preferences' => 'préférences générales',
-                    'profile' => 'fiche du profil',
-                    'subscriptions' => 'abonnements',
-                    _ => 'données',
-                  }}'),
+                  Text('Données : ${_scopeLabel(activity.conflictScope!)}'),
                   Wrap(
                     spacing: 8,
                     children: [
                       TextButton(
                         onPressed: () =>
                             _resolveConflict(ScopeConflictChoice.local),
-                        child: const Text('Garder cet appareil'),
+                        child: const Text('Garder les données d’ici'),
                       ),
                       TextButton(
                         onPressed: () =>
                             _resolveConflict(ScopeConflictChoice.cloud),
-                        child: const Text('Garder le cloud'),
+                        child: const Text(
+                            'Garder les données de l’autre appareil'),
                       ),
                     ],
                   ),
                 ],
-                Wrap(
-                  spacing: 8,
+                ExpansionTile(
+                  title: const Text('Réglages du partage (adulte)'),
                   children: [
                     TextButton(
-                      onPressed: activity.busy
-                          ? null
-                          : () => ref
-                              .read(encryptedActivitySyncProvider.notifier)
-                              .syncAll(),
-                      child: const Text('Synchroniser maintenant'),
+                      onPressed: activity.busy ? null : _syncAllManually,
+                      child: const Text('Mettre à jour maintenant'),
                     ),
                     TextButton(
                       onPressed: () => ref
                           .read(encryptedActivitySyncProvider.notifier)
                           .lock(),
-                      child: const Text('Verrouiller la synchronisation'),
+                      child: const Text('Mettre en pause'),
                     ),
                   ],
                 ),
               ],
               if (catalog != null) ...[
                 const SizedBox(height: 16),
-                Text(activeProfile == null
-                    ? 'Sélectionnez d’abord un profil dans l’application.'
-                    : activePublished
-                        ? 'Profil actif prêt à synchroniser : ${activeProfile.firstName}.'
-                        : 'Sauvegardez d’abord le profil actif : ${activeProfile.firstName}.'),
-                if (!activity.unlocked)
-                  FilledButton(
-                    onPressed: _busy || !activePublished
-                        ? null
-                        : () => _unlockActivity(user.uid, catalog),
-                    child: const Text(
-                        'Activer la synchronisation du profil actif'),
-                  ),
-                const Text('Profils sur cet appareil'),
+                Text(
+                  activity.unlocked
+                      ? 'Choisis les profils à partager'
+                      : 'Quels profils veux-tu retrouver sur tes appareils ?',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 local.when(
                   loading: () => const CircularProgressIndicator(),
                   error: (_, __) => const Text('Profils locaux indisponibles.'),
-                  data: (profiles) => Column(
-                    children: [
-                      if (profiles.isNotEmpty)
-                        TextButton(
-                          onPressed: _busy || activity.unlocked
-                              ? null
-                              : () => setState(() {
-                                    if (profiles.every((profile) =>
+                  data: (profiles) {
+                    final allIds = {
+                      ...profiles.map((profile) => profile.id),
+                      ...catalog.profiles.keys,
+                    };
+                    final allProfiles = {
+                      for (final entry in catalog.profiles.entries)
+                        entry.key: UserProfile.fromMap(entry.value),
+                      for (final profile in profiles) profile.id: profile,
+                    };
+                    bool hasSameName(UserProfile profile) =>
+                        allProfiles.values
+                            .where((other) =>
+                                other.firstName.trim().toLowerCase() ==
+                                profile.firstName.trim().toLowerCase())
+                            .length >
+                        1;
+                    return Column(
+                      children: [
+                        if (allIds.isNotEmpty)
+                          TextButton(
+                            onPressed: _busy || activity.busy
+                                ? null
+                                : () => setState(() {
+                                      if (allIds
+                                          .every(_selectedProfiles.contains)) {
+                                        _selectedProfiles.clear();
+                                      } else {
                                         _selectedProfiles
-                                            .contains(profile.id))) {
-                                      _selectedProfiles.clear();
-                                    } else {
-                                      _selectedProfiles
-                                        ..clear()
-                                        ..addAll(profiles
-                                            .map((profile) => profile.id));
+                                          ..clear()
+                                          ..addAll(allIds);
+                                      }
+                                    }),
+                            child: Text(allIds.every(_selectedProfiles.contains)
+                                ? 'Tout décocher'
+                                : 'Tout cocher'),
+                          ),
+                        if (allIds.isNotEmpty)
+                          FilledButton(
+                            onPressed: _busy || activity.busy
+                                ? null
+                                : () {
+                                    if (!allIds
+                                        .any(_selectedProfiles.contains)) {
+                                      setState(() =>
+                                          _selectedProfiles.addAll(allIds));
                                     }
-                                  }),
-                          child: Text(profiles.every((profile) =>
-                                  _selectedProfiles.contains(profile.id))
-                              ? 'Tout désélectionner'
-                              : 'Tout sélectionner'),
-                        ),
-                      if (profiles.isNotEmpty)
-                        FilledButton(
-                          onPressed: _busy ||
-                                  activity.unlocked ||
-                                  !profiles.any(
-                                      (p) => _selectedProfiles.contains(p.id))
-                              ? null
-                              : () => _syncSelected(user.uid, profiles),
-                          child: const Text(
-                              'Synchroniser les profils sélectionnés'),
-                        ),
-                      ...profiles.map((profile) => ListTile(
-                            leading: Checkbox(
-                              value: _selectedProfiles.contains(profile.id),
-                              onChanged: _busy || activity.unlocked
-                                  ? null
-                                  : (selected) => setState(() {
-                                        if (selected == true) {
-                                          _selectedProfiles.add(profile.id);
-                                        } else {
-                                          _selectedProfiles.remove(profile.id);
-                                        }
-                                      }),
+                                    unawaited(
+                                        _syncSelected(user.uid, profiles));
+                                  },
+                            child: Text(allIds.any(_selectedProfiles.contains)
+                                ? 'Partager les profils cochés'
+                                : 'Partager tous les profils'),
+                          ),
+                        ...profiles.map((profile) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                key: ValueKey('profile-tile-${profile.id}'),
+                                onTap: _busy || activity.busy
+                                    ? null
+                                    : () => setState(() {
+                                          if (!_selectedProfiles
+                                              .remove(profile.id)) {
+                                            _selectedProfiles.add(profile.id);
+                                          }
+                                        }),
+                                leading: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      key: ValueKey(
+                                          'local-profile-${profile.id}'),
+                                      value: _selectedProfiles
+                                          .contains(profile.id),
+                                      onChanged: _busy || activity.busy
+                                          ? null
+                                          : (selected) => setState(() {
+                                                if (selected == true) {
+                                                  _selectedProfiles
+                                                      .add(profile.id);
+                                                } else {
+                                                  _selectedProfiles
+                                                      .remove(profile.id);
+                                                }
+                                              }),
+                                    ),
+                                    ProfileAvatar(profile: profile, size: 48),
+                                  ],
+                                ),
+                                title: Text(profile.firstName),
+                                subtitle: hasSameName(profile)
+                                    ? Text(
+                                        'Même nom — identifiant : ${profile.id}')
+                                    : null,
+                              ),
+                            )),
+                        if (catalog.profiles.keys
+                            .any((id) => !profiles.any((p) => p.id == id))) ...[
+                          const SizedBox(height: 16),
+                          const Text('Profils à ajouter'),
+                        ],
+                        for (final entry in catalog.profiles.entries)
+                          if (!profiles.any((p) => p.id == entry.key))
+                            Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                key: ValueKey('profile-tile-${entry.key}'),
+                                onTap: _busy || activity.busy
+                                    ? null
+                                    : () => setState(() {
+                                          if (!_selectedProfiles
+                                              .remove(entry.key)) {
+                                            _selectedProfiles.add(entry.key);
+                                          }
+                                        }),
+                                leading: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Checkbox(
+                                      key: ValueKey(
+                                          'cloud-profile-${entry.key}'),
+                                      value:
+                                          _selectedProfiles.contains(entry.key),
+                                      onChanged: _busy || activity.busy
+                                          ? null
+                                          : (selected) => setState(() {
+                                                if (selected == true) {
+                                                  _selectedProfiles
+                                                      .add(entry.key);
+                                                } else {
+                                                  _selectedProfiles
+                                                      .remove(entry.key);
+                                                }
+                                              }),
+                                    ),
+                                    ProfileAvatar(
+                                        profile: allProfiles[entry.key]!,
+                                        size: 48),
+                                  ],
+                                ),
+                                title: Text(entry.value['firstName'] as String),
+                                subtitle: hasSameName(allProfiles[entry.key]!)
+                                    ? Text(
+                                        'Même nom — identifiant : ${entry.key}')
+                                    : null,
+                              ),
                             ),
-                            title: Text(profile.firstName),
-                            subtitle: Text('Identifiant : ${profile.id}'),
-                            trailing: catalog.profiles.containsKey(profile.id)
-                                ? const Text('Déjà dans le cloud')
-                                : TextButton(
+                        ExpansionTile(
+                          title: const Text('Autres options (adulte)'),
+                          children: [
+                            if (!activity.unlocked)
+                              TextButton(
+                                onPressed: _busy || !activePublished
+                                    ? null
+                                    : () => _unlockActivity(user.uid, catalog),
+                                child: const Text(
+                                    'Partager seulement le profil utilisé'),
+                              ),
+                            for (final profile in profiles)
+                              if (!catalog.profiles.containsKey(profile.id))
+                                ListTile(
+                                  title: Text(profile.firstName),
+                                  trailing: TextButton(
                                     onPressed: _busy
                                         ? null
                                         : () => _publish(user.uid, profile),
                                     child: const Text('Sauvegarder'),
                                   ),
-                          )),
-                    ],
-                  ),
+                                ),
+                            for (final entry in catalog.profiles.entries)
+                              ListTile(
+                                title: Text(entry.value['firstName'] as String),
+                                subtitle: profiles.any((p) => p.id == entry.key)
+                                    ? const Text(
+                                        'Le profil local est conservé.')
+                                    : null,
+                                trailing: Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    if (!profiles.any((p) => p.id == entry.key))
+                                      TextButton(
+                                        onPressed: _busy
+                                            ? null
+                                            : () => _restore(
+                                                  user.uid,
+                                                  entry.key,
+                                                  entry.value['firstName']
+                                                      as String,
+                                                ),
+                                        child: const Text('Récupérer'),
+                                      ),
+                                    TextButton(
+                                      onPressed: _busy || activity.busy
+                                          ? null
+                                          : () => _deleteCloudProfile(
+                                                user.uid,
+                                                entry.key,
+                                                entry.value['firstName']
+                                                    as String,
+                                              ),
+                                      child: const Text('Supprimer du Cloud'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
-                const SizedBox(height: 16),
-                const Text('Profils dans le cloud'),
-                for (final entry in catalog.profiles.entries)
-                  ListTile(
-                    title: Text(entry.value['firstName'] as String),
-                    subtitle: Text('Identifiant : ${entry.key}'),
-                    trailing: local.value?.any((p) => p.id == entry.key) == true
-                        ? const Text('Déjà sur cet appareil')
-                        : TextButton(
-                            onPressed:
-                                _busy || local.isLoading || local.hasError
-                                    ? null
-                                    : () => _restore(
-                                          user.uid,
-                                          entry.key,
-                                          entry.value['firstName'] as String,
-                                        ),
-                            child: const Text('Récupérer'),
-                          ),
-                  ),
               ],
             ],
           ));
@@ -706,7 +1392,7 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
   Widget build(BuildContext context) => DpadScope(
         child: AlertDialog(
           title: Text(widget.multiple
-              ? 'Confirmer le secret du nouveau catalogue'
+              ? 'Confirmer votre code'
               : 'Sauvegarder cette fiche ?'),
           scrollable: true,
           content: Column(
@@ -714,8 +1400,9 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
             children: [
               Text(
                 widget.multiple
-                    ? 'Confirmez le secret pour les profils ${widget.name}. '
-                        'La perte du secret rend les données irrécupérables.'
+                    ? 'Confirmez votre code pour les profils ${widget.name}. '
+                        'Gardez-le en lieu sûr : sans lui, vous ne pourrez '
+                        'plus retrouver vos données.'
                     : 'Seule la fiche de ${widget.name} sera sauvegardée, chiffrée. '
                         'Les favoris, historiques, abonnements et préférences ne sont pas inclus. '
                         'La perte du secret rend la sauvegarde irrécupérable.',
