@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
@@ -164,6 +166,21 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
     final season = seasons.contains(_selectedSeason)
         ? _selectedSeason
         : seasons.firstOrNull;
+    final guests =
+        season == null ? null : detail.getGuestStarsForSeason(season);
+    final theme = Theme.of(context);
+    final seasonFontSize = (theme.tabBarTheme.labelStyle?.fontSize ??
+            theme.textTheme.titleSmall?.fontSize ??
+            14) *
+        1.4;
+    final seasonTabHeight = math.max(
+      46.0 * 1.4,
+      MediaQuery.textScalerOf(context).scale(seasonFontSize) * 1.3 + 16,
+    );
+    final seasonLabelStyle = TextStyle(
+      fontSize: seasonFontSize,
+      fontWeight: FontWeight.w700,
+    );
     final scrollView = CustomScrollView(
       cacheExtent: 1500,
       slivers: [
@@ -207,11 +224,18 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
                 child: TabBar(
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
+                  labelStyle: seasonLabelStyle,
+                  unselectedLabelStyle: seasonLabelStyle,
+                  labelPadding:
+                      const EdgeInsets.symmetric(horizontal: 16 * 1.4),
                   onTap: (index) =>
                       setState(() => _selectedSeason = seasons[index]),
                   tabs: [
                     for (final number in seasons)
-                      Tab(text: l.seasonNumber(number)),
+                      Tab(
+                        text: l.seasonNumber(number),
+                        height: seasonTabHeight,
+                      ),
                   ],
                 ),
               ),
@@ -226,6 +250,22 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
             l: l,
           ),
         ],
+        SliverToBoxAdapter(
+          child: _SeriesTrackPreferences(seriesId: baseSeries.id),
+        ),
+        if (guests != null && guests.isNotEmpty)
+          SliverToBoxAdapter(
+            child: CastCarousel(
+              actors: guests,
+              title: l.specialGuestsSeason(season!),
+              maxVisible: 10,
+              showCharacter: true,
+              itemWidth: 120,
+              imageSize: 80,
+              onActorTap: (actor) =>
+                  context.push('/actor/detail', extra: actor),
+            ),
+          ),
       ],
     );
     if (seasons.length < 2) return scrollView;
@@ -307,7 +347,6 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
     required AppLocalizations l,
   }) {
     final seen = _seenCountFor(ref, episodes);
-    final guests = detail.getGuestStarsForSeason(season);
     return [
       if (compact)
         seen > 0
@@ -334,19 +373,6 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
         ),
       SliverToBoxAdapter(child: _episodeActionsHint(context)),
       _episodeCarousel(episodes, season: season),
-      //Invités spéciaux pour cette saison
-      if (guests.isNotEmpty)
-        SliverToBoxAdapter(
-          child: CastCarousel(
-            actors: guests,
-            title: l.specialGuestsSeason(season),
-            maxVisible: 10,
-            showCharacter: true,
-            itemWidth: 120,
-            imageSize: 80,
-            onActorTap: (actor) => context.push('/actor/detail', extra: actor),
-          ),
-        ),
     ];
   }
 
@@ -576,28 +602,6 @@ class _SeriesHeader extends ConsumerWidget {
                 ],
               ),
             ),
-          const SizedBox(height: 12),
-          if (ref
-              .watch(advancedSettingsProvider)
-              .playerSeries
-              .primary
-              .isExternal)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Avec un lecteur externe, choisissez les pistes audio et les '
-                'sous-titres dans ce lecteur. Les préférences ci-dessous '
-                's’appliquent au lecteur interne.',
-                style: textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          // Sélecteur de langue audio par défaut pour la série
-          SeriesAudioLanguageSelector(seriesId: baseSeries.id),
-          const SizedBox(height: 16),
-          // Sélecteur de langue de sous-titres par défaut pour la série
-          SeriesSubtitleLanguageSelector(seriesId: baseSeries.id),
         ],
       ),
     );
@@ -750,10 +754,76 @@ class _EpisodeCarousel extends StatefulWidget {
 
 class _EpisodeCarouselState extends State<_EpisodeCarousel> {
   int? _focusedIndex;
+  ({
+    List<Episode> episodes,
+    String seriesTitle,
+    TextStyle seriesStyle,
+    TextStyle episodeStyle,
+    TextStyle statusStyle,
+    TextScaler scaler,
+    TextDirection direction,
+    Locale? locale,
+  })? _heightInputs;
+  double _height = 0;
+
+  double _carouselHeight(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    final inherited = DefaultTextStyle.of(context).style;
+    final inputs = (
+      episodes: widget.episodes,
+      seriesTitle: widget.series.title,
+      seriesStyle: inherited.merge(theme.labelMedium),
+      episodeStyle: inherited
+          .merge(theme.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+      statusStyle: inherited
+          .merge(theme.labelSmall?.copyWith(fontWeight: FontWeight.w700)),
+      scaler: MediaQuery.textScalerOf(context),
+      direction: Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+    );
+    if (_heightInputs == inputs) return _height;
+
+    double textHeight(String text, TextStyle style, int? maxLines) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: inputs.direction,
+        textScaler: inputs.scaler,
+        locale: inputs.locale,
+        maxLines: maxLines,
+        ellipsis: maxLines == null ? null : '…',
+      )..layout(maxWidth: 190);
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    var titleHeight = 0.0;
+    for (final episode in widget.episodes) {
+      final title = _episodeTitleBelow(widget.series, episode);
+      titleHeight = math.max(
+        titleHeight,
+        textHeight(title.isEmpty ? 'Épisode' : title, inputs.episodeStyle, 3),
+      );
+    }
+    _heightInputs = inputs;
+    _height = 112 +
+        8 +
+        textHeight(inputs.seriesTitle, inputs.seriesStyle, 2) +
+        3 +
+        titleHeight +
+        9 +
+        4 +
+        math.max(
+          textHeight('Reprendre', inputs.statusStyle, null),
+          textHeight('Vu · Reprendre', inputs.statusStyle, null),
+        ) +
+        24 +
+        8;
+    return _height;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -771,7 +841,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
           ),
         ),
         SizedBox(
-          height: 165 + 110 * textScale,
+          height: _carouselHeight(context),
           child: Stack(
             children: [
               Positioned.fill(
@@ -932,6 +1002,31 @@ class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
   }
 }
 
+String _episodeCleanTitle(Series series, Episode episode) {
+  var title = episode.title.trim();
+  if (title.startsWith(series.title)) {
+    title = title
+        .substring(series.title.length)
+        .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
+  }
+  return title;
+}
+
+bool _episodeHasNumber(String title) =>
+    RegExp(r'^S\d+E\d+([\s\-–—]|$)', caseSensitive: false).hasMatch(title);
+
+String _episodeTitleBelow(Series series, Episode episode) {
+  final title = _episodeCleanTitle(series, episode);
+  return _episodeHasNumber(title)
+      ? title
+          .replaceFirst(
+            RegExp(r'^S\d+E\d+\s*[-–—]?\s*', caseSensitive: false),
+            '',
+          )
+          .trim()
+      : title;
+}
+
 class _EpisodeTile extends ConsumerWidget {
   const _EpisodeTile({
     super.key,
@@ -950,23 +1045,12 @@ class _EpisodeTile extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
         'E${episode.episodeNumber.toString().padLeft(2, '0')}';
-    var episodeTitle = episode.title.trim();
-    if (episodeTitle.startsWith(series.title)) {
-      episodeTitle = episodeTitle
-          .substring(series.title.length)
-          .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
-    }
-    final hasNumber = RegExp(r'^S\d+E\d+([\s\-–—]|$)', caseSensitive: false)
-        .hasMatch(episodeTitle);
+    final episodeTitle = _episodeCleanTitle(series, episode);
+    final hasNumber = _episodeHasNumber(episodeTitle);
     final label = episodeTitle.isNotEmpty
         ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
         : 'Épisode $number';
-    final titleBelow = hasNumber
-        ? episodeTitle
-            .replaceFirst(
-                RegExp(r'^S\d+E\d+\s*[-–—]?\s*', caseSensitive: false), '')
-            .trim()
-        : episodeTitle;
+    final titleBelow = _episodeTitleBelow(series, episode);
     final canPlay = episode.streamUrl.isNotEmpty;
     final profileId = ref.watch(currentProfileProvider)?.id ?? '';
     final watched = ref.watch(watchedEpisodesProvider).containsKey(
@@ -1246,6 +1330,67 @@ class _EpisodeTile extends ConsumerWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeriesTrackPreferences extends ConsumerWidget {
+  const _SeriesTrackPreferences({required this.seriesId});
+
+  final String seriesId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final external =
+        ref.watch(advancedSettingsProvider).playerSeries.primary.isExternal;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (external)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Avec un lecteur externe, choisissez les pistes audio et les '
+                    'sous-titres dans ce lecteur. Les préférences ci-dessous '
+                    's’appliquent au lecteur interne.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                  ),
+                ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final audio = SeriesAudioLanguageSelector(seriesId: seriesId);
+                  final subtitles =
+                      SeriesSubtitleLanguageSelector(seriesId: seriesId);
+                  final scale = MediaQuery.textScalerOf(context).scale(1);
+                  if (constraints.maxWidth < 640 * scale) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [audio, const SizedBox(height: 16), subtitles],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: audio),
+                      const SizedBox(width: 24),
+                      Expanded(child: subtitles),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1582,7 +1727,7 @@ class _SeriesSubtitleLanguageSelectorState
             initialValue: _selectedLanguage,
             isExpanded: true,
             decoration: const InputDecoration(
-              labelText: 'Langue des sous-titres',
+              labelText: 'Langue',
               hintText: 'Sélectionner une langue',
               prefixIcon: Icon(Icons.subtitles_outlined),
               border: OutlineInputBorder(),

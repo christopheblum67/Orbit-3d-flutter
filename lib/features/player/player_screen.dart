@@ -276,6 +276,19 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (!mounted || result.session != _externalSession) return;
       _externalSession = null;
       _externalCompleted = result.completed;
+      final positionMs = result.positionMs;
+      final durationMs = result.durationMs;
+      if (positionMs != null &&
+          durationMs != null &&
+          positionMs >= 0 &&
+          durationMs > 0 &&
+          positionMs <= durationMs) {
+        _checkpoint.observeExternal(
+          Duration(milliseconds: positionMs),
+          Duration(milliseconds: durationMs),
+        );
+        _saveProgress(externalResult: true);
+      }
       if (_externalPlaybackLaunched && result.completed) _offerNextEpisode();
     });
     WidgetsBinding.instance.addObserver(this);
@@ -490,9 +503,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// Sauvegarde la position courante de lecture.
-  void _saveProgress({bool preserveOnError = false}) {
+  void _saveProgress(
+      {bool preserveOnError = false, bool externalResult = false}) {
     final id = widget.progressId;
     if (id == null) return;
+    if (!externalResult &&
+        (_externalSession != null || _externalPlaybackLaunched)) {
+      return;
+    }
     final controller = _controller;
     if (widget.contentType == PlaybackContentType.live) return;
     if (controller != null) _checkpoint.observe(controller.value);
@@ -781,6 +799,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       engine: engine,
       url: _activeStreamUrl,
       session: session,
+      positionMs: widget.contentType == PlaybackContentType.live
+          ? null
+          : _checkpoint.position.inMilliseconds,
     );
     if (!launched && _externalSession == session) _externalSession = null;
     return launched;

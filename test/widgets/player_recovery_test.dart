@@ -1005,4 +1005,101 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   }
+
+  for (final scenario in [
+    (initialPosition: 0, validResult: true),
+    (initialPosition: 50000, validResult: true),
+    (initialPosition: 50000, validResult: false),
+  ]) {
+    testWidgets('external playback preserves and returns position: $scenario',
+        (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({});
+      PlayerProfileService.invalidate();
+      final progress = _Progress();
+      final monitor = _Online();
+      addTearDown(monitor.dispose);
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      for (final name in ['orbit/night_focus', 'orbit/player_config']) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+        addTearDown(
+            () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      }
+      const channel = MethodChannel('orbit/external_player');
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          connectivityMonitorProvider.overrideWithValue(monitor),
+          subtitleControllerProvider.overrideWith((ref) => _Subtitles()),
+          deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+          playbackProgressServiceProvider.overrideWith((ref) => progress),
+          rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
+          activeSubscriptionProvider.overrideWithValue(null),
+          advancedSettingsProvider.overrideWithBuild((ref, notifier) =>
+              const AdvancedSettings(
+                playerVod: PlayerPerTypeConfig(primary: PlayerEngine.vlc),
+              )),
+        ],
+        child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: PlayerScreen(
+            streamUrl: 'https://example.test/video.mp4',
+            progressId: 'movie-test',
+            initialPositionMs: scenario.initialPosition,
+            contentType: PlaybackContentType.vod,
+          ),
+        ),
+      ));
+      for (var i = 0; i < 30 && calls.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final args = calls.single.arguments as Map;
+      expect(args['positionMs'], scenario.initialPosition);
+      await tester.pump(const Duration(seconds: 11));
+      expect(progress.writes, isEmpty);
+      await messenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall(
+          'playbackFinished',
+          {
+            'session': (args['session'] as int) + 1,
+            'completed': false,
+            'positionMs': 100000,
+            'durationMs': 600000,
+          },
+        )),
+        (_) {},
+      );
+      await tester.pump();
+      expect(progress.writes, isEmpty);
+      await messenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(MethodCall(
+          'playbackFinished',
+          {
+            'session': args['session'],
+            'completed': false,
+            'positionMs': scenario.validResult ? 120000 : 610000,
+            'durationMs': 600000,
+          },
+        )),
+        (_) {},
+      );
+      await tester.pump();
+      expect(progress.writes, scenario.validResult ? [120000] : isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(progress.writes, scenario.validResult ? [120000] : isEmpty);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
 }

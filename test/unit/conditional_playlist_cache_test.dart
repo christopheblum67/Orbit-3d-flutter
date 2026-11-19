@@ -255,4 +255,29 @@ void main() {
     }, _RealHttpOverrides());
     expect(seen, [null, '"v1"']);
   });
+
+  test('ApiService accepts repeated cache-control headers over HTTP', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    final seen = <String?>[];
+    server.listen((request) async {
+      seen.add(request.headers.value(HttpHeaders.ifNoneMatchHeader));
+      request.response.headers
+          .add(HttpHeaders.cacheControlHeader, 'max-age=60');
+      request.response.headers.add(HttpHeaders.cacheControlHeader, 'no-store');
+      request.response.headers.set(HttpHeaders.etagHeader, '"v1"');
+      request.response.write(
+        '#EXTM3U\n#EXTINF:-1 group-title="France",Test\n'
+        'https://example.test/live\n',
+      );
+      await request.response.close();
+    });
+    final api = ApiService(playlistCache: cache);
+    final url = 'http://${server.address.address}:${server.port}/playlist';
+    await HttpOverrides.runWithHttpOverrides(() async {
+      expect((await api.fetchM3uPlaylist(url)).channels.single.name, 'Test');
+      expect((await api.fetchM3uPlaylist(url)).channels.single.name, 'Test');
+    }, _RealHttpOverrides());
+    expect(seen, [null, null]);
+  });
 }

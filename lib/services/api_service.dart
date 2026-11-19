@@ -422,14 +422,14 @@ class ApiService {
     loadBytes: _catalogBytes,
     buildApiUrl: _playerApiUrl,
     loadVodCategoryNames: _vodCategoryNames,
-    syncMovies: (key, bytes, items) => CatalogDb.instance.syncMovies(
+    syncMovies: (key, bytes, items) async => CatalogDb.instance.syncMovies(
       key,
-      CatalogDb.signatureOf(bytes, items.length),
+      await CatalogDb.signatureInBackground(bytes, items.length),
       items,
     ),
-    syncSeries: (key, bytes, items) => CatalogDb.instance.syncSeries(
+    syncSeries: (key, bytes, items) async => CatalogDb.instance.syncSeries(
       key,
-      CatalogDb.signatureOf(bytes, items.length),
+      await CatalogDb.signatureInBackground(bytes, items.length),
       items,
     ),
   );

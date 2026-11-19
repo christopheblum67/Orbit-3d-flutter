@@ -196,6 +196,16 @@ void main() {
           .first,
     );
     await tester.pumpAndSettle();
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    final theme = Theme.of(tester.element(find.byType(TabBar)));
+    final baselineSize = theme.tabBarTheme.labelStyle?.fontSize ??
+        theme.textTheme.titleSmall?.fontSize ??
+        14;
+    expect(tabBar.labelStyle!.fontSize, closeTo(baselineSize * 1.4, 0.001));
+    expect(tabBar.labelStyle!.fontWeight, FontWeight.w700);
+    expect(tabBar.unselectedLabelStyle!.fontWeight, FontWeight.w700);
+    expect((tabBar.tabs.first as Tab).height, closeTo(46 * 1.4, 0.001));
+    expect(tabBar.labelPadding!.horizontal, closeTo(32 * 1.4, 0.001));
     Focus.of(tester.element(find.text('Saison 1'))).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -277,6 +287,59 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('les deux carrousels limitent leur espace vertical',
+      (tester) async {
+    final progress = _Progress()
+      ..progress = const PlaybackProgress(
+          positionMs: 20000, durationMs: 100000, updatedAt: 0);
+    await open(tester, _WatchedService(), progress, size: const Size(960, 800));
+    for (final key in ['resume-carousel', 'season-carousel-1']) {
+      final carousel = find.byKey(ValueKey(key));
+      final stack = find.descendant(of: carousel, matching: find.byType(Stack));
+      expect(tester.getSize(stack.first).height, lessThan(275));
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('les longs titres restent visibles avec un texte agrandi',
+      (tester) async {
+    final longSeries = Series(
+      id: 'series',
+      title: 'Une série au titre particulièrement long',
+      description: '',
+      coverUrl: '',
+      year: 0,
+      genre: '',
+      director: '',
+      rating: 0,
+      pegi: '',
+      episodes: [
+        Episode(
+          id: 'episode',
+          title: 'Un épisode avec un titre particulièrement long et détaillé',
+          season: 1,
+          episodeNumber: 1,
+          streamUrl: '',
+        ),
+      ],
+    );
+    final progress = _Progress()
+      ..progress = const PlaybackProgress(
+          positionMs: 200, durationMs: 1000, updatedAt: 0);
+    await open(tester, _WatchedService(), progress,
+        customSeries: longSeries, size: const Size(360, 720), textScale: 2);
+    expect(find.text(longSeries.title), findsWidgets);
+    expect(find.text(longSeries.episodes.first.title), findsWidgets);
+    final seasonTile = find.byKey(const ValueKey('season-episode-0'));
+    await tester.tap(find.descendant(
+        of: seasonTile, matching: find.byTooltip('Marquer comme vu')));
+    await tester.pumpAndSettle();
+    expect(
+        find.descendant(of: seasonTile, matching: find.text('Vu · Reprendre')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('les acteurs principaux et invités ouvrent leur biographie',
       (tester) async {
     final actor = Actor(
@@ -305,6 +368,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Biographie Acteur invité'), findsOneWidget);
   });
+
+  for (final size in [const Size(1000, 900), const Size(360, 720)]) {
+    testWidgets('langues avant les invités et adaptées à $size',
+        (tester) async {
+      final guest = Actor(
+        id: 'guest',
+        name: 'Invité test',
+        character: '',
+        profilePath: '',
+        isGuestStar: true,
+      );
+      await open(
+        tester,
+        _WatchedService(),
+        _Progress(),
+        guests: {
+          1: [guest],
+        },
+        size: size,
+        textScale: size.width < 600 ? 1.3 : 1,
+      );
+      final audio = find.byType(SeriesAudioLanguageSelector);
+      final subtitles = find.byType(SeriesSubtitleLanguageSelector);
+      await tester.ensureVisible(audio);
+      await tester.pumpAndSettle();
+      expect(audio, findsOneWidget);
+      expect(subtitles, findsOneWidget);
+      final audioRect = tester.getRect(audio);
+      final subtitleRect = tester.getRect(subtitles);
+      if (size.width > 600) {
+        expect(subtitleRect.left, greaterThanOrEqualTo(audioRect.right));
+        expect(subtitleRect.top, audioRect.top);
+      } else {
+        expect(subtitleRect.top, greaterThanOrEqualTo(audioRect.bottom));
+      }
+      await tester.ensureVisible(find.text('Invité test'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.text('Invité test')).top,
+        greaterThan(tester.getRect(subtitles).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('le badge réagit à une pression longue dans les deux états',
       (tester) async {

@@ -79,6 +79,9 @@ void main() {
     ));
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
+    final sheetHeight =
+        tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
+    expect(sheetHeight, closeTo(480 * 0.84, 0.1));
     final engines = find.byType(DropdownButton<PlayerEngine>);
     final subtitles = find.byType(DropdownButton<VodSubtitleMode>);
     final decoder = find.byType(DropdownButton<VideoDecoderMode>);

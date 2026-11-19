@@ -338,8 +338,10 @@ void main() {
   test('une génération sans métadonnées publiées reste invisible', () async {
     final raw = await databaseFactory.openDatabase('${dir.path}\\t.db');
     await raw.rawInsert(
-      'INSERT INTO items SELECT kind, ?, id, title, title_key, search_key, '
-      'poster, year, genre, rating, category_id, pegi, added, stream_id, ext '
+      'INSERT INTO items (kind, sub_key, id, title, title_key, search_key, '
+      'poster, year, genre, rating, category_id, pegi, added, stream_id, ext, sort_added) '
+      'SELECT kind, ?, id, title, title_key, search_key, '
+      'poster, year, genre, rating, category_id, pegi, added, stream_id, ext, sort_added '
       'FROM items WHERE kind = ? AND sub_key = '
       '(SELECT data_key FROM meta WHERE kind = ? AND sub_key = ?)',
       ['abandoned', CatalogKind.vod.index, CatalogKind.vod.index, sub],
@@ -354,8 +356,10 @@ void main() {
     final raw = await databaseFactory.openDatabase(path);
     for (final key in ['interrupted-stage', 'previous-generation']) {
       await raw.rawInsert(
-        'INSERT INTO items SELECT kind, ?, id, title, title_key, search_key, '
-        'poster, year, genre, rating, category_id, pegi, added, stream_id, ext '
+        'INSERT INTO items (kind, sub_key, id, title, title_key, search_key, '
+        'poster, year, genre, rating, category_id, pegi, added, stream_id, ext, sort_added) '
+        'SELECT kind, ?, id, title, title_key, search_key, '
+        'poster, year, genre, rating, category_id, pegi, added, stream_id, ext, sort_added '
         'FROM items WHERE kind = ? AND sub_key = '
         '(SELECT data_key FROM meta WHERE kind = ? AND sub_key = ?)',
         [key, CatalogKind.vod.index, CatalogKind.vod.index, sub],
@@ -441,7 +445,7 @@ void main() {
             'genre': '',
             'rating': 0,
             'category_id': '',
-            'added': 0,
+            'added': 1700000000,
           });
           await db.insert('meta', {
             'kind': 0,
@@ -455,7 +459,13 @@ void main() {
     );
     await legacy.close();
     final migrated = CatalogDb.forTesting(path);
-    expect((await migrated.queryMovies(sub)).single.id, 'legacy');
+    final oldMovie = (await migrated.queryMovies(sub)).single;
+    expect(oldMovie.id, 'legacy');
+    expect(oldMovie.addedDate!.millisecondsSinceEpoch, 1700000000 * 1000);
+    final rows = await databaseFactory
+        .openDatabase(path)
+        .then((db) => db.query('items', columns: ['sort_added']));
+    expect(rows.single['sort_added'], 1700000000);
     await migrated.replaceMovies(sub, 'new', [_movie('new', 'Nouveau')]);
     expect((await migrated.queryMovies(sub)).single.id, 'new');
   });
@@ -463,8 +473,63 @@ void main() {
   test('signatureOf varie avec le contenu', () {
     final a = Uint8List.fromList(List.filled(10000, 1));
     final b = Uint8List.fromList([...List.filled(9999, 1), 2]);
+    final middle = Uint8List.fromList(a)..[5000] = 2;
     expect(CatalogDb.signatureOf(a, 3), CatalogDb.signatureOf(a, 3));
     expect(CatalogDb.signatureOf(a, 3), isNot(CatalogDb.signatureOf(b, 3)));
+    expect(
+        CatalogDb.signatureOf(a, 3), isNot(CatalogDb.signatureOf(middle, 3)));
     expect(CatalogDb.signatureOf(a, 3), isNot(CatalogDb.signatureOf(a, 4)));
+  });
+
+  test('middle-only changes refresh both VOD and series catalogues', () async {
+    final oldBytes = Uint8List(9000);
+    final newBytes = Uint8List.fromList(oldBytes)..[4500] = 1;
+    final oldSignature = await CatalogDb.signatureInBackground(oldBytes, 1);
+    final newSignature = await CatalogDb.signatureInBackground(newBytes, 1);
+    expect(newSignature, isNot(oldSignature));
+
+    await db.syncMovies(sub, oldSignature, [_movie('old', 'Ancien')]);
+    await db.syncMovies(sub, newSignature, [_movie('new', 'Nouveau')]);
+    expect((await db.queryMovies(sub)).single.id, 'new');
+
+    await db.syncSeries(
+      sub,
+      oldSignature,
+      [Series.fromMap({'series_id': 'old', 'name': 'Ancienne'})],
+    );
+    await db.syncSeries(
+      sub,
+      newSignature,
+      [Series.fromMap({'series_id': 'new', 'name': 'Nouvelle'})],
+    );
+    expect((await db.querySeries(sub)).single.id, 'new');
+  });
+
+  test('series sorting uses modification dates without marking them as new',
+      () async {
+    final fallback = Series.fromMap({
+      'series_id': 'modified',
+      'name': 'Modification',
+      'last_modified': '1730000000',
+    });
+    final added = Series.fromMap({
+      'series_id': 'added',
+      'name': 'Ajout',
+      'added': '1720000000',
+      'last_modified': '1740000000',
+    });
+    await db.replaceSeries(sub, 'dates', [added, fallback]);
+    final first = await db.querySeries(sub, limit: 1);
+    expect(first.single.id, 'modified');
+    expect(first.single.addedDate, isNull);
+    expect(first.single.isNew, isFalse);
+    final next = await db.querySeries(
+      sub,
+      limit: 1,
+      after: CatalogCursor.fromSeries(first.single),
+    );
+    expect(next.single.id, 'added');
+    expect(next.single.catalogSortDate!.millisecondsSinceEpoch,
+        added.addedDate!.millisecondsSinceEpoch);
   });
 }

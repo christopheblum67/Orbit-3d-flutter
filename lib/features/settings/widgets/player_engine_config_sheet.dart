@@ -293,7 +293,7 @@ class _PlayerEngineConfigSheetState
         ),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.78,
+            maxHeight: MediaQuery.of(context).size.height * 0.84,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

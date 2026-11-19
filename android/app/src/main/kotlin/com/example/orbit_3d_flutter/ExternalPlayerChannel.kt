@@ -25,13 +25,15 @@ object ExternalPlayerChannel {
                 val url = call.argument<String>("url")
                 val player = call.argument<String>("engine")
                 val session = call.argument<Int>("session")
+                val positionMs = call.argument<Number>("positionMs")?.toLong()
                 val packages = when (player) {
                     "vlc" -> listOf("org.videolan.vlc")
                     "mxPlayer" -> listOf("com.mxtech.videoplayer.ad", "com.mxtech.videoplayer.pro")
                     else -> emptyList()
                 }
                 val uri = url?.let(Uri::parse)
-                if (uri == null || uri.scheme !in listOf("http", "https") || packages.isEmpty()) {
+                if (uri == null || uri.scheme !in listOf("http", "https") ||
+                    packages.isEmpty() || (positionMs != null && positionMs < 0)) {
                     result.error("invalid_argument", "Invalid player or stream URL", null)
                     return@setMethodCallHandler
                 }
@@ -45,6 +47,14 @@ object ExternalPlayerChannel {
                 for ((packageName, explicitMxActivity) in candidates) {
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "video/*")
+                        if (positionMs != null) {
+                            if (player == "vlc") {
+                                putExtra("from_start", positionMs == 0L)
+                                putExtra("position", positionMs)
+                            } else {
+                                putExtra("position", positionMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+                            }
+                        }
                         if (explicitMxActivity) {
                             val activityName = if (packageName.endsWith(".pro"))
                                 "com.mxtech.videoplayer.ActivityScreen"
@@ -59,7 +69,7 @@ object ExternalPlayerChannel {
                     try {
                         if (session != null) {
                             pendingSession = session
-                            pendingEngine = if (explicitMxActivity) player else null
+                            pendingEngine = if (player == "vlc" || explicitMxActivity) player else null
                             activity.startActivityForResult(intent, requestCode)
                         } else {
                             activity.startActivity(intent)
@@ -84,15 +94,33 @@ object ExternalPlayerChannel {
     fun onActivityResult(request: Int, resultCode: Int, data: Intent?): Boolean {
         if (request != requestCode) return false
         val session = pendingSession ?: return true
-        val completed = pendingEngine == "mxPlayer" &&
+        val player = pendingEngine
+        val completed = player == "mxPlayer" &&
             resultCode == Activity.RESULT_OK &&
             data?.getStringExtra("end_by") == "playback_completion"
+        val position: Long?
+        val duration: Long?
+        if (resultCode == Activity.RESULT_OK && data != null && player == "vlc" &&
+            data.hasExtra("extra_position") && data.hasExtra("extra_duration")) {
+            position = data.getLongExtra("extra_position", -1)
+            duration = data.getLongExtra("extra_duration", -1)
+        } else if (resultCode == Activity.RESULT_OK && data != null && player == "mxPlayer" &&
+            data.hasExtra("position") && data.hasExtra("duration")) {
+            position = data.getIntExtra("position", -1).toLong()
+            duration = data.getIntExtra("duration", -1).toLong()
+        } else {
+            position = null
+            duration = null
+        }
         pendingSession = null
         pendingEngine = null
-        channel?.invokeMethod("playbackFinished", mapOf(
-            "session" to session,
-            "completed" to completed,
-        ))
+        val result = mutableMapOf<String, Any>("session" to session, "completed" to completed)
+        if (position != null && duration != null && position >= 0 &&
+            duration > 0 && position <= duration) {
+            result["positionMs"] = position
+            result["durationMs"] = duration
+        }
+        channel?.invokeMethod("playbackFinished", result)
         return true
     }
 }

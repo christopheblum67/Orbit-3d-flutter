@@ -386,9 +386,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                         rating: s.rating,
                         releaseYear: s.year,
                         durationMinutes: 0,
-                        // Date d'ajout réelle du panel (champ Xtream `added`) : voir
-                        // le même correctif côté Films.
-                        addedDate: s.addedDate,
+                        addedDate: s.catalogSortDate,
                       ),
                     )
                     .toList();

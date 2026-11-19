@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
+import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/matchmaking_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
-/// Ouvre la feuille de décision pour [reco] : « film déjà vu » ou « pas
-/// intéressé », puis Valider / Annuler.
+/// Ouvre la feuille de décision pour [reco], puis Confirmer / Annuler.
 ///
 /// ## Pourquoi une confirmation explicite
 ///
-/// Les deux options ont des conséquences **irréversibles** sur l'algorithme :
+/// Les deux premières options ont des conséquences durables sur l'algorithme :
 /// « déjà vu » exclut le contenu des propositions futures, « pas intéressé »
 /// l'écarte définitivement. Un appui long perdu — geste accidentel, tactile
 /// mal placé — aurait donc un effet durable et invisible.
@@ -19,13 +20,15 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 /// L'annulation ne modifie rien et laisse la recommandation en place.
 ///
 /// Retourne `true` si l'utilisateur a validé, `false` sinon.
-enum _Decision { seen, notInterested }
+enum _Decision { seen, notInterested, favorite }
 
 Future<bool> showProlongDecision(
   BuildContext context,
   WidgetRef ref,
   Recommendation reco,
 ) async {
+  final initialProfileId = ref.read(currentProfileProvider)?.id;
+  final initialSubscriptionId = ref.read(activeSubscriptionProvider)?.id;
   final heldKeys = HardwareKeyboard.instance.logicalKeysPressed.intersection({
     LogicalKeyboardKey.select,
     LogicalKeyboardKey.enter,
@@ -61,12 +64,74 @@ Future<bool> showProlongDecision(
   // marqueurs sont persistés par profil pour que « déjà vu » sur le profil
   // enfant n'affecte pas les propositions du profil parent.
   final profile = ref.read(currentProfileProvider);
-  if (profile != null) {
-    final notifier = decision == _Decision.seen
-        ? ref.read(seenRecoIdsProvider(profile.id).notifier)
-        : ref.read(dismissedRecoIdsProvider(profile.id).notifier);
-    await notifier.add(reco.id);
+  if (profile == null || profile.id != initialProfileId) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Le profil a changé. Recommencez.'),
+    ));
+    return false;
   }
+  if (decision == _Decision.favorite) {
+    if (ref.read(activeSubscriptionProvider)?.id != initialSubscriptionId) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('L’abonnement a changé. Recommencez.'),
+      ));
+      return false;
+    }
+    if (reco.id.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Ce contenu ne peut pas être ajouté aux favoris.'),
+      ));
+      return false;
+    }
+    final isMovie = reco.kind == RecommendationKind.movie;
+    final entry = FavoriteEntry(
+      type: isMovie ? ContentType.vod : ContentType.series,
+      id: reco.id,
+      title: reco.title,
+      posterUrl: reco.posterUrl,
+      subtitle: isMovie ? (reco.year > 0 ? '${reco.year}' : '') : reco.genre,
+      streamUrl: isMovie
+          ? reco.movie!.streamUrl
+          : (reco.series!.episodes.isNotEmpty
+              ? reco.series!.episodes.first.streamUrl
+              : ''),
+    );
+    try {
+      await ref.read(favoritesProvider.notifier).add(entry);
+    } on StateError catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      return false;
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'matchmaking',
+        context: ErrorDescription('while adding a favorite'),
+      ));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Impossible d’ajouter ce contenu aux favoris.'),
+        ));
+      }
+      return false;
+    }
+    if (!context.mounted ||
+        ref.read(currentProfileProvider)?.id != initialProfileId ||
+        ref.read(activeSubscriptionProvider)?.id != initialSubscriptionId) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('« ${reco.title} » ajouté aux favoris'),
+    ));
+    return true;
+  }
+  final notifier = decision == _Decision.seen
+      ? ref.read(seenRecoIdsProvider(profile.id).notifier)
+      : ref.read(dismissedRecoIdsProvider(profile.id).notifier);
+  await notifier.add(reco.id);
   if (context.mounted) ref.invalidate(matchmakingTabProvider);
   return true;
 }
@@ -82,6 +147,20 @@ class _ProlongDecisionSheet extends StatefulWidget {
 
 class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
   _Decision? _selected;
+  final _confirmFocus = FocusNode();
+
+  void _select(_Decision decision) {
+    setState(() => _selected = decision);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _confirmFocus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _confirmFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,37 +175,55 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isMovie
-                  ? 'Ce film vous appartient ?'
-                  : 'Cette série vous appartient ?',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.reco.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            _DecisionTile(
-              icon: Icons.visibility_off_outlined,
-              label: isMovie ? 'Film déjà vu' : 'Série déjà vue',
-              detail: 'Retiré des prochaines suggestions',
-              autofocus: true,
-              selected: _selected == _Decision.seen,
-              onTap: () => setState(() => _selected = _Decision.seen),
-            ),
-            const SizedBox(height: 8),
-            _DecisionTile(
-              icon: Icons.thumb_down_alt_outlined,
-              label: 'Pas intéressé',
-              detail: 'Écarté définitivement des suggestions',
-              selected: _selected == _Decision.notInterested,
-              onTap: () => setState(() => _selected = _Decision.notInterested),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isMovie
+                          ? 'Ce film vous appartient ?'
+                          : 'Cette série vous appartient ?',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.reco.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    _DecisionTile(
+                      icon: Icons.visibility_off_outlined,
+                      label: isMovie ? 'Film déjà vu' : 'Série déjà vue',
+                      detail: 'Retiré des prochaines suggestions',
+                      autofocus: true,
+                      selected: _selected == _Decision.seen,
+                      onTap: () => _select(_Decision.seen),
+                    ),
+                    const SizedBox(height: 8),
+                    _DecisionTile(
+                      icon: Icons.thumb_down_alt_outlined,
+                      label: 'Pas intéressé',
+                      detail: 'Écarté définitivement des suggestions',
+                      selected: _selected == _Decision.notInterested,
+                      onTap: () => _select(_Decision.notInterested),
+                    ),
+                    const SizedBox(height: 8),
+                    _DecisionTile(
+                      icon: Icons.favorite_border,
+                      label: 'Ajouter aux favoris',
+                      detail: 'Ajouté aux favoris du profil actuel',
+                      selected: _selected == _Decision.favorite,
+                      onTap: () => _select(_Decision.favorite),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Row(
@@ -140,6 +237,7 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
+                    focusNode: _confirmFocus,
                     onPressed: _selected == null
                         ? null
                         : () => Navigator.of(context).pop(_selected),

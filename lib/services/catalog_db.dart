@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -9,6 +10,9 @@ import 'package:sqflite/sqflite.dart';
 
 /// Types de catalogue stockés.
 enum CatalogKind { vod, series }
+
+String _catalogSignature(({Uint8List bytes, int itemCount}) input) =>
+    CatalogDb.signatureOf(input.bytes, input.itemCount);
 
 /// Ordres de tri exécutés par SQLite.
 enum CatalogSort {
@@ -42,7 +46,7 @@ class CatalogDb {
   CatalogDb.forTesting(this._testPath, {this.afterBatchForTesting});
 
   static const String _dbName = 'orbit_catalog.db';
-  static const int _schemaVersion = 3;
+  static const int _schemaVersion = 4;
   static const int _insertChunk = 500;
   static int _nextGeneration = 0;
 
@@ -58,21 +62,13 @@ class CatalogDb {
   /// base se rafraîchissent quand un nouveau catalogue devient disponible.
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
-  /// Empreinte légère d'un catalogue brut (taille + début + fin + effectif).
-  /// Suffit à détecter un catalogue modifié sans hacher des dizaines de Mo.
+  /// Empreinte du catalogue complet, différente de l'ancien format échantillonné.
   static String signatureOf(Uint8List bytes, int itemCount) {
-    var hash = 0x811c9dc5;
-    void mix(int from, int to) {
-      for (var i = from; i < to; i++) {
-        hash = ((hash ^ bytes[i]) * 0x01000193) & 0x7fffffff;
-      }
-    }
-
-    final head = bytes.length < 4096 ? bytes.length : 4096;
-    mix(0, head);
-    mix(bytes.length - head, bytes.length);
-    return '${bytes.length}:$itemCount:$hash';
+    return 'sha256:${sha256.convert(bytes)}:$itemCount';
   }
+
+  static Future<String> signatureInBackground(Uint8List bytes, int itemCount) =>
+      compute(_catalogSignature, (bytes: bytes, itemCount: itemCount));
 
   /// Réécrit les films seulement si le contenu source a changé.
   Future<void> syncMovies(
@@ -124,6 +120,7 @@ class CatalogDb {
               category_id TEXT NOT NULL,
               pegi TEXT,
               added INTEGER NOT NULL,
+              sort_added INTEGER NOT NULL,
               stream_id TEXT NOT NULL DEFAULT '',
               ext TEXT NOT NULL DEFAULT '',
               PRIMARY KEY (kind, sub_key, id)
@@ -133,7 +130,7 @@ class CatalogDb {
             'CREATE INDEX idx_items_cat ON items(kind, sub_key, category_id)',
           );
           await db.execute(
-            'CREATE INDEX idx_items_added ON items(kind, sub_key, added DESC)',
+            'CREATE INDEX idx_items_added ON items(kind, sub_key, sort_added DESC)',
           );
           await db.execute(
             'CREATE INDEX idx_items_title ON items(kind, sub_key, title_key)',
@@ -177,6 +174,16 @@ class CatalogDb {
           if (oldVersion < 3) {
             await db.execute(
               'CREATE INDEX idx_items_cat_title ON items(kind, sub_key, category_id, title_key, id)',
+            );
+          }
+          if (oldVersion < 4) {
+            await db.execute(
+              'ALTER TABLE items ADD COLUMN sort_added INTEGER NOT NULL DEFAULT 0',
+            );
+            await db.execute('UPDATE items SET sort_added = added');
+            await db.execute('DROP INDEX IF EXISTS idx_items_added');
+            await db.execute(
+              'CREATE INDEX idx_items_added ON items(kind, sub_key, sort_added DESC)',
             );
           }
         },
@@ -285,6 +292,7 @@ class CatalogDb {
           categoryId: s.categoryId,
           pegi: s.pegi,
           added: s.addedDate,
+          sortAdded: s.catalogSortDate,
         );
       },
     );
@@ -302,6 +310,7 @@ class CatalogDb {
     required String categoryId,
     required String? pegi,
     required DateTime? added,
+    DateTime? sortAdded,
     String streamId = '',
     String ext = '',
   }) {
@@ -322,6 +331,7 @@ class CatalogDb {
       'category_id': categoryId,
       'pegi': pegi,
       'added': added == null ? 0 : added.millisecondsSinceEpoch ~/ 1000,
+      'sort_added': ((sortAdded ?? added)?.millisecondsSinceEpoch ?? 0) ~/ 1000,
     };
   }
 
@@ -670,6 +680,8 @@ class CatalogDb {
           episodes: const [],
           categoryId: r['category_id'] as String,
           addedDate: _date(r['added']),
+          lastModifiedDate:
+              _date(r['added']) == null ? _date(r['sort_added']) : null,
         ),
     ];
   }
@@ -691,7 +703,7 @@ class CatalogDb {
       final cursor = after == null ? null : _after(sort, after);
       return await db.rawQuery(
         'SELECT id, title, poster, stream_id, ext, year, genre, rating, '
-        'category_id, pegi, added FROM items WHERE ${q.clause} '
+        'category_id, pegi, added, sort_added FROM items WHERE ${q.clause} '
         '${cursor == null ? '' : 'AND ${cursor.clause} '}'
         'ORDER BY ${_orderBy(sort)} LIMIT ? OFFSET ?',
         [...q.args, ...?cursor?.args, limit, after == null ? offset : 0],
@@ -732,8 +744,8 @@ class CatalogDb {
       );
     }
     final (column, value, descending) = switch (sort) {
-      CatalogSort.recentlyAdded => ('added', cursor.added, true),
-      CatalogSort.recentlyAddedAsc => ('added', cursor.added, false),
+      CatalogSort.recentlyAdded => ('sort_added', cursor.added, true),
+      CatalogSort.recentlyAddedAsc => ('sort_added', cursor.added, false),
       CatalogSort.rating => ('rating', cursor.rating, true),
       CatalogSort.ratingAsc => ('rating', cursor.rating, false),
       CatalogSort.year => ('year', cursor.year, true),
@@ -752,9 +764,9 @@ class CatalogDb {
   static String _orderBy(CatalogSort sort) {
     switch (sort) {
       case CatalogSort.recentlyAdded:
-        return 'added DESC, title_key ASC, id ASC';
+        return 'sort_added DESC, title_key ASC, id ASC';
       case CatalogSort.recentlyAddedAsc:
-        return 'added ASC, title_key ASC, id ASC';
+        return 'sort_added ASC, title_key ASC, id ASC';
       case CatalogSort.title:
         return 'title_key ASC, id ASC';
       case CatalogSort.titleDesc:
@@ -841,7 +853,7 @@ class CatalogCursor {
   factory CatalogCursor.fromSeries(Series series) => CatalogCursor(
         id: series.id,
         title: series.title,
-        added: (series.addedDate?.millisecondsSinceEpoch ?? 0) ~/ 1000,
+        added: (series.catalogSortDate?.millisecondsSinceEpoch ?? 0) ~/ 1000,
         rating: series.rating,
         year: series.year,
       );

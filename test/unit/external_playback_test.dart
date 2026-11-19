@@ -44,11 +44,22 @@ void main() {
     );
     expect(calls.single.method, 'open');
     expect(calls.single.arguments, {'url': 'url', 'engine': 'vlc'});
+    expect(
+      await launchExternalPlayback(
+        engine: PlayerEngine.vlc,
+        url: 'url',
+        session: 7,
+        positionMs: 12000,
+      ),
+      isTrue,
+    );
+    expect(calls.last.arguments,
+        {'url': 'url', 'engine': 'vlc', 'session': 7, 'positionMs': 12000});
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     expect(
       await launchExternalPlayback(engine: PlayerEngine.mxPlayer, url: 'url'),
       isFalse,
     );
-    expect(calls.length, 1);
+    expect(calls.length, 2);
   });
 }

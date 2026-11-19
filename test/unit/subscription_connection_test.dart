@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
+import 'package:orbit_3d_flutter/services/playlist_fetch_service.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 
 class _FailingApi extends ApiService {
@@ -43,6 +46,24 @@ class _SuccessfulApi extends ApiService {
     expiryCalls++;
     return DateTime(2030);
   }
+}
+
+class _PlaylistApi extends ApiService {
+  _PlaylistApi(this.body, this.directory);
+
+  final String body;
+  final Directory directory;
+
+  @override
+  Future<M3uPlaylist> fetchM3uPlaylist(String url) => PlaylistFetchService(
+        cache: ConditionalPlaylistCache(directory: () async => directory),
+        log: (_) {},
+        get: (url, {options}) async => Response<dynamic>(
+          requestOptions: RequestOptions(path: url),
+          statusCode: 200,
+          data: body,
+        ),
+      ).fetch(url);
 }
 
 void main() {
@@ -171,6 +192,57 @@ void main() {
     expect(container.read(subscriptionsProvider).single.lastTestResult,
         TestResultStatus.error);
   });
+
+  for (final example in [
+    (name: 'réponse vide', body: '', success: false),
+    (name: 'page HTML', body: '<html>Erreur</html>', success: false),
+    (name: 'playlist sans entrées', body: '#EXTM3U\n', success: false),
+    (
+      name: 'chaîne',
+      body: '#EXTM3U\n#EXTINF:-1,Chaîne\nhttps://example.test/live\n',
+      success: true
+    ),
+    (
+      name: 'film',
+      body: '#EXTM3U\n#EXTINF:-1 group-title="Films",Film\n'
+          'https://example.test/movie/film.mp4\n',
+      success: true
+    ),
+    (
+      name: 'série',
+      body: '#EXTM3U\n#EXTINF:-1 group-title="Series",Série S01E01\n'
+          'https://example.test/series/episode.mp4\n',
+      success: true
+    ),
+    (
+      name: 'radio',
+      body: '#EXTM3U\n#EXTINF:-1 tvg-type="radio",Radio\n'
+          'https://example.test/radio\n',
+      success: true
+    ),
+  ]) {
+    test('testConnection M3U : ${example.name}', () async {
+      final container = ProviderContainer(
+        overrides: [storageServiceProvider.overrideWithValue(storage)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(subscriptionsProvider.notifier);
+      final sub = Subscription(
+        id: 'm3u',
+        name: 'Test',
+        type: SubscriptionType.m3u,
+        m3uUrl: 'https://example.test/playlist',
+        createdAt: DateTime.now(),
+      );
+      await notifier.addSubscription(sub);
+      await notifier.testConnection(sub,
+          api: _PlaylistApi(example.body, tempDir));
+      final result = container.read(subscriptionsProvider).single;
+      expect(result.lastTestResult,
+          example.success ? TestResultStatus.success : TestResultStatus.error);
+      if (!example.success) expect(result.lastTestError, contains('vide'));
+    });
+  }
 
   test(
       'le test d’un abonnement inactif ne récupère pas la date du compte actif',

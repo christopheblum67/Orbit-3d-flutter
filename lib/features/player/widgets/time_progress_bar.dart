@@ -40,6 +40,7 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
   bool _focused = false;
   Duration? _pendingSeek;
   bool _seeking = false;
+  Timer? _seekDebounce;
 
   @override
   void initState() {
@@ -55,7 +56,10 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
     if (duration != value.duration) {
       setState(() => duration = value.duration);
     }
-    if (!isDragging && !_seeking && position != value.position) {
+    if (!isDragging &&
+        !_seeking &&
+        _pendingSeek == null &&
+        position != value.position) {
       setState(() => position = value.position);
     }
   }
@@ -68,6 +72,8 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
       widget.controller.addListener(_onVideoChange);
       position = widget.controller.value.position;
       duration = widget.controller.value.duration;
+      _seekDebounce?.cancel();
+      _seekDebounce = null;
       _pendingSeek = null;
       _seeking = false;
       isDragging = false;
@@ -91,16 +97,20 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
         .clamp(0, duration.inMilliseconds);
     setState(() => position = Duration(milliseconds: targetMs));
     _pendingSeek = position;
-    if (!_seeking) unawaited(_flushSeeks(widget.controller));
+    _seekDebounce?.cancel();
+    final controller = widget.controller;
+    _seekDebounce = Timer(const Duration(milliseconds: 350), () {
+      _seekDebounce = null;
+      if (!_seeking) unawaited(_flushSeeks(controller));
+    });
     return KeyEventResult.handled;
   }
 
   Future<void> _flushSeeks(VideoPlayerController controller) async {
     _seeking = true;
     try {
-      while (mounted && identical(controller, widget.controller)) {
-        final target = _pendingSeek;
-        if (target == null) break;
+      final target = _pendingSeek;
+      if (target != null) {
         _pendingSeek = null;
         await controller.seekTo(target);
       }
@@ -113,15 +123,19 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
       ));
     } finally {
       if (mounted && identical(controller, widget.controller)) {
-        _pendingSeek = null;
         _seeking = false;
-        setState(() => position = controller.value.position);
+        if (_pendingSeek != null && _seekDebounce == null) {
+          unawaited(_flushSeeks(controller));
+        } else if (_pendingSeek == null && !isDragging) {
+          setState(() => position = controller.value.position);
+        }
       }
     }
   }
 
   @override
   void dispose() {
+    _seekDebounce?.cancel();
     widget.controller.removeListener(_onVideoChange);
     super.dispose();
   }
@@ -165,6 +179,9 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
           child: GestureDetector(
             onHorizontalDragStart: widget.allowScrubbing
                 ? (details) {
+                    _seekDebounce?.cancel();
+                    _seekDebounce = null;
+                    _pendingSeek = null;
                     isDragging = true;
                   }
                 : null,
@@ -189,7 +206,8 @@ class _TimeProgressBarState extends State<TimeProgressBar> {
                     isDragging = false;
                     final targetMs =
                         (duration.inMilliseconds * dragValue).round();
-                    widget.controller.seekTo(Duration(milliseconds: targetMs));
+                    _pendingSeek = Duration(milliseconds: targetMs);
+                    if (!_seeking) unawaited(_flushSeeks(widget.controller));
                   }
                 : null,
             child: Container(

@@ -921,6 +921,10 @@ class _CloudProfileRecoveryScreenState
                   labelText: _legacyPhrase
                       ? 'Phrase secrète (ancien format)'
                       : 'Code donné par l’adulte',
+                  helperText: _legacyPhrase
+                      ? 'Saisir la même phrase sur les deux appareils.'
+                      : 'Saisir le même code sur les deux appareils.',
+                  helperMaxLines: 2,
                   suffixIcon: IconButton(
                     tooltip: _legacyPhrase
                         ? (_obscurePhrase

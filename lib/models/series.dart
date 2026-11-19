@@ -20,6 +20,10 @@ class Series {
 
   // Date d'ajout (Xtream: `added` en secondes Unix)
   final DateTime? addedDate;
+  final DateTime? lastModifiedDate;
+
+  /// La date de modification n'est utilisée que pour le tri si l'ajout manque.
+  DateTime? get catalogSortDate => addedDate ?? lastModifiedDate;
 
   Series({
     required this.id,
@@ -34,6 +38,7 @@ class Series {
     required this.episodes,
     this.categoryId = '',
     this.addedDate,
+    this.lastModifiedDate,
   });
 
   bool get isNew => isRecentlyAdded(addedDate);
@@ -56,6 +61,7 @@ class Series {
         episodes: episodes,
         categoryId: categoryId,
         addedDate: addedDate,
+        lastModifiedDate: lastModifiedDate,
       );
 
   factory Series.fromMap(Map<String, dynamic> map) {
@@ -74,21 +80,17 @@ class Series {
         parsedYear = int.tryParse(digits.substring(0, 4)) ?? 0;
       }
     }
-    DateTime? parseAdded(dynamic value) {
-      if (value == null) return null;
-      if (value is int) {
-        return DateTime.fromMillisecondsSinceEpoch(value * 1000, isUtc: true);
+    DateTime? parseTimestamp(dynamic value) {
+      final seconds = value is int ? value : int.tryParse('$value'.trim());
+      if (seconds == null || seconds <= 0) return null;
+      try {
+        return DateTime.fromMillisecondsSinceEpoch(
+          seconds * 1000,
+          isUtc: true,
+        );
+      } on ArgumentError {
+        return null;
       }
-      if (value is String) {
-        final parsed = int.tryParse(value);
-        if (parsed != null) {
-          return DateTime.fromMillisecondsSinceEpoch(
-            parsed * 1000,
-            isUtc: true,
-          );
-        }
-      }
-      return null;
     }
 
     return Series(
@@ -119,7 +121,8 @@ class Series {
       ]),
       episodes: parseEpisodes(map['episodes']),
       categoryId: map['category_id']?.toString() ?? '',
-      addedDate: parseAdded(map['added']),
+      addedDate: parseTimestamp(map['added']),
+      lastModifiedDate: parseTimestamp(map['last_modified']),
     );
   }
 

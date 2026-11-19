@@ -13,10 +13,14 @@ class ExternalPlaybackResult {
   const ExternalPlaybackResult({
     required this.session,
     required this.completed,
+    this.positionMs,
+    this.durationMs,
   });
 
   final int session;
   final bool completed;
+  final int? positionMs;
+  final int? durationMs;
 }
 
 int newExternalPlaybackSession() => ++_nextSession;
@@ -32,6 +36,8 @@ Stream<ExternalPlaybackResult> get externalPlaybackResults {
       ExternalPlaybackResult(
         session: args['session'] as int,
         completed: args['completed'] as bool,
+        positionMs: args['positionMs'] is int ? args['positionMs'] as int : null,
+        durationMs: args['durationMs'] is int ? args['durationMs'] as int : null,
       ),
     );
   });
@@ -42,6 +48,7 @@ Future<bool> launchExternalPlayback({
   required PlayerEngine engine,
   required String url,
   int? session,
+  int? positionMs,
 }) async {
   if (!engine.isExternal) return false;
   final result = await safeAsync<bool>(
@@ -51,6 +58,7 @@ Future<bool> launchExternalPlayback({
             'url': url,
             'engine': engine.name,
             if (session != null) 'session': session,
+            if (positionMs != null) 'positionMs': positionMs,
           }) ??
           false;
     },

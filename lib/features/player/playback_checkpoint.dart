@@ -23,6 +23,13 @@ class PlaybackCheckpoint {
     if (value.duration > Duration.zero) duration = value.duration;
   }
 
+  void observeExternal(Duration newPosition, Duration newDuration) {
+    position = newPosition;
+    duration = newDuration;
+    restoring = false;
+    _observed = true;
+  }
+
   void reset() {
     position = Duration.zero;
     duration = Duration.zero;

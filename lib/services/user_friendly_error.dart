@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/playlist_fetch_service.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart'
     show StreamNetworkException;
 
@@ -17,6 +18,7 @@ String userFriendlyError(Object error) {
   final quota = _rateLimitMessage(error);
   if (quota != null) return quota;
 
+  if (error is EmptyPlaylistException) return error.message;
   if (error is StreamNetworkException) return error.message;
   if (error is DioException) {
     if (error.response?.statusCode == 429) {

@@ -639,6 +639,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Code donné par l’adulte'), findsOneWidget);
+    expect(find.text('Saisir le même code sur les deux appareils.'),
+        findsOneWidget);
     expect(find.textContaining('plus de 10 minutes'), findsOneWidget);
     expect(find.text('Utiliser une ancienne phrase secrète'), findsNothing);
     await tester.tap(find.text('Options pour un adulte'));

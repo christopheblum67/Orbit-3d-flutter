@@ -209,10 +209,16 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
             }
           }
         } else {
-          if (sub.m3uUrl == null) {
+          if (sub.m3uUrl == null || sub.m3uUrl!.trim().isEmpty) {
             throw Exception('URL M3U manquante');
           }
-          await apiService.get(sub.m3uUrl!);
+          final playlist = await apiService.fetchM3uPlaylist(sub.m3uUrl!);
+          if (playlist.channels.isEmpty &&
+              playlist.radios.isEmpty &&
+              playlist.movies.isEmpty &&
+              playlist.series.isEmpty) {
+            throw const FormatException('Playlist M3U invalide ou vide');
+          }
         }
       },
       context: 'SubscriptionsNotifier.testConnection',

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -33,6 +35,14 @@ class CastCarousel extends StatelessWidget {
         maxVisible != null ? actors.take(maxVisible!).toList() : actors;
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
+    final hasCharacter = showCharacter &&
+        visibleActors.any((actor) => actor.character.isNotEmpty);
+    final hasGuest = visibleActors.any((actor) => actor.isGuestStar);
+    final textHeight = 8 +
+        scaler.scale(13) * 2 * 1.2 +
+        (hasCharacter ? 2 + scaler.scale(11) * 2 * 1.2 : 0) +
+        (hasGuest ? 10 + scaler.scale(9) * 1.4 : 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,13 +52,17 @@ class CastCarousel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                Text(
-                  title!,
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Text(
+                    title!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
                   '${actors.length} acteur${actors.length > 1 ? 's' : ''}',
                   style: textTheme.bodySmall?.copyWith(
@@ -61,7 +75,7 @@ class CastCarousel extends StatelessWidget {
         ],
         const SizedBox(height: 12),
         SizedBox(
-          height: imageSize + (showCharacter ? 64 : 40),
+          height: imageSize + math.max(showCharacter ? 64 : 40, textHeight),
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,

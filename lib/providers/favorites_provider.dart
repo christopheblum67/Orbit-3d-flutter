@@ -96,7 +96,12 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
         .length;
   }
 
-  Future<void> toggle(FavoriteEntry entry) async {
+  Future<void> toggle(FavoriteEntry entry) => _update(entry, toggle: true);
+
+  /// Ajoute un favori sans retirer une entrée déjà présente.
+  Future<void> add(FavoriteEntry entry) => _update(entry, toggle: false);
+
+  Future<void> _update(FavoriteEntry entry, {required bool toggle}) async {
     final profile = ref.read(currentProfileProvider);
     final subscription = ref.read(activeSubscriptionProvider);
     if (profile == null || subscription == null || subscription.id.isEmpty) {
@@ -121,6 +126,7 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     );
     final service = ref.read(favoritesServiceProvider);
     if (state.containsKey(entryWithProfile.profileKey)) {
+      if (!toggle) return;
       await service.remove(entryWithProfile.key);
       if (!ref.mounted || _scope != '${profile.id}\u0000${subscription.id}') {
         return;

@@ -50,6 +50,37 @@ void main() {
       expect(series.rating, 0);
       expect(series.year, 0);
     });
+
+    test('uses the modification timestamp only as a sorting fallback', () {
+      final withoutAdded = Series.fromMap({
+        'series_id': '1',
+        'last_modified': '1730000000',
+      });
+      expect(withoutAdded.addedDate, isNull);
+      expect(withoutAdded.catalogSortDate,
+          DateTime.fromMillisecondsSinceEpoch(1730000000 * 1000, isUtc: true));
+      expect(withoutAdded.isNew, isFalse);
+      expect(withoutAdded.withGenre('Action').catalogSortDate,
+          withoutAdded.catalogSortDate);
+
+      final withAdded = Series.fromMap({
+        'series_id': '2',
+        'added': '1720000000',
+        'last_modified': 1730000000,
+      });
+      expect(withAdded.catalogSortDate,
+          DateTime.fromMillisecondsSinceEpoch(1720000000 * 1000, isUtc: true));
+
+      final invalidAdded = Series.fromMap({
+        'series_id': '3',
+        'added': '0',
+        'last_modified': '1730000000',
+      });
+      expect(invalidAdded.addedDate, isNull);
+      expect(invalidAdded.catalogSortDate, withoutAdded.catalogSortDate);
+      expect(
+          Series.fromMap({'last_modified': 'invalid'}).catalogSortDate, isNull);
+    });
   });
 
   group('Episode.fromMap', () {

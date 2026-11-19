@@ -59,14 +59,14 @@ void main() {
     );
     expect(Focus.of(tester.element(bar)).hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(player.seeks.last, const Duration(seconds: 75));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(player.seeks.last, const Duration(minutes: 2));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(player.seeks.last, const Duration(seconds: 90));
     expect(interactions, 4);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -89,8 +89,9 @@ void main() {
     Focus.of(tester.element(bar)).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     expect(player.seeks, [const Duration(seconds: 75)]);
     pending.complete();
     await tester.pumpAndSettle();
@@ -98,6 +99,29 @@ void main() {
       const Duration(seconds: 75),
       const Duration(seconds: 105),
     ]);
+  });
+
+  testWidgets('rapid movements commit only their final target', (tester) async {
+    final player = _Player(duration: const Duration(minutes: 10));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: TimeProgressBar(controller: player)),
+    ));
+    final bar = find.descendant(
+      of: find.byType(TimeProgressBar),
+      matching: find.byType(GestureDetector),
+    );
+    Focus.of(tester.element(bar)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(player.seeks, isEmpty);
+    expect(find.text('01:15'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(player.seeks, [const Duration(seconds: 75)]);
   });
 
   testWidgets('unknown duration cannot be selected for seeking',
@@ -133,9 +157,10 @@ void main() {
     Focus.of(tester.element(bar)).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpWidget(page(newPlayer));
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
     pending.complete();
     await tester.pumpAndSettle();
     expect(oldPlayer.seeks, [const Duration(seconds: 75)]);
