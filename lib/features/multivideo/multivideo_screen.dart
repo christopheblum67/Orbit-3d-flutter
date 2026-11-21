@@ -122,7 +122,9 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     if (_selectedChannels.length >= maxStreams) {
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Maximum : $maxStreams flux sur cet appareil.')),
+        SnackBar(
+            content:
+                Text(AppLocalizations.of(context).multiMaxStreams(maxStreams))),
       );
       return;
     }
@@ -170,7 +172,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
       leading: GoRouter.of(context).canPop()
           ? IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
-              tooltip: 'Retour',
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               onPressed: () => GoRouter.of(context).pop(),
             )
           : null,
@@ -206,10 +208,9 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     if (profile?.multiTvEnabled == false) {
       return Scaffold(
         appBar: _buildAppBar(context, title: l.multiVideo),
-        body: const Center(
+        body: Center(
           child: Text(
-            'Multi TV est désactivée pour ce profil. '
-            'Activez-la dans les préférences du profil.',
+            l.multiDisabledProfile,
             textAlign: TextAlign.center,
           ),
         ),
@@ -231,7 +232,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     if (hardware.isLoading) {
       return Scaffold(
         appBar: _buildAppBar(context, title: l.multiVideo),
-        body: const LoadingState(message: 'Analyse de l’appareil…'),
+        body: LoadingState(message: l.multiAnalyzingDevice),
       );
     }
     if (hardware.hasError) {
@@ -239,7 +240,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
         appBar: _buildAppBar(context, title: l.multiVideo),
         body: ErrorState(
           icon: Icons.error_outline,
-          title: 'Analyse de l’appareil impossible',
+          title: l.multiDeviceAnalysisFailed,
           message: userFriendlyError(hardware.error!),
           onRetry: () => ref.invalidate(multiViewHardwareProvider),
         ),
@@ -250,12 +251,11 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
     if (maxStreams <= 0) {
       return Scaffold(
         appBar: _buildAppBar(context, title: l.multiVideo),
-        body: const Center(
+        body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Text(
-              'Multi-vue désactivée par le profil Économique.\n'
-              'Réglez le profil dans Configurer l\'appareil.',
+              l.multiDisabledEconomy,
               textAlign: TextAlign.center,
             ),
           ),
@@ -273,7 +273,7 @@ class MultiVideoScreenState extends ConsumerState<MultiVideoScreen> {
         maxStreams: maxStreams,
       ),
       body: channelsAsync.when(
-        loading: () => const LoadingState(message: 'Chargement…'),
+        loading: () => LoadingState(message: l.browseLoading),
         error: (err, _) => ErrorState(
           icon: Icons.live_tv_outlined,
           title: l.channelsUnavailable,
@@ -494,7 +494,9 @@ class _ChannelPickerSheetState extends State<_ChannelPickerSheet> {
             const SizedBox(height: 8),
             Expanded(
               child: channels.isEmpty
-                  ? const Center(child: Text('Aucune chaîne trouvée.'))
+                  ? Center(
+                      child:
+                          Text(AppLocalizations.of(context).liveNoChannelFound))
                   : ListView.builder(
                       itemCount: channels.length,
                       itemBuilder: (context, index) {
@@ -838,14 +840,15 @@ class _VideoTileState extends State<VideoTile> {
 
   Widget _buildVideo() {
     final controller = _controller;
+    final l = AppLocalizations.of(context);
     if (_failed) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Lecture indisponible',
-              style: TextStyle(color: Colors.white),
+            Text(
+              l.playbackUnavailableTitle,
+              style: const TextStyle(color: Colors.white),
             ),
             TextButton(
               onPressed: () {
@@ -853,7 +856,7 @@ class _VideoTileState extends State<VideoTile> {
                   _load();
                 });
               },
-              child: const Text('Réessayer'),
+              child: Text(l.retry),
             ),
           ],
         ),
@@ -869,6 +872,6 @@ class _VideoTileState extends State<VideoTile> {
         ),
       );
     }
-    return const Center(child: CircularProgressIndicator());
+    return const Center(child: OrbitDelayedLoadingIndicator());
   }
 }

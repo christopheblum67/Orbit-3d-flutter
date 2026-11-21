@@ -28,8 +28,6 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
 
     final host = streamUrl != null ? Uri.tryParse(streamUrl!)?.host : null;
     final isInCooldown = host != null && circuitBreaker.isInCooldown(host);
-    final cooldownMessage =
-        host != null ? circuitBreaker.cooldownMessage(host) : null;
 
     final isStalling = showStall && stallDetector.isStalling;
     final showOverlay = !connectivity.isOnline || isStalling || isInCooldown;
@@ -59,7 +57,7 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
                     if (isInCooldown)
                       _buildCooldownCard(
                         context,
-                        cooldownMessage!,
+                        circuitBreaker.remainingCooldown(host!).inSeconds,
                         autofocus: connectivity.isOnline,
                       ),
                   ],
@@ -78,8 +76,8 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     return _MonitorCard(
       icon: Icons.wifi_off_rounded,
       title: l.networkDisconnected,
-      message: 'Vérifiez votre connexion Internet.',
-      actionLabel: 'Réessayer',
+      message: l.connectionCheckInternet,
+      actionLabel: l.retry,
       onAction: onRetry,
       autofocusAction: true,
       iconColor: scheme.error,
@@ -98,20 +96,19 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     final (title, message) = switch (kind) {
       StallKind.notStarted => (
           l.unstableConnection,
-          'Le flux est bien reçu mais la lecture ne démarre pas. '
-              'La piste est peut-être trop lourde pour cet appareil.',
+          l.playerStreamNotStarting,
         ),
       StallKind.frozen => (
           l.unstableConnection,
-          'Le flux est reçu mais la lecture est figée.',
+          l.playerStreamFrozen,
         ),
       StallKind.buffering => (
           l.unstableConnection,
-          'Le flux ne progresse plus. Tentative de récupération…',
+          l.playerStreamRecovering,
         ),
       StallKind.none => (
           l.unstableConnection,
-          'Le flux ne progresse plus. Tentative de récupération…',
+          l.playerStreamRecovering,
         ),
     };
     return _MonitorCard(
@@ -124,14 +121,14 @@ class PlayerMonitoringOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildCooldownCard(BuildContext context, String message,
+  Widget _buildCooldownCard(BuildContext context, int seconds,
       {required bool autofocus}) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return _MonitorCard(
       icon: Icons.security_rounded,
       title: l.serverProtectedAntiLeech,
-      message: message,
+      message: l.playerCooldown(seconds),
       // Sans action, l'utilisateur restait bloqué 90 s(full) sans lever le
       // cooldown : le cooldown est un anti-rebond, pas une sanction.
       actionLabel: l.retry,

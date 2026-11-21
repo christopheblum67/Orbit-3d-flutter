@@ -36,6 +36,52 @@ void main() {
     await hiveDirectory.delete(recursive: true);
   });
 
+  testWidgets('untitled episodes use the selected language', (tester) async {
+    final series = Series(
+      id: 'series-1',
+      title: 'Series',
+      description: '',
+      coverUrl: '',
+      year: 2024,
+      genre: '',
+      director: '',
+      rating: 0,
+      pegi: '',
+      episodes: const [],
+    );
+    final episode = Episode(
+      id: 'episode-42',
+      title: '',
+      season: 1,
+      episodeNumber: 2,
+      streamUrl: '',
+    );
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) =>
+            EpisodeDetailScreen(series: series, episode: episode),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+        playbackProgressServiceProvider
+            .overrideWith((ref) => PlaybackProgressService()),
+        downloadTasksStreamProvider.overrideWith((ref) => const AsyncData([])),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Episode S01E02'), findsOneWidget);
+  });
+
   testWidgets('resume opens the episode with its saved playback position',
       (tester) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -98,6 +144,7 @@ void main() {
           ),
         ],
         child: MaterialApp.router(
+          locale: const Locale('fr'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: router,

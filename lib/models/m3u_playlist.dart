@@ -55,8 +55,18 @@ class M3uPlaylistParser {
     r'\.(mkv|mp4|avi|mov|wmv|mpg|mpeg|m4v|flv)$',
     caseSensitive: false,
   );
+  static final _attributePattern = RegExp(r'([\w-]+)="([^"]*)"');
+  static final _nonDigitPattern = RegExp(r'\D');
+  static final _digitPattern = RegExp(r'\d+');
+  static final _trailingSeparatorPattern = RegExp(r'[-._]+$');
+  static final _leadingSeparatorPattern = RegExp(r'^[-._ ]+');
+  static final _whitespacePattern = RegExp(r'\s+');
 
-  static M3uPlaylist parse(String content) {
+  static M3uPlaylist parse(
+    String content, {
+    void Function(int classifyMs, int groupMs)? onTiming,
+  }) {
+    final stopwatch = Stopwatch()..start();
     final channels = <Channel>[];
     final radios = <Channel>[];
     final movies = <Movie>[];
@@ -104,7 +114,7 @@ class M3uPlaylistParser {
           final year = yearMatch == null
               ? 0
               : int.tryParse(
-                    yearMatch.group(0)!.replaceAll(RegExp(r'\D'), ''),
+                    yearMatch.group(0)!.replaceAll(_nonDigitPattern, ''),
                   ) ??
                   0;
           final title = yearMatch == null
@@ -130,7 +140,14 @@ class M3uPlaylistParser {
       }
     }
 
-    for (final rawLine in content.split(RegExp(r'\r?\n'))) {
+    var offset = 0;
+    while (offset < content.length) {
+      final end = content.indexOf('\n', offset);
+      final rawLine = content.substring(
+        offset,
+        end < 0 ? content.length : end,
+      );
+      offset = end < 0 ? content.length : end + 1;
       final line = rawLine.trim().replaceFirst('\uFEFF', '');
       if (line.isEmpty) continue;
       if (line.startsWith('#EXTINF')) {
@@ -143,11 +160,15 @@ class M3uPlaylistParser {
       }
     }
 
+    final classifyMs = stopwatch.elapsedMilliseconds;
+    final series = _groupSeries(seriesEntries);
+    final groupMs = stopwatch.elapsedMilliseconds - classifyMs;
+    onTiming?.call(classifyMs, groupMs);
     return M3uPlaylist(
       channels: channels,
       radios: radios,
       movies: movies,
-      series: _groupSeries(seriesEntries),
+      series: series,
     );
   }
 
@@ -155,7 +176,7 @@ class M3uPlaylistParser {
     final comma = _titleSeparator(line);
     final metadata = comma < 0 ? line : line.substring(0, comma);
     final attributes = <String, String>{
-      for (final match in RegExp(r'([\w-]+)="([^"]*)"').allMatches(metadata))
+      for (final match in _attributePattern.allMatches(metadata))
         match.group(1)!.toLowerCase(): match.group(2)!.trim(),
     };
     final title = comma < 0 ? '' : line.substring(comma + 1).trim();
@@ -204,7 +225,7 @@ class M3uPlaylistParser {
       return _M3uKind.live;
     }
 
-    if (_episodeInfo(entry) != null) {
+    if (entry.episodeInfo != null) {
       return _M3uKind.series;
     }
 
@@ -245,18 +266,18 @@ class M3uPlaylistParser {
   static List<Series> _groupSeries(List<_SeriesEntry> entries) {
     final grouped = <String, List<_SeriesEntry>>{};
     for (final item in entries) {
-      final episode = _episodeInfo(item.entry);
+      final episode = item.entry.episodeInfo;
       final showTitle = episode?.showTitle.isNotEmpty == true
           ? episode!.showTitle
-          : _seriesName(item.entry);
+          : item.entry.seriesName;
       final key = _seriesKey(showTitle);
       grouped.putIfAbsent(key, () => []).add(item);
     }
 
     return grouped.entries.map((group) {
       final first = group.value.first.entry;
-      final firstSeriesName = _seriesName(first);
-      final firstEpisode = _episodeInfo(first);
+      final firstSeriesName = first.seriesName;
+      final firstEpisode = first.episodeInfo;
       final title = _firstNonEmpty([
         first.attributes['series-name'],
         first.attributes['show-name'],
@@ -266,8 +287,8 @@ class M3uPlaylistParser {
       final episodes = <Episode>[];
       var fallbackEpisodeNumber = 0;
       for (final item in group.value) {
-        final parsed = _episodeInfo(item.entry);
-        final seriesName = _seriesName(item.entry);
+        final parsed = item.entry.episodeInfo;
+        final seriesName = item.entry.seriesName;
         final episodeTitle = _firstNonEmpty([
           parsed?.episodeTitle,
           item.entry.attributes['episode-title'],
@@ -313,12 +334,15 @@ class M3uPlaylistParser {
         _labeledEpisodePattern.firstMatch(name);
     if (match == null) return null;
     return _EpisodeName(
-      showTitle:
-          match.group(1)!.trim().replaceAll(RegExp(r'[-._]+$'), '').trim(),
+      showTitle: match
+          .group(1)!
+          .trim()
+          .replaceAll(_trailingSeparatorPattern, '')
+          .trim(),
       season: int.tryParse(match.group(2)!) ?? 1,
       episodeNumber: int.tryParse(match.group(3)!) ?? 1,
       episodeTitle: (match.group(4) ?? '').trim().replaceAll(
-            RegExp(r'^[-._ ]+'),
+            _leadingSeparatorPattern,
             '',
           ),
     );
@@ -380,7 +404,7 @@ class M3uPlaylistParser {
   static int? _positiveInt(Iterable<String?> values) {
     for (final value in values) {
       if (value == null) continue;
-      final match = RegExp(r'\d+').firstMatch(value);
+      final match = _digitPattern.firstMatch(value);
       final number = match == null ? null : int.tryParse(match.group(0)!);
       if (number != null && number > 0) return number;
     }
@@ -388,7 +412,7 @@ class M3uPlaylistParser {
   }
 
   static String _seriesKey(String title) =>
-      title.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      title.trim().toLowerCase().replaceAll(_whitespacePattern, ' ');
 
   static String _firstNonEmpty(Iterable<String?> values) {
     for (final value in values) {
@@ -407,7 +431,7 @@ class M3uPlaylistParser {
 enum _M3uKind { live, radio, movie, series }
 
 class _M3uEntry {
-  const _M3uEntry({
+  _M3uEntry({
     required this.name,
     required this.displayName,
     required this.logo,
@@ -432,6 +456,8 @@ class _M3uEntry {
   final int catchupDays;
   final int timeshift;
   final String url;
+  late final _EpisodeName? episodeInfo = M3uPlaylistParser._episodeInfo(this);
+  late final String seriesName = M3uPlaylistParser._seriesName(this);
 
   _M3uEntry withUrl(String streamUrl) => _M3uEntry(
         name: name.isEmpty ? displayName : name,

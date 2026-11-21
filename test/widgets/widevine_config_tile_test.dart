@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/drm/widevine/widevine_delegate.dart';
 import 'package:orbit_3d_flutter/drm/widevine_config_store.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 import 'package:orbit_3d_flutter/services/secret_store.dart';
@@ -31,6 +32,9 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(body: WidevineConfigTile()),
       ),
     ));
@@ -62,5 +66,21 @@ void main() {
     );
     expect(await store.loadForSubscription('second'), isNull);
     expect((await store.load())?.licenseUrl, 'https://legacy.example.test');
+  });
+
+  testWidgets('missing subscription message is localized', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [activeSubscriptionProvider.overrideWith((ref) => null)],
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: WidevineConfigTile()),
+      ),
+    ));
+    expect(find.text('Select an active subscription'), findsOneWidget);
+    await tester.tap(find.text('Widevine DRM'));
+    await tester.pumpAndSettle();
+    expect(find.text('Select an active subscription first.'), findsOneWidget);
   });
 }

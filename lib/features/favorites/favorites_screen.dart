@@ -37,10 +37,7 @@ Future<void> confirmClearAllFavorites(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(l.deleteAllConfirm),
-      content: Text(
-        'Retirer les $total favoris enregistrés ? '
-        'La liste des favoris sera vidée.',
-      ),
+      content: Text(l.favoritesClearPrompt(total)),
       actions: [
         Focus(
           focusNode: cancelFocus,
@@ -62,7 +59,7 @@ Future<void> confirmClearAllFavorites(
           },
           child: TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Annuler'),
+            child: Text(l.cancel),
           ),
         ),
         Focus(
@@ -115,8 +112,7 @@ class FavoritesLiveSection extends ConsumerWidget {
       return EmptyState(
         icon: Icons.favorite_border,
         title: l.noFavoriteChannels,
-        message:
-            'Appuie sur le cœur d\'une chaîne dans le Live pour la retrouver ici.',
+        message: l.liveFavoriteHint,
       );
     }
 
@@ -236,8 +232,7 @@ class FavoritesVodSection extends ConsumerWidget {
       return EmptyState(
         icon: Icons.favorite_border,
         title: l.noFavoriteMovies,
-        message:
-            'Appuie sur le cœur d\'un film dans la section Films pour le retrouver ici.',
+        message: l.catalogMovieFavoriteHint,
       );
     }
 
@@ -300,14 +295,18 @@ class FavoritesVodSection extends ConsumerWidget {
         color: const Color(0xFF1B5E20),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.download_done_rounded, size: 11, color: Colors.white),
-          SizedBox(width: 3),
+          const Icon(
+            Icons.download_done_rounded,
+            size: 11,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 3),
           Text(
-            'Hors ligne',
-            style: TextStyle(
+            AppLocalizations.of(context).offline,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 9,
               fontWeight: FontWeight.w600,
@@ -329,7 +328,7 @@ class FavoritesVodSection extends ConsumerWidget {
           title: item.title,
           contentType: PlaybackContentType.vod,
           posterUrl: item.posterUrl.isNotEmpty ? item.posterUrl : null,
-          subtitle: 'Hors ligne',
+          subtitle: AppLocalizations.of(context).offline,
         ),
       );
       return;
@@ -402,7 +401,7 @@ class FavoritesSeriesSection extends ConsumerWidget {
       return EmptyState(
         icon: Icons.favorite_border,
         title: l.noFavoriteSeries,
-        message: 'Appuie sur le cœur d\'une série pour la retrouver ici.',
+        message: l.catalogSeriesFavoriteHint,
       );
     }
 
@@ -481,7 +480,7 @@ class FavoritesReplaySection extends ConsumerWidget {
       return EmptyState(
         icon: Icons.favorite_border,
         title: l.noFavoriteReplays,
-        message: 'Appuie sur le cœur d\'un replay pour le retrouver ici.',
+        message: l.favoritesReplayHint,
       );
     }
 

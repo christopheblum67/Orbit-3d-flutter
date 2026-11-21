@@ -6,6 +6,32 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations_fr.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
 void main() {
+  testWidgets('player recovery messages use the selected language',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: PlayerErrorView(
+            errorDescription: null,
+            externalPlaybackLaunched: true,
+            contentType: PlaybackContentType.vod,
+            onRetry: () {},
+            onProviderWebsite: () {},
+            nextEpisodeTitle: 'Episode 2',
+            nextEpisodeSeconds: 5,
+            onNextEpisode: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Playback opened in an external player'), findsOneWidget);
+    expect(find.text('Next episode: Episode 2 (5 s)'), findsOneWidget);
+    expect(find.text('Lecture ouverte dans un lecteur externe'), findsNothing);
+  });
+
   testWidgets('error presentation preserves priority and website action',
       (tester) async {
     final l = AppLocalizationsFr();
@@ -47,14 +73,16 @@ void main() {
       external: false,
       contentType: PlaybackContentType.live,
     );
-    expect(find.text('Flux temporairement bloqué par le fournisseur'), findsOneWidget);
+    expect(find.text('Flux temporairement bloqué par le fournisseur'),
+        findsOneWidget);
     expect(find.text(l.openProviderWebsite), findsOneWidget);
     await render(
       error: '401 403',
       external: true,
       contentType: PlaybackContentType.live,
     );
-    expect(find.text('Lecture ouverte dans un lecteur externe'), findsOneWidget);
+    expect(
+        find.text('Lecture ouverte dans un lecteur externe'), findsOneWidget);
     await render(
       error: null,
       external: false,

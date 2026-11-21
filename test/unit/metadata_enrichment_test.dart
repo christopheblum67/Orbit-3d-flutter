@@ -45,6 +45,65 @@ class _MetadataTestTmdb extends TmdbService {
       detail;
 }
 
+class _SeriesTestTmdb extends TmdbService {
+  _SeriesTestTmdb(this.detail);
+
+  final SeriesDetail detail;
+  final calls = <String>[];
+
+  @override
+  bool get hasApiKey => true;
+
+  @override
+  Future<int?> searchTvId(String title, {int? year, String? language}) async {
+    calls.add('search');
+    return 42;
+  }
+
+  @override
+  Future<SeriesDetail?> getTvDetail(int tmdbId, {String? language}) async {
+    calls.add('detail');
+    return detail;
+  }
+
+  @override
+  Future<Map<int, List<Actor>>?> getSeasonGuestStars(
+    int tmdbId,
+    List<int> seasonNumbers,
+  ) async {
+    calls.add('guests');
+    return {};
+  }
+}
+
+class _SeriesTestTvmaze extends TvmazeService {
+  _SeriesTestTvmaze(this.detail, {this.fail = false});
+
+  final SeriesDetail? detail;
+  final bool fail;
+  int searches = 0;
+
+  @override
+  Future<int?> searchShowId(String title) async {
+    searches++;
+    if (fail) throw StateError('TVmaze unavailable');
+    return detail == null ? null : 12;
+  }
+
+  @override
+  Future<SeriesDetail?> getShowDetail(int tvmazeId) async => detail;
+}
+
+class _SeriesTestOmdb extends OmdbService {
+  int calls = 0;
+
+  @override
+  Future<SeriesDetail> fillMissingSeries(SeriesDetail detail) async {
+    calls++;
+    return detail;
+  }
+}
+
 void main() {
   late Directory hiveDirectory;
 
@@ -193,6 +252,67 @@ void main() {
         ),
       ],
     );
+
+    test('enriches M3U series with TVmaze and TMDB without changing episodes',
+        () async {
+      final tvmaze = _SeriesTestTvmaze(
+        SeriesDetail.fromSeries(baseSeries).copyWith(
+          description: 'The original English synopsis.',
+          tvmazeId: 12,
+          dataSource: 'tvmaze',
+          cast: [Actor(id: '1', name: 'Actor', character: '', profilePath: '')],
+        ),
+      );
+      final tmdb = _SeriesTestTmdb(
+        SeriesDetail.fromSeries(baseSeries).copyWith(
+          description: 'Le synopsis localisé de la série.',
+          tmdbId: 42,
+          genre: 'Mystery',
+          runtime: 45,
+          dataSource: 'tmdb',
+        ),
+      );
+      final omdb = _SeriesTestOmdb();
+      final service = MetadataEnrichmentService(
+        api: _MetadataTestApi(),
+        tmdb: tmdb,
+        tvmaze: tvmaze,
+        omdb: omdb,
+      );
+
+      final result = await service.enrichSeries(baseSeries);
+      expect(tvmaze.searches, 1);
+      expect(tmdb.calls, ['search', 'detail', 'guests']);
+      expect(result.description, 'Le synopsis localisé de la série.');
+      expect(result.tmdbId, 42);
+      expect(result.tvmazeId, 12);
+      expect(result.runtime, 45);
+      expect(result.cast.single.name, 'Actor');
+      expect(result.episodes, same(baseSeries.episodes));
+      expect(result.id, baseSeries.id);
+    });
+
+    test('continues to TMDB when TVmaze fails', () async {
+      final tvmaze = _SeriesTestTvmaze(null, fail: true);
+      final tmdb = _SeriesTestTmdb(
+        SeriesDetail.fromSeries(baseSeries).copyWith(
+          description: 'Un synopsis TMDB.',
+          tmdbId: 42,
+          dataSource: 'tmdb',
+        ),
+      );
+      final service = MetadataEnrichmentService(
+        api: _MetadataTestApi(),
+        tmdb: tmdb,
+        tvmaze: tvmaze,
+        omdb: _SeriesTestOmdb(),
+      );
+
+      final result = await service.enrichSeries(baseSeries);
+      expect(result.description, 'Un synopsis TMDB.');
+      expect(result.episodes, same(baseSeries.episodes));
+      expect(tmdb.calls, contains('detail'));
+    });
 
     test('fromSeries creates SeriesDetail with Xtream data', () {
       final detail = SeriesDetail.fromSeries(baseSeries);

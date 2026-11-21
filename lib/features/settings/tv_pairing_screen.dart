@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -28,13 +29,14 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
 
   Future<void> _start() async {
     if (_busy) return;
+    final l = AppLocalizations.of(context);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       if (FirebaseAuth.instance.currentUser != null) {
-        throw StateError('Déconnectez le compte cloud avant le couplage.');
+        throw StateError(l.pairSignOutFirst);
       }
       final name =
           'orbit-pair-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
@@ -48,7 +50,7 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
       _temporaryAuth = auth;
       final user = (await auth.signInAnonymously()).user;
       if (user == null || !user.isAnonymous) {
-        throw StateError('La session temporaire est indisponible.');
+        throw StateError(l.pairTemporaryUnavailable);
       }
       final service = CloudPairingService(
         auth: auth,
@@ -70,7 +72,7 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
       } catch (_) {
         if (mounted) {
           _error =
-              '${_message(error)} Nettoyage incomplet : la session expirera automatiquement.';
+              '${_message(error)} ${l.pairCleanupIncomplete}';
         }
       }
     } finally {
@@ -80,7 +82,7 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
 
   String _message(Object error) {
     if (error is StateError) return error.message.toString();
-    return 'Couplage indisponible. Vérifiez le réseau et la configuration Firebase.';
+    return AppLocalizations.of(context).pairUnavailable;
   }
 
   Future<void> _check() async {
@@ -137,7 +139,8 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = '${_message(error)} Recommencez le couplage.');
+        setState(() => _error =
+            '${_message(error)} ${AppLocalizations.of(context).pairRestart}');
       }
       try {
         await _cleanUp(cancel: true);
@@ -145,7 +148,7 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
         if (mounted) {
           setState(
             () => _error =
-                '${_message(error)} Nettoyage incomplet : la session expirera automatiquement.',
+                '${_message(error)} ${AppLocalizations.of(context).pairCleanupIncomplete}',
           );
         }
       }
@@ -196,8 +199,7 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error =
-              'Nettoyage impossible : la session expirera automatiquement.';
+          _error = AppLocalizations.of(context).pairCleanupFailed;
         });
       }
     }
@@ -224,24 +226,23 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
   @override
   Widget build(BuildContext context) {
     final session = _session;
+    final l = AppLocalizations.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_exit());
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Associer cette TV')),
+        appBar: AppBar(title: Text(l.pairTvTitle)),
         body: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            const Text(
-              'Sur le téléphone connecté, ouvrez la synchronisation chiffrée et scannez ce QR code. Comparez les codes affichés avant de confirmer.',
-            ),
+            Text(l.pairInstructions),
             if (session == null && !_busy)
               FilledButton(
                 autofocus: true,
                 onPressed: _start,
-                child: const Text('Créer un QR code'),
+                child: Text(l.pairCreateQr),
               ),
             if (session != null) ...[
               const SizedBox(height: 16),
@@ -254,23 +255,23 @@ class _TvPairingScreenState extends State<TvPairingScreen> {
               ),
               const SizedBox(height: 16),
               SelectableText(
-                'Code de vérification : ${session.invitation.verificationCode}',
+                l.pairVerificationCode(session.invitation.verificationCode),
               ),
-              const Text('Le QR code expire après cinq minutes.'),
+              Text(l.pairExpires),
               if (_account != null) ...[
-                Text('Compte à associer : $_account'),
+                Text(l.pairAccount(_account!)),
                 FilledButton(
                   onPressed: _busy ? null : _confirm,
-                  child: const Text('Confirmer ce compte'),
+                  child: Text(l.pairConfirmAccount),
                 ),
               ] else
-                const Text('En attente de confirmation sur le téléphone…'),
+                Text(l.pairWaiting),
             ],
             if (_busy) const LinearProgressIndicator(),
             if (_error != null) Text(_error!),
             TextButton(
               onPressed: _busy ? null : _exit,
-              child: const Text('Annuler'),
+              child: Text(l.cancel),
             ),
           ],
         ),

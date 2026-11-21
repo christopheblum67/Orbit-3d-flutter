@@ -36,7 +36,9 @@ void main() {
       expect(credits.cast.first.hasProfile, isFalse);
       expect(credits.crew.single.name, 'Robert Zemeckis');
       expect(
-          credits.cast.map((a) => a.id), everyElement(startsWith('xtream-')),);
+        credits.cast.map((a) => a.id),
+        everyElement(startsWith('xtream-')),
+      );
     });
 
     test('cast en chaîne unique délimitée', () {
@@ -88,6 +90,11 @@ void main() {
 
     test('conserve un titre simple', () {
       expect(TmdbService.normalizeSearchTitle('Interstellar'), 'Interstellar');
+    });
+
+    test('retire un préfixe FR mal fermé', () {
+      expect(
+          TmdbService.normalizeSearchTitle('[FR[ Une chimere'), 'Une chimere');
     });
 
     test('retire les segments entre parenthèses', () {

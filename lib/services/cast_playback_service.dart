@@ -2,6 +2,20 @@ import 'dart:async';
 import 'package:cast/cast.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 
+sealed class CastPlaybackMessage {
+  const CastPlaybackMessage();
+}
+
+class CastReceiverMessage extends CastPlaybackMessage {
+  const CastReceiverMessage(this.text);
+
+  final String text;
+}
+
+class CastReceiverNotReady extends CastPlaybackMessage {
+  const CastReceiverNotReady();
+}
+
 /// Service Chromecast / Google Cast (protocole natif v2, découverte mDNS).
 ///
 /// Enchaîne : découverte des appareils → connexion → lancement du Default
@@ -20,7 +34,7 @@ class CastPlaybackService {
   bool _disposed = false;
 
   final _stateController = StreamController<CastSessionState>.broadcast();
-  final _messageController = StreamController<String>.broadcast();
+  final _messageController = StreamController<CastPlaybackMessage>.broadcast();
 
   /// État courant de la session Cast (pas de session = `null`).
   CastSessionState? get state => _session?.state;
@@ -29,7 +43,7 @@ class CastPlaybackService {
   Stream<CastSessionState> get stateStream => _stateController.stream;
 
   /// Dernières nouvelles reçues du récepteur (optimisées pour l'affichage).
-  Stream<String> get messageStream => _messageController.stream;
+  Stream<CastPlaybackMessage> get messageStream => _messageController.stream;
 
   /// Scanne le réseau local à la recherche de Chromecast pendant [timeout].
   ///
@@ -100,13 +114,14 @@ class CastPlaybackService {
         final app = apps.first as Map;
         final displayName = app['displayName'];
         if (displayName is String && displayName.isNotEmpty) {
-          _messageController.add(displayName);
+          _messageController.add(CastReceiverMessage(displayName));
         }
       }
     } else {
       final errorCode = payload['error'];
       if (errorCode is Map && errorCode['description'] is String) {
-        _messageController.add(errorCode['description'] as String);
+        _messageController
+            .add(CastReceiverMessage(errorCode['description'] as String));
       }
     }
     // Premier CONNECT établi : on ne relance pas un LAUNCH spontanément.
@@ -128,7 +143,7 @@ class CastPlaybackService {
       return false;
     }
     if (_receiverSessionId == null) {
-      _messageController.add('Récepteur pas encore prêt');
+      _messageController.add(const CastReceiverNotReady());
       return false;
     }
     final contentType = guessContentType(url, isLive: isLive);

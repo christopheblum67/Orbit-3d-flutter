@@ -59,12 +59,16 @@ class RefreshStepsController extends ChangeNotifier {
   bool _finished = false;
   bool _disposed = false;
   StartupStep? _current;
+  double _currentFraction = 0;
+  final Stopwatch _progressWatch = Stopwatch()..start();
   Object? _error;
   bool _skippedEpg = false;
 
   Set<StartupStep> get doneSteps => _done;
   bool get isFinished => _finished;
   StartupStep? get currentStep => _current;
+  bool get isParsingPlaylist =>
+      _current == StartupStep.live && _currentFraction > 0;
   Object? get error => _error;
 
   /// Vrai si l'étape EPG a échoué (à signaler, sans bloquer).
@@ -81,10 +85,24 @@ class RefreshStepsController extends ChangeNotifier {
     for (final step in _done) {
       if (_todo.contains(step)) completed += kRefreshStepWeights[step] ?? 0.1;
     }
+    final current = _current;
+    if (current != null &&
+        _todo.contains(current) &&
+        !_done.contains(current)) {
+      completed += (kRefreshStepWeights[current] ?? 0.1) * _currentFraction;
+    }
     return (completed / total).clamp(0.0, 1.0);
   }
 
   int get percent => (progress * 100).round();
+
+  void markPlaylistParsing() {
+    if (_disposed || _current != StartupStep.live || _currentFraction > 0) {
+      return;
+    }
+    _currentFraction = 0.5;
+    _notify();
+  }
 
   /// Exécute les étapes de [_todo], une à une, via [action].
   ///
@@ -111,6 +129,7 @@ class RefreshStepsController extends ChangeNotifier {
 
   Future<void> _run(StartupStep step, Future<void> Function() action) async {
     _current = step;
+    _currentFraction = 0;
     _notify();
     final stopwatch = Stopwatch()..start();
     logDiag('REFRESH step=start name=${step.name}');
@@ -144,6 +163,9 @@ class RefreshStepsController extends ChangeNotifier {
 
   void _notify() {
     if (_disposed) return;
+    logDiag('REFRESH progress percent=$percent '
+        'step=${_current?.name ?? 'none'} '
+        'elapsedMs=${_progressWatch.elapsedMilliseconds}');
     notifyListeners();
   }
 }

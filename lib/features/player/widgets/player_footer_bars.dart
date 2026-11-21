@@ -79,11 +79,12 @@ ButtonStyle _fbFocusStyle(Color normal) {
 Widget _fbPlayPause({
   required bool isPlaying,
   required VoidCallback onPressed,
+  required AppLocalizations l,
   FocusNode? focusNode,
 }) {
   return IconButton(
     focusNode: focusNode,
-    tooltip: isPlaying ? 'Pause' : 'Lecture',
+    tooltip: isPlaying ? l.playerPause : l.play,
     style: IconButton.styleFrom(
       backgroundColor: Colors.white.withValues(alpha: 0.22),
     ).merge(_fbFocusStyle(Colors.white)),
@@ -103,12 +104,13 @@ Widget _fbPlayPause({
 Widget _fbNightFocus({
   required VoidCallback onPressed,
   required WidgetRef ref,
+  required AppLocalizations l,
 }) {
   final enabled = ref.watch(
     advancedSettingsProvider.select((s) => s.nightFocusEnabled),
   );
   return IconButton(
-    tooltip: enabled ? 'Night Focus (activé)' : 'Night Focus (désactivé)',
+    tooltip: enabled ? l.playerNightFocusOn : l.playerNightFocusOff,
     visualDensity: VisualDensity.compact,
     padding: EdgeInsets.zero,
     constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
@@ -305,9 +307,9 @@ class LiveFooterBar extends ConsumerWidget {
             epgAsync != null &&
             epgAsync.isLoading) ...[
           const SizedBox(height: 8),
-          const Text(
-            'Programme en cours de chargement…',
-            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+          Text(
+            l.playerLoadingProgram,
+            style: const TextStyle(color: Colors.white70, fontSize: 11.5),
           ),
         ],
         if (showSeek && player != null) ...[
@@ -321,7 +323,8 @@ class LiveFooterBar extends ConsumerWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+            _fbIcon(Icons.arrow_back_rounded, onExit,
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip),
             const Spacer(),
             if (onPrevious != null)
               _fbIcon(
@@ -337,6 +340,7 @@ class LiveFooterBar extends ConsumerWidget {
                 color: Colors.white,
               ),
             _fbPlayPause(
+              l: l,
               isPlaying: isPlaying,
               onPressed: onTogglePlayPause,
               focusNode: playPauseFocusNode,
@@ -356,7 +360,7 @@ class LiveFooterBar extends ConsumerWidget {
                 tooltip: l.nextChannel,
               ),
             const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref, l: l),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,
@@ -493,7 +497,8 @@ class VodFooterBar extends ConsumerWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            _fbIcon(Icons.arrow_back_rounded, onExit, tooltip: 'Retour'),
+            _fbIcon(Icons.arrow_back_rounded, onExit,
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip),
             const Spacer(),
             _fbIcon(
               Icons.replay_30,
@@ -502,6 +507,7 @@ class VodFooterBar extends ConsumerWidget {
               color: Colors.white,
             ),
             _fbPlayPause(
+              l: l,
               isPlaying: isPlaying,
               onPressed: onTogglePlayPause,
               focusNode: playPauseFocusNode,
@@ -513,7 +519,7 @@ class VodFooterBar extends ConsumerWidget {
               color: Colors.white,
             ),
             const SizedBox(width: 8),
-            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref),
+            _fbNightFocus(onPressed: onToggleNightFocus, ref: ref, l: l),
             if (onPip != null)
               _fbIcon(
                 Icons.picture_in_picture_alt_rounded,

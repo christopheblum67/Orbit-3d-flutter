@@ -1980,8 +1980,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                         focusNode: _nextEpisodeFocus,
                                         onPressed: _playNextEpisode,
                                         child: Text(
-                                          'Épisode suivant : ${_nextEpisode!.title} '
-                                          '${_nextEpisodeTimer?.isActive == true ? "($_nextEpisodeSeconds s)" : ""}',
+                                          _nextEpisodeTimer?.isActive == true
+                                              ? AppLocalizations.of(context)
+                                                  .playerNextEpisodeCountdown(
+                                                      _nextEpisode!.title,
+                                                      _nextEpisodeSeconds)
+                                              : AppLocalizations.of(context)
+                                                  .playerNextEpisode(
+                                                      _nextEpisode!.title),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),

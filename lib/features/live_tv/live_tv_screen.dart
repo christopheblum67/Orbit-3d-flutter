@@ -112,13 +112,13 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             // pendant qu'on regarde l'aperçu d'une chaîne.
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour aux chaînes',
+                tooltip: l.liveBackToChannels,
                 onPressed: _closeBrowse,
               )
             : context.canPop()
                 ? IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: 'Retour',
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                     onPressed: () => context.pop(),
                   )
                 : null,
@@ -148,7 +148,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               return EmptyState(
                 icon: Icons.live_tv_outlined,
                 title: l.noChannelsAvailable,
-                message: 'Ajoute une source de chaînes dans les réglages.',
+                message: l.liveAddSourceHint,
               );
             }
             final groups = buildLiveChannelGroups(channels);
@@ -163,6 +163,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                 .toSet();
             final categoryGroups = _groupToCategories(
               groups,
+              l: l,
               totalCount: channels.length,
               favCount: channels.where((c) => favIds.contains(c.id)).length,
               recentCount:
@@ -271,20 +272,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                             ? EmptyState(
                                 icon: Icons.live_tv_outlined,
                                 title: query.isNotEmpty
-                                    ? 'Aucune chaîne trouvée'
+                                    ? l.liveNoChannelFound
                                     : _selectedGroup == 'fav'
-                                        ? 'Aucune chaîne favorite'
+                                        ? l.noFavoriteChannels
                                         : _selectedGroup == 'recent'
-                                            ? 'Aucune chaîne récente'
-                                            : 'Aucune chaîne dans ce groupe',
+                                            ? l.liveNoRecentChannel
+                                            : l.liveNoChannelInGroup,
                                 message: query.isNotEmpty
-                                    ? 'Essaie un autre terme de recherche.'
+                                    ? l.liveTryAnotherSearch
                                     : _selectedGroup == 'fav'
-                                        ? 'Appuie sur le cœur d\'une chaîne pour la '
-                                            'retrouver ici.'
+                                        ? l.liveFavoriteHint
                                         : _selectedGroup == 'recent'
-                                            ? 'Les chaînes regardées s\'afficheront ici.'
-                                            : 'Ce groupe ne contient aucune chaîne.',
+                                            ? l.liveRecentHint
+                                            : l.liveEmptyGroupHint,
                               )
                             : GridView.builder(
                                 padding: channelGridPadding,
@@ -318,9 +318,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
               ],
             );
           },
-          loading: () => const LoadingState(
-            message: 'Chargement des chaînes en cours…\n'
-                'Merci de patienter avant de lancer un flux.',
+          loading: () => LoadingState(
+            message: l.liveLoadingHint,
           ),
           error: (err, _) => ErrorState(
             icon: Icons.live_tv_outlined,
@@ -335,18 +334,19 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
 
   static List<MediaCategory> _groupToCategories(
     List<ChannelGroup> groups, {
+    required AppLocalizations l,
     required int totalCount,
     required int favCount,
     required int recentCount,
   }) {
     final categories = <MediaCategory>[
-      MediaCategory(id: '', name: 'Tous', count: totalCount),
-      MediaCategory(id: 'fav', name: 'Favoris', count: favCount),
-      MediaCategory(id: 'recent', name: 'Récemment', count: recentCount),
+      MediaCategory(id: '', name: l.catalogAll, count: totalCount),
+      MediaCategory(id: 'fav', name: l.favorites, count: favCount),
+      MediaCategory(id: 'recent', name: l.recentlyWatched, count: recentCount),
       for (var i = 0; i < groups.length; i++)
         MediaCategory(
           id: 'g$i',
-          name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
+          name: groups[i].name.isEmpty ? l.catalogUngrouped : groups[i].name,
           count: groups[i].channels.length,
         ),
     ];

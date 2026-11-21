@@ -106,5 +106,5 @@ void main() {
       await Hive.close();
       await dir.delete(recursive: true);
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cryptography/cryptography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -184,6 +186,59 @@ class _Activity extends EncryptedActivitySyncNotifier {
 }
 
 void main() {
+  testWidgets('cloud reset warning is localized without changing its meaning',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final auth = _Auth();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [profilesProvider.overrideWith((ref) async => [])],
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: CloudProfileRecoveryScreen(
+          auth: auth,
+          recovery: _Recovery(),
+          initialPhrase: '123456',
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Options for an adult'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Options for an adult'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Delete all cloud data and start over'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Delete all cloud data and start over'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start over in the cloud?'), findsOneWidget);
+    expect(
+      find.text(
+        'All profiles and their shared data will be deleted from the cloud. '
+        'Local profiles will be kept. Other devices will need to enter the '
+        'new code. This action cannot be undone.',
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox());
+    await auth.changes.close();
+  });
+
   testWidgets('shows actual cloud synchronization progress', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1200, 1400);
@@ -198,6 +253,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -236,6 +299,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: _Recovery(),
@@ -288,6 +359,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -386,6 +465,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -439,6 +526,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -499,6 +594,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -554,6 +657,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -594,6 +705,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -629,6 +748,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -666,6 +793,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -690,6 +825,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -713,6 +856,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: _Recovery()),
       ),
     ));
@@ -740,6 +891,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -774,6 +933,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: _Recovery(),
@@ -803,6 +970,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: _Recovery()),
       ),
     ));
@@ -846,6 +1021,14 @@ void main() {
         encryptedActivitySyncProvider.overrideWith(() => activity),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: _Recovery()),
       ),
     ));
@@ -926,6 +1109,14 @@ void main() {
         profilesProvider.overrideWith((ref) async => [local])
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -998,6 +1189,14 @@ void main() {
         currentProfileProvider.overrideWithBuild((ref, notifier) => local),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -1063,6 +1262,14 @@ void main() {
         profilesProvider.overrideWith((ref) async => [localProfile]),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -1115,6 +1322,14 @@ void main() {
         profilesProvider.overrideWith((ref) async => [localProfile]),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(
           auth: auth,
           recovery: recovery,
@@ -1159,6 +1374,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));
@@ -1187,6 +1410,14 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [profilesProvider.overrideWith((ref) async => [])],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: CloudProfileRecoveryScreen(auth: auth, recovery: recovery),
       ),
     ));

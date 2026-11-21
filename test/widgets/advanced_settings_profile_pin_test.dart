@@ -61,6 +61,7 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: const AdvancedSettingsScreen(),
@@ -93,5 +94,40 @@ void main() {
     expect(find.text('Codes PIN supprimés de 2 profil(s).'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('PIN removal warning uses the selected language', (tester) async {
+    final storage = _MemoryStorage([_profile('active', pin: '1234')]);
+    final container = ProviderContainer(overrides: [
+      storageServiceProvider.overrideWithValue(storage),
+      currentProfileProvider.overrideWithBuild(
+        (ref, notifier) => _profile('active', pin: '1234'),
+      ),
+      profilesProvider.overrideWith((ref) async => storage.profiles),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        locale: Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: AdvancedSettingsScreen(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final action = find.text('Remove profile PINs');
+    await tester.scrollUntilVisible(action, 250,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove profile PINs?'), findsOneWidget);
+    expect(
+      find.text(
+        'PINs will be removed from 1 profile(s). Profiles and their data will remain on this device. The changes may be synchronized with devices shared through the cloud.',
+      ),
+      findsOneWidget,
+    );
+    expect(storage.clearCalls, 0);
   });
 }

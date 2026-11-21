@@ -77,14 +77,14 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: AppLocalizations.of(context).profileBack,
                 onPressed: () => context.pop(),
               )
             : null,
         title: Text(AppLocalizations.of(context).settingsTitle),
         actions: [
           IconButton(
-            tooltip: 'Moteurs de lecture',
+            tooltip: AppLocalizations.of(context).settingsPlaybackEngines,
             onPressed: () => showPlayerEngineConfigSheet(context),
             icon: const Icon(Icons.settings_input_component),
           ),
@@ -196,20 +196,16 @@ class _AccountSection extends ConsumerWidget {
         SettingsSectionTitle(l.sectionCloudSync),
         _NavTile(
           icon: Icons.account_circle_outlined,
-          title: 'Compte cloud',
-          subtitle: 'Connexion Google ou e-mail',
+          title: l.settingsCloudAccount,
+          subtitle: l.settingsCloudSignIn,
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const CloudAccountScreen()),
           ),
         ),
-        const ListTile(
-          leading: Icon(Icons.cloud_off_outlined),
-          title: Text('Synchronisation complète indisponible'),
-          subtitle: Text(
-            'L’ancienne synchronisation en clair est désactivée. '
-            'Les fiches de profils peuvent être sauvegardées manuellement '
-            'depuis Compte cloud ; les autres données ne sont pas synchronisées.',
-          ),
+        ListTile(
+          leading: const Icon(Icons.cloud_off_outlined),
+          title: Text(l.settingsSyncUnavailable),
+          subtitle: Text(l.settingsSyncUnavailableHelp),
         ),
       ],
     );
@@ -305,7 +301,10 @@ class _DnsProviderTile extends ConsumerWidget {
               isDense: true,
               items: [
                 for (final o in _options)
-                  DropdownMenuItem(value: o, child: Text(o)),
+                  DropdownMenuItem(
+                    value: o,
+                    child: Text(o == _options.last ? l.settingsSystemAutomatic : o),
+                  ),
               ],
               onChanged: (v) {
                 if (v != null) n.setDnsProvider(v);
@@ -363,26 +362,26 @@ class _PlayerSection extends ConsumerWidget {
 class _SubtitleModeTile extends ConsumerWidget {
   const _SubtitleModeTile();
 
-  static const _labels = <VodSubtitleMode, String>{
-    VodSubtitleMode.defaultSelection: 'Sous-titrage par défaut',
-    VodSubtitleMode.forcedOnly: 'Sous-titrage forcé',
-    VodSubtitleMode.disabled: 'Sans sous-titrage',
-  };
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final labels = <VodSubtitleMode, String>{
+      VodSubtitleMode.defaultSelection: l.settingsSubtitleDefault,
+      VodSubtitleMode.forcedOnly: l.settingsSubtitleForced,
+      VodSubtitleMode.disabled: l.settingsSubtitleOff,
+    };
     final mode = ref.watch(advancedSettingsProvider).vodSubtitleMode;
     return SettingsNavTile(
       icon: Icons.subtitles_outlined,
-      title: 'Sous-titres des films et séries',
-      subtitle: _labels[mode] ?? '',
+      title: l.settingsSubtitleMoviesSeries,
+      subtitle: labels[mode]!,
       onTap: () async {
         final picked = await showDialog<VodSubtitleMode>(
           context: context,
           builder: (ctx) => SimpleDialog(
-            title: const Text('Sous-titres'),
+            title: Text(l.settingsSubtitles),
             children: [
-              for (final entry in _labels.entries)
+              for (final entry in labels.entries)
                 ListTile(
                   autofocus: entry.key == mode,
                   selected: entry.key == mode,
@@ -447,7 +446,7 @@ class _SecuritySection extends ConsumerWidget {
           onTap: () => context.go('/parental'),
         ),
         const SizedBox(height: 16),
-        const SettingsSectionTitle('Lecture protégée'),
+        SettingsSectionTitle(l.settingsProtectedPlayback),
         const WidevineConfigTile(),
         const SizedBox(height: 16),
         SettingsSectionTitle(l.sectionResilience),
@@ -710,8 +709,8 @@ class _AdvancedSection extends ConsumerWidget {
         ),
         _NavTile(
           icon: Icons.filter_list_rounded,
-          title: 'Filtres de catégories',
-          subtitle: 'Catégories masquées par abonnement',
+          title: l.settingsCategoryFilters,
+          subtitle: l.settingsCategoryFiltersHelp,
           onTap: () => context.push('/category-filters'),
         ),
         const SizedBox(height: 16),

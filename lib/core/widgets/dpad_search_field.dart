@@ -134,6 +134,11 @@ class _DpadSearchFieldState extends ConsumerState<DpadSearchField> {
               fontSize: 13,
             ),
             prefixIcon: const Icon(Icons.search, size: 20),
+            prefixIconColor: WidgetStateColor.resolveWith(
+              (states) => states.contains(WidgetState.focused)
+                  ? scheme.primary
+                  : scheme.onSurfaceVariant,
+            ),
             isDense: true,
             filled: true,
             fillColor: scheme.surfaceContainerHighest,

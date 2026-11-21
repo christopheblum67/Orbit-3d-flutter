@@ -77,6 +77,16 @@ void main() {
       expect(LanguageLabel.of('de'), 'Allemand');
       expect(LanguageLabel.of('it'), 'Italien');
       expect(LanguageLabel.of('nl'), 'Néerlandais');
+      expect(
+          LanguageLabel.of('fr_forced', localeCode: 'en'), 'French (forced)');
+      expect(LanguageLabel.of('en_sdh', localeCode: 'de'),
+          'Englisch (für Hörgeschädigte)');
+      expect(
+          LanguageLabel.of('fr_forced', localeCode: 'es'), 'Francés (forzado)');
+      expect(LanguageLabel.of('en_sdh', localeCode: 'it'),
+          'Inglese (per persone sorde e ipoudenti)');
+      expect(
+          LanguageLabel.of('fr_forced', localeCode: 'ar'), 'الفرنسية (إجباري)');
     });
   });
 
@@ -136,8 +146,11 @@ void main() {
       // La convention Xtream documentée passe en premier : la plus probable
       // doit être testée en premier.
       expect(urls.first, endsWith('/subtitles/u/p/7819_fr.srt'));
-      expect(urls.any((u) => u.endsWith('/7819.fr.srt')), isTrue,
-          reason: 'séparateur pointu',);
+      expect(
+        urls.any((u) => u.endsWith('/7819.fr.srt')),
+        isTrue,
+        reason: 'séparateur pointu',
+      );
       expect(urls.any((u) => u.contains('/timingsubtitles/')), isTrue);
       expect(urls.any((u) => u.endsWith('.vtt')), isTrue);
     });

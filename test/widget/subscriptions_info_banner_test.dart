@@ -81,6 +81,35 @@ class _DuplicateSubscriptionsNotifier extends SubscriptionsNotifier {
 }
 
 void main() {
+  testWidgets('subscription form is localized in English', (tester) async {
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const SubscriptionsScreen()),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        subscriptionsProvider.overrideWith(_SubscriptionsNotifier.new),
+        subscriptionsTestingProvider.overrideWith(_TestingNotifier.new),
+        activeSubscriptionProvider.overrideWithValue(null),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('New subscription'), findsOneWidget);
+    expect(find.text('Subscription name'), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Nouvel abonnement'), findsNothing);
+  });
+
   testWidgets('marks matching sources without removing subscriptions',
       (tester) async {
     tester.view.physicalSize = const Size(1400, 1800);
@@ -99,6 +128,7 @@ void main() {
       ],
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -132,6 +162,7 @@ void main() {
         ],
         child: MaterialApp.router(
           routerConfig: router,
+          locale: const Locale('fr'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
         ),
@@ -194,6 +225,7 @@ void main() {
         ],
         child: MaterialApp.router(
           routerConfig: router,
+          locale: const Locale('fr'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
         ),

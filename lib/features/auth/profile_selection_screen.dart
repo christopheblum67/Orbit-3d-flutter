@@ -37,7 +37,7 @@ class _ProfileSelectionScreenState
             return EmptyState(
               icon: Icons.face_outlined,
               title: l.noProfilesYet,
-              message: 'Crée ton premier profil pour commencer à regarder.',
+              message: l.profileCreateFirstHint,
               action: FilledButton.icon(
                 icon: const Icon(Icons.add),
                 label: Text(l.createProfile),
@@ -220,7 +220,7 @@ class _ProfileSelectionScreenState
             },
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (err, _) => Center(child: Text(l.errorGeneric(err))),
       ),
       floatingActionButton: FloatingActionButton.extended(

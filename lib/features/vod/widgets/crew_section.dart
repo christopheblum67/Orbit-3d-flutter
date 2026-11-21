@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 
 /// Section équipe technique - groupée par département
@@ -12,6 +13,7 @@ class CrewSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (crew.isEmpty) return const SizedBox.shrink();
 
+    final l = AppLocalizations.of(context);
     final crewByDept = <String, List<CrewMember>>{};
 
     for (final member in crew) {
@@ -44,7 +46,7 @@ class CrewSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'Équipe technique',
+            l.crewTitle,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -84,19 +86,19 @@ class _DepartmentSection extends StatelessWidget {
     final firstMember = members.first;
     final deptColor = firstMember.departmentColor;
     final deptIcon = firstMember.departmentIcon;
+    final l = AppLocalizations.of(context);
 
-    // Titre du département en français
     final deptLabel = switch (department.toLowerCase()) {
-      'directing' => 'Réalisation',
-      'writing' => 'Scénario',
-      'production' => 'Production',
-      'sound' => 'Son',
-      'camera' => 'Image',
-      'editing' => 'Montage',
-      'art' => 'Direction artistique',
-      'costume & make-up' => 'Costumes & Maquillage',
-      'visual effects' => 'Effets visuels',
-      'lighting' => 'Éclairage',
+      'directing' => l.crewDirecting,
+      'writing' => l.crewWriting,
+      'production' => l.crewProduction,
+      'sound' => l.crewSound,
+      'camera' => l.crewCamera,
+      'editing' => l.crewEditing,
+      'art' => l.crewArt,
+      'costume & make-up' => l.crewCostume,
+      'visual effects' => l.crewVisualEffects,
+      'lighting' => l.crewLighting,
       _ => department,
     };
 

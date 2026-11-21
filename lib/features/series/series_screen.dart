@@ -226,9 +226,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
           .where((c) => !hiddenCategories.contains(c.id))
           .toList(growable: false);
       final rail = <MediaCategory>[
-        MediaCategory(id: '', name: 'Tous', count: _dbTotal),
-        MediaCategory(id: 'fav', name: 'Favoris', count: _dbFavCount),
-        MediaCategory(id: 'recent', name: 'Récemment', count: _dbRecentCount),
+        MediaCategory(id: '', name: l.catalogAll, count: _dbTotal),
+        MediaCategory(id: 'fav', name: l.favorites, count: _dbFavCount),
+        MediaCategory(id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
         ...serverCategories
             .where((c) => c.id.isNotEmpty && (_dbCounts[c.id] ?? 0) > 0)
             .map((c) => c.copyWith(count: _dbCounts[c.id] ?? 0)),
@@ -256,7 +256,7 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                 return EmptyState(
                   icon: Icons.tv,
                   title: l.noSeriesAvailable,
-                  message: 'La bibliothèque de séries est vide pour le moment.',
+                  message: l.catalogNoSeries,
                 );
               }
               final serverCategories =
@@ -285,19 +285,19 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               final railCategories = <MediaCategory>[
                 MediaCategory(
                   id: '',
-                  name: 'Tous',
+                  name: l.catalogAll,
                   count: categoryVisibleSeries.length,
                 ),
                 MediaCategory(
                   id: 'fav',
-                  name: 'Favoris',
+                  name: l.favorites,
                   count: categoryVisibleSeries
                       .where((s) => seriesFavIds.contains(s.id))
                       .length,
                 ),
                 MediaCategory(
                   id: 'recent',
-                  name: 'Récemment',
+                  name: l.recentlyWatched,
                   count: categoryVisibleSeries
                       .where((s) => seriesRecentIds.contains(s.id))
                       .length,
@@ -407,9 +407,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               return _layout(
                   context, l, railCategories, visibleSeries, affinity);
             },
-            loading: () => const LoadingState(
-              message:
-                  'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+            loading: () => LoadingState(
+              message: l.catalogLoading,
             ),
             error: (err, _) => ErrorState(
               icon: Icons.tv,
@@ -461,13 +460,14 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                     Expanded(
                       child: DpadSearchField(
                         controller: _searchController,
-                        hint: 'Rechercher une série ou un genre…',
+                        hint: l.catalogSearchSeries,
                         onChanged: _onQueryChanged,
                       ),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
                       tooltip: l.searchSeries,
+                      style: catalogToolbarIconStyle(context),
                       icon: const Icon(Icons.tv),
                       onPressed: () => context.push('/search?type=series'),
                     ),
@@ -477,7 +477,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                           setState(() => _selectedSortMode = mode),
                     ),
                     IconButton(
-                      tooltip: 'Trier',
+                      tooltip: l.catalogSort,
+                      style: catalogToolbarIconStyle(context),
                       icon: const Icon(Icons.sort),
                       onPressed: _openSortDialog,
                     ),
@@ -486,22 +487,20 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               ),
               Expanded(
                 child: visibleSeries.isEmpty && listLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Center(child: OrbitDelayedLoadingIndicator())
                     : visibleSeries.isEmpty
                         ? EmptyState(
                             icon: Icons.tv,
                             title: _selectedCategoryId == 'fav'
-                                ? 'Aucune série favorite'
+                                ? l.noFavoriteSeries
                                 : _selectedCategoryId == 'recent'
-                                    ? 'Aucune série récente'
-                                    : 'Aucun résultat',
+                                    ? l.catalogNoRecentSeries
+                                    : l.catalogNoResults,
                             message: _selectedCategoryId == 'fav'
-                                ? 'Appuie sur le cœur d\'une série pour la '
-                                    'retrouver ici.'
+                                ? l.catalogSeriesFavoriteHint
                                 : _selectedCategoryId == 'recent'
-                                    ? 'Les séries regardées s\'afficheront ici.'
-                                    : 'Aucune série ne correspond à cette '
-                                        'recherche.',
+                                    ? l.catalogRecentSeriesHint
+                                    : l.catalogSeriesSearchEmpty,
                           )
                         : CustomScrollView(
                             controller: scrollController,
@@ -556,8 +555,8 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                                             SnackBar(
                                               content: Text(
                                                 wasFavorite
-                                                    ? '« ${series.title} » retiré des favoris'
-                                                    : '« ${series.title} » ajouté aux favoris',
+                                                    ? l.removedFromFavorites(series.title)
+                                                    : l.addedToFavorites(series.title),
                                               ),
                                               duration: const Duration(
                                                 milliseconds: 1500,

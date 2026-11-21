@@ -35,15 +35,14 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
-    final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final profile = ref.watch(currentProfileProvider);
     final sections = <_MenuSection>[
       _MenuSection(
-        header: 'Continuer',
+        header: l.menuContinue,
         items: [
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.home_rounded,
-            label: 'Accueil',
+            label: l.menuHome,
             route: '/home',
           ),
           _MenuEntry(
@@ -51,18 +50,16 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
             label: l.liveTv,
             route: '/live',
           ),
-          if (!isM3u) ...[
-            _MenuEntry(icon: Icons.tv, label: l.series, route: '/series'),
-            _MenuEntry(icon: Icons.movie, label: l.films, route: '/vod'),
-          ],
+          _MenuEntry(icon: Icons.tv, label: l.series, route: '/series'),
+          _MenuEntry(icon: Icons.movie, label: l.films, route: '/vod'),
         ],
       ),
       _MenuSection(
-        header: 'Découvrir',
+        header: l.menuDiscover,
         items: [
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.search,
-            label: 'Recherche',
+            label: l.menuSearch,
             route: '/search',
           ),
           _MenuEntry(
@@ -76,9 +73,9 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
             route: '/matchmaking',
             color: scheme.primary,
           ),
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.replay_circle_filled,
-            label: 'Replay',
+            label: l.replay,
             route: '/replay',
           ),
         ],
@@ -102,18 +99,18 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
           _MenuEntry(
             icon: Icons.person_outline,
             label: profile?.firstName == null
-                ? 'Profil'
-                : 'Profil : ${profile!.firstName}',
+                ? l.menuProfile
+                : '${l.menuProfile} : ${profile!.firstName}',
             route: '/profiles',
           ),
         ],
       ),
       _MenuSection(
-        header: 'Configuration',
+        header: l.settingsTitle,
         items: [
-          const _MenuEntry(
+          _MenuEntry(
             icon: Icons.dns_outlined,
-            label: 'Abonnements',
+            label: l.menuSubscriptions,
             route: '/subscriptions',
           ),
           _MenuEntry(
@@ -149,7 +146,7 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
                               ),
                     ),
                     Text(
-                      'Sélectionnez un sous-menu',
+                      l.menuSelect,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: scheme.onPrimaryContainer
                                 .withValues(alpha: 0.8),

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
@@ -114,9 +115,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       barrierDismissible: true,
       builder: (dialogContext) => AlertDialog(
         title: Text(l.exitWithoutSaving),
-        content: const Text(
-          'Des modifications non sauvegardées seront perdues. Quitter quand même ?',
-        ),
+        content: Text(l.profileDiscardHelp),
         actions: [
           Focus(
             focusNode: cancelFocus,
@@ -139,7 +138,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             child: TextButton(
               autofocus: true,
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Annuler'),
+              child: Text(l.cancel),
             ),
           ),
           Focus(
@@ -165,7 +164,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
-              child: const Text('Quitter'),
+              child: Text(l.profileLeave),
             ),
           ),
         ],
@@ -223,6 +222,38 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     'Noir & Blanc',
     'Classique',
   ];
+
+  String _genreLabel(AppLocalizations l, String genre) => switch (genre) {
+        'Action' => l.genreAction,
+        'Aventure' => l.genreAdventure,
+        'Animation' => l.genreAnimation,
+        'Comédie' => l.genreComedy,
+        'Comédie romantique' => l.genreRomanticComedy,
+        'Drame' => l.genreDrama,
+        'Horreur' => l.genreHorror,
+        'Thriller' => l.genreThriller,
+        'Policier' => l.genreDetective,
+        'Crime' => l.genreCrime,
+        'Guerre' => l.genreWar,
+        'Historique' => l.genreHistorical,
+        'Western' => l.genreWestern,
+        'Sci-Fi' => l.genreSciFi,
+        'Fantasy' => l.genreFantasy,
+        'Super-héros' => l.genreSuperheroes,
+        'Mystère' => l.genreMystery,
+        'Romance' => l.genreRomance,
+        'Musical' => l.genreMusical,
+        'Musique' => l.genreMusic,
+        'Biopic' => l.genreBiopic,
+        'Documentaire' => l.genreDocumentary,
+        'Tournoi' => l.genreTournament,
+        'Enfants' => l.genreChildren,
+        'Famille' => l.genreFamily,
+        'Suspense' => l.genreSuspense,
+        'Noir & Blanc' => l.genreBlackWhite,
+        'Classique' => l.genreClassic,
+        _ => genre,
+      };
 
   int get _ageRangeIndex {
     if (_dateOfBirth == null) return 2;
@@ -387,7 +418,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (confirmation == null || !mounted) return;
     if (pin != confirmation) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Les codes PIN ne correspondent pas.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).profilePinMismatch),
+        ),
       );
       return;
     }
@@ -405,7 +438,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       ));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible de créer le code PIN.')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).profilePinCreateFailed),
+          ),
         );
       }
     } finally {
@@ -527,7 +562,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
     return _scaffold(
       ref.watch(profilesProvider).when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
             error: (err, _) => Center(child: Text(l.errorGeneric(err))),
             data: (profiles) {
               UserProfile? target;
@@ -543,7 +578,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Aucun profil à modifier',
+                        l.profileNotFound,
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 12),
@@ -583,12 +618,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _scaffold(Widget body) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Modifier le profil' : 'Créer un profil'),
+        title: Text(_isEdit ? l.profileEditTitle : l.createProfile),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Retour',
+          tooltip: l.profileBack,
           onPressed: handleBack,
         ),
       ),
@@ -604,6 +640,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildAvatarSection() {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
       padding: const EdgeInsets.all(20),
@@ -621,13 +658,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Thème d\'avatar',
+                l.profileAvatarTheme,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               Text(
-                'Choisissez un style, puis un avatar dans la grille',
+                l.profileAvatarThemeHelp,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -663,14 +700,16 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Avatars',
+            l.profileAvatars,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Thème actuel : ${avatarCategoryLabel(l, _selectedDiceBearCategory)}',
+            l.profileCurrentTheme(
+              avatarCategoryLabel(l, _selectedDiceBearCategory),
+            ),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -737,7 +776,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 prefixIcon: const Icon(Icons.badge_outlined),
                 border: const OutlineInputBorder(),
                 errorText: _submitted && _nameController.text.trim().isEmpty
-                    ? 'Obligatoire'
+                    ? l.profileRequired
                     : null,
               ),
               onChanged: (_) {
@@ -755,6 +794,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildPersonalAndTypeCard({Key? key}) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return AppCard(
@@ -764,12 +804,12 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Genres de films favoris',
+            l.profileFavoriteMovieGenres,
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(
-            'Choisissez un ou plusieurs styles pour les recommandations',
+            l.profileGenresHelp,
             style:
                 textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
@@ -780,7 +820,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             children: [
               for (final genre in _genreOptions)
                 _ProfileChoiceChip(
-                  label: genre,
+                  label: _genreLabel(l, genre),
                   focusNode:
                       genre == _genreOptions.first ? _firstAgeFocus : null,
                   selected: _favoriteGenres.contains(genre),
@@ -809,9 +849,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             title: l.protectWithPin,
             subtitle: _pinHash != null
                 ? (_pinHash == _basePinHash
-                    ? 'Un code PIN de 4 chiffres est actif'
-                    : 'Code PIN confirmé. Enregistrez le profil pour l’activer.')
-                : 'Demander un code PIN à la sélection du profil',
+                    ? l.profilePinActive
+                    : l.profilePinPending)
+                : l.profilePinRequest,
             value: _pinHash != null,
             onChanged: _onPinSwitch,
           ),
@@ -823,9 +863,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               onTap: _openPinPad,
             ),
           if (_hashingPin)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 10),
-              child: Text('Création du code PIN…'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(l.profilePinCreating),
             ),
         ],
       ),
@@ -833,6 +873,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 
   Widget _buildActions() {
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(
@@ -841,7 +882,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             child: OutlinedButton.icon(
               onPressed: _saving || _hashingPin ? null : handleBack,
               icon: const Icon(Icons.close_rounded),
-              label: const Text('Annuler'),
+              label: Text(l.cancel),
             ),
           ),
           const SizedBox(width: 14),
@@ -859,11 +900,11 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               label: Text(
                 _pinHash != null && _pinHash != _basePinHash
                     ? _isEdit
-                        ? 'Enregistrer et activer la protection'
-                        : 'Créer le profil et activer la protection'
+                        ? l.profileSaveActivate
+                        : l.profileCreateActivate
                     : _isEdit
-                        ? 'Enregistrer'
-                        : 'Créer le profil',
+                        ? l.profileSaveAction
+                        : l.profileCreateAction,
               ),
             ),
           ),

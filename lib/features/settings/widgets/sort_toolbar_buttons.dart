@@ -3,6 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
+ButtonStyle catalogToolbarIconStyle(BuildContext context, {Color? color}) {
+  final scheme = Theme.of(context).colorScheme;
+  return ButtonStyle(
+    iconColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return scheme.onSurface.withValues(alpha: 0.38);
+      }
+      if (states.contains(WidgetState.focused)) return scheme.primary;
+      return color ?? scheme.onSurfaceVariant;
+    }),
+  );
+}
+
 /// Les deux boutons de sens du tri, à placer dans les `actions` de l'AppBar des
 /// écrans qui exposent un tri (Films, Séries, Parcourir).
 ///
@@ -35,6 +48,7 @@ class SortToolbarButtons extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          style: catalogToolbarIconStyle(context),
           // Infobulle = sens actuel de l'ordre, comme la flèche affichée.
           tooltip: mode.isAscending ? l.sortAscending : l.sortDescending,
           icon: Icon(
@@ -47,6 +61,10 @@ class SortToolbarButtons extends StatelessWidget {
           onPressed: reversed == null ? null : () => onChanged(reversed),
         ),
         IconButton(
+          style: catalogToolbarIconStyle(
+            context,
+            color: mode.isAlphabetical ? Colors.amber : null,
+          ),
           // Infobulle = ordre visé : « Nom (Z → A) » n'apparaît que quand la
           // liste est effectivement triée de Z à A.
           tooltip: mode == SortMode.nameDesc ? l.sortNameZToA : l.sortNameAToZ,

@@ -106,6 +106,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('catch-up dates use the selected language', (tester) async {
+    final datedProgram = EPGProgram(
+      channelId: '1',
+      title: 'Program',
+      description: '',
+      start: DateTime(2020, 1, 2, 10),
+      end: DateTime(2020, 1, 2, 11),
+    );
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => CatchUpScreen(channel: channel)),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        channelCatchUpProvider.overrideWith((ref, id) async => [datedProgram]),
+        activeSubscriptionProvider.overrideWith((ref) => sub),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(ChoiceChip, 'Jan 2'), findsOneWidget);
+  });
+
   testWidgets('program sheet opens live player with typed data',
       (tester) async {
     await open(tester);

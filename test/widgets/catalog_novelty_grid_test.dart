@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
 import 'package:orbit_3d_flutter/features/series/series_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -107,15 +108,21 @@ void main() {
           seriesCategoriesProvider.overrideWith((ref) async =>
               const [MediaCategory(id: 'cat', name: 'Catégorie')]),
           vodGridEnrichmentsProvider.overrideWith((ref) async => {}),
+          movieXtreamPosterProvider.overrideWith((ref, movie) async => null),
+          movieTmdbPosterProvider.overrideWith((ref, movie) async => null),
         ],
         child: MaterialApp(
-          locale: const Locale('fr'),
+          locale: const Locale('en'),
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: isMovie ? const VodScreen() : const SeriesScreen(),
         ),
       ));
       await tester.pumpAndSettle();
+      expect(
+        tester.widget<DpadSearchField>(find.byType(DpadSearchField)).hint,
+        isMovie ? 'Search for a movie or genre…' : 'Search for a series or genre…',
+      );
       final cards =
           tester.widgetList<MediaCard>(find.byType(MediaCard)).toList();
       expect(cards, hasLength(2));
@@ -133,7 +140,8 @@ void main() {
           .widget<Text>(find.text(isMovie ? 'Nouveau film' : 'Nouvelle série'));
       expect(
         title.style!.color,
-        Theme.of(tester.element(find.text(isMovie ? 'Nouveau film' : 'Nouvelle série')))
+        Theme.of(tester.element(
+                find.text(isMovie ? 'Nouveau film' : 'Nouvelle série')))
             .colorScheme
             .error,
       );

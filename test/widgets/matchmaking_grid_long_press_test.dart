@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
+import 'package:orbit_3d_flutter/features/matchmaking/matchmaking_screen.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/prolong_decision_sheet.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -67,6 +68,30 @@ void main() {
     favoriteGenres: const [],
   );
   final other = profile.copyWith(id: 'two', firstName: 'Camille');
+
+  testWidgets('les onglets de recommandations suivent la langue',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+          matchmakingTabProvider.overrideWith((ref, id) async =>
+              (movies: <ScoredReco>[], series: <ScoredReco>[])),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: MatchmakingScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.widgetWithText(Tab, 'Movies'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Series'), findsOneWidget);
+    expect(find.text('Affinity ↓'), findsOneWidget);
+    expect(find.byTooltip('Sort'), findsOneWidget);
+  });
 
   testWidgets('refresh rebuilds solo and group recommendations from the D-pad',
       (tester) async {
@@ -413,6 +438,9 @@ void main() {
         favoritesServiceProvider.overrideWithValue(favorites),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: const TextScaler.linear(1.5)),

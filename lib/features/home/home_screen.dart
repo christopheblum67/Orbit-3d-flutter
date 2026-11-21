@@ -277,12 +277,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final isM3u = ref.watch(sourceTypeProvider).value == 'm3u';
     final multiTvEnabled =
         ref.watch(currentProfileProvider.select((p) => p?.multiTvEnabled)) ??
             true;
     final items = _OrbitItem.buildAll(
-      isM3u: isM3u,
       multiTvEnabled: multiTvEnabled,
       l: l,
     );
@@ -333,11 +331,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Échec de la mise à jour : aucune source n\'a répondu.',
-            ),
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: Text(l.homeRefreshFailed),
+            duration: const Duration(seconds: 4),
           ),
         );
     }
@@ -383,9 +379,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         return;
       }
       _pendingRefreshSubscriptionId = subscriptionId;
+      final l = AppLocalizations.of(context);
       _pendingRefreshMessage = responded
-          ? 'Mise à jour terminée.'
-          : 'Mise à jour terminée, aucune donnée disponible.';
+          ? l.homeRefreshDone
+          : l.homeRefreshEmpty;
       _showPendingRefreshMessage();
     } finally {
       _autoRefreshing = false;
@@ -522,12 +519,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           border: Border.all(
                               color: item.color.withValues(alpha: 0.3)),
                         ),
-                        child: const Padding(
+                        child: Padding(
                           padding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           child: Text(
-                            'Bientôt',
-                            style: TextStyle(
+                            AppLocalizations.of(context).comingSoon,
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -600,6 +597,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l = AppLocalizations.of(context);
     final compact = MediaQuery.sizeOf(context).width < 600;
     final bar = Row(
+      textDirection: TextDirection.ltr,
       mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
       children: [
         _SubStatusChip(
@@ -696,7 +694,7 @@ class _SubStatusChip extends ConsumerWidget {
           child: GestureDetector(
             onTap: onOpenSubscriptions,
             child: Tooltip(
-              message: 'Changer d’abonnement',
+              message: AppLocalizations.of(context).homeChangeSubscription,
               child: Container(
                 alignment: Alignment.center,
                 padding:
@@ -708,9 +706,9 @@ class _SubStatusChip extends ConsumerWidget {
                     color: const Color(0xFF00CFE8).withValues(alpha: 0.4),
                   ),
                 ),
-                child: const Text(
-                  'Gestion Abonnement',
-                  style: TextStyle(
+                child: Text(
+                  AppLocalizations.of(context).homeManageSubscription,
+                  style: const TextStyle(
                     color: Color(0xFF00CFE8),
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -754,7 +752,7 @@ class _NoSubscriptionChip extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                'Aucun abo',
+                AppLocalizations.of(context).homeNoSubscription,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 13,
@@ -769,7 +767,7 @@ class _NoSubscriptionChip extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             child: Tooltip(
-              message: 'Ajouter ou changer d’abonnement',
+              message: AppLocalizations.of(context).homeAddOrChangeSubscription,
               child: Container(
                 alignment: Alignment.center,
                 padding:
@@ -803,16 +801,17 @@ class _ProfileShortcut extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final profile = ref.watch(currentProfileProvider);
     final label = profile?.firstName.trim();
-    final displayName = label == null || label.isEmpty ? 'Profil' : label;
+    final displayName = label == null || label.isEmpty ? l.menuProfile : label;
     return TvFocus(
       onActivate: () => context.go('/profiles'),
       child: Semantics(
         button: true,
         label: label == null || label.isEmpty
-            ? 'Choisir un profil'
-            : 'Profil $label',
+            ? l.chooseProfile
+            : '${l.menuProfile} $label',
         child: GestureDetector(
           onTap: () => context.go('/profiles'),
           child: Container(
@@ -867,7 +866,7 @@ class _SettingsShortcut extends StatelessWidget {
         child: GestureDetector(
           onTap: onPressed,
           child: Tooltip(
-            message: 'Réglages',
+            message: AppLocalizations.of(context).settings,
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -911,7 +910,6 @@ class _OrbitItem {
   bool get hasRoute => route != null;
 
   static List<_OrbitItem> buildAll({
-    required bool isM3u,
     required bool multiTvEnabled,
     required AppLocalizations l,
   }) {
@@ -924,24 +922,22 @@ class _OrbitItem {
         route: '/live',
         refreshCategory: _RefreshCategory.live,
       ),
-      if (!isM3u) ...[
-        _OrbitItem(
-          title: 'Films',
-          icon: Icons.movie_outlined,
-          color: const Color(0xFF8A72FF),
-          subtitle: l.newAnd4K,
-          route: '/vod',
-          refreshCategory: _RefreshCategory.vod,
-        ),
-        _OrbitItem(
-          title: l.series,
-          icon: Icons.video_library_rounded,
-          color: const Color(0xFFB388FF),
-          subtitle: l.seasonsAndEpisodes,
-          route: '/series',
-          refreshCategory: _RefreshCategory.series,
-        ),
-      ],
+      _OrbitItem(
+        title: 'Films',
+        icon: Icons.movie_outlined,
+        color: const Color(0xFF8A72FF),
+        subtitle: l.newAnd4K,
+        route: '/vod',
+        refreshCategory: _RefreshCategory.vod,
+      ),
+      _OrbitItem(
+        title: l.series,
+        icon: Icons.video_library_rounded,
+        color: const Color(0xFFB388FF),
+        subtitle: l.seasonsAndEpisodes,
+        route: '/series',
+        refreshCategory: _RefreshCategory.series,
+      ),
       _OrbitItem(
         title: 'EPG',
         icon: Icons.calendar_month_rounded,
@@ -972,18 +968,19 @@ class _OrbitItem {
         route: '/replay',
         refreshCategory: _RefreshCategory.replay,
       ),
-      if (multiTvEnabled) _OrbitItem(
-        title: l.multiScreen,
-        icon: Icons.grid_view_rounded,
-        color: const Color(0xFF26A69A),
-        subtitle: 'Jusqu\'à 4 flux à la fois',
-        route: '/multivideo',
-      ),
+      if (multiTvEnabled)
+        _OrbitItem(
+          title: l.multiScreen,
+          icon: Icons.grid_view_rounded,
+          color: const Color(0xFF26A69A),
+          subtitle: l.homeMultiStream,
+          route: '/multivideo',
+        ),
       _OrbitItem(
         title: 'Radio',
         icon: Icons.radio_rounded,
         color: const Color(0xFFEF6C00),
-        subtitle: 'Stations en direct',
+        subtitle: l.homeRadioStations,
         route: '/radio',
       ),
     ];
@@ -1055,9 +1052,10 @@ class _LastRefreshLabelState extends ConsumerState<_LastRefreshLabel> {
   Widget build(BuildContext context) {
     final last = ref.watch(lastRefreshTimestampProvider);
     final age = last == null ? null : DateTime.now().difference(last);
+    final l = AppLocalizations.of(context);
     final text = age == null || age.isNegative
-        ? 'Dernière mise à jour inconnue'
-        : 'Mis à jour il y a ${age.inMinutes} min';
+        ? l.homeRefreshUnknown
+        : l.homeRefreshMinutes(age.inMinutes);
     return Text(
       text,
       maxLines: 2,

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
 
@@ -98,6 +99,13 @@ Future<int> _performCatalogRefresh({
 }) async {
   var responded = 0;
   final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
+  final parsingSubscription =
+      ref.read(m3uParsingEventsProvider).stream.listen((_) {
+    if (isMounted() &&
+        ref.read(activeSubscriptionProvider)?.id == subscriptionId) {
+      controller.markPlaylistParsing();
+    }
+  });
   // Force un vrai rechargement réseau : les providers sont NON `autoDispose`,
   // donc sans `invalidate` un simple `read(...future)` renverrait la valeur en
   // cache sans aucun appel réseau (rafraîchissement factice).
@@ -127,6 +135,7 @@ Future<int> _performCatalogRefresh({
       if (list.isNotEmpty) responded++;
     });
   } finally {
+    unawaited(parsingSubscription.cancel());
     refreshLease.release();
   }
 
@@ -241,6 +250,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
       body: SafeArea(
@@ -252,8 +262,11 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
               currentStep: _controller.currentStep,
               doneSteps: _controller.doneSteps,
               isFinished: _controller.isFinished,
+              title: _controller.isParsingPlaylist
+                  ? l.startupParsingPlaylist
+                  : null,
               failureMessage: _refreshStalled
-                  ? _stalledMessage(_controller.currentStep?.label)
+                  ? _stalledMessage(l, _controller.currentStep)
                   : null,
               onOpenHome: _refreshStalled ? () => _leaveLoading('/home') : null,
               onOpenSubscriptions: _refreshStalled
@@ -266,10 +279,8 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     );
   }
 
-  String _stalledMessage(String? step) {
-    final label = step == null ? 'la mise à jour' : '« $step »';
-    return '$label ne signale aucune progression depuis '
-        '${kRefreshStallTimeout.inSeconds} secondes. Le serveur peut être '
-        'lent ou indisponible ; vous pouvez vérifier l’abonnement.';
+  String _stalledMessage(AppLocalizations l, StartupStep? step) {
+    final label = step == null ? l.startupRefresh : refreshStepLabel(l, step);
+    return l.startupRefreshStalled(label, kRefreshStallTimeout.inSeconds);
   }
 }

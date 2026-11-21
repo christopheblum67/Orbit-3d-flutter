@@ -25,8 +25,8 @@ class ProfilePreferencesScreen extends ConsumerWidget {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Impossible d’enregistrer le réglage Multi TV.'),
+            SnackBar(
+              content: Text(l.preferenceMultiTvFailed),
             ),
           );
         }
@@ -39,7 +39,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
         // réglages), `canPop()` est false et l'icône disparaissait.
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Retour',
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
           onPressed: () {
             final router = GoRouter.of(context);
             if (router.canPop()) {
@@ -56,14 +56,15 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.settings_brightness_outlined),
             title: Text(l.theme),
-            subtitle: Text(_themeLabel(prefs.theme)),
+            subtitle: Text(_themeLabel(prefs.theme, l)),
             trailing: DropdownButton<String>(
               value: prefs.theme,
               underline: const SizedBox.shrink(),
               items: [
                 DropdownMenuItem(value: 'system', child: Text(l.system)),
-                const DropdownMenuItem(value: 'light', child: Text('Clair')),
-                const DropdownMenuItem(value: 'dark', child: Text('Sombre')),
+                DropdownMenuItem(
+                    value: 'light', child: Text(l.preferenceLight)),
+                DropdownMenuItem(value: 'dark', child: Text(l.preferenceDark)),
               ],
               onChanged: (v) {
                 if (v != null) notifier.setTheme(v);
@@ -73,7 +74,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.language_outlined),
-            title: const Text('Langue'),
+            title: Text(l.language),
             subtitle: Text(_langLabel(prefs.language)),
             trailing: DropdownButton<String>(
               value: prefs.language,
@@ -97,8 +98,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             title: Text(l.sectionParental),
             subtitle: Text(
               prefs.parentalControlEnabled
-                  ? 'Activé · Restriction ${prefs.ageRestriction > 0 ? l.plusAgeYears(prefs.ageRestriction) : 'désactivée'}'
-                  : 'Désactivé',
+                  ? l.preferenceParentalEnabled(prefs.ageRestriction > 0
+                      ? l.plusAgeYears(prefs.ageRestriction)
+                      : l.preferenceDisabled)
+                  : l.preferenceDisabled,
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
@@ -128,9 +131,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             child: SwitchListTile(
               secondary: const Icon(Icons.grid_view_rounded),
               title: const Text('Multi TV'),
-              subtitle: const Text(
-                'Afficher et autoriser la lecture multi-écran pour ce profil.',
-              ),
+              subtitle: Text(l.preferenceMultiTvHelp),
               value: profile?.multiTvEnabled ?? true,
               onChanged: profile == null ? null : setMultiTv,
             ),
@@ -138,32 +139,28 @@ class ProfilePreferencesScreen extends ConsumerWidget {
           const Divider(height: 1),
           SwitchListTile(
             secondary: const Icon(Icons.video_camera_back_outlined),
-            title: const Text('Autoriser l\'enregistrement'),
-            subtitle: const Text(
-              'Permettre l\'enregistrement de mes contenus favoris',
-            ),
+            title: Text(l.preferenceAllowRecording),
+            subtitle: Text(l.preferenceRecordingHelp),
             value: prefs.allowRecording,
             onChanged: (v) => notifier.setAllowRecording(v),
           ),
           const Divider(height: 1),
           SwitchListTile(
             secondary: const Icon(Icons.live_tv_outlined),
-            title: const Text('Aperçu vidéo en direct'),
-            subtitle: const Text(
-              'Affiche le direct dans la navigation Live. Réglage commun à cet appareil.',
-            ),
+            title: Text(l.preferenceLivePreview),
+            subtitle: Text(l.preferenceLivePreviewHelp),
             value: ref.watch(advancedSettingsProvider).livePreviewVideo ?? true,
             onChanged:
                 ref.read(advancedSettingsProvider.notifier).setLivePreviewVideo,
           ),
           const Divider(height: 1),
           const SizedBox(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Center(
               child: Text(
-                'Vos préférences sont appliquées à votre profil.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                l.preferenceProfileHelp,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
           ),
@@ -172,14 +169,14 @@ class ProfilePreferencesScreen extends ConsumerWidget {
     );
   }
 
-  String _themeLabel(String theme) {
+  String _themeLabel(String theme, AppLocalizations l) {
     switch (theme) {
       case 'light':
-        return 'Clair';
+        return l.preferenceLight;
       case 'dark':
-        return 'Sombre';
+        return l.preferenceDark;
       default:
-        return 'Système';
+        return l.system;
     }
   }
 
@@ -251,7 +248,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                       return KeyEventResult.ignored;
                     },
                     child: SwitchListTile(
-                      title: const Text('Activer'),
+                      title: Text(l.subscriptionActivate),
                       value: enabled,
                       onChanged: (v) => setState(() => enabled = v),
                     ),
@@ -274,11 +271,10 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                     },
                     child: DropdownButtonFormField<int>(
                       initialValue: ageRestriction,
-                      decoration: const InputDecoration(
-                        labelText: 'Restriction d\'âge',
-                      ),
+                      decoration:
+                          InputDecoration(labelText: l.parentalAgeLimit),
                       items: [
-                        const DropdownMenuItem(value: 0, child: Text('Aucune')),
+                        DropdownMenuItem(value: 0, child: Text(l.parentalNone)),
                         for (final age in [7, 10, 12, 16, 18])
                           DropdownMenuItem(
                             value: age,
@@ -317,7 +313,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                   },
                   child: TextButton(
                     onPressed: () => Navigator.pop(dialogContext),
-                    child: const Text('Annuler'),
+                    child: Text(l.cancel),
                   ),
                 ),
                 Focus(
@@ -352,7 +348,7 @@ class ProfilePreferencesScreen extends ConsumerWidget {
                       dialogContext,
                       (enabled: enabled, ageRestriction: ageRestriction),
                     ),
-                    child: const Text('Valider'),
+                    child: Text(l.cloudConfirm),
                   ),
                 ),
               ],

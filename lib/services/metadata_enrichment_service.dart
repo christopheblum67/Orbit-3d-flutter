@@ -127,67 +127,54 @@ class MetadataEnrichmentService {
   Future<SeriesDetail> enrichSeries(Series series) async {
     var detail = SeriesDetail.fromSeries(series);
 
-    // 1. TVMAZE PRIMAIRE (le meilleur pour les séries)
-    final int? tvmazeId = await _tvmaze.searchShowId(series.title);
-
-    if (tvmazeId != null) {
+    await safeAsync<void>(() async {
+      final tvmazeId = await _tvmaze.searchShowId(series.title);
+      if (tvmazeId == null) return;
       final tvmazeDetail = await _tvmaze.getShowDetail(tvmazeId);
       if (tvmazeDetail != null) {
         detail = _mergeSeriesDetail(detail, tvmazeDetail);
       }
-    }
+    }, context: 'MetadataEnrichmentService.series.tvmaze');
 
-    // 2. TMDB FALLBACK: Main cast + Guest stars (si TVmaze n'a pas le cast principal ou les guest stars par saison)
-    if ((detail.cast.isEmpty || detail.guestStarsPerSeason.isEmpty) &&
-        _tmdb.hasApiKey) {
-      int? tmdbId;
-      if (detail.tmdbId > 0) {
-        tmdbId = detail.tmdbId;
-      } else {
-        tmdbId = await _tmdb.searchTvId(
-          series.title,
-          year: series.year > 0 ? series.year : null,
-        );
-      }
-
-      if (tmdbId != null) {
-        // Récupérer le détail TMDB complet (inclut aggregate_credits.cast = main cast)
-        final tmdbDetail = await _tmdb.getTvDetail(tmdbId);
-        if (tmdbDetail != null) {
-          // Merge: main cast from TMDB si manquant
-          final newCast = detail.cast.isEmpty ? tmdbDetail.cast : detail.cast;
-
-          // Guest stars par saison si manquantes
-          Map<int, List<Actor>> newGuestStars = detail.guestStarsPerSeason;
-          if (detail.guestStarsPerSeason.isEmpty) {
-            final seasonNumbers = detail.episodes
-                .map((e) => e.season)
-                .where((s) => s > 0)
-                .toSet()
-                .toList();
-
-            final guestStars =
-                await _tmdb.getSeasonGuestStars(tmdbId, seasonNumbers);
-            if (guestStars != null && guestStars.isNotEmpty) {
-              newGuestStars = guestStars;
-            }
-          }
-
-          detail = detail.copyWith(
-            cast: newCast,
-            guestStarsPerSeason: newGuestStars,
-            tmdbId: tmdbId,
-          );
+    if (_tmdb.hasApiKey) {
+      await safeAsync<void>(() async {
+        var tmdbId = detail.tmdbId > 0
+            ? detail.tmdbId
+            : await _tmdb.searchTvId(
+                series.title,
+                year: series.year > 0 ? series.year : null,
+              );
+        if (tmdbId == null && series.year > 0) {
+          tmdbId = await _tmdb.searchTvId(series.title);
         }
-      }
+        if (tmdbId == null) return;
+        final tmdbDetail = await _tmdb.getTvDetail(tmdbId);
+        if (tmdbDetail == null) return;
+        detail =
+            _mergeSeriesDetail(detail, tmdbDetail).copyWith(tmdbId: tmdbId);
+
+        if (detail.guestStarsPerSeason.isEmpty) {
+          final seasonNumbers = detail.episodes
+              .map((e) => e.season)
+              .where((s) => s > 0)
+              .toSet()
+              .toList();
+          final guestStars =
+              await _tmdb.getSeasonGuestStars(tmdbId, seasonNumbers);
+          if (guestStars != null && guestStars.isNotEmpty) {
+            detail = detail.copyWith(guestStarsPerSeason: guestStars);
+          }
+        }
+      }, context: 'MetadataEnrichmentService.series.tmdb');
     }
 
-    // 3. OMDB FALLBACK (champs manquants)
     if (detail.year == 0 || detail.runtime == 0 || detail.networks.isEmpty) {
-      final omdbDetail = await _omdb.fillMissingSeries(detail);
-      if (omdbDetail != detail) {
-        detail = _mergeSeriesDetail(detail, omdbDetail);
-      }
+      await safeAsync<void>(() async {
+        final omdbDetail = await _omdb.fillMissingSeries(detail);
+        if (omdbDetail != detail) {
+          detail = _mergeSeriesDetail(detail, omdbDetail);
+        }
+      }, context: 'MetadataEnrichmentService.series.omdb');
     }
 
     return detail;
@@ -260,7 +247,11 @@ class MetadataEnrichmentService {
     return base.copyWith(
       title: base.title.isNotEmpty ? base.title : incoming.title,
       description:
-          base.description.isNotEmpty ? base.description : incoming.description,
+          incoming.dataSource == 'tmdb' && incoming.description.isNotEmpty
+              ? incoming.description
+              : base.description.isNotEmpty
+                  ? base.description
+                  : incoming.description,
       coverUrl: base.coverUrl.isNotEmpty ? base.coverUrl : incoming.coverUrl,
       year: base.year > 0 ? base.year : incoming.year,
       genre: base.genre.isNotEmpty ? base.genre : incoming.genre,
@@ -291,7 +282,7 @@ class MetadataEnrichmentService {
       guestStarsPerSeason: incoming.guestStarsPerSeason.isNotEmpty
           ? incoming.guestStarsPerSeason
           : base.guestStarsPerSeason,
-      cast: incoming.cast.isNotEmpty ? incoming.cast : base.cast,
+      cast: base.cast.isNotEmpty ? base.cast : incoming.cast,
       dataSource: incoming.dataSource,
       aiGenerated: incoming.aiGenerated,
     );

@@ -44,7 +44,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
         leading: GoRouter.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => GoRouter.of(context).pop(),
               )
             : null,
@@ -65,12 +65,12 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             initialValue: prefs.ageRestriction,
-            decoration: const InputDecoration(
-              labelText: 'Restriction d\'âge',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: l.parentalAgeLimit,
+              border: const OutlineInputBorder(),
             ),
             items: [
-              const DropdownMenuItem(value: 0, child: Text('Aucune')),
+              DropdownMenuItem(value: 0, child: Text(l.parentalNone)),
               for (final age in [7, 10, 12, 16, 18])
                 DropdownMenuItem(value: age, child: Text(l.plusAgeYears(age))),
             ],
@@ -84,9 +84,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           const SizedBox(height: 8),
           SwitchListTile(
             secondary: const Icon(Icons.no_adult_content_outlined),
-            title: const Text('Masquer le contenu adulte'),
-            subtitle:
-                const Text('Films/Séries/Chaînes classés 18+ ou érotique'),
+            title: Text(l.parentalHideAdult),
+            subtitle: Text(l.parentalHideAdultHelp),
             value: profile?.hideAdultContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideAdultContent: v,
@@ -94,9 +93,8 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           ),
           SwitchListTile(
             secondary: const Icon(Icons.no_backpack_outlined),
-            title: const Text('Masquer la violence'),
-            subtitle:
-                const Text('Contenus Gore / Horreur / Thriller / Meurtre'),
+            title: Text(l.parentalHideViolence),
+            subtitle: Text(l.parentalHideViolenceHelp),
             value: profile?.hideViolentContent ?? false,
             onChanged: (v) => _updateContentFilter(
               hideViolentContent: v,
@@ -105,7 +103,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           const Divider(),
           const SizedBox(height: 8),
           Text(
-            _hasPin ? 'PIN actuel : ${'•' * 4}' : 'Définir un code PIN',
+            _hasPin ? l.parentalCurrentPin : l.parentalSetPin,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
@@ -115,11 +113,10 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
             obscureText: _obscurePin,
             maxLength: 4,
             decoration: InputDecoration(
-              labelText:
-                  _hasPin ? 'Nouveau PIN (4 chiffres)' : 'PIN (4 chiffres)',
+              labelText: _hasPin ? l.parentalNewPin : l.parentalPin,
               border: const OutlineInputBorder(),
               suffixIcon: IconButton(
-                tooltip: _obscurePin ? 'Afficher le PIN' : 'Masquer le PIN',
+                tooltip: _obscurePin ? l.parentalShowPin : l.parentalHidePin,
                 icon:
                     Icon(_obscurePin ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscurePin = !_obscurePin),
@@ -129,7 +126,7 @@ class _ParentalControlScreenState extends ConsumerState<ParentalControlScreen> {
           const SizedBox(height: 12),
           FilledButton.icon(
             icon: const Icon(Icons.lock_outline),
-            label: Text(_hasPin ? 'Mettre à jour le PIN' : 'Définir le PIN'),
+            label: Text(_hasPin ? l.parentalUpdatePin : l.parentalSetPin),
             onPressed: _savePin,
           ),
           if (_hasPin) ...[

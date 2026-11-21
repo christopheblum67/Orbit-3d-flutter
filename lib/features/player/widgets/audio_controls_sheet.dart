@@ -349,10 +349,10 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                   children: [
                     Icon(Icons.nightlight_round, color: scheme.primary),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Audio & Night Focus',
-                        style: TextStyle(
+                        l.audioAndNightFocus,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -364,7 +364,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                       prevFocusNode: _resetFocus,
                       onPressed: () => Navigator.of(context).pop(),
                       icon: Icons.close,
-                      tooltip: 'Fermer',
+                      tooltip: l.close,
                     ),
                   ],
                 ),
@@ -375,9 +375,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     Text(
-                      'Optimisation sonore active : les réglages s\'appliquent '
-                      'au moteur natif quand Night Focus est ON, et sont '
-                      'sauvegardés pour la prochaine lecture.',
+                      l.audioNightHelp,
                       style: TextStyle(
                         fontSize: 12,
                         color: scheme.onSurfaceVariant,
@@ -402,7 +400,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Optimisation Nocturne (Night Focus)',
+                                  l.audioNightTitle,
                                   style: textTheme.bodyLarge?.copyWith(
                                     fontWeight: FontWeight.w700,
                                     color: _nightFocusEnabled
@@ -435,13 +433,12 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                   .setNightFocusDialogueBoost(v ?? false);
                               await _push();
                             },
-                            title: const Text(
-                              'Dialogue Boost',
-                              style: TextStyle(fontSize: 13),
+                            title: Text(
+                              l.audioDialogueBoost,
+                              style: const TextStyle(fontSize: 13),
                             ),
                             subtitle: Text(
-                              'Rehausse la plage spectrale des voix '
-                              '(1–4 kHz)',
+                              l.audioDialogueHelp,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: scheme.onSurfaceVariant,
@@ -459,13 +456,12 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                   .setNightFocusBassKiller(v ?? false);
                               await _push();
                             },
-                            title: const Text(
-                              'Bass Killer & Limiteur',
-                              style: TextStyle(fontSize: 13),
+                            title: Text(
+                              l.audioBassLimiter,
+                              style: const TextStyle(fontSize: 13),
                             ),
                             subtitle: Text(
-                              'Atténue les sub-bass et compresse les '
-                              'surcharges soudaines',
+                              l.audioBassHelp,
                               style: TextStyle(
                                 fontSize: 11,
                                 color: scheme.onSurfaceVariant,
@@ -477,9 +473,9 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Amplification des voix :',
-                                  style: TextStyle(fontSize: 12),
+                                Text(
+                                  l.audioVocalGain,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                                 Text(
                                   '+${_vocalGainDb.toStringAsFixed(1)} dB',
@@ -524,7 +520,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Décalage piste audio (A/V sync)',
+                                l.audioSyncTitle,
                                 style: textTheme.bodyLarge?.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -588,7 +584,7 @@ class _AudioControlsSheetState extends ConsumerState<AudioControlsSheet> {
                                   await _notifier.setNightFocusAudioShiftMs(0);
                                   await _push();
                                 },
-                                child: const Text('Reset'),
+                                child: Text(l.reset),
                               ),
                             ],
                           ),

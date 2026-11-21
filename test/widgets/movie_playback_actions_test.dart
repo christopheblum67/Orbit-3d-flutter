@@ -33,16 +33,18 @@ void main() {
     var started = 0;
     var resumed = 0;
     var trailers = 0;
-    await tester.pumpWidget(app(
-      onStart: () => started++,
-      onResume: () => resumed++,
-      onTrailer: () => trailers++,
-    ));
+    await tester.pumpWidget(
+      app(
+        onStart: () => started++,
+        onResume: () => resumed++,
+        onTrailer: () => trailers++,
+      ),
+    );
     await tester.pumpAndSettle();
     final buttons = find.byType(FilledButton);
     final start = tester.getRect(buttons.first);
-    final resume = tester.getRect(buttons.last);
-    final trailer = tester.getRect(buttons.last);
+    final resume = tester.getRect(buttons.at(1));
+    final trailer = tester.getRect(buttons.at(2));
     expect(tester.widgetList<FilledButton>(buttons).length, 3);
     expect(tester.getSize(buttons.first).height, closeTo(48, 1));
     expect(resume.width, greaterThanOrEqualTo(165));
@@ -54,11 +56,15 @@ void main() {
     );
     expect(tester.getRect(row).center.dx, closeTo(640, 1));
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(resumed, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
     expect(started, 1);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    expect(resumed, 1);
+    expect(resumed, 2);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
@@ -71,11 +77,14 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(app(onStart: () {}));
+    var started = 0;
+    await tester.pumpWidget(app(onStart: () => started++));
     await tester.pumpAndSettle();
     final resume = tester.widget<FilledButton>(find.byType(FilledButton).last);
     expect(resume.onPressed, isNull);
     expect(tester.takeException(), isNull);
     expect(find.text('Reprendre'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(started, 1);
   });
 }

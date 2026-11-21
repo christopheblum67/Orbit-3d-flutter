@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -19,6 +20,17 @@ import 'package:orbit_3d_flutter/services/storage_service.dart';
 /// Ces tests verrouillent que la lecture passe par [json_retyping] :
 /// ils échouent si on re-shallow-copie le profil à la lecture.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const pinChannel = MethodChannel('orbit/profile_pin');
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pinChannel, (_) async => null);
+  });
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pinChannel, null);
+  });
+
   late Directory tempDir;
   late StorageService storage;
 

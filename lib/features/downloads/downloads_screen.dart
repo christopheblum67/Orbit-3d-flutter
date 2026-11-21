@@ -26,7 +26,7 @@ class DownloadsScreen extends ConsumerWidget {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -54,7 +54,7 @@ class DownloadsScreen extends ConsumerWidget {
         ],
       ),
       body: tasks.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (error, _) =>
             Center(child: Text(l.downloadFailed(error.toString()))),
         data: (tasks) {
@@ -187,13 +187,14 @@ void openDownloadedContent(BuildContext context, DownloadTask task) {
 /// Lance la lecture **directe** d'un fichier téléchargé (hors-ligne).
 /// N'utilise pas le flux réseau — passe par le lecteur interne avec le chemin local.
 void playDownloadedContent(BuildContext context, DownloadTask task) {
+  final l = AppLocalizations.of(context);
   final path = task.localPath;
   final file = File(path);
   final dir = file.parent;
 
   if (!dir.existsSync()) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Répertoire introuvable : ${dir.path}')),
+      SnackBar(content: Text(l.downloadDirectoryMissing(dir.path))),
     );
     return;
   }
@@ -204,8 +205,7 @@ void playDownloadedContent(BuildContext context, DownloadTask task) {
     final names = files.map((f) => f.path.split('/').last).join(', ');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content:
-            Text('Fichier introuvable : $path. Fichiers présents : $names'),
+        content: Text(l.downloadFileMissing(path, names)),
         duration: const Duration(seconds: 5),
       ),
     );
@@ -516,7 +516,7 @@ class _ActionButtons extends StatelessWidget {
           IconButton(
             onPressed: onResume,
             icon: Icon(Icons.play_arrow, color: scheme.primary),
-            tooltip: 'Reprendre',
+            tooltip: l.resumeAction,
           ),
           IconButton(
             onPressed: onCancel,

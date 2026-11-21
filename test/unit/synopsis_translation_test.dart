@@ -2,8 +2,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit_3d_flutter/models/user_preferences.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/metadata_providers.dart';
+import 'package:orbit_3d_flutter/providers/synopsis_translation_provider.dart';
 import 'package:orbit_3d_flutter/services/synopsis_translation_service.dart';
+import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
 /// Adaptateur Dio qui échoue toujours : simule l'absence de réseau pour
 /// tester le repli silencieux de la traduction automatique.
@@ -50,7 +56,45 @@ class _GoogleTranslationAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class _NoTmdb implements TmdbService {
+  @override
+  bool get hasApiKey => false;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  for (final isSeries in [false, true]) {
+    test(
+        'detail synopsis uses Google fallback for ${isSeries ? 'series' : 'movie'}',
+        () async {
+      final adapter = _GoogleTranslationAdapter();
+      final tmdb = _NoTmdb();
+      final container = ProviderContainer(overrides: [
+        tmdbServiceProvider.overrideWithValue(tmdb),
+        preferencesProvider.overrideWithBuild(
+          (ref, notifier) => const UserPreferences(),
+        ),
+        synopsisTranslationServiceProvider.overrideWithValue(
+          SynopsisTranslationService(
+            dio: Dio()..httpClientAdapter = adapter,
+          ),
+        ),
+      ]);
+      addTearDown(container.dispose);
+      final result = await container.read(translatedSynopsisProvider((
+        title: 'Title',
+        raw: 'A story about a family and their journey.',
+        isSeries: isSeries,
+        originalLanguageCode: 'en',
+      )).future);
+      expect(result.source, SynopsisSource.googleTranslate);
+      expect(result.text, 'Bonjour, monde.');
+      expect(adapter.request?.queryParameters['tl'], 'fr');
+    });
+  }
+
   group('SynopsisTranslationService.isFrench', () {
     final service = SynopsisTranslationService();
 

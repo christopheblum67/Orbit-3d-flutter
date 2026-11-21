@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/features/auth/widgets/profile_avatar_selector.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
@@ -132,14 +133,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen>
           leading: context.canPop()
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                   onPressed: () => context.pop(),
                 )
               : null,
           title: Text(l.myProfile),
         ),
         body: profileAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
           error: (err, _) => Center(child: Text(l.errorGeneric(err))),
           data: (profiles) {
             final targetId =

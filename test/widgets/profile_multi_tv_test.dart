@@ -65,6 +65,7 @@ void main() {
     await tester.pumpWidget(_app(container, const ProfilePreferencesScreen()));
     await tester.pumpAndSettle();
 
+    expect(find.text('Live video preview'), findsOneWidget);
     Finder switchTile() => find.widgetWithText(SwitchListTile, 'Multi TV');
     expect(tester.widget<SwitchListTile>(switchTile()).value, isTrue);
     await tester.ensureVisible(switchTile());
@@ -113,7 +114,7 @@ void main() {
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(tester.widget<SwitchListTile>(tile).value, isTrue);
-    expect(find.textContaining('Impossible d’enregistrer'), findsOneWidget);
+    expect(find.text('Could not save the Multi TV setting.'), findsOneWidget);
   });
 
   test('a late save does not replace the newly selected profile', () async {
@@ -157,7 +158,7 @@ void main() {
     );
     await tester.pump();
     expect(
-      find.textContaining('Multi TV est désactivée pour ce profil'),
+      find.textContaining('Multi TV is disabled for this profile'),
       findsOneWidget,
     );
   });

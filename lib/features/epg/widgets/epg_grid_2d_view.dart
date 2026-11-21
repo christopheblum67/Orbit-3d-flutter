@@ -1048,6 +1048,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                           channelWidth: channelWidth,
                                           viewportWidth: viewportWidth,
                                           channelIndex: index,
+                                          emptyLabel: l.epgNoDataTitle,
+                                          textDirection:
+                                              Directionality.of(context),
                                           horizontalOffset: _horizontalOffset,
                                           touchPosition: _hoverPosition,
                                           dataRevision: _dataRevision,
@@ -1339,6 +1342,8 @@ class _EpgGridPainter extends CustomPainter {
   final double rowHeight;
   final double channelWidth;
   final double viewportWidth;
+  final String emptyLabel;
+  final TextDirection textDirection;
   final ValueListenable<double>? horizontalOffset;
   final ValueListenable<Offset?>? touchPosition;
 
@@ -1373,6 +1378,8 @@ class _EpgGridPainter extends CustomPainter {
     required this.channelWidth,
     required this.viewportWidth,
     required this.channelIndex,
+    required this.emptyLabel,
+    required this.textDirection,
     required this.horizontalOffset,
     required this.touchPosition,
     required this.dataRevision,
@@ -1568,15 +1575,15 @@ class _EpgGridPainter extends CustomPainter {
       // évite au lecteur de croire que l'application est cassée.
       if (programs.isEmpty) {
         final emptyPainter = TextPainter(
-          text: const TextSpan(
-            text: 'Aucune donnée de programme',
-            style: TextStyle(
+          text: TextSpan(
+            text: emptyLabel,
+            style: const TextStyle(
               color: Color(0xFF5A6273),
               fontSize: 10,
               fontStyle: FontStyle.italic,
             ),
           ),
-          textDirection: TextDirection.ltr,
+          textDirection: textDirection,
         )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
         if (cullMin <= 8 && emptyPainter.width > 0) {
           emptyPainter.paint(
@@ -1622,6 +1629,8 @@ class _EpgGridPainter extends CustomPainter {
     return old.gridStartTime != gridStartTime ||
         old.pixelsPerMinute != pixelsPerMinute ||
         old.viewportWidth != viewportWidth ||
+        old.emptyLabel != emptyLabel ||
+        old.textDirection != textDirection ||
         old.channelIndex != channelIndex;
   }
 }

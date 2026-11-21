@@ -50,6 +50,35 @@ class _Progress extends PlaybackProgressService {
 }
 
 void main() {
+  testWidgets('missing series identifier is localized', (tester) async {
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, __) => const SeriesDetailScreen(seriesId: ''),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Series ID is missing (incorrect navigation). Return to the list and try again.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   final episode = Episode(
     id: 'episode',
     title: 'Episode',
@@ -83,7 +112,8 @@ void main() {
       Map<int, List<Actor>> guests = const {},
       Series? customSeries,
       Size size = const Size(1920, 1080),
-      double textScale = 1}) async {
+      double textScale = 1,
+      Locale locale = const Locale('fr')}) async {
     SharedPreferences.setMockInitialValues({});
     final selectedSeries = customSeries ?? series;
     tester.view.physicalSize = size;
@@ -121,7 +151,7 @@ void main() {
         playbackProgressServiceProvider.overrideWith((ref) => progress),
       ],
       child: MaterialApp.router(
-        locale: const Locale('fr'),
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         routerConfig: router,
@@ -149,6 +179,20 @@ void main() {
     await tester.ensureVisible(tile);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('episode navigation hint is localized', (tester) async {
+    await open(tester, _WatchedService(), _Progress(),
+        locale: const Locale('en'));
+    expect(find.text('Hold OK to mark as watched or reset.'), findsOneWidget);
+    expect(find.text('1 episode'), findsWidgets);
+    await tester.longPress(find.byTooltip('Mark as watched'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark as watched?'), findsOneWidget);
+    expect(
+      find.text('"S01E01 — Episode" will be marked as watched for this profile.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
       'saisons proches des épisodes et navigation D-pad dans le carrousel',

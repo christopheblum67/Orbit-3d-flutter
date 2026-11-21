@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations_fr.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 
 void main() {
@@ -11,6 +13,7 @@ void main() {
       final result = ConnectionErrorAnalyzer.analyze(
         'DioException: status code 401 Unauthorized',
         type: SubscriptionType.xtream,
+        l: AppLocalizationsFr(),
       );
 
       expect(result.category, ConnectionErrorCategory.invalidCredentials);
@@ -22,6 +25,7 @@ void main() {
       final result = ConnectionErrorAnalyzer.analyze(
         'Connection timed out',
         type: SubscriptionType.m3u,
+        l: AppLocalizationsFr(),
       );
 
       expect(result.category, ConnectionErrorCategory.timeout);
@@ -32,6 +36,7 @@ void main() {
       final result = ConnectionErrorAnalyzer.analyze(
         'GET https://panel.example/player_api.php?username=alice&password=secret',
         type: SubscriptionType.xtream,
+        l: AppLocalizationsFr(),
       );
 
       expect(result.technicalDetails, contains('username=[masqué]'));
@@ -45,6 +50,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(
@@ -85,6 +93,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Scaffold(
               body: TextButton(
@@ -106,5 +117,33 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.text('Délai de réponse dépassé'), findsNothing);
+  });
+
+  testWidgets('localizes the connection diagnosis and actions', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showConnectionErrorDialog(
+              context,
+              'HTTP 503',
+              type: SubscriptionType.m3u,
+              onRetry: () {},
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Server temporarily unavailable (503)'), findsOneWidget);
+    expect(find.text('Things to check'), findsOneWidget);
+    expect(find.text('Try again in a few minutes.'), findsOneWidget);
+    expect(find.text('Technical details'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
   });
 }

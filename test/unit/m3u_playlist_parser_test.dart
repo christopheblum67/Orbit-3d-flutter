@@ -3,6 +3,13 @@ import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
 
 void main() {
   group('M3uPlaylistParser', () {
+    test('parses CRLF and a final line without a newline', () {
+      const body = '#EXTM3U\r\n'
+          '#EXTINF:-1 group-title="TV",Channel\r\n'
+          'https://example.test/live';
+      expect(M3uPlaylistParser.parse(body).channels.single.name, 'Channel');
+    });
+
     test('sépare les chaînes, films et épisodes d’une playlist mixte', () {
       const content = '''
 #EXTM3U

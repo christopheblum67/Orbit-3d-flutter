@@ -31,13 +31,14 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.delete_outline, color: scheme.primary),
-              title: const Text(
-                'Gestion de la Mémoire & Cache',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              title: Text(
+                l.memoryPanelTitle,
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Libérez de l\'espace et nettoyez les données locales.',
-                style: TextStyle(fontSize: 11, color: Colors.white38),
+              subtitle: Text(
+                l.memoryPanelHelp,
+                style: const TextStyle(fontSize: 11, color: Colors.white38),
               ),
             ),
           ),
@@ -51,20 +52,20 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.history, color: scheme.primary),
-              title: const Text(
-                'Vider l\'historique des vues',
-                style: TextStyle(fontSize: 14),
+              title: Text(
+                l.memoryHistoryTitle,
+                style: const TextStyle(fontSize: 14),
               ),
-              subtitle: const Padding(
-                padding: EdgeInsets.only(top: 2),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'Efface l\'historique, les récemment regardés (Live, Films, Séries) et les positions de reprise du profil courant.',
-                  style: TextStyle(fontSize: 11, color: Colors.white38),
+                  l.memoryHistoryHelp,
+                  style: const TextStyle(fontSize: 11, color: Colors.white38),
                 ),
               ),
               trailing: OutlinedButton.icon(
                 icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('Effacer'),
+                label: Text(l.memoryClear),
                 style: OutlinedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -100,20 +101,20 @@ class MemorySettingsPanel extends ConsumerWidget {
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.image, color: scheme.primary),
-              title: const Text(
-                'Nettoyer le cache des pochettes',
-                style: TextStyle(fontSize: 14),
+              title: Text(
+                l.memoryImagesTitle,
+                style: const TextStyle(fontSize: 14),
               ),
-              subtitle: const Padding(
-                padding: EdgeInsets.only(top: 2),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  'Libère l\'espace disque occupé par les vignettes VOD/EPG stockées localement.',
-                  style: TextStyle(fontSize: 11, color: Colors.white38),
+                  l.memoryImagesHelp,
+                  style: const TextStyle(fontSize: 11, color: Colors.white38),
                 ),
               ),
               trailing: OutlinedButton.icon(
                 icon: const Icon(Icons.cleaning_services_rounded, size: 18),
-                label: const Text('Purger'),
+                label: Text(l.memoryPurge),
                 style: OutlinedButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

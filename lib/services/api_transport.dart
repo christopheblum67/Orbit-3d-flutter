@@ -19,8 +19,12 @@ class ApiTransport {
         fingerprints?.isNotEmpty == true ? fingerprints : null;
   }
 
-  Future<Response<dynamic>> request(String url, {Options? options}) =>
-      _get(url, options: options);
+  Future<Response<dynamic>> request(
+    String url, {
+    Options? options,
+    ProgressCallback? onReceiveProgress,
+  }) =>
+      _get(url, options: options, onReceiveProgress: onReceiveProgress);
 
   /// Budget court : suffisant pour tout appel de controle (live, infos d'un
   /// canal, EPG d'une chaine). Au-dela, c'est un vrai probleme reseau.
@@ -81,9 +85,13 @@ class ApiTransport {
   /// commun à tous les appels, sinon chaque écran repartirait de zéro.
   final ApiRateLimiter rateLimiter;
 
-  Future<Response<dynamic>> _get(String url, {Options? options}) {
+  Future<Response<dynamic>> _get(
+    String url, {
+    Options? options,
+    ProgressCallback? onReceiveProgress,
+  }) {
     return stream_helpers.retryStream(
-      () => _performGet(url, options),
+      () => _performGet(url, options, onReceiveProgress),
       // Le panel applique un rate-limit (429) sous charge : on retente 3 fois
       // avec 1,2 s d'écart avant d'abandonner (démarrage séquentiel en plus).
       //
@@ -129,6 +137,7 @@ class ApiTransport {
   /// L'espacement est adaptatif : après un 429 il s'allonge (le panel
   /// signale une saturation durable), puis redescend progressivement.
   static final ApiRequestGate _apiGate = ApiRequestGate();
+  static int _nextPlaylistRequestId = 0;
 
   Future<Response<dynamic>> get(String url) => _get(url);
 
@@ -139,7 +148,11 @@ class ApiTransport {
   /// croissant suffit à attendre que la rafale retombe.
   static const int _badResponseRetries = 2;
 
-  Future<Response<dynamic>> _performGet(String url, [Options? extra]) async {
+  Future<Response<dynamic>> _performGet(
+    String url, [
+    Options? extra,
+    ProgressCallback? onReceiveProgress,
+  ]) async {
     final sw = Stopwatch()..start();
     logDiag('GET ${_shortAction(url)} ...');
     // Escalade universal : plutot que de deviner a l'avance quelles actions sont
@@ -150,11 +163,22 @@ class ApiTransport {
     // Portillon global : on attend notre tour avant d'émettre. C'est ce qui
     // empêche une rafale (sonde Replay, VOD + séries + EPG) de faire répondre
     // 429 à des requêtes qui n'y sont pour rien.
+    final traceId = extra?.extra?['orbitM3uTraceId'];
+    final requestId = traceId is int ? ++_nextPlaylistRequestId : null;
+    if (requestId != null) {
+      logDiag('M3U gate trace=$traceId attempt=$requestId state=waiting');
+    }
     await _apiGate.acquire();
+    if (requestId != null) {
+      logDiag(
+          'M3U gate trace=$traceId attempt=$requestId state=acquired '
+          'waitMs=${sw.elapsedMilliseconds}');
+    }
     try {
       final res = await _dio.get<dynamic>(
         url,
         options: (extra ?? Options()).copyWith(receiveTimeout: budget),
+        onReceiveProgress: onReceiveProgress,
       );
       _apiGate.onSuccess();
       // On ne retire PAS l'URL du cache lent ici : une requete qui a reussi
@@ -177,6 +201,7 @@ class ApiTransport {
             url,
             options:
                 (extra ?? Options()).copyWith(receiveTimeout: _slowTimeout),
+            onReceiveProgress: onReceiveProgress,
           );
           logDiag(
             'HTTP ${res.statusCode} ${sw.elapsedMilliseconds}ms (escalade) '
@@ -225,6 +250,7 @@ class ApiTransport {
             final res = await _dio.get<dynamic>(
               url,
               options: (extra ?? Options()).copyWith(receiveTimeout: budget),
+              onReceiveProgress: onReceiveProgress,
             );
             _apiGate.onSuccess();
             logDiag(

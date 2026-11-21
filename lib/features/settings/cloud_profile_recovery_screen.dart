@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/features/settings/pairing_scanner_screen.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_profile_recovery.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
@@ -21,16 +22,16 @@ import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_profile_catalog.d
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_sync.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_scope_store.dart';
 
-String _scopeLabel(String scope) => switch (scope) {
-      'favorites' => 'favoris',
-      'radioFavorites' => 'favoris radio',
-      'recents' => 'historique récent',
-      'watched' => 'épisodes vus',
-      'playback' => 'positions de lecture',
-      'preferences' => 'préférences générales',
-      'profile' => 'fiche du profil',
-      'subscriptions' => 'abonnements',
-      _ => 'données',
+String _scopeLabel(AppLocalizations l, String scope) => switch (scope) {
+      'favorites' => l.cloudScopeFavorites,
+      'radioFavorites' => l.cloudScopeRadioFavorites,
+      'recents' => l.cloudScopeRecents,
+      'watched' => l.cloudScopeWatched,
+      'playback' => l.cloudScopePlayback,
+      'preferences' => l.cloudScopePreferences,
+      'profile' => l.cloudScopeProfile,
+      'subscriptions' => l.cloudScopeSubscriptions,
+      _ => l.cloudScopeData,
     };
 
 class CloudProfileRecoveryScreen extends ConsumerStatefulWidget {
@@ -139,6 +140,7 @@ class _CloudProfileRecoveryScreenState
     Future<void> Function() action, {
     String? errorPrefix,
   }) async {
+    final l = AppLocalizations.of(context);
     setState(() {
       _busy = true;
       _message = null;
@@ -149,24 +151,19 @@ class _CloudProfileRecoveryScreenState
       await action();
       succeeded = true;
     } on CloudSyncConflict {
-      _message = 'Le cloud a changé ailleurs. Rechargez avant de réessayer.';
+      _message = l.cloudChangedElsewhere;
       _catalog = null;
     } on SecretBoxAuthenticationError {
-      _message = _legacyPhrase
-          ? 'Phrase secrète incorrecte ou données cloud altérées.'
-          : 'Code cloud incorrect ou données cloud altérées.';
+      _message = _legacyPhrase ? l.cloudBadPhrase : l.cloudBadCode;
       _catalog = null;
     } on FirebaseException {
-      _message =
-          'Accès cloud impossible. Vérifiez le réseau et la configuration Firebase.';
+      _message = l.cloudAccessFailed;
     } on FormatException {
-      _message =
-          'Données cloud invalides ou incompatibles ; aucune restauration effectuée.';
+      _message = l.cloudInvalidData;
     } on StateError catch (error) {
       _message = error.message.toString();
     } catch (_) {
-      _message =
-          'Opération impossible. Vérifiez le réseau puis actualisez le Cloud.';
+      _message = l.cloudOperationFailed;
     } finally {
       if (!succeeded && errorPrefix != null && _message != null) {
         _message = '$errorPrefix $_message';
@@ -193,12 +190,12 @@ class _CloudProfileRecoveryScreenState
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               FilledButton(
                 autofocus: focusConfirm,
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Confirmer'),
+                child: Text(AppLocalizations.of(context).cloudConfirm),
               ),
             ],
           ),
@@ -211,7 +208,7 @@ class _CloudProfileRecoveryScreenState
         context: context,
         builder: (context) => DpadScope(
           child: AlertDialog(
-            title: const Text('Partager ces profils ?'),
+            title: Text(AppLocalizations.of(context).cloudShareProfilesTitle),
             scrollable: true,
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -227,27 +224,21 @@ class _CloudProfileRecoveryScreenState
                                     profile.firstName.trim().toLowerCase())
                                 .length >
                             1
-                        ? Text('Même nom — identifiant : ${profile.id}')
+                        ? Text(AppLocalizations.of(context)
+                            .cloudDuplicateProfileId(profile.id))
                         : null,
                   ),
-                const Text(
-                  'Les profils manquants seront ajoutés sans remplacer ceux '
-                  'qui existent. Leurs favoris et leur activité seront '
-                  'partagés, ainsi que les préférences et abonnements, avec '
-                  'leurs identifiants IPTV. Ces données sont chiffrées.\n\n'
-                  'Deux profils de même nom restent séparés. Si des données '
-                  'sont différentes, vous choisirez lesquelles garder.',
-                ),
+                Text(AppLocalizations.of(context).cloudShareProfilesHelp),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Annuler'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Confirmer'),
+                child: Text(AppLocalizations.of(context).cloudConfirm),
               ),
             ],
           ),
@@ -260,28 +251,23 @@ class _CloudProfileRecoveryScreenState
         context: context,
         builder: (context) => DpadScope(
           child: AlertDialog(
-            title: const Text('Choisir la source en cas de conflit'),
+            title: Text(AppLocalizations.of(context).cloudChooseSourceTitle),
             scrollable: true,
-            content: const Text(
-              'Les ajouts différents seront réunis sur les deux appareils. '
-              'Si une même donnée a été modifiée des deux côtés, la source '
-              'choisie ici sera conservée et envoyée à l’autre appareil. '
-              'Ce choix s’applique à tous les conflits du démarrage.',
-            ),
+            content: Text(AppLocalizations.of(context).cloudChooseSourceHelp),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Annuler'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               OutlinedButton(
                 onPressed: () =>
                     Navigator.pop(context, ScopeConflictChoice.local),
-                child: const Text('Cet appareil est la source'),
+                child: Text(AppLocalizations.of(context).cloudSourceLocal),
               ),
               FilledButton(
                 onPressed: () =>
                     Navigator.pop(context, ScopeConflictChoice.cloud),
-                child: const Text('Le Cloud est la source'),
+                child: Text(AppLocalizations.of(context).cloudSourceRemote),
               ),
             ],
           ),
@@ -289,36 +275,34 @@ class _CloudProfileRecoveryScreenState
       );
 
   Future<void> _load(String uid, {bool afterPublish = false}) async {
+    final l = AppLocalizations.of(context);
     ProfileCatalogSnapshot? loaded;
     final success = await _run(() async {
       if (_phrase.text.isEmpty) {
-        throw StateError('Demande le code à un adulte.');
+        throw StateError(l.cloudAskAdult);
       }
       if (!_legacyPhrase && !RegExp(r'^[0-9]{3,10}$').hasMatch(_phrase.text)) {
-        throw StateError('Le code doit contenir de 3 à 10 chiffres.');
+        throw StateError(l.cloudCodeLength);
       }
       final phrase = _phrase.text;
       final snapshot = await _recovery.load(uid, phrase);
       loaded = snapshot;
       if (!mounted) return;
       if (_auth.currentUser?.uid != uid || _phrase.text != phrase) {
-        throw StateError('Le compte ou le secret a changé. Recommencez.');
+        throw StateError(l.cloudAccountChanged);
       }
       _catalog = snapshot;
       _loadedUid = uid;
       _message = afterPublish
-          ? 'Fiche sauvegardée. Catalogue actualisé.'
+          ? l.cloudBackupRefreshed
           : snapshot.revision == 0
               ? snapshot.verified
-                  ? 'Accès confirmé. Aucun profil sauvegardé.'
-                  : 'Aucune sauvegarde trouvée : votre code ne peut pas encore être vérifié.'
+                  ? l.cloudAccessEmpty
+                  : l.cloudCodeUnverified
               : snapshot.profiles.isEmpty
-                  ? 'Accès confirmé. Aucun profil sauvegardé.'
-                  : 'Accès confirmé. Choisissez les profils à partager.';
-    },
-        errorPrefix: afterPublish
-            ? 'Fiche sauvegardée, mais le catalogue n’a pas pu être actualisé.'
-            : null);
+                  ? l.cloudAccessEmpty
+                  : l.cloudAccessChoose;
+    }, errorPrefix: afterPublish ? l.cloudBackupRefreshFailed : null);
     if (!success ||
         !mounted ||
         afterPublish ||
@@ -330,9 +314,7 @@ class _CloudProfileRecoveryScreenState
     _pendingAutoSyncProfiles.clear();
     final missing = requested.difference(snapshot.profiles.keys.toSet());
     if (missing.isNotEmpty) {
-      setState(() => _message =
-          'Les profils choisis sur le téléphone ne sont plus disponibles. '
-              'Actualisez la liste et sélectionnez-les à nouveau.');
+      setState(() => _message = l.cloudPhoneProfilesMissing);
       return;
     }
     List<UserProfile>? localProfiles;
@@ -344,12 +326,13 @@ class _CloudProfileRecoveryScreenState
       _selectedProfiles
         ..clear()
         ..addAll(requested);
-      _message = 'Profils reçus du téléphone. Démarrage du partage…';
+      _message = l.cloudPhoneProfilesReceived;
     });
     await _syncSelected(uid, localProfiles!, confirm: false);
   }
 
   Future<void> _publish(String uid, UserProfile profile) async {
+    final l = AppLocalizations.of(context);
     final phrase = _phrase.text;
     final accepted = await showDialog<bool>(
       context: context,
@@ -359,8 +342,7 @@ class _CloudProfileRecoveryScreenState
     if (accepted != true) return;
     if (!mounted) return;
     if (_phrase.text != phrase || _auth.currentUser?.uid != uid) {
-      setState(
-          () => _message = 'Le compte ou la phrase a changé. Recommencez.');
+      setState(() => _message = l.cloudPhraseChanged);
       return;
     }
     final saved = await _run(() async {
@@ -378,36 +360,32 @@ class _CloudProfileRecoveryScreenState
   }
 
   Future<void> _restore(String uid, String id, String name) async {
+    final l = AppLocalizations.of(context);
     if (!await _confirm(
-      'Récupérer ce profil ?',
-      'La fiche de $name sera ajoutée sans remplacer les profils locaux. '
-          'Les favoris, historiques, abonnements et préférences ne seront pas restaurés.',
+      l.cloudRestoreTitle,
+      l.cloudRestoreHelp(name),
     )) return;
     if (!mounted) return;
     await _run(() async {
       await _recovery.restore(uid, _phrase.text, id);
       if (!mounted) return;
       ref.invalidate(profilesProvider);
-      _message = 'Fiche récupérée. Sélectionnez ce profil dans l’application, '
-          'puis revenez ici pour activer sa synchronisation.';
+      _message = l.cloudProfileRestored;
     });
   }
 
   Future<void> _deleteCloudProfile(String uid, String id, String name) async {
+    final l = AppLocalizations.of(context);
     if (!await _confirm(
-      'Supprimer $name du Cloud ?',
-      'La fiche et les données synchronisées de ce profil seront supprimées '
-          'du Cloud. Le profil local sur cet appareil ne sera pas supprimé. '
-          'Les autres appareils seront mis en pause et devront actualiser '
-          'leur liste.',
+      l.cloudDeleteTitle(name),
+      l.cloudDeleteHelp,
     )) {
       return;
     }
     if (!mounted || _auth.currentUser?.uid != uid) return;
     final activity = ref.read(encryptedActivitySyncProvider);
     if (activity.busy) {
-      setState(() => _message =
-          'Attendez la fin de la synchronisation avant la suppression.');
+      setState(() => _message = l.cloudWaitDelete);
       return;
     }
     if (activity.unlocked) {
@@ -435,18 +413,13 @@ class _CloudProfileRecoveryScreenState
       builder: (dialogContext) => DpadScope(
         child: StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Repartir de zéro sur le Cloud ?'),
+            title: Text(AppLocalizations.of(context).cloudResetTitle),
             scrollable: true,
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Tous les profils et leurs données partagées seront '
-                  'supprimés du Cloud. Les profils locaux seront conservés. '
-                  'Les autres appareils devront saisir ce nouveau code. '
-                  'Cette action est irréversible.',
-                ),
+                Text(AppLocalizations.of(context).cloudResetHelp),
                 const SizedBox(height: 12),
                 TextField(
                   key: const ValueKey('cloud-reset-code'),
@@ -454,7 +427,9 @@ class _CloudProfileRecoveryScreenState
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) => code = value,
-                  decoration: const InputDecoration(labelText: 'Nouveau code'),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context).cloudNewCode,
+                  ),
                 ),
                 TextField(
                   key: const ValueKey('cloud-reset-confirmation'),
@@ -462,13 +437,13 @@ class _CloudProfileRecoveryScreenState
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) => confirmation = value,
-                  decoration:
-                      const InputDecoration(labelText: 'Confirmer le code'),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context).cloudConfirmCode,
+                  ),
                   onSubmitted: (_) {
                     if (!_validResetCode(code, confirmation, currentCode)) {
                       setDialogState(() => error =
-                          'Saisissez un nouveau code de 3 à 10 chiffres et '
-                              'confirmez-le à l’identique.');
+                          AppLocalizations.of(context).cloudResetCodeError);
                     } else {
                       Navigator.pop(dialogContext, code);
                     }
@@ -489,19 +464,18 @@ class _CloudProfileRecoveryScreenState
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Annuler'),
+                child: Text(AppLocalizations.of(context).cancel),
               ),
               FilledButton(
                 onPressed: () {
                   if (!_validResetCode(code, confirmation, currentCode)) {
                     setDialogState(() => error =
-                        'Saisissez un nouveau code de 3 à 10 chiffres et '
-                            'confirmez-le à l’identique.');
+                        AppLocalizations.of(context).cloudResetCodeError);
                   } else {
                     Navigator.pop(dialogContext, code);
                   }
                 },
-                child: const Text('Réinitialiser'),
+                child: Text(AppLocalizations.of(context).reset),
               ),
             ],
           ),
@@ -516,9 +490,9 @@ class _CloudProfileRecoveryScreenState
       confirmation == code;
 
   Future<void> _resetCloud(String uid) async {
+    final l = AppLocalizations.of(context);
     if (ref.read(encryptedActivitySyncProvider).busy) {
-      setState(() => _message =
-          'Attendez la fin de la synchronisation avant la réinitialisation.');
+      setState(() => _message = l.cloudWaitReset);
       return;
     }
     final newCode = await _requestCloudResetCode(_phrase.text);
@@ -538,9 +512,7 @@ class _CloudProfileRecoveryScreenState
         verified: true,
       );
       _loadedUid = uid;
-      _message =
-          'Cloud réinitialisé. Le nouveau code est actif ; les profils locaux '
-          'ont été conservés.';
+      _message = l.cloudResetComplete;
     });
     if (reset && mounted) setState(() {});
   }
@@ -548,12 +520,10 @@ class _CloudProfileRecoveryScreenState
   Future<void> _unlockActivity(
       String uid, ProfileCatalogSnapshot catalog) async {
     final phrase = _phrase.text;
+    final l = AppLocalizations.of(context);
     if (!await _confirm(
-      'Synchroniser ce profil ?',
-      'La fiche, les favoris vidéo et radio, historiques récents, épisodes vus et positions du profil '
-          'actif, ainsi que les préférences et abonnements, seront synchronisés '
-          'sous forme chiffrée pendant cette session. Les identifiants IPTV sont '
-          'inclus. L’abonnement actif reste choisi sur chaque appareil.',
+      l.cloudSyncProfileTitle,
+      l.cloudSyncProfileHelp,
     )) return;
     final initialConflictChoice = await _chooseInitialSource();
     if (initialConflictChoice == null) return;
@@ -561,8 +531,7 @@ class _CloudProfileRecoveryScreenState
     if (_phrase.text != phrase ||
         _auth.currentUser?.uid != uid ||
         !identical(_catalog, catalog)) {
-      setState(
-          () => _message = 'Le compte ou la phrase a changé. Recommencez.');
+      setState(() => _message = l.cloudPhraseChanged);
       return;
     }
     await _run(() async {
@@ -581,6 +550,7 @@ class _CloudProfileRecoveryScreenState
     List<UserProfile> localProfiles, {
     bool confirm = true,
   }) async {
+    final l = AppLocalizations.of(context);
     final catalog = _catalog;
     if (catalog == null) return;
     final localSelected = localProfiles
@@ -607,8 +577,7 @@ class _CloudProfileRecoveryScreenState
     if (_auth.currentUser?.uid != uid ||
         _phrase.text != phrase ||
         !identical(_catalog, catalog)) {
-      setState(
-          () => _message = 'Le compte ou le secret a changé. Recommencez.');
+      setState(() => _message = l.cloudAccountChanged);
       return;
     }
     if (confirm && catalog.revision == 0) {
@@ -624,8 +593,7 @@ class _CloudProfileRecoveryScreenState
       if (confirmed != true || !mounted) return;
     }
     if (ref.read(encryptedActivitySyncProvider).busy) {
-      setState(() => _message =
-          'Une synchronisation est en cours. Attendez la fin avant de modifier la sélection.');
+      setState(() => _message = l.cloudWaitSelection);
       return;
     }
     if (ref.read(encryptedActivitySyncProvider).unlocked) {
@@ -636,29 +604,29 @@ class _CloudProfileRecoveryScreenState
       if (_auth.currentUser?.uid != uid ||
           _phrase.text != phrase ||
           !identical(_catalog, catalog)) {
-        throw StateError('Le compte ou le secret a changé. Recommencez.');
+        throw StateError(l.cloudAccountChanged);
       }
       final fresh = await ref.refresh(profilesProvider.future);
       if (!mounted) return;
       if (_auth.currentUser?.uid != uid ||
           _phrase.text != phrase ||
           !identical(_catalog, catalog)) {
-        throw StateError('Le compte ou le secret a changé. Recommencez.');
+        throw StateError(l.cloudAccountChanged);
       }
       final freshById = {for (final profile in fresh) profile.id: profile};
       for (final profile in localSelected) {
         if (freshById[profile.id] == null ||
             jsonEncode(freshById[profile.id]!.toMap()) !=
                 jsonEncode(profile.toMap())) {
-          throw StateError('Les profils ont changé. Vérifiez votre sélection.');
+          throw StateError(l.cloudProfilesChanged);
         }
       }
       for (final (index, entry) in cloudOnly.indexed) {
         if (freshById.containsKey(entry.key)) {
-          throw StateError('Les profils ont changé. Vérifiez votre sélection.');
+          throw StateError(l.cloudProfilesChanged);
         }
-        setState(() => _progress =
-            'Récupération des fiches : ${index + 1} / ${cloudOnly.length}.');
+        setState(() =>
+            _progress = l.cloudRestoringProfiles(index + 1, cloudOnly.length));
         try {
           await _recovery.restore(uid, phrase, entry.key);
         } finally {
@@ -668,7 +636,7 @@ class _CloudProfileRecoveryScreenState
             _auth.currentUser?.uid != uid ||
             _phrase.text != phrase ||
             !identical(_catalog, catalog)) {
-          throw StateError('Le compte ou le secret a changé. Recommencez.');
+          throw StateError(l.cloudAccountChanged);
         }
       }
       final restoredProfiles = await ref.refresh(profilesProvider.future);
@@ -676,7 +644,7 @@ class _CloudProfileRecoveryScreenState
       if (_auth.currentUser?.uid != uid ||
           _phrase.text != phrase ||
           !identical(_catalog, catalog)) {
-        throw StateError('Le compte ou le secret a changé. Recommencez.');
+        throw StateError(l.cloudAccountChanged);
       }
       final restoredById = {
         for (final profile in restoredProfiles) profile.id: profile
@@ -685,7 +653,7 @@ class _CloudProfileRecoveryScreenState
       for (final entry in cloudOnly) {
         final profile = restoredById[entry.key];
         if (profile == null) {
-          throw StateError('Une fiche récupérée est introuvable. Réessayez.');
+          throw StateError(l.cloudRestoredProfileMissing);
         }
         selected.add(profile);
       }
@@ -697,14 +665,12 @@ class _CloudProfileRecoveryScreenState
               jsonEncode(validateCloudProfile(deepRetypeMap(value), profile.id)
                       .toMap()) !=
                   jsonEncode(profile.toMap())) {
-            throw StateError(
-                'Les profils ont changé. Vérifiez votre sélection.');
+            throw StateError(l.cloudProfilesChanged);
           }
         }
       }
 
-      setState(
-          () => _progress = 'Vérification et sauvegarde des fiches cloud.');
+      setState(() => _progress = l.cloudCheckingProfiles);
       updated = await _recovery.publishMissing(
         uid,
         phrase,
@@ -713,17 +679,14 @@ class _CloudProfileRecoveryScreenState
       );
       if (!mounted) return;
       if (_auth.currentUser?.uid != uid || _phrase.text != phrase) {
-        throw StateError('Le compte ou le secret a changé. Recommencez.');
+        throw StateError(l.cloudAccountChanged);
       }
       _catalog = updated;
       _loadedUid = uid;
-    },
-        errorPrefix: cloudOnly.isEmpty
-            ? null
-            : 'Certaines fiches ont peut-être été récupérées. Vérifiez la liste avant de réessayer.');
+    }, errorPrefix: cloudOnly.isEmpty ? null : l.cloudPartialRestore);
     if (!saved || !mounted || updated == null) return;
     final syncStarted = await _run(() async {
-      setState(() => _progress = 'Démarrage de la synchronisation.');
+      setState(() => _progress = l.cloudStartingSync);
       await ref.read(encryptedActivitySyncProvider.notifier).unlock(
             auth: _auth,
             uid: uid,
@@ -735,7 +698,7 @@ class _CloudProfileRecoveryScreenState
             },
             initialConflictChoice: initialConflictChoice,
           );
-    }, errorPrefix: 'Les fiches ont été sauvegardées.');
+    }, errorPrefix: l.cloudProfilesBackedUp);
     final activity = ref.read(encryptedActivitySyncProvider);
     if (confirm &&
         syncStarted &&
@@ -749,11 +712,9 @@ class _CloudProfileRecoveryScreenState
   Future<void> _showSyncCompletionDialog() => showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Synchronisation terminée'),
-          content: const Text(
-            'Les profils sélectionnés et leurs données ont bien été '
-            'synchronisés avec le Cloud.',
-          ),
+          title: Text(AppLocalizations.of(dialogContext).cloudSyncFinished),
+          content:
+              Text(AppLocalizations.of(dialogContext).cloudSyncFinishedHelp),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -765,11 +726,10 @@ class _CloudProfileRecoveryScreenState
 
   Future<void> _resolveConflict(ScopeConflictChoice choice) async {
     final cloud = choice == ScopeConflictChoice.cloud;
+    final l = AppLocalizations.of(context);
     if (!await _confirm(
-      'Résoudre le conflit ?',
-      'Pour les éléments en conflit de cette catégorie, la version '
-          '${cloud ? 'cloud' : 'de cet appareil'} sera conservée. '
-          'L’autre version, y compris une éventuelle suppression, sera écrasée.',
+      l.cloudResolveTitle,
+      cloud ? l.cloudResolveRemoteHelp : l.cloudResolveLocalHelp,
       focusConfirm: true,
     )) return;
     if (!mounted) return;
@@ -819,16 +779,17 @@ class _CloudProfileRecoveryScreenState
       });
     });
     final activity = ref.watch(encryptedActivitySyncProvider);
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes profils sur mes appareils')),
+      appBar: AppBar(title: Text(l.cloudProfilesTitle)),
       body: StreamBuilder<User?>(
         stream: _authChanges,
         builder: (context, auth) {
           final user = auth.data;
           if (user == null || user.isAnonymous) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Text('Connectez-vous à un compte cloud pour continuer.'),
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(l.cloudSignInToContinue),
             );
           }
 
@@ -858,10 +819,8 @@ class _CloudProfileRecoveryScreenState
                       Expanded(
                         child: Text(
                           catalog == null
-                              ? 'Un adulte prépare le code. Ensuite, choisis '
-                                  'les profils à partager.'
-                              : 'Coche les profils que tu veux retrouver sur '
-                                  'tes appareils, puis appuie sur Partager.',
+                              ? l.cloudPrepareCodeHelp
+                              : l.cloudChooseProfilesHelp,
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       ),
@@ -872,18 +831,15 @@ class _CloudProfileRecoveryScreenState
               const SizedBox(height: 12),
               Card(
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.hourglass_top_rounded),
-                      SizedBox(width: 10),
+                      const Icon(Icons.hourglass_top_rounded),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          'La première mise à jour peut prendre plus de '
-                          '10 minutes. Garde Orbit ouvert jusqu’à la fin.',
-                        ),
+                        child: Text(l.cloudFirstSyncHelp),
                       ),
                     ],
                   ),
@@ -918,21 +874,18 @@ class _CloudProfileRecoveryScreenState
                   });
                 },
                 decoration: InputDecoration(
-                  labelText: _legacyPhrase
-                      ? 'Phrase secrète (ancien format)'
-                      : 'Code donné par l’adulte',
+                  labelText:
+                      _legacyPhrase ? l.cloudLegacyPhrase : l.cloudAdultCode,
                   helperText: _legacyPhrase
-                      ? 'Saisir la même phrase sur les deux appareils.'
-                      : 'Saisir le même code sur les deux appareils.',
+                      ? l.cloudSamePhraseHelp
+                      : l.cloudSameCodeHelp,
                   helperMaxLines: 2,
                   suffixIcon: IconButton(
                     tooltip: _legacyPhrase
                         ? (_obscurePhrase
-                            ? 'Afficher la phrase secrète'
-                            : 'Masquer la phrase secrète')
-                        : (_obscurePhrase
-                            ? 'Afficher le code cloud'
-                            : 'Masquer le code cloud'),
+                            ? l.cloudShowPhrase
+                            : l.cloudHidePhrase)
+                        : (_obscurePhrase ? l.cloudShowCode : l.cloudHideCode),
                     icon: Icon(_obscurePhrase
                         ? Icons.visibility_off
                         : Icons.visibility),
@@ -944,15 +897,14 @@ class _CloudProfileRecoveryScreenState
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _busy ? null : () => _load(user.uid),
-                child: Text(catalog == null
-                    ? 'Voir mes profils'
-                    : 'Actualiser la liste'),
+                child: Text(
+                    catalog == null ? l.cloudSeeProfiles : l.cloudRefreshList),
               ),
               ExpansionTile(
-                title: const Text('Options pour un adulte'),
+                title: Text(l.cloudAdultOptions),
                 children: [
                   SwitchListTile(
-                    title: const Text('Utiliser une ancienne phrase secrète'),
+                    title: Text(l.cloudUseLegacyPhrase),
                     value: _legacyPhrase,
                     onChanged: _busy
                         ? null
@@ -985,9 +937,8 @@ class _CloudProfileRecoveryScreenState
                               );
                               if (selected.any(
                                   (id) => !catalog.profiles.containsKey(id))) {
-                                setState(() => _message =
-                                    'Partagez d’abord les profils sélectionnés '
-                                        'pour les rendre disponibles sur la TV.');
+                                setState(
+                                    () => _message = l.cloudShareBeforePairing);
                                 return;
                               }
                               Navigator.of(context)
@@ -1003,13 +954,12 @@ class _CloudProfileRecoveryScreenState
                                 ),
                               ));
                             },
-                      child: const Text('Associer une TV par QR code'),
+                      child: Text(l.cloudPairTv),
                     ),
                   if (catalog != null)
                     TextButton(
                       onPressed: _busy ? null : () => _resetCloud(user.uid),
-                      child: const Text(
-                          'Supprimer tout le Cloud et repartir de zéro'),
+                      child: Text(l.cloudResetAction),
                     ),
                 ],
               ),
@@ -1048,11 +998,11 @@ class _CloudProfileRecoveryScreenState
                             Expanded(
                               child: Text(
                                 activity.busy
-                                    ? 'Mise à jour en cours…'
+                                    ? l.cloudUpdating
                                     : activity.conflictScope != null
-                                        ? 'Un adulte doit choisir les données à garder.'
+                                        ? l.cloudAdultMustChoose
                                         : activity.error ??
-                                            'Le partage est activé.',
+                                            l.cloudSharingEnabled,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ),
@@ -1068,69 +1018,74 @@ class _CloudProfileRecoveryScreenState
                           ),
                           if (activity.totalScopes > 0)
                             Text(
-                              'Fait : ${(100 * activity.completedScopes / activity.totalScopes).floor()} %',
+                              l.cloudProgressPercent(
+                                (100 *
+                                        activity.completedScopes /
+                                        activity.totalScopes)
+                                    .floor(),
+                              ),
                             ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Cela peut prendre plus de 10 minutes. Garde '
-                            'Orbit ouvert.',
-                          ),
+                          Text(l.cloudKeepOpen),
                         ] else if (activity.error == null &&
                             activity.lastSyncAt != null)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              'Les changements sont partagés automatiquement.',
-                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(l.cloudAutoSharing),
                           ),
                         if (activity.busy && activity.currentScope != null)
-                          Text(
-                            'En ce moment : ${_scopeLabel(activity.currentScope!)}'
-                            '${activity.currentProfileId == null ? '' : ' — ${catalog?.profiles[activity.currentProfileId]?['firstName'] ?? 'profil'}'}.',
-                          ),
+                          Text(activity.currentProfileId == null
+                              ? l.cloudProgressScope(
+                                  _scopeLabel(l, activity.currentScope!))
+                              : l.cloudProgressProfile(
+                                  _scopeLabel(l, activity.currentScope!),
+                                  catalog?.profiles[activity.currentProfileId]
+                                          ?['firstName'] as String? ??
+                                      l.cloudProfileFallback,
+                                )),
                       ],
                     ),
                   ),
                 ),
                 if (activity.conflictScope != null) ...[
-                  const Text(
-                    'Cet appareil et l’autre appareil ne sont pas d’accord. '
-                    'Demande à un adulte de choisir la bonne version.',
-                  ),
+                  Text(l.cloudConflictHelp),
                   if (activity.conflictProfileId != null)
-                    Text(
-                        'Profil en conflit : ${catalog?.profiles[activity.conflictProfileId]?['firstName'] ?? activity.conflictProfileId} '
-                        '(${activity.conflictProfileId})'),
-                  Text('Données : ${_scopeLabel(activity.conflictScope!)}'),
+                    Text(l.cloudConflictProfile(
+                      catalog?.profiles[activity.conflictProfileId]
+                              ?['firstName'] as String? ??
+                          activity.conflictProfileId!,
+                      activity.conflictProfileId!,
+                    )),
+                  Text(l.cloudConflictData(
+                      _scopeLabel(l, activity.conflictScope!))),
                   Wrap(
                     spacing: 8,
                     children: [
                       TextButton(
                         onPressed: () =>
                             _resolveConflict(ScopeConflictChoice.local),
-                        child: const Text('Garder les données d’ici'),
+                        child: Text(l.cloudKeepLocal),
                       ),
                       TextButton(
                         onPressed: () =>
                             _resolveConflict(ScopeConflictChoice.cloud),
-                        child: const Text(
-                            'Garder les données de l’autre appareil'),
+                        child: Text(l.cloudKeepRemote),
                       ),
                     ],
                   ),
                 ],
                 ExpansionTile(
-                  title: const Text('Réglages du partage (adulte)'),
+                  title: Text(l.cloudShareSettings),
                   children: [
                     TextButton(
                       onPressed: activity.busy ? null : _syncAllManually,
-                      child: const Text('Mettre à jour maintenant'),
+                      child: Text(l.cloudUpdateNow),
                     ),
                     TextButton(
                       onPressed: () => ref
                           .read(encryptedActivitySyncProvider.notifier)
                           .lock(),
-                      child: const Text('Mettre en pause'),
+                      child: Text(l.cloudPause),
                     ),
                   ],
                 ),
@@ -1139,13 +1094,13 @@ class _CloudProfileRecoveryScreenState
                 const SizedBox(height: 16),
                 Text(
                   activity.unlocked
-                      ? 'Choisis les profils à partager'
-                      : 'Quels profils veux-tu retrouver sur tes appareils ?',
+                      ? l.cloudSelectProfiles
+                      : l.cloudWhichProfiles,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 local.when(
                   loading: () => const CircularProgressIndicator(),
-                  error: (_, __) => const Text('Profils locaux indisponibles.'),
+                  error: (_, __) => Text(l.cloudLocalProfilesUnavailable),
                   data: (profiles) {
                     final allIds = {
                       ...profiles.map((profile) => profile.id),
@@ -1180,8 +1135,8 @@ class _CloudProfileRecoveryScreenState
                                       }
                                     }),
                             child: Text(allIds.every(_selectedProfiles.contains)
-                                ? 'Tout décocher'
-                                : 'Tout cocher'),
+                                ? l.cloudUnselectAll
+                                : l.cloudSelectAll),
                           ),
                         if (allIds.isNotEmpty)
                           FilledButton(
@@ -1197,8 +1152,8 @@ class _CloudProfileRecoveryScreenState
                                         _syncSelected(user.uid, profiles));
                                   },
                             child: Text(allIds.any(_selectedProfiles.contains)
-                                ? 'Partager les profils cochés'
-                                : 'Partager tous les profils'),
+                                ? l.cloudShareSelected
+                                : l.cloudShareAll),
                           ),
                         ...profiles.map((profile) => Card(
                               margin: const EdgeInsets.symmetric(vertical: 4),
@@ -1237,15 +1192,15 @@ class _CloudProfileRecoveryScreenState
                                 ),
                                 title: Text(profile.firstName),
                                 subtitle: hasSameName(profile)
-                                    ? Text(
-                                        'Même nom — identifiant : ${profile.id}')
+                                    ? Text(AppLocalizations.of(context)
+                                        .cloudDuplicateProfileId(profile.id))
                                     : null,
                               ),
                             )),
                         if (catalog.profiles.keys
                             .any((id) => !profiles.any((p) => p.id == id))) ...[
                           const SizedBox(height: 16),
-                          const Text('Profils à ajouter'),
+                          Text(l.cloudProfilesToAdd),
                         ],
                         for (final entry in catalog.profiles.entries)
                           if (!profiles.any((p) => p.id == entry.key))
@@ -1288,21 +1243,20 @@ class _CloudProfileRecoveryScreenState
                                 ),
                                 title: Text(entry.value['firstName'] as String),
                                 subtitle: hasSameName(allProfiles[entry.key]!)
-                                    ? Text(
-                                        'Même nom — identifiant : ${entry.key}')
+                                    ? Text(AppLocalizations.of(context)
+                                        .cloudDuplicateProfileId(entry.key))
                                     : null,
                               ),
                             ),
                         ExpansionTile(
-                          title: const Text('Autres options (adulte)'),
+                          title: Text(l.cloudOtherOptions),
                           children: [
                             if (!activity.unlocked)
                               TextButton(
                                 onPressed: _busy || !activePublished
                                     ? null
                                     : () => _unlockActivity(user.uid, catalog),
-                                child: const Text(
-                                    'Partager seulement le profil utilisé'),
+                                child: Text(l.cloudShareActiveOnly),
                               ),
                             for (final profile in profiles)
                               if (!catalog.profiles.containsKey(profile.id))
@@ -1312,15 +1266,14 @@ class _CloudProfileRecoveryScreenState
                                     onPressed: _busy
                                         ? null
                                         : () => _publish(user.uid, profile),
-                                    child: const Text('Sauvegarder'),
+                                    child: Text(l.cloudBackupAction),
                                   ),
                                 ),
                             for (final entry in catalog.profiles.entries)
                               ListTile(
                                 title: Text(entry.value['firstName'] as String),
                                 subtitle: profiles.any((p) => p.id == entry.key)
-                                    ? const Text(
-                                        'Le profil local est conservé.')
+                                    ? Text(l.cloudLocalProfileKept)
                                     : null,
                                 trailing: Wrap(
                                   spacing: 8,
@@ -1335,7 +1288,7 @@ class _CloudProfileRecoveryScreenState
                                                   entry.value['firstName']
                                                       as String,
                                                 ),
-                                        child: const Text('Récupérer'),
+                                        child: Text(l.cloudRecover),
                                       ),
                                     TextButton(
                                       onPressed: _busy || activity.busy
@@ -1346,7 +1299,7 @@ class _CloudProfileRecoveryScreenState
                                                 entry.value['firstName']
                                                     as String,
                                               ),
-                                      child: const Text('Supprimer du Cloud'),
+                                      child: Text(l.cloudDeleteAction),
                                     ),
                                   ],
                                 ),
@@ -1396,20 +1349,17 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
   Widget build(BuildContext context) => DpadScope(
         child: AlertDialog(
           title: Text(widget.multiple
-              ? 'Confirmer votre code'
-              : 'Sauvegarder cette fiche ?'),
+              ? AppLocalizations.of(context).cloudConfirmYourCode
+              : AppLocalizations.of(context).cloudBackupTitle),
           scrollable: true,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 widget.multiple
-                    ? 'Confirmez votre code pour les profils ${widget.name}. '
-                        'Gardez-le en lieu sûr : sans lui, vous ne pourrez '
-                        'plus retrouver vos données.'
-                    : 'Seule la fiche de ${widget.name} sera sauvegardée, chiffrée. '
-                        'Les favoris, historiques, abonnements et préférences ne sont pas inclus. '
-                        'La perte du secret rend la sauvegarde irrécupérable.',
+                    ? AppLocalizations.of(context)
+                        .cloudConfirmProfilesHelp(widget.name)
+                    : AppLocalizations.of(context).cloudBackupHelp(widget.name),
               ),
               TextField(
                 controller: _confirmation,
@@ -1423,20 +1373,21 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
                     : [FilteringTextInputFormatter.digitsOnly],
                 decoration: InputDecoration(
                   labelText: widget.legacy
-                      ? 'Confirmer la phrase secrète'
-                      : 'Confirmer le code cloud',
+                      ? AppLocalizations.of(context).cloudConfirmPhrase
+                      : AppLocalizations.of(context).cloudConfirmCloudCode,
                   suffixIcon: IconButton(
                     tooltip: _obscurePhrase
-                        ? 'Afficher la confirmation'
-                        : 'Masquer la confirmation',
+                        ? AppLocalizations.of(context).cloudShowConfirmation
+                        : AppLocalizations.of(context).cloudHideConfirmation,
                     icon: Icon(_obscurePhrase
                         ? Icons.visibility_off
                         : Icons.visibility),
                     onPressed: () =>
                         setState(() => _obscurePhrase = !_obscurePhrase),
                   ),
-                  errorText:
-                      _mismatch ? 'Les secrets ne correspondent pas.' : null,
+                  errorText: _mismatch
+                      ? AppLocalizations.of(context).cloudSecretsMismatch
+                      : null,
                 ),
               ),
             ],
@@ -1444,7 +1395,7 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
             FilledButton(
               onPressed: () {
@@ -1455,7 +1406,7 @@ class _ConfirmBackupDialogState extends State<_ConfirmBackupDialog> {
                 }
                 Navigator.pop(context, true);
               },
-              child: const Text('Confirmer'),
+              child: Text(AppLocalizations.of(context).cloudConfirm),
             ),
           ],
         ),

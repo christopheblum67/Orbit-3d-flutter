@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 
 /// État de chargement générique : anneau animé dans une carte.
 class LoadingState extends StatelessWidget {
@@ -25,7 +26,7 @@ class LoadingState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const _OrbitSpinner(),
+              const OrbitDelayedLoadingIndicator(initialChild: _OrbitSpinner()),
               const SizedBox(height: 20),
               Text(
                 message,

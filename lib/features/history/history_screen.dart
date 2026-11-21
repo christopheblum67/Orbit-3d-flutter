@@ -44,7 +44,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final result = _historyResult;
     final Widget body;
     if (result == null) {
-      body = const LoadingState(message: 'Chargement de l’historique…');
+      body = LoadingState(message: l.historyLoading);
     } else {
       body = result.when(
         data: (hist) {
@@ -52,7 +52,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             return EmptyState(
               icon: Icons.history,
               title: l.noHistory,
-              message: 'Tes lectures récentes apparaîtront ici.',
+              message: l.historyEmptyHint,
             );
           }
           return RefreshIndicator(
@@ -132,7 +132,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -140,7 +140,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         actions: [
           IconButton(
             onPressed: _loadHistory,
-            tooltip: 'Actualiser',
+            tooltip: l.refreshAction,
             icon: const Icon(Icons.refresh),
           ),
         ],

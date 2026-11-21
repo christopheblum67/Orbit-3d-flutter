@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/vod_category_filter_provider.dart';
 
@@ -24,6 +26,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
     with SingleTickerProviderStateMixin {
   bool _scanning = false;
   late final TabController _tabController;
+  final List<FocusNode> _tabFocusNodes =
+      List.generate(3, (index) => FocusNode(debugLabel: 'Category tab $index'));
 
   @override
   void initState() {
@@ -38,6 +42,9 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
 
   @override
   void dispose() {
+    for (final node in _tabFocusNodes) {
+      node.dispose();
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -55,8 +62,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text('Analyse impossible : le panel ne répond pas.'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).categoryScanFailed),
           ),
         );
     }
@@ -64,6 +71,7 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final sub = ref.watch(activeSubscriptionProvider);
     final filter = ref.watch(vodCategoryFilterProvider);
     final notifier = ref.read(vodCategoryFilterProvider.notifier);
@@ -88,17 +96,17 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/home'),
         ),
-        title: const Text('Catégories'),
+        title: Text(l.categoryTitle),
         actions: [
           if (filter.hiddenCount > 0)
             TextButton(
               onPressed: notifier.resetToAllVisible,
-              child: const Text('Tout afficher'),
+              child: Text(l.categoryShowAll),
             ),
         ],
       ),
       body: sub == null
-          ? const Center(child: Text('Aucun abonnement actif'))
+          ? Center(child: Text(l.accountNoSubscription))
           : Column(
               children: [
                 _SubscriptionHeader(
@@ -110,10 +118,11 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                 TabBar(
                   controller: _tabController,
                   tabs: [
-                    _focusTab(0, 'Live TV', filter.hiddenLiveCategoryIds.length),
-                    _focusTab(1, 'Films', filter.hiddenVodCategoryIds.length),
                     _focusTab(
-                        2, 'Séries', filter.hiddenSeriesCategoryIds.length),
+                        0, l.liveTv, filter.hiddenLiveCategoryIds.length),
+                    _focusTab(1, l.films, filter.hiddenVodCategoryIds.length),
+                    _focusTab(
+                        2, l.series, filter.hiddenSeriesCategoryIds.length),
                   ],
                 ),
                 Expanded(
@@ -122,18 +131,18 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                     children: [
                       _tabList(
                         _CategorySection(
-                          title: 'Live TV',
-                          emptyMessage: 'Aucune catégorie Live TV sur ce panel.',
+                          title: l.liveTv,
+                          emptyMessage: l.categoryEmptyLive,
                           categories: liveCategories,
                           isHidden: filter.isLiveHidden,
                           onToggle: notifier.setLiveCategoryVisible,
-                          unit: 'chaînes',
+                          channels: true,
                         ),
                       ),
                       _tabList(
                         _CategorySection(
-                          title: 'Films',
-                          emptyMessage: 'Aucune catégorie Films sur ce panel.',
+                          title: l.films,
+                          emptyMessage: l.categoryEmptyMovies,
                           categories: vodCategories,
                           isHidden: filter.isVodHidden,
                           onToggle: notifier.setVodCategoryVisible,
@@ -141,8 +150,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
                       ),
                       _tabList(
                         _CategorySection(
-                          title: 'Séries',
-                          emptyMessage: 'Aucune catégorie Séries sur ce panel.',
+                          title: l.series,
+                          emptyMessage: l.categoryEmptySeries,
                           categories: seriesCategories,
                           isHidden: filter.isSeriesHidden,
                           onToggle: notifier.setSeriesCategoryVisible,
@@ -159,14 +168,32 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
   /// Onglet qui s'active dès qu'il reçoit le focus (D-pad gauche/droite).
   Widget _focusTab(int index, String label, int hiddenCount) {
     return Focus(
-      canRequestFocus: false,
+      focusNode: _tabFocusNodes[index],
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+        final direction = event.logicalKey == LogicalKeyboardKey.arrowRight
+            ? 1
+            : event.logicalKey == LogicalKeyboardKey.arrowLeft
+                ? -1
+                : 0;
+        final next = index + direction;
+        if (direction == 0 || next < 0 || next >= _tabFocusNodes.length) {
+          return KeyEventResult.ignored;
+        }
+        _tabFocusNodes[next].requestFocus();
+        return KeyEventResult.handled;
+      },
       onFocusChange: (focused) {
         if (focused && _tabController.index != index) {
           _tabController.animateTo(index);
         }
       },
       child: Tab(
-        text: hiddenCount > 0 ? '$label ($hiddenCount masquées)' : label,
+        text: hiddenCount > 0
+            ? AppLocalizations.of(context).categoryHidden(label, hiddenCount)
+            : label,
       ),
     );
   }
@@ -209,18 +236,19 @@ class _SubscriptionHeader extends StatelessWidget {
   final bool scanning;
   final Future<void> Function() onRescan;
 
-  String get _scannedLabel {
+  String _scannedLabel(AppLocalizations l) {
     final at = scannedAt;
-    if (at == null) return 'Jamais analysé';
+    if (at == null) return l.categoryNeverScanned;
     final days = DateTime.now().difference(at).inDays;
-    if (days <= 0) return 'Analysé aujourd\'hui';
-    if (days == 1) return 'Analysé hier';
-    return 'Analysé il y a $days jours';
+    if (days <= 0) return l.categoryScannedToday;
+    if (days == 1) return l.categoryScannedYesterday;
+    return l.categoryScannedDaysAgo(days);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
@@ -242,7 +270,7 @@ class _SubscriptionHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Réglages propres à cet abonnement — $_scannedLabel',
+            l.categorySubscriptionSettings(_scannedLabel(l)),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -259,7 +287,7 @@ class _SubscriptionHeader extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh_rounded, size: 18),
-              label: Text(scanning ? 'Analyse…' : 'Réanalyser les catégories'),
+              label: Text(scanning ? l.categoryScanning : l.categoryRescan),
             ),
           ),
         ],
@@ -275,10 +303,10 @@ class _CategorySection extends StatelessWidget {
     required this.categories,
     required this.isHidden,
     required this.onToggle,
-    this.unit = 'titres',
+    this.channels = false,
   });
 
-  final String unit;
+  final bool channels;
   final String title;
   final String emptyMessage;
   final List<MediaCategory> categories;
@@ -288,6 +316,7 @@ class _CategorySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     if (categories.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -325,8 +354,11 @@ class _CategorySection extends StatelessWidget {
                   color: hidden ? theme.colorScheme.onSurfaceVariant : null,
                 ),
               ),
-              subtitle:
-                  category.count > 0 ? Text('${category.count} $unit') : null,
+              subtitle: category.count > 0
+                  ? Text(channels
+                      ? l.categoryChannelsCount(category.count)
+                      : l.categoryTitlesCount(category.count))
+                  : null,
             );
           },
         ),

@@ -3,12 +3,14 @@ import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart' show tvModeNotifierProvider;
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart'
+    show tvModeNotifierProvider;
 import 'package:orbit_3d_flutter/features/player/widgets/player_video_viewport.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -285,7 +287,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
     } else if (!_previewEnabled) {
       content = _Message(
         icon: Icons.play_circle_outline_rounded,
-        text: 'Aperçu vidéo désactivé. Appuie sur « regarder » pour ouvrir la chaîne.',
+        text: AppLocalizations.of(context).livePreviewDisabled,
         color: scheme.onSurfaceVariant,
       );
     } else if (controller != null && controller.value.isInitialized) {
@@ -382,9 +384,9 @@ class _StaleOverlay extends StatelessWidget {
               size: 34,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Aperçu figé',
-              style: TextStyle(
+            Text(
+              AppLocalizations.of(context).livePreviewFrozen,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
               ),
@@ -393,7 +395,7 @@ class _StaleOverlay extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Relancer'),
+              label: Text(AppLocalizations.of(context).livePreviewRetry),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 side: BorderSide(color: scheme.outlineVariant),
@@ -409,7 +411,7 @@ class _StaleOverlay extends StatelessWidget {
 class _WatchButton extends StatelessWidget {
   const _WatchButton({required this.onPressed, required this.autofocus});
 
-  static const _focusYellow = Color(0xFFFFE69B);
+  static const _focusColor = Color(0xFF00CFE8);
   final VoidCallback onPressed;
   final bool autofocus;
 
@@ -429,7 +431,7 @@ class _WatchButton extends StatelessWidget {
               boxShadow: focused
                   ? [
                       BoxShadow(
-                        color: _focusYellow.withValues(alpha: 0.6),
+                        color: _focusColor.withValues(alpha: 0.6),
                         blurRadius: 16,
                         spreadRadius: 2,
                       ),
@@ -442,17 +444,19 @@ class _WatchButton extends StatelessWidget {
               onPressed: onPressed,
               icon: const Icon(Icons.play_arrow_rounded, size: 20),
               label: Text(
-                focused ? 'REGARDER' : 'Regarder',
+                focused
+                    ? AppLocalizations.of(context).liveWatchAction.toUpperCase()
+                    : AppLocalizations.of(context).liveWatchAction,
                 style: TextStyle(
                   fontWeight: focused ? FontWeight.w900 : FontWeight.w600,
                   letterSpacing: focused ? 1.2 : 0,
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor:
-                    focused ? _focusYellow : scheme.primary,
+                backgroundColor: focused ? _focusColor : scheme.primary,
                 foregroundColor: focused ? Colors.black : scheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 visualDensity: VisualDensity.compact,
               ).copyWith(
                 side: WidgetStateProperty.resolveWith(

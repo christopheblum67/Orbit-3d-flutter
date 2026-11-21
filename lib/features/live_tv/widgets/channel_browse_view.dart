@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/live_channel_video.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -249,7 +251,7 @@ class _BrowseHeader extends StatelessWidget {
         children: [
           _HeaderButton(
             icon: Icons.arrow_back_rounded,
-            tooltip: 'Retour aux chaînes',
+            tooltip: AppLocalizations.of(context).liveBackToChannels,
             onPressed: onBack,
           ),
           // Deux espaces élastiques : le nom de catégorie reste centré malgré
@@ -258,13 +260,13 @@ class _BrowseHeader extends StatelessWidget {
           if (canStep) ...[
             _HeaderButton(
               icon: Icons.chevron_left_rounded,
-              tooltip: 'Catégorie précédente',
+              tooltip: AppLocalizations.of(context).livePreviousCategory,
               onPressed: onPreviousCategory,
             ),
             label,
             _HeaderButton(
               icon: Icons.chevron_right_rounded,
-              tooltip: 'Catégorie suivante',
+              tooltip: AppLocalizations.of(context).liveNextCategory,
               onPressed: onNextCategory,
             ),
           ] else
@@ -537,6 +539,7 @@ class _EpgListState extends ConsumerState<_EpgList> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final programsAsync = ref.watch(channelPreviewEpgProvider(widget.channel));
 
     return Focus(
@@ -544,12 +547,14 @@ class _EpgListState extends ConsumerState<_EpgList> {
         if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
           return KeyEventResult.ignored;
         }
-        if (node.hasPrimaryFocus && event.logicalKey == LogicalKeyboardKey.arrowUp &&
+        if (node.hasPrimaryFocus &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp &&
             (!_scrollController.hasClients || _scrollController.offset <= 0)) {
           liveWatchFocusNode.requestFocus();
           return KeyEventResult.handled;
         }
-        if (node.hasPrimaryFocus && (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+        if (node.hasPrimaryFocus &&
+            (event.logicalKey == LogicalKeyboardKey.arrowDown ||
                 event.logicalKey == LogicalKeyboardKey.arrowUp) &&
             _scrollController.hasClients) {
           final position = _scrollController.position;
@@ -563,10 +568,10 @@ class _EpgListState extends ConsumerState<_EpgList> {
         return KeyEventResult.ignored;
       },
       child: programsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (_, __) => Center(
           child: Text(
-            'Guide indisponible',
+            l.liveGuideUnavailable,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ),
@@ -574,7 +579,7 @@ class _EpgListState extends ConsumerState<_EpgList> {
           if (programs.isEmpty) {
             return Center(
               child: Text(
-                'Aucun programme disponible',
+                l.liveNoPrograms,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             );
@@ -591,14 +596,15 @@ class _EpgListState extends ConsumerState<_EpgList> {
           if (visible.isEmpty) {
             return Center(
               child: Text(
-                'Aucun programme à venir',
+                l.liveNoUpcomingPrograms,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             );
           }
           return Container(
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.separated(
@@ -639,6 +645,7 @@ class _EpgRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     void showDetails() {
@@ -649,14 +656,14 @@ class _EpgRow extends StatelessWidget {
           content: SingleChildScrollView(
             child: Text(
               '${_hhmm(program.start)} - ${_hhmm(program.end)}\n\n'
-              '${program.description.isEmpty ? "Aucun résumé disponible." : program.description}',
+              '${program.description.isEmpty ? l.liveNoDescription : program.description}',
             ),
           ),
           actions: [
             TextButton(
               autofocus: true,
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Fermer'),
+              child: Text(MaterialLocalizations.of(context).closeButtonLabel),
             ),
           ],
         ),
@@ -666,7 +673,8 @@ class _EpgRow extends StatelessWidget {
     return Focus(
       canRequestFocus: false,
       onKeyEvent: (_, event) {
-        if (first && event is KeyDownEvent &&
+        if (first &&
+            event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.arrowUp) {
           liveWatchFocusNode.requestFocus();
           return KeyEventResult.handled;
@@ -681,55 +689,60 @@ class _EpgRow extends StatelessWidget {
         child: GestureDetector(
           onTap: showDetails,
           child: Container(
-      color: isCurrent ? scheme.primaryContainer.withValues(alpha: 0.35) : null,
-      padding: EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: dense ? 7 : 10,
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: dense ? 96 : 116,
-            child: Text(
-              '${_hhmm(program.start)} - ${_hhmm(program.end)}',
-              style: textTheme.labelMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+            color: isCurrent
+                ? scheme.primaryContainer.withValues(alpha: 0.35)
+                : null,
+            padding: EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: dense ? 7 : 10,
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Text(
-                  program.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
-                    color: isCurrent ? scheme.primary : scheme.onSurface,
-                  ),
-                ),
-                // La description n'a de la place que sur les écrans larges.
-                if (!dense && program.description.isNotEmpty && isCurrent) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    program.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: textTheme.bodySmall?.copyWith(
+                SizedBox(
+                  width: dense ? 96 : 116,
+                  child: Text(
+                    '${_hhmm(program.start)} - ${_hhmm(program.end)}',
+                    style: textTheme.labelMedium?.copyWith(
                       color: scheme.onSurfaceVariant,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        program.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight:
+                              isCurrent ? FontWeight.w700 : FontWeight.w400,
+                          color: isCurrent ? scheme.primary : scheme.onSurface,
+                        ),
+                      ),
+                      // La description n'a de la place que sur les écrans larges.
+                      if (!dense &&
+                          program.description.isNotEmpty &&
+                          isCurrent) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          program.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
           ),
         ),
       ),

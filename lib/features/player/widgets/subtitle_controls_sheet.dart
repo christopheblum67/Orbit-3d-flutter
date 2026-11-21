@@ -350,7 +350,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  'Sous-titres',
+                  l.subtitleSection,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
@@ -387,7 +387,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
-                    'Sous-titres intégrés',
+                    l.subtitleEmbeddedSection,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -426,8 +426,8 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                       subtitle: Text(
                         [
                           track.language?.toUpperCase() ?? '—',
-                          if (track.isForced) 'Forcé',
-                          'Intégré',
+                          if (track.isForced) l.subtitleForcedLabel,
+                          l.subtitleEmbeddedLabel,
                         ].join(' · '),
                       ),
                       trailing: isActive
@@ -449,7 +449,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
-                    'Pistes disponibles',
+                    l.subtitleAvailableTracks,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -504,7 +504,10 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                       subtitle: Text(
                         track.cues == null
                             ? track.language.toUpperCase()
-                            : '${track.language.toUpperCase()} · ${track.cues!.length} cues',
+                            : l.subtitleTrackCues(
+                                track.language.toUpperCase(),
+                                track.cues!.length,
+                              ),
                       ),
                       trailing: isActive
                           ? Icon(
@@ -524,7 +527,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
-                  'Ajouter un sous-titre (URL .srt/.vtt)',
+                  l.subtitleAddUrl,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -645,7 +648,7 @@ class _SubtitleControlsSheetState extends ConsumerState<SubtitleControlsSheet> {
                   padding: const EdgeInsets.all(16),
                   child: FilledButton.icon(
                     icon: const Icon(Icons.cloud_download),
-                    label: const Text('Charger'),
+                    label: Text(l.subtitleLoadAction),
                     onPressed: _loadSubtitle,
                   ),
                 ),

@@ -1,10 +1,25 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/services/stream_helpers.dart';
 import 'package:path_provider/path_provider.dart';
+
+String _decodeCachedBody((Uint8List, String?) input) {
+  final (bytes, digest) = input;
+  if (sha256.convert(bytes).toString() != digest) {
+    throw const FormatException('Invalid playlist cache digest');
+  }
+  return utf8.decode(bytes);
+}
+
+(List<int>, String) _encodeCachedBody(String body) {
+  final bytes = utf8.encode(body);
+  return (bytes, sha256.convert(bytes).toString());
+}
 
 class PlaylistResponse {
   const PlaylistResponse({
@@ -51,7 +66,7 @@ class ConditionalPlaylistCache {
     required String resource,
     required Future<PlaylistResponse> Function(Map<String, String> headers)
         request,
-    required T Function(String body) parse,
+    required FutureOr<T> Function(String body) parse,
   }) async {
     final key = sha256.convert(utf8.encode(resource)).toString();
     final dir = await _directory();
@@ -72,10 +87,11 @@ class ConditionalPlaylistCache {
           throw const FormatException('Invalid playlist cache metadata');
         }
         final bytes = await bodyFile.readAsBytes();
-        if (sha256.convert(bytes).toString() != parsedMeta['sha256']) {
+        final digest = parsedMeta['sha256'];
+        if (digest is! String) {
           throw const FormatException('Invalid playlist cache digest');
         }
-        cached = utf8.decode(bytes);
+        cached = await compute(_decodeCachedBody, (bytes, digest));
         meta = parsedMeta;
       }
     } on FileSystemException catch (error) {
@@ -98,7 +114,7 @@ class ConditionalPlaylistCache {
     if (response.statusCode == 304) {
       if (cached != null && headers.isNotEmpty) {
         try {
-          final result = parse(cached);
+          final result = await parse(cached);
           if (cannotStore(response)) {
             try {
               if (await metaFile.exists()) await metaFile.delete();
@@ -121,7 +137,7 @@ class ConditionalPlaylistCache {
           'Unexpected playlist HTTP status ${response.statusCode}');
     }
     final body = response.body!;
-    final result = parse(body);
+    final result = await parse(body);
     try {
       await dir.create(recursive: true);
       final hasValidator = (response.etag?.isNotEmpty ?? false) ||
@@ -131,11 +147,11 @@ class ConditionalPlaylistCache {
         if (await bodyFile.exists()) await bodyFile.delete();
         return result;
       }
-      final bytes = utf8.encode(body);
+      final (bytes, digest) = await compute(_encodeCachedBody, body);
       await bodyFile.writeAsBytes(bytes, flush: true);
       await metaFile.writeAsString(
           jsonEncode({
-            'sha256': sha256.convert(bytes).toString(),
+            'sha256': digest,
             'etag': response.etag,
             'lastModified': response.lastModified,
           }),

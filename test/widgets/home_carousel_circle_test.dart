@@ -11,7 +11,49 @@ import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
-  testWidgets('Multi TV tile follows the active profile setting', (tester) async {
+  testWidgets('M3U home carousel exposes the VOD and series tiles',
+      (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+    ]);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sourceTypeProvider.overrideWith((ref) async => 'm3u'),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+        lastRefreshTimestampProvider.overrideWithBuild(
+          (ref, notifier) => DateTime.now(),
+        ),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final profile = tester.getRect(find.byIcon(Icons.person_outline));
+    final settings = tester.getRect(find.byIcon(Icons.settings_outlined));
+    expect(settings.right, greaterThan(900));
+    expect(profile.left, lessThan(settings.left));
+    expect(settings.bottom, greaterThan(500));
+
+    expect(find.byKey(const ValueKey('/vod')), findsOneWidget);
+    tester.widget<PageView>(find.byType(PageView)).controller!.jumpToPage(2);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('/series')), findsOneWidget);
+  });
+
+  testWidgets('Multi TV tile follows the active profile setting',
+      (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.resetPhysicalSize);
@@ -139,16 +181,17 @@ void main() {
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
       child: MaterialApp.router(
+        locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         routerConfig: router,
       ),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('Mis à jour il y a 5 min'), findsOneWidget);
+    expect(find.text('Updated 5 min ago'), findsOneWidget);
     container.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
     await tester.pump();
-    expect(find.text('Dernière mise à jour inconnue'), findsOneWidget);
+    expect(find.text('Last update unknown'), findsOneWidget);
   });
 
   testWidgets('carousel circles navigate with the remote', (tester) async {
@@ -268,7 +311,8 @@ void main() {
     expect(controller.page, closeTo(0, 0.01));
     expect(find.byKey(const ValueKey('/live')), findsOneWidget);
     expect(
-      tester.widget<TvFocus>(find.byKey(const ValueKey('/live')))
+      tester
+          .widget<TvFocus>(find.byKey(const ValueKey('/live')))
           .focusNode!
           .hasPrimaryFocus,
       isTrue,

@@ -4,6 +4,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
@@ -67,7 +68,7 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
 
     return Scaffold(
       body: channelsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (err, _) => Center(child: Text(userFriendlyError(err))),
         data: (channels) {
           // Le catalogue est la seule source du niveau 1 : `supportsReplay`
@@ -109,6 +110,7 @@ class _NoReplayAtAll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -121,10 +123,10 @@ class _NoReplayAtAll extends StatelessWidget {
               color: theme.colorScheme.outline,
             ),
             const SizedBox(height: 12),
-            Text('Aucun replay disponible', style: theme.textTheme.titleSmall),
+            Text(l.replayNoAvailable, style: theme.textTheme.titleSmall),
             const SizedBox(height: 6),
             Text(
-              "Aucune chaîne de cet abonnement ne déclare de catch-up.",
+              l.replayNoChannels,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
@@ -179,6 +181,7 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
     );
     final categories = _categories(
       groups,
+      l: AppLocalizations.of(context),
       replayIds: {for (final c in widget.channels) c.id},
       favIds: favIds,
       recentIds: recentIds,
@@ -259,26 +262,27 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
   /// rejouables et non sur le catalogue complet.
   static List<MediaCategory> _categories(
     List<ChannelGroup> groups, {
+    required AppLocalizations l,
     required Set<String> replayIds,
     required Set<String> favIds,
     required Set<String> recentIds,
   }) {
     return [
-      MediaCategory(id: '', name: 'Tous', count: replayIds.length),
+      MediaCategory(id: '', name: l.catalogAll, count: replayIds.length),
       MediaCategory(
         id: 'fav',
-        name: 'Favoris',
+        name: l.favorites,
         count: replayIds.where(favIds.contains).length,
       ),
       MediaCategory(
         id: 'recent',
-        name: 'Récemment',
+        name: l.recentlyWatched,
         count: replayIds.where(recentIds.contains).length,
       ),
       for (var i = 0; i < groups.length; i++)
         MediaCategory(
           id: 'g$i',
-          name: groups[i].name.isEmpty ? 'Non groupé' : groups[i].name,
+          name: groups[i].name.isEmpty ? l.catalogUngrouped : groups[i].name,
           count:
               groups[i].channels.where((c) => replayIds.contains(c.id)).length,
         ),
@@ -301,7 +305,7 @@ class _ChannelReplaysView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(channelReplaysProvider(channel.id));
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
       error: (err, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -317,7 +321,7 @@ class _ChannelReplaysView extends ConsumerWidget {
               FilledButton.tonal(
                 onPressed: () =>
                     ref.invalidate(channelReplaysProvider(channel.id)),
-                child: const Text('Réessayer'),
+                child: Text(AppLocalizations.of(context).retry),
               ),
             ],
           ),
@@ -351,7 +355,7 @@ class _ChannelBand extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Retour',
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: onBack,
           ),
@@ -397,7 +401,7 @@ class _ChannelBand extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Rafraîchir',
+            tooltip: MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
             icon: const Icon(Icons.refresh),
             onPressed: onRefresh,
           ),
@@ -433,26 +437,10 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   /// alors sur le jour le plus récent, qui est le cas d'usage dominant.
   DateTime? _selectedDay;
 
-  static const _months = [
-    'janv.',
-    'févr.',
-    'mars',
-    'avr.',
-    'mai',
-    'juin',
-    'juil.',
-    'août',
-    'sept.',
-    'oct.',
-    'nov.',
-    'déc.',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-
     // Ordre chronologique ASCENDANT : la journée se lit comme une grille TV,
     // de 00:00 en haut à 23:59 en bas. L'ordre inverse (20:50, 20:45, 20:00…)
     // imposait de remonter la liste pour suivre l'heure.
@@ -548,7 +536,8 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   }
 
   /// Préfixe de date commun à toutes les lignes d'un même jour : « sept. 12 ».
-  String _stampPrefix(DateTime day) => '${day.day} ${_months[day.month - 1]}';
+  String _stampPrefix(DateTime day) =>
+      MaterialLocalizations.of(context).formatShortMonthDay(day);
 
   /// Message quand la chaîne n'a rien de rejouable.
   ///
@@ -586,9 +575,10 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return "Aujourd'hui";
-    if (diff == 1) return 'Hier';
-    return '${_months[day.month - 1].toUpperCase()} ${day.day}';
+    final l = AppLocalizations.of(context);
+    if (diff == 0) return l.replayToday;
+    if (diff == 1) return l.replayYesterday;
+    return MaterialLocalizations.of(context).formatShortMonthDay(day).toUpperCase();
   }
 }
 
@@ -758,21 +748,22 @@ class _EmptyCategory extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final l = AppLocalizations.of(context);
     final (icon, title, message) = switch (groupId) {
       'fav' => (
           Icons.favorite_border_rounded,
-          'Aucune chaîne favorite',
-          "Appuie sur le cœur d'une chaîne pour la retrouver ici.",
+          l.noFavoriteChannels,
+          l.liveFavoriteHint,
         ),
       'recent' => (
           Icons.history_rounded,
-          'Aucune chaîne récente',
-          'Les chaînes regardées s\'afficheront ici.',
+          l.liveNoRecentChannel,
+          l.liveRecentHint,
         ),
       _ => (
           Icons.live_tv_outlined,
-          'Aucune chaîne dans ce groupe',
-          'Ce groupe ne contient aucune chaîne rejouable.',
+          l.liveNoChannelInGroup,
+          l.replayEmptyGroup,
         ),
     };
     return Center(

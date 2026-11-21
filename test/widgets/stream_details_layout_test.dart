@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/stream_details_sheet.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+import 'package:orbit_3d_flutter/providers/subtitle_providers.dart';
+import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart' show VideoPlayerController;
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
@@ -55,6 +57,66 @@ class _VideoPlatform extends VideoPlayerPlatform {
 }
 
 void main() {
+  testWidgets('embedded subtitle labels follow the selected language',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final previous = VideoPlayerPlatform.instance;
+    final platform = _VideoPlatform();
+    VideoPlayerPlatform.instance = platform;
+    addTearDown(() {
+      VideoPlayerPlatform.instance = previous;
+      platform.events.close();
+    });
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse('https://example.test/live'),
+    );
+    final initialized = controller.initialize();
+    await tester.pump();
+    platform.events.add(VideoEvent(
+      eventType: VideoEventType.initialized,
+      duration: Duration.zero,
+      size: const Size(16, 9),
+    ));
+    await initialized;
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(subtitleControllerProvider).setEmbeddedContext(
+      playerId: 1,
+      tracks: const [
+        EmbeddedSubtitleTrack(
+          id: '1',
+          label: 'English',
+          language: 'en',
+          isSelected: false,
+          isForced: true,
+          mimeType: null,
+        ),
+      ],
+    );
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: StreamDetailsSheet(
+            controller: controller,
+            mediaKey: 'live',
+            isLive: true,
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Embedded subtitles'), findsOneWidget);
+    expect(find.text('EN · Forced · Embedded'), findsOneWidget);
+    expect(find.text('Sous-titres intégrés'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(controller.dispose());
+  });
+
   for (final size in [const Size(960, 540), const Size(360, 640)]) {
     testWidgets('live details fit and are vertically centered at $size',
         (tester) async {

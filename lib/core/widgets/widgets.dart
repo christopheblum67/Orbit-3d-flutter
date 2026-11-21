@@ -8,6 +8,7 @@ export 'loading_state.dart';
 export 'media_card.dart';
 export 'orbit_avatar.dart';
 export 'orbit_logo_icon.dart';
+export 'orbit_loading_cinematic.dart';
 export 'profile_avatar.dart';
 export 'profile_type_badge.dart';
 export 'profiles_count_badge.dart';

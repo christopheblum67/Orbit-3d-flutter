@@ -1,10 +1,19 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
+
+String refreshStepLabel(AppLocalizations l, StartupStep step) => switch (step) {
+      StartupStep.live => l.startupLive,
+      StartupStep.movies => l.startupMovies,
+      StartupStep.series => l.series,
+      StartupStep.radio => l.startupRadio,
+      StartupStep.replay => l.replay,
+      StartupStep.epg => l.epgGuideTv,
+      StartupStep.ai => l.sectionRecommendations,
+    };
 
 /// Écran de régénération des flux : nom de l'application, état, et progression
 /// des **sections d'abonnement** (Chaînes TV / Films & VOD / Séries / EPG).
@@ -101,15 +110,7 @@ class RefreshProgressView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (showBranding) ...[
-          Image.asset(
-            'assets/icons/orbit_loading_banner.jpg',
-            width: 270,
-            height: 90,
-            fit: BoxFit.contain,
-            semanticLabel: 'ORBIT IPTV',
-          ),
-          const SizedBox(height: 12),
-          const _AlternatingBrand(),
+          const OrbitLoadingCinematic(),
         ],
       ],
     );
@@ -125,13 +126,13 @@ class RefreshProgressView extends StatelessWidget {
         ];
     final sections = visibleSteps.map((step) {
       final (icon, label) = switch (step) {
-        StartupStep.live => (Icons.live_tv, 'Chaînes TV'),
-        StartupStep.movies => (Icons.movie_outlined, 'Films & VOD'),
+        StartupStep.live => (Icons.live_tv, l.tvChannels),
+        StartupStep.movies => (Icons.movie_outlined, l.startupMovies),
         StartupStep.series => (Icons.video_library_outlined, l.series),
-        StartupStep.radio => (Icons.radio, 'Radios'),
-        StartupStep.replay => (Icons.replay_circle_filled, 'Replay'),
+        StartupStep.radio => (Icons.radio, l.startupRadio),
+        StartupStep.replay => (Icons.replay_circle_filled, l.replay),
         StartupStep.epg => (Icons.receipt_long_outlined, 'EPG'),
-        StartupStep.ai => (Icons.recommend, 'Recommandations'),
+        StartupStep.ai => (Icons.recommend, l.sectionRecommendations),
       };
       return _ProgressIcon(
         icon: icon,
@@ -148,12 +149,15 @@ class RefreshProgressView extends StatelessWidget {
         // Ligne mini-icônes (état de chaque section)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: sections.map(_buildMiniIcon).toList(),
+          children: [
+            for (final section in sections)
+              Expanded(child: _buildMiniIcon(section)),
+          ],
         ),
         const SizedBox(height: 14),
         Text(
           failureMessage ??
-              (isFinished ? 'Prêt !' : (title ?? l.updatingMediaContent)),
+              (isFinished ? l.startupReady : (title ?? l.updatingMediaContent)),
           textAlign: TextAlign.center,
           style: TextStyle(
             color:
@@ -171,7 +175,7 @@ class RefreshProgressView extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onOpenHome,
                 icon: const Icon(Icons.home_outlined),
-                label: const Text('Retour à l’accueil'),
+                label: Text(l.startupBackHome),
               ),
             ),
           if (onOpenHome != null && onOpenSubscriptions != null)
@@ -183,7 +187,7 @@ class RefreshProgressView extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onOpenSubscriptions,
                 icon: const Icon(Icons.settings_ethernet),
-                label: const Text('Vérifier l’abonnement'),
+                label: Text(l.startupCheckSubscription),
               ),
             ),
         ],
@@ -203,7 +207,9 @@ class RefreshProgressView extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                isFinished ? '' : (currentStep?.label ?? ''),
+                isFinished || currentStep == null
+                    ? ''
+                    : refreshStepLabel(l, currentStep!),
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -251,6 +257,9 @@ class RefreshProgressView extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           icon.label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
             fontSize: 9,
@@ -276,55 +285,4 @@ class _ProgressIcon {
   final String label;
   final bool done;
   final bool active;
-}
-
-/// Alterne « ORBIT » / « IPTV » (cf. « Orbit IPTV Chargement.md »).
-class _AlternatingBrand extends StatefulWidget {
-  const _AlternatingBrand();
-
-  @override
-  State<_AlternatingBrand> createState() => _AlternatingBrandState();
-}
-
-class _AlternatingBrandState extends State<_AlternatingBrand> {
-  static const _words = ['ORBIT', 'IPTV'];
-  Timer? _timer;
-  int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
-      if (mounted) setState(() => _index = (_index + 1) % _words.length);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final word = _words[_index];
-    return ExcludeSemantics(
-      child: SizedBox(
-        height: 44,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 450),
-          child: Text(
-            word,
-            key: ValueKey(word),
-            style: const TextStyle(
-              color: Color(0xFF00CFE8),
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 10,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

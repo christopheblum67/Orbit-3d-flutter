@@ -78,21 +78,8 @@ void main() {
     await tester.drag(horizontal, const Offset(1200, 0));
     await tester.pumpAndSettle();
     final oldest = items.last.startAt!;
-    const months = [
-      'JANV.',
-      'FÉVR.',
-      'MARS',
-      'AVR.',
-      'MAI',
-      'JUIN',
-      'JUIL.',
-      'AOÛT',
-      'SEPT.',
-      'OCT.',
-      'NOV.',
-      'DÉC.',
-    ];
-    await tester.tap(find.text('${months[oldest.month - 1]} ${oldest.day}'));
+    final locale = MaterialLocalizations.of(tester.element(find.text('France')));
+    await tester.tap(find.text(locale.formatShortMonthDay(oldest).toUpperCase()));
     await tester.pumpAndSettle();
     expect(find.text('Programme 7'), findsOneWidget);
   });

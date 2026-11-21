@@ -25,16 +25,17 @@ class MoviePlaybackActions extends StatelessWidget {
           runSpacing: 12,
           children: [
             MediaActionButton(
-              autofocus: true,
+              autofocus: onResume == null,
               onPressed: onStart,
               icon: Icons.play_arrow_rounded,
               label: AppLocalizations.of(context).start,
               isTvLayout: isTvLayout,
             ),
             MediaActionButton(
+              autofocus: onResume != null,
               onPressed: onResume,
               icon: Icons.replay_rounded,
-              label: 'Reprendre',
+              label: AppLocalizations.of(context).resumeAction,
               isTvLayout: isTvLayout,
             ),
             if (onTrailer != null)

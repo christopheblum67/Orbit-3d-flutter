@@ -53,13 +53,12 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     try {
       final result = await showRefreshProgress(context);
       if (!mounted || result == null) return;
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
           content: Text(
-            result
-                ? 'Mise à jour terminée : au moins une source actualisée.'
-                : 'Mise à jour impossible : aucune donnée reçue.',
+            result ? l.subscriptionRefreshSuccess : l.subscriptionRefreshFailed,
           ),
         ),
       );
@@ -85,11 +84,11 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: l.profileBack,
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text('Abonnements'),
+        title: Text(l.subscriptionTitle),
         actions: [
           IconButton(
             tooltip: l.addSubscription,
@@ -106,13 +105,11 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 if (connectionError) ...[
-                  const Card(
+                  Card(
                     child: Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: Text(
-                        'Connexion impossible ou identifiants refusés. '
-                        'Vérifiez l’adresse du serveur, le nom d’utilisateur, '
-                        'le mot de passe et votre connexion Internet.',
+                        l.subscriptionConnectionHelp,
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -122,19 +119,15 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                 const _CategoryFilterInfoBanner(),
                 const SizedBox(height: 12),
                 if (duplicateIds.isNotEmpty) ...[
-                  const Card(
+                  Card(
                     child: Padding(
-                      padding: EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          Icon(Icons.content_copy_rounded),
-                          SizedBox(width: 8),
+                          const Icon(Icons.content_copy_rounded),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              'Doublon possible : plusieurs abonnements ont la '
-                              'même configuration. Aucun n’a été supprimé ; '
-                              'leurs favoris peuvent être différents.',
-                            ),
+                            child: Text(l.subscriptionDuplicateHelp),
                           ),
                         ],
                       ),
@@ -148,8 +141,8 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                     onPressed:
                         activeId == null || _refreshing ? null : _forceRefresh,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text(
-                      'Forcer la mise à jour de l’abonnement actif',
+                    label: Text(
+                      l.subscriptionRefreshActive,
                       textAlign: TextAlign.center,
                     ),
                     style: OutlinedButton.styleFrom(
@@ -223,7 +216,10 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d’activer l’abonnement.')),
+          SnackBar(
+            content:
+                Text(AppLocalizations.of(context).subscriptionActivationFailed),
+          ),
         );
       }
     }
@@ -272,10 +268,9 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer l\'abonnement ?'),
-        content: Text(
-          'Voulez-vous supprimer "${sub.name}" ? Cette action est irréversible.',
-        ),
+        title: Text(AppLocalizations.of(ctx).subscriptionDeleteTitle),
+        content:
+            Text(AppLocalizations.of(ctx).subscriptionDeleteHelp(sub.name)),
         actions: [
           Focus(
             focusNode: cancelFocus,
@@ -298,7 +293,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             },
             child: TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler'),
+              child: Text(AppLocalizations.of(ctx).cancel),
             ),
           ),
           Focus(
@@ -332,7 +327,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                     .deleteSubscription(sub.id);
                 Navigator.pop(ctx);
               },
-              child: const Text('Supprimer'),
+              child: Text(AppLocalizations.of(ctx).profileDelete),
             ),
           ),
         ],
@@ -350,6 +345,7 @@ class _NoActiveBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -365,7 +361,7 @@ class _NoActiveBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Aucun abonnement actif. Sélectionnez-en un ou ajoutez-en un nouveau.',
+              l.subscriptionNoActive,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -373,7 +369,7 @@ class _NoActiveBanner extends StatelessWidget {
           ),
           TextButton.icon(
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Activer'),
+            label: Text(l.subscriptionActivate),
             onPressed: onAdd,
           ),
         ],
@@ -412,14 +408,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Aucun abonnement',
+              l.subscriptionNone,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Ajoutez votre premier abonnement Xtream Codes ou M3U pour commencer.',
+              l.subscriptionEmptyHelp,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -443,6 +439,7 @@ class _CategoryFilterInfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -457,9 +454,9 @@ class _CategoryFilterInfoBanner extends StatelessWidget {
         children: [
           Icon(Icons.info_outline, color: scheme.secondary, size: 18),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.',
+              l.subscriptionFilterHelp,
             ),
           ),
         ],
@@ -489,6 +486,7 @@ class _SubscriptionCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isTesting = ref.watch(subscriptionsTestingProvider).contains(
@@ -500,12 +498,14 @@ class _SubscriptionCard extends ConsumerWidget {
     final resultColor = ok ? Colors.green : scheme.error;
     final latency = subscription.lastTestLatencyMs;
     final resultText = isTesting
-        ? 'Test…'
+        ? l.subscriptionTesting
         : status == TestResultStatus.untested
-            ? 'Non testé'
+            ? l.subscriptionUntested
             : ok
-                ? 'Test OK${latency != null ? ' • $latency ms' : ''}'
-                : 'Échec';
+                ? (latency == null
+                    ? l.subscriptionTestOk
+                    : l.subscriptionTestLatency(latency))
+                : l.subscriptionTestFailed;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 6, 14),
@@ -524,9 +524,9 @@ class _SubscriptionCard extends ConsumerWidget {
               onTap: onTap,
               child: Semantics(
                 button: true,
-                label: 'Abonnement ${subscription.name}'
-                    '${isActive ? ', actif' : ''}'
-                    '${isPossibleDuplicate ? ', doublon possible' : ''}',
+                label: '${l.subscriptionSemantic(subscription.name)}'
+                    '${isActive ? ', ${l.subscriptionSemanticActive}' : ''}'
+                    '${isPossibleDuplicate ? ', ${l.subscriptionSemanticDuplicate}' : ''}',
                 child: Container(
                   width: 240,
                   height: 240,
@@ -572,9 +572,10 @@ class _SubscriptionCard extends ConsumerWidget {
                           ),
                           if (isPossibleDuplicate) ...[
                             const SizedBox(width: 6),
-                            const Tooltip(
-                              message: 'Doublon possible',
-                              child: Icon(Icons.content_copy_rounded, size: 18),
+                            Tooltip(
+                              message: l.subscriptionPossibleDuplicate,
+                              child: const Icon(Icons.content_copy_rounded,
+                                  size: 18),
                             ),
                           ],
                         ],
@@ -591,7 +592,7 @@ class _SubscriptionCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _host(subscription),
+                        _host(l, subscription),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -604,7 +605,7 @@ class _SubscriptionCard extends ConsumerWidget {
                         const _ActiveBadge()
                       else
                         Text(
-                          'Inactif',
+                          l.subscriptionInactive,
                           style: textTheme.labelSmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),
@@ -653,18 +654,18 @@ class _SubscriptionCard extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                tooltip: 'Tester',
+                tooltip: l.subscriptionTestAction,
                 icon: const Icon(Icons.wifi_find),
                 onPressed:
                     isTesting ? null : () => _testWithErrorDialog(context, ref),
               ),
               IconButton(
-                tooltip: 'Modifier',
+                tooltip: l.profileEdit,
                 icon: const Icon(Icons.edit),
                 onPressed: onEdit,
               ),
               IconButton(
-                tooltip: 'Supprimer',
+                tooltip: l.profileDelete,
                 icon: const Icon(Icons.delete),
                 onPressed: onDelete,
               ),
@@ -677,11 +678,11 @@ class _SubscriptionCard extends ConsumerWidget {
 
   /// Seul l'hôte est affiché : une URL M3U ou Xtream peut contenir des
   /// identifiants.
-  String _host(Subscription sub) {
+  String _host(AppLocalizations l, Subscription sub) {
     final raw = sub.type == SubscriptionType.xtream ? sub.baseUrl : sub.m3uUrl;
-    if (raw == null || raw.isEmpty) return 'Configuration incomplète';
+    if (raw == null || raw.isEmpty) return l.subscriptionIncomplete;
     final host = Uri.tryParse(raw)?.host ?? '';
-    return host.isEmpty ? 'Configuration incomplète' : host;
+    return host.isEmpty ? l.subscriptionIncomplete : host;
   }
 
   Future<void> _testWithErrorDialog(BuildContext context, WidgetRef ref) async {
@@ -721,7 +722,7 @@ class _ActiveBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppConstants.radiusSm),
       ),
       child: Text(
-        'ACTIF',
+        AppLocalizations.of(context).profileActive.toUpperCase(),
         style: TextStyle(
           color: scheme.onPrimary,
           fontSize: 11,
@@ -797,13 +798,15 @@ class _AddedSubscriptionDialogState
           .read(subscriptionsProvider)
           .where((sub) => sub.id == widget.subscription.id)
           .firstOrNull;
+      final l = AppLocalizations.of(context);
       final message = switch (updated?.lastTestResult) {
-        TestResultStatus.success => 'Test de connexion réussi.',
+        TestResultStatus.success => l.subscriptionTestSuccess,
         TestResultStatus.error => ConnectionErrorAnalyzer.analyze(
             updated?.lastTestError ?? '',
             type: widget.subscription.type,
+            l: l,
           ).message,
-        _ => 'Le résultat du test est indisponible.',
+        _ => l.subscriptionTestUnavailable,
       };
       setState(() => _result = message);
     } catch (e, st) {
@@ -813,8 +816,8 @@ class _AddedSubscriptionDialogState
         stackTrace: st,
       );
       if (mounted) {
-        setState(
-            () => _result = 'Impossible de terminer le test de connexion.');
+        final l = AppLocalizations.of(context);
+        setState(() => _result = l.subscriptionTestError);
       }
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -823,8 +826,9 @@ class _AddedSubscriptionDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Abonnement ajouté'),
+      title: Text(l.subscriptionAdded),
       content: SingleChildScrollView(
         child: Focus(
           canRequestFocus: false,
@@ -833,11 +837,10 @@ class _AddedSubscriptionDialogState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('« ${widget.subscription.name} » est enregistré. '
-                  'Vous pouvez tester la connexion puis activer l’abonnement.'),
+              Text(l.subscriptionAddedHelp(widget.subscription.name)),
               if (_testing || _result != null) ...[
                 const SizedBox(height: 16),
-                Text(_testing ? 'Test de connexion en cours…' : _result!),
+                Text(_testing ? l.subscriptionTestRunning : _result!),
               ],
               const SizedBox(height: 16),
               TvFocus(
@@ -847,7 +850,7 @@ class _AddedSubscriptionDialogState
                 child: ExcludeFocus(
                   child: OutlinedButton(
                     onPressed: _testing ? null : _test,
-                    child: const Text('Tester'),
+                    child: Text(l.subscriptionTestAction),
                   ),
                 ),
               ),
@@ -860,7 +863,7 @@ class _AddedSubscriptionDialogState
                   child: FilledButton(
                     onPressed:
                         _testing ? null : () => Navigator.pop(context, true),
-                    child: const Text('Activer'),
+                    child: Text(l.subscriptionActivate),
                   ),
                 ),
               ),
@@ -871,7 +874,7 @@ class _AddedSubscriptionDialogState
                 child: ExcludeFocus(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Annuler'),
+                    child: Text(l.cancel),
                   ),
                 ),
               ),
@@ -1141,7 +1144,9 @@ class _SubscriptionFormDialogState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    isEditing ? 'Modifier l\'abonnement' : 'Nouvel abonnement',
+                    isEditing
+                        ? l.subscriptionEditTitle
+                        : l.subscriptionNewTitle,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 16),
@@ -1149,8 +1154,8 @@ class _SubscriptionFormDialogState
                     controller: _nameController,
                     focusNode: _nameFocus,
                     nextFocusNode: nextAfterName,
-                    labelText: 'Nom de l\'abonnement',
-                    validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                    labelText: l.subscriptionName,
+                    validator: (v) => v!.isEmpty ? l.profileRequired : null,
                   ),
                   const SizedBox(height: 16),
                   Focus(
@@ -1185,27 +1190,27 @@ class _SubscriptionFormDialogState
                       focusNode: _baseUrlFocus,
                       nextFocusNode: _usernameFocus,
                       labelText: l.serverUrlPlaceholder,
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
                     const SizedBox(height: 12),
                     _buildTvTextField(
                       controller: _usernameController,
                       focusNode: _usernameFocus,
                       nextFocusNode: _passwordFocus,
-                      labelText: 'Username',
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      labelText: l.subscriptionUsername,
+                      validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
                     const SizedBox(height: 12),
                     _buildTvTextField(
                       controller: _passwordController,
                       focusNode: _passwordFocus,
                       nextFocusNode: _submitFocus,
-                      labelText: 'Password',
+                      labelText: l.subscriptionPassword,
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
                         tooltip: _obscurePassword
-                            ? 'Afficher le mot de passe'
-                            : 'Masquer le mot de passe',
+                            ? l.subscriptionShowPassword
+                            : l.subscriptionHidePassword,
                         icon: Icon(
                           _obscurePassword
                               ? Icons.visibility_off
@@ -1215,7 +1220,7 @@ class _SubscriptionFormDialogState
                           () => _obscurePassword = !_obscurePassword,
                         ),
                       ),
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
                   ] else ...[
                     _buildTvTextField(
@@ -1223,7 +1228,7 @@ class _SubscriptionFormDialogState
                       focusNode: _m3uFocus,
                       nextFocusNode: _submitFocus,
                       labelText: l.m3uPlaylistUrl,
-                      validator: (v) => v!.isEmpty ? 'Obligatoire' : null,
+                      validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -1234,12 +1239,14 @@ class _SubscriptionFormDialogState
                       TextButton(
                         onPressed:
                             _saving ? null : () => Navigator.pop(context),
-                        child: const Text('Annuler'),
+                        child: Text(l.cancel),
                       ),
                       FilledButton(
                         focusNode: _submitFocus,
                         onPressed: _saving ? null : _save,
-                        child: Text(isEditing ? 'Enregistrer' : 'Ajouter'),
+                        child: Text(
+                          isEditing ? l.profileSaveAction : l.subscriptionAdd,
+                        ),
                       ),
                     ],
                   ),
@@ -1311,8 +1318,9 @@ class _SubscriptionFormDialogState
         stackTrace: st,
       );
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la sauvegarde : $e')),
+          SnackBar(content: Text('${l.errorSaving}: $e')),
         );
       }
     } finally {

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/app_log.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_search_field.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -390,9 +392,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           .where((c) => !hiddenCategories.contains(c.id))
           .toList(growable: false);
       final rail = <MediaCategory>[
-        MediaCategory(id: '', name: 'Tous', count: _dbTotal),
-        MediaCategory(id: 'fav', name: 'Favoris', count: _dbFavCount),
-        MediaCategory(id: 'recent', name: 'Récemment', count: _dbRecentCount),
+        MediaCategory(id: '', name: l.catalogAll, count: _dbTotal),
+        MediaCategory(id: 'fav', name: l.favorites, count: _dbFavCount),
+        MediaCategory(id: 'recent', name: l.recentlyWatched, count: _dbRecentCount),
         ..._withRealCounts(serverCategories, _dbCounts),
       ];
       return Scaffold(
@@ -419,7 +421,7 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             return EmptyState(
               icon: Icons.movie_outlined,
               title: l.noMoviesAvailable,
-              message: 'La bibliothèque VOD est vide pour le moment.',
+              message: l.catalogNoMovies,
             );
           }
           final vodFavIds = favoriteEntries.values
@@ -453,15 +455,15 @@ class _VodScreenState extends ConsumerState<VodScreen> {
             catalog.categoryCounts,
           );
           final railCategories = <MediaCategory>[
-            MediaCategory(id: '', name: 'Tous', count: catalog.visibleCount),
+            MediaCategory(id: '', name: l.catalogAll, count: catalog.visibleCount),
             MediaCategory(
               id: 'fav',
-              name: 'Favoris',
+              name: l.favorites,
               count: catalog.favoriteCount,
             ),
             MediaCategory(
               id: 'recent',
-              name: 'Récemment',
+              name: l.recentlyWatched,
               count: catalog.recentCount,
             ),
             ...categories,
@@ -470,9 +472,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           return _layout(
               context, l, railCategories, visibleMovies, enrichments, affinity);
         },
-        loading: () => const LoadingState(
-          message:
-              'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.',
+        loading: () => LoadingState(
+          message: l.catalogLoading,
         ),
         error: (err, _) => ErrorState(
           icon: Icons.movie_outlined,
@@ -526,13 +527,14 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                     Expanded(
                       child: DpadSearchField(
                         controller: _searchController,
-                        hint: 'Rechercher un film ou un genre…',
+                        hint: l.catalogSearchMovies,
                         onChanged: _onQueryChanged,
                       ),
                     ),
                     const SizedBox(width: 4),
                     IconButton(
                       tooltip: l.searchMovie,
+                      style: catalogToolbarIconStyle(context),
                       icon: const Icon(Icons.movie_outlined),
                       onPressed: () => context.push('/search?type=vod'),
                     ),
@@ -542,7 +544,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
                           setState(() => _selectedSortMode = mode),
                     ),
                     IconButton(
-                      tooltip: 'Trier',
+                      tooltip: l.catalogSort,
+                      style: catalogToolbarIconStyle(context),
                       icon: const Icon(Icons.sort),
                       onPressed: _openSortDialog,
                     ),
@@ -551,24 +554,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
               ),
               Expanded(
                 child: visibleMovies.isEmpty && listLoading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? const Center(child: OrbitDelayedLoadingIndicator())
                     : visibleMovies.isEmpty
                         ? EmptyState(
                             icon: Icons.movie_outlined,
                             title: _selectedCategoryId == 'fav'
                                 ? l.noFavoriteMovies
                                 : _selectedCategoryId == 'recent'
-                                    ? 'Aucun film récent'
+                                    ? l.catalogNoRecentMovies
                                     : _selectedCategoryId.isEmpty
-                                        ? 'Aucun résultat'
-                                        : 'Aucun film dans cette catégorie',
+                                        ? l.catalogNoResults
+                                        : l.catalogNoMoviesInCategory,
                             message: _selectedCategoryId == 'fav'
-                                ? 'Appuie sur le cÅ“ur d\'un film pour le retrouver ici.'
+                                ? l.catalogMovieFavoriteHint
                                 : _selectedCategoryId == 'recent'
-                                    ? 'Les films regardés s\'afficheront ici.'
+                                    ? l.catalogRecentMoviesHint
                                     : _selectedCategoryId.isEmpty
-                                        ? 'Aucun film ne correspond à cette recherche.'
-                                        : 'Aucun film ne correspond à cette catégorie.',
+                                        ? l.catalogMovieSearchEmpty
+                                        : l.catalogMovieCategoryEmpty,
                           )
                         : GridView.builder(
                             controller: scrollController,
@@ -615,6 +618,81 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         .map((c) => c.copyWith(count: countsByCategory[c.id] ?? 0))
         .toList();
   }
+}
+
+class _VodPosterFallback extends ConsumerWidget {
+  const _VodPosterFallback({
+    required this.movie,
+    required this.enrichment,
+    required this.fallback,
+  });
+
+  final Movie movie;
+  final TmdbRankEntry? enrichment;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final xtream = ref.watch(movieXtreamPosterProvider(movie));
+    Widget tmdb() => _VodTmdbPoster(
+          movie: movie,
+          enrichment: enrichment,
+          fallback: fallback,
+        );
+    return xtream.when(
+      loading: () => fallback,
+      error: (error, stack) {
+        logDiag('Recherche d’affiche Xtream indisponible.');
+        return tmdb();
+      },
+      data: (url) {
+        if (url == null || url.isEmpty || url == movie.posterUrl) return tmdb();
+        return OrbitCachedImage(
+          imageUrl: url,
+          fit: BoxFit.contain,
+          placeholder: (_, __) => fallback,
+          errorWidget: (_, __, ___) => tmdb(),
+        );
+      },
+    );
+  }
+}
+
+class _VodTmdbPoster extends ConsumerWidget {
+  const _VodTmdbPoster({
+    required this.movie,
+    required this.enrichment,
+    required this.fallback,
+  });
+
+  final Movie movie;
+  final TmdbRankEntry? enrichment;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final existing = enrichment?.posterUrl ?? '';
+    if (existing.isNotEmpty && existing != movie.posterUrl) {
+      return _image(existing);
+    }
+    return ref.watch(movieTmdbPosterProvider(movie)).when(
+          loading: () => fallback,
+          error: (_, __) {
+            logDiag('Recherche d’affiche TMDB indisponible.');
+            return fallback;
+          },
+          data: (url) => url == null || url.isEmpty || url == movie.posterUrl
+              ? fallback
+              : _image(url),
+        );
+  }
+
+  Widget _image(String url) => OrbitCachedImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        placeholder: (_, __) => fallback,
+        errorWidget: (_, __, ___) => fallback,
+      );
 }
 
 /// Tuile VOD : résout le **vrai genre** du film (TMDB) pour le badge d'affinité.
@@ -678,8 +756,8 @@ class _VodTile extends ConsumerWidget {
           SnackBar(
             content: Text(
               wasFavorite
-                  ? '« ${movie.title} » retiré des favoris'
-                  : '« ${movie.title} » ajouté aux favoris',
+                  ? AppLocalizations.of(context).removedFromFavorites(movie.title)
+                  : AppLocalizations.of(context).addedToFavorites(movie.title),
             ),
             duration: const Duration(milliseconds: 1500),
           ),
@@ -692,9 +770,12 @@ class _VodTile extends ConsumerWidget {
         ratingAboveAffinity: true,
         title: movie.title,
         highlightTitle: highlightTitle,
-        posterUrl: movie.posterUrl.isNotEmpty
-            ? movie.posterUrl
-            : (enrichment?.posterUrl ?? ''),
+        posterUrl: movie.posterUrl,
+        posterFallbackBuilder: (context, fallback) => _VodPosterFallback(
+          movie: movie,
+          enrichment: enrichment,
+          fallback: fallback,
+        ),
         year: movie.year > 0 ? movie.year : (enrichment?.year ?? 0),
         // Catégorie retirée de la tuile (comme sur les chaînes) : l'année et la
         // note suffisent, la ligne reste lisible.

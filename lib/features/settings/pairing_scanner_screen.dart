@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
 
 class PairingScannerScreen extends StatefulWidget {
@@ -30,7 +31,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
   bool _processing = false;
   bool _success = false;
   bool _accountChanged = false;
-  String? _error;
+  String Function(AppLocalizations)? _error;
   StreamSubscription<User?>? _authChanges;
 
   @override
@@ -43,8 +44,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
           if (mounted) {
             setState(() {
               _accountChanged = true;
-              _error =
-                  'Le compte cloud a changé. Fermez cet écran et recommencez.';
+              _error = (l) => l.pairScannerAccountChanged;
             });
           }
         }
@@ -53,7 +53,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
         if (mounted) {
           setState(() {
             _accountChanged = true;
-            _error = 'Impossible de vérifier le compte cloud.';
+            _error = (l) => l.pairScannerAccountCheckFailed;
           });
         }
       },
@@ -75,7 +75,7 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
     try {
       await action();
     } catch (_) {
-      if (mounted) setState(() => _error = 'Impossible d’utiliser la caméra.');
+      if (mounted) setState(() => _error = (l) => l.pairScannerCameraFailed);
     }
   }
 
@@ -96,11 +96,11 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
     } on FormatException {
       if (mounted) {
         setState(
-          () => _error = 'Ce QR code ne correspond pas à une session Orbit 3D.',
+          () => _error = (l) => l.pairScannerInvalidQr,
         );
       }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Impossible d’utiliser la caméra.');
+      if (mounted) setState(() => _error = (l) => l.pairScannerCameraFailed);
     } finally {
       _processing = false;
     }
@@ -116,7 +116,13 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null || user.isAnonymous || user.uid != widget.uid) {
-        throw StateError('Le compte cloud a changé.');
+        if (mounted) {
+          setState(() {
+            _accountChanged = true;
+            _error = (l) => l.pairScannerAccountChanged;
+          });
+        }
+        return;
       }
       await CloudPairingService.prepareAppCheck();
       await CloudPairingService().approve(
@@ -132,12 +138,11 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
         });
       }
     } on StateError catch (error) {
-      if (mounted) setState(() => _error = error.message.toString());
+      if (mounted) setState(() => _error = (_) => error.message.toString());
     } catch (_) {
       if (mounted) {
         setState(
-          () => _error =
-              'Association impossible. Vérifiez le réseau ou recréez le QR code sur la TV.',
+          () => _error = (l) => l.pairScannerAssociationFailed,
         );
       }
     } finally {
@@ -162,63 +167,66 @@ class _PairingScannerScreenState extends State<PairingScannerScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Associer une TV')),
-        body: _success
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Demande envoyée. Confirmez le compte affiché sur la TV.',
-                ),
-              )
-            : Column(
-                children: [
-                  if (_invitation == null)
-                    Expanded(
-                      child: MobileScanner(
-                        controller: _scanner,
-                        onDetect: _detected,
-                        errorBuilder: (context, error) => const Center(
-                          child: Text(
-                            'Caméra indisponible. Autorisez son accès dans les réglages.',
-                          ),
-                        ),
-                      ),
-                    )
-                  else ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Comparez ce code avec celui affiché sur la TV :',
-                    ),
-                    SelectableText(_invitation!.verificationCode),
-                    const Text(
-                      'N’acceptez que si les deux codes sont identiques et que vous contrôlez la TV.',
-                    ),
-                    if (widget.profileNames.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Scaffold(
+      appBar: AppBar(title: Text(l.pairScannerTitle)),
+      body: _success
+          ? Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                l.pairScannerSent,
+              ),
+            )
+          : Column(
+              children: [
+                if (_invitation == null)
+                  Expanded(
+                    child: MobileScanner(
+                      controller: _scanner,
+                      onDetect: _detected,
+                      errorBuilder: (context, error) => Center(
                         child: Text(
-                          'La TV sélectionnera automatiquement : '
-                          '${widget.profileNames.join(', ')}.',
+                          l.pairScannerCameraPermission,
                         ),
                       ),
-                    FilledButton(
-                      onPressed:
-                          _processing || _accountChanged ? null : _approve,
-                      child: const Text('Confirmer et associer'),
                     ),
-                    TextButton(
-                      onPressed: _processing ? null : _rescan,
-                      child: const Text('Scanner à nouveau'),
-                    ),
-                  ],
-                  if (_processing) const LinearProgressIndicator(),
-                  if (_error != null)
+                  )
+                else ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    l.pairScannerCompareCode,
+                  ),
+                  SelectableText(_invitation!.verificationCode),
+                  Text(
+                    l.pairScannerVerifyWarning,
+                  ),
+                  if (widget.profileNames.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Text(_error!),
+                      child: Text(
+                        l.pairScannerSelectedProfiles(
+                          widget.profileNames.join(', '),
+                        ),
+                      ),
                     ),
+                  FilledButton(
+                    onPressed: _processing || _accountChanged ? null : _approve,
+                    child: Text(l.pairScannerConfirm),
+                  ),
+                  TextButton(
+                    onPressed: _processing ? null : _rescan,
+                    child: Text(l.pairScannerRescan),
+                  ),
                 ],
-              ),
-      );
+                if (_processing) const LinearProgressIndicator(),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(_error!(l)),
+                  ),
+              ],
+            ),
+    );
+  }
 }

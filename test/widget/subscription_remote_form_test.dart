@@ -107,10 +107,10 @@ Future<void> _openForm(
 
 Future<void> _addSubscription(WidgetTester tester) async {
   for (final (label, text) in [
-    ("Nom de l'abonnement", 'Maison'),
+    ("Nom de l’abonnement", 'Maison'),
     ('URL du serveur (ex: https://provider.com)', 'https://example.test'),
-    ('Username', 'test-user'),
-    ('Password', 'test-password'),
+    ('Nom d’utilisateur', 'test-user'),
+    ('Mot de passe', 'test-password'),
   ]) {
     await tester.enterText(_field(label), text);
   }
@@ -127,7 +127,7 @@ void main() {
   testWidgets('la télécommande navigue entre les champs et OK ouvre le clavier',
       (tester) async {
     await _openForm(tester, tv: true);
-    const name = "Nom de l'abonnement";
+    const name = "Nom de l’abonnement";
     const url = 'URL du serveur (ex: https://provider.com)';
     expect(_textField(tester, name).focusNode!.hasPrimaryFocus, isTrue);
     expect(_textField(tester, name).readOnly, isTrue);
@@ -146,28 +146,32 @@ void main() {
     await tester.enterText(_field(url), 'https://example.test');
     await tester.testTextInput.receiveAction(TextInputAction.next);
     await tester.pumpAndSettle();
-    expect(_textField(tester, 'Username').focusNode!.hasPrimaryFocus, isTrue);
-    expect(_textField(tester, 'Username').readOnly, isTrue);
+    expect(_textField(tester, 'Nom d’utilisateur').focusNode!.hasPrimaryFocus,
+        isTrue);
+    expect(_textField(tester, 'Nom d’utilisateur').readOnly, isTrue);
 
     await _key(tester, LogicalKeyboardKey.enter);
-    await tester.enterText(_field('Username'), 'tester');
+    await tester.enterText(_field('Nom d’utilisateur'), 'tester');
     await _key(tester, LogicalKeyboardKey.escape);
-    expect(_textField(tester, 'Username').readOnly, isTrue);
+    expect(_textField(tester, 'Nom d’utilisateur').readOnly, isTrue);
     expect(tester.testTextInput.isVisible, isFalse);
-    expect(_textField(tester, 'Username').controller!.text, 'tester');
+    expect(_textField(tester, 'Nom d’utilisateur').controller!.text, 'tester');
 
     await _key(tester, LogicalKeyboardKey.arrowDown);
-    expect(_textField(tester, 'Password').focusNode!.hasPrimaryFocus, isTrue);
+    expect(
+        _textField(tester, 'Mot de passe').focusNode!.hasPrimaryFocus, isTrue);
     await _key(tester, LogicalKeyboardKey.arrowRight);
     await _key(tester, LogicalKeyboardKey.select);
-    expect(_textField(tester, 'Password').obscureText, isTrue);
+    expect(_textField(tester, 'Mot de passe').obscureText, isTrue);
     await _key(tester, LogicalKeyboardKey.arrowLeft);
-    expect(_textField(tester, 'Password').focusNode!.hasPrimaryFocus, isTrue);
+    expect(
+        _textField(tester, 'Mot de passe').focusNode!.hasPrimaryFocus, isTrue);
     await _key(tester, LogicalKeyboardKey.select);
-    await tester.enterText(_field('Password'), 'secret');
+    await tester.enterText(_field('Mot de passe'), 'secret');
     await _key(tester, LogicalKeyboardKey.arrowUp);
-    expect(_textField(tester, 'Username').focusNode!.hasPrimaryFocus, isTrue);
-    expect(_textField(tester, 'Password').controller!.text, 'secret');
+    expect(_textField(tester, 'Nom d’utilisateur').focusNode!.hasPrimaryFocus,
+        isTrue);
+    expect(_textField(tester, 'Mot de passe').controller!.text, 'secret');
     expect(tester.testTextInput.isVisible, isFalse);
     await _key(tester, LogicalKeyboardKey.arrowDown);
     await _key(tester, LogicalKeyboardKey.arrowDown);
@@ -214,10 +218,10 @@ void main() {
     final saved = <Subscription>[];
     await _openForm(tester, tv: true, saved: saved);
     for (final (label, text) in [
-      ("Nom de l'abonnement", 'Maison'),
+      ("Nom de l’abonnement", 'Maison'),
       ('URL du serveur (ex: https://provider.com)', 'https://example.test'),
-      ('Username', 'test-user'),
-      ('Password', 'test-password'),
+      ('Nom d’utilisateur', 'test-user'),
+      ('Mot de passe', 'test-password'),
     ]) {
       expect(_textField(tester, label).focusNode!.hasPrimaryFocus, isTrue);
       await _key(tester, LogicalKeyboardKey.select);
@@ -240,10 +244,10 @@ void main() {
     final activated = <String>[];
     await _openForm(tester, tv: true, saved: saved, activated: activated);
     for (final (label, text) in [
-      ("Nom de l'abonnement", 'Maison'),
+      ("Nom de l’abonnement", 'Maison'),
       ('URL du serveur (ex: https://provider.com)', 'https://example.test'),
-      ('Username', 'test-user'),
-      ('Password', 'test-password'),
+      ('Nom d’utilisateur', 'test-user'),
+      ('Mot de passe', 'test-password'),
     ]) {
       await _key(tester, LogicalKeyboardKey.select);
       await tester.enterText(_field(label), text);
@@ -293,7 +297,7 @@ void main() {
       (tester) async {
     final saved = <Subscription>[];
     await _openForm(tester, tv: false, saved: saved);
-    await tester.enterText(_field("Nom de l'abonnement"), 'Playlist');
+    await tester.enterText(_field("Nom de l’abonnement"), 'Playlist');
     await tester.tap(find.text('M3U Playlist'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -341,14 +345,15 @@ void main() {
     await _key(tester, LogicalKeyboardKey.arrowDown);
     await _key(tester, LogicalKeyboardKey.arrowDown);
     await _key(tester, LogicalKeyboardKey.arrowDown);
-    expect(_textField(tester, 'Password').focusNode!.hasPrimaryFocus, isTrue);
+    expect(
+        _textField(tester, 'Mot de passe').focusNode!.hasPrimaryFocus, isTrue);
     final viewport = find
         .ancestor(
-          of: _field('Password'),
+          of: _field('Mot de passe'),
           matching: find.byType(SingleChildScrollView),
         )
         .first;
-    final fieldRect = tester.getRect(_field('Password'));
+    final fieldRect = tester.getRect(_field('Mot de passe'));
     final viewportRect = tester.getRect(viewport);
     expect(fieldRect.bottom, lessThanOrEqualTo(viewportRect.bottom + 1));
     expect(fieldRect.top, greaterThanOrEqualTo(viewportRect.top - 1));
@@ -372,10 +377,10 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       for (final field in [
-        "Nom de l'abonnement",
+        "Nom de l’abonnement",
         'URL du serveur (ex: https://provider.com)',
-        'Username',
-        'Password',
+        'Nom d’utilisateur',
+        'Mot de passe',
       ]) {
         _textField(tester, field).focusNode!.requestFocus();
         await tester.pumpAndSettle();
@@ -407,31 +412,35 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
     for (final field in [
-      "Nom de l'abonnement",
+      "Nom de l’abonnement",
       'URL du serveur (ex: https://provider.com)',
-      'Username',
-      'Password',
+      'Nom d’utilisateur',
+      'Mot de passe',
     ]) {
       expect(_textField(tester, field).focusNode!.hasPrimaryFocus, isTrue);
-      final viewport = find.ancestor(
-        of: _field(field),
-        matching: find.byType(SingleChildScrollView),
-      ).first;
+      final viewport = find
+          .ancestor(
+            of: _field(field),
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first;
       final rect = tester.getRect(_field(field));
       final visible = tester.getRect(viewport);
       expect(rect.top, greaterThanOrEqualTo(visible.top - 1));
       expect(rect.bottom, lessThanOrEqualTo(visible.bottom + 1));
       await tester.testTextInput.receiveAction(TextInputAction.next);
       await tester.pumpAndSettle();
-      if (field != 'Password') {
+      if (field != 'Mot de passe') {
         await _key(tester, LogicalKeyboardKey.select);
       }
     }
     final submit = find.widgetWithText(FilledButton, 'Ajouter');
-    final viewport = find.ancestor(
-      of: submit,
-      matching: find.byType(SingleChildScrollView),
-    ).first;
+    final viewport = find
+        .ancestor(
+          of: submit,
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
     expect(tester.getRect(submit).bottom,
         lessThanOrEqualTo(tester.getRect(viewport).bottom + 1));
     expect(tester.takeException(), isNull);
@@ -448,10 +457,12 @@ void main() {
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
     final field = _field('URL de la playlist M3U');
-    final viewport = find.ancestor(
-      of: field,
-      matching: find.byType(SingleChildScrollView),
-    ).first;
+    final viewport = find
+        .ancestor(
+          of: field,
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
     expect(tester.getRect(field).top,
         greaterThanOrEqualTo(tester.getRect(viewport).top - 1));
     expect(tester.getRect(field).bottom,

@@ -45,6 +45,7 @@ class MediaCard extends ConsumerWidget {
     this.showYear = true,
     this.titleFontSize,
     this.ratingAboveAffinity = false,
+    this.posterFallbackBuilder,
   });
 
   /// Faux quand un TvFocus parent gère déjà le focus D-pad de la tuile.
@@ -60,6 +61,8 @@ class MediaCard extends ConsumerWidget {
   /// Taille du titre ; null = taille par défaut selon la largeur d'écran.
   final double? titleFontSize;
   final bool ratingAboveAffinity;
+  final Widget Function(BuildContext context, Widget fallback)?
+      posterFallbackBuilder;
 
   /// Ajustement de l'image dans la tuile.
   ///
@@ -195,12 +198,20 @@ class MediaCard extends ConsumerWidget {
                               icon: fallbackIcon,
                             ),
                             errorWidget: (context, url, error) =>
+                                posterFallbackBuilder?.call(
+                                  context,
+                                  _PosterFallback(
+                                      scheme: scheme, icon: fallbackIcon),
+                                ) ??
                                 _PosterFallback(
-                              scheme: scheme,
-                              icon: fallbackIcon,
-                            ),
+                                    scheme: scheme, icon: fallbackIcon),
                           )
-                        : _PosterFallback(scheme: scheme, icon: fallbackIcon),
+                        : posterFallbackBuilder?.call(
+                              context,
+                              _PosterFallback(
+                                  scheme: scheme, icon: fallbackIcon),
+                            ) ??
+                            _PosterFallback(scheme: scheme, icon: fallbackIcon),
                   ),
                   if (ageLabel != null && ageLabel!.isNotEmpty)
                     Positioned(

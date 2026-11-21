@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/drm/drm_provider.dart';
 import 'package:orbit_3d_flutter/drm/widevine_config_store.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/subscription_provider.dart';
 
 class WidevineConfigTile extends ConsumerWidget {
@@ -12,6 +13,7 @@ class WidevineConfigTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final subscription = ref.watch(activeSubscriptionProvider);
     final config = subscription == null || subscription.id.trim().isEmpty
         ? null
@@ -20,25 +22,25 @@ class WidevineConfigTile extends ConsumerWidget {
       icon: Icons.key_outlined,
       title: 'Widevine DRM',
       subtitle: subscription == null || subscription.id.trim().isEmpty
-          ? 'Sélectionnez un abonnement actif'
+          ? l.widevineSelectSubscription
           : config!.when(
-              loading: () => 'Chargement de la configuration',
-              error: (error, stack) => 'Impossible de charger la configuration',
+              loading: () => l.widevineLoading,
+              error: (error, stack) => l.widevineLoadFailed,
               data: (value) => value == null
-                  ? '${subscription.name} : aucune licence configurée'
+                  ? l.widevineNoLicense(subscription.name)
                   : '${subscription.name} : ${value.licenseUrl}',
             ),
       onTap: () {
         if (subscription == null || subscription.id.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Sélectionnez d’abord un abonnement actif.'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(l.widevineSelectFirst),
           ));
           return;
         }
         final current = config;
         if (current == null || !current.hasValue || current.hasError) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('La configuration Widevine n’est pas disponible.'),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(l.widevineUnavailable),
           ));
           return;
         }
@@ -120,7 +122,9 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible d’enregistrer Widevine : $error')),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)
+                  .widevineSaveFailed(error.toString()))),
         );
       }
       return;
@@ -140,7 +144,9 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible d’effacer Widevine : $error')),
+          SnackBar(
+              content: Text(AppLocalizations.of(context)
+                  .widevineClearFailed(error.toString()))),
         );
       }
       return;
@@ -150,6 +156,7 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final hasConfig = widget.initialConfig != null;
     final legacy = ref.watch(legacyWidevineConfigProvider).value;
     return AlertDialog(
@@ -163,8 +170,8 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
               TextFormField(
                 controller: _licenseUrl,
                 keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  labelText: 'URL du serveur de licence',
+                decoration: InputDecoration(
+                  labelText: l.widevineLicenseUrl,
                 ),
                 validator: (value) {
                   final uri = Uri.tryParse(value?.trim() ?? '');
@@ -172,7 +179,7 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
                       !uri.hasAuthority ||
                       uri.host.isEmpty ||
                       uri.scheme != 'https') {
-                    return 'Saisissez une URL HTTPS valide.';
+                    return l.widevineInvalidUrl;
                   }
                   return null;
                 },
@@ -181,29 +188,24 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
                 controller: _headers,
                 minLines: 2,
                 maxLines: 5,
-                decoration: const InputDecoration(
-                  labelText: 'En-têtes HTTP (JSON, facultatif)',
+                decoration: InputDecoration(
+                  labelText: l.widevineHeaders,
                   hintText: '{"Authorization": "Bearer …"}',
                 ),
                 validator: (value) => _decodeHeaders(value ?? '') == null
-                    ? 'Les en-têtes doivent être un objet JSON de chaînes.'
+                    ? l.widevineInvalidHeaders
                     : null,
               ),
               TextFormField(
                 controller: _certificate,
                 minLines: 1,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Certificat base64 (facultatif)',
+                decoration: InputDecoration(
+                  labelText: l.widevineCertificate,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'La configuration est stockée dans le coffre sécurisé. '
-                'Elle est liée à cet abonnement. '
-                'Elle ne rend pas compatible un moteur de lecture qui ne '
-                'prend pas en charge Widevine.',
-              ),
+              Text(l.widevineStorageHelp),
               if (!hasConfig && legacy != null)
                 TextButton(
                   onPressed: () {
@@ -212,9 +214,7 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
                         .convert(legacy.headers);
                     _certificate.text = legacy.certificateBase64 ?? '';
                   },
-                  child: const Text(
-                    'Copier l’ancienne configuration globale',
-                  ),
+                  child: Text(l.widevineCopyLegacy),
                 ),
             ],
           ),
@@ -224,15 +224,15 @@ class _WidevineConfigDialogState extends ConsumerState<_WidevineConfigDialog> {
         if (hasConfig)
           TextButton(
             onPressed: _clear,
-            child: const Text('Effacer'),
+            child: Text(l.widevineClear),
           ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
+          child: Text(l.cancel),
         ),
         FilledButton(
           onPressed: _save,
-          child: const Text('Enregistrer'),
+          child: Text(l.profileSaveAction),
         ),
       ],
     );

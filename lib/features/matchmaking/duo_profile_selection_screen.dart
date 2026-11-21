@@ -42,11 +42,11 @@ class _DuoProfileSelectionScreenState
         child: profilesAsync.when(
           data: (profiles) {
             if (profiles.isEmpty) {
-              return const Center(child: Text('Aucun profil disponible'));
+              return Center(child: Text(l.noProfileAvailable));
             }
             return _buildBody(context, profiles, currentProfile);
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
           error: (e, _) => Center(child: Text(l.errorGeneric(e))),
         ),
       ),
@@ -108,6 +108,7 @@ class _DuoProfileSelectionScreenState
   }
 
   Widget _buildHeader(BuildContext context, int totalSelected) {
+    final l = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     return Padding(
@@ -120,7 +121,7 @@ class _DuoProfileSelectionScreenState
             IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => context.pop(),
-              tooltip: 'Retour',
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             ),
             const SizedBox(width: 4),
           ],
@@ -129,7 +130,7 @@ class _DuoProfileSelectionScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mode Duo',
+                  l.duoTitle,
                   style: textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
@@ -138,9 +139,9 @@ class _DuoProfileSelectionScreenState
                 const SizedBox(height: 4),
                 Text(
                   _currentProfile == null
-                      ? 'Choisissez 1 à $maxAdditional profil(s) supplémentaire(s)'
-                      : 'Avec « ${_currentProfile!.firstName} » — choisissez 1 à '
-                          '$maxAdditional autre(s) profil(s)',
+                      ? l.duoChooseOthers(maxAdditional)
+                      : l.duoChooseWith(
+                          _currentProfile!.firstName, maxAdditional),
                   style: textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -156,6 +157,7 @@ class _DuoProfileSelectionScreenState
   }
 
   Widget _buildEmptyOthers(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
@@ -164,14 +166,14 @@ class _DuoProfileSelectionScreenState
           Icon(Icons.group_off_outlined, size: 56, color: scheme.outline),
           const SizedBox(height: 12),
           Text(
-            'Créez au moins un 2e profil',
+            l.duoCreateProfile,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Le mode Duo nécessite au moins 2 profils au total.',
+            l.duoNeedsProfiles,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -182,6 +184,7 @@ class _DuoProfileSelectionScreenState
   }
 
   Widget _buildFooter(BuildContext context, int totalSelected, bool ready) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -194,11 +197,10 @@ class _DuoProfileSelectionScreenState
         children: [
           Text(
             totalSelected >= 4
-                ? '4 profils — équipe complète pour le Duo'
+                ? l.duoFull
                 : ready
-                    ? '$totalSelected profils sélectionnés — prêt pour le Duo'
-                    : 'Sélectionnez au moins 1 profil supplémentaire '
-                        '(${_selectedIds.length + 1}/4)',
+                    ? l.duoReady(totalSelected)
+                    : l.duoSelectOne(totalSelected),
             style: TextStyle(
               color: ready ? scheme.primary : scheme.error,
               fontWeight: FontWeight.w600,
@@ -213,9 +215,10 @@ class _DuoProfileSelectionScreenState
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text(
-                'Lancer le Duo',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              child: Text(
+                l.duoStart,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
           ),
@@ -401,7 +404,9 @@ class _DuoProfileCardState extends ConsumerState<_DuoProfileCard>
                   if (widget.selected || widget.disabled) ...[
                     const SizedBox(width: 4),
                     Text(
-                      widget.selected ? 'Sélectionné' : 'Max atteint',
+                      widget.selected
+                          ? AppLocalizations.of(context).duoSelected
+                          : AppLocalizations.of(context).duoMaximum,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: widget.selected
                                 ? Colors.white

@@ -72,24 +72,26 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
-        title: const Text('Contenus'),
+        title: Text(l.menuContent),
         actions: [
           SortToolbarButtons(
             mode: _selectedSortMode,
             onChanged: (mode) => setState(() => _selectedSortMode = mode),
           ),
           IconButton(
-            tooltip: 'Trier',
+            tooltip: l.catalogSort,
+            style: catalogToolbarIconStyle(context),
             icon: const Icon(Icons.sort),
             onPressed: _openSortDialog,
           ),
@@ -127,13 +129,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           return EmptyState(
             icon: Icons.movie_outlined,
             title: l.noMoviesAvailable,
-            message: 'La bibliothèque VOD est vide pour le moment.',
+            message: l.catalogNoMovies,
           );
         }
         final filtered = _filterMoviesCompact(movies);
         return _buildContent(
           icon: Icons.movie_outlined,
-          title: 'Films',
+          title: l.films,
           categories:
               categoriesAsync.value ?? _categoriesFromMoviesCompact(movies),
           items: filtered,
@@ -141,7 +143,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           allItems: movies,
         );
       },
-      loading: () => const LoadingState(message: 'Chargement…'),
+      loading: () => LoadingState(message: l.browseLoading),
       error: (err, _) => ErrorState(
         icon: Icons.movie_outlined,
         title: l.moviesUnavailable,
@@ -196,7 +198,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           return EmptyState(
             icon: Icons.tv,
             title: l.noSeriesAvailable,
-            message: 'La bibliothèque de séries est vide pour le moment.',
+            message: l.catalogNoSeries,
           );
         }
         final filtered = _filterSeriesCompact(seriesList);
@@ -210,7 +212,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           allItems: seriesList,
         );
       },
-      loading: () => const LoadingState(message: 'Chargement…'),
+      loading: () => LoadingState(message: l.browseLoading),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
         title: l.seriesUnavailable,
@@ -265,6 +267,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     required bool isSeries,
     required List<dynamic> allItems,
   }) {
+    final l = AppLocalizations.of(context);
     final List<dynamic> visible;
     if (_selectedSortMode == SortMode.affinity ||
         _selectedSortMode == SortMode.affinityAsc) {
@@ -329,15 +332,15 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         .map((e) => e.id)
         .toSet();
     final railCategories = <MediaCategory>[
-      MediaCategory(id: '', name: 'Tous', count: visibleAllItems.length),
+      MediaCategory(id: '', name: l.catalogAll, count: visibleAllItems.length),
       MediaCategory(
         id: 'fav',
-        name: 'Favoris',
+        name: l.favorites,
         count: visibleAllItems.where((e) => favIds.contains(e.id)).length,
       ),
       MediaCategory(
         id: 'recent',
-        name: 'Récemment',
+        name: l.recentlyWatched,
         count: visibleAllItems.where((e) => recentIds.contains(e.id)).length,
       ),
       ...visibleCategories,
@@ -359,9 +362,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                 child: DpadSearchField(
                   controller: _searchController,
-                  hint: isSeries
-                      ? 'Rechercher une série ou un genre…'
-                      : 'Rechercher un film ou un genre…',
+                  hint:
+                      isSeries ? l.catalogSearchSeries : l.catalogSearchMovies,
                   onChanged: (value) => setState(() => _query = value),
                 ),
               ),
@@ -371,20 +373,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                         icon: icon,
                         title: _selectedCategoryId == 'fav'
                             ? isSeries
-                                ? 'Aucune série favorite'
-                                : 'Aucun film favori'
+                                ? l.noFavoriteSeries
+                                : l.noFavoriteMovies
                             : _selectedCategoryId == 'recent'
                                 ? isSeries
-                                    ? 'Aucune série récente'
-                                    : 'Aucun film récent'
-                                : 'Aucun résultat',
+                                    ? l.catalogNoRecentSeries
+                                    : l.catalogNoRecentMovies
+                                : l.catalogNoResults,
                         message: _selectedCategoryId == 'fav'
-                            ? 'Appuie longuement sur un élément pour le '
-                                'retrouver ici.'
+                            ? l.browseFavoriteHint
                             : _selectedCategoryId == 'recent'
-                                ? 'Les contenus regardés s\'afficheront ici.'
-                                : 'Aucun contenu ne correspond à cette '
-                                    'recherche.',
+                                ? l.browseRecentHint
+                                : l.browseSearchEmpty,
                       )
                     : CustomScrollView(
                         slivers: [
@@ -392,8 +392,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                             child: SectionHeader(
                               icon: icon,
                               title: title,
-                              subtitle:
-                                  '${visible.length} titres (sur ${items.length})',
+                              subtitle: l.browseTitlesCount(
+                                visible.length,
+                                items.length,
+                              ),
                             ),
                           ),
                           SliverPadding(
@@ -596,7 +598,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
           SnackBar(
             content: Text(
               wasFavorite
-                  ? '« $title » retiré des favoris'
+                  ? l.removedFromFavorites(title)
                   : l.addedToFavorites(title),
             ),
             duration: const Duration(milliseconds: 1500),
@@ -750,9 +752,13 @@ class _BrowseTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final tabs = [
-      (id: _BrowseTab.films, label: 'Films', icon: Icons.movie_outlined),
+      (id: _BrowseTab.films, label: l.films, icon: Icons.movie_outlined),
       (id: _BrowseTab.series, label: l.series, icon: Icons.tv),
-      (id: _BrowseTab.rankings, label: 'Classements', icon: Icons.leaderboard),
+      (
+        id: _BrowseTab.rankings,
+        label: l.browseRankings,
+        icon: Icons.leaderboard
+      ),
     ];
     return Container(
       color: colors.surfaceContainerLow,
@@ -957,7 +963,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'Classements populaires',
+            l.browsePopularRankings,
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -970,7 +976,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
             children: [
               Expanded(
                 child: _buildRankList(
-                  title: 'Films',
+                  title: l.films,
                   isTv: false,
                   sources: _movieSources,
                   selected: _movieMode,
@@ -1043,7 +1049,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                         vertical: 8,
                       ),
                       child: Text(
-                        src.label,
+                        src.label(l),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -1066,9 +1072,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                 ? EmptyState(
                     icon: Icons.leaderboard_outlined,
                     title: l.noRankings,
-                    message: 'Les tendances TMDB ne sont pas disponibles. '
-                        'Ajoutez une clé API TMDB dans Réglages '
-                        '(ou TMDB_API_KEY dans assets/config/runtime.env).',
+                    message: l.browseRankingsUnavailableHint,
                   )
                 : GridView.builder(
                     cacheExtent: 500,
@@ -1088,7 +1092,7 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                       );
                     },
                   ),
-            loading: () => const LoadingState(message: 'Chargement…'),
+            loading: () => LoadingState(message: l.browseLoading),
             error: (err, _) => ErrorState(
               icon: isTv ? Icons.tv : Icons.movie_outlined,
               title: l.rankingsUnavailable,
@@ -1116,7 +1120,8 @@ class _TmdbAttributionFooter extends StatelessWidget {
       color: scheme.surfaceContainerLow,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Text(
-        'Classements populaires · Données © TMDB — This product uses the '
+        '${AppLocalizations.of(context).browsePopularRankings} · '
+        '${AppLocalizations.of(context).browseTmdbData} — This product uses the '
         'TMDB API but is not endorsed or certified by TMDB.',
         textAlign: TextAlign.center,
         style: style,
@@ -1126,22 +1131,27 @@ class _TmdbAttributionFooter extends StatelessWidget {
 }
 
 enum _RankSource {
-  popular('Populaire', '/movie/popular', '/tv/popular'),
-  nowPlaying('En salle', '/movie/now_playing', null),
-  topRated('Mieux notés', '/movie/top_rated', '/tv/top_rated'),
-  upcoming('À venir', '/movie/upcoming', null),
-  trending(
-    'Tendance de la semaine',
-    '/trending/movie/week',
-    '/trending/tv/week',
-  ),
-  onTheAir('En diffusion', null, '/tv/on_the_air'),
-  airingToday('Diffusion aujourd\'hui', null, '/tv/airing_today');
+  popular('/movie/popular', '/tv/popular'),
+  nowPlaying('/movie/now_playing', null),
+  topRated('/movie/top_rated', '/tv/top_rated'),
+  upcoming('/movie/upcoming', null),
+  trending('/trending/movie/week', '/trending/tv/week'),
+  onTheAir(null, '/tv/on_the_air'),
+  airingToday(null, '/tv/airing_today');
 
-  const _RankSource(this.label, this.moviePath, this.tvPath);
-  final String label;
+  const _RankSource(this.moviePath, this.tvPath);
   final String? moviePath;
   final String? tvPath;
+
+  String label(AppLocalizations l) => switch (this) {
+        popular => l.browsePopular,
+        nowPlaying => l.browseNowPlaying,
+        topRated => l.browseTopRated,
+        upcoming => l.browseUpcoming,
+        trending => l.browseTrendingWeek,
+        onTheAir => l.browseOnTheAir,
+        airingToday => l.browseAiringToday,
+      };
 
   String? pathFor(bool isTv) => isTv ? tvPath : moviePath;
   bool isAvailableFor(bool isTv) => pathFor(isTv) != null;
@@ -1229,6 +1239,7 @@ class _RankEntrySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return SafeArea(
@@ -1288,7 +1299,9 @@ class _RankEntrySheet extends StatelessWidget {
                             ),
                             _infoChip(
                               context,
-                              entry.isTv ? 'Série' : 'Film',
+                              entry.isTv
+                                  ? l.browseSeriesType
+                                  : l.actorCreditFilm,
                             ),
                           ],
                         ),
@@ -1300,7 +1313,7 @@ class _RankEntrySheet extends StatelessWidget {
               if (entry.overview.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(
-                  'Synopsis',
+                  l.browseSynopsis,
                   style: textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
@@ -1325,9 +1338,7 @@ class _RankEntrySheet extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Cette œuvre n\'est pas présente dans votre '
-                        'abonnement actif. Découvrez-la sur l\'une des '
-                        'plateformes référencées par TMDB.',
+                        l.browseNotInSubscription,
                         style: textTheme.bodySmall
                             ?.copyWith(color: scheme.onSecondaryContainer),
                       ),
@@ -1394,7 +1405,7 @@ class _UniversalCategoryRail extends StatelessWidget {
               Icon(Icons.category_outlined, size: 18, color: scheme.primary),
               const SizedBox(width: 6),
               Text(
-                'Explorer par catégorie',
+                AppLocalizations.of(context).browseExploreCategories,
                 style: Theme.of(context)
                     .textTheme
                     .labelLarge

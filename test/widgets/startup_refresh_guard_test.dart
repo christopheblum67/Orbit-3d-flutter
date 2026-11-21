@@ -7,10 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
+import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/m3u_playlist.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -19,6 +21,20 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 class _Api extends ApiService {
   @override
   Future<String?> resolveSubscriptionCacheKey() async => null;
+}
+
+class _ParsingApi extends _Api {
+  final pending = Completer<M3uPlaylist>();
+  void Function()? onParsing;
+
+  @override
+  Future<M3uPlaylist> fetchM3uPlaylist(
+    String url, {
+    void Function()? onParsing,
+  }) {
+    this.onParsing = onParsing;
+    return pending.future;
+  }
 }
 
 class _XtreamApi extends _Api {
@@ -55,6 +71,70 @@ class _PendingEpg extends EPGDataCache {
 }
 
 void main() {
+  for (final startup in [true, false]) {
+    testWidgets(
+        'M3U body milestone updates ${startup ? 'startup' : 'manual refresh'}',
+        (tester) async {
+      final api = _ParsingApi();
+      final subscription = Subscription(
+        id: 'm3u',
+        name: 'Subscription',
+        type: SubscriptionType.m3u,
+        m3uUrl: 'https://example.test/playlist',
+        createdAt: DateTime(2026),
+      );
+      final router = GoRouter(
+        initialLocation: '/loading',
+        routes: [
+          GoRoute(
+            path: '/loading',
+            builder: (_, __) => startup
+                ? const StartupSplashScreen()
+                : const RefreshProgressScreen(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      final container = ProviderContainer(overrides: [
+        activeSubscriptionProvider.overrideWithValue(subscription),
+        apiServiceProvider.overrideWithValue(api),
+        certificatePinningInitializerProvider.overrideWith((ref) {}),
+        lastRefreshTimestampProvider.overrideWithBuild((ref, notifier) => null),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
+      ));
+      await tester.pump();
+      await tester.pump();
+      expect(api.onParsing, isNotNull);
+      expect(
+          tester
+              .widget<RefreshProgressView>(find.byType(RefreshProgressView))
+              .percent,
+          0);
+
+      api.onParsing!();
+      await tester.pump();
+      final progress =
+          tester.widget<RefreshProgressView>(find.byType(RefreshProgressView));
+      expect(progress.percent, greaterThan(0));
+      expect(progress.title, 'Analyzing the M3U playlist…');
+      expect(progress.doneSteps, isEmpty);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      api.pending.complete(
+        const M3uPlaylist(channels: [], radios: [], movies: [], series: []),
+      );
+      await tester.pump(const Duration(seconds: 1));
+    });
+  }
+
   testWidgets('invalid Xtream settings return to subscriptions during loading',
       (tester) async {
     final check = Completer<bool>();
@@ -234,8 +314,8 @@ void main() {
       expect(loads, fresh ? 0 : 1);
       if (!fresh) {
         await tester.pump(const Duration(seconds: 60));
-        expect(find.text('Retour à l’accueil'), findsOneWidget);
-        expect(find.text('Vérifier l’abonnement'), findsOneWidget);
+        expect(find.text('Back to home'), findsOneWidget);
+        expect(find.text('Check subscription'), findsOneWidget);
         expect(find.text('Profiles'), findsNothing);
       }
       await tester.pumpWidget(const SizedBox.shrink());
@@ -290,10 +370,10 @@ void main() {
       ));
       await tester.pump();
       await tester.pump(const Duration(seconds: 59));
-      expect(find.text('Retour à l’accueil'), findsNothing);
+      expect(find.text('Back to home'), findsNothing);
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('Retour à l’accueil'), findsOneWidget);
-      expect(find.text('Vérifier l’abonnement'), findsOneWidget);
+      expect(find.text('Back to home'), findsOneWidget);
+      expect(find.text('Check subscription'), findsOneWidget);
       if (destination == 'home') {
         await tester.sendKeyEvent(LogicalKeyboardKey.select);
       } else {
@@ -358,12 +438,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('0 %'), findsNothing);
       await tester.pump(const Duration(seconds: 60));
-      expect(find.text('Retour à l’accueil'), findsOneWidget);
-      expect(find.text('Vérifier l’abonnement'), findsOneWidget);
+      expect(find.text('Back to home'), findsOneWidget);
+      expect(find.text('Check subscription'), findsOneWidget);
       expect(ApiService.bypassCatalogCache, isTrue);
       await tester.tap(find.text(destination == 'home'
-          ? 'Retour à l’accueil'
-          : 'Vérifier l’abonnement'));
+          ? 'Back to home'
+          : 'Check subscription'));
       await tester.pumpAndSettle();
       final destinationText =
           destination == 'home' ? 'Refresh' : 'Subscriptions';
@@ -422,7 +502,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
     }
     expect(find.text('Profiles'), findsOneWidget);
-    expect(find.text('Vérifier l’abonnement'), findsNothing);
+    expect(find.text('Check subscription'), findsNothing);
     await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(seconds: 1));
     expect(epg.calls, 1);

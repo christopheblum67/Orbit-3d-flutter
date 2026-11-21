@@ -101,9 +101,6 @@ void main() {
     expect(tester.getCenter(start).dy, closeTo(tester.getCenter(resume).dy, 1));
     expect(
         tester.getCenter(resume).dy, closeTo(tester.getCenter(watched).dy, 1));
-    expect(Focus.of(tester.element(start)).hasPrimaryFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-    await tester.pumpAndSettle();
     expect(Focus.of(tester.element(resume)).hasPrimaryFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();

@@ -48,7 +48,7 @@ class SeriesDetailScreen extends ConsumerWidget {
           leading: context.canPop()
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
+                  tooltip: AppLocalizations.of(context).profileBack,
                   onPressed: () => context.pop(),
                 )
               : null,
@@ -57,8 +57,7 @@ class SeriesDetailScreen extends ConsumerWidget {
         body: ErrorState(
           icon: Icons.tv,
           title: l.detailUnavailable,
-          message: 'Identifiant de série manquant (navigation incorrecte). '
-              'Retournez à la liste et réessayez.',
+          message: l.seriesMissingId,
           onRetry: () => context.pop(),
         ),
       );
@@ -77,7 +76,7 @@ class SeriesDetailScreen extends ConsumerWidget {
             leading: context.canPop()
                 ? IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: 'Retour',
+                    tooltip: AppLocalizations.of(context).profileBack,
                     onPressed: () => context.pop(),
                   )
                 : null,
@@ -104,8 +103,7 @@ class SeriesDetailScreen extends ConsumerWidget {
                 baseSeries: baseSeries,
               ),
             ),
-            loading: () =>
-                const LoadingState(message: 'Enrichissement des métadonnées…'),
+            loading: () => LoadingState(message: l.seriesEnriching),
             error: (err, _) => ErrorState(
               icon: Icons.tv,
               title: l.detailUnavailable,
@@ -115,7 +113,7 @@ class SeriesDetailScreen extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const LoadingState(message: 'Chargement de la série…'),
+      loading: () => LoadingState(message: l.seriesLoading),
       error: (err, _) => ErrorState(
         icon: Icons.tv,
         title: l.seriesNotFound,
@@ -190,15 +188,14 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionHeader(
+                SectionHeader(
                   icon: Icons.replay_rounded,
-                  title: 'Reprendre',
+                  title: l.resumeAction,
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    '${resumeEpisodes.length} '
-                    '${resumeEpisodes.length > 1 ? 'épisodes en cours' : 'épisode en cours'}',
+                    l.episodesInProgress(resumeEpisodes.length),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -213,7 +210,7 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
             child: EmptyState(
               icon: Icons.video_library_outlined,
               title: l.noEpisodes,
-              message: 'Cette série ne propose pas encore d\'épisodes.',
+              message: l.seriesNoEpisodesHint,
             ),
           )
         else ...[
@@ -354,7 +351,7 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
                   child: Text(
-                    '$seen/$total vus',
+                    l.episodesWatchedCount(seen, total),
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -379,7 +376,7 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
   Widget _episodeActionsHint(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
         child: Text(
-          'Maintenez OK pour marquer comme vu ou réinitialiser.',
+          AppLocalizations.of(context).episodeActionsHelp,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -399,8 +396,9 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
   }
 
   String _seasonSubtitle({required int total, required int seen}) {
-    if (seen == 0) return '$total épisodes';
-    return '$seen/$total vus';
+    final l = AppLocalizations.of(context);
+    if (seen == 0) return l.episodesCount(total);
+    return l.episodesWatchedCount(seen, total);
   }
 }
 
@@ -422,7 +420,7 @@ class _SeriesHeader extends ConsumerWidget {
 
     final metaParts = <String>[
       if (series.year > 0) '${series.year}',
-      if (series.runtime > 0) '${series.runtime} min/ép',
+      if (series.runtime > 0) l.seriesRuntimePerEpisode(series.runtime),
       if (series.genre.isNotEmpty) series.genre,
       if (series.rating > 0) '★ ${series.rating.toStringAsFixed(1)}',
     ];
@@ -430,11 +428,13 @@ class _SeriesHeader extends ConsumerWidget {
 
     final extraMetaParts = <String>[
       if (series.status.isNotEmpty) series.status,
-      if (series.networks.isNotEmpty) 'Réseau: ${series.networks.join(', ')}',
+      if (series.networks.isNotEmpty)
+        l.seriesNetwork(series.networks.join(', ')),
       if (series.firstAirDate.isNotEmpty)
-        '1Ê³áµ‰ diffusion: ${_formatDate(series.firstAirDate)}',
-      if (series.numberOfSeasons > 0) '${series.numberOfSeasons} saisons',
-      if (series.numberOfEpisodes > 0) '${series.numberOfEpisodes} épisodes',
+        l.seriesFirstAired(_formatDate(context, series.firstAirDate)),
+      if (series.numberOfSeasons > 0)
+        l.seriesSeasonsCount(series.numberOfSeasons),
+      if (series.numberOfEpisodes > 0) l.episodesCount(series.numberOfEpisodes),
     ];
     final extraMeta = extraMetaParts.join('  •  ');
 
@@ -544,8 +544,9 @@ class _SeriesHeader extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               series.aiGenerated
-                                  ? 'Données générées par IA'
-                                  : 'Données ${series.dataSource.toUpperCase()}',
+                                  ? l.detailAiData
+                                  : l.detailSourceData(
+                                      series.dataSource.toUpperCase()),
                               style: textTheme.labelSmall?.copyWith(
                                 color: _getSourceColor(series.dataSource),
                                 fontWeight: FontWeight.w600,
@@ -594,7 +595,7 @@ class _SeriesHeader extends ConsumerWidget {
                     ),
                   ),
                   Text(
-                    'Non disponible',
+                    l.detailUnavailableValue,
                     style: textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -628,8 +629,7 @@ class _SeriesHeader extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         title: Text(l.removeFromWatchedConfirm),
         content: Text(
-          'Les $seen épisodes vus de « ${baseSeries.title} » seront marqués '
-          'comme non vus pour ce profil.',
+          l.seriesResetWatchedBody(seen, baseSeries.title),
         ),
         actions: [
           Focus(
@@ -652,7 +652,7 @@ class _SeriesHeader extends ConsumerWidget {
             },
             child: TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Annuler'),
+              child: Text(AppLocalizations.of(context).cancel),
             ),
           ),
           Focus(
@@ -694,7 +694,7 @@ class _SeriesHeader extends ConsumerWidget {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            '« ${baseSeries.title} » retiré des déjà vus.',
+            l.seriesResetWatchedDone(baseSeries.title),
           ),
           duration: const Duration(milliseconds: 1200),
         ),
@@ -716,12 +716,12 @@ class _SeriesHeader extends ConsumerWidget {
     }
   }
 
-  String _formatDate(String dateStr) {
+  String _formatDate(BuildContext context, String dateStr) {
     if (dateStr.isEmpty) return dateStr;
     final result = safeSync(
       () {
         final date = DateTime.parse(dateStr);
-        return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+        return MaterialLocalizations.of(context).formatShortDate(date);
       },
       context: '_formatDate',
       fallbackValue: dateStr,
@@ -768,6 +768,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
 
   double _carouselHeight(BuildContext context) {
     final theme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
     final inherited = DefaultTextStyle.of(context).style;
     final inputs = (
       episodes: widget.episodes,
@@ -802,7 +803,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
       final title = _episodeTitleBelow(widget.series, episode);
       titleHeight = math.max(
         titleHeight,
-        textHeight(title.isEmpty ? 'Épisode' : title, inputs.episodeStyle, 3),
+        textHeight(title.isEmpty ? l.episode : title, inputs.episodeStyle, 3),
       );
     }
     _heightInputs = inputs;
@@ -814,8 +815,9 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
         9 +
         4 +
         math.max(
-          textHeight('Reprendre', inputs.statusStyle, null),
-          textHeight('Vu · Reprendre', inputs.statusStyle, null),
+          textHeight(l.resumeAction, inputs.statusStyle, null),
+          textHeight('${l.episodeWatched} · ${l.resumeAction}',
+              inputs.statusStyle, null),
         ) +
         24 +
         8;
@@ -825,6 +827,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -832,7 +835,7 @@ class _EpisodeCarouselState extends State<_EpisodeCarousel> {
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
           child: Text(
             _focusedIndex == null || _focusedIndex! >= widget.episodes.length
-                ? '${widget.episodes.length} épisodes'
+                ? l.episodesCount(widget.episodes.length)
                 : '${_focusedIndex! + 1} / ${widget.episodes.length}',
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -989,7 +992,7 @@ class _ResetEpisodeDialogState extends State<_ResetEpisodeDialog> {
             autofocus: true,
             focusNode: _cancelFocus,
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             focusNode: _resetFocus,
@@ -1049,7 +1052,7 @@ class _EpisodeTile extends ConsumerWidget {
     final hasNumber = _episodeHasNumber(episodeTitle);
     final label = episodeTitle.isNotEmpty
         ? (hasNumber ? episodeTitle : '$number — $episodeTitle')
-        : 'Épisode $number';
+        : '${l.episode} $number';
     final titleBelow = _episodeTitleBelow(series, episode);
     final canPlay = episode.streamUrl.isNotEmpty;
     final profileId = ref.watch(currentProfileProvider)?.id ?? '';
@@ -1084,15 +1087,13 @@ class _EpisodeTile extends ConsumerWidget {
     Future<void> setWatched(bool value) async {
       if (profileId.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Sélectionnez un profil pour modifier cet épisode.')),
+          SnackBar(content: Text(l.episodeSelectProfile)),
         );
         return;
       }
       if (ref.read(currentProfileProvider)?.id != profileId) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Le profil a changé. Réessayez.')),
+          SnackBar(content: Text(l.episodeProfileChanged)),
         );
         return;
       }
@@ -1112,9 +1113,7 @@ class _EpisodeTile extends ConsumerWidget {
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text('Impossible de modifier le statut de cet épisode.')),
+            SnackBar(content: Text(l.episodeStatusFailed)),
           );
         }
       }
@@ -1125,14 +1124,13 @@ class _EpisodeTile extends ConsumerWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (_) => _ResetEpisodeDialog(
-          title: isVu ? 'Réinitialiser l\'épisode ?' : 'Marquer comme vu ?',
+          title: isVu ? l.episodeResetQuestion : l.episodeMarkWatchedQuestion,
           message: isVu && hasProgress
-              ? '« $label » sera marqué comme non vu et sa progression '
-                  'de lecture sera effacée.'
+              ? l.episodeResetProgressMessage(label)
               : isVu
-                  ? '« $label » sera marqué comme non vu pour ce profil.'
-                  : '« $label » sera marqué comme vu pour ce profil.',
-          resetLabel: isVu ? l.reset : 'Marquer comme vu',
+                  ? l.episodeMarkUnwatchedMessage(label)
+                  : l.episodeMarkWatchedMessage(label),
+          resetLabel: isVu ? l.reset : l.episodeMarkWatched,
         ),
       );
 
@@ -1144,7 +1142,7 @@ class _EpisodeTile extends ConsumerWidget {
     return Semantics(
       container: true,
       label:
-          '${series.title}, $label${isVu ? ', Vu' : ''}${inProgress ? ', Reprendre' : ''}',
+          '${series.title}, $label${isVu ? ', ${l.episodeWatched}' : ''}${inProgress ? ', ${l.resumeAction}' : ''}',
       child: GestureDetector(
         onTap: canPlay ? onOpen : null,
         onLongPress: onLongPress,
@@ -1252,8 +1250,8 @@ class _EpisodeTile extends ConsumerWidget {
                                 triggerMode: TooltipTriggerMode.manual),
                             child: IconButton(
                               tooltip: isVu
-                                  ? 'Marquer comme non vu'
-                                  : 'Marquer comme vu',
+                                  ? l.episodeMarkUnwatched
+                                  : l.episodeMarkWatched,
                               onPressed: () => setWatched(!isVu),
                               icon: Icon(
                                 isVu
@@ -1291,7 +1289,9 @@ class _EpisodeTile extends ConsumerWidget {
             Tooltip(
               message: label,
               child: Text(
-                titleBelow.isEmpty ? 'Épisode' : titleBelow,
+                titleBelow.isEmpty
+                    ? AppLocalizations.of(context).episode
+                    : titleBelow,
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
@@ -1319,10 +1319,10 @@ class _EpisodeTile extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   inProgress && isVu
-                      ? 'Vu · Reprendre'
+                      ? '${l.episodeWatched} · ${l.resumeAction}'
                       : inProgress
-                          ? 'Reprendre'
-                          : 'Vu',
+                          ? l.resumeAction
+                          : l.episodeWatched,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: inProgress ? scheme.primary : _watchedGreen,
                         fontWeight: FontWeight.w700,
@@ -1344,6 +1344,7 @@ class _SeriesTrackPreferences extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final external =
         ref.watch(advancedSettingsProvider).playerSeries.primary.isExternal;
     return Padding(
@@ -1359,9 +1360,7 @@ class _SeriesTrackPreferences extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'Avec un lecteur externe, choisissez les pistes audio et les '
-                    'sous-titres dans ce lecteur. Les préférences ci-dessous '
-                    's’appliquent au lecteur interne.',
+                    l.seriesExternalTracksHint,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),
@@ -1489,6 +1488,7 @@ class _SeriesAudioLanguageSelectorState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1499,7 +1499,7 @@ class _SeriesAudioLanguageSelectorState
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Langue audio par défaut',
+                l.seriesDefaultAudioLanguage,
                 style: textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.primary,
@@ -1514,17 +1514,20 @@ class _SeriesAudioLanguageSelectorState
             key: ValueKey(_selectedLanguage),
             initialValue: _selectedLanguage,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Langue',
-              hintText: 'Sélectionner une langue',
-              prefixIcon: Icon(Icons.language_outlined),
-              border: OutlineInputBorder(),
+            style: textTheme.titleMedium?.copyWith(fontSize: 12),
+            decoration: InputDecoration(
+              labelText: l.language,
+              labelStyle: const TextStyle(fontSize: 12),
+              hintText: l.seriesSelectLanguage,
+              hintStyle: const TextStyle(fontSize: 12),
+              prefixIcon: const Icon(Icons.language_outlined),
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             items: [
-              const DropdownMenuItem<String>(
+              DropdownMenuItem<String>(
                 value: '',
-                child: Text('(Défaut du flux)'),
+                child: Text(l.seriesStreamDefault),
               ),
               ..._availableLanguages.map(
                 (l) => DropdownMenuItem<String>(
@@ -1545,16 +1548,16 @@ class _SeriesAudioLanguageSelectorState
           forced: _forced,
           onForcedChanged: _selectedLanguage == null ? null : _onForcedChanged,
           description: _selectedLanguage == null
-              ? 'Choisissez d’abord une langue'
+              ? l.seriesChooseLanguageFirst
               : _selectedLanguage!.isEmpty
                   ? (_forced
-                      ? 'Utiliser le défaut du flux pour tous les épisodes'
-                      : 'Utiliser le défaut du flux sauf choix par épisode')
+                      ? l.seriesDefaultAllEpisodes
+                      : l.seriesDefaultUnlessEpisodeChoice)
                   : _forced
-                      ? 'Forcer cette langue pour tous les épisodes'
-                      : 'Appliquer si disponible',
+                      ? l.seriesForceLanguageAllEpisodes
+                      : l.seriesApplyIfAvailable,
         ),
-        if (_loading) const Text('Recherche des pistes audio…'),
+        if (_loading) Text(l.seriesSearchingAudio),
       ],
     );
   }
@@ -1665,21 +1668,21 @@ class _SeriesSubtitleLanguageSelectorState
   /// encore publié toutes les variantes) : on l'ajoute alors telle quelle.
   /// Sans ça, `DropdownButtonFormField` lèverait une assertion — « value » doit
   /// exister parmi les items — et l'écran série planterait à l'ouverture.
-  List<DropdownMenuItem<String>> _dropdownItems() {
-    const fallbackLanguages = <(String, String)>[
-      ('fr', 'Français'),
-      ('en', 'Anglais'),
-      ('es', 'Espagnol'),
-      ('de', 'Allemand'),
-      ('it', 'Italien'),
-      ('ar', 'Arabe'),
+  List<DropdownMenuItem<String>> _dropdownItems(AppLocalizations l) {
+    final fallbackLanguages = <(String, String)>[
+      ('fr', l.seriesLanguageFrench),
+      ('en', l.seriesLanguageEnglish),
+      ('es', l.seriesLanguageSpanish),
+      ('de', l.seriesLanguageGerman),
+      ('it', l.seriesLanguageItalian),
+      ('ar', l.seriesLanguageArabic),
     ];
     final languages =
         _availableLanguages.isEmpty ? fallbackLanguages : _availableLanguages;
     final items = <DropdownMenuItem<String>>[
-      const DropdownMenuItem<String>(
+      DropdownMenuItem<String>(
         value: '',
-        child: Text('(Désactivés)'),
+        child: Text(l.seriesSubtitlesDisabled),
       ),
       ...languages.map(
         (l) => DropdownMenuItem<String>(
@@ -1701,6 +1704,7 @@ class _SeriesSubtitleLanguageSelectorState
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1711,7 +1715,7 @@ class _SeriesSubtitleLanguageSelectorState
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Langue des sous-titres par défaut',
+                l.seriesDefaultSubtitleLanguage,
                 style: textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: scheme.primary,
@@ -1726,34 +1730,34 @@ class _SeriesSubtitleLanguageSelectorState
             key: ValueKey(_selectedLanguage),
             initialValue: _selectedLanguage,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Langue',
-              hintText: 'Sélectionner une langue',
-              prefixIcon: Icon(Icons.subtitles_outlined),
-              border: OutlineInputBorder(),
+            style: textTheme.titleMedium?.copyWith(fontSize: 12),
+            decoration: InputDecoration(
+              labelText: l.language,
+              labelStyle: const TextStyle(fontSize: 12),
+              hintText: l.seriesSelectLanguage,
+              hintStyle: const TextStyle(fontSize: 12),
+              prefixIcon: const Icon(Icons.subtitles_outlined),
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
-            items: _dropdownItems(),
+            items: _dropdownItems(l),
             onChanged: _preferencesLoaded ? _onLanguageChanged : null,
           ),
           forced: _forced,
           onForcedChanged: _selectedLanguage == null ? null : _onForcedChanged,
           description: _selectedLanguage == null
-              ? 'Choisissez d’abord une langue'
+              ? l.seriesChooseLanguageFirst
               : _selectedLanguage!.isEmpty
                   ? (_forced
-                      ? 'Désactiver les sous-titres pour tous les épisodes'
-                      : 'Désactiver les sous-titres par défaut')
+                      ? l.seriesDisableSubtitlesAll
+                      : l.seriesDisableSubtitlesDefault)
                   : _forced
-                      ? 'Forcer cette langue pour tous les épisodes'
-                      : 'Appliquer si disponible',
+                      ? l.seriesForceLanguageAllEpisodes
+                      : l.seriesApplyIfAvailable,
         ),
-        if (_loading) const Text('Recherche des pistes de sous-titres…'),
+        if (_loading) Text(l.seriesSearchingSubtitles),
         if (!_loading && _availableLanguages.isEmpty)
-          const Text(
-            'Aucune piste détectée : choisissez une langue, '
-            'elle sera utilisée si disponible.',
-          ),
+          Text(l.seriesNoSubtitleTracks),
       ],
     );
   }

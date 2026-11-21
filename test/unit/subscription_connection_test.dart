@@ -55,15 +55,15 @@ class _PlaylistApi extends ApiService {
   final Directory directory;
 
   @override
-  Future<M3uPlaylist> fetchM3uPlaylist(String url) => PlaylistFetchService(
+  Future<M3uPlaylist> fetchM3uPlaylist(String url, {void Function()? onParsing}) => PlaylistFetchService(
         cache: ConditionalPlaylistCache(directory: () async => directory),
         log: (_) {},
-        get: (url, {options}) async => Response<dynamic>(
+        get: (url, {options, onReceiveProgress}) async => Response<dynamic>(
           requestOptions: RequestOptions(path: url),
           statusCode: 200,
           data: body,
         ),
-      ).fetch(url);
+      ).fetch(url, onParsing: onParsing);
 }
 
 void main() {

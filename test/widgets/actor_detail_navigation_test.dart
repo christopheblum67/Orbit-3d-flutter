@@ -13,6 +13,41 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
+  testWidgets('la naissance et le genre suivent la langue de la fiche',
+      (tester) async {
+    final actor = Actor(
+      id: '42',
+      name: 'Actor',
+      character: '',
+      profilePath: '',
+      source: ActorSource.tmdb,
+    );
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) => ActorDetailScreen(actor: actor),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tmdbPersonDetailProvider(42).overrideWith((ref) async =>
+            const PersonDetail(
+                id: 42, name: 'Actor', birthday: '1980-01-02', gender: 1)),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Born on'), findsOneWidget);
+    expect(find.textContaining('1980'), findsOneWidget);
+    expect(find.textContaining('Female'), findsOneWidget);
+  });
+
   testWidgets('fiche acteur, biographie et filmographie accessibles au D-pad',
       (tester) async {
     tester.view.physicalSize = const Size(800, 480);
@@ -208,17 +243,17 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(ProviderScope(
       overrides: [
-        tmdbPersonDetailProvider(42).overrideWith((ref) async =>
-            const PersonDetail(
-              id: 42,
-              name: 'Actrice',
-              credits: [
-                MovieCredit(
-                  tmdbId: 1,
-                  title: 'Un film avec un titre particulièrement long',
-                ),
-              ],
-            )),
+        tmdbPersonDetailProvider(42)
+            .overrideWith((ref) async => const PersonDetail(
+                  id: 42,
+                  name: 'Actrice',
+                  credits: [
+                    MovieCredit(
+                      tmdbId: 1,
+                      title: 'Un film avec un titre particulièrement long',
+                    ),
+                  ],
+                )),
       ],
       child: MaterialApp.router(
         routerConfig: router,

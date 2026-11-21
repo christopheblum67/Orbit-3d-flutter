@@ -180,6 +180,39 @@ void main() {
       }
       return const PlaylistResponse(statusCode: 200, body: '#EXTM3U\nnew');
     });
+
+    expect(result, '#EXTM3U\nnew');
+    expect(requests, [
+      {'If-None-Match': '"v1"'},
+      <String, String>{},
+    ]);
+  });
+
+  test('an asynchronous parse failure on 304 retries without validators',
+      () async {
+    await cache.fetch(
+      resource: 'https://example.test/async',
+      request: (_) async => const PlaylistResponse(
+        statusCode: 200,
+        body: 'invalid',
+        etag: '"v1"',
+      ),
+      parse: (body) => body,
+    );
+    final requests = <Map<String, String>>[];
+    final result = await cache.fetch<String>(
+      resource: 'https://example.test/async',
+      request: (headers) async {
+        requests.add(headers);
+        return requests.length == 1
+            ? const PlaylistResponse(statusCode: 304)
+            : const PlaylistResponse(statusCode: 200, body: '#EXTM3U\nnew');
+      },
+      parse: (body) async {
+        if (!body.startsWith('#EXTM3U')) throw const FormatException();
+        return body;
+      },
+    );
     expect(result, '#EXTM3U\nnew');
     expect(requests, [
       {'If-None-Match': '"v1"'},

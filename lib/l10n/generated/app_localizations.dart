@@ -106,6 +106,4284 @@ abstract class AppLocalizations {
     Locale('it')
   ];
 
+  /// No description provided for @castSearching.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche d’appareils Cast…'**
+  String get castSearching;
+
+  /// No description provided for @castReceiverNotReady.
+  ///
+  /// In fr, this message translates to:
+  /// **'Récepteur pas encore prêt'**
+  String get castReceiverNotReady;
+
+  /// No description provided for @castConnectedTo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connecté à {name}'**
+  String castConnectedTo(String name);
+
+  /// No description provided for @castConnectionFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion à {name} impossible.'**
+  String castConnectionFailed(String name);
+
+  /// No description provided for @playerPause.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pause'**
+  String get playerPause;
+
+  /// No description provided for @playerNightFocusOn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Night Focus (activé)'**
+  String get playerNightFocusOn;
+
+  /// No description provided for @playerNightFocusOff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Night Focus (désactivé)'**
+  String get playerNightFocusOff;
+
+  /// No description provided for @playerLoadingProgram.
+  ///
+  /// In fr, this message translates to:
+  /// **'Programme en cours de chargement…'**
+  String get playerLoadingProgram;
+
+  /// No description provided for @audioNightHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’optimisation sonore s’applique au moteur natif lorsque Night Focus est activé. Les réglages sont conservés pour la prochaine lecture.'**
+  String get audioNightHelp;
+
+  /// No description provided for @audioNightTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Optimisation nocturne (Night Focus)'**
+  String get audioNightTitle;
+
+  /// No description provided for @audioDialogueBoost.
+  ///
+  /// In fr, this message translates to:
+  /// **'Amplification des dialogues'**
+  String get audioDialogueBoost;
+
+  /// No description provided for @audioDialogueHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rehausse la plage spectrale des voix (1–4 kHz)'**
+  String get audioDialogueHelp;
+
+  /// No description provided for @audioBassLimiter.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réduction des basses et limiteur'**
+  String get audioBassLimiter;
+
+  /// No description provided for @audioBassHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Atténue les basses profondes et compresse les surcharges soudaines'**
+  String get audioBassHelp;
+
+  /// No description provided for @audioVocalGain.
+  ///
+  /// In fr, this message translates to:
+  /// **'Amplification des voix :'**
+  String get audioVocalGain;
+
+  /// No description provided for @audioSyncTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décalage audio (synchronisation A/V)'**
+  String get audioSyncTitle;
+
+  /// No description provided for @startupResumeQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre « {title} » à {position} ?'**
+  String startupResumeQuestion(String title, String position);
+
+  /// No description provided for @startupLastSession.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dernière session'**
+  String get startupLastSession;
+
+  /// No description provided for @seriesExternalTracksHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avec un lecteur externe, choisissez les pistes audio et les sous-titres dans ce lecteur. Les préférences ci-dessous s’appliquent au lecteur interne.'**
+  String get seriesExternalTracksHint;
+
+  /// No description provided for @seriesResetWatchedBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les {count} épisodes vus de « {title} » seront marqués comme non vus pour ce profil.'**
+  String seriesResetWatchedBody(int count, String title);
+
+  /// No description provided for @seriesResetWatchedDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » retiré des déjà vus.'**
+  String seriesResetWatchedDone(String title);
+
+  /// No description provided for @recommendationAffinity.
+  ///
+  /// In fr, this message translates to:
+  /// **'Affinité'**
+  String get recommendationAffinity;
+
+  /// No description provided for @recommendationLoadingCatalog.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement du catalogue en cours…'**
+  String get recommendationLoadingCatalog;
+
+  /// No description provided for @recommendationBuilding.
+  ///
+  /// In fr, this message translates to:
+  /// **'Construction de vos recommandations en cours…'**
+  String get recommendationBuilding;
+
+  /// No description provided for @recommendationLoadingDuration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cela peut prendre jusqu\'à 1 minute.'**
+  String get recommendationLoadingDuration;
+
+  /// No description provided for @memoryPanelTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mémoire et cache'**
+  String get memoryPanelTitle;
+
+  /// No description provided for @memoryPanelHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nettoyez l’historique et le cache d’images en mémoire.'**
+  String get memoryPanelHelp;
+
+  /// No description provided for @memoryHistoryTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer l’historique des vues'**
+  String get memoryHistoryTitle;
+
+  /// No description provided for @memoryHistoryHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Efface l’historique global et les anciens éléments récents, ainsi que les contenus récents et les positions de reprise du profil courant.'**
+  String get memoryHistoryHelp;
+
+  /// No description provided for @memoryClear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer'**
+  String get memoryClear;
+
+  /// No description provided for @memoryImagesTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vider le cache d’images en mémoire'**
+  String get memoryImagesTitle;
+
+  /// No description provided for @memoryImagesHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Libère les images mises en cache en mémoire ; les fichiers en cache sur disque sont conservés.'**
+  String get memoryImagesHelp;
+
+  /// No description provided for @memoryPurge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vider'**
+  String get memoryPurge;
+
+  /// No description provided for @sortOptionsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Options de tri avancé'**
+  String get sortOptionsTitle;
+
+  /// No description provided for @sortOptionsHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un mode avec la télécommande :'**
+  String get sortOptionsHelp;
+
+  /// No description provided for @sortRecentDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contenus importés récemment dans la liste'**
+  String get sortRecentDescription;
+
+  /// No description provided for @sortResumeDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Place les contenus commencés non terminés en haut'**
+  String get sortResumeDescription;
+
+  /// No description provided for @sortRatingDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classement selon les notes attribuées'**
+  String get sortRatingDescription;
+
+  /// No description provided for @sortYearDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri chronologique par année de production'**
+  String get sortYearDescription;
+
+  /// No description provided for @sortDurationDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri par durée du contenu'**
+  String get sortDurationDescription;
+
+  /// No description provided for @sortActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actif'**
+  String get sortActive;
+
+  /// No description provided for @onboardingWelcome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bienvenue sur Orbit IPTV'**
+  String get onboardingWelcome;
+
+  /// No description provided for @onboardingSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Configuration automatique de votre appareil'**
+  String get onboardingSubtitle;
+
+  /// No description provided for @onboardingDeviceDetected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appareil détecté'**
+  String get onboardingDeviceDetected;
+
+  /// No description provided for @onboardingDevice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appareil'**
+  String get onboardingDevice;
+
+  /// No description provided for @onboardingConnection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion'**
+  String get onboardingConnection;
+
+  /// No description provided for @onboardingMobileNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réseau mobile'**
+  String get onboardingMobileNetwork;
+
+  /// No description provided for @onboardingOtherNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autre'**
+  String get onboardingOtherNetwork;
+
+  /// No description provided for @onboardingUnknownMemory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inconnue'**
+  String get onboardingUnknownMemory;
+
+  /// No description provided for @onboardingMemoryMb.
+  ///
+  /// In fr, this message translates to:
+  /// **'{value} Mo'**
+  String onboardingMemoryMb(String value);
+
+  /// No description provided for @onboardingMemoryGb.
+  ///
+  /// In fr, this message translates to:
+  /// **'{value} Go'**
+  String onboardingMemoryGb(String value);
+
+  /// No description provided for @onboardingEco.
+  ///
+  /// In fr, this message translates to:
+  /// **'Économique'**
+  String get onboardingEco;
+
+  /// No description provided for @onboardingProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profil {name}'**
+  String onboardingProfile(String name);
+
+  /// No description provided for @onboardingEcoDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Démarrage rapide (1,5 s) · max 1080p · 3D désactivée · multi-vue désactivée'**
+  String get onboardingEcoDescription;
+
+  /// No description provided for @onboardingStandardDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Démarrage rapide (2 s) · rendu 3D fluide · multi-vue x2'**
+  String get onboardingStandardDescription;
+
+  /// No description provided for @onboardingUltraDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4'**
+  String get onboardingUltraDescription;
+
+  /// No description provided for @onboardingResetRecommendation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser la recommandation'**
+  String get onboardingResetRecommendation;
+
+  /// No description provided for @onboardingAdjust.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajuster manuellement'**
+  String get onboardingAdjust;
+
+  /// No description provided for @onboardingChooseProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez un profil'**
+  String get onboardingChooseProfile;
+
+  /// No description provided for @onboardingRecommendedProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profil recommandé'**
+  String get onboardingRecommendedProfile;
+
+  /// No description provided for @onboardingEcoHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effets 3D et multi-vue désactivés.'**
+  String get onboardingEcoHint;
+
+  /// No description provided for @duoTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mode Duo'**
+  String get duoTitle;
+
+  /// No description provided for @duoChooseOthers.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez 1 à {max} profil(s) supplémentaire(s)'**
+  String duoChooseOthers(int max);
+
+  /// No description provided for @duoChooseWith.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avec « {name} » — choisissez 1 à {max} autre(s) profil(s)'**
+  String duoChooseWith(String name, int max);
+
+  /// No description provided for @duoCreateProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créez au moins un 2e profil'**
+  String get duoCreateProfile;
+
+  /// No description provided for @duoNeedsProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le mode Duo nécessite au moins 2 profils au total.'**
+  String get duoNeedsProfiles;
+
+  /// No description provided for @duoFull.
+  ///
+  /// In fr, this message translates to:
+  /// **'4 profils — équipe complète pour le Duo'**
+  String get duoFull;
+
+  /// No description provided for @duoReady.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} profils sélectionnés — prêt pour le Duo'**
+  String duoReady(int count);
+
+  /// No description provided for @duoSelectOne.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez au moins 1 profil supplémentaire ({count}/4)'**
+  String duoSelectOne(int count);
+
+  /// No description provided for @duoStart.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lancer le Duo'**
+  String get duoStart;
+
+  /// No description provided for @duoSelected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionné'**
+  String get duoSelected;
+
+  /// No description provided for @duoMaximum.
+  ///
+  /// In fr, this message translates to:
+  /// **'Max atteint'**
+  String get duoMaximum;
+
+  /// No description provided for @legalIntroTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Orbit IPTV · Lisez-moi'**
+  String get legalIntroTitle;
+
+  /// No description provided for @legalIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bonjour ! Avant de commencer, quelques informations courtes sur l’usage de cette application et les droits associés aux contenus affichés.'**
+  String get legalIntro;
+
+  /// No description provided for @legalServicePlayer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Orbit IPTV est un lecteur IPTV : il affiche des flux fournis par des serveurs tiers (abonnement M3U / Xtream Codes) sans héberger aucun contenu vidéo, audio ou sous-titre.'**
+  String get legalServicePlayer;
+
+  /// No description provided for @legalServiceMetadata.
+  ///
+  /// In fr, this message translates to:
+  /// **'Il agrège et présente des métadonnées (affiches, synopsis, EPG) récupérées via des API publiques. Il fonctionne comme un navigateur spécialisé pour les flux HLS/DASH.'**
+  String get legalServiceMetadata;
+
+  /// No description provided for @legalRightsProvider.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le fournisseur d’abonnement IPTV est seul responsable des licences des chaînes, des droits de diffusion et du géoblocage des flux qu’il fournit.'**
+  String get legalRightsProvider;
+
+  /// No description provided for @legalRightsMetadata.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les affiches et synopsis proviennent de TMDb sous licence API ; l’attribution TMDb est affichée en bas de page des classements.'**
+  String get legalRightsMetadata;
+
+  /// No description provided for @legalRightsContent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Orbit IPTV ne stocke, ne redistribue et ne monétise aucun contenu diffusé.'**
+  String get legalRightsContent;
+
+  /// No description provided for @legalUsageTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Usage de l’application'**
+  String get legalUsageTitle;
+
+  /// No description provided for @legalUsageRights.
+  ///
+  /// In fr, this message translates to:
+  /// **'À utiliser uniquement avec un abonnement dont vous détenez les droits de diffusion.'**
+  String get legalUsageRights;
+
+  /// No description provided for @legalUsageRestrictions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Interdiction de contourner le géoblocage ou les DRM, et de partager son compte hors du foyer.'**
+  String get legalUsageRestrictions;
+
+  /// No description provided for @legalUsageEditorial.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’application ne fait aucune sélection éditoriale du contenu diffusé : aucun contrôle sur les flux des serveurs tiers.'**
+  String get legalUsageEditorial;
+
+  /// No description provided for @legalPrivacyStorage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profils, favoris, historique et réglages sont stockés localement. Si vous activez le partage cloud, les données sélectionnées sont également synchronisées de façon chiffrée.'**
+  String get legalPrivacyStorage;
+
+  /// No description provided for @legalPrivacyConsent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune collecte par défaut : notifications et accès optionnels font l’objet d’un consentement explicite.'**
+  String get legalPrivacyConsent;
+
+  /// No description provided for @legalWarningTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avertissement'**
+  String get legalWarningTitle;
+
+  /// No description provided for @legalWarningBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce document ne constitue pas un conseil juridique. Les règles varient selon les juridictions : vérifiez que votre usage est autorisé dans votre pays (loi applicable, âge minimum).'**
+  String get legalWarningBody;
+
+  /// No description provided for @legalAccept.
+  ///
+  /// In fr, this message translates to:
+  /// **'J\'ai lu et j\'accepte · Continuer'**
+  String get legalAccept;
+
+  /// No description provided for @epgReplayAvailableOnChannel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Replay disponible sur cette chaîne'**
+  String get epgReplayAvailableOnChannel;
+
+  /// No description provided for @actorBornOn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Né(e) le {date}'**
+  String actorBornOn(String date);
+
+  /// No description provided for @actorGenderMale.
+  ///
+  /// In fr, this message translates to:
+  /// **'Homme'**
+  String get actorGenderMale;
+
+  /// No description provided for @actorGenderFemale.
+  ///
+  /// In fr, this message translates to:
+  /// **'Femme'**
+  String get actorGenderFemale;
+
+  /// No description provided for @crewTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Équipe technique'**
+  String get crewTitle;
+
+  /// No description provided for @crewDirecting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réalisation'**
+  String get crewDirecting;
+
+  /// No description provided for @crewWriting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Scénario'**
+  String get crewWriting;
+
+  /// No description provided for @crewProduction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Production'**
+  String get crewProduction;
+
+  /// No description provided for @crewSound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Son'**
+  String get crewSound;
+
+  /// No description provided for @crewCamera.
+  ///
+  /// In fr, this message translates to:
+  /// **'Image'**
+  String get crewCamera;
+
+  /// No description provided for @crewEditing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Montage'**
+  String get crewEditing;
+
+  /// No description provided for @crewArt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Direction artistique'**
+  String get crewArt;
+
+  /// No description provided for @crewCostume.
+  ///
+  /// In fr, this message translates to:
+  /// **'Costumes et maquillage'**
+  String get crewCostume;
+
+  /// No description provided for @crewVisualEffects.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effets visuels'**
+  String get crewVisualEffects;
+
+  /// No description provided for @crewLighting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Éclairage'**
+  String get crewLighting;
+
+  /// No description provided for @menuContinue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Continuer'**
+  String get menuContinue;
+
+  /// No description provided for @menuDiscover.
+  ///
+  /// In fr, this message translates to:
+  /// **'Découvrir'**
+  String get menuDiscover;
+
+  /// No description provided for @menuHome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accueil'**
+  String get menuHome;
+
+  /// No description provided for @menuSearch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche'**
+  String get menuSearch;
+
+  /// No description provided for @menuProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profil'**
+  String get menuProfile;
+
+  /// No description provided for @menuSubscriptions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Abonnements'**
+  String get menuSubscriptions;
+
+  /// No description provided for @menuSelect.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un sous-menu'**
+  String get menuSelect;
+
+  /// No description provided for @menuContent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contenus'**
+  String get menuContent;
+
+  /// No description provided for @profileMustKeepOne.
+  ///
+  /// In fr, this message translates to:
+  /// **'Au moins un profil doit rester sur l\'appareil'**
+  String get profileMustKeepOne;
+
+  /// No description provided for @profileDeleteBody.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {name} » et ses préférences seront supprimés définitivement. Cette action est irréversible.'**
+  String profileDeleteBody(String name);
+
+  /// No description provided for @profileChange.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer de profil'**
+  String get profileChange;
+
+  /// No description provided for @profileEdit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier'**
+  String get profileEdit;
+
+  /// No description provided for @profileDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer'**
+  String get profileDelete;
+
+  /// No description provided for @profileBack.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour'**
+  String get profileBack;
+
+  /// No description provided for @profileAdult.
+  ///
+  /// In fr, this message translates to:
+  /// **'adulte'**
+  String get profileAdult;
+
+  /// No description provided for @profileChild.
+  ///
+  /// In fr, this message translates to:
+  /// **'enfant'**
+  String get profileChild;
+
+  /// No description provided for @profileExpert.
+  ///
+  /// In fr, this message translates to:
+  /// **'expert'**
+  String get profileExpert;
+
+  /// No description provided for @categoryTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégories'**
+  String get categoryTitle;
+
+  /// No description provided for @categoryShowAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout afficher'**
+  String get categoryShowAll;
+
+  /// No description provided for @categoryScanFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse impossible : le panel ne répond pas.'**
+  String get categoryScanFailed;
+
+  /// No description provided for @categoryEmptyLive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune catégorie Live TV sur ce panel.'**
+  String get categoryEmptyLive;
+
+  /// No description provided for @categoryEmptyMovies.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune catégorie Films sur ce panel.'**
+  String get categoryEmptyMovies;
+
+  /// No description provided for @categoryEmptySeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune catégorie Séries sur ce panel.'**
+  String get categoryEmptySeries;
+
+  /// No description provided for @categoryHidden.
+  ///
+  /// In fr, this message translates to:
+  /// **'{label} ({count} masquées)'**
+  String categoryHidden(String label, int count);
+
+  /// No description provided for @categoryNeverScanned.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jamais analysé'**
+  String get categoryNeverScanned;
+
+  /// No description provided for @categoryScannedToday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé aujourd\'hui'**
+  String get categoryScannedToday;
+
+  /// No description provided for @categoryScannedYesterday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé hier'**
+  String get categoryScannedYesterday;
+
+  /// No description provided for @categoryScannedDaysAgo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé il y a {days} jours'**
+  String categoryScannedDaysAgo(int days);
+
+  /// No description provided for @categorySubscriptionSettings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réglages propres à cet abonnement — {status}'**
+  String categorySubscriptionSettings(String status);
+
+  /// No description provided for @categoryScanning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse…'**
+  String get categoryScanning;
+
+  /// No description provided for @categoryRescan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réanalyser les catégories'**
+  String get categoryRescan;
+
+  /// No description provided for @categoryChannelsCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} chaînes'**
+  String categoryChannelsCount(int count);
+
+  /// No description provided for @categoryTitlesCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count} titres'**
+  String categoryTitlesCount(int count);
+
+  /// No description provided for @liveWatchAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Regarder'**
+  String get liveWatchAction;
+
+  /// No description provided for @livePreviewDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aperçu vidéo désactivé. Appuie sur « regarder » pour ouvrir la chaîne.'**
+  String get livePreviewDisabled;
+
+  /// No description provided for @livePreviewFrozen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aperçu figé'**
+  String get livePreviewFrozen;
+
+  /// No description provided for @livePreviewRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Relancer'**
+  String get livePreviewRetry;
+
+  /// No description provided for @episodeMarkWatchedFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de marquer cet épisode comme vu.'**
+  String get episodeMarkWatchedFailed;
+
+  /// No description provided for @episodeAlreadyWatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épisode déjà vu'**
+  String get episodeAlreadyWatched;
+
+  /// No description provided for @episodeMarkWatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'Marquer comme vu'**
+  String get episodeMarkWatched;
+
+  /// No description provided for @episodeResumeAt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Repris à {position}'**
+  String episodeResumeAt(String position);
+
+  /// No description provided for @episodeActionsHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Maintenez OK pour marquer comme vu ou réinitialiser.'**
+  String get episodeActionsHelp;
+
+  /// No description provided for @episodesCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, one{1 épisode} other{{count} épisodes}}'**
+  String episodesCount(int count);
+
+  /// No description provided for @episodesInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, one{1 épisode en cours} other{{count} épisodes en cours}}'**
+  String episodesInProgress(int count);
+
+  /// No description provided for @episodesWatchedCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{seen}/{total} vus'**
+  String episodesWatchedCount(int seen, int total);
+
+  /// No description provided for @episodeWatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vu'**
+  String get episodeWatched;
+
+  /// No description provided for @homeRefreshFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échec de la mise à jour : aucune source n\'a répondu.'**
+  String get homeRefreshFailed;
+
+  /// No description provided for @homeRefreshDone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour terminée.'**
+  String get homeRefreshDone;
+
+  /// No description provided for @homeRefreshEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour terminée, aucune donnée disponible.'**
+  String get homeRefreshEmpty;
+
+  /// No description provided for @homeChangeSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Changer d’abonnement'**
+  String get homeChangeSubscription;
+
+  /// No description provided for @homeManageSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gestion Abonnement'**
+  String get homeManageSubscription;
+
+  /// No description provided for @homeNoSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun abo'**
+  String get homeNoSubscription;
+
+  /// No description provided for @homeAddOrChangeSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter ou changer d’abonnement'**
+  String get homeAddOrChangeSubscription;
+
+  /// No description provided for @homeMultiStream.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jusqu\'à 4 flux à la fois'**
+  String get homeMultiStream;
+
+  /// No description provided for @homeRadioStations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Stations en direct'**
+  String get homeRadioStations;
+
+  /// No description provided for @homeRefreshUnknown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Dernière mise à jour inconnue'**
+  String get homeRefreshUnknown;
+
+  /// No description provided for @homeRefreshMinutes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mis à jour il y a {minutes} min'**
+  String homeRefreshMinutes(int minutes);
+
+  /// No description provided for @catalogAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous'**
+  String get catalogAll;
+
+  /// No description provided for @catalogUngrouped.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non groupé'**
+  String get catalogUngrouped;
+
+  /// No description provided for @catalogSort.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trier'**
+  String get catalogSort;
+
+  /// No description provided for @browseLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement…'**
+  String get browseLoading;
+
+  /// No description provided for @startupRadio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Radios'**
+  String get startupRadio;
+
+  /// No description provided for @profileCreateFirstHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crée ton premier profil pour commencer à regarder.'**
+  String get profileCreateFirstHint;
+
+  /// No description provided for @downloadDirectoryMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répertoire introuvable : {path}'**
+  String downloadDirectoryMissing(String path);
+
+  /// No description provided for @downloadFileMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier introuvable : {path}. Fichiers présents : {names}'**
+  String downloadFileMissing(String path, String names);
+
+  /// No description provided for @widevineSelectSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un abonnement actif'**
+  String get widevineSelectSubscription;
+
+  /// No description provided for @widevineLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement de la configuration'**
+  String get widevineLoading;
+
+  /// No description provided for @widevineLoadFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger la configuration'**
+  String get widevineLoadFailed;
+
+  /// No description provided for @widevineNoLicense.
+  ///
+  /// In fr, this message translates to:
+  /// **'{subscription} : aucune licence configurée'**
+  String widevineNoLicense(String subscription);
+
+  /// No description provided for @widevineSelectFirst.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez d’abord un abonnement actif.'**
+  String get widevineSelectFirst;
+
+  /// No description provided for @widevineUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'La configuration Widevine n’est pas disponible.'**
+  String get widevineUnavailable;
+
+  /// No description provided for @widevineSaveFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’enregistrer Widevine : {error}'**
+  String widevineSaveFailed(String error);
+
+  /// No description provided for @widevineClearFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’effacer Widevine : {error}'**
+  String widevineClearFailed(String error);
+
+  /// No description provided for @widevineLicenseUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'URL du serveur de licence'**
+  String get widevineLicenseUrl;
+
+  /// No description provided for @widevineInvalidUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisissez une URL HTTPS valide.'**
+  String get widevineInvalidUrl;
+
+  /// No description provided for @widevineHeaders.
+  ///
+  /// In fr, this message translates to:
+  /// **'En-têtes HTTP (JSON, facultatif)'**
+  String get widevineHeaders;
+
+  /// No description provided for @widevineInvalidHeaders.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les en-têtes doivent être un objet JSON de chaînes.'**
+  String get widevineInvalidHeaders;
+
+  /// No description provided for @widevineCertificate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Certificat base64 (facultatif)'**
+  String get widevineCertificate;
+
+  /// No description provided for @widevineStorageHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La configuration est stockée dans le coffre sécurisé. Elle est liée à cet abonnement. Elle ne rend pas compatible un moteur de lecture qui ne prend pas en charge Widevine.'**
+  String get widevineStorageHelp;
+
+  /// No description provided for @widevineCopyLegacy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Copier l’ancienne configuration globale'**
+  String get widevineCopyLegacy;
+
+  /// No description provided for @widevineClear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer'**
+  String get widevineClear;
+
+  /// No description provided for @preferenceMultiTvFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’enregistrer le réglage Multi TV.'**
+  String get preferenceMultiTvFailed;
+
+  /// No description provided for @preferenceLight.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clair'**
+  String get preferenceLight;
+
+  /// No description provided for @preferenceDark.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sombre'**
+  String get preferenceDark;
+
+  /// No description provided for @preferenceDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactivé'**
+  String get preferenceDisabled;
+
+  /// No description provided for @preferenceParentalEnabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activé · Restriction {restriction}'**
+  String preferenceParentalEnabled(String restriction);
+
+  /// No description provided for @preferenceMultiTvHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher et autoriser la lecture multi-écran pour ce profil.'**
+  String get preferenceMultiTvHelp;
+
+  /// No description provided for @preferenceAllowRecording.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autoriser l’enregistrement'**
+  String get preferenceAllowRecording;
+
+  /// No description provided for @preferenceRecordingHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Permettre l’enregistrement de mes contenus favoris'**
+  String get preferenceRecordingHelp;
+
+  /// No description provided for @preferenceLivePreview.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aperçu vidéo en direct'**
+  String get preferenceLivePreview;
+
+  /// No description provided for @preferenceLivePreviewHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Affiche le direct dans la navigation Live. Réglage commun à cet appareil.'**
+  String get preferenceLivePreviewHelp;
+
+  /// No description provided for @preferenceProfileHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vos préférences sont appliquées à votre profil.'**
+  String get preferenceProfileHelp;
+
+  /// No description provided for @parentalAgeLimit.
+  ///
+  /// In fr, this message translates to:
+  /// **'Restriction d’âge'**
+  String get parentalAgeLimit;
+
+  /// No description provided for @parentalNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune'**
+  String get parentalNone;
+
+  /// No description provided for @parentalHideAdult.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer le contenu adulte'**
+  String get parentalHideAdult;
+
+  /// No description provided for @parentalHideAdultHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Films/Séries/Chaînes classés 18+ ou érotique'**
+  String get parentalHideAdultHelp;
+
+  /// No description provided for @parentalHideViolence.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer la violence'**
+  String get parentalHideViolence;
+
+  /// No description provided for @parentalHideViolenceHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contenus Gore / Horreur / Thriller / Meurtre'**
+  String get parentalHideViolenceHelp;
+
+  /// No description provided for @parentalCurrentPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'PIN actuel : ••••'**
+  String get parentalCurrentPin;
+
+  /// No description provided for @parentalSetPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définir un code PIN'**
+  String get parentalSetPin;
+
+  /// No description provided for @parentalNewPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau PIN (4 chiffres)'**
+  String get parentalNewPin;
+
+  /// No description provided for @parentalPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'PIN (4 chiffres)'**
+  String get parentalPin;
+
+  /// No description provided for @parentalShowPin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher le PIN'**
+  String get parentalShowPin;
+
+  /// No description provided for @parentalHidePin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer le PIN'**
+  String get parentalHidePin;
+
+  /// No description provided for @parentalUpdatePin.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre à jour le PIN'**
+  String get parentalUpdatePin;
+
+  /// No description provided for @subtitleAvailableTracks.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pistes disponibles'**
+  String get subtitleAvailableTracks;
+
+  /// No description provided for @subtitleAddUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter un sous-titre (URL .srt/.vtt)'**
+  String get subtitleAddUrl;
+
+  /// No description provided for @subtitleLoadAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Charger'**
+  String get subtitleLoadAction;
+
+  /// No description provided for @subtitleTrackCues.
+  ///
+  /// In fr, this message translates to:
+  /// **'{language} · {count} segments'**
+  String subtitleTrackCues(String language, int count);
+
+  /// No description provided for @multiMaxStreams.
+  ///
+  /// In fr, this message translates to:
+  /// **'Maximum : {count} flux sur cet appareil.'**
+  String multiMaxStreams(int count);
+
+  /// No description provided for @multiDisabledProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Multi TV est désactivée pour ce profil. Activez-la dans les préférences du profil.'**
+  String get multiDisabledProfile;
+
+  /// No description provided for @multiAnalyzingDevice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse de l’appareil…'**
+  String get multiAnalyzingDevice;
+
+  /// No description provided for @multiDeviceAnalysisFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse de l’appareil impossible'**
+  String get multiDeviceAnalysisFailed;
+
+  /// No description provided for @multiDisabledEconomy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Multi-vue désactivée par le profil Économique.\nRéglez le profil dans Configurer l’appareil.'**
+  String get multiDisabledEconomy;
+
+  /// No description provided for @engineInternal.
+  ///
+  /// In fr, this message translates to:
+  /// **'{name} (Interne)'**
+  String engineInternal(String name);
+
+  /// No description provided for @engineExternal.
+  ///
+  /// In fr, this message translates to:
+  /// **'{name} (Externe)'**
+  String engineExternal(String name);
+
+  /// No description provided for @engineSelectionHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez le moteur utilisé pour chaque type de contenu, ainsi que le moteur de secours en cas d’échec de lecture.'**
+  String get engineSelectionHelp;
+
+  /// No description provided for @engineVideoDecoding.
+  ///
+  /// In fr, this message translates to:
+  /// **'Décodage vidéo'**
+  String get engineVideoDecoding;
+
+  /// No description provided for @engineAutoRecommended.
+  ///
+  /// In fr, this message translates to:
+  /// **'Auto (recommandé)'**
+  String get engineAutoRecommended;
+
+  /// No description provided for @engineHardware.
+  ///
+  /// In fr, this message translates to:
+  /// **'Matériel'**
+  String get engineHardware;
+
+  /// No description provided for @engineSoftware.
+  ///
+  /// In fr, this message translates to:
+  /// **'Logiciel'**
+  String get engineSoftware;
+
+  /// No description provided for @engineAutoSoftware.
+  ///
+  /// In fr, this message translates to:
+  /// **'Auto : logiciel retenu pour cet appareil'**
+  String get engineAutoSoftware;
+
+  /// No description provided for @engineSubtitleDefault.
+  ///
+  /// In fr, this message translates to:
+  /// **'Par défaut'**
+  String get engineSubtitleDefault;
+
+  /// No description provided for @engineSubtitleDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sans sous-titres'**
+  String get engineSubtitleDisabled;
+
+  /// No description provided for @engineSubtitleForced.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres forcés'**
+  String get engineSubtitleForced;
+
+  /// No description provided for @engineVodSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres VOD'**
+  String get engineVodSubtitles;
+
+  /// No description provided for @profilePinsNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun profil ne possède de code PIN.'**
+  String get profilePinsNone;
+
+  /// No description provided for @profilePinsRemoveQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer les codes PIN des profils ?'**
+  String get profilePinsRemoveQuestion;
+
+  /// No description provided for @profilePinsRemoveConfirmation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les codes PIN seront retirés de {count} profil(s). Les profils et leurs données resteront sur cet appareil. Les changements pourront être synchronisés avec les appareils partagés dans le Cloud.'**
+  String profilePinsRemoveConfirmation(int count);
+
+  /// No description provided for @profilePinsRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer les PIN'**
+  String get profilePinsRemove;
+
+  /// No description provided for @profilePinsNothingToRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun code PIN à supprimer.'**
+  String get profilePinsNothingToRemove;
+
+  /// No description provided for @profilePinsRemoved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Codes PIN supprimés de {count} profil(s).'**
+  String profilePinsRemoved(int count);
+
+  /// No description provided for @profilePinsRemoveFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de supprimer les codes PIN. Réessayez.'**
+  String get profilePinsRemoveFailed;
+
+  /// No description provided for @profileProtection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Protection des profils'**
+  String get profileProtection;
+
+  /// No description provided for @profilePinsRemoveHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirez les codes PIN de tous les profils de cet appareil. Les profils et leurs données ne seront pas supprimés.'**
+  String get profilePinsRemoveHelp;
+
+  /// No description provided for @profilePinsRemoving.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suppression des PIN…'**
+  String get profilePinsRemoving;
+
+  /// No description provided for @profilePinsRemoveAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer les codes PIN des profils'**
+  String get profilePinsRemoveAll;
+
+  /// No description provided for @radioEmptyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoute des stations de radio dans les réglages.'**
+  String get radioEmptyHint;
+
+  /// No description provided for @radioStations.
+  ///
+  /// In fr, this message translates to:
+  /// **'Stations'**
+  String get radioStations;
+
+  /// No description provided for @radioStationsCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, one{1 station} other{{count} stations}}'**
+  String radioStationsCount(int count);
+
+  /// No description provided for @radioStreamUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Flux radio indisponible sur cette station'**
+  String get radioStreamUnavailable;
+
+  /// No description provided for @livePreviousCategory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégorie précédente'**
+  String get livePreviousCategory;
+
+  /// No description provided for @liveNextCategory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégorie suivante'**
+  String get liveNextCategory;
+
+  /// No description provided for @liveGuideUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Guide indisponible'**
+  String get liveGuideUnavailable;
+
+  /// No description provided for @liveNoPrograms.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun programme disponible'**
+  String get liveNoPrograms;
+
+  /// No description provided for @liveNoUpcomingPrograms.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun programme à venir'**
+  String get liveNoUpcomingPrograms;
+
+  /// No description provided for @liveNoDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résumé disponible.'**
+  String get liveNoDescription;
+
+  /// No description provided for @recommendationSubscriptionChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’abonnement a changé. Recommencez.'**
+  String get recommendationSubscriptionChanged;
+
+  /// No description provided for @recommendationCannotFavorite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce contenu ne peut pas être ajouté aux favoris.'**
+  String get recommendationCannotFavorite;
+
+  /// No description provided for @recommendationFavoriteFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’ajouter ce contenu aux favoris.'**
+  String get recommendationFavoriteFailed;
+
+  /// No description provided for @recommendationMovieQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce film vous appartient ?'**
+  String get recommendationMovieQuestion;
+
+  /// No description provided for @recommendationSeriesQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette série vous appartient ?'**
+  String get recommendationSeriesQuestion;
+
+  /// No description provided for @recommendationMovieSeen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Film déjà vu'**
+  String get recommendationMovieSeen;
+
+  /// No description provided for @recommendationSeriesSeen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Série déjà vue'**
+  String get recommendationSeriesSeen;
+
+  /// No description provided for @recommendationRemovedFuture.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retiré des prochaines suggestions'**
+  String get recommendationRemovedFuture;
+
+  /// No description provided for @recommendationNotInterested.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pas intéressé'**
+  String get recommendationNotInterested;
+
+  /// No description provided for @recommendationExcluded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écarté définitivement des suggestions'**
+  String get recommendationExcluded;
+
+  /// No description provided for @recommendationFavoriteProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouté aux favoris du profil actuel'**
+  String get recommendationFavoriteProfile;
+
+  /// No description provided for @startupParsingPlaylist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse de la playlist M3U en cours…'**
+  String get startupParsingPlaylist;
+
+  /// No description provided for @startupProviderSlow.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le fournisseur répond lentement (vérification de sécurité possible). Merci de patienter…'**
+  String get startupProviderSlow;
+
+  /// No description provided for @startupLoadingRemaining.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement des radios et replays'**
+  String get startupLoadingRemaining;
+
+  /// No description provided for @startupLoadingInitial.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement du direct, des films, séries et du guide TV'**
+  String get startupLoadingInitial;
+
+  /// No description provided for @startupCheckingSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'La vérification de l’abonnement'**
+  String get startupCheckingSubscription;
+
+  /// No description provided for @startupRefresh.
+  ///
+  /// In fr, this message translates to:
+  /// **'La mise à jour'**
+  String get startupRefresh;
+
+  /// No description provided for @startupStalled.
+  ///
+  /// In fr, this message translates to:
+  /// **'{step} ne signale aucune progression depuis {seconds} secondes. Le serveur peut être lent ou indisponible.'**
+  String startupStalled(String step, int seconds);
+
+  /// No description provided for @startupRefreshStalled.
+  ///
+  /// In fr, this message translates to:
+  /// **'{step} ne signale aucune progression depuis {seconds} secondes. Le serveur peut être lent ou indisponible ; vous pouvez vérifier l’abonnement.'**
+  String startupRefreshStalled(String step, int seconds);
+
+  /// No description provided for @startupMovies.
+  ///
+  /// In fr, this message translates to:
+  /// **'Films & VOD'**
+  String get startupMovies;
+
+  /// No description provided for @startupLive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chaînes live'**
+  String get startupLive;
+
+  /// No description provided for @startupReady.
+  ///
+  /// In fr, this message translates to:
+  /// **'Prêt !'**
+  String get startupReady;
+
+  /// No description provided for @startupBackHome.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour à l’accueil'**
+  String get startupBackHome;
+
+  /// No description provided for @startupCheckSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifier l’abonnement'**
+  String get startupCheckSubscription;
+
+  /// No description provided for @browseRankings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classements'**
+  String get browseRankings;
+
+  /// No description provided for @browsePopularRankings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classements populaires'**
+  String get browsePopularRankings;
+
+  /// No description provided for @browseRankingsUnavailableHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les tendances TMDB ne sont pas disponibles. Ajoutez une clé API TMDB dans Réglages (ou TMDB_API_KEY dans assets/config/runtime.env).'**
+  String get browseRankingsUnavailableHint;
+
+  /// No description provided for @browseTmdbData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données © TMDB'**
+  String get browseTmdbData;
+
+  /// No description provided for @browsePopular.
+  ///
+  /// In fr, this message translates to:
+  /// **'Populaire'**
+  String get browsePopular;
+
+  /// No description provided for @browseNowPlaying.
+  ///
+  /// In fr, this message translates to:
+  /// **'En salle'**
+  String get browseNowPlaying;
+
+  /// No description provided for @browseTopRated.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mieux notés'**
+  String get browseTopRated;
+
+  /// No description provided for @browseUpcoming.
+  ///
+  /// In fr, this message translates to:
+  /// **'À venir'**
+  String get browseUpcoming;
+
+  /// No description provided for @browseTrendingWeek.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tendance de la semaine'**
+  String get browseTrendingWeek;
+
+  /// No description provided for @browseOnTheAir.
+  ///
+  /// In fr, this message translates to:
+  /// **'En diffusion'**
+  String get browseOnTheAir;
+
+  /// No description provided for @browseAiringToday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Diffusion aujourd’hui'**
+  String get browseAiringToday;
+
+  /// No description provided for @browseSeriesType.
+  ///
+  /// In fr, this message translates to:
+  /// **'Série'**
+  String get browseSeriesType;
+
+  /// No description provided for @browseSynopsis.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synopsis'**
+  String get browseSynopsis;
+
+  /// No description provided for @browseNotInSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette œuvre n’est pas présente dans votre abonnement actif. Découvrez-la sur l’une des plateformes référencées par TMDB.'**
+  String get browseNotInSubscription;
+
+  /// No description provided for @browseExploreCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Explorer par catégorie'**
+  String get browseExploreCategories;
+
+  /// No description provided for @browseFavoriteHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuie longuement sur un élément pour le retrouver ici.'**
+  String get browseFavoriteHint;
+
+  /// No description provided for @browseRecentHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les contenus regardés s’afficheront ici.'**
+  String get browseRecentHint;
+
+  /// No description provided for @browseSearchEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun contenu ne correspond à cette recherche.'**
+  String get browseSearchEmpty;
+
+  /// No description provided for @browseTitlesCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{visible} titres (sur {total})'**
+  String browseTitlesCount(int visible, int total);
+
+  /// No description provided for @catalogSearchMovies.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher un film ou un genre…'**
+  String get catalogSearchMovies;
+
+  /// No description provided for @catalogSearchSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher une série ou un genre…'**
+  String get catalogSearchSeries;
+
+  /// No description provided for @catalogLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement du catalogue en cours…\nMerci de patienter quelques secondes.'**
+  String get catalogLoading;
+
+  /// No description provided for @catalogNoMovies.
+  ///
+  /// In fr, this message translates to:
+  /// **'La bibliothèque VOD est vide pour le moment.'**
+  String get catalogNoMovies;
+
+  /// No description provided for @catalogNoSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'La bibliothèque de séries est vide pour le moment.'**
+  String get catalogNoSeries;
+
+  /// No description provided for @catalogNoRecentMovies.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun film récent'**
+  String get catalogNoRecentMovies;
+
+  /// No description provided for @catalogNoRecentSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune série récente'**
+  String get catalogNoRecentSeries;
+
+  /// No description provided for @catalogNoResults.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun résultat'**
+  String get catalogNoResults;
+
+  /// No description provided for @catalogNoMoviesInCategory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun film dans cette catégorie'**
+  String get catalogNoMoviesInCategory;
+
+  /// No description provided for @catalogMovieFavoriteHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuie sur le cœur d\'un film pour le retrouver ici.'**
+  String get catalogMovieFavoriteHint;
+
+  /// No description provided for @catalogSeriesFavoriteHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuie sur le cœur d\'une série pour la retrouver ici.'**
+  String get catalogSeriesFavoriteHint;
+
+  /// No description provided for @catalogRecentMoviesHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les films regardés s\'afficheront ici.'**
+  String get catalogRecentMoviesHint;
+
+  /// No description provided for @catalogRecentSeriesHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les séries regardées s\'afficheront ici.'**
+  String get catalogRecentSeriesHint;
+
+  /// No description provided for @catalogMovieSearchEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun film ne correspond à cette recherche.'**
+  String get catalogMovieSearchEmpty;
+
+  /// No description provided for @catalogSeriesSearchEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune série ne correspond à cette recherche.'**
+  String get catalogSeriesSearchEmpty;
+
+  /// No description provided for @catalogMovieCategoryEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun film ne correspond à cette catégorie.'**
+  String get catalogMovieCategoryEmpty;
+
+  /// No description provided for @removedFromFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » retiré des favoris'**
+  String removedFromFavorites(String title);
+
+  /// No description provided for @liveBackToChannels.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour aux chaînes'**
+  String get liveBackToChannels;
+
+  /// No description provided for @liveAddSourceHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoute une source de chaînes dans les réglages.'**
+  String get liveAddSourceHint;
+
+  /// No description provided for @liveNoChannelFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne trouvée'**
+  String get liveNoChannelFound;
+
+  /// No description provided for @liveNoRecentChannel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne récente'**
+  String get liveNoRecentChannel;
+
+  /// No description provided for @liveNoChannelInGroup.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne dans ce groupe'**
+  String get liveNoChannelInGroup;
+
+  /// No description provided for @liveTryAnotherSearch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Essaie un autre terme de recherche.'**
+  String get liveTryAnotherSearch;
+
+  /// No description provided for @liveFavoriteHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuie sur le cœur d\'une chaîne pour la retrouver ici.'**
+  String get liveFavoriteHint;
+
+  /// No description provided for @liveRecentHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les chaînes regardées s\'afficheront ici.'**
+  String get liveRecentHint;
+
+  /// No description provided for @liveEmptyGroupHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce groupe ne contient aucune chaîne.'**
+  String get liveEmptyGroupHint;
+
+  /// No description provided for @liveLoadingHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement des chaînes en cours…\nMerci de patienter avant de lancer un flux.'**
+  String get liveLoadingHint;
+
+  /// No description provided for @replayNoChannels.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne de cet abonnement ne déclare de catch-up.'**
+  String get replayNoChannels;
+
+  /// No description provided for @replayEmptyGroup.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce groupe ne contient aucune chaîne rejouable.'**
+  String get replayEmptyGroup;
+
+  /// No description provided for @epgLoadingBanner.
+  ///
+  /// In fr, this message translates to:
+  /// **'Guide TV en cours de chargement… les programmes apparaîtront dans un instant.'**
+  String get epgLoadingBanner;
+
+  /// No description provided for @epgNoChannelsInCategory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune chaîne dans cette catégorie'**
+  String get epgNoChannelsInCategory;
+
+  /// No description provided for @epgLoadingChannels.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement des chaînes…'**
+  String get epgLoadingChannels;
+
+  /// No description provided for @epgChannelsLoadFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de charger les chaînes.'**
+  String get epgChannelsLoadFailed;
+
+  /// No description provided for @replayToday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aujourd\'hui'**
+  String get replayToday;
+
+  /// No description provided for @replayYesterday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Hier'**
+  String get replayYesterday;
+
+  /// No description provided for @searchWithinHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher dans {type}…'**
+  String searchWithinHint(String type);
+
+  /// No description provided for @searchAllHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher Live, Films, Séries, Replay, EPG…'**
+  String get searchAllHint;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher…'**
+  String get searchHint;
+
+  /// No description provided for @searchWithinTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche dans {type}'**
+  String searchWithinTitle(String type);
+
+  /// No description provided for @searchUnifiedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche unifiée'**
+  String get searchUnifiedTitle;
+
+  /// No description provided for @searchWithinHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tapez pour rechercher uniquement dans {type}.'**
+  String searchWithinHelp(String type);
+
+  /// No description provided for @searchUnifiedHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tapez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.'**
+  String get searchUnifiedHelp;
+
+  /// No description provided for @searchOffline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mode hors ligne — résultats locaux uniquement'**
+  String get searchOffline;
+
+  /// No description provided for @searchResultsCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, one{1 résultat} other{{count} résultats}}'**
+  String searchResultsCount(int count);
+
+  /// No description provided for @searchNoResultsHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Essayez avec d\'autres termes ou vérifiez l\'orthographe.'**
+  String get searchNoResultsHelp;
+
+  /// No description provided for @searchAllCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Toutes'**
+  String get searchAllCategories;
+
+  /// No description provided for @searchClearHistory.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer l\'historique'**
+  String get searchClearHistory;
+
+  /// No description provided for @settingsPlaybackEngines.
+  ///
+  /// In fr, this message translates to:
+  /// **'Moteurs de lecture'**
+  String get settingsPlaybackEngines;
+
+  /// No description provided for @settingsCloudAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte cloud'**
+  String get settingsCloudAccount;
+
+  /// No description provided for @settingsCloudSignIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion Google ou e-mail'**
+  String get settingsCloudSignIn;
+
+  /// No description provided for @settingsSyncUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synchronisation complète indisponible'**
+  String get settingsSyncUnavailable;
+
+  /// No description provided for @settingsSyncUnavailableHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’ancienne synchronisation en clair est désactivée. Les fiches de profils peuvent être sauvegardées manuellement depuis Compte cloud ; les autres données ne sont pas synchronisées.'**
+  String get settingsSyncUnavailableHelp;
+
+  /// No description provided for @settingsSystemAutomatic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Automatique (Système)'**
+  String get settingsSystemAutomatic;
+
+  /// No description provided for @settingsSubtitleDefault.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titrage par défaut'**
+  String get settingsSubtitleDefault;
+
+  /// No description provided for @settingsSubtitleForced.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titrage forcé'**
+  String get settingsSubtitleForced;
+
+  /// No description provided for @settingsSubtitleOff.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sans sous-titrage'**
+  String get settingsSubtitleOff;
+
+  /// No description provided for @settingsSubtitleMoviesSeries.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres des films et séries'**
+  String get settingsSubtitleMoviesSeries;
+
+  /// No description provided for @settingsSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres'**
+  String get settingsSubtitles;
+
+  /// No description provided for @settingsProtectedPlayback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture protégée'**
+  String get settingsProtectedPlayback;
+
+  /// No description provided for @settingsCategoryFilters.
+  ///
+  /// In fr, this message translates to:
+  /// **'Filtres de catégories'**
+  String get settingsCategoryFilters;
+
+  /// No description provided for @settingsCategoryFiltersHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégories masquées par abonnement'**
+  String get settingsCategoryFiltersHelp;
+
+  /// No description provided for @episodeSelectProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un profil pour modifier cet épisode.'**
+  String get episodeSelectProfile;
+
+  /// No description provided for @episodeProfileChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le profil a changé. Réessayez.'**
+  String get episodeProfileChanged;
+
+  /// No description provided for @episodeStatusFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de modifier le statut de cet épisode.'**
+  String get episodeStatusFailed;
+
+  /// No description provided for @episodeResetQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialiser l\'épisode ?'**
+  String get episodeResetQuestion;
+
+  /// No description provided for @episodeMarkWatchedQuestion.
+  ///
+  /// In fr, this message translates to:
+  /// **'Marquer comme vu ?'**
+  String get episodeMarkWatchedQuestion;
+
+  /// No description provided for @episodeResetProgressMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » sera marqué comme non vu et sa progression de lecture sera effacée.'**
+  String episodeResetProgressMessage(String title);
+
+  /// No description provided for @episodeMarkUnwatchedMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » sera marqué comme non vu pour ce profil.'**
+  String episodeMarkUnwatchedMessage(String title);
+
+  /// No description provided for @episodeMarkWatchedMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » sera marqué comme vu pour ce profil.'**
+  String episodeMarkWatchedMessage(String title);
+
+  /// No description provided for @episodeMarkUnwatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'Marquer comme non vu'**
+  String get episodeMarkUnwatched;
+
+  /// No description provided for @detailAiData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données générées par IA'**
+  String get detailAiData;
+
+  /// No description provided for @detailSourceData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données {source}'**
+  String detailSourceData(String source);
+
+  /// No description provided for @detailUnavailableValue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non disponible'**
+  String get detailUnavailableValue;
+
+  /// No description provided for @detailKeywords.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mots-clés'**
+  String get detailKeywords;
+
+  /// No description provided for @detailCast.
+  ///
+  /// In fr, this message translates to:
+  /// **'Distribution'**
+  String get detailCast;
+
+  /// No description provided for @detailTrailerFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d\'ouvrir la bande-annonce'**
+  String get detailTrailerFailed;
+
+  /// No description provided for @detailShowCrew.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir l\'équipe technique'**
+  String get detailShowCrew;
+
+  /// No description provided for @detailHideCrew.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer l\'équipe technique'**
+  String get detailHideCrew;
+
+  /// No description provided for @seriesRuntimePerEpisode.
+  ///
+  /// In fr, this message translates to:
+  /// **'{minutes} min/ép'**
+  String seriesRuntimePerEpisode(int minutes);
+
+  /// No description provided for @seriesNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réseau : {network}'**
+  String seriesNetwork(String network);
+
+  /// No description provided for @seriesFirstAired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Première diffusion : {date}'**
+  String seriesFirstAired(String date);
+
+  /// No description provided for @seriesSeasonsCount.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, one{1 saison} other{{count} saisons}}'**
+  String seriesSeasonsCount(int count);
+
+  /// No description provided for @profileDiscardHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Des modifications non sauvegardées seront perdues. Quitter quand même ?'**
+  String get profileDiscardHelp;
+
+  /// No description provided for @profileLeave.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quitter'**
+  String get profileLeave;
+
+  /// No description provided for @profileEditTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier le profil'**
+  String get profileEditTitle;
+
+  /// No description provided for @profileAvatarTheme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Thème d\'avatar'**
+  String get profileAvatarTheme;
+
+  /// No description provided for @profileAvatarThemeHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez un style, puis un avatar dans la grille'**
+  String get profileAvatarThemeHelp;
+
+  /// No description provided for @profileAvatars.
+  ///
+  /// In fr, this message translates to:
+  /// **'Avatars'**
+  String get profileAvatars;
+
+  /// No description provided for @profileCurrentTheme.
+  ///
+  /// In fr, this message translates to:
+  /// **'Thème actuel : {theme}'**
+  String profileCurrentTheme(String theme);
+
+  /// No description provided for @profileRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Obligatoire'**
+  String get profileRequired;
+
+  /// No description provided for @profileFavoriteMovieGenres.
+  ///
+  /// In fr, this message translates to:
+  /// **'Genres de films favoris'**
+  String get profileFavoriteMovieGenres;
+
+  /// No description provided for @profileGenresHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez un ou plusieurs styles pour les recommandations'**
+  String get profileGenresHelp;
+
+  /// No description provided for @profilePinMismatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les codes PIN ne correspondent pas.'**
+  String get profilePinMismatch;
+
+  /// No description provided for @profilePinCreateFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de créer le code PIN.'**
+  String get profilePinCreateFailed;
+
+  /// No description provided for @profilePinActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un code PIN de 4 chiffres est actif'**
+  String get profilePinActive;
+
+  /// No description provided for @profilePinPending.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN confirmé. Enregistrez le profil pour l’activer.'**
+  String get profilePinPending;
+
+  /// No description provided for @profilePinRequest.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demander un code PIN à la sélection du profil'**
+  String get profilePinRequest;
+
+  /// No description provided for @profilePinCreating.
+  ///
+  /// In fr, this message translates to:
+  /// **'Création du code PIN…'**
+  String get profilePinCreating;
+
+  /// No description provided for @profileNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun profil à modifier'**
+  String get profileNotFound;
+
+  /// No description provided for @profileSaveActivate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer et activer la protection'**
+  String get profileSaveActivate;
+
+  /// No description provided for @profileCreateActivate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer le profil et activer la protection'**
+  String get profileCreateActivate;
+
+  /// No description provided for @profileSaveAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer'**
+  String get profileSaveAction;
+
+  /// No description provided for @profileCreateAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer le profil'**
+  String get profileCreateAction;
+
+  /// No description provided for @genreAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Action'**
+  String get genreAction;
+
+  /// No description provided for @genreAdventure.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aventure'**
+  String get genreAdventure;
+
+  /// No description provided for @genreAnimation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Animation'**
+  String get genreAnimation;
+
+  /// No description provided for @genreComedy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Comédie'**
+  String get genreComedy;
+
+  /// No description provided for @genreRomanticComedy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Comédie romantique'**
+  String get genreRomanticComedy;
+
+  /// No description provided for @genreDrama.
+  ///
+  /// In fr, this message translates to:
+  /// **'Drame'**
+  String get genreDrama;
+
+  /// No description provided for @genreHorror.
+  ///
+  /// In fr, this message translates to:
+  /// **'Horreur'**
+  String get genreHorror;
+
+  /// No description provided for @genreThriller.
+  ///
+  /// In fr, this message translates to:
+  /// **'Thriller'**
+  String get genreThriller;
+
+  /// No description provided for @genreDetective.
+  ///
+  /// In fr, this message translates to:
+  /// **'Policier'**
+  String get genreDetective;
+
+  /// No description provided for @genreCrime.
+  ///
+  /// In fr, this message translates to:
+  /// **'Crime'**
+  String get genreCrime;
+
+  /// No description provided for @genreWar.
+  ///
+  /// In fr, this message translates to:
+  /// **'Guerre'**
+  String get genreWar;
+
+  /// No description provided for @genreHistorical.
+  ///
+  /// In fr, this message translates to:
+  /// **'Historique'**
+  String get genreHistorical;
+
+  /// No description provided for @genreWestern.
+  ///
+  /// In fr, this message translates to:
+  /// **'Western'**
+  String get genreWestern;
+
+  /// No description provided for @genreSciFi.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sci-Fi'**
+  String get genreSciFi;
+
+  /// No description provided for @genreFantasy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fantasy'**
+  String get genreFantasy;
+
+  /// No description provided for @genreSuperheroes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Super-héros'**
+  String get genreSuperheroes;
+
+  /// No description provided for @genreMystery.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mystère'**
+  String get genreMystery;
+
+  /// No description provided for @genreRomance.
+  ///
+  /// In fr, this message translates to:
+  /// **'Romance'**
+  String get genreRomance;
+
+  /// No description provided for @genreMusical.
+  ///
+  /// In fr, this message translates to:
+  /// **'Musical'**
+  String get genreMusical;
+
+  /// No description provided for @genreMusic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Musique'**
+  String get genreMusic;
+
+  /// No description provided for @genreBiopic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Biopic'**
+  String get genreBiopic;
+
+  /// No description provided for @genreDocumentary.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documentaire'**
+  String get genreDocumentary;
+
+  /// No description provided for @genreTournament.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tournoi'**
+  String get genreTournament;
+
+  /// No description provided for @genreChildren.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enfants'**
+  String get genreChildren;
+
+  /// No description provided for @genreFamily.
+  ///
+  /// In fr, this message translates to:
+  /// **'Famille'**
+  String get genreFamily;
+
+  /// No description provided for @genreSuspense.
+  ///
+  /// In fr, this message translates to:
+  /// **'Suspense'**
+  String get genreSuspense;
+
+  /// No description provided for @genreBlackWhite.
+  ///
+  /// In fr, this message translates to:
+  /// **'Noir & Blanc'**
+  String get genreBlackWhite;
+
+  /// No description provided for @genreClassic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classique'**
+  String get genreClassic;
+
+  /// No description provided for @cloudConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer'**
+  String get cloudConfirm;
+
+  /// No description provided for @cloudShareProfilesTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager ces profils ?'**
+  String get cloudShareProfilesTitle;
+
+  /// No description provided for @cloudDuplicateProfileId.
+  ///
+  /// In fr, this message translates to:
+  /// **'Même nom — identifiant : {id}'**
+  String cloudDuplicateProfileId(String id);
+
+  /// No description provided for @cloudShareProfilesHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les profils manquants seront ajoutés sans remplacer ceux qui existent. Leurs favoris et leur activité seront partagés, ainsi que les préférences et abonnements, avec leurs identifiants IPTV. Ces données sont chiffrées.\n\nDeux profils de même nom restent séparés. Si des données sont différentes, vous choisirez lesquelles garder.'**
+  String get cloudShareProfilesHelp;
+
+  /// No description provided for @cloudChooseSourceTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir la source en cas de conflit'**
+  String get cloudChooseSourceTitle;
+
+  /// No description provided for @cloudChooseSourceHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les ajouts différents seront réunis sur les deux appareils. Si une même donnée a été modifiée des deux côtés, la source choisie ici sera conservée et envoyée à l’autre appareil. Ce choix s’applique à tous les conflits du démarrage.'**
+  String get cloudChooseSourceHelp;
+
+  /// No description provided for @cloudSourceLocal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cet appareil est la source'**
+  String get cloudSourceLocal;
+
+  /// No description provided for @cloudSourceRemote.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le Cloud est la source'**
+  String get cloudSourceRemote;
+
+  /// No description provided for @cloudResetTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Repartir de zéro sur le Cloud ?'**
+  String get cloudResetTitle;
+
+  /// No description provided for @cloudResetHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous les profils et leurs données partagées seront supprimés du Cloud. Les profils locaux seront conservés. Les autres appareils devront saisir ce nouveau code. Cette action est irréversible.'**
+  String get cloudResetHelp;
+
+  /// No description provided for @cloudNewCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouveau code'**
+  String get cloudNewCode;
+
+  /// No description provided for @cloudConfirmCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le code'**
+  String get cloudConfirmCode;
+
+  /// No description provided for @cloudResetCodeError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisissez un nouveau code de 3 à 10 chiffres et confirmez-le à l’identique.'**
+  String get cloudResetCodeError;
+
+  /// No description provided for @cloudRestoreTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Récupérer ce profil ?'**
+  String get cloudRestoreTitle;
+
+  /// No description provided for @cloudRestoreHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La fiche de {name} sera ajoutée sans remplacer les profils locaux. Les favoris, historiques, abonnements et préférences ne seront pas restaurés.'**
+  String cloudRestoreHelp(String name);
+
+  /// No description provided for @cloudDeleteTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer {name} du Cloud ?'**
+  String cloudDeleteTitle(String name);
+
+  /// No description provided for @cloudDeleteHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La fiche et les données synchronisées de ce profil seront supprimées du Cloud. Le profil local sur cet appareil ne sera pas supprimé. Les autres appareils seront mis en pause et devront actualiser leur liste.'**
+  String get cloudDeleteHelp;
+
+  /// No description provided for @cloudSyncFinished.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synchronisation terminée'**
+  String get cloudSyncFinished;
+
+  /// No description provided for @cloudSyncFinishedHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les profils sélectionnés et leurs données ont bien été synchronisés avec le Cloud.'**
+  String get cloudSyncFinishedHelp;
+
+  /// No description provided for @cloudResolveTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Résoudre le conflit ?'**
+  String get cloudResolveTitle;
+
+  /// No description provided for @cloudResolveLocalHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pour les éléments en conflit de cette catégorie, la version de cet appareil sera conservée. L’autre version, y compris une éventuelle suppression, sera écrasée.'**
+  String get cloudResolveLocalHelp;
+
+  /// No description provided for @cloudResolveRemoteHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pour les éléments en conflit de cette catégorie, la version cloud sera conservée. L’autre version, y compris une éventuelle suppression, sera écrasée.'**
+  String get cloudResolveRemoteHelp;
+
+  /// No description provided for @cloudProfilesTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mes profils sur mes appareils'**
+  String get cloudProfilesTitle;
+
+  /// No description provided for @cloudSignInToContinue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connectez-vous à un compte cloud pour continuer.'**
+  String get cloudSignInToContinue;
+
+  /// No description provided for @cloudFirebaseUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Firebase n’est pas disponible sur cet appareil.'**
+  String get cloudFirebaseUnavailable;
+
+  /// No description provided for @cloudGoogleCanceled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion Google annulée ou impossible. Si le problème persiste, vérifiez la configuration Google de cette application.'**
+  String get cloudGoogleCanceled;
+
+  /// No description provided for @cloudGoogleConfiguration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Configuration Google incorrecte : vérifiez le client OAuth et la signature de cette application.'**
+  String get cloudGoogleConfiguration;
+
+  /// No description provided for @cloudGoogleUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion Google indisponible sur cet appareil.'**
+  String get cloudGoogleUnavailable;
+
+  /// No description provided for @cloudSignInUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service de connexion indisponible sur cet appareil.'**
+  String get cloudSignInUnavailable;
+
+  /// No description provided for @cloudSignInRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion impossible. Réessayez.'**
+  String get cloudSignInRetry;
+
+  /// No description provided for @cloudInvalidEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse e-mail invalide.'**
+  String get cloudInvalidEmail;
+
+  /// No description provided for @cloudWeakPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le mot de passe est trop faible.'**
+  String get cloudWeakPassword;
+
+  /// No description provided for @cloudEmailInUse.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette adresse est déjà utilisée.'**
+  String get cloudEmailInUse;
+
+  /// No description provided for @cloudInvalidCredentials.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse e-mail ou mot de passe incorrect.'**
+  String get cloudInvalidCredentials;
+
+  /// No description provided for @cloudNetworkUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion réseau indisponible.'**
+  String get cloudNetworkUnavailable;
+
+  /// No description provided for @cloudTooManyAttempts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de tentatives. Réessayez plus tard.'**
+  String get cloudTooManyAttempts;
+
+  /// No description provided for @cloudMethodDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette méthode de connexion n’est pas activée.'**
+  String get cloudMethodDisabled;
+
+  /// No description provided for @cloudGoogleAlreadyLinked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce compte est déjà lié à Google.'**
+  String get cloudGoogleAlreadyLinked;
+
+  /// No description provided for @cloudGoogleOtherAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce compte Google est déjà associé à un autre compte Firebase. Aucun compte ni donnée n’a été fusionné. Pour utiliser cet autre compte, déconnectez-vous puis connectez-vous avec Google.'**
+  String get cloudGoogleOtherAccount;
+
+  /// No description provided for @cloudFirebaseSignInFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion impossible. Réessayez ou vérifiez la configuration Firebase.'**
+  String get cloudFirebaseSignInFailed;
+
+  /// No description provided for @cloudAccountIntro.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connectez-vous pour retrouver vos profils et leurs données sur vos appareils. Vos données sont chiffrées.'**
+  String get cloudAccountIntro;
+
+  /// No description provided for @cloudAccountLinkHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Si un compte est déjà connecté, Google lui sera lié sans changer son identifiant. Les comptes distincts ne sont pas fusionnés.'**
+  String get cloudAccountLinkHelp;
+
+  /// No description provided for @cloudAccountStateError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lire l’état du compte.'**
+  String get cloudAccountStateError;
+
+  /// No description provided for @cloudAccountChecking.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification du compte…'**
+  String get cloudAccountChecking;
+
+  /// No description provided for @cloudAccountNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun compte cloud connecté.'**
+  String get cloudAccountNone;
+
+  /// No description provided for @cloudPairingCleanupFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte associé, mais le nettoyage de la session temporaire a échoué.'**
+  String get cloudPairingCleanupFailed;
+
+  /// No description provided for @cloudPairTv.
+  ///
+  /// In fr, this message translates to:
+  /// **'Associer une TV par QR code'**
+  String get cloudPairTv;
+
+  /// No description provided for @pairSignOutFirst.
+  ///
+  /// In fr, this message translates to:
+  /// **'Déconnectez le compte cloud avant le couplage.'**
+  String get pairSignOutFirst;
+
+  /// No description provided for @pairScannerAccountChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le compte cloud a changé. Fermez cet écran et recommencez.'**
+  String get pairScannerAccountChanged;
+
+  /// No description provided for @pairScannerAccountCheckFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de vérifier le compte cloud.'**
+  String get pairScannerAccountCheckFailed;
+
+  /// No description provided for @pairScannerCameraFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’utiliser la caméra.'**
+  String get pairScannerCameraFailed;
+
+  /// No description provided for @pairScannerInvalidQr.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce QR code ne correspond pas à une session Orbit 3D.'**
+  String get pairScannerInvalidQr;
+
+  /// No description provided for @pairScannerAssociationFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Association impossible. Vérifiez le réseau ou recréez le QR code sur la TV.'**
+  String get pairScannerAssociationFailed;
+
+  /// No description provided for @pairScannerTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Associer une TV'**
+  String get pairScannerTitle;
+
+  /// No description provided for @pairScannerSent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demande envoyée. Confirmez le compte affiché sur la TV.'**
+  String get pairScannerSent;
+
+  /// No description provided for @pairScannerCameraPermission.
+  ///
+  /// In fr, this message translates to:
+  /// **'Caméra indisponible. Autorisez son accès dans les réglages.'**
+  String get pairScannerCameraPermission;
+
+  /// No description provided for @pairScannerCompareCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Comparez ce code avec celui affiché sur la TV :'**
+  String get pairScannerCompareCode;
+
+  /// No description provided for @pairScannerVerifyWarning.
+  ///
+  /// In fr, this message translates to:
+  /// **'N’acceptez que si les deux codes sont identiques et que vous contrôlez la TV.'**
+  String get pairScannerVerifyWarning;
+
+  /// No description provided for @pairScannerSelectedProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'La TV sélectionnera automatiquement : {profiles}.'**
+  String pairScannerSelectedProfiles(String profiles);
+
+  /// No description provided for @pairScannerConfirm.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer et associer'**
+  String get pairScannerConfirm;
+
+  /// No description provided for @pairScannerRescan.
+  ///
+  /// In fr, this message translates to:
+  /// **'Scanner à nouveau'**
+  String get pairScannerRescan;
+
+  /// No description provided for @pairTemporaryUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'La session temporaire est indisponible.'**
+  String get pairTemporaryUnavailable;
+
+  /// No description provided for @pairCleanupIncomplete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nettoyage incomplet : la session expirera automatiquement.'**
+  String get pairCleanupIncomplete;
+
+  /// No description provided for @pairCleanupFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nettoyage impossible : la session expirera automatiquement.'**
+  String get pairCleanupFailed;
+
+  /// No description provided for @pairUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Couplage indisponible. Vérifiez le réseau et la configuration Firebase.'**
+  String get pairUnavailable;
+
+  /// No description provided for @pairRestart.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recommencez le couplage.'**
+  String get pairRestart;
+
+  /// No description provided for @pairTvTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Associer cette TV'**
+  String get pairTvTitle;
+
+  /// No description provided for @pairInstructions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sur le téléphone connecté, ouvrez la synchronisation chiffrée et scannez ce QR code. Comparez les codes affichés avant de confirmer.'**
+  String get pairInstructions;
+
+  /// No description provided for @pairCreateQr.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer un QR code'**
+  String get pairCreateQr;
+
+  /// No description provided for @pairVerificationCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code de vérification : {code}'**
+  String pairVerificationCode(String code);
+
+  /// No description provided for @pairExpires.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le QR code expire après cinq minutes.'**
+  String get pairExpires;
+
+  /// No description provided for @pairAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte à associer : {account}'**
+  String pairAccount(String account);
+
+  /// No description provided for @pairConfirmAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer ce compte'**
+  String get pairConfirmAccount;
+
+  /// No description provided for @pairWaiting.
+  ///
+  /// In fr, this message translates to:
+  /// **'En attente de confirmation sur le téléphone…'**
+  String get pairWaiting;
+
+  /// No description provided for @cloudTemporaryAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte temporaire connecté sur cet appareil.'**
+  String get cloudTemporaryAccount;
+
+  /// No description provided for @cloudAccountConnected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte connecté : {account}'**
+  String cloudAccountConnected(String account);
+
+  /// No description provided for @cloudRecoverProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retrouver mes profils sur mes appareils'**
+  String get cloudRecoverProfiles;
+
+  /// No description provided for @cloudEmail.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse e-mail'**
+  String get cloudEmail;
+
+  /// No description provided for @cloudSignIn.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se connecter'**
+  String get cloudSignIn;
+
+  /// No description provided for @cloudCreateAccount.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créer un compte'**
+  String get cloudCreateAccount;
+
+  /// No description provided for @cloudResetEmailSent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Si le compte existe, un e-mail de réinitialisation peut être envoyé.'**
+  String get cloudResetEmailSent;
+
+  /// No description provided for @cloudForgotPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe oublié'**
+  String get cloudForgotPassword;
+
+  /// No description provided for @cloudGoogleLinked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Compte Google déjà lié'**
+  String get cloudGoogleLinked;
+
+  /// No description provided for @cloudSignInWithGoogle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se connecter avec Google'**
+  String get cloudSignInWithGoogle;
+
+  /// No description provided for @cloudLinkGoogle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lier un compte Google'**
+  String get cloudLinkGoogle;
+
+  /// No description provided for @cloudSignOut.
+  ///
+  /// In fr, this message translates to:
+  /// **'Se déconnecter'**
+  String get cloudSignOut;
+
+  /// No description provided for @cloudPrepareCodeHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte prépare le code. Ensuite, choisis les profils à partager.'**
+  String get cloudPrepareCodeHelp;
+
+  /// No description provided for @cloudChooseProfilesHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Coche les profils que tu veux retrouver sur tes appareils, puis appuie sur Partager.'**
+  String get cloudChooseProfilesHelp;
+
+  /// No description provided for @cloudFirstSyncHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La première mise à jour peut prendre plus de 10 minutes. Garde Orbit ouvert jusqu’à la fin.'**
+  String get cloudFirstSyncHelp;
+
+  /// No description provided for @cloudLegacyPhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Phrase secrète (ancien format)'**
+  String get cloudLegacyPhrase;
+
+  /// No description provided for @cloudAdultCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code donné par l’adulte'**
+  String get cloudAdultCode;
+
+  /// No description provided for @cloudSamePhraseHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisir la même phrase sur les deux appareils.'**
+  String get cloudSamePhraseHelp;
+
+  /// No description provided for @cloudSameCodeHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Saisir le même code sur les deux appareils.'**
+  String get cloudSameCodeHelp;
+
+  /// No description provided for @cloudShowPhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher la phrase secrète'**
+  String get cloudShowPhrase;
+
+  /// No description provided for @cloudHidePhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer la phrase secrète'**
+  String get cloudHidePhrase;
+
+  /// No description provided for @cloudShowCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher le code cloud'**
+  String get cloudShowCode;
+
+  /// No description provided for @cloudHideCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer le code cloud'**
+  String get cloudHideCode;
+
+  /// No description provided for @cloudSeeProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir mes profils'**
+  String get cloudSeeProfiles;
+
+  /// No description provided for @cloudRefreshList.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualiser la liste'**
+  String get cloudRefreshList;
+
+  /// No description provided for @cloudAdultOptions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Options pour un adulte'**
+  String get cloudAdultOptions;
+
+  /// No description provided for @cloudUseLegacyPhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Utiliser une ancienne phrase secrète'**
+  String get cloudUseLegacyPhrase;
+
+  /// No description provided for @cloudResetAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer tout le Cloud et repartir de zéro'**
+  String get cloudResetAction;
+
+  /// No description provided for @cloudShareBeforePairing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partagez d’abord les profils sélectionnés pour les rendre disponibles sur la TV.'**
+  String get cloudShareBeforePairing;
+
+  /// No description provided for @cloudConfirmYourCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer votre code'**
+  String get cloudConfirmYourCode;
+
+  /// No description provided for @cloudBackupTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sauvegarder cette fiche ?'**
+  String get cloudBackupTitle;
+
+  /// No description provided for @cloudConfirmProfilesHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmez votre code pour les profils {name}. Gardez-le en lieu sûr : sans lui, vous ne pourrez plus retrouver vos données.'**
+  String cloudConfirmProfilesHelp(String name);
+
+  /// No description provided for @cloudBackupHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Seule la fiche de {name} sera sauvegardée, chiffrée. Les favoris, historiques, abonnements et préférences ne sont pas inclus. La perte du secret rend la sauvegarde irrécupérable.'**
+  String cloudBackupHelp(String name);
+
+  /// No description provided for @cloudConfirmPhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer la phrase secrète'**
+  String get cloudConfirmPhrase;
+
+  /// No description provided for @cloudConfirmCloudCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmer le code cloud'**
+  String get cloudConfirmCloudCode;
+
+  /// No description provided for @cloudShowConfirmation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher la confirmation'**
+  String get cloudShowConfirmation;
+
+  /// No description provided for @cloudHideConfirmation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer la confirmation'**
+  String get cloudHideConfirmation;
+
+  /// No description provided for @cloudSecretsMismatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les secrets ne correspondent pas.'**
+  String get cloudSecretsMismatch;
+
+  /// No description provided for @cloudSyncProfileTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Synchroniser ce profil ?'**
+  String get cloudSyncProfileTitle;
+
+  /// No description provided for @cloudSyncProfileHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La fiche, les favoris vidéo et radio, historiques récents, épisodes vus et positions du profil actif, ainsi que les préférences et abonnements, seront synchronisés sous forme chiffrée pendant cette session. Les identifiants IPTV sont inclus. L’abonnement actif reste choisi sur chaque appareil.'**
+  String get cloudSyncProfileHelp;
+
+  /// No description provided for @cloudUpdating.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour en cours…'**
+  String get cloudUpdating;
+
+  /// No description provided for @cloudAdultMustChoose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un adulte doit choisir les données à garder.'**
+  String get cloudAdultMustChoose;
+
+  /// No description provided for @cloudSharingEnabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le partage est activé.'**
+  String get cloudSharingEnabled;
+
+  /// No description provided for @cloudKeepOpen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cela peut prendre plus de 10 minutes. Garde Orbit ouvert.'**
+  String get cloudKeepOpen;
+
+  /// No description provided for @cloudAutoSharing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les changements sont partagés automatiquement.'**
+  String get cloudAutoSharing;
+
+  /// No description provided for @cloudConflictHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cet appareil et l’autre appareil ne sont pas d’accord. Demande à un adulte de choisir la bonne version.'**
+  String get cloudConflictHelp;
+
+  /// No description provided for @cloudKeepLocal.
+  ///
+  /// In fr, this message translates to:
+  /// **'Garder les données d’ici'**
+  String get cloudKeepLocal;
+
+  /// No description provided for @cloudKeepRemote.
+  ///
+  /// In fr, this message translates to:
+  /// **'Garder les données de l’autre appareil'**
+  String get cloudKeepRemote;
+
+  /// No description provided for @cloudShareSettings.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réglages du partage (adulte)'**
+  String get cloudShareSettings;
+
+  /// No description provided for @cloudUpdateNow.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre à jour maintenant'**
+  String get cloudUpdateNow;
+
+  /// No description provided for @cloudPause.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mettre en pause'**
+  String get cloudPause;
+
+  /// No description provided for @cloudSelectProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisis les profils à partager'**
+  String get cloudSelectProfiles;
+
+  /// No description provided for @cloudWhichProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Quels profils veux-tu retrouver sur tes appareils ?'**
+  String get cloudWhichProfiles;
+
+  /// No description provided for @cloudLocalProfilesUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profils locaux indisponibles.'**
+  String get cloudLocalProfilesUnavailable;
+
+  /// No description provided for @cloudUnselectAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout décocher'**
+  String get cloudUnselectAll;
+
+  /// No description provided for @cloudSelectAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout cocher'**
+  String get cloudSelectAll;
+
+  /// No description provided for @cloudShareSelected.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager les profils cochés'**
+  String get cloudShareSelected;
+
+  /// No description provided for @cloudShareAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager tous les profils'**
+  String get cloudShareAll;
+
+  /// No description provided for @cloudProfilesToAdd.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profils à ajouter'**
+  String get cloudProfilesToAdd;
+
+  /// No description provided for @cloudOtherOptions.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autres options (adulte)'**
+  String get cloudOtherOptions;
+
+  /// No description provided for @cloudShareActiveOnly.
+  ///
+  /// In fr, this message translates to:
+  /// **'Partager seulement le profil utilisé'**
+  String get cloudShareActiveOnly;
+
+  /// No description provided for @cloudLocalProfileKept.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le profil local est conservé.'**
+  String get cloudLocalProfileKept;
+
+  /// No description provided for @cloudRecover.
+  ///
+  /// In fr, this message translates to:
+  /// **'Récupérer'**
+  String get cloudRecover;
+
+  /// No description provided for @cloudDeleteAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer du Cloud'**
+  String get cloudDeleteAction;
+
+  /// No description provided for @cloudBackupAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sauvegarder'**
+  String get cloudBackupAction;
+
+  /// No description provided for @cloudScopeFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'favoris'**
+  String get cloudScopeFavorites;
+
+  /// No description provided for @cloudScopeRadioFavorites.
+  ///
+  /// In fr, this message translates to:
+  /// **'favoris radio'**
+  String get cloudScopeRadioFavorites;
+
+  /// No description provided for @cloudScopeRecents.
+  ///
+  /// In fr, this message translates to:
+  /// **'historique récent'**
+  String get cloudScopeRecents;
+
+  /// No description provided for @cloudScopeWatched.
+  ///
+  /// In fr, this message translates to:
+  /// **'épisodes vus'**
+  String get cloudScopeWatched;
+
+  /// No description provided for @cloudScopePlayback.
+  ///
+  /// In fr, this message translates to:
+  /// **'positions de lecture'**
+  String get cloudScopePlayback;
+
+  /// No description provided for @cloudScopePreferences.
+  ///
+  /// In fr, this message translates to:
+  /// **'préférences générales'**
+  String get cloudScopePreferences;
+
+  /// No description provided for @cloudScopeProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'fiche du profil'**
+  String get cloudScopeProfile;
+
+  /// No description provided for @cloudProfileFallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'profil'**
+  String get cloudProfileFallback;
+
+  /// No description provided for @cloudScopeSubscriptions.
+  ///
+  /// In fr, this message translates to:
+  /// **'abonnements'**
+  String get cloudScopeSubscriptions;
+
+  /// No description provided for @cloudScopeData.
+  ///
+  /// In fr, this message translates to:
+  /// **'données'**
+  String get cloudScopeData;
+
+  /// No description provided for @cloudProgressPercent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fait : {percent} %'**
+  String cloudProgressPercent(int percent);
+
+  /// No description provided for @cloudProgressScope.
+  ///
+  /// In fr, this message translates to:
+  /// **'En ce moment : {scope}.'**
+  String cloudProgressScope(String scope);
+
+  /// No description provided for @cloudProgressProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'En ce moment : {scope} — {profile}.'**
+  String cloudProgressProfile(String scope, String profile);
+
+  /// No description provided for @cloudConflictProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profil en conflit : {name} ({id})'**
+  String cloudConflictProfile(String name, String id);
+
+  /// No description provided for @cloudConflictData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données : {scope}'**
+  String cloudConflictData(String scope);
+
+  /// No description provided for @cloudChangedElsewhere.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le cloud a changé ailleurs. Rechargez avant de réessayer.'**
+  String get cloudChangedElsewhere;
+
+  /// No description provided for @cloudBadPhrase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Phrase secrète incorrecte ou données cloud altérées.'**
+  String get cloudBadPhrase;
+
+  /// No description provided for @cloudBadCode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code cloud incorrect ou données cloud altérées.'**
+  String get cloudBadCode;
+
+  /// No description provided for @cloudAccessFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès cloud impossible. Vérifiez le réseau et la configuration Firebase.'**
+  String get cloudAccessFailed;
+
+  /// No description provided for @cloudInvalidData.
+  ///
+  /// In fr, this message translates to:
+  /// **'Données cloud invalides ou incompatibles ; aucune restauration effectuée.'**
+  String get cloudInvalidData;
+
+  /// No description provided for @cloudOperationFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Opération impossible. Vérifiez le réseau puis actualisez le Cloud.'**
+  String get cloudOperationFailed;
+
+  /// No description provided for @cloudAskAdult.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demande le code à un adulte.'**
+  String get cloudAskAdult;
+
+  /// No description provided for @cloudCodeLength.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le code doit contenir de 3 à 10 chiffres.'**
+  String get cloudCodeLength;
+
+  /// No description provided for @cloudAccountChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le compte ou le secret a changé. Recommencez.'**
+  String get cloudAccountChanged;
+
+  /// No description provided for @cloudPhraseChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le compte ou la phrase a changé. Recommencez.'**
+  String get cloudPhraseChanged;
+
+  /// No description provided for @cloudBackupRefreshed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fiche sauvegardée. Catalogue actualisé.'**
+  String get cloudBackupRefreshed;
+
+  /// No description provided for @cloudAccessEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès confirmé. Aucun profil sauvegardé.'**
+  String get cloudAccessEmpty;
+
+  /// No description provided for @cloudCodeUnverified.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune sauvegarde trouvée : votre code ne peut pas encore être vérifié.'**
+  String get cloudCodeUnverified;
+
+  /// No description provided for @cloudAccessChoose.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès confirmé. Choisissez les profils à partager.'**
+  String get cloudAccessChoose;
+
+  /// No description provided for @cloudBackupRefreshFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fiche sauvegardée, mais le catalogue n’a pas pu être actualisé.'**
+  String get cloudBackupRefreshFailed;
+
+  /// No description provided for @cloudPhoneProfilesMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les profils choisis sur le téléphone ne sont plus disponibles. Actualisez la liste et sélectionnez-les à nouveau.'**
+  String get cloudPhoneProfilesMissing;
+
+  /// No description provided for @cloudPhoneProfilesReceived.
+  ///
+  /// In fr, this message translates to:
+  /// **'Profils reçus du téléphone. Démarrage du partage…'**
+  String get cloudPhoneProfilesReceived;
+
+  /// No description provided for @cloudProfileRestored.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fiche récupérée. Sélectionnez ce profil dans l’application, puis revenez ici pour activer sa synchronisation.'**
+  String get cloudProfileRestored;
+
+  /// No description provided for @cloudWaitDelete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Attendez la fin de la synchronisation avant la suppression.'**
+  String get cloudWaitDelete;
+
+  /// No description provided for @cloudWaitReset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Attendez la fin de la synchronisation avant la réinitialisation.'**
+  String get cloudWaitReset;
+
+  /// No description provided for @cloudResetComplete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cloud réinitialisé. Le nouveau code est actif ; les profils locaux ont été conservés.'**
+  String get cloudResetComplete;
+
+  /// No description provided for @cloudWaitSelection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une synchronisation est en cours. Attendez la fin avant de modifier la sélection.'**
+  String get cloudWaitSelection;
+
+  /// No description provided for @cloudProfilesChanged.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les profils ont changé. Vérifiez votre sélection.'**
+  String get cloudProfilesChanged;
+
+  /// No description provided for @cloudRestoredProfileMissing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une fiche récupérée est introuvable. Réessayez.'**
+  String get cloudRestoredProfileMissing;
+
+  /// No description provided for @cloudRestoringProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Récupération des fiches : {current} / {total}.'**
+  String cloudRestoringProfiles(int current, int total);
+
+  /// No description provided for @cloudCheckingProfiles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification et sauvegarde des fiches cloud.'**
+  String get cloudCheckingProfiles;
+
+  /// No description provided for @cloudPartialRestore.
+  ///
+  /// In fr, this message translates to:
+  /// **'Certaines fiches ont peut-être été récupérées. Vérifiez la liste avant de réessayer.'**
+  String get cloudPartialRestore;
+
+  /// No description provided for @cloudStartingSync.
+  ///
+  /// In fr, this message translates to:
+  /// **'Démarrage de la synchronisation.'**
+  String get cloudStartingSync;
+
+  /// No description provided for @cloudProfilesBackedUp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les fiches ont été sauvegardées.'**
+  String get cloudProfilesBackedUp;
+
+  /// No description provided for @subscriptionTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Abonnements'**
+  String get subscriptionTitle;
+
+  /// No description provided for @subscriptionRefreshSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour terminée : au moins une source actualisée.'**
+  String get subscriptionRefreshSuccess;
+
+  /// No description provided for @subscriptionRefreshFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mise à jour impossible : aucune donnée reçue.'**
+  String get subscriptionRefreshFailed;
+
+  /// No description provided for @subscriptionConnectionHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion impossible ou identifiants refusés. Vérifiez l’adresse du serveur, le nom d’utilisateur, le mot de passe et votre connexion Internet.'**
+  String get subscriptionConnectionHelp;
+
+  /// No description provided for @subscriptionDuplicateHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Doublon possible : plusieurs abonnements ont la même configuration. Aucun n’a été supprimé ; leurs favoris peuvent être différents.'**
+  String get subscriptionDuplicateHelp;
+
+  /// No description provided for @subscriptionRefreshActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Forcer la mise à jour de l’abonnement actif'**
+  String get subscriptionRefreshActive;
+
+  /// No description provided for @subscriptionActivationFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’activer l’abonnement.'**
+  String get subscriptionActivationFailed;
+
+  /// No description provided for @subscriptionDeleteTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Supprimer l’abonnement ?'**
+  String get subscriptionDeleteTitle;
+
+  /// No description provided for @subscriptionDeleteHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voulez-vous supprimer « {name} » ? Cette action est irréversible.'**
+  String subscriptionDeleteHelp(String name);
+
+  /// No description provided for @subscriptionNoActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun abonnement actif. Sélectionnez-en un ou ajoutez-en un nouveau.'**
+  String get subscriptionNoActive;
+
+  /// No description provided for @subscriptionActivate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer'**
+  String get subscriptionActivate;
+
+  /// No description provided for @subscriptionNone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun abonnement'**
+  String get subscriptionNone;
+
+  /// No description provided for @subscriptionEmptyHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajoutez votre premier abonnement Xtream Codes ou M3U pour commencer.'**
+  String get subscriptionEmptyHelp;
+
+  /// No description provided for @subscriptionFilterHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.'**
+  String get subscriptionFilterHelp;
+
+  /// No description provided for @subscriptionPossibleDuplicate.
+  ///
+  /// In fr, this message translates to:
+  /// **'Doublon possible'**
+  String get subscriptionPossibleDuplicate;
+
+  /// No description provided for @subscriptionInactive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Inactif'**
+  String get subscriptionInactive;
+
+  /// No description provided for @subscriptionTesting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Test…'**
+  String get subscriptionTesting;
+
+  /// No description provided for @subscriptionUntested.
+  ///
+  /// In fr, this message translates to:
+  /// **'Non testé'**
+  String get subscriptionUntested;
+
+  /// No description provided for @subscriptionTestOk.
+  ///
+  /// In fr, this message translates to:
+  /// **'Test OK'**
+  String get subscriptionTestOk;
+
+  /// No description provided for @subscriptionTestLatency.
+  ///
+  /// In fr, this message translates to:
+  /// **'Test OK • {latency} ms'**
+  String subscriptionTestLatency(int latency);
+
+  /// No description provided for @subscriptionTestFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échec'**
+  String get subscriptionTestFailed;
+
+  /// No description provided for @subscriptionTestAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tester'**
+  String get subscriptionTestAction;
+
+  /// No description provided for @subscriptionIncomplete.
+  ///
+  /// In fr, this message translates to:
+  /// **'Configuration incomplète'**
+  String get subscriptionIncomplete;
+
+  /// No description provided for @connectionInvalidConfiguration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les paramètres de cet abonnement sont manquants ou invalides.'**
+  String get connectionInvalidConfiguration;
+
+  /// No description provided for @connectionCheckServerOrPlaylist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez l’URL du serveur ou de la playlist.'**
+  String get connectionCheckServerOrPlaylist;
+
+  /// No description provided for @connectionCheckCredentials.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez également l’identifiant et le mot de passe.'**
+  String get connectionCheckCredentials;
+
+  /// No description provided for @connectionCertificateExpired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Certificat SSL expiré'**
+  String get connectionCertificateExpired;
+
+  /// No description provided for @connectionSslError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Erreur SSL/TLS'**
+  String get connectionSslError;
+
+  /// No description provided for @connectionCertificateExpiredHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le certificat de sécurité du serveur a expiré.'**
+  String get connectionCertificateExpiredHelp;
+
+  /// No description provided for @connectionSslHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La connexion sécurisée au serveur n’a pas pu être établie.'**
+  String get connectionSslHelp;
+
+  /// No description provided for @connectionCheckDateTime.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez la date et l’heure de votre appareil.'**
+  String get connectionCheckDateTime;
+
+  /// No description provided for @connectionContactProvider.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contactez votre fournisseur si le problème persiste.'**
+  String get connectionContactProvider;
+
+  /// No description provided for @connectionServerUnreachable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur inaccessible'**
+  String get connectionServerUnreachable;
+
+  /// No description provided for @connectionServerUnreachableHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de joindre le serveur. Vérifiez l’adresse et votre connexion Internet.'**
+  String get connectionServerUnreachableHelp;
+
+  /// No description provided for @connectionCheckUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez l’orthographe de l’URL.'**
+  String get connectionCheckUrl;
+
+  /// No description provided for @connectionTryAnotherNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Essayez depuis un autre réseau.'**
+  String get connectionTryAnotherNetwork;
+
+  /// No description provided for @connectionContactUnreachableProvider.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contactez votre fournisseur si le serveur reste inaccessible.'**
+  String get connectionContactUnreachableProvider;
+
+  /// No description provided for @connectionTimeout.
+  ///
+  /// In fr, this message translates to:
+  /// **'Délai de réponse dépassé'**
+  String get connectionTimeout;
+
+  /// No description provided for @connectionTimeoutHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le serveur n’a pas répondu à temps. Il peut être lent ou momentanément surchargé.'**
+  String get connectionTimeoutHelp;
+
+  /// No description provided for @connectionTryLater.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réessayez dans quelques minutes.'**
+  String get connectionTryLater;
+
+  /// No description provided for @connectionCheckInternet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez votre connexion Internet.'**
+  String get connectionCheckInternet;
+
+  /// No description provided for @connectionInvalidCredentials.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiants invalides'**
+  String get connectionInvalidCredentials;
+
+  /// No description provided for @connectionAccessDenied.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès refusé'**
+  String get connectionAccessDenied;
+
+  /// No description provided for @connectionXtreamRejected.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’identifiant ou le mot de passe Xtream est refusé par le serveur.'**
+  String get connectionXtreamRejected;
+
+  /// No description provided for @connectionM3uAuthorization.
+  ///
+  /// In fr, this message translates to:
+  /// **'La playlist M3U nécessite une autorisation ou une URL valide.'**
+  String get connectionM3uAuthorization;
+
+  /// No description provided for @connectionCheckCredentialsCase.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez l’identifiant et le mot de passe, en respectant les majuscules.'**
+  String get connectionCheckCredentialsCase;
+
+  /// No description provided for @connectionConfirmCredentials.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demandez à votre fournisseur de confirmer les informations de connexion.'**
+  String get connectionConfirmCredentials;
+
+  /// No description provided for @connectionAccountUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Abonnement ou compte indisponible'**
+  String get connectionAccountUnavailable;
+
+  /// No description provided for @connectionAccountUnavailableHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le compte peut être expiré, désactivé ou avoir atteint sa limite de connexions.'**
+  String get connectionAccountUnavailableHelp;
+
+  /// No description provided for @connectionCheckSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez l’état de l’abonnement auprès de votre fournisseur.'**
+  String get connectionCheckSubscription;
+
+  /// No description provided for @connectionCloseOtherDevices.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fermez les autres appareils connectés puis réessayez.'**
+  String get connectionCloseOtherDevices;
+
+  /// No description provided for @connectionForbidden.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès interdit'**
+  String get connectionForbidden;
+
+  /// No description provided for @connectionForbiddenHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le serveur refuse la connexion. Le compte ou l’adresse IP peut être bloqué.'**
+  String get connectionForbiddenHelp;
+
+  /// No description provided for @connectionCheckActiveSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez que l’abonnement est toujours actif.'**
+  String get connectionCheckActiveSubscription;
+
+  /// No description provided for @connectionCheckProviderAccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contactez votre fournisseur pour vérifier l’accès.'**
+  String get connectionCheckProviderAccess;
+
+  /// No description provided for @connectionNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Adresse introuvable (404)'**
+  String get connectionNotFound;
+
+  /// No description provided for @connectionInvalidRequest.
+  ///
+  /// In fr, this message translates to:
+  /// **'Requête invalide'**
+  String get connectionInvalidRequest;
+
+  /// No description provided for @connectionInvalidAddress.
+  ///
+  /// In fr, this message translates to:
+  /// **'L’adresse du serveur ou le point d’accès ne semble pas correct.'**
+  String get connectionInvalidAddress;
+
+  /// No description provided for @connectionCheckBaseUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez l’URL de base du serveur ou l’URL M3U.'**
+  String get connectionCheckBaseUrl;
+
+  /// No description provided for @connectionUseXtreamPanel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Utilisez l’adresse du panel Xtream, sans ajouter player_api.php.'**
+  String get connectionUseXtreamPanel;
+
+  /// No description provided for @connectionServerUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur temporairement indisponible ({status})'**
+  String connectionServerUnavailable(int status);
+
+  /// No description provided for @connectionServerProblem.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le serveur du fournisseur rencontre un problème.'**
+  String get connectionServerProblem;
+
+  /// No description provided for @connectionInvalidPlaylist.
+  ///
+  /// In fr, this message translates to:
+  /// **'Playlist M3U invalide ou vide'**
+  String get connectionInvalidPlaylist;
+
+  /// No description provided for @connectionInvalidPlaylistHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La playlist ne contient pas de données lisibles au format attendu.'**
+  String get connectionInvalidPlaylistHelp;
+
+  /// No description provided for @connectionCheckPlaylistUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez que l’URL pointe vers une playlist M3U à jour.'**
+  String get connectionCheckPlaylistUrl;
+
+  /// No description provided for @connectionRequestNewUrl.
+  ///
+  /// In fr, this message translates to:
+  /// **'Demandez une nouvelle URL à votre fournisseur.'**
+  String get connectionRequestNewUrl;
+
+  /// No description provided for @connectionTestFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échec du test de connexion'**
+  String get connectionTestFailed;
+
+  /// No description provided for @connectionUnexpectedError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Une erreur inattendue a empêché la connexion à cet abonnement.'**
+  String get connectionUnexpectedError;
+
+  /// No description provided for @connectionCheckSubscriptionAndInternet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérifiez les informations de l’abonnement et votre connexion Internet.'**
+  String get connectionCheckSubscriptionAndInternet;
+
+  /// No description provided for @connectionRetryOrContact.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réessayez ou contactez votre fournisseur si le problème persiste.'**
+  String get connectionRetryOrContact;
+
+  /// No description provided for @connectionThingsToCheck.
+  ///
+  /// In fr, this message translates to:
+  /// **'À vérifier'**
+  String get connectionThingsToCheck;
+
+  /// No description provided for @connectionTechnicalDetails.
+  ///
+  /// In fr, this message translates to:
+  /// **'Détails techniques'**
+  String get connectionTechnicalDetails;
+
+  /// No description provided for @subscriptionSemantic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Abonnement {name}'**
+  String subscriptionSemantic(String name);
+
+  /// No description provided for @subscriptionSemanticActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'actif'**
+  String get subscriptionSemanticActive;
+
+  /// No description provided for @subscriptionSemanticDuplicate.
+  ///
+  /// In fr, this message translates to:
+  /// **'doublon possible'**
+  String get subscriptionSemanticDuplicate;
+
+  /// No description provided for @subscriptionAdded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Abonnement ajouté'**
+  String get subscriptionAdded;
+
+  /// No description provided for @subscriptionAddedHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {name} » est enregistré. Vous pouvez tester la connexion puis activer l’abonnement.'**
+  String subscriptionAddedHelp(String name);
+
+  /// No description provided for @subscriptionTestRunning.
+  ///
+  /// In fr, this message translates to:
+  /// **'Test de connexion en cours…'**
+  String get subscriptionTestRunning;
+
+  /// No description provided for @subscriptionTestSuccess.
+  ///
+  /// In fr, this message translates to:
+  /// **'Test de connexion réussi.'**
+  String get subscriptionTestSuccess;
+
+  /// No description provided for @subscriptionTestUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le résultat du test est indisponible.'**
+  String get subscriptionTestUnavailable;
+
+  /// No description provided for @subscriptionTestError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de terminer le test de connexion.'**
+  String get subscriptionTestError;
+
+  /// No description provided for @subscriptionEditTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Modifier l’abonnement'**
+  String get subscriptionEditTitle;
+
+  /// No description provided for @subscriptionNewTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nouvel abonnement'**
+  String get subscriptionNewTitle;
+
+  /// No description provided for @subscriptionName.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom de l’abonnement'**
+  String get subscriptionName;
+
+  /// No description provided for @subscriptionUsername.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nom d’utilisateur'**
+  String get subscriptionUsername;
+
+  /// No description provided for @subscriptionPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe'**
+  String get subscriptionPassword;
+
+  /// No description provided for @subscriptionShowPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Afficher le mot de passe'**
+  String get subscriptionShowPassword;
+
+  /// No description provided for @subscriptionHidePassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Masquer le mot de passe'**
+  String get subscriptionHidePassword;
+
+  /// No description provided for @subscriptionAdd.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter'**
+  String get subscriptionAdd;
+
+  /// No description provided for @playerExternalOpened.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lecture ouverte dans un lecteur externe'**
+  String get playerExternalOpened;
+
+  /// No description provided for @playerExternalTrackHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez les pistes audio et les sous-titres dans le lecteur externe : les préférences d’Orbit ne lui sont pas transmises.'**
+  String get playerExternalTrackHelp;
+
+  /// No description provided for @playerProviderBlocked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Flux temporairement bloqué par le fournisseur'**
+  String get playerProviderBlocked;
+
+  /// No description provided for @playerStreamNotStarting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le flux est bien reçu mais la lecture ne démarre pas. La piste est peut-être trop lourde pour cet appareil.'**
+  String get playerStreamNotStarting;
+
+  /// No description provided for @playerStreamFrozen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le flux est reçu mais la lecture est figée.'**
+  String get playerStreamFrozen;
+
+  /// No description provided for @playerStreamRecovering.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le flux ne progresse plus. Tentative de récupération…'**
+  String get playerStreamRecovering;
+
+  /// No description provided for @playerCooldown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur protégé (anti-leech), nouvelle tentative dans {seconds}s'**
+  String playerCooldown(int seconds);
+
+  /// No description provided for @playerProviderBlockedHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'La lecture a été coupée par la protection anti-leech du serveur. Patientez 3 à 5 minutes sans lecture, puis relancez cette chaîne (sans zapper).'**
+  String get playerProviderBlockedHelp;
+
+  /// No description provided for @playerLiveUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Flux indisponible'**
+  String get playerLiveUnavailable;
+
+  /// No description provided for @playerLiveUnavailableHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de lancer cette chaîne. Vérifiez votre abonnement ou réessayez.'**
+  String get playerLiveUnavailableHelp;
+
+  /// No description provided for @playerNextEpisode.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épisode suivant : {title}'**
+  String playerNextEpisode(String title);
+
+  /// No description provided for @playerNextEpisodeCountdown.
+  ///
+  /// In fr, this message translates to:
+  /// **'Épisode suivant : {title} ({seconds} s)'**
+  String playerNextEpisodeCountdown(String title, int seconds);
+
+  /// No description provided for @profileSelectToContinue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un profil pour continuer'**
+  String get profileSelectToContinue;
+
+  /// No description provided for @profileCreateToWatch.
+  ///
+  /// In fr, this message translates to:
+  /// **'Créez votre premier profil pour commencer à regarder.'**
+  String get profileCreateToWatch;
+
+  /// No description provided for @profileNavigationHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Flèches + OK pour naviguer · Touchez une carte pour sélectionner'**
+  String get profileNavigationHelp;
+
+  /// No description provided for @profileActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actif'**
+  String get profileActive;
+
+  /// No description provided for @resumeAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reprendre'**
+  String get resumeAction;
+
   /// No description provided for @refreshRecommendations.
   ///
   /// In fr, this message translates to:
@@ -640,6 +4918,30 @@ abstract class AppLocalizations {
   /// **'Téléchargement impossible : {error}'**
   String downloadFailed(Object error);
 
+  /// No description provided for @downloadAdded.
+  ///
+  /// In fr, this message translates to:
+  /// **'« {title} » ajouté aux téléchargements'**
+  String downloadAdded(String title);
+
+  /// No description provided for @downloadCompleted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargé'**
+  String get downloadCompleted;
+
+  /// No description provided for @downloadInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargement en cours'**
+  String get downloadInProgress;
+
+  /// No description provided for @downloadOffline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Télécharger hors-ligne'**
+  String get downloadOffline;
+
   /// No description provided for @downloads.
   ///
   /// In fr, this message translates to:
@@ -1156,6 +5458,54 @@ abstract class AppLocalizations {
   /// **'Aucun historique'**
   String get noHistory;
 
+  /// No description provided for @historyLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement de l’historique…'**
+  String get historyLoading;
+
+  /// No description provided for @historyEmptyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tes lectures récentes apparaîtront ici.'**
+  String get historyEmptyHint;
+
+  /// No description provided for @refreshAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualiser'**
+  String get refreshAction;
+
+  /// No description provided for @favoritesAdd.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ajouter aux favoris'**
+  String get favoritesAdd;
+
+  /// No description provided for @favoritesRemove.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer des favoris'**
+  String get favoritesRemove;
+
+  /// No description provided for @favoritesNeedScope.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un profil et un abonnement actifs sont nécessaires.'**
+  String get favoritesNeedScope;
+
+  /// No description provided for @favoritesReplayHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appuie sur le cœur d’un replay pour le retrouver ici.'**
+  String get favoritesReplayHint;
+
+  /// No description provided for @favoritesClearPrompt.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retirer les {total} favoris enregistrés ? La liste des favoris sera vidée.'**
+  String favoritesClearPrompt(int total);
+
   /// No description provided for @noKidsChannels.
   ///
   /// In fr, this message translates to:
@@ -1281,6 +5631,66 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Code PIN'**
   String get pinCode;
+
+  /// No description provided for @pinRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code PIN requis'**
+  String get pinRequired;
+
+  /// No description provided for @pinSet.
+  ///
+  /// In fr, this message translates to:
+  /// **'Définir un code PIN'**
+  String get pinSet;
+
+  /// No description provided for @pinThisProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'ce profil'**
+  String get pinThisProfile;
+
+  /// No description provided for @pinEnterForProfile.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrez le code PIN de {name}'**
+  String pinEnterForProfile(String name);
+
+  /// No description provided for @pinConfirmFourDigits.
+  ///
+  /// In fr, this message translates to:
+  /// **'Confirmez votre code à 4 chiffres'**
+  String get pinConfirmFourDigits;
+
+  /// No description provided for @pinChooseFourDigits.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez un code à 4 chiffres'**
+  String get pinChooseFourDigits;
+
+  /// No description provided for @pinVerifyFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de vérifier le code PIN.'**
+  String get pinVerifyFailed;
+
+  /// No description provided for @pinConfirmInstruction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Après 4 chiffres, appuyez sur ✓ pour valider.'**
+  String get pinConfirmInstruction;
+
+  /// No description provided for @pinIncorrectAttempts.
+  ///
+  /// In fr, this message translates to:
+  /// **'Code incorrect — {count, plural, one{1 essai restant} other{{count} essais restants}}'**
+  String pinIncorrectAttempts(int count);
+
+  /// No description provided for @pinChecking.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vérification en cours…'**
+  String get pinChecking;
 
   /// No description provided for @pinDeleted.
   ///
@@ -1804,6 +6214,30 @@ abstract class AppLocalizations {
   /// **'Série introuvable'**
   String get seriesNotFound;
 
+  /// No description provided for @seriesMissingId.
+  ///
+  /// In fr, this message translates to:
+  /// **'Identifiant de série manquant (navigation incorrecte). Retournez à la liste et réessayez.'**
+  String get seriesMissingId;
+
+  /// No description provided for @seriesEnriching.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enrichissement des métadonnées…'**
+  String get seriesEnriching;
+
+  /// No description provided for @seriesLoading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Chargement de la série…'**
+  String get seriesLoading;
+
+  /// No description provided for @seriesNoEpisodesHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cette série ne propose pas encore d’épisodes.'**
+  String get seriesNoEpisodesHint;
+
   /// No description provided for @seriesUnavailable.
   ///
   /// In fr, this message translates to:
@@ -2104,6 +6538,18 @@ abstract class AppLocalizations {
   /// **'Clé partagée embarquée utilisée (aucune clé personnelle)'**
   String get tmdbKeyShared;
 
+  /// No description provided for @tmdbKeyValid.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé TMDB valide'**
+  String get tmdbKeyValid;
+
+  /// No description provided for @tmdbKeyValidationFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Clé refusée par TMDB ou réseau indisponible : vérifiez la clé'**
+  String get tmdbKeyValidationFailed;
+
   /// No description provided for @tvChannels.
   ///
   /// In fr, this message translates to:
@@ -2223,6 +6669,150 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Sous-titres'**
   String get subtitleSection;
+
+  /// No description provided for @seriesDefaultAudioLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Langue audio par défaut'**
+  String get seriesDefaultAudioLanguage;
+
+  /// No description provided for @seriesDefaultSubtitleLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Langue des sous-titres par défaut'**
+  String get seriesDefaultSubtitleLanguage;
+
+  /// No description provided for @seriesSelectLanguage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionner une langue'**
+  String get seriesSelectLanguage;
+
+  /// No description provided for @seriesStreamDefault.
+  ///
+  /// In fr, this message translates to:
+  /// **'(Défaut du flux)'**
+  String get seriesStreamDefault;
+
+  /// No description provided for @seriesChooseLanguageFirst.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez d’abord une langue'**
+  String get seriesChooseLanguageFirst;
+
+  /// No description provided for @seriesDefaultAllEpisodes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Utiliser le défaut du flux pour tous les épisodes'**
+  String get seriesDefaultAllEpisodes;
+
+  /// No description provided for @seriesDefaultUnlessEpisodeChoice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Utiliser le défaut du flux sauf choix par épisode'**
+  String get seriesDefaultUnlessEpisodeChoice;
+
+  /// No description provided for @seriesForceLanguageAllEpisodes.
+  ///
+  /// In fr, this message translates to:
+  /// **'Forcer cette langue pour tous les épisodes'**
+  String get seriesForceLanguageAllEpisodes;
+
+  /// No description provided for @seriesApplyIfAvailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appliquer si disponible'**
+  String get seriesApplyIfAvailable;
+
+  /// No description provided for @seriesSearchingAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche des pistes audio…'**
+  String get seriesSearchingAudio;
+
+  /// No description provided for @seriesSubtitlesDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'(Désactivés)'**
+  String get seriesSubtitlesDisabled;
+
+  /// No description provided for @seriesDisableSubtitlesAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactiver les sous-titres pour tous les épisodes'**
+  String get seriesDisableSubtitlesAll;
+
+  /// No description provided for @seriesDisableSubtitlesDefault.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactiver les sous-titres par défaut'**
+  String get seriesDisableSubtitlesDefault;
+
+  /// No description provided for @seriesSearchingSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Recherche des pistes de sous-titres…'**
+  String get seriesSearchingSubtitles;
+
+  /// No description provided for @seriesNoSubtitleTracks.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune piste détectée : choisissez une langue, elle sera utilisée si disponible.'**
+  String get seriesNoSubtitleTracks;
+
+  /// No description provided for @seriesLanguageFrench.
+  ///
+  /// In fr, this message translates to:
+  /// **'Français'**
+  String get seriesLanguageFrench;
+
+  /// No description provided for @seriesLanguageEnglish.
+  ///
+  /// In fr, this message translates to:
+  /// **'Anglais'**
+  String get seriesLanguageEnglish;
+
+  /// No description provided for @seriesLanguageSpanish.
+  ///
+  /// In fr, this message translates to:
+  /// **'Espagnol'**
+  String get seriesLanguageSpanish;
+
+  /// No description provided for @seriesLanguageGerman.
+  ///
+  /// In fr, this message translates to:
+  /// **'Allemand'**
+  String get seriesLanguageGerman;
+
+  /// No description provided for @seriesLanguageItalian.
+  ///
+  /// In fr, this message translates to:
+  /// **'Italien'**
+  String get seriesLanguageItalian;
+
+  /// No description provided for @seriesLanguageArabic.
+  ///
+  /// In fr, this message translates to:
+  /// **'Arabe'**
+  String get seriesLanguageArabic;
+
+  /// No description provided for @subtitleEmbeddedSection.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sous-titres intégrés'**
+  String get subtitleEmbeddedSection;
+
+  /// No description provided for @subtitleForcedLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Forcé'**
+  String get subtitleForcedLabel;
+
+  /// No description provided for @subtitleEmbeddedLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Intégré'**
+  String get subtitleEmbeddedLabel;
 
   /// No description provided for @audioSection.
   ///
@@ -2655,6 +7245,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Fleurs'**
   String get avatarCategoryFlowers;
+
+  /// No description provided for @avatarCategoryNature.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nature'**
+  String get avatarCategoryNature;
+
+  /// No description provided for @avatarCategoryYouth.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jeunesse'**
+  String get avatarCategoryYouth;
 
   /// No description provided for @avatarCategorySmileys.
   ///

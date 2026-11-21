@@ -42,7 +42,7 @@ class _ProfileCreationScreenState extends ConsumerState<ProfileCreationScreen> {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,

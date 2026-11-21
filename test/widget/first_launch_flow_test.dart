@@ -21,6 +21,28 @@ class _MemorySettingsStorage extends StorageService {
 }
 
 void main() {
+  testWidgets('legal notice and optional cloud sharing are localized',
+      (tester) async {
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) => const LegalNoticeScreen(firstLaunch: true),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp.router(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    expect(find.text('I have read and accept · Continue'), findsOneWidget);
+    expect(find.textContaining('If you enable cloud sharing'), findsOneWidget);
+    expect(find.text('Using the app'), findsOneWidget);
+  });
+
   testWidgets('first launch acceptance persists and opens onboarding',
       (tester) async {
     final storage = _MemorySettingsStorage();
@@ -57,6 +79,7 @@ void main() {
           storageServiceProvider.overrideWithValue(storage),
         ],
         child: MaterialApp.router(
+          locale: const Locale('fr'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           routerConfig: router,

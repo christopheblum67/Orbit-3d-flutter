@@ -14,7 +14,7 @@ class _PlaylistApi extends ApiService {
   int calls = 0;
 
   @override
-  Future<M3uPlaylist> fetchM3uPlaylist(String url) async {
+  Future<M3uPlaylist> fetchM3uPlaylist(String url, {void Function()? onParsing}) async {
     calls++;
     if (calls <= failures.length) throw failures[calls - 1];
     return const M3uPlaylist(channels: [], radios: [], movies: [], series: []);

@@ -44,28 +44,24 @@ class PlayerErrorView extends StatelessWidget {
       title: greenScreenDetected
           ? l.greenScreenDetectedTitle
           : externalPlaybackLaunched
-              ? 'Lecture ouverte dans un lecteur externe'
+              ? l.playerExternalOpened
               : providerBlocked
-                  ? 'Flux temporairement bloqué par le fournisseur'
+                  ? l.playerProviderBlocked
                   : cloudflare
                       ? l.cloudflareCheckRequired
                       : isLive
-                          ? 'Flux indisponible'
+                          ? l.playerLiveUnavailable
                           : l.playbackUnavailableTitle,
       message: greenScreenDetected
           ? l.greenScreenDetectedMessage
           : externalPlaybackLaunched
-              ? 'Choisissez les pistes audio et les sous-titres dans le '
-                  'lecteur externe : les préférences d’Orbit ne lui sont pas transmises.'
+              ? l.playerExternalTrackHelp
               : providerBlocked
-                  ? 'La lecture a été coupée par la protection anti-leech '
-                      'du serveur. Patientez 3 à 5 minutes sans lecture, '
-                      'puis relancez cette chaîne (sans zapper).'
+                  ? l.playerProviderBlockedHelp
                   : cloudflare
                       ? l.cloudflareChallengeHelp
                       : isLive
-                          ? 'Impossible de lancer cette chaîne. '
-                              'Vérifie ton abonnement ou réessaie.'
+                          ? l.playerLiveUnavailableHelp
                           : l.playbackUnavailableMessage,
       onRetry: onRetry,
       autoFocusRetry: true,
@@ -77,8 +73,12 @@ class PlayerErrorView extends StatelessWidget {
                   focusNode: nextEpisodeFocus,
                   onPressed: onNextEpisode,
                   child: Text(
-                    'Épisode suivant : $nextEpisodeTitle'
-                    '${nextEpisodeSeconds == null ? '' : ' (${nextEpisodeSeconds!} s)'}',
+                    nextEpisodeSeconds == null
+                        ? l.playerNextEpisode('$nextEpisodeTitle')
+                        : l.playerNextEpisodeCountdown(
+                            '$nextEpisodeTitle',
+                            nextEpisodeSeconds!,
+                          ),
                     textAlign: TextAlign.center,
                   ),
                 ),

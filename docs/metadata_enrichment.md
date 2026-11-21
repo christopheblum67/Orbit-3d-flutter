@@ -83,6 +83,33 @@ Ce document décrit l'architecture et le flux d'enrichissement des métadonnées
 
 Orchestrateur principal qui chaîne les fallbacks.
 
+Les fiches M3U utilisent les mêmes sources externes que les fiches Xtream.
+L'enrichissement conserve les URL de lecture et les épisodes du catalogue.
+TMDB nécessite une clé configurée ; TVmaze peut être utilisé sans clé.
+Pour un synopsis disponible, la vue privilégie un texte localisé TMDB puis,
+si nécessaire, la traduction Google ; aucune traduction n'est possible sans
+texte source.
+
+### Affiches des grilles VOD
+
+L'affiche du catalogue actif (champ `stream_icon` Xtream ou `tvg-logo` M3U)
+est affichée en priorité. Si elle est absente ou inaccessible, la grille essaie
+la fiche Xtream du film, puis une affiche TMDB si une clé est configurée.
+Pour une playlist M3U, cette fiche n'est consultée que si l'URL `get.php` et
+le flux film identifient le même serveur et le même compte ; les autres
+formats passent directement à TMDB. Aucun abonnement distinct n'est utilisé.
+Les recherches de repli concernent les tuiles construites, sans retélécharger
+le catalogue entier ni dépendre de la limite de 30 pré-enrichissements.
+
+Le cache du catalogue Xtream est considéré frais pendant 6 heures ; après ce
+délai, une copie de moins de 7 jours peut être servie pendant sa revalidation.
+Un rafraîchissement manuel contourne ce cache. Pour le M3U, le serveur est
+consulté à chaque chargement, éventuellement avec ses validateurs HTTP ; il
+peut répondre 304 pour réutiliser le corps en cache. La fiche Xtream de repli
+fait une requête ciblée. La recherche légère TMDB est conservée 30 jours et les
+images en cache jusqu'à 30 jours : ces durées ne permettent pas de garantir
+quelle source publie les affiches les plus récentes.
+
 ## Flux d'enrichissement
 
 ### Film (VOD)
@@ -103,8 +130,6 @@ Orchestrateur principal qui chaîne les fallbacks.
    ├─ GET /shows/{id}/cast
    └─ Ajoute le casting
 
-4. IA (Dernier recours - si champs critiques encore manquants)
-   └─ Prompt structuré → génère métadonnées manquantes
 ```
 
 ### Série
@@ -117,16 +142,16 @@ Orchestrateur principal qui chaîne les fallbacks.
    ├─ GET /shows/{id}/episodes (avec guest_stars par épisode)
    └─ Si succès → SeriesDetail complet avec guestStarsPerSeason
 
-2. TMDB (Fallback - guest stars par saison si TVmaze vide)
+2. TMDB (complément si une clé est disponible)
    ├─ Recherche série par titre → tmdbId
+   ├─ Complète les métadonnées et le synopsis localisé disponibles
    ├─ Pour chaque saison > 0 : GET /tv/{id}/season/{n}
-   ├─ Extrait `guest_star: true` des épisodes
+   ├─ Recherche les invités si TVmaze ne les a pas fournis
    └─ Construit guestStarsPerSeason
 
 3. OMDB (Fallback - champs manquants)
    └─ Complète année, runtime, réseaux, saisons
 
-4. IA (Dernier recours)
 ```
 
 ## Mapping Xtream ID → ID Externes

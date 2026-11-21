@@ -60,20 +60,14 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildIntroCard(scheme),
+                    _buildIntroCard(scheme, l),
                     const SizedBox(height: 14),
                     _LegalSection(
                       title: l.serviceNature,
                       icon: Icons.play_circle_outline,
                       paragraphs: [
-                        'Orbit IPTV est un lecteur IPTV : il affiche des flux '
-                            'fournis par des serveurs tiers (abonnement M3U / '
-                            'Xtream Codes) sans héberger aucun contenu vidéo, '
-                            'audio ou sous-titre.',
-                        'Il agrège et présente des métadonnées (affiches, '
-                            'synopsis, EPG) récupérées via des API publiques. '
-                            'Il fonctionne comme un navigateur spécialisé pour '
-                            'les flux HLS/DASH.',
+                        l.legalServicePlayer,
+                        l.legalServiceMetadata,
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -81,28 +75,19 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       title: l.rightsHolders,
                       icon: Icons.copyright_outlined,
                       paragraphs: [
-                        'Le fournisseur d\'abonnement IPTV est seul responsable '
-                            'des licences des chaînes, des droits de diffusion '
-                            'et du géoblocage des flux qu\'il fournit.',
-                        'Les affiches et synopsis proviennent de TMDb sous '
-                            'licence API ; l\'attribution TMDb est affichée en '
-                            'bas de page des classements.',
-                        'Orbit IPTV ne stocke, ne redistribue et ne monétise '
-                            'aucun contenu diffusé.',
+                        l.legalRightsProvider,
+                        l.legalRightsMetadata,
+                        l.legalRightsContent,
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const _LegalSection(
-                      title: 'Usage de l\'application',
+                    _LegalSection(
+                      title: l.legalUsageTitle,
                       icon: Icons.gavel_outlined,
                       paragraphs: [
-                        'À utiliser uniquement avec un abonnement dont vous '
-                            'détenez les droits de diffusion.',
-                        'Interdiction de contourner le géoblocage ou les DRM, '
-                            'et de partager son compte hors du foyer.',
-                        'L\'application ne fait aucune sélection éditoriale du '
-                            'contenu diffusé : aucun contrôle sur les flux des '
-                            'serveurs tiers.',
+                        l.legalUsageRights,
+                        l.legalUsageRestrictions,
+                        l.legalUsageEditorial,
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -110,23 +95,17 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                       title: l.dataAndPrivacy,
                       icon: Icons.privacy_tip_outlined,
                       paragraphs: [
-                        'Profil, favoris, historique et réglages sont stockés '
-                            'localement sur l\'appareil (Hive), jamais transmis.',
-                        'Aucune collecte par défaut : notifications et accès '
-                            'optionnels font l\'objet d\'un consentement '
-                            'explicite.',
+                        l.legalPrivacyStorage,
+                        l.legalPrivacyConsent,
                       ],
                     ),
                     const SizedBox(height: 10),
-                    const _LegalSection(
-                      title: 'Avertissement',
+                    _LegalSection(
+                      title: l.legalWarningTitle,
                       icon: Icons.error_outline,
                       danger: true,
                       paragraphs: [
-                        'Ce document ne constitue pas un conseil juridique. '
-                            'Les règles varient selon les juridictions : '
-                            'vérifiez que votre usage est autorisé dans votre '
-                            'pays (loi applicable, âge minimum).',
+                        l.legalWarningBody,
                       ],
                     ),
                   ],
@@ -139,14 +118,12 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
                   ? FilledButton.icon(
                       onPressed: _accepted ? null : _accept,
                       icon: const Icon(Icons.verified_outlined),
-                      label: const Text(
-                        'J\'ai lu et j\'accepte · Continuer',
-                      ),
+                      label: Text(l.legalAccept),
                     )
                   : FilledButton.icon(
                       onPressed: () => context.pop(),
                       icon: const Icon(Icons.arrow_back),
-                      label: const Text('Retour'),
+                      label: Text(l.profileBack),
                     ),
             ),
           ],
@@ -155,7 +132,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
     );
   }
 
-  Widget _buildIntroCard(ColorScheme scheme) {
+  Widget _buildIntroCard(ColorScheme scheme, AppLocalizations l) {
     return AppCard(
       color: scheme.primaryContainer.withValues(alpha: 0.4),
       child: Column(
@@ -167,7 +144,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Orbit IPTV · Lisez-moi',
+                  l.legalIntroTitle,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -177,9 +154,7 @@ class _LegalNoticeScreenState extends ConsumerState<LegalNoticeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Bonjour ! Avant de commencer, quelques informations courtes sur '
-            'l\'usage de cette application et les droits associés aux '
-            'contenus affichés.',
+            l.legalIntro,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),

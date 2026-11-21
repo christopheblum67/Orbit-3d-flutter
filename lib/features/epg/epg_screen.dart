@@ -52,19 +52,18 @@ class _EpgLoadingBanner extends StatelessWidget {
       width: double.infinity,
       color: const Color(0xFF1F2430),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: const Row(
+      child: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Guide TV en cours de chargement… les programmes '
-              'apparaîtront dans un instant.',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              AppLocalizations.of(context).epgLoadingBanner,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ),
         ],
@@ -128,7 +127,8 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
           for (final entry in groupCounts.entries)
             MediaCategory(
               id: entry.key,
-              name: entry.key,
+              name:
+                  entry.key == ungroupedLabel ? l.catalogUngrouped : entry.key,
               count: entry.value,
             ),
         ];
@@ -185,10 +185,10 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                   ? Center(
                       child: Text(
                         effective == 'fav'
-                            ? 'Aucune chaîne favorite'
+                            ? l.noFavoriteChannels
                             : effective == 'recent'
-                                ? 'Aucune chaîne récente'
-                                : 'Aucune chaîne dans cette catégorie',
+                                ? l.liveNoRecentChannel
+                                : l.epgNoChannelsInCategory,
                         style: const TextStyle(color: Colors.white54),
                       ),
                     )
@@ -210,11 +210,11 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
           ],
         );
       },
-      loading: () => const LoadingState(message: 'Chargement des chaînes…'),
+      loading: () => LoadingState(message: l.epgLoadingChannels),
       error: (err, _) => ErrorState(
         icon: Icons.tv_off_rounded,
         title: l.channelsUnavailable,
-        message: 'Impossible de charger les chaînes.',
+        message: l.epgChannelsLoadFailed,
         onRetry: () => ref.invalidate(liveChannelsAllProvider),
       ),
     );
@@ -259,17 +259,17 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
             ),
             if (channel.supportsReplay) ...[
               const SizedBox(height: 6),
-              const Row(
+              Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.history,
                     color: Color(0xFF6EE7B7),
                     size: 14,
                   ),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text(
-                    'Replay disponible sur cette chaîne',
-                    style: TextStyle(
+                    l.epgReplayAvailableOnChannel,
+                    style: const TextStyle(
                       color: Color(0xFF6EE7B7),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -737,17 +737,17 @@ class _EpgHeadbarSection extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             color: const Color(0xFF13151B),
             alignment: Alignment.centerLeft,
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.live_tv,
                   color: Colors.white38,
                   size: 16,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
-                  'Sélectionnez une chaîne pour voir son programme',
-                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                  l.epgSelectChannelHint,
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
               ],
             ),

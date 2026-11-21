@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/home_menu_drawer.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
@@ -137,8 +138,8 @@ class _ProfileSelectionScreenState
     final profiles = ref.read(profilesProvider).value ?? const [];
     if (profiles.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Au moins un profil doit rester sur l\'appareil'),
+        SnackBar(
+          content: Text(l.profileMustKeepOne),
         ),
       );
       return;
@@ -149,14 +150,13 @@ class _ProfileSelectionScreenState
       builder: (dialogContext) => AlertDialog(
         title: Text(l.deleteProfileConfirm),
         content: Text(
-          '« ${profile.firstName} » et ses préférences seront supprimés '
-          'définitivement. Cette action est irréversible.',
+          l.profileDeleteBody(profile.firstName),
         ),
         actions: [
           TextButton(
             autofocus: true,
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(l.cancel),
           ),
           FilledButton.tonal(
             style: FilledButton.styleFrom(
@@ -180,7 +180,7 @@ class _ProfileSelectionScreenState
               }
               ref.invalidate(profilesProvider);
             },
-            child: const Text('Supprimer'),
+            child: Text(l.profileDelete),
           ),
         ],
       ),
@@ -194,42 +194,69 @@ class _ProfileSelectionScreenState
   }
 
   Widget _buildHeader(int current, int max) {
+    final l = AppLocalizations.of(context);
     final textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-            tooltip: 'Menu',
-          ),
-          const SizedBox(width: 4),
-          if (context.canPop()) ...[
-            IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => context.pop(),
-              tooltip: 'Retour',
+    final tvMode = ref.watch(tvModeNotifierProvider);
+    Widget menuButton() => IconButton(
+          icon: const Icon(Icons.menu_rounded),
+          onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        );
+    return ListenableBuilder(
+      listenable: tvMode,
+      builder: (context, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+        child: Stack(
+          children: [
+            Row(
+              children: [
+                if (!tvMode.enabled) ...[
+                  menuButton(),
+                  const SizedBox(width: 4),
+                ],
+                if (context.canPop()) ...[
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    onPressed: () => context.pop(),
+                    tooltip: l.profileBack,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    l.profileSelectToContinue,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ProfilesCountBadge(current: current, max: max),
+              ],
             ),
-            const SizedBox(width: 4),
-          ],
-          Expanded(
-            child: Text(
-              'Sélectionnez un profil pour continuer',
-              style: textTheme.bodyMedium?.copyWith(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.w600,
+            if (tvMode.enabled)
+              Positioned(
+                left: 0,
+                top: 0,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0,
+                    alwaysIncludeSemantics: true,
+                    child: menuButton(),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          ProfilesCountBadge(current: current, max: max),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildProfileGrid(List<UserProfile> profiles, int maxProfiles) {
+    final currentProfile = ref.watch(currentProfileProvider);
+    final activeProfileIndex =
+        profiles.indexWhere((profile) => profile.id == currentProfile?.id);
     final nodes = [
       for (final profile in profiles)
         _profileFocusNodes.putIfAbsent(
@@ -255,9 +282,8 @@ class _ProfileSelectionScreenState
                   index: index,
                   autofocus: false,
                   focusNode: _addProfileNode,
-                  onMoveLeft: index > 0
-                      ? () => _focusProfile(nodes[index - 1])
-                      : null,
+                  onMoveLeft:
+                      index > 0 ? () => _focusProfile(nodes[index - 1]) : null,
                   onTap: () => _openCreate(profiles.length, maxProfiles),
                 ),
               ),
@@ -272,11 +298,11 @@ class _ProfileSelectionScreenState
                 key: ValueKey(profile.id),
                 profile: profile,
                 index: index,
-                autofocus: index == 0,
+                autofocus:
+                    index == (activeProfileIndex >= 0 ? activeProfileIndex : 0),
                 focusNode: nodes[index],
-                onMoveLeft: index > 0
-                    ? () => _focusProfile(nodes[index - 1])
-                    : null,
+                onMoveLeft:
+                    index > 0 ? () => _focusProfile(nodes[index - 1]) : null,
                 onMoveRight: () => _focusProfile(nodes[index + 1]),
                 onSelect: () => _selectProfile(profile),
                 onEdit: () => _openEdit(profile),
@@ -300,7 +326,7 @@ class _ProfileSelectionScreenState
             EmptyState(
               icon: Icons.manage_accounts_rounded,
               title: l.noProfilesYet,
-              message: 'Créez votre premier profil pour commencer à regarder.',
+              message: l.profileCreateToWatch,
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -324,7 +350,7 @@ class _ProfileSelectionScreenState
     return Padding(
       padding: const EdgeInsets.only(bottom: 18, top: 6),
       child: Text(
-        'Flèches + OK pour naviguer · Touchez une carte pour sélectionner',
+        AppLocalizations.of(context).profileNavigationHelp,
         textAlign: TextAlign.center,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
@@ -337,52 +363,66 @@ class _ProfileSelectionScreenState
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final profilesAsync = ref.watch(profilesProvider);
-    return WithBackHandling(
-      meta: const RouteMeta.popOrFallback('/home'),
-      child: Scaffold(
-        key: _scaffoldKey,
-        endDrawer: const HomeMenuDrawer(),
-        appBar: AppBar(
-          leading: GoRouter.of(context).canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: 'Retour',
-                  onPressed: () => GoRouter.of(context).pop(),
-                )
-              : null,
-          title: const SizedBox.shrink(),
-          actions: [
-            _ProfileSwitchButton(profile: ref.watch(currentProfileProvider)),
-          ],
-        ),
-        body: SafeArea(
-          child: profilesAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => EmptyState(
-              icon: Icons.cloud_off_rounded,
-              title: l.failedToLoadProfiles,
-              message: '$error',
-              action: FilledButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: Text(l.retry),
-                onPressed: () => ref.invalidate(profilesProvider),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.contextMenu): () {
+          final scaffold = _scaffoldKey.currentState;
+          if (scaffold == null) return;
+          if (scaffold.isEndDrawerOpen) {
+            scaffold.closeEndDrawer();
+          } else {
+            scaffold.openEndDrawer();
+          }
+        },
+      },
+      child: WithBackHandling(
+        meta: const RouteMeta.popOrFallback('/home'),
+        child: Scaffold(
+          key: _scaffoldKey,
+          endDrawer: const HomeMenuDrawer(),
+          appBar: AppBar(
+            leading: GoRouter.of(context).canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: l.profileBack,
+                    onPressed: () => GoRouter.of(context).pop(),
+                  )
+                : null,
+            title: const SizedBox.shrink(),
+            actions: [
+              _ProfileSwitchButton(profile: ref.watch(currentProfileProvider)),
+            ],
+          ),
+          body: SafeArea(
+            child: profilesAsync.when(
+              loading: () =>
+                  const Center(child: OrbitDelayedLoadingIndicator()),
+              error: (error, _) => EmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: l.failedToLoadProfiles,
+                message: '$error',
+                action: FilledButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l.retry),
+                  onPressed: () => ref.invalidate(profilesProvider),
+                ),
               ),
+              data: (profiles) {
+                final maxProfiles = _maxFor(profiles);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(profiles.length, maxProfiles),
+                    Expanded(
+                      child: profiles.isEmpty
+                          ? _buildEmptyState()
+                          : _buildProfileGrid(profiles, maxProfiles),
+                    ),
+                    _buildFooter(),
+                  ],
+                );
+              },
             ),
-            data: (profiles) {
-              final maxProfiles = _maxFor(profiles);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(profiles.length, maxProfiles),
-                  Expanded(
-                    child: profiles.isEmpty
-                        ? _buildEmptyState()
-                        : _buildProfileGrid(profiles, maxProfiles),
-                  ),
-                  _buildFooter(),
-                ],
-              );
-            },
           ),
         ),
       ),
@@ -512,13 +552,13 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
   }
 
   String get _profileTypeLabel => switch (widget.profile.profileType) {
-        ProfileType.adult => 'adulte',
-        ProfileType.child => 'enfant',
-        ProfileType.expert => 'expert',
+        ProfileType.adult => AppLocalizations.of(context).profileAdult,
+        ProfileType.child => AppLocalizations.of(context).profileChild,
+        ProfileType.expert => AppLocalizations.of(context).profileExpert,
       };
 
-
   Widget _buildCardContent() {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final profile = widget.profile;
@@ -548,7 +588,11 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: ringColor,
-                    width: _focused ? 5 : isActive ? 2 : 1,
+                    width: _focused
+                        ? 5
+                        : isActive
+                            ? 2
+                            : 1,
                   ),
                   boxShadow: [
                     if (_focused)
@@ -589,7 +633,11 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
           textAlign: TextAlign.center,
           style: textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
-            color: _focused ? scheme.tertiary : isActive ? scheme.primary : null,
+            color: _focused
+                ? scheme.tertiary
+                : isActive
+                    ? scheme.primary
+                    : null,
           ),
         ),
         if (profile.hasPin) ...[
@@ -607,14 +655,14 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
             _CardActionButton(
               focusNode: _editNode,
               icon: Icons.edit_rounded,
-              tooltip: 'Modifier',
+              tooltip: l.profileEdit,
               onPressed: widget.onEdit,
             ),
             const SizedBox(width: 12),
             _CardActionButton(
               focusNode: _deleteNode,
               icon: Icons.delete_outline_rounded,
-              tooltip: 'Supprimer',
+              tooltip: l.profileDelete,
               onPressed: widget.onDelete,
             ),
           ],
@@ -625,11 +673,12 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final isActive = ref.watch(currentProfileProvider)?.id == widget.profile.id;
     return Semantics(
       container: true,
-      label: 'Profil ${widget.profile.firstName} ($_profileTypeLabel)'
-          '${isActive ? ', actif' : ''}',
+      label: '${l.menuProfile} ${widget.profile.firstName} ($_profileTypeLabel)'
+          '${isActive ? ', ${l.profileActive}' : ''}',
       child: Focus(
         focusNode: _cardNode,
         autofocus: widget.autofocus,
@@ -649,11 +698,11 @@ class _ProfileCardState extends ConsumerState<_ProfileCard>
         child: GestureDetector(
           onTap: _activate,
           child: FadeTransition(
-              opacity: _fade,
-              child: ScaleTransition(
-                scale: _scale,
-                child: _buildCardContent(),
-              ),
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: _buildCardContent(),
+            ),
           ),
         ),
       ),
@@ -839,7 +888,7 @@ class _ActiveBadge extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            'Actif',
+            AppLocalizations.of(context).profileActive,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -968,7 +1017,9 @@ class _ProfileSwitchButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 2, right: 10),
       child: Tooltip(
-        message: profile == null ? 'Choisir un profil' : 'Changer de profil',
+        message: profile == null
+            ? AppLocalizations.of(context).chooseProfile
+            : AppLocalizations.of(context).profileChange,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () => context.go('/profiles'),

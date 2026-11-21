@@ -10,7 +10,36 @@ import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('information sur les lecteurs externes accessible à la télécommande',
+  testWidgets('player and subtitle choices are localized', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showPlayerEngineConfigSheet(context),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Playback engines'), findsOneWidget);
+    expect(find.text('ExoPlayer (Internal)'), findsWidgets);
+    expect(find.text('VOD subtitles'), findsOneWidget);
+  });
+
+  testWidgets(
+      'information sur les lecteurs externes accessible à la télécommande',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(360, 720);
@@ -44,7 +73,8 @@ void main() {
     expect(tester.widget<IconButton>(infoButton).focusNode!.hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
-    expect(find.textContaining('préférences audio et sous-titres'), findsOneWidget);
+    expect(find.textContaining('préférences audio et sous-titres'),
+        findsOneWidget);
     expect(find.textContaining('lecteur de secours'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();

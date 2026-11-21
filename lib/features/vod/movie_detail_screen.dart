@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/features/vod/widgets/movie_playback_actions.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_scroll_to_top.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
@@ -41,7 +42,7 @@ class MovieDetailScreen extends ConsumerWidget {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -70,7 +71,7 @@ class MovieDetailScreen extends ConsumerWidget {
         data: (detail) => TvScrollToTop(
           child: _MovieDetailContent(detail: detail, movie: movie),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (err, _) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -374,8 +375,8 @@ class _MovieDetailContent extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               detail.aiGenerated
-                                  ? 'Données générées par IA'
-                                  : 'Données ${detail.dataSource.toUpperCase()}',
+                                  ? l.detailAiData
+                                  : l.detailSourceData(detail.dataSource.toUpperCase()),
                               style: textTheme.labelSmall?.copyWith(
                                 color: _getSourceColor(detail.dataSource),
                                 fontWeight: FontWeight.w600,
@@ -409,7 +410,7 @@ class _MovieDetailContent extends ConsumerWidget {
             LinearProgressIndicator(value: progress.fraction),
             const SizedBox(height: 8),
             Text(
-              'Repris à ${_formatDuration(progress.positionMs)}',
+              l.episodeResumeAt(_formatDuration(progress.positionMs)),
               style:
                   textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
@@ -425,7 +426,7 @@ class _MovieDetailContent extends ConsumerWidget {
           if (detail.keywords.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(
-              'Mots-clés',
+              l.detailKeywords,
               style:
                   textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -451,7 +452,7 @@ class _MovieDetailContent extends ConsumerWidget {
           if (detail.cast.isNotEmpty)
             CastCarousel(
               actors: detail.cast,
-              title: 'Distribution',
+              title: l.detailCast,
               maxVisible: 12,
               onActorTap: (actor) {
                 context.push('/actor/detail', extra: actor);
@@ -463,14 +464,14 @@ class _MovieDetailContent extends ConsumerWidget {
               child: Row(
                 children: [
                   Text(
-                    'Distribution',
+                    l.detailCast,
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
                   Text(
-                    'Non disponible',
+                    l.detailUnavailableValue,
                     style: textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -585,7 +586,7 @@ class _MovieDetailContent extends ConsumerWidget {
       LoggerService.instance
           .warning('_launchTrailer failed', error: result.errorOrNull);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d\'ouvrir la bande-annonce')),
+        SnackBar(content: Text(AppLocalizations.of(context).detailTrailerFailed)),
       );
     }
   }
@@ -652,7 +653,7 @@ class _SimilarSection extends ConsumerWidget {
       },
       loading: () => const SizedBox(
         height: 280,
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(child: OrbitDelayedLoadingIndicator()),
       ),
       error: (_, __) => errorMessage == null
           ? const SizedBox.shrink()
@@ -911,6 +912,7 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -922,8 +924,8 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
           icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
           label: Text(
             _expanded
-                ? 'Masquer l\'équipe technique'
-                : 'Voir l\'équipe technique',
+                ? l.detailHideCrew
+                : l.detailShowCrew,
             style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
           style: OutlinedButton.styleFrom(

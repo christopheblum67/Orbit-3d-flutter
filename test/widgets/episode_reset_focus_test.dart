@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
@@ -88,8 +89,7 @@ void main() {
           seriesDetailProvider(series)
               .overrideWith((ref) async => SeriesDetail.fromSeries(series)),
           playbackProgressServiceProvider.overrideWith((ref) => progress),
-          watchedEpisodesServiceProvider
-              .overrideWithValue(_WatchedService()),
+          watchedEpisodesServiceProvider.overrideWithValue(_WatchedService()),
         ],
         child: MaterialApp.router(
           locale: const Locale('fr'),
@@ -113,11 +113,16 @@ void main() {
     );
     await tester.pumpAndSettle();
     void focusEpisode() {
-      var node = Focus.of(tester.element(episode.first));
-      while (!node.canRequestFocus) {
-        node = node.parent!;
-      }
-      node.requestFocus();
+      final tile = find
+          .ancestor(
+            of: find.byTooltip('Marquer comme non vu'),
+            matching: find.byType(TvFocus),
+          )
+          .first;
+      final focusChild = find
+          .descendant(of: tile, matching: find.byType(AnimatedBuilder))
+          .first;
+      Focus.of(tester.element(focusChild)).requestFocus();
     }
 
     focusEpisode();

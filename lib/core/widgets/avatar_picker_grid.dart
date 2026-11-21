@@ -3,7 +3,7 @@ import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-/// Grille des 72 avatars locaux de la maquette, filtrable par catégorie et
+/// Grille des avatars locaux, filtrable par catégorie et
 /// navigable au D-pad comme au tactile. Fonctionne hors ligne.
 class AvatarPickerGrid extends StatefulWidget {
   final String selectedImageUrl;
@@ -26,14 +26,17 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
 
   List<AvatarItem> get _filteredAvatars {
     final categoryId = widget.categoryId ?? _selectedCategoryId;
-    if (categoryId == 'all') return orbit3DAvatars;
-    return orbit3DAvatars.where((item) => item.category == categoryId).toList();
+    if (categoryId == 'all') return selectableOrbit3DAvatars;
+    return selectableOrbit3DAvatars
+        .where((item) => item.category == categoryId)
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final avatars = _filteredAvatars;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,9 +106,9 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1,
               ),
-              itemCount: _filteredAvatars.length,
+              itemCount: avatars.length,
               itemBuilder: (context, index) {
-                final avatar = _filteredAvatars[index];
+                final avatar = avatars[index];
                 final isCurrent = avatar.imageUrl == widget.selectedImageUrl;
                 return TvFocus(
                   circular: true,
@@ -135,7 +138,11 @@ class _AvatarPickerGridState extends State<AvatarPickerGrid> {
                         child: Image.asset(
                           avatar.imageUrl.substring(avatarAssetPrefix.length),
                           fit: BoxFit.cover,
-                          semanticLabel: avatar.name,
+                          semanticLabel: avatar.imageUrl.contains(
+                            '/avatar_collection/',
+                          )
+                              ? '${avatarCategoryLabel(l, avatar.category)} ${avatar.id.split('_').last}'
+                              : avatar.name,
                           filterQuality: FilterQuality.medium,
                           errorBuilder: (context, error, stack) => Container(
                             color: Colors.white.withValues(alpha: 0.06),

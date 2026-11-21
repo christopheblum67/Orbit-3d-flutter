@@ -188,18 +188,28 @@ class ApiService {
     ConditionalXmltvCache? xmltvCache,
   })  : _playlistCache = playlistCache ?? ConditionalPlaylistCache.instance,
         _catalogCache = catalogCache ?? CatalogDiskCache.instance,
-        _catalogValidators = catalogValidators ?? CatalogHttpValidators.instance,
+        _catalogValidators =
+            catalogValidators ?? CatalogHttpValidators.instance,
         _xmltvCache = xmltvCache ?? ConditionalXmltvCache.instance {
     _instance = this;
     initStreamUrlBuilder();
   }
 
-  Future<Response<dynamic>> _get(String url, {Options? options}) =>
-      _transport.request(url, options: options);
+  Future<Response<dynamic>> _get(
+    String url, {
+    Options? options,
+    ProgressCallback? onReceiveProgress,
+  }) =>
+      _transport.request(
+        url,
+        options: options,
+        onReceiveProgress: onReceiveProgress,
+      );
 
   Future<Response<dynamic>> get(String url) => _get(url);
 
-  static bool isRateLimitError(Object? error) => ApiTransport.isRateLimitError(error);
+  static bool isRateLimitError(Object? error) =>
+      ApiTransport.isRateLimitError(error);
 
   static String? rateLimitResetHint(Headers? headers) =>
       ApiTransport.rateLimitResetHint(headers);
@@ -365,7 +375,9 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       return _liveCatalogService.live(
-        sub['baseUrl']!, sub['username']!, sub['password']!,
+        sub['baseUrl']!,
+        sub['username']!,
+        sub['password']!,
       );
     }
     throw StreamNetworkException(
@@ -384,7 +396,10 @@ class ApiService {
       return const [];
     }
     return _liveCatalogService.categories(
-      sub['baseUrl']!, sub['username']!, sub['password']!, series: false,
+      sub['baseUrl']!,
+      sub['username']!,
+      sub['password']!,
+      series: false,
     );
   }
 
@@ -398,7 +413,10 @@ class ApiService {
       return const [];
     }
     return _liveCatalogService.categories(
-      sub['baseUrl']!, sub['username']!, sub['password']!, series: true,
+      sub['baseUrl']!,
+      sub['username']!,
+      sub['password']!,
+      series: true,
     );
   }
 
@@ -469,7 +487,9 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       return _mediaCatalogService.movies(
-        sub['baseUrl']!, sub['username']!, sub['password']!,
+        sub['baseUrl']!,
+        sub['username']!,
+        sub['password']!,
       );
     }
     throw StreamNetworkException(
@@ -496,6 +516,24 @@ class ApiService {
   late final XtreamMovieDetailService _movieDetailService =
       XtreamMovieDetailService(buildApiUrl: _playerApiUrl, get: get);
 
+  /// Recherche une affiche dans la fiche Xtream du même compte, sans changer
+  /// l'abonnement actif ni télécharger à nouveau l'ensemble du catalogue.
+  Future<String?> fetchMoviePosterFromXtream(
+    Movie movie,
+    Subscription subscription,
+  ) async {
+    final lookup = xtreamMovieLookup(subscription, movie);
+    if (lookup == null) return null;
+    final detail = await _movieDetailService.detail(
+      movie.copyWith(id: lookup.movieId, posterUrl: ''),
+      lookup.baseUrl,
+      lookup.username,
+      lookup.password,
+    );
+    final poster = detail.posterUrl.trim();
+    return poster.isEmpty || poster == movie.posterUrl.trim() ? null : poster;
+  }
+
   /// Enrichit un film avec les métadonnées détaillées du serveur grâce à
   /// `get_vod_info` (synopsis, année, genre, réalisateur, note, âge/PEGI).
   /// L'endpoint de liste `get_vod_streams` ne fournit pas ces champs, d'où
@@ -505,7 +543,10 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream' || movie.id.isEmpty) return movie;
     return _movieDetailService.detail(
-      movie, sub['baseUrl']!, sub['username']!, sub['password']!,
+      movie,
+      sub['baseUrl']!,
+      sub['username']!,
+      sub['password']!,
     );
   }
 
@@ -516,7 +557,10 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream' || movieId.isEmpty) return null;
     return _movieDetailService.credits(
-      movieId, sub['baseUrl']!, sub['username']!, sub['password']!,
+      movieId,
+      sub['baseUrl']!,
+      sub['username']!,
+      sub['password']!,
     );
   }
 
@@ -528,7 +572,9 @@ class ApiService {
     final sub = await _activeSub();
     if (sub['type'] == 'xtream') {
       return _mediaCatalogService.series(
-        sub['baseUrl']!, sub['username']!, sub['password']!,
+        sub['baseUrl']!,
+        sub['username']!,
+        sub['password']!,
       );
     }
     throw StreamNetworkException(
@@ -542,9 +588,12 @@ class ApiService {
     buildApiUrl: _playerApiUrl,
   );
 
-  Future<({List<SubtitleTrackRef> tracks, bool guessed})>
-      discoverSubtitles(String contentId, {required bool isSeries, String? streamId}) =>
-      _subtitleService.discoverSubtitles(contentId, isSeries: isSeries, streamId: streamId);
+  Future<({List<SubtitleTrackRef> tracks, bool guessed})> discoverSubtitles(
+          String contentId,
+          {required bool isSeries,
+          String? streamId}) =>
+      _subtitleService.discoverSubtitles(contentId,
+          isSeries: isSeries, streamId: streamId);
 
   late final XtreamSeriesDetailService _seriesDetailService =
       XtreamSeriesDetailService(buildApiUrl: _playerApiUrl, get: _get);
@@ -557,7 +606,10 @@ class ApiService {
       );
     }
     return _seriesDetailService.fetch(
-      seriesId, sub['baseUrl']!, sub['username']!, sub['password']!,
+      seriesId,
+      sub['baseUrl']!,
+      sub['username']!,
+      sub['password']!,
     );
   }
 
@@ -572,7 +624,9 @@ class ApiService {
     logDiag('RADIO fetch=start source=${sub['type'] ?? 'unknown'}');
     if (sub['type'] == 'xtream') {
       return _radioService.fetch(
-        sub['baseUrl']!, sub['username']!, sub['password']!,
+        sub['baseUrl']!,
+        sub['username']!,
+        sub['password']!,
       );
     }
     logDiag(
@@ -594,22 +648,26 @@ class ApiService {
   Future<List<ReplayItem>> buildReplaysFromGlobalEpg({
     required List<EPGProgram> programs,
     required List<Channel> channels,
-  }) => _replayService.buildReplaysFromGlobalEpg(
-    programs: programs, channels: channels,
-  );
+  }) =>
+      _replayService.buildReplaysFromGlobalEpg(
+        programs: programs,
+        channels: channels,
+      );
 
   static List<ReplayItem> mergeReplays(
-    List<ReplayItem> fromEpg, List<ReplayItem> fromShortEpg,
-  ) => XtreamReplayService.mergeReplays(fromEpg, fromShortEpg);
+    List<ReplayItem> fromEpg,
+    List<ReplayItem> fromShortEpg,
+  ) =>
+      XtreamReplayService.mergeReplays(fromEpg, fromShortEpg);
 
   Future<List<ReplayItem>> fetchReplays() => _replayService.fetchReplays();
 
-  static List<Channel> replayProbeSet(List<Channel> channels, List<Channel> flagged) =>
+  static List<Channel> replayProbeSet(
+          List<Channel> channels, List<Channel> flagged) =>
       XtreamReplayService.replayProbeSet(channels, flagged);
 
   @visibleForTesting
-  static String decodeEpgTextForTest(String raw) =>
-      PanelText.decode(raw);
+  static String decodeEpgTextForTest(String raw) => PanelText.decode(raw);
 
   Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) =>
       _replayService.fetchChannelEpgPrograms(channel);
@@ -624,10 +682,15 @@ class ApiService {
     required String password,
     required int startEpoch,
     required int endEpoch,
-  }) => _replayService.replayStreamUrl(
-    channel: channel, baseUrl: baseUrl, username: username, password: password,
-    startEpoch: startEpoch, endEpoch: endEpoch,
-  );
+  }) =>
+      _replayService.replayStreamUrl(
+        channel: channel,
+        baseUrl: baseUrl,
+        username: username,
+        password: password,
+        startEpoch: startEpoch,
+        endEpoch: endEpoch,
+      );
 
   static Duration? archiveWindow(Channel channel) =>
       XtreamReplayService.archiveWindow(channel);
@@ -741,8 +804,11 @@ class ApiService {
   late final PlaylistFetchService _playlistFetchService =
       PlaylistFetchService(cache: _playlistCache, get: _get);
 
-  Future<M3uPlaylist> fetchM3uPlaylist(String url) =>
-      _playlistFetchService.fetch(url);
+  Future<M3uPlaylist> fetchM3uPlaylist(
+    String url, {
+    void Function()? onParsing,
+  }) =>
+      _playlistFetchService.fetch(url, onParsing: onParsing);
 
   // ---------- Parseur XMLTV basique (mono-passe, sans DOM) ----------
   List<EPGProgram> parseXmltv(String content) => EpgStreamParser.parse(content);

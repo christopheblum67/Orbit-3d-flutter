@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 
@@ -11,6 +13,41 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RefreshStepsController — progression', () {
+    test('playlist parsing advances only the active live step', () async {
+      final c = RefreshStepsController(
+        steps: const {StartupStep.live, StartupStep.movies},
+      );
+      addTearDown(c.dispose);
+      c.markPlaylistParsing();
+      expect(c.percent, 0);
+      final live = Completer<void>();
+      final movies = Completer<void>();
+      final moviesStarted = Completer<void>();
+      final run = c.run(
+        (step) {
+          if (step == StartupStep.live) return live.future;
+          moviesStarted.complete();
+          return movies.future;
+        },
+        gap: Duration.zero,
+      );
+      expect(c.percent, 0);
+      c.markPlaylistParsing();
+      expect(c.percent, 25);
+      expect(c.isParsingPlaylist, isTrue);
+      expect(c.doneSteps, isEmpty);
+      live.complete();
+      await moviesStarted.future;
+      expect(c.percent, 50);
+      expect(c.currentStep, StartupStep.movies);
+      c.markPlaylistParsing();
+      expect(c.percent, 50);
+      movies.complete();
+      await run;
+      expect(c.percent, 100);
+      expect(c.isParsingPlaylist, isFalse);
+    });
+
     test('état initial : 0 %, aucune étape faite, non terminé', () {
       final c = RefreshStepsController(
         steps: const {StartupStep.live, StartupStep.movies},

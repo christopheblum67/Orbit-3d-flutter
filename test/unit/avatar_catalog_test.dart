@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,8 +11,6 @@ import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 
-/// Catalogue d'avatars issu de la maquette : 72 images locales réparties en
-/// 4 catégories (personnages, super-héros, animaux, fleurs).
 void main() {
   group('avatar_catalog', () {
     test('expose les catégories attendues, dans l\'ordre', () {
@@ -21,17 +19,20 @@ void main() {
         'characters',
         'superheroes',
         'animals',
-        'flowers',
+        'nature',
+        'youth',
       ]);
     });
 
-    test('72 avatars répartis 12/12/24/24', () {
-      expect(orbit3DAvatars.length, 72);
+    test('les avatars historiques et les nouveaux avatars sont disponibles',
+        () {
+      expect(orbit3DAvatars.length, 322);
       const expected = {
-        'characters': 12,
-        'superheroes': 12,
-        'animals': 24,
-        'flowers': 24,
+        'characters': 62,
+        'superheroes': 62,
+        'animals': 74,
+        'nature': 74,
+        'youth': 50,
       };
       for (final e in expected.entries) {
         expect(
@@ -43,11 +44,25 @@ void main() {
     });
 
     test('ids et valeurs uniques, noms non vides', () {
-      expect(orbit3DAvatars.map((a) => a.id).toSet().length, 72);
-      expect(orbit3DAvatars.map((a) => a.imageUrl).toSet().length, 72);
+      expect(orbit3DAvatars.map((a) => a.id).toSet().length, 322);
+      expect(orbit3DAvatars.map((a) => a.imageUrl).toSet().length, 322);
       for (final a in orbit3DAvatars) {
         expect(a.name.trim(), isNotEmpty, reason: a.id);
       }
+    });
+
+    test('seule la nouvelle collection est proposée aux profils', () {
+      expect(selectableOrbit3DAvatars, hasLength(250));
+      for (final category in avatarCategoryIds.skip(1)) {
+        expect(selectableOrbit3DAvatars.where((a) => a.category == category),
+            hasLength(50),
+            reason: category);
+      }
+      expect(
+          selectableOrbit3DAvatars.every((a) =>
+              a.imageUrl.startsWith('asset:assets/images/avatar_collection/')),
+          isTrue);
+      expect(orbit3DAvatars.any((a) => a.id == 'an09'), isTrue);
     });
 
     test('chaque avatar pointe vers un fichier local existant', () {
@@ -58,7 +73,8 @@ void main() {
       }
     });
 
-    testWidgets('les avatars sont inclus dans le bundle Flutter', (tester) async {
+    testWidgets('les avatars sont inclus dans le bundle Flutter',
+        (tester) async {
       for (final avatar in orbit3DAvatars) {
         final path = avatar.imageUrl.substring(avatarAssetPrefix.length);
         expect((await rootBundle.load(path)).lengthInBytes, greaterThan(0),
@@ -96,13 +112,13 @@ void main() {
         selectedImageUrl: '',
         onAvatarSelected: (v) => picked = v,
       )));
-      expect(find.byType(Image), findsNWidgets(72));
-      await tester.tap(find.text('Flowers'));
+      expect(find.byType(Image), findsNWidgets(250));
+      await tester.tap(find.text('Nature'));
       await tester.pump();
-      expect(find.byType(Image), findsNWidgets(24));
+      expect(find.byType(Image), findsNWidgets(50));
       await tester.tap(find.byType(Image).first);
       await tester.pump();
-      expect(picked, 'asset:assets/images/avatars/fl01.png');
+      expect(picked, 'asset:assets/images/avatar_collection/nat_01.png');
     });
 
     testWidgets('ProfileAvatar affiche un asset et garde les anciens formats',
@@ -134,10 +150,12 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
-            body: AvatarPickerGrid(
-              categoryId: 'characters',
-              selectedImageUrl: '',
-              onAvatarSelected: (_) {},
+            body: SingleChildScrollView(
+              child: AvatarPickerGrid(
+                categoryId: 'characters',
+                selectedImageUrl: '',
+                onAvatarSelected: (_) {},
+              ),
             ),
           ),
         ),
@@ -148,8 +166,7 @@ void main() {
       final decoration = tester
           .widget<AnimatedContainer>(
             find
-                .descendant(
-                    of: tile, matching: find.byType(AnimatedContainer))
+                .descendant(of: tile, matching: find.byType(AnimatedContainer))
                 .first,
           )
           .decoration as BoxDecoration;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,7 +30,7 @@ class ActorDetailScreen extends ConsumerWidget {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -50,7 +51,7 @@ class ActorDetailScreen extends ConsumerWidget {
         data: (person) => person != null
             ? _ActorDetailBody(actor: actor, person: person)
             : const _ActorUnavailable(),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (err, _) => _buildError(context, err),
       );
     }
@@ -60,11 +61,12 @@ class ActorDetailScreen extends ConsumerWidget {
                 data: (person) => person != null
                     ? _ActorDetailBody(actor: actor, person: person)
                     : const _ActorUnavailable(),
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () =>
+                    const Center(child: OrbitDelayedLoadingIndicator()),
                 error: (err, _) => _buildError(context, err),
               )
           : const _ActorUnavailable(),
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
       error: (err, _) => _buildError(context, err),
     );
   }
@@ -181,9 +183,10 @@ class _ActorDetailBodyState extends ConsumerState<_ActorDetailBody> {
 
     final infoParts = <String>[
       if (person.birthday.isNotEmpty)
-        'Né(e) le ${_formatBirthDate(person.birthday)}',
+        l.actorBornOn(_formatBirthDate(context, person.birthday)),
       if (person.placeOfBirth.isNotEmpty) person.placeOfBirth,
-      if (person.genderLabel.isNotEmpty) person.genderLabel,
+      if (person.gender == 2) l.actorGenderMale,
+      if (person.gender == 1) l.actorGenderFemale,
     ];
     final info = infoParts.join('  •  ');
 
@@ -418,10 +421,11 @@ class _ActorDetailBodyState extends ConsumerState<_ActorDetailBody> {
     );
   }
 
-  static String _formatBirthDate(String date) {
-    final parts = date.split('-');
-    if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
-    return date;
+  static String _formatBirthDate(BuildContext context, String date) {
+    final parsed = DateTime.tryParse(date);
+    return parsed == null
+        ? date
+        : MaterialLocalizations.of(context).formatFullDate(parsed);
   }
 }
 

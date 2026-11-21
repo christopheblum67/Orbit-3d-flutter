@@ -80,10 +80,10 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         title: Text(l.matchmaking),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Films'),
-            Tab(text: 'Séries'),
-            Tab(text: 'FlixPatrol'),
+          tabs: [
+            Tab(text: l.films),
+            Tab(text: l.series),
+            const Tab(text: 'FlixPatrol'),
           ],
         ),
       ),

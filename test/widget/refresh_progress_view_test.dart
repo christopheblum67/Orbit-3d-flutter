@@ -26,6 +26,7 @@ void main() {
     List<StartupStep>? visibleSteps,
     String? failureMessage,
     VoidCallback? onOpenSubscriptions,
+    Locale locale = const Locale('fr'),
     Size size = const Size(400, 800),
   }) async {
     tester.view.physicalSize = size;
@@ -35,7 +36,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
-          locale: const Locale('fr'),
+          locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
@@ -155,6 +156,28 @@ void main() {
     await pump(tester, percent: 100, isFinished: true);
     expect(find.text('Prêt !'), findsOneWidget);
     expect(find.textContaining('Mise à jour du contenu'), findsNothing);
+  });
+
+  testWidgets('localizes progress and subscription recovery', (tester) async {
+    await pump(
+      tester,
+      locale: const Locale('en'),
+      currentStep: StartupStep.live,
+      failureMessage: 'Connection unavailable',
+      onOpenSubscriptions: () {},
+    );
+    expect(find.text('Live channels'), findsOneWidget);
+    expect(find.text('Check subscription'), findsOneWidget);
+  });
+
+  testWidgets('long translated labels fit on a narrow screen', (tester) async {
+    await pump(
+      tester,
+      locale: const Locale('de'),
+      size: const Size(360, 800),
+      visibleSteps: StartupStep.values,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('paysage : pas d\'overflow, nom et sections visibles',

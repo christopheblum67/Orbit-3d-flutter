@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/matchmaking_screen.dart'
     show openRecommendation;
@@ -34,9 +35,9 @@ enum _MatchSort {
 }
 
 extension on _MatchSort {
-  String get label => switch (this) {
-        _MatchSort.affinityDesc => 'Affinité ↓',
-        _MatchSort.affinityAsc => 'Affinité ↑',
+  String label(AppLocalizations l) => switch (this) {
+        _MatchSort.affinityDesc => '${l.recommendationAffinity} ↓',
+        _MatchSort.affinityAsc => '${l.recommendationAffinity} ↑',
         _MatchSort.titleAsc => 'A → Z',
         _MatchSort.titleDesc => 'Z → A',
       };
@@ -439,6 +440,7 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
   /// Garde-fou : explique à l'utilisateur pourquoi la liste n'est pas encore là
   /// (catalogue en cours de chargement, ou calcul des recommandations).
   Widget _loadingView() {
+    final l = AppLocalizations.of(context);
     final catalogLoading = ref.watch(moviesProvider).isLoading ||
         ref.watch(seriesProvider).isLoading;
     final scheme = Theme.of(context).colorScheme;
@@ -446,26 +448,32 @@ class _MatchmakingTabState extends ConsumerState<MatchmakingTab> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            'assets/icons/orbit_loading_banner.jpg',
-            width: 270,
-            height: 90,
-            fit: BoxFit.contain,
-            semanticLabel: 'ORBIT IPTV',
+          OrbitDelayedLoadingIndicator(
+            initialChild: Column(
+              children: [
+                Image.asset(
+                  'assets/icons/orbit_loading_banner.jpg',
+                  width: 270,
+                  height: 90,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'ORBIT IPTV',
+                ),
+                const SizedBox(height: 20),
+                const CircularProgressIndicator(),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
-          const CircularProgressIndicator(),
           const SizedBox(height: 16),
           Text(
             catalogLoading
-                ? 'Chargement du catalogue en cours…'
-                : 'Construction de vos recommandations en cours…',
+                ? l.recommendationLoadingCatalog
+                : l.recommendationBuilding,
             textAlign: TextAlign.center,
             style: TextStyle(color: scheme.onSurface, fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(
-            'Cela peut prendre jusqu\'à 1 minute.',
+            l.recommendationLoadingDuration,
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
           ),
         ],
@@ -628,8 +636,9 @@ class _SortMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     return PopupMenuButton<_MatchSort>(
-      tooltip: 'Trier',
+      tooltip: l.catalogSort,
       initialValue: value,
       onSelected: onChanged,
       position: PopupMenuPosition.under,
@@ -646,7 +655,7 @@ class _SortMenu extends StatelessWidget {
                       sort == value ? scheme.primary : scheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
-                Text(sort.label),
+                Text(sort.label(l)),
               ],
             ),
           ),
@@ -664,7 +673,7 @@ class _SortMenu extends StatelessWidget {
             Icon(Icons.sort, size: 18, color: scheme.onSurfaceVariant),
             const SizedBox(width: 6),
             Text(
-              value.label,
+              value.label(l),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

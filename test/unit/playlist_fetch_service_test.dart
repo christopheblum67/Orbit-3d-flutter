@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -10,15 +11,48 @@ import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('signals parsing before background work and preserves media', () async {
+    final dir = await Directory.systemTemp.createTemp('playlist-service-');
+    addTearDown(() => dir.delete(recursive: true));
+    var timerRan = false;
+    var observedBackgroundCompletion = false;
+    final service = PlaylistFetchService(
+      cache: ConditionalPlaylistCache(directory: () async => dir),
+      log: (message) {
+        if (message.contains('state=complete') &&
+            message.startsWith('M3U parse ')) {
+          observedBackgroundCompletion = timerRan;
+        }
+      },
+      get: (url, {options, onReceiveProgress}) async => Response<dynamic>(
+        requestOptions: RequestOptions(path: url),
+        statusCode: 200,
+        data: '#EXTM3U\n'
+            '#EXTINF:-1 group-title="TV",Channel\nhttps://example.test/live\n'
+            '#EXTINF:-1 group-title="Films",Movie\nhttps://example.test/movie/a\n'
+            '#EXTINF:-1 group-title="Series",Show S01E01\nhttps://example.test/series/a\n',
+      ),
+    );
+    final playlist = await service.fetch(
+      'https://example.test/private',
+      onParsing: () => Timer.run(() => timerRan = true),
+    );
+    expect(observedBackgroundCompletion, isTrue);
+    expect(playlist.channels.single.name, 'Channel');
+    expect(playlist.movies.single.title, 'Movie');
+    expect(playlist.series.single.episodes, hasLength(1));
+  });
+
   test('fetches a playlist and revalidates its cached content', () async {
     final dir = await Directory.systemTemp.createTemp('playlist-service-');
     addTearDown(() => dir.delete(recursive: true));
     final requests = <Options>[];
     final logs = <String>[];
+    var milestones = 0;
     final service = PlaylistFetchService(
       cache: ConditionalPlaylistCache(directory: () async => dir),
       log: logs.add,
-      get: (url, {options}) async {
+      get: (url, {options, onReceiveProgress}) async {
         requests.add(options!);
         final first = requests.length == 1;
         return Response<dynamic>(
@@ -37,14 +71,16 @@ void main() {
       },
     );
     expect(
-      (await service.fetch('https://example.test/playlist'))
+      (await service.fetch('https://example.test/playlist',
+              onParsing: () => milestones++))
           .channels
           .single
           .name,
       'Test',
     );
     expect(
-      (await service.fetch('https://example.test/playlist'))
+      (await service.fetch('https://example.test/playlist',
+              onParsing: () => milestones++))
           .channels
           .single
           .name,
@@ -53,6 +89,7 @@ void main() {
     expect(requests.first.responseType, ResponseType.plain);
     expect(requests.first.validateStatus!(304), isTrue);
     expect(requests.last.headers, {'If-None-Match': '"v1"'});
+    expect(milestones, 2);
     expect(logs, contains('M3U response status=200'));
     expect(logs, contains('M3U response status=304'));
     expect(logs.where((line) => line.startsWith('M3U body ')), hasLength(2));
@@ -62,6 +99,39 @@ void main() {
     );
     expect(logs.join('\n'), isNot(contains('example.test')));
     expect(logs.join('\n'), isNot(contains('Test')));
+  });
+
+  test('logs bounded transfer progress without exposing the playlist URL',
+      () async {
+    final dir = await Directory.systemTemp.createTemp('playlist-service-');
+    addTearDown(() => dir.delete(recursive: true));
+    final logs = <String>[];
+    final service = PlaylistFetchService(
+      cache: ConditionalPlaylistCache(directory: () async => dir),
+      log: logs.add,
+      get: (url, {options, onReceiveProgress}) async {
+        expect(options!.extra?['orbitM3uTraceId'], isA<int>());
+        onReceiveProgress!(0, -1);
+        onReceiveProgress(4, -1);
+        onReceiveProgress(10, -1);
+        onReceiveProgress(2, -1);
+        onReceiveProgress(6, -1);
+        return Response<dynamic>(
+          requestOptions: RequestOptions(path: url),
+          statusCode: 200,
+          data: '#EXTM3U\n#EXTINF:-1,Chaîne\nhttps://example.test/live\n',
+        );
+      },
+    );
+    await service.fetch('https://example.test/private');
+    final progress = logs.where((line) => line.startsWith('M3U transfer '));
+    expect(progress, hasLength(3));
+    expect(progress.first, contains('state=first-byte receivedBytes=4'));
+    expect(
+        progress.elementAt(1), contains('state=counter-reset receivedBytes=2'));
+    expect(progress.last, contains('state=response lastReceivedBytes=6'));
+    expect(logs.join('\n'), isNot(contains('example.test')));
+    expect(logs.join('\n'), isNot(contains('Chaîne')));
   });
 
   for (final example in [
@@ -103,7 +173,7 @@ void main() {
       final service = PlaylistFetchService(
         cache: ConditionalPlaylistCache(directory: () async => dir),
         log: (_) {},
-        get: (url, {options}) async {
+        get: (url, {options, onReceiveProgress}) async {
           requests.add(options!);
           return Response<dynamic>(
             requestOptions: RequestOptions(path: url),
@@ -130,7 +200,7 @@ void main() {
     final service = PlaylistFetchService(
       cache: ConditionalPlaylistCache(directory: () async => dir),
       log: logs.add,
-      get: (url, {options}) async => Response<dynamic>(
+      get: (url, {options, onReceiveProgress}) async => Response<dynamic>(
         requestOptions: RequestOptions(path: url),
         statusCode: 200,
         data: body,
@@ -154,7 +224,7 @@ void main() {
     final service = PlaylistFetchService(
       cache: ConditionalPlaylistCache(directory: () async => dir),
       log: (_) {},
-      get: (url, {options}) async {
+      get: (url, {options, onReceiveProgress}) async {
         headers.add(options?.headers);
         return Response<dynamic>(
           requestOptions: RequestOptions(path: url),
@@ -199,7 +269,7 @@ void main() {
     final service = PlaylistFetchService(
       cache: cache,
       log: (_) {},
-      get: (url, {options}) async {
+      get: (url, {options, onReceiveProgress}) async {
         headers.add(options?.headers);
         final first = headers.length == 1;
         return Response<dynamic>(

@@ -42,6 +42,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   late final StartupRefreshController _controller;
   Timer? _stallTimer;
   Timer? _slowTimer;
+  StreamSubscription<void>? _m3uParsingSubscription;
   bool _providerSlow = false;
   bool _navigated = false;
   bool _finishing = false;
@@ -69,13 +70,23 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
       loadRadioChannels: () => container.read(radioChannelsProvider.future),
       epgCache: ref.read(epgDataCacheProvider),
       deferredStillValid: () =>
-          !_invalidConfiguration && !_abandoned &&
-          container.read(activeSubscriptionProvider)?.id == _startingSubscriptionId,
+          !_invalidConfiguration &&
+          !_abandoned &&
+          container.read(activeSubscriptionProvider)?.id ==
+              _startingSubscriptionId,
       steps: widget.remainingPhase
           ? StartupRefreshController.remainingSteps
           : StartupRefreshController.initialSteps,
     );
     _controller.addListener(_onProgress);
+    _m3uParsingSubscription =
+        ref.read(m3uParsingEventsProvider).stream.listen((_) {
+      if (mounted &&
+          ref.read(activeSubscriptionProvider)?.id == _startingSubscriptionId &&
+          ref.read(activeSubscriptionProvider)?.type == SubscriptionType.m3u) {
+        _controller.markPlaylistParsing();
+      }
+    });
     _armStallTimer();
     // Lance le préchargement après le premier frame pour ne pas muter l'état
     // pendant la phase de build. Le branding est monté à partir de la frame
@@ -106,6 +117,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   void dispose() {
     _stallTimer?.cancel();
     _slowTimer?.cancel();
+    unawaited(_m3uParsingSubscription?.cancel());
     _controller.removeListener(_onProgress);
     _controller.dispose();
     super.dispose();
@@ -191,6 +203,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     // Initialise le certificate pinning depuis les réglages avancés
     ref.watch(certificatePinningInitializerProvider);
     return Scaffold(
@@ -204,20 +217,22 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                 currentStep: _controller.currentStep,
                 doneSteps: _controller.doneSteps,
                 isFinished: _controller.isFinished,
-                title: _providerSlow && _controller.percent < 100
-                    ? 'Le fournisseur répond lentement (vérification de '
-                        'sécurité possible). Merci de patienter…'
-                    : widget.remainingPhase
-                    ? 'Chargement des radios et replays'
-                    : 'Chargement du direct, des films, séries et du guide TV',
+                title: _controller.isParsingPlaylist
+                    ? l.startupParsingPlaylist
+                    : _providerSlow && _controller.percent < 100
+                        ? l.startupProviderSlow
+                        : widget.remainingPhase
+                            ? l.startupLoadingRemaining
+                            : l.startupLoadingInitial,
                 visibleSteps: widget.remainingPhase
                     ? StartupRefreshController.remainingSteps.toList()
                     : StartupRefreshController.initialSteps.toList(),
                 showBranding: _showBranding,
                 failureMessage: _refreshStalled
-                    ? _stalledMessage(_controller.currentStep?.label)
+                    ? _stalledMessage(l, _controller.currentStep)
                     : null,
-                onOpenHome: _refreshStalled ? () => _leaveLoading('/home') : null,
+                onOpenHome:
+                    _refreshStalled ? () => _leaveLoading('/home') : null,
                 onOpenSubscriptions: _refreshStalled
                     ? () => _leaveLoading('/subscriptions')
                     : null,
@@ -312,7 +327,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
               style: const TextStyle(color: Colors.white),
             ),
             content: Text(
-              'Reprendre "$title" à $timestamp ?',
+              l.startupResumeQuestion(title, timestamp),
               style: const TextStyle(color: Colors.white70),
             ),
             actions: [
@@ -365,9 +380,9 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF00CFE8),
                   ),
-                  child: const Text(
-                    'Reprendre',
-                    style: TextStyle(color: Colors.black),
+                  child: Text(
+                    l.resumeAction,
+                    style: const TextStyle(color: Colors.black),
                   ),
                 ),
               ),
@@ -399,7 +414,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     if (history.isNotEmpty) {
       return history.first.title;
     }
-    return 'Dernière session';
+    return AppLocalizations.of(context).startupLastSession;
   }
 
   String _formatTimestamp(int positionMs) {
@@ -424,11 +439,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     // Non bloquant : l'affichage retombera sur « Sans limite ».
   }
 
-  String _stalledMessage(String? step) {
-    final label =
-        step == null ? 'la vérification de l’abonnement' : '« $step »';
-    return '$label ne signale aucune progression depuis '
-        '${kRefreshStallTimeout.inSeconds} secondes. Le serveur peut être '
-        'lent ou indisponible.';
+  String _stalledMessage(AppLocalizations l, StartupStep? step) {
+    final label = step == null
+        ? l.startupCheckingSubscription
+        : refreshStepLabel(l, step);
+    return l.startupStalled(label, kRefreshStallTimeout.inSeconds);
   }
 }

@@ -33,7 +33,7 @@ class _VpnScreenState extends ConsumerState<VpnScreen> {
         leading: GoRouter.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => GoRouter.of(context).pop(),
               )
             : null,

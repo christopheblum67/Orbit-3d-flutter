@@ -462,7 +462,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
         child: Text(
-          'Sous-titres intégrés',
+          l.subtitleEmbeddedSection,
           style: TextStyle(
             color: scheme.primary,
             fontSize: 13,
@@ -486,8 +486,8 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
           title: track.label,
           subtitle: [
             track.language?.toUpperCase() ?? '—',
-            if (track.isForced) 'Forcé',
-            'Intégré',
+            if (track.isForced) l.subtitleForcedLabel,
+            l.subtitleEmbeddedLabel,
           ].join(' · '),
           selected: activeId == track.id,
           onTap: () => _selectEmbeddedTrack(track.id),

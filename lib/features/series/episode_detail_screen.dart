@@ -31,7 +31,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
   String _progressId(String profileId) =>
       PlaybackProgressService.idForProfile(profileId, 'episode-${episode.id}');
 
-  String get _label {
+  String _label(AppLocalizations l) {
     final number = 'S${episode.season.toString().padLeft(2, '0')}'
         'E${episode.episodeNumber.toString().padLeft(2, '0')}';
     var title = episode.title.trim();
@@ -40,7 +40,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
           .substring(series.title.length)
           .replaceFirst(RegExp(r'^\s*[-–—]\s*'), '');
     }
-    if (title.isEmpty) return 'Épisode $number';
+    if (title.isEmpty) return '${l.episode} $number';
     return '$number — $title';
   }
 
@@ -60,13 +60,14 @@ class EpisodeDetailScreen extends ConsumerWidget {
     int? positionMs,
   }) {
     if (episode.streamUrl.isEmpty) return;
+    final label = _label(AppLocalizations.of(context));
     // Le statut « vu » est décidé par la progression : il n'est posé qu'à
     // 80 % regardés (voir `_saveProgress` du player). Rien à enregistrer ici.
     context.push(
       '/player',
       extra: PlayerRouteData(
         streamUrl: episode.streamUrl,
-        title: _label,
+        title: label,
         progressId: progressId,
         initialPositionMs: positionMs,
         contentType: PlaybackContentType.series,
@@ -76,7 +77,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
         genre: series.genre.isNotEmpty ? series.genre : null,
         year: series.year,
         seriesName: series.title,
-        episodeLabel: _label,
+        episodeLabel: label,
         favorite: _favoriteEntry,
         series: series,
         episode: episode,
@@ -87,6 +88,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    final label = _label(l);
     final progressId = _progressId(ref.watch(currentProfileProvider)?.id ?? '');
     final progress = ref.watch(playbackProgressServiceProvider).get(progressId);
     final hasProgress = progress?.hasProgress ?? false;
@@ -109,7 +111,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -118,7 +120,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
           FavoriteToggle(entry: _favoriteEntry),
           DownloadButton(
             mediaItemId: episode.id,
-            title: _label,
+            title: label,
             streamUrl: episode.streamUrl,
             posterUrl: series.coverUrl,
             contentType: 'series',
@@ -164,7 +166,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _label,
+                        label,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -195,7 +197,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
                 runSpacing: 12,
                 children: [
                   MediaActionButton(
-                    autofocus: ref.watch(tvModeNotifierProvider).enabled,
+                    autofocus: ref.watch(tvModeNotifierProvider).enabled &&
+                        (!hasProgress || episode.streamUrl.isEmpty),
                     onPressed: episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
                               context,
@@ -208,6 +211,9 @@ class EpisodeDetailScreen extends ConsumerWidget {
                     isTvLayout: isTvLayout,
                   ),
                   MediaActionButton(
+                    autofocus: ref.watch(tvModeNotifierProvider).enabled &&
+                        hasProgress &&
+                        episode.streamUrl.isNotEmpty,
                     onPressed: hasProgress && episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
                               context,
@@ -217,7 +223,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                             )
                         : null,
                     icon: Icons.replay_rounded,
-                    label: 'Reprendre',
+                    label: l.resumeAction,
                     isTvLayout: isTvLayout,
                   ),
                   MediaActionButton(
@@ -231,9 +237,8 @@ class EpisodeDetailScreen extends ConsumerWidget {
                             } catch (_) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Impossible de marquer cet épisode comme vu.'),
+                                  SnackBar(
+                                    content: Text(l.episodeMarkWatchedFailed),
                                   ),
                                 );
                               }
@@ -242,7 +247,9 @@ class EpisodeDetailScreen extends ConsumerWidget {
                     icon: isWatched
                         ? Icons.check_circle
                         : Icons.check_circle_outline,
-                    label: isWatched ? 'Épisode déjà vu' : 'Marquer comme vu',
+                    label: isWatched
+                        ? l.episodeAlreadyWatched
+                        : l.episodeMarkWatched,
                     isTvLayout: isTvLayout,
                   ),
                 ],
@@ -253,7 +260,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
               LinearProgressIndicator(value: progress.fraction),
               const SizedBox(height: 8),
               Text(
-                'Repris à ${_formatDuration(progress.positionMs)}',
+                l.episodeResumeAt(_formatDuration(progress.positionMs)),
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall

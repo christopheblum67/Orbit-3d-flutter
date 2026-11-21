@@ -122,7 +122,7 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
 
   /// Abonnements au niveau applicatif, annulés dans [dispose].
   StreamSubscription<CastSessionState>? _sessionSub;
-  StreamSubscription<String>? _messageSub;
+  StreamSubscription<CastPlaybackMessage>? _messageSub;
 
   // Focus nodes for TV/D-pad navigation
   final _closeFocus = FocusNode();
@@ -158,7 +158,11 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
     });
     _messageSub = _service.messageStream.listen((msg) {
       if (!mounted) return;
-      setState(() => _feedback = msg);
+      setState(() => _feedback = switch (msg) {
+            CastReceiverMessage(:final text) => text,
+            CastReceiverNotReady() =>
+              AppLocalizations.of(context).castReceiverNotReady,
+          });
     });
     _scan();
   }
@@ -193,9 +197,6 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
         ..clear()
         ..addAll(found);
       _scanning = false;
-      if (found.isEmpty && _feedback == null) {
-        _feedback = 'Aucun Chromecast détecté sur le réseau.';
-      }
     });
   }
 
@@ -205,10 +206,12 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
     if (!mounted) return;
     setState(() => _connecting = false);
     if (connected) {
-      setState(() => _feedback = 'Connecté à ${device.name}');
+      setState(() => _feedback =
+          AppLocalizations.of(context).castConnectedTo(device.name));
       await _service.castMedia(widget.streamUrl, isLive: widget.isLive);
     } else {
-      setState(() => _feedback = 'Connexion à ${device.name} impossible.');
+      setState(() => _feedback =
+          AppLocalizations.of(context).castConnectionFailed(device.name));
     }
   }
 
@@ -281,7 +284,7 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
                       return KeyEventResult.ignored;
                     },
                     child: IconButton(
-                      tooltip: 'Fermer',
+                      tooltip: l.close,
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close),
                     ),
@@ -357,7 +360,7 @@ class _CastSheetState extends ConsumerState<_CastSheet> {
             const CircularProgressIndicator(),
             const SizedBox(height: 12),
             Text(
-              'Recherche d\'appareils Cast…',
+              l.castSearching,
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,

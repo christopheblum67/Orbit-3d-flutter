@@ -154,7 +154,51 @@ class LanguageLabel {
   };
 
   static Map<String, String> _tableFor(String? localeCode) =>
-      localeCode == 'en' ? _namesEn : _namesFr;
+      const {'en', 'de', 'es', 'it', 'ar'}.contains(localeCode)
+          ? _namesEn
+          : _namesFr;
+
+  // Noms canoniques anglais vers allemand, espagnol, italien et arabe.
+  static const Map<String, List<String>> _translatedNames = {
+    'French': ['Französisch', 'Francés', 'Francese', 'الفرنسية'],
+    'English': ['Englisch', 'Inglés', 'Inglese', 'الإنجليزية'],
+    'Spanish': ['Spanisch', 'Español', 'Spagnolo', 'الإسبانية'],
+    'German': ['Deutsch', 'Alemán', 'Tedesco', 'الألمانية'],
+    'Italian': ['Italienisch', 'Italiano', 'Italiano', 'الإيطالية'],
+    'Portuguese': ['Portugiesisch', 'Portugués', 'Portoghese', 'البرتغالية'],
+    'Dutch': ['Niederländisch', 'Neerlandés', 'Olandese', 'الهولندية'],
+    'Arabic': ['Arabisch', 'Árabe', 'Arabo', 'العربية'],
+    'Russian': ['Russisch', 'Ruso', 'Russo', 'الروسية'],
+    'Turkish': ['Türkisch', 'Turco', 'Turco', 'التركية'],
+    'Polish': ['Polnisch', 'Polaco', 'Polacco', 'البولندية'],
+    'Czech': ['Tschechisch', 'Checo', 'Ceco', 'التشيكية'],
+    'Swedish': ['Schwedisch', 'Sueco', 'Svedese', 'السويدية'],
+    'Norwegian': ['Norwegisch', 'Noruego', 'Norvegese', 'النرويجية'],
+    'Danish': ['Dänisch', 'Danés', 'Danese', 'الدنماركية'],
+    'Finnish': ['Finnisch', 'Finés', 'Finlandese', 'الفنلندية'],
+    'Greek': ['Griechisch', 'Griego', 'Greco', 'اليونانية'],
+    'Romanian': ['Rumänisch', 'Rumano', 'Rumeno', 'الرومانية'],
+    'Hungarian': ['Ungarisch', 'Húngaro', 'Ungherese', 'الهنغارية'],
+    'Ukrainian': ['Ukrainisch', 'Ucraniano', 'Ucraino', 'الأوكرانية'],
+    'Bulgarian': ['Bulgarisch', 'Búlgaro', 'Bulgaro', 'البلغارية'],
+    'Chinese': ['Chinesisch', 'Chino', 'Cinese', 'الصينية'],
+    'Catalan': ['Katalanisch', 'Catalán', 'Catalano', 'الكتالونية'],
+    'Basque': ['Baskisch', 'Euskera', 'Basco', 'الباسكية'],
+    'Galician': ['Galicisch', 'Gallego', 'Galiziano', 'الغاليثية'],
+    'Unknown': ['Unbekannt', 'Desconocido', 'Sconosciuta', 'غير معروفة'],
+  };
+
+  static String _localizeName(String name, String? localeCode) {
+    final index = switch (localeCode) {
+      'de' => 0,
+      'es' => 1,
+      'it' => 2,
+      'ar' => 3,
+      _ => null,
+    };
+    final translations = _translatedNames[name];
+    return index == null || translations == null ? name : translations[index];
+  }
 
   /// Modificateurs de piste, qui s'ajoutent au nom de la langue.
   static const Map<String, String> _qualifiers = {
@@ -265,27 +309,53 @@ class LanguageLabel {
     // Un libellé déjà rédigé (« Français ») n'est pas un code : on le garde tel
     // quel, mais les modificateurs qui l'accompagnent s'appliquent encore.
     final direct = names[lower];
-    if (direct != null) return _withQualifier(direct, lower);
+    if (direct != null) {
+      return _withQualifier(
+          _localizeName(direct, localeCode), lower, localeCode);
+    }
 
     for (final part in stripped) {
       final found = names[part];
-      if (found != null) return _withQualifier(found, lower);
+      if (found != null) {
+        return _withQualifier(
+            _localizeName(found, localeCode), lower, localeCode);
+      }
     }
 
     // Le libellé explicite l'emporte quand il n'est pas un code.
     final label = (fallback ?? '').trim();
     if (label.isNotEmpty && names[label.toLowerCase()] == null) {
-      return _withQualifier(label, lower);
+      return _withQualifier(label, lower, localeCode);
     }
     return raw;
   }
 
-  static String _withQualifier(String name, String lower) {
+  static String _withQualifier(String name, String lower, String? localeCode) {
     // Le nom de langue doit être reconstruit après avoir retiré les
     // modificateurs : `_names['fr']` existe, mais `_names['forced']` non, et la
     // forme `forced_fr` n'a aucune entrée.
-    if (isForced(lower)) return '$name (forcé)';
-    if (isHearingImpaired(lower)) return '$name (sourds et malentendants)';
+    if (isForced(lower)) {
+      final qualifier = switch (localeCode) {
+        'en' => 'forced',
+        'de' => 'erzwungen',
+        'es' => 'forzado',
+        'it' => 'forzato',
+        'ar' => 'إجباري',
+        _ => 'forcé',
+      };
+      return '$name ($qualifier)';
+    }
+    if (isHearingImpaired(lower)) {
+      final qualifier = switch (localeCode) {
+        'en' => 'deaf and hard of hearing',
+        'de' => 'für Hörgeschädigte',
+        'es' => 'para personas sordas y con dificultades auditivas',
+        'it' => 'per persone sorde e ipoudenti',
+        'ar' => 'للصم وضعاف السمع',
+        _ => 'sourds et malentendants',
+      };
+      return '$name ($qualifier)';
+    }
     return name;
   }
 }

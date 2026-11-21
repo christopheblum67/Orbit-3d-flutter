@@ -6,8 +6,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
+import 'package:orbit_3d_flutter/features/settings/tv_pairing_screen.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_account_service.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
+
+class _TestApp extends MaterialApp {
+  _TestApp({
+    super.key,
+    required super.home,
+    super.navigatorObservers = const <NavigatorObserver>[],
+    Locale locale = const Locale('fr'),
+  }) : super(
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 class _FakeAuth extends Fake implements FirebaseAuth {
   @override
@@ -82,10 +97,22 @@ class _RecordingNavigatorObserver extends NavigatorObserver {
 void main() {
   Future<bool> notTv() async => false;
 
+  testWidgets('TV pairing explains the verification step in English',
+      (tester) async {
+    await tester.pumpWidget(_TestApp(
+      locale: const Locale('en'),
+      home: const TvPairingScreen(),
+    ));
+    expect(find.text('Link this TV'), findsOneWidget);
+    expect(find.textContaining('Compare the displayed codes'), findsOneWidget);
+    expect(find.text('Create a QR code'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+  });
+
   testWidgets('offers the experimental TV pairing screen only when enabled',
       (tester) async {
     final service = _FakeAccountService();
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
         home: CloudAccountScreen(service: service, tvDetector: notTv)));
     await tester.pumpAndSettle();
     final button = find.text('Associer cette TV par QR code');
@@ -104,7 +131,7 @@ void main() {
     if (!qrPairingAvailable) return;
     final service = _FakeAccountService();
     final detection = Completer<bool>();
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
       home: CloudAccountScreen(
           service: service, tvDetector: () => detection.future),
     ));
@@ -134,7 +161,7 @@ void main() {
   testWidgets('TV can move up from the email field to the pairing button',
       (tester) async {
     if (!qrPairingAvailable) return;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
       home: CloudAccountScreen(
         service: _FakeAccountService(),
         tvDetector: () async => true,
@@ -169,7 +196,7 @@ void main() {
       _FakeUser(isAnonymous: false, linked: true),
     ]) {
       final service = _FakeAccountService()..user = user;
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(_TestApp(
         key: UniqueKey(),
         home:
             CloudAccountScreen(service: service, tvDetector: () async => true),
@@ -184,7 +211,7 @@ void main() {
       (tester) async {
     final service = _FakeAccountService()..user = _FakeUser(isAnonymous: false);
     final observer = _RecordingNavigatorObserver();
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
       navigatorObservers: [observer],
       home: CloudAccountScreen(service: service, tvDetector: () async => true),
     ));
@@ -205,7 +232,7 @@ void main() {
   testWidgets('Google remains available on TV when QR is disabled',
       (tester) async {
     if (qrPairingAvailable) return;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
       home: CloudAccountScreen(
         service: _FakeAccountService(),
         tvDetector: () async => true,
@@ -220,8 +247,7 @@ void main() {
       (tester) async {
     final service = _FakeAccountService();
     await tester.pumpWidget(
-      MaterialApp(
-          home: CloudAccountScreen(service: service, tvDetector: notTv)),
+      _TestApp(home: CloudAccountScreen(service: service, tvDetector: notTv)),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'user@example.test');
@@ -254,7 +280,7 @@ void main() {
     final service = _FakeAccountService()
       ..user = _FakeUser(isAnonymous: true)
       ..googleConflict = true;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
         home: CloudAccountScreen(service: service, tvDetector: notTv)));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Lier un compte Google'));
@@ -268,7 +294,7 @@ void main() {
   testWidgets('disables linking when Google is already linked', (tester) async {
     final service = _FakeAccountService()
       ..user = _FakeUser(isAnonymous: false, linked: true);
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
         home: CloudAccountScreen(service: service, tvDetector: notTv)));
     await tester.pumpAndSettle();
     final button = tester.widget<OutlinedButton>(
@@ -281,13 +307,32 @@ void main() {
   testWidgets('shows an actionable Google cancellation message',
       (tester) async {
     final service = _FakeAccountService()..googleCanceled = true;
-    await tester.pumpWidget(MaterialApp(
+    await tester.pumpWidget(_TestApp(
         home: CloudAccountScreen(service: service, tvDetector: notTv)));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Se connecter avec Google'));
     await tester.tap(find.text('Se connecter avec Google'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Connexion Google annulée ou impossible'),
+        findsOneWidget);
+  });
+
+  testWidgets('explains account-link conflicts in English', (tester) async {
+    final service = _FakeAccountService()
+      ..user = _FakeUser(isAnonymous: true)
+      ..googleConflict = true;
+    await tester.pumpWidget(_TestApp(
+      locale: const Locale('en'),
+      home: CloudAccountScreen(service: service, tvDetector: notTv),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Cloud account'), findsOneWidget);
+    await tester.ensureVisible(find.text('Link a Google account'));
+    await tester.tap(find.text('Link a Google account'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('No accounts or data were merged.'),
+        findsOneWidget);
+    expect(find.textContaining('sign out and then sign in with Google'),
         findsOneWidget);
   });
 }

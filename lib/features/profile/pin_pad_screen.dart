@@ -65,20 +65,20 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
 
   PinPadMode get _mode => widget.args.mode;
 
-  String get _title =>
-      _mode == PinPadMode.verify ? 'Code PIN requis' : 'Définir un code PIN';
+  String _title(AppLocalizations l) =>
+      _mode == PinPadMode.verify ? l.pinRequired : l.pinSet;
 
-  String get _subtitle {
+  String _subtitle(AppLocalizations l) {
     if (_mode == PinPadMode.verify) {
       final profile = widget.args.profile;
       final name = profile?.firstName.trim().isNotEmpty == true
           ? profile!.firstName.trim()
-          : 'ce profil';
-      return 'Entrez le code PIN de $name';
+          : l.pinThisProfile;
+      return l.pinEnterForProfile(name);
     }
     return widget.args.confirmation
-        ? 'Confirmez votre code à 4 chiffres'
-        : 'Choisissez un code à 4 chiffres';
+        ? l.pinConfirmFourDigits
+        : l.pinChooseFourDigits;
   }
 
   void _append(String digit) {
@@ -131,7 +131,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
         _digits = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible de vérifier le code PIN.')),
+        SnackBar(content: Text(AppLocalizations.of(context).pinVerifyFailed)),
       );
       return;
     }
@@ -168,7 +168,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
         title: Text(l.pinCode),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Annuler',
+          tooltip: l.cancel,
           onPressed: () => context.pop(),
         ),
       ),
@@ -198,19 +198,20 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                 .textTheme
                 .bodyMedium
                 ?.copyWith(color: scheme.onSurfaceVariant);
-            const instruction = 'Après 4 chiffres, appuyez sur ✓ pour valider.';
-            final errorText = 'Code incorrect — '
-                '${_maxAttempts - _attempts} essai(s) restant(s)';
+            final instruction = l.pinConfirmInstruction;
+            final title = _title(l);
+            final subtitle = _subtitle(l);
+            final errorText = l.pinIncorrectAttempts(_maxAttempts - _attempts);
             final reservedHeight = 16 +
-                textHeight(_title, titleStyle) +
+                textHeight(title, titleStyle) +
                 8 +
-                textHeight(_subtitle, subtitleStyle) +
+                textHeight(subtitle, subtitleStyle) +
                 12 +
                 22 +
                 (_wrong || _checking
                     ? 14 +
                         textHeight(
-                          _checking ? 'Vérification en cours…' : errorText,
+                          _checking ? l.pinChecking : errorText,
                           const TextStyle(fontWeight: FontWeight.w700),
                         )
                     : 0) +
@@ -236,13 +237,13 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _title,
+                          title,
                           style: titleStyle,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _subtitle,
+                          subtitle,
                           style: subtitleStyle,
                           textAlign: TextAlign.center,
                         ),
@@ -256,7 +257,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                                   padding: const EdgeInsets.only(top: 14),
                                   child: Text(
                                     _checking
-                                        ? 'Vérification en cours…'
+                                        ? l.pinChecking
                                         : errorText,
                                     style: TextStyle(
                                       color: _checking
@@ -272,7 +273,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                         _buildKeyGrid(keySize),
                         if (_mode == PinPadMode.set) ...[
                           const SizedBox(height: 8),
-                          const Text(instruction, textAlign: TextAlign.center),
+                          Text(instruction, textAlign: TextAlign.center),
                         ],
                       ],
                     ),

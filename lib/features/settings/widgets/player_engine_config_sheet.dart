@@ -276,7 +276,11 @@ class _PlayerEngineConfigSheetState
         DropdownMenuItem(
           value: e,
           child: Text(
-            e.label,
+            switch (e) {
+              PlayerEngine.exoPlayer => l.engineInternal('ExoPlayer'),
+              PlayerEngine.vlc => l.engineExternal('libVLC'),
+              PlayerEngine.mxPlayer => l.engineExternal('MX Player'),
+            },
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
@@ -308,10 +312,10 @@ class _PlayerEngineConfigSheetState
                       color: scheme.primary,
                     ),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Moteurs de lecture',
-                        style: TextStyle(
+                        l.settingsPlaybackEngines,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
@@ -383,7 +387,7 @@ class _PlayerEngineConfigSheetState
                       },
                       child: IconButton(
                         focusNode: _closeFocus,
-                        tooltip: 'Annuler',
+                        tooltip: l.cancel,
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.close),
                       ),
@@ -401,9 +405,7 @@ class _PlayerEngineConfigSheetState
                       Padding(
                         padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
                         child: Text(
-                          'Choisissez le moteur utilisé pour chaque type de '
-                          'contenu, ainsi que le moteur de secours en cas '
-                          'd\'échec de lecture.',
+                          l.engineSelectionHelp,
                           style: TextStyle(
                             fontSize: 12,
                             color: scheme.onSurfaceVariant,
@@ -471,7 +473,7 @@ class _PlayerEngineConfigSheetState
                           children: [
                             const Icon(Icons.memory_outlined, size: 18),
                             const SizedBox(width: 10),
-                            const Expanded(child: Text('Décodage vidéo')),
+                            Expanded(child: Text(l.engineVideoDecoding)),
                             Expanded(
                               child: _buildTvSubtitleDropdownButton<
                                   VideoDecoderMode>(
@@ -485,18 +487,18 @@ class _PlayerEngineConfigSheetState
                                     setState(() => _decoderModeDraft = mode);
                                   }
                                 },
-                                items: const [
+                                items: [
                                   DropdownMenuItem(
                                       value: VideoDecoderMode.auto,
-                                      child: Text('Auto (recommandé)',
+                                      child: Text(l.engineAutoRecommended,
                                           overflow: TextOverflow.ellipsis)),
                                   DropdownMenuItem(
                                       value: VideoDecoderMode.hardware,
-                                      child: Text('Matériel',
+                                      child: Text(l.engineHardware,
                                           overflow: TextOverflow.ellipsis)),
                                   DropdownMenuItem(
                                       value: VideoDecoderMode.software,
-                                      child: Text('Logiciel',
+                                      child: Text(l.engineSoftware,
                                           overflow: TextOverflow.ellipsis)),
                                 ],
                               ),
@@ -510,7 +512,7 @@ class _PlayerEngineConfigSheetState
                         Padding(
                           padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
                           child: Text(
-                            'Auto : logiciel retenu pour cet appareil',
+                            l.engineAutoSoftware,
                             style: TextStyle(
                               fontSize: 12,
                               color: scheme.onSurfaceVariant,
@@ -664,21 +666,6 @@ class _TypeSection extends StatelessWidget {
   }) buildTvSubtitleDropdown;
   final FocusNode Function() getNextVodSubtitleFocus;
   final FocusNode Function() getPrevVodSubtitleFocus;
-  static const _subtitleModeItems = <DropdownMenuItem<VodSubtitleMode>>[
-    DropdownMenuItem(
-      value: VodSubtitleMode.defaultSelection,
-      child: Text('Par défaut', overflow: TextOverflow.ellipsis),
-    ),
-    DropdownMenuItem(
-      value: VodSubtitleMode.disabled,
-      child: Text('Sans sous-titres', overflow: TextOverflow.ellipsis),
-    ),
-    DropdownMenuItem(
-      value: VodSubtitleMode.forcedOnly,
-      child: Text('Sous-titres forcés', overflow: TextOverflow.ellipsis),
-    ),
-  ];
-
   IconData get _icon => switch (type) {
         PlaybackContentType.live => Icons.live_tv,
         PlaybackContentType.vod => Icons.movie_outlined,
@@ -703,7 +690,12 @@ class _TypeSection extends StatelessWidget {
                 Icon(_icon, size: 18, color: scheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  type.label,
+                  switch (type) {
+                    PlaybackContentType.live => 'Live',
+                    PlaybackContentType.vod => 'VOD',
+                    PlaybackContentType.series => l.series,
+                    PlaybackContentType.replay => l.replay,
+                  },
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -743,7 +735,23 @@ class _TypeSection extends StatelessWidget {
                 prevFocusNode: getPrevVodSubtitleFocus(),
                 value: vodSubtitleMode!,
                 onChanged: onVodSubtitleMode!,
-                items: _subtitleModeItems,
+                items: [
+                  DropdownMenuItem(
+                    value: VodSubtitleMode.defaultSelection,
+                    child: Text(l.engineSubtitleDefault,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  DropdownMenuItem(
+                    value: VodSubtitleMode.disabled,
+                    child: Text(l.engineSubtitleDisabled,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  DropdownMenuItem(
+                    value: VodSubtitleMode.forcedOnly,
+                    child: Text(l.engineSubtitleForced,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
                 buildTvDropdown: buildTvSubtitleDropdown,
               ),
           ],
@@ -847,8 +855,11 @@ class _SubtitleModeRow extends StatelessWidget {
               color: Theme.of(context).colorScheme.tertiary,
             ),
             const SizedBox(width: 10),
-            const Expanded(
-              child: Text('Sous-titres VOD', style: TextStyle(fontSize: 13)),
+            Expanded(
+              child: Text(
+                AppLocalizations.of(context).engineVodSubtitles,
+                style: const TextStyle(fontSize: 13),
+              ),
             ),
             Expanded(
               child: buildTvDropdown(

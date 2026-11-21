@@ -50,7 +50,7 @@ void main() {
       ),
     );
     expect(find.text('Live'), findsOneWidget);
-    final pauseButton = find.byTooltip('Lecture');
+    final pauseButton = find.byTooltip('Lire');
     final nextButton = find.byTooltip('Chaîne suivante');
     expect(pauseButton, findsOneWidget);
     expect(nextButton, findsOneWidget);

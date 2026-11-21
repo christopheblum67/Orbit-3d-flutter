@@ -198,6 +198,9 @@ class TmdbService {
     var t = title.trim();
     if (t.isEmpty) return t;
 
+    // Certains panels écrivent « [FR[ » au lieu de « [FR] ».
+    t = t.replaceFirst(RegExp(r'^\[\s*FR\s*\[', caseSensitive: false), ' ');
+
     // Retire les segments entre parenthèses/crochets/accolades : (2009), [4K],
     // {FRENCH}, (VOSTFR)…
     t = t.replaceAll(RegExp(r'[\(\[{][^)\]}]*[\)\]}]'), ' ');

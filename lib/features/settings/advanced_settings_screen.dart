@@ -103,6 +103,7 @@ class _AdvancedSettingsScreenState
 
   Future<void> _removeProfilePins() async {
     if (_removingProfilePins) return;
+    final l = AppLocalizations.of(context);
     var removalStarted = false;
     try {
       final storage = ref.read(storageServiceProvider);
@@ -111,7 +112,7 @@ class _AdvancedSettingsScreenState
       final count = profiles.where((profile) => profile.hasPin).length;
       if (count == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucun profil ne possède de code PIN.')),
+          SnackBar(content: Text(l.profilePinsNone)),
         );
         return;
       }
@@ -120,17 +121,12 @@ class _AdvancedSettingsScreenState
         context: context,
         builder: (dialogContext) => DpadScope(
           child: AlertDialog(
-            title: const Text('Supprimer les codes PIN des profils ?'),
-            content: Text(
-              'Les codes PIN seront retirés de $count profil(s). '
-              'Les profils et leurs données resteront sur cet appareil. '
-              'Les changements pourront être synchronisés avec les appareils '
-              'partagés dans le Cloud.',
-            ),
+            title: Text(l.profilePinsRemoveQuestion),
+            content: Text(l.profilePinsRemoveConfirmation(count)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Annuler'),
+                child: Text(l.cancel),
               ),
               FilledButton(
                 autofocus: true,
@@ -139,7 +135,7 @@ class _AdvancedSettingsScreenState
                   foregroundColor: Theme.of(dialogContext).colorScheme.onError,
                 ),
                 onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Supprimer les PIN'),
+                child: Text(l.profilePinsRemove),
               ),
             ],
           ),
@@ -163,8 +159,8 @@ class _AdvancedSettingsScreenState
         SnackBar(
           content: Text(
             clearedProfiles.isEmpty
-                ? 'Aucun code PIN à supprimer.'
-                : 'Codes PIN supprimés de ${clearedProfiles.length} profil(s).',
+                ? l.profilePinsNothingToRemove
+                : l.profilePinsRemoved(clearedProfiles.length),
           ),
         ),
       );
@@ -176,10 +172,8 @@ class _AdvancedSettingsScreenState
       ));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Impossible de supprimer les codes PIN. Réessayez.',
-            ),
+          SnackBar(
+            content: Text(l.profilePinsRemoveFailed),
           ),
         );
       }
@@ -223,10 +217,9 @@ class _AdvancedSettingsScreenState
           SettingsSectionTitle(l.sectionTmdb),
           const TmdbApiKeyTile(),
           const SizedBox(height: 24),
-          const SettingsSectionTitle('Protection des profils'),
+          SettingsSectionTitle(l.profileProtection),
           Text(
-            'Retirez les codes PIN de tous les profils de cet appareil. '
-            'Les profils et leurs données ne seront pas supprimés.',
+            l.profilePinsRemoveHelp,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurfaceVariant,
                 ),
@@ -249,8 +242,8 @@ class _AdvancedSettingsScreenState
                   : const Icon(Icons.lock_open_rounded),
               label: Text(
                 _removingProfilePins
-                    ? 'Suppression des PIN…'
-                    : 'Supprimer les codes PIN des profils',
+                    ? l.profilePinsRemoving
+                    : l.profilePinsRemoveAll,
               ),
             ),
           ),
@@ -512,15 +505,13 @@ class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
     if (key.isEmpty) return;
     final valid = await ref.read(tmdbServiceProvider).validateApiKey(key);
     if (!mounted) return;
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
-            valid
-                ? 'Clé TMDB valide'
-                : 'Clé TMDB refusée par TMDB (ou réseau indisponible) : '
-                    'vérifiez la clé',
+            valid ? l.tmdbKeyValid : l.tmdbKeyValidationFailed,
           ),
         ),
       );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
@@ -9,6 +11,7 @@ import 'package:orbit_3d_flutter/models/tmdb_rank_entry.dart';
 import 'package:orbit_3d_flutter/providers/enrichment_providers.dart' as split;
 import 'package:orbit_3d_flutter/providers/providers.dart' as public;
 import 'package:orbit_3d_flutter/services/metadata_enrichment_service.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/tmdb_service.dart';
 
 class _Tmdb implements TmdbService {
@@ -43,6 +46,42 @@ class _Enrichment implements MetadataEnrichmentService {
   Future<SeriesDetail> enrichSeries(Series value) async {
     series++;
     return SeriesDetail.fromSeries(value, dataSource: 'enriched');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PosterApi implements ApiService {
+  final calls = <Movie>[];
+  final pending = <Completer<String?>>[];
+
+  @override
+  Future<String?> fetchMoviePosterFromXtream(
+    Movie movie,
+    Subscription subscription,
+  ) {
+    calls.add(movie);
+    final result = Completer<String?>();
+    pending.add(result);
+    return result.future;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PosterTmdb implements TmdbService {
+  final years = <int?>[];
+  @override
+  bool get hasApiKey => true;
+
+  @override
+  Future<TmdbRankEntry?> searchMovieLight(String title, {int? year}) async {
+    years.add(year);
+    return year == null
+        ? TmdbRankEntry(tmdbId: 1, title: title, posterPath: '/poster.jpg')
+        : null;
   }
 
   @override
@@ -138,6 +177,55 @@ void main() {
     expect(tmdb.calls, isEmpty);
   });
 
+  test('poster lookups limit Xtream concurrency and skip disposed tiles',
+      () async {
+    final api = _PosterApi();
+    final movies = List.generate(4, _movie);
+    final container = ProviderContainer(overrides: [
+      public.apiServiceProvider.overrideWithValue(api),
+      public.activeSubscriptionProvider.overrideWithValue(Subscription(
+        id: 'xtream',
+        name: 'Test',
+        type: SubscriptionType.xtream,
+        createdAt: DateTime(2020),
+      )),
+    ]);
+    addTearDown(container.dispose);
+    final listeners = [
+      for (final movie in movies)
+        container.listen(public.movieXtreamPosterProvider(movie), (_, __) {}),
+    ];
+    await container.pump();
+    expect(api.calls, hasLength(3));
+    listeners.last.close();
+    await container.pump();
+    api.pending.first.complete(null);
+    await container.pump();
+    expect(api.calls, hasLength(3));
+    for (final pending in api.pending.skip(1)) {
+      pending.complete(null);
+    }
+    await container.pump();
+    for (final listener in listeners.take(3)) {
+      listener.close();
+    }
+  });
+
+  test('poster lookup retries TMDB without an unmatched year', () async {
+    final tmdb = _PosterTmdb();
+    final movie = _movie(0);
+    final container = ProviderContainer(
+      overrides: [public.tmdbServiceProvider.overrideWithValue(tmdb)],
+    );
+    addTearDown(container.dispose);
+    final listener =
+        container.listen(public.movieTmdbPosterProvider(movie), (_, __) {});
+    addTearDown(listener.close);
+    expect(await container.read(public.movieTmdbPosterProvider(movie).future),
+        'https://image.tmdb.org/t/p/w342/poster.jpg');
+    expect(tmdb.years, [2020, null]);
+  });
+
   test('grid enrichment is disposed and recreated with its listener', () async {
     final tmdb = _Tmdb();
     final container = ProviderContainer(
@@ -161,8 +249,7 @@ void main() {
     expect(tmdb.calls, hasLength(2));
   });
 
-  test('detail providers retain results and bypass enrichment for M3U series',
-      () async {
+  test('detail providers enrich and retain results for M3U', () async {
     final service = _Enrichment();
     final movie = _movie(0);
     final series = _series();
@@ -181,6 +268,7 @@ void main() {
     addTearDown(container.dispose);
     final detail =
         await container.read(public.movieDetailProvider(movie).future);
+    expect(detail.dataSource, 'm3u');
     expect(
       await container.read(public.movieDetailProvider(movie).future),
       same(detail),
@@ -188,9 +276,13 @@ void main() {
     expect(service.movies, 1);
     final seriesDetail =
         await container.read(public.seriesDetailProvider(series).future);
-    expect(seriesDetail.dataSource, 'm3u');
+    expect(seriesDetail.dataSource, 'enriched');
     expect(seriesDetail.id, series.id);
-    expect(service.series, 0);
+    expect(service.series, 1);
+    expect(
+      await container.read(public.seriesDetailProvider(series).future),
+      same(seriesDetail),
+    );
   });
 
   test('Xtream series uses and retains the enriched detail', () async {

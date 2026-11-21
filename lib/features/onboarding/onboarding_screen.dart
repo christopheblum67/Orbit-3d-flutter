@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
@@ -50,13 +51,11 @@ class _OnboardingConfigScreenState
   }
 
   String _profileDescription(DeviceProfile profile) {
+    final l = AppLocalizations.of(context);
     return switch (profile) {
-      DeviceProfile.eco =>
-        'Démarrage rapide (1,5 s) · max 1080p · 3D désactivée · multi-vue off',
-      DeviceProfile.standard =>
-        'Démarrage rapide (2 s) · rendu 3D fluide · multi-vue x2',
-      DeviceProfile.ultra =>
-        'Zapping rapide (3 s · 4K HDR possible) · multi-vue x4',
+      DeviceProfile.eco => l.onboardingEcoDescription,
+      DeviceProfile.standard => l.onboardingStandardDescription,
+      DeviceProfile.ultra => l.onboardingUltraDescription,
     };
   }
 
@@ -71,13 +70,14 @@ class _OnboardingConfigScreenState
   Widget _buildHeader() {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Bienvenue sur Orbit IPTV',
+            l.onboardingWelcome,
             style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w800,
               letterSpacing: -0.4,
@@ -85,7 +85,7 @@ class _OnboardingConfigScreenState
           ),
           const SizedBox(height: 6),
           Text(
-            'Configuration automatique de votre appareil',
+            l.onboardingSubtitle,
             style: textTheme.bodyMedium?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -98,6 +98,21 @@ class _OnboardingConfigScreenState
   Widget _buildDeviceCard(HardwareSpecs specs) {
     final scheme = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context);
+    final memory = specs.totalRamMb <= 0
+        ? l.onboardingUnknownMemory
+        : specs.totalRamMb >= 1024
+            ? l.onboardingMemoryGb(NumberFormat.decimalPatternDigits(
+                locale: l.localeName,
+                decimalDigits: 1,
+              ).format(specs.totalRamMb / 1024))
+            : l.onboardingMemoryMb(specs.totalRamMb.toString());
+    final connection = switch (specs.connection) {
+      ConnectionKind.ethernet => 'Ethernet',
+      ConnectionKind.wifi => 'Wi-Fi',
+      ConnectionKind.mobile => l.onboardingMobileNetwork,
+      ConnectionKind.other => l.onboardingOtherNetwork,
+      ConnectionKind.none => l.offline,
+    };
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -109,7 +124,7 @@ class _OnboardingConfigScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Appareil détecté',
+            l.onboardingDeviceDetected,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -117,18 +132,18 @@ class _OnboardingConfigScreenState
           const SizedBox(height: 14),
           _DeviceRow(
             icon: Icons.tv_outlined,
-            label: 'Appareil',
+            label: l.onboardingDevice,
             value: specs.isTv ? '${specs.deviceName} (TV)' : specs.deviceName,
           ),
           _DeviceRow(
             icon: Icons.memory_rounded,
             label: l.memory,
-            value: specs.memoryLabel,
+            value: memory,
           ),
           _DeviceRow(
             icon: Icons.wifi_rounded,
-            label: 'Connexion',
-            value: specs.connectionLabel,
+            label: l.onboardingConnection,
+            value: connection,
           ),
           _DeviceRow(
             icon: Icons.straighten_rounded,
@@ -142,6 +157,9 @@ class _OnboardingConfigScreenState
 
   Widget _buildProfileCard(DeviceProfile profile, {bool highlight = true}) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
+    final profileName =
+        profile == DeviceProfile.eco ? l.onboardingEco : profile.label;
     final isSelected = _adjusting && _selected == profile;
     return _FocusableOption(
       onTap: _adjusting ? () => setState(() => _selected = profile) : null,
@@ -180,7 +198,7 @@ class _OnboardingConfigScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Profil ${profile.label}',
+                    l.onboardingProfile(profileName),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
@@ -216,9 +234,7 @@ class _OnboardingConfigScreenState
                     }),
             icon: Icon(_adjusting ? Icons.auto_awesome_rounded : Icons.tune),
             label: Text(
-              _adjusting
-                  ? 'Réinitialiser la recommandation'
-                  : 'Ajuster manuellement',
+              _adjusting ? l.onboardingResetRecommendation : l.onboardingAdjust,
             ),
           ),
         ),
@@ -243,6 +259,7 @@ class _OnboardingConfigScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -254,13 +271,13 @@ class _OnboardingConfigScreenState
                 future: _detection,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(
+                    return Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Analyse de l\'appareil…'),
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(l.multiAnalyzingDevice),
                         ],
                       ),
                     );
@@ -284,8 +301,8 @@ class _OnboardingConfigScreenState
                         const SizedBox(height: 16),
                         Text(
                           _adjusting
-                              ? 'Choisissez un profil'
-                              : 'Profil recommandé',
+                              ? l.onboardingChooseProfile
+                              : l.onboardingRecommendedProfile,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w800,
@@ -323,7 +340,7 @@ class _OnboardingConfigScreenState
   Widget _buildProfileHint(DeviceProfile profile) {
     final scheme = Theme.of(context).colorScheme;
     return Text(
-      profile.disable3D ? 'Effets 3D et multi-vue désactivés.' : '',
+      profile.disable3D ? AppLocalizations.of(context).onboardingEcoHint : '',
       style: Theme.of(context)
           .textTheme
           .bodySmall

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:orbit_3d_flutter/core/services/media_library_manager.dart';
@@ -96,5 +97,22 @@ void main() {
     await pump(tester, SortMode.nameAsc);
     await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     expect(captured, SortMode.nameDesc);
+  });
+
+  testWidgets('TV focus changes the icon and restores the active sort color',
+      (tester) async {
+    await pump(tester, SortMode.nameAsc);
+    final alpha = find.byIcon(Icons.sort_by_alpha);
+    Color? color() => IconTheme.of(tester.element(alpha)).color;
+    expect(color(), Colors.amber);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    final scheme = Theme.of(tester.element(alpha)).colorScheme;
+    expect(color(), scheme.primary);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(color(), Colors.amber);
   });
 }

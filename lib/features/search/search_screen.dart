@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -132,7 +133,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           // « Toutes » remet la catégorie à zéro (paramètre absent).
           _categoryChip(
-            label: 'Toutes',
+            label: AppLocalizations.of(context).searchAllCategories,
             selected: current.isEmpty,
             onTap: () => _setCategory(null),
           ),
@@ -186,6 +187,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     SearchType? filterType,
   ) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final searchController = SearchController();
 
     return Padding(
@@ -194,14 +196,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         searchController: searchController,
         viewBackgroundColor: scheme.surface,
         viewHintText: filterType != null
-            ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
-            : 'Rechercher Live, Films, Séries, Replay, EPG...',
+            ? l.searchWithinHint(_typeLabel(filterType))
+            : l.searchAllHint,
         viewTrailing: query.isNotEmpty
             ? <Widget>[
                 IconButton(
                   icon: const Icon(Icons.clear),
                   onPressed: _clearQuery,
-                  tooltip: 'Effacer',
+                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
                 ),
               ]
             : null,
@@ -213,15 +215,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             controller: controller,
             focusNode: _focusNode,
             hintText: filterType != null
-                ? 'Rechercher dans ${_typeLabel(filterType).toLowerCase()}...'
-                : 'Rechercher...',
+                ? l.searchWithinHint(_typeLabel(filterType))
+                : l.searchHint,
             leading: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'Retour',
+                  tooltip: l.profileBack,
                 ),
               ],
             ),
@@ -230,7 +232,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 IconButton(
                   icon: const Icon(Icons.clear),
                   onPressed: _clearQuery,
-                  tooltip: 'Effacer',
+                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
                 ),
             ],
             onTap: () => controller.openView(),
@@ -330,7 +332,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 if (!mounted) return;
                 setState(() {});
               },
-              tooltip: 'Supprimer de l\'historique',
+              tooltip: AppLocalizations.of(context).searchClearHistory,
             )
           : null,
       onTap: () {
@@ -367,8 +369,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   children: [
                     Text(
                       filterType != null
-                          ? 'Recherche dans ${_typeLabel(filterType)}'
-                          : 'Recherche unifiée',
+                          ? AppLocalizations.of(context)
+                              .searchWithinTitle(_typeLabel(filterType))
+                          : AppLocalizations.of(context).searchUnifiedTitle,
                       style:
                           Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
@@ -387,8 +390,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const SizedBox(height: 8),
                 Text(
                   filterType != null
-                      ? 'Tapez pour rechercher uniquement dans les ${_typeLabel(filterType).toLowerCase()}.'
-                      : 'Tapez votre recherche pour trouver des chaînes Live, films, séries, replays ou programmes EPG.',
+                      ? AppLocalizations.of(context)
+                          .searchWithinHelp(_typeLabel(filterType))
+                      : AppLocalizations.of(context).searchUnifiedHelp,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -417,7 +421,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             if (!mounted) return;
                             setState(() {});
                           },
-                          child: const Text('Effacer'),
+                          child: Text(AppLocalizations.of(context).searchClearHistory),
                         ),
                       ],
                     );
@@ -490,7 +494,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
       error: (error, stack) => _buildErrorState(error.toString()),
     );
   }
@@ -511,7 +515,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Mode hors ligne — résultats locaux uniquement',
+              AppLocalizations.of(context).searchOffline,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
@@ -533,7 +537,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       child: Row(
         children: [
           Text(
-            '${result.count} résultat${result.count > 1 ? 's' : ''}',
+            l.searchResultsCount(result.count),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -799,13 +803,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Aucun résultat pour "$query"',
+            AppLocalizations.of(context).noResultsFor(query),
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'Essayez avec d\'autres termes ou vérifiez l\'orthographe.',
+            AppLocalizations.of(context).searchNoResultsHelp,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -860,12 +864,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   String _typeLabel(SearchType type) {
+    final l = AppLocalizations.of(context);
     return switch (type) {
-      SearchType.live => 'Live TV',
-      SearchType.vod => 'Films',
-      SearchType.series => 'Séries',
-      SearchType.replay => 'Replay',
-      SearchType.epg => 'Guide TV',
+      SearchType.live => l.liveTv,
+      SearchType.vod => l.films,
+      SearchType.series => l.series,
+      SearchType.replay => l.replay,
+      SearchType.epg => l.programGrid,
     };
   }
 }

@@ -44,7 +44,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     final result = await safeAsync<void>(
       () async {
         if (subscriptionId == null || subscriptionId.isEmpty) {
-          throw StateError('Aucun abonnement actif.');
+          throw StateError(l.subscriptionNoActive);
         }
         final manager = ref.read(downloadManagerProvider);
         await manager.init();
@@ -58,7 +58,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
         );
         messenger.showSnackBar(
           SnackBar(
-            content: Text('« ${widget.title} » ajouté aux téléchargements'),
+            content: Text(l.downloadAdded(widget.title)),
             duration: const Duration(milliseconds: 1500),
           ),
         );
@@ -87,6 +87,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
 
     final tasks = ref.watch(downloadTasksStreamProvider).value;
     final related =
@@ -97,7 +98,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
 
     if (active) {
       return Tooltip(
-        message: isDone ? 'Téléchargé' : 'Téléchargement en cours',
+        message: isDone ? l.downloadCompleted : l.downloadInProgress,
         child: IconButton(
           icon: Icon(
             isDone ? Icons.download_done : Icons.downloading,
@@ -109,7 +110,7 @@ class _DownloadButtonState extends ConsumerState<DownloadButton> {
     }
 
     return Tooltip(
-      message: 'Télécharger hors-ligne',
+      message: l.downloadOffline,
       child: _busy
           ? const Padding(
               padding: EdgeInsets.all(8),

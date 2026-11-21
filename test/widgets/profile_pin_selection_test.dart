@@ -28,6 +28,21 @@ class _Storage extends StorageService {
   Future<void> setSetting(String key, dynamic value) async {}
 }
 
+Future<void> _enterProfileName(WidgetTester tester, String name) async {
+  final scrollable = find
+      .descendant(
+        of: find.byType(ListView).first,
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  await tester.scrollUntilVisible(
+    find.byType(TextFormField),
+    300,
+    scrollable: scrollable,
+  );
+  await tester.enterText(find.byType(TextFormField), name);
+}
+
 Future<void> _waitForConfirmedPin(WidgetTester tester) async {
   final scrollable = find
       .descendant(
@@ -91,6 +106,22 @@ void main() {
       await cacheDirectory.delete(recursive: true);
     }
   });
+  testWidgets('PIN setup instructions follow the selected language',
+      (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const PinPadScreen(args: PinPadArgs.set()),
+      ),
+    ));
+    expect(find.text('Set a PIN'), findsOneWidget);
+    expect(find.text('Choose a 4-digit code'), findsOneWidget);
+    expect(find.text('After 4 digits, press ✓ to confirm.'), findsOneWidget);
+    expect(find.byTooltip('Cancel'), findsOneWidget);
+  });
+
   for (final editing in [false, true]) {
     testWidgets(
         'confirmed PIN is saved explicitly when ${editing ? 'editing' : 'creating'}',
@@ -159,7 +190,7 @@ void main() {
       await tester.tap(find.text('Ouvrir'));
       await tester.pumpAndSettle();
       if (!editing) {
-        await tester.enterText(find.byType(TextFormField), 'Alex');
+        await _enterProfileName(tester, 'Alex');
         tester.testTextInput.hide();
         await tester.pumpAndSettle();
       }
@@ -241,7 +272,7 @@ void main() {
     ));
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), 'Alex');
+    await _enterProfileName(tester, 'Alex');
     tester.testTextInput.hide();
     tvMode.enable();
     final scrollable = find
@@ -322,6 +353,7 @@ void main() {
       ],
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -381,6 +413,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -427,6 +460,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -467,6 +501,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -525,6 +560,7 @@ void main() {
       ],
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -587,6 +623,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),
@@ -603,9 +640,9 @@ void main() {
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
     await enter('0000');
-    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
+    expect(find.textContaining('2 essais restants'), findsOneWidget);
     await enter('0000');
-    expect(find.textContaining('1 essai(s) restant(s)'), findsOneWidget);
+    expect(find.textContaining('1 essai restant'), findsOneWidget);
     await enter('0000');
     expect(result, isFalse);
     expect(find.text('Ouvrir'), findsOneWidget);
@@ -613,7 +650,7 @@ void main() {
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
     await enter('0000');
-    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
+    expect(find.textContaining('2 essais restants'), findsOneWidget);
     await enter('1234');
     expect(result, isTrue);
   });
@@ -638,6 +675,7 @@ void main() {
     );
     await tester.pumpWidget(ProviderScope(
       child: MaterialApp(
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: PinPadScreen(args: PinPadArgs.verify(profile)),
@@ -651,7 +689,7 @@ void main() {
     pending.complete(Uint8List(32));
     await tester.pumpAndSettle();
     expect(find.text('Vérification en cours…'), findsNothing);
-    expect(find.textContaining('2 essai(s) restant(s)'), findsOneWidget);
+    expect(find.textContaining('2 essais restants'), findsOneWidget);
   });
 
   testWidgets('adult PIN gates selection, editing and deletion',
@@ -702,6 +740,7 @@ void main() {
       container: container,
       child: MaterialApp.router(
         routerConfig: router,
+        locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
       ),

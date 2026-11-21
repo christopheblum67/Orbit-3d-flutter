@@ -34,7 +34,8 @@ class _Api extends ApiService {
   final series = <Series>[];
 
   @override
-  Future<M3uPlaylist> fetchM3uPlaylist(String url) async {
+  Future<M3uPlaylist> fetchM3uPlaylist(String url,
+      {void Function()? onParsing}) async {
     requests++;
     return playlist;
   }
@@ -44,6 +45,20 @@ class _Api extends ApiService {
 
   @override
   Future<List<Series>> fetchSeries() async => series;
+}
+
+class _PendingPlaylistApi extends ApiService {
+  final callbacks = <void Function()>[];
+  final requests = <Completer<M3uPlaylist>>[];
+
+  @override
+  Future<M3uPlaylist> fetchM3uPlaylist(String url,
+      {void Function()? onParsing}) {
+    callbacks.add(onParsing!);
+    final request = Completer<M3uPlaylist>();
+    requests.add(request);
+    return request.future;
+  }
 }
 
 class _WaitingCategoryCountTracker extends CategoryCountTracker {
@@ -145,6 +160,44 @@ void main() {
     await tracker.close();
     await dir.delete(recursive: true);
   });
+
+  test('invalidated playlist cannot emit a stale parsing milestone', () async {
+    final api = _PendingPlaylistApi();
+    final container = ProviderContainer(overrides: [
+      public.apiServiceProvider.overrideWithValue(api),
+      public.activeSubscriptionProvider.overrideWithValue(Subscription(
+        id: 'm3u',
+        name: 'M3U',
+        type: SubscriptionType.m3u,
+        m3uUrl: 'https://example.test/playlist',
+        createdAt: DateTime(2020),
+      )),
+    ]);
+    addTearDown(container.dispose);
+    var milestones = 0;
+    final events = container
+        .read(split.m3uParsingEventsProvider)
+        .stream
+        .listen((_) => milestones++);
+    addTearDown(events.cancel);
+    final listener = container.listen(split.m3uPlaylistProvider, (_, __) {});
+    addTearDown(listener.close);
+    expect(api.requests, hasLength(1));
+    container.invalidate(split.m3uPlaylistProvider);
+    await container.pump();
+    expect(api.requests, hasLength(2));
+    api.callbacks.first();
+    expect(milestones, 0);
+    api.callbacks.last();
+    expect(milestones, 1);
+    for (final request in api.requests) {
+      request.complete(
+        const M3uPlaylist(channels: [], radios: [], movies: [], series: []),
+      );
+    }
+    await container.pump();
+  });
+
   test('catalog facade exports the original provider identities', () {
     expect(public.m3uPlaylistProvider, same(split.m3uPlaylistProvider));
     expect(public.liveChannelsAllProvider, same(split.liveChannelsAllProvider));

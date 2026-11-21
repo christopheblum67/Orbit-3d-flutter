@@ -7,11 +7,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_browse_view.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/live_channel_video.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 
 void main() {
+  testWidgets('category controls and empty guide are localized',
+      (tester) async {
+    final channel = Channel(
+      id: '1',
+      name: 'Channel',
+      logoUrl: '',
+      streamUrl: '',
+      group: '',
+      epgChannelId: '1',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          channelPreviewEpgProvider.overrideWith((ref, _) => Stream.value([])),
+        ],
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ChannelBrowseView(
+              previewActive: false,
+              channels: [channel],
+              selected: channel,
+              onSelect: (_) {},
+              onWatch: () {},
+              onBack: () {},
+              onPreviousCategory: () {},
+              onNextCategory: () {},
+              categoryName: 'Category',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Previous category'), findsOneWidget);
+    expect(find.byTooltip('Next category'), findsOneWidget);
+    expect(find.text('No programs available'), findsOneWidget);
+  });
+
   testWidgets('wide TV places the programme guide below the preview',
       (tester) async {
     final tvMode = TvModeNotifier()..enable();
@@ -53,6 +95,9 @@ void main() {
         ),
       ],
       child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Padding(
             padding: const EdgeInsets.only(left: 64),
@@ -78,7 +123,7 @@ void main() {
       find.widgetWithText(FilledButton, 'REGARDER'),
     );
     expect(watch.style!.backgroundColor!.resolve({WidgetState.focused}),
-        const Color(0xFFFFE69B));
+        const Color(0xFF00CFE8));
     expect(tester.getSize(find.widgetWithText(FilledButton, 'REGARDER')).height,
         lessThanOrEqualTo(48));
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
@@ -86,7 +131,9 @@ void main() {
     expect(watchCalls, 1);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(Focus.of(tester.element(find.text('Programme actuel'))).hasPrimaryFocus, isTrue);
+    expect(
+        Focus.of(tester.element(find.text('Programme actuel'))).hasPrimaryFocus,
+        isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
@@ -94,10 +141,15 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
-    expect(Focus.of(tester.element(find.text('Programme actuel'))).hasPrimaryFocus, isTrue);
+    expect(
+        Focus.of(tester.element(find.text('Programme actuel'))).hasPrimaryFocus,
+        isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(Focus.of(tester.element(find.text('Programme suivant'))).hasPrimaryFocus, isTrue);
+    expect(
+        Focus.of(tester.element(find.text('Programme suivant')))
+            .hasPrimaryFocus,
+        isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
@@ -122,6 +174,9 @@ void main() {
       ProviderScope(
         overrides: [tvModeNotifierProvider.overrideWithValue(tvMode)],
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Builder(
               builder: (context) => FilledButton(
@@ -178,6 +233,9 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ChannelBrowseView(
               previewActive: false,
@@ -231,6 +289,9 @@ void main() {
           channelPreviewEpgProvider.overrideWith((ref, _) => guide.stream),
         ],
         child: MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ChannelBrowseView(
               previewActive: false,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -32,6 +33,7 @@ class FavoriteToggle extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
     final favorites = ref.watch(favoritesProvider);
     final profile = ref.watch(currentProfileProvider);
     final isFavorite = favorites.containsKey(_canonicalKey(entry, profile?.id));
@@ -41,6 +43,12 @@ class FavoriteToggle extends ConsumerWidget {
       final subscriptionId = ref.read(activeSubscriptionProvider)?.id;
       try {
         await ref.read(favoritesProvider.notifier).toggle(entry);
+      } on FavoriteScopeRequired {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(l.favoritesNeedScope)));
+        }
+        return;
       } on StateError catch (error) {
         if (context.mounted) {
           ScaffoldMessenger.of(context)
@@ -61,8 +69,8 @@ class FavoriteToggle extends ConsumerWidget {
           SnackBar(
             content: Text(
               wasFavorite
-                  ? '« ${entry.title} » retiré des favoris'
-                  : '« ${entry.title} » ajouté aux favoris',
+                  ? l.removedFromFavorites(entry.title)
+                  : l.addedToFavorites(entry.title),
             ),
             duration: const Duration(milliseconds: 1200),
           ),
@@ -78,7 +86,7 @@ class FavoriteToggle extends ConsumerWidget {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            tooltip: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+            tooltip: isFavorite ? l.favoritesRemove : l.favoritesAdd,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             icon: Icon(
@@ -93,7 +101,7 @@ class FavoriteToggle extends ConsumerWidget {
     }
 
     return IconButton(
-      tooltip: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+      tooltip: isFavorite ? l.favoritesRemove : l.favoritesAdd,
       icon: Icon(
         isFavorite ? Icons.favorite : Icons.favorite_border,
         color: isFavorite ? _favoriteActive : null,

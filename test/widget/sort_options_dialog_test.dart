@@ -16,6 +16,7 @@ void main() {
     WidgetTester tester,
     SortMode current, {
     bool withAffinity = true,
+    Locale locale = const Locale('fr'),
   }) async {
     // Surface haute : la liste du dialogue est virtuelle (`ListView.builder`),
     // le 6e carreau (Affinité, ajouté en fin) sortait du viewport 600 px par
@@ -26,6 +27,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
@@ -46,6 +48,14 @@ void main() {
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('le dialogue de tri est traduit en anglais', (tester) async {
+    await open(tester, SortMode.yearAsc, locale: const Locale('en'));
+    expect(find.text('Advanced sorting options'), findsOneWidget);
+    expect(
+        find.text('Sort chronologically by production year'), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
+  });
 
   testWidgets('un seul représentant par critère, sans doublons asc/desc',
       (tester) async {

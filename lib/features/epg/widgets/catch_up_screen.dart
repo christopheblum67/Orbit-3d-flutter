@@ -9,6 +9,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/core/widgets/cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/features/player/player_route_data.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 
@@ -101,7 +102,7 @@ class CatchUpScreen extends ConsumerWidget {
             initialDateKey: defaultDate,
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
         error: (e, _) => Center(child: Text(userFriendlyError(e))),
       ),
     );
@@ -274,11 +275,9 @@ class _DatePickerBar extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final key = availableDateKeys[index];
-          final parts = key.split('-');
-          final day = int.tryParse(parts[2]) ?? 1;
-          final month = int.tryParse(parts[1]) ?? 1;
           final isSelected = key == selectedDateKey;
-          final label = '$day ${_monthShortFr(month)}';
+          final label = MaterialLocalizations.of(context)
+              .formatShortMonthDay(DateTime.parse(key));
           return ChoiceChip(
             label: Text(
               label,
@@ -304,25 +303,6 @@ class _DatePickerBar extends StatelessWidget {
         },
       ),
     );
-  }
-
-  String _monthShortFr(int m) {
-    const months = [
-      '',
-      'JANV',
-      'FÉVR',
-      'MARS',
-      'AVR',
-      'MAI',
-      'JUIN',
-      'JUIL',
-      'AOÛT',
-      'SEPT',
-      'OCT',
-      'NOV',
-      'DÉC',
-    ];
-    return months[m];
   }
 }
 

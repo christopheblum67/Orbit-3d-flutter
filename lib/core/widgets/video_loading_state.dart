@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 
 class VideoLoadingState extends StatelessWidget {
   const VideoLoadingState({super.key, this.message = 'Chargement du flux…'});
@@ -18,7 +19,9 @@ class VideoLoadingState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const _PulsingSpinner(),
+              const OrbitDelayedLoadingIndicator(
+                initialChild: _PulsingSpinner(),
+              ),
               const SizedBox(height: 20),
               Text(
                 message,

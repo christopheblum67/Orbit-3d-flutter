@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/live_channel_video.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,12 +81,16 @@ void main() {
           deviceProfileProvider.overrideWithValue(DeviceProfile.standard)
         ],
         child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Center(
               child: SizedBox(
                 width: 320,
                 height: 180,
                 child: LiveChannelVideo(
+                  onWatch: () {},
                   channel: Channel(
                     id: 'preview',
                     name: 'Preview',
@@ -110,6 +115,14 @@ void main() {
       expect(rect.height, greaterThan(0));
       expect(rect.width / rect.height,
           closeTo(size == Size.zero ? 16 / 9 : size.width / size.height, 0.01));
+      liveWatchFocusNode.requestFocus();
+      await tester.pumpAndSettle();
+      expect(find.text('WATCH'), findsOneWidget);
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(
+        button.style!.backgroundColor!.resolve({WidgetState.focused}),
+        const Color(0xFF00CFE8),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     });

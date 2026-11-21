@@ -72,10 +72,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       listenable: tvMode,
       builder: (context, _) {
         final showNavigationRail = isWide && !tvMode.enabled;
-        // En mode télécommande, seule l'accueil a une app-bar avec « ☰ » : sur
-        // les autres pages, une bande étroite garde le menu atteignable (D-pad
-        // gauche) sans dupliquer les app-bars des sections.
-        final showTvMenuStrip =
+        final showTvMenuOverlay =
             tvMode.enabled && !showNavigationRail && location != '/home';
         final scaffold = Scaffold(
           key: _scaffoldKey,
@@ -91,9 +88,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               ? AppBar(
                   leading: showNavigationRail
                       ? null
-                      : DrawerMenuButton(
-                          focusNode: _menuFocusNode,
-                          autofocus: tvMode.enabled,
+                      : Opacity(
+                          opacity: tvMode.enabled ? 0 : 1,
+                          alwaysIncludeSemantics: true,
+                          child: DrawerMenuButton(
+                            focusNode: _menuFocusNode,
+                            autofocus: tvMode.enabled,
+                          ),
                         ),
                   title: Text(_titleForPath(context, location)),
                   actions: const [
@@ -106,14 +107,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               : null,
           body: Row(
             children: [
-              if (showTvMenuStrip)
-                Container(
-                  width: 56,
-                  color: scheme.surfaceContainerLow,
-                  alignment: Alignment.topCenter,
-                  padding: const EdgeInsets.only(top: 8),
-                  child: const DrawerMenuButton(),
-                ),
               if (showNavigationRail)
                 NavigationRail(
                   selectedIndex: railIndex,
@@ -154,7 +147,25 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   thickness: 1,
                   color: scheme.outlineVariant.withValues(alpha: 0.3),
                 ),
-              Expanded(child: widget.child),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: widget.child),
+                    if (showTvMenuOverlay)
+                      const Positioned(
+                        left: 0,
+                        top: 0,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: 0,
+                            alwaysIncludeSemantics: true,
+                            child: DrawerMenuButton(),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
           bottomNavigationBar: isWide
@@ -232,7 +243,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               }
             },
           },
-          child: scaffold,
+          child: Focus(autofocus: true, child: scaffold),
         );
       },
     );
@@ -242,10 +253,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   /// La barre mobile inclut l'accès au profil et aux réglages.
   /// En mode M3U (pas de VOD/Séries dédiées) : Contenus à la place.
   static List<_NavEntry> _navEntries(bool isM3u, AppLocalizations l) => [
-        const _NavEntry(
+        _NavEntry(
           icon: Icons.home_rounded,
-          label: 'Accueil',
-          shortLabel: 'Accueil',
+          label: l.menuHome,
           route: '/home',
         ),
         _NavEntry(
@@ -256,24 +266,21 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           route: '/live',
         ),
         if (!isM3u) ...[
-          const _NavEntry(
+          _NavEntry(
             icon: Icons.movie,
-            label: 'Films',
-            shortLabel: 'Films',
+            label: l.films,
             route: '/vod',
           ),
           _NavEntry(
             icon: Icons.tv,
             label: l.series,
-            shortLabel: 'Séries',
             route: '/series',
           ),
         ],
         if (isM3u)
-          const _NavEntry(
+          _NavEntry(
             icon: Icons.explore_rounded,
-            label: 'Contenus',
-            shortLabel: 'Contenus',
+            label: l.menuContent,
             route: '/browse',
           ),
         if (!isM3u)
@@ -283,16 +290,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             shortLabel: 'Match',
             route: '/matchmaking',
           ),
-        const _NavEntry(
+        _NavEntry(
           icon: Icons.person_outline,
-          label: 'Profil',
-          shortLabel: 'Profil',
+          label: l.menuProfile,
           route: '/profiles',
         ),
         _NavEntry(
           icon: Icons.settings,
           label: l.settings,
-          shortLabel: 'Réglages',
           route: '/settings',
         ),
       ];
@@ -337,13 +342,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final l = AppLocalizations.of(context);
     if (path.startsWith('/live')) return l.tvChannels;
     if (path.startsWith('/series')) return l.series;
-    if (path.startsWith('/vod')) return 'Films';
-    if (path.startsWith('/matchmaking')) return 'Pour vous';
-    if (path.startsWith('/browse')) return 'Contenus';
-    if (path.startsWith('/replay')) return 'Replay';
+    if (path.startsWith('/vod')) return l.films;
+    if (path.startsWith('/matchmaking')) return l.forYouMatchmaking;
+    if (path.startsWith('/browse')) return l.menuContent;
+    if (path.startsWith('/replay')) return l.replay;
     if (path.startsWith('/epg')) return 'EPG';
-    if (path.startsWith('/search')) return 'Recherche';
-    if (path.startsWith('/subscriptions')) return 'Abonnements';
+    if (path.startsWith('/search')) return l.menuSearch;
+    if (path.startsWith('/subscriptions')) return l.menuSubscriptions;
     if (path.startsWith('/settings')) return l.settings;
     return AppConstants.appName;
   }

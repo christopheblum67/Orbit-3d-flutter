@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/core/hardware/hardware_detector.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_profile_recovery_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/tv_pairing_screen.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_pairing_service.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/cloud_account_service.dart';
 
@@ -35,6 +36,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
   final _password = TextEditingController();
   CloudAccountService? _service;
   String? _error;
+  bool _firebaseUnavailable = false;
   bool _busy = false;
   bool? _isTv = qrPairingAvailable ? null : false;
 
@@ -44,7 +46,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
     try {
       _service = widget.service ?? CloudAccountService();
     } on FirebaseException {
-      _error = 'Firebase n’est pas disponible sur cet appareil.';
+      _firebaseUnavailable = true;
     }
     if (qrPairingAvailable) _detectTv();
   }
@@ -82,15 +84,13 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
       await action();
     } on GoogleSignInException catch (error) {
       if (mounted) {
+        final l = AppLocalizations.of(context);
         setState(() {
           _error = switch (error.code) {
-            GoogleSignInExceptionCode.canceled =>
-              'Connexion Google annulée ou impossible. Si le problème persiste, '
-                  'vérifiez la configuration Google de cette application.',
+            GoogleSignInExceptionCode.canceled => l.cloudGoogleCanceled,
             GoogleSignInExceptionCode.clientConfigurationError =>
-              'Configuration Google incorrecte : vérifiez le client OAuth et '
-                  'la signature de cette application.',
-            _ => 'Connexion Google impossible sur cet appareil.',
+              l.cloudGoogleConfiguration,
+            _ => l.cloudGoogleUnavailable,
           };
         });
       }
@@ -100,22 +100,22 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
       if (mounted) setState(() => _error = _authError(error.code));
     } on PlatformException {
       if (mounted) {
-        setState(() =>
-            _error = 'Service de connexion indisponible sur cet appareil.');
+        setState(
+            () => _error = AppLocalizations.of(context).cloudSignInUnavailable);
       }
     } on MissingPluginException {
       if (mounted) {
-        setState(() =>
-            _error = 'Service de connexion indisponible sur cet appareil.');
+        setState(
+            () => _error = AppLocalizations.of(context).cloudSignInUnavailable);
       }
     } on UnsupportedError {
       if (mounted) {
         setState(
-            () => _error = 'Connexion Google indisponible sur cet appareil.');
+            () => _error = AppLocalizations.of(context).cloudGoogleUnavailable);
       }
     } on StateError {
       if (mounted) {
-        setState(() => _error = 'Connexion impossible. Réessayez.');
+        setState(() => _error = AppLocalizations.of(context).cloudSignInRetry);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -123,63 +123,54 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
   }
 
   String _authError(String code) {
+    final l = AppLocalizations.of(context);
     return switch (code) {
-      'invalid-email' => 'Adresse e-mail invalide.',
-      'weak-password' => 'Le mot de passe est trop faible.',
-      'email-already-in-use' => 'Cette adresse est déjà utilisée.',
+      'invalid-email' => l.cloudInvalidEmail,
+      'weak-password' => l.cloudWeakPassword,
+      'email-already-in-use' => l.cloudEmailInUse,
       'invalid-credential' ||
       'wrong-password' ||
       'user-not-found' =>
-        'Adresse e-mail ou mot de passe incorrect.',
-      'network-request-failed' => 'Connexion réseau indisponible.',
-      'too-many-requests' => 'Trop de tentatives. Réessayez plus tard.',
-      'operation-not-allowed' =>
-        'Cette méthode de connexion n’est pas activée.',
-      'provider-already-linked' => 'Ce compte est déjà lié à Google.',
+        l.cloudInvalidCredentials,
+      'network-request-failed' => l.cloudNetworkUnavailable,
+      'too-many-requests' => l.cloudTooManyAttempts,
+      'operation-not-allowed' => l.cloudMethodDisabled,
+      'provider-already-linked' => l.cloudGoogleAlreadyLinked,
       'credential-already-in-use' ||
       'account-exists-with-different-credential' =>
-        'Ce compte Google est déjà associé à un autre compte Firebase. '
-            'Aucun compte ni donnée n’a été fusionné. Pour utiliser cet autre '
-            'compte, déconnectez-vous puis connectez-vous avec Google.',
-      _ =>
-        'Connexion impossible. Réessayez ou vérifiez la configuration Firebase.',
+        l.cloudGoogleOtherAccount,
+      _ => l.cloudFirebaseSignInFailed,
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final service = _service;
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Compte cloud')),
+      appBar: AppBar(title: Text(l.settingsCloudAccount)),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text(
-            'Connectez-vous pour retrouver vos profils et leurs données sur '
-            'vos appareils. Vos données sont chiffrées.',
-          ),
+          Text(l.cloudAccountIntro),
           const SizedBox(height: 8),
-          if (_isTv == false)
-            const Text(
-              'Si un compte est déjà connecté, Google lui sera lié sans changer '
-              'son identifiant. Les comptes distincts ne sont pas fusionnés.',
-            ),
+          if (_isTv == false) Text(l.cloudAccountLinkHelp),
           const SizedBox(height: 16),
           if (service != null)
             StreamBuilder<User?>(
               stream: service.authStateChanges,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const Text('Impossible de lire l’état du compte.');
+                  return Text(l.cloudAccountStateError);
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Text('Vérification du compte…');
+                  return Text(l.cloudAccountChecking);
                 }
                 if (!snapshot.hasData) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Aucun compte cloud connecté.'),
+                      Text(l.cloudAccountNone),
                       if (qrPairingAvailable)
                         TextButton(
                           autofocus: true,
@@ -197,9 +188,9 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                     return;
                                   if (result.cleanupFailed) {
                                     ScaffoldMessenger.of(context)
-                                        .showSnackBar(const SnackBar(
-                                      content: Text(
-                                          'Compte associé, mais le nettoyage de la session temporaire a échoué.'),
+                                        .showSnackBar(SnackBar(
+                                      content:
+                                          Text(l.cloudPairingCleanupFailed),
                                     ));
                                   }
                                   await Navigator.of(context)
@@ -210,20 +201,19 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                     ),
                                   ));
                                 },
-                          child: const Text('Associer cette TV par QR code'),
+                          child: Text(l.cloudPairTv),
                         ),
                     ],
                   );
                 }
                 if (snapshot.data!.isAnonymous) {
-                  return const Text(
-                      'Compte temporaire connecté sur cet appareil.');
+                  return Text(l.cloudTemporaryAccount);
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                        'Compte connecté : ${snapshot.data!.email ?? 'Google'}'),
+                    Text(l.cloudAccountConnected(
+                        snapshot.data!.email ?? 'Google')),
                     TextButton(
                       autofocus: true,
                       style: _focusedButtonStyle,
@@ -235,8 +225,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                                       const CloudProfileRecoveryScreen(),
                                 ),
                               ),
-                      child:
-                          const Text('Retrouver mes profils sur mes appareils'),
+                      child: Text(l.cloudRecoverProfiles),
                     ),
                   ],
                 );
@@ -248,18 +237,18 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'Adresse e-mail'),
+              decoration: InputDecoration(labelText: l.cloudEmail),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _password,
             obscureText: true,
-            decoration: const InputDecoration(labelText: 'Mot de passe'),
+            decoration: InputDecoration(labelText: l.subscriptionPassword),
           ),
-          if (_error != null) ...[
+          if (_error != null || _firebaseUnavailable) ...[
             const SizedBox(height: 12),
-            Text(_error!,
+            Text(_error ?? l.cloudFirebaseUnavailable,
                 style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
           const SizedBox(height: 16),
@@ -275,7 +264,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                               _email.text, _password.text);
                           _password.clear();
                         }),
-                child: const Text('Se connecter'),
+                child: Text(l.cloudSignIn),
               ),
               OutlinedButton(
                 onPressed: service == null || _busy
@@ -285,7 +274,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                               _email.text, _password.text);
                           _password.clear();
                         }),
-                child: const Text('Créer un compte'),
+                child: Text(l.cloudCreateAccount),
               ),
               OutlinedButton(
                 onPressed: service == null || _busy
@@ -294,13 +283,11 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                           await service.sendPasswordReset(_email.text);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Si le compte existe, un e-mail de réinitialisation peut être envoyé.')),
+                              SnackBar(content: Text(l.cloudResetEmailSent)),
                             );
                           }
                         }),
-                child: const Text('Mot de passe oublié'),
+                child: Text(l.cloudForgotPassword),
               ),
               if (service != null && _isTv == false)
                 StreamBuilder<User?>(
@@ -317,10 +304,10 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                           : () => _run(() async => service.signInWithGoogle()),
                       child: Text(
                         linked
-                            ? 'Compte Google déjà lié'
+                            ? l.cloudGoogleLinked
                             : user == null
-                                ? 'Se connecter avec Google'
-                                : 'Lier un compte Google',
+                                ? l.cloudSignInWithGoogle
+                                : l.cloudLinkGoogle,
                       ),
                     );
                   },
@@ -329,7 +316,7 @@ class _CloudAccountScreenState extends State<CloudAccountScreen> {
                 onPressed: service == null || _busy
                     ? null
                     : () => _run(service.signOut),
-                child: const Text('Se déconnecter'),
+                child: Text(l.cloudSignOut),
               ),
             ],
           ),

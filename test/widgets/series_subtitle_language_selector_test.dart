@@ -3,17 +3,120 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/player_track_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class _TestApp extends MaterialApp {
+  _TestApp({required super.home, Locale locale = const Locale('fr')})
+      : super(
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('subtitle fallback and guidance follow the interface language',
+      (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      child: _TestApp(
+        locale: const Locale('en'),
+        home: Scaffold(
+          body: SeriesSubtitleLanguageSelector(
+            seriesId: 'english',
+            fetchTracks: () async => [],
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Default subtitle language'), findsOneWidget);
+    expect(find.textContaining('No tracks detected'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('French'), findsOneWidget);
+    expect(find.text('Français'), findsNothing);
+    await tester.tap(find.text('French'));
+    await tester.pumpAndSettle();
+    expect(find.text('Apply if available'), findsOneWidget);
+    expect(await PlayerTrackPrefs.seriesSubtitleLanguageFor('english'), 'fr');
+  });
+
+  for (final subtitles in [false, true]) {
+    testWidgets(
+        'selection hint is compact for ${subtitles ? 'subtitles' : 'audio'}',
+        (tester) async {
+      await tester.pumpWidget(ProviderScope(
+        child: _TestApp(
+          home: Scaffold(
+            body: subtitles
+                ? SeriesSubtitleLanguageSelector(
+                    seriesId: 'hint',
+                    fetchTracks: () async => [],
+                  )
+                : SeriesAudioLanguageSelector(
+                    seriesId: 'hint',
+                    fetchTracks: () async => [],
+                  ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final field = tester.widget<DropdownButtonFormField<String>>(
+        find.byType(DropdownButtonFormField<String>),
+      );
+      expect(field.decoration.hintText, 'Sélectionner une langue');
+      expect(field.decoration.hintStyle?.fontSize, 12);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'menu and selected language are compact for ${subtitles ? 'subtitles' : 'audio'}',
+        (tester) async {
+      await tester.pumpWidget(ProviderScope(
+        child: _TestApp(
+          home: Scaffold(
+            body: subtitles
+                ? SeriesSubtitleLanguageSelector(
+                    seriesId: 'compact',
+                    fetchTracks: () async => [('fr', 'Français')],
+                  )
+                : SeriesAudioLanguageSelector(
+                    seriesId: 'compact',
+                    fetchTracks: () async => [('fr', 'Français')],
+                  ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+
+      final option = find.text('Français').last;
+      final optionStyle = DefaultTextStyle.of(tester.element(option))
+          .style
+          .merge(tester.widget<Text>(option).style);
+      expect(optionStyle.fontSize, 12);
+
+      await tester.tap(option);
+      await tester.pumpAndSettle();
+      final selected = find.text('Français');
+      final selectedStyle = DefaultTextStyle.of(tester.element(selected))
+          .style
+          .merge(tester.widget<Text>(selected).style);
+      expect(selectedStyle.fontSize, 12);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('a fallback language can be selected when no track is detected',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
+        child: _TestApp(
           home: Scaffold(
             body: SeriesSubtitleLanguageSelector(
               seriesId: 'series1',
@@ -45,7 +148,7 @@ void main() {
     await PlayerTrackPrefs.setSeriesSubtitleLanguage('series2', 'fr');
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
+        child: _TestApp(
           home: Scaffold(
             body: SeriesSubtitleLanguageSelector(
               seriesId: 'series2',
@@ -67,7 +170,7 @@ void main() {
   testWidgets('opens the selector with the keyboard', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
+        child: _TestApp(
           home: Scaffold(
             body: SeriesSubtitleLanguageSelector(
               seriesId: 'series3',
@@ -88,7 +191,7 @@ void main() {
 
   testWidgets('disabled can be forced and restored', (tester) async {
     Widget selector() => ProviderScope(
-          child: MaterialApp(
+          child: _TestApp(
             home: Scaffold(
               body: SeriesSubtitleLanguageSelector(
                 seriesId: 'disabled',
@@ -118,7 +221,7 @@ void main() {
   testWidgets('stream default audio can be forced and restored',
       (tester) async {
     Widget selector() => ProviderScope(
-          child: MaterialApp(
+          child: _TestApp(
             home: Scaffold(
               body: SeriesAudioLanguageSelector(
                 seriesId: 'default',
@@ -155,7 +258,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(ProviderScope(
-          child: MaterialApp(
+          child: _TestApp(
             home: Scaffold(
               body: subtitles
                   ? SeriesSubtitleLanguageSelector(
@@ -191,7 +294,7 @@ void main() {
     final label = 'Français sous-titrage malentendant version longue';
     await PlayerTrackPrefs.setSeriesSubtitleLanguage('long', label);
     await tester.pumpWidget(ProviderScope(
-      child: MaterialApp(
+      child: _TestApp(
         home: MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
           child: Scaffold(

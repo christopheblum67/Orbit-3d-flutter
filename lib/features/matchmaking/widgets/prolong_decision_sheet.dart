@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -56,6 +57,7 @@ Future<bool> showProlongDecision(
     FocusManager.instance.removeEarlyKeyEventHandler(blockHeldKey);
   }
   if (decision == null || !context.mounted) return false;
+  final l = AppLocalizations.of(context);
 
   // L'effet n'est appliqué qu'après validation explicite : c'est ce qui
   // distingue un choix d'un geste accidentel.
@@ -65,21 +67,21 @@ Future<bool> showProlongDecision(
   // enfant n'affecte pas les propositions du profil parent.
   final profile = ref.read(currentProfileProvider);
   if (profile == null || profile.id != initialProfileId) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Le profil a changé. Recommencez.'),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(l.episodeProfileChanged),
     ));
     return false;
   }
   if (decision == _Decision.favorite) {
     if (ref.read(activeSubscriptionProvider)?.id != initialSubscriptionId) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('L’abonnement a changé. Recommencez.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l.recommendationSubscriptionChanged),
       ));
       return false;
     }
     if (reco.id.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Ce contenu ne peut pas être ajouté aux favoris.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(l.recommendationCannotFavorite),
       ));
       return false;
     }
@@ -98,6 +100,12 @@ Future<bool> showProlongDecision(
     );
     try {
       await ref.read(favoritesProvider.notifier).add(entry);
+    } on FavoriteScopeRequired {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.favoritesNeedScope)));
+      }
+      return false;
     } on StateError catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context)
@@ -112,8 +120,8 @@ Future<bool> showProlongDecision(
         context: ErrorDescription('while adding a favorite'),
       ));
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Impossible d’ajouter ce contenu aux favoris.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l.recommendationFavoriteFailed),
         ));
       }
       return false;
@@ -124,7 +132,7 @@ Future<bool> showProlongDecision(
       return false;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('« ${reco.title} » ajouté aux favoris'),
+      content: Text(l.addedToFavorites(reco.title)),
     ));
     return true;
   }
@@ -164,6 +172,7 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isMovie = widget.reco.kind == RecommendationKind.movie;
@@ -183,8 +192,8 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                   children: [
                     Text(
                       isMovie
-                          ? 'Ce film vous appartient ?'
-                          : 'Cette série vous appartient ?',
+                          ? l.recommendationMovieQuestion
+                          : l.recommendationSeriesQuestion,
                       style: theme.textTheme.titleMedium
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
@@ -199,8 +208,10 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                     const SizedBox(height: 16),
                     _DecisionTile(
                       icon: Icons.visibility_off_outlined,
-                      label: isMovie ? 'Film déjà vu' : 'Série déjà vue',
-                      detail: 'Retiré des prochaines suggestions',
+                      label: isMovie
+                          ? l.recommendationMovieSeen
+                          : l.recommendationSeriesSeen,
+                      detail: l.recommendationRemovedFuture,
                       autofocus: true,
                       selected: _selected == _Decision.seen,
                       onTap: () => _select(_Decision.seen),
@@ -208,16 +219,16 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                     const SizedBox(height: 8),
                     _DecisionTile(
                       icon: Icons.thumb_down_alt_outlined,
-                      label: 'Pas intéressé',
-                      detail: 'Écarté définitivement des suggestions',
+                      label: l.recommendationNotInterested,
+                      detail: l.recommendationExcluded,
                       selected: _selected == _Decision.notInterested,
                       onTap: () => _select(_Decision.notInterested),
                     ),
                     const SizedBox(height: 8),
                     _DecisionTile(
                       icon: Icons.favorite_border,
-                      label: 'Ajouter aux favoris',
-                      detail: 'Ajouté aux favoris du profil actuel',
+                      label: l.favoritesAdd,
+                      detail: l.recommendationFavoriteProfile,
                       selected: _selected == _Decision.favorite,
                       onTap: () => _select(_Decision.favorite),
                     ),
@@ -231,7 +242,7 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Annuler'),
+                    child: Text(l.cancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -241,7 +252,7 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
                     onPressed: _selected == null
                         ? null
                         : () => Navigator.of(context).pop(_selected),
-                    child: const Text('Confirmer'),
+                    child: Text(l.cloudConfirm),
                   ),
                 ),
               ],

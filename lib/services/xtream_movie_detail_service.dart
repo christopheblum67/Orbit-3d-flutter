@@ -3,7 +3,90 @@ import 'package:orbit_3d_flutter/core/utils/media_meta.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/cast.dart';
 import 'package:orbit_3d_flutter/models/movie.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/xtream_live_catalog_service.dart';
+
+typedef XtreamMovieLookup = ({
+  String baseUrl,
+  String username,
+  String password,
+  String movieId,
+});
+
+/// Only derive Xtream credentials from an unambiguous playlist and stream
+/// belonging to the same account and origin.
+XtreamMovieLookup? xtreamMovieLookup(Subscription? subscription, Movie movie) {
+  if (subscription == null) return null;
+  if (subscription.type == SubscriptionType.xtream) {
+    final base = subscription.baseUrl?.trim() ?? '';
+    final user = subscription.username ?? '';
+    final password = subscription.password ?? '';
+    if (base.isEmpty || user.isEmpty || password.isEmpty || movie.id.isEmpty) {
+      return null;
+    }
+    return (
+      baseUrl: base,
+      username: user,
+      password: password,
+      movieId: movie.id
+    );
+  }
+
+  final playlist = Uri.tryParse(subscription.m3uUrl ?? '');
+  final stream = Uri.tryParse(movie.streamId);
+  if (playlist == null ||
+      stream == null ||
+      !playlist.hasAuthority ||
+      !stream.hasAuthority ||
+      (playlist.scheme != 'http' && playlist.scheme != 'https') ||
+      playlist.scheme != stream.scheme ||
+      playlist.host != stream.host ||
+      playlist.port != stream.port ||
+      playlist.userInfo.isNotEmpty ||
+      stream.userInfo.isNotEmpty ||
+      playlist.pathSegments.isEmpty ||
+      playlist.pathSegments.last.toLowerCase() != 'get.php') {
+    return null;
+  }
+  final users = playlist.queryParametersAll['username'];
+  final passwords = playlist.queryParametersAll['password'];
+  if (users == null ||
+      users.length != 1 ||
+      users.single.isEmpty ||
+      passwords == null ||
+      passwords.length != 1 ||
+      passwords.single.isEmpty) {
+    return null;
+  }
+  final prefix =
+      playlist.pathSegments.sublist(0, playlist.pathSegments.length - 1);
+  final segments = stream.pathSegments;
+  if (segments.length != prefix.length + 4) return null;
+  for (var i = 0; i < prefix.length; i++) {
+    if (segments[i] != prefix[i]) return null;
+  }
+  if (segments[prefix.length] != 'movie' ||
+      segments[prefix.length + 1] != users.single ||
+      segments[prefix.length + 2] != passwords.single) {
+    return null;
+  }
+  final id =
+      RegExp(r'^(\d+)(?:\.[a-zA-Z0-9]+)?$').firstMatch(segments.last)?.group(1);
+  if (id == null) return null;
+  final base = playlist
+      .replace(
+        pathSegments: prefix,
+        query: '',
+        fragment: '',
+      )
+      .toString();
+  return (
+    baseUrl: base,
+    username: users.single,
+    password: passwords.single,
+    movieId: id
+  );
+}
 
 class XtreamMovieDetailService {
   XtreamMovieDetailService({

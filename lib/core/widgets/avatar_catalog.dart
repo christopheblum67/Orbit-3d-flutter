@@ -2,9 +2,7 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Catalogue des avatars proposés pour Orbit 3D.
 ///
-/// 72 avatars issus de la maquette de profils, embarqués localement dans
-/// `assets/images/avatars/` (aucun accès réseau) et répartis en 4 catégories :
-/// personnages, super-héros, animaux et fleurs.
+/// Avatars embarqués localement, y compris les anciens avatars déjà attribués.
 ///
 /// La valeur stockée dans `UserProfile.avatarUrl` est `asset:<chemin>` ;
 /// `ProfileAvatar` sait l'afficher. Les anciennes valeurs (URL DiceBear, icônes
@@ -29,6 +27,7 @@ class AvatarItem {
 const String avatarAssetPrefix = 'asset:';
 
 const String _avatarDir = 'assets/images/avatars';
+const String _collectionDir = 'assets/images/avatar_collection';
 
 /// Identifiants de catégories, dans l'ordre d'affichage. `all` est la
 /// pseudo-catégorie « tout afficher ».
@@ -37,7 +36,8 @@ const List<String> avatarCategoryIds = [
   'characters',
   'superheroes',
   'animals',
-  'flowers',
+  'nature',
+  'youth',
 ];
 
 /// Libellé localisé d'une catégorie d'avatars.
@@ -53,12 +53,16 @@ String avatarCategoryLabel(AppLocalizations l, String id) {
       return l.avatarCategoryAnimals;
     case 'flowers':
       return l.avatarCategoryFlowers;
+    case 'nature':
+      return l.avatarCategoryNature;
+    case 'youth':
+      return l.avatarCategoryYouth;
     default:
       return id;
   }
 }
 
-const List<AvatarItem> orbit3DAvatars = [
+const List<AvatarItem> _legacyAvatars = [
   // --- characters (12) ---
   AvatarItem(
     id: 'ch01',
@@ -354,145 +358,175 @@ const List<AvatarItem> orbit3DAvatars = [
   AvatarItem(
     id: 'fl01',
     name: 'Rose',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl01.png',
   ),
   AvatarItem(
     id: 'fl02',
     name: 'Tournesol',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl02.png',
   ),
   AvatarItem(
     id: 'fl03',
     name: 'Tulipe',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl03.png',
   ),
   AvatarItem(
     id: 'fl04',
     name: 'Orchidée',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl04.png',
   ),
   AvatarItem(
     id: 'fl05',
     name: 'Lotus',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl05.png',
   ),
   AvatarItem(
     id: 'fl06',
     name: 'Cerisier',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl06.png',
   ),
   AvatarItem(
     id: 'fl07',
     name: 'Lavande',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl07.png',
   ),
   AvatarItem(
     id: 'fl08',
     name: 'Marguerite',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl08.png',
   ),
   AvatarItem(
     id: 'fl09',
     name: 'Dahlia rose',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl09.png',
   ),
   AvatarItem(
     id: 'fl10',
     name: 'Dahlia',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl10.png',
   ),
   AvatarItem(
     id: 'fl11',
     name: 'Hibiscus',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl11.png',
   ),
   AvatarItem(
     id: 'fl12',
     name: 'Lys',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl12.png',
   ),
   AvatarItem(
     id: 'fl13',
     name: 'Pivoine',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl13.png',
   ),
   AvatarItem(
     id: 'fl14',
     name: 'Lys rose',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl14.png',
   ),
   AvatarItem(
     id: 'fl15',
     name: 'Pivoine rose',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl15.png',
   ),
   AvatarItem(
     id: 'fl16',
     name: 'Jonquille',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl16.png',
   ),
   AvatarItem(
     id: 'fl17',
     name: 'Violette',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl17.png',
   ),
   AvatarItem(
     id: 'fl18',
     name: 'Iris',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl18.png',
   ),
   AvatarItem(
     id: 'fl19',
     name: 'Hortensia',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl19.png',
   ),
   AvatarItem(
     id: 'fl20',
     name: 'Œillet',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl20.png',
   ),
   AvatarItem(
     id: 'fl21',
     name: 'Œillet rouge',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl21.png',
   ),
   AvatarItem(
     id: 'fl22',
     name: 'Digitale',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl22.png',
   ),
   AvatarItem(
     id: 'fl23',
     name: 'Souci',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl23.png',
   ),
   AvatarItem(
     id: 'fl24',
     name: 'Coquelicot',
-    category: 'flowers',
+    category: 'nature',
     imageUrl: '$avatarAssetPrefix$_avatarDir/fl24.png',
   ),
 ];
+
+List<AvatarItem> _collectionItems(
+  String prefix,
+  String category,
+) =>
+    [
+      for (var index = 1; index <= 50; index++)
+        AvatarItem(
+          id: '${prefix}_${index.toString().padLeft(2, '0')}',
+          name: 'Avatar ${index.toString().padLeft(2, '0')}',
+          category: category,
+          imageUrl:
+              '$avatarAssetPrefix$_collectionDir/${prefix}_${index.toString().padLeft(2, '0')}.png',
+        ),
+    ];
+
+/// Seule la nouvelle collection est proposée dans le sélecteur.
+final List<AvatarItem> selectableOrbit3DAvatars = List.unmodifiable([
+  ..._collectionItems('char', 'characters'),
+  ..._collectionItems('scifi', 'superheroes'),
+  ..._collectionItems('anim', 'animals'),
+  ..._collectionItems('nat', 'nature'),
+  ..._collectionItems('jeun', 'youth'),
+]);
+
+/// Conserve les anciens chemins pour reconnaître les profils enregistrés.
+final List<AvatarItem> orbit3DAvatars = List.unmodifiable([
+  ..._legacyAvatars,
+  ...selectableOrbit3DAvatars,
+]);

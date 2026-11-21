@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.dart';
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/prolong_decision_sheet.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
 
 class _TestPreferences extends PreferencesNotifier {
   @override
@@ -25,8 +27,15 @@ void main() {
       );
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [preferencesProvider.overrideWith(_TestPreferences.new)],
+          overrides: [
+            preferencesProvider.overrideWith(_TestPreferences.new),
+            currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+            activeSubscriptionProvider.overrideWithValue(null),
+          ],
           child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: Consumer(
                 builder: (context, ref, _) => Center(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
@@ -77,6 +78,9 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: FavoriteToggle(entry: entry)),
         ),
       ),
@@ -91,5 +95,41 @@ void main() {
     );
     expect(icon.icon, Icons.favorite);
     expect(icon.color, const Color(0xFFFF5252));
+    expect(find.byTooltip('Remove from favorites'), findsOneWidget);
+  });
+
+  testWidgets('missing scope is explained in the selected language',
+      (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        subscriptionsProvider.overrideWithBuild((ref, notifier) => []),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: FavoriteToggle(
+              entry: FavoriteEntry(type: ContentType.vod, id: '1', title: 'X'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byTooltip('Add to favorites'), findsOneWidget);
+    await tester.tap(find.byType(IconButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('An active profile and subscription are required.'),
+      findsOneWidget,
+    );
   });
 }

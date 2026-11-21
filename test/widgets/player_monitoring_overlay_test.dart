@@ -47,6 +47,7 @@ void main() {
     Widget createTestWidget({
       String? streamUrl,
       VoidCallback? onRetry,
+      Locale locale = const Locale('fr'),
     }) {
       return ProviderScope(
         overrides: [
@@ -55,7 +56,7 @@ void main() {
           stallDetectorProvider.overrideWithValue(stallDetector),
         ],
         child: MaterialApp(
-          locale: const Locale('fr'),
+          locale: locale,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
@@ -95,6 +96,19 @@ void main() {
 
       expect(find.text('Serveur protégé (anti-leech)'), findsOneWidget);
       expect(find.textContaining('nouvelle tentative dans'), findsOneWidget);
+    });
+
+    testWidgets('localizes the cooldown explanation', (tester) async {
+      circuitBreaker.recordFailure('example.com');
+      circuitBreaker.recordFailure('example.com');
+      await tester.pumpWidget(createTestWidget(
+        streamUrl: 'https://example.com/stream.m3u8',
+        locale: const Locale('en'),
+      ));
+      await tester.pump();
+      expect(find.textContaining('Protected server (anti-leech), retry in'),
+          findsOneWidget);
+      expect(find.textContaining('nouvelle tentative dans'), findsNothing);
     });
 
     testWidgets('shows stalling card when detector reports stall',

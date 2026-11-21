@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_action_focus.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 
 enum ConnectionErrorCategory {
@@ -36,6 +37,7 @@ class ConnectionErrorAnalyzer {
   static ConnectionErrorInfo analyze(
     String rawError, {
     required SubscriptionType type,
+    required AppLocalizations l,
   }) {
     final error = rawError.toLowerCase();
     final statusCode = _httpStatusCode(error);
@@ -50,12 +52,11 @@ class ConnectionErrorAnalyzer {
     ])) {
       return _info(
         ConnectionErrorCategory.invalidConfiguration,
-        'Configuration incomplète',
-        'Les paramètres de cet abonnement sont manquants ou invalides.',
+        l.subscriptionIncomplete,
+        l.connectionInvalidConfiguration,
         [
-          'Vérifiez l’URL du serveur ou de la playlist.',
-          if (type == SubscriptionType.xtream)
-            'Vérifiez également l’identifiant et le mot de passe.',
+          l.connectionCheckServerOrPlaylist,
+          if (type == SubscriptionType.xtream) l.connectionCheckCredentials,
         ],
         rawError,
       );
@@ -71,13 +72,11 @@ class ConnectionErrorAnalyzer {
       final expired = _containsAny(error, ['expired', 'expiré']);
       return _info(
         ConnectionErrorCategory.security,
-        expired ? 'Certificat SSL expiré' : 'Erreur SSL/TLS',
-        expired
-            ? 'Le certificat de sécurité du serveur a expiré.'
-            : 'La connexion sécurisée au serveur n’a pas pu être établie.',
+        expired ? l.connectionCertificateExpired : l.connectionSslError,
+        expired ? l.connectionCertificateExpiredHelp : l.connectionSslHelp,
         [
-          'Vérifiez la date et l’heure de votre appareil.',
-          'Contactez votre fournisseur si le problème persiste.',
+          l.connectionCheckDateTime,
+          l.connectionContactProvider,
         ],
         rawError,
       );
@@ -96,12 +95,12 @@ class ConnectionErrorAnalyzer {
     ])) {
       return _info(
         ConnectionErrorCategory.network,
-        'Serveur inaccessible',
-        'Impossible de joindre le serveur. Vérifiez l’adresse et votre connexion Internet.',
+        l.connectionServerUnreachable,
+        l.connectionServerUnreachableHelp,
         [
-          'Vérifiez l’orthographe de l’URL.',
-          'Essayez depuis un autre réseau.',
-          'Contactez votre fournisseur si le serveur reste inaccessible.',
+          l.connectionCheckUrl,
+          l.connectionTryAnotherNetwork,
+          l.connectionContactUnreachableProvider,
         ],
         rawError,
       );
@@ -114,11 +113,11 @@ class ConnectionErrorAnalyzer {
     ])) {
       return _info(
         ConnectionErrorCategory.timeout,
-        'Délai de réponse dépassé',
-        'Le serveur n’a pas répondu à temps. Il peut être lent ou momentanément surchargé.',
+        l.connectionTimeout,
+        l.connectionTimeoutHelp,
         [
-          'Réessayez dans quelques minutes.',
-          'Vérifiez votre connexion Internet.',
+          l.connectionTryLater,
+          l.connectionCheckInternet,
         ],
         rawError,
       );
@@ -129,13 +128,11 @@ class ConnectionErrorAnalyzer {
       final xtream = type == SubscriptionType.xtream;
       return _info(
         ConnectionErrorCategory.invalidCredentials,
-        xtream ? 'Identifiants invalides' : 'Accès refusé',
-        xtream
-            ? 'L’identifiant ou le mot de passe Xtream est refusé par le serveur.'
-            : 'La playlist M3U nécessite une autorisation ou une URL valide.',
+        xtream ? l.connectionInvalidCredentials : l.connectionAccessDenied,
+        xtream ? l.connectionXtreamRejected : l.connectionM3uAuthorization,
         [
-          'Vérifiez l’identifiant et le mot de passe, en respectant les majuscules.',
-          'Demandez à votre fournisseur de confirmer les informations de connexion.',
+          l.connectionCheckCredentialsCase,
+          l.connectionConfirmCredentials,
         ],
         rawError,
       );
@@ -153,11 +150,11 @@ class ConnectionErrorAnalyzer {
     ])) {
       return _info(
         ConnectionErrorCategory.account,
-        'Abonnement ou compte indisponible',
-        'Le compte peut être expiré, désactivé ou avoir atteint sa limite de connexions.',
+        l.connectionAccountUnavailable,
+        l.connectionAccountUnavailableHelp,
         [
-          'Vérifiez l’état de l’abonnement auprès de votre fournisseur.',
-          'Fermez les autres appareils connectés puis réessayez.',
+          l.connectionCheckSubscription,
+          l.connectionCloseOtherDevices,
         ],
         rawError,
       );
@@ -167,11 +164,11 @@ class ConnectionErrorAnalyzer {
         _containsAny(error, ['forbidden', 'access denied', 'ip blocked'])) {
       return _info(
         ConnectionErrorCategory.account,
-        'Accès interdit',
-        'Le serveur refuse la connexion. Le compte ou l’adresse IP peut être bloqué.',
+        l.connectionForbidden,
+        l.connectionForbiddenHelp,
         [
-          'Vérifiez que l’abonnement est toujours actif.',
-          'Contactez votre fournisseur pour vérifier l’accès.',
+          l.connectionCheckActiveSubscription,
+          l.connectionCheckProviderAccess,
         ],
         rawError,
       );
@@ -182,12 +179,11 @@ class ConnectionErrorAnalyzer {
         _containsAny(error, ['bad request', 'not found'])) {
       return _info(
         ConnectionErrorCategory.invalidConfiguration,
-        statusCode == 404 ? 'Adresse introuvable (404)' : 'Requête invalide',
-        'L’adresse du serveur ou le point d’accès ne semble pas correct.',
+        statusCode == 404 ? l.connectionNotFound : l.connectionInvalidRequest,
+        l.connectionInvalidAddress,
         [
-          'Vérifiez l’URL de base du serveur ou l’URL M3U.',
-          if (type == SubscriptionType.xtream)
-            'Utilisez l’adresse du panel Xtream, sans ajouter player_api.php.',
+          l.connectionCheckBaseUrl,
+          if (type == SubscriptionType.xtream) l.connectionUseXtreamPanel,
         ],
         rawError,
       );
@@ -196,11 +192,11 @@ class ConnectionErrorAnalyzer {
     if (statusCode != null && statusCode >= 500) {
       return _info(
         ConnectionErrorCategory.server,
-        'Serveur temporairement indisponible ($statusCode)',
-        'Le serveur du fournisseur rencontre un problème.',
+        l.connectionServerUnavailable(statusCode),
+        l.connectionServerProblem,
         [
-          'Réessayez dans quelques minutes.',
-          'Contactez votre fournisseur si l’erreur persiste.',
+          l.connectionTryLater,
+          l.connectionContactProvider,
         ],
         rawError,
       );
@@ -217,11 +213,11 @@ class ConnectionErrorAnalyzer {
         ])) {
       return _info(
         ConnectionErrorCategory.playlist,
-        'Playlist M3U invalide ou vide',
-        'La playlist ne contient pas de données lisibles au format attendu.',
+        l.connectionInvalidPlaylist,
+        l.connectionInvalidPlaylistHelp,
         [
-          'Vérifiez que l’URL pointe vers une playlist M3U à jour.',
-          'Demandez une nouvelle URL à votre fournisseur.',
+          l.connectionCheckPlaylistUrl,
+          l.connectionRequestNewUrl,
         ],
         rawError,
       );
@@ -229,11 +225,11 @@ class ConnectionErrorAnalyzer {
 
     return _info(
       ConnectionErrorCategory.unknown,
-      'Échec du test de connexion',
-      'Une erreur inattendue a empêché la connexion à cet abonnement.',
+      l.connectionTestFailed,
+      l.connectionUnexpectedError,
       [
-        'Vérifiez les informations de l’abonnement et votre connexion Internet.',
-        'Réessayez ou contactez votre fournisseur si le problème persiste.',
+        l.connectionCheckSubscriptionAndInternet,
+        l.connectionRetryOrContact,
       ],
       rawError,
     );
@@ -293,6 +289,7 @@ class ConnectionErrorDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = AppLocalizations.of(context);
     final icon = switch (errorInfo.category) {
       ConnectionErrorCategory.invalidConfiguration => Icons.settings_outlined,
       ConnectionErrorCategory.invalidCredentials ||
@@ -323,7 +320,7 @@ class ConnectionErrorDialog extends StatelessWidget {
             Text(errorInfo.message),
             const SizedBox(height: 16),
             Text(
-              'À vérifier',
+              l.connectionThingsToCheck,
               style: TextStyle(
                 color: scheme.primary,
                 fontWeight: FontWeight.w700,
@@ -345,7 +342,7 @@ class ConnectionErrorDialog extends StatelessWidget {
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               leading: const Icon(Icons.bug_report_outlined),
-              title: const Text('Détails techniques'),
+              title: Text(l.connectionTechnicalDetails),
               children: [
                 SelectableText(
                   errorInfo.technicalDetails,
@@ -360,7 +357,7 @@ class ConnectionErrorDialog extends StatelessWidget {
         TextButton(
           autofocus: onRetry == null,
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
+          child: Text(l.close),
         ),
         if (onRetry case final retry?)
           ErrorActionFocus(
@@ -371,7 +368,7 @@ class ConnectionErrorDialog extends StatelessWidget {
                 Navigator.of(context).pop();
                 retry();
               },
-              child: const Text('Réessayer'),
+              child: Text(l.retry),
             ),
           ),
       ],
@@ -388,7 +385,11 @@ Future<void> showConnectionErrorDialog(
   return showDialog<void>(
     context: context,
     builder: (_) => ConnectionErrorDialog(
-      errorInfo: ConnectionErrorAnalyzer.analyze(rawError, type: type),
+      errorInfo: ConnectionErrorAnalyzer.analyze(
+        rawError,
+        type: type,
+        l: AppLocalizations.of(context),
+      ),
       onRetry: onRetry,
     ),
   );

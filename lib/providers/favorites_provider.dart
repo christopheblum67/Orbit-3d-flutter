@@ -13,6 +13,11 @@ final favoritesProvider =
   FavoritesNotifier.new,
 );
 
+class FavoriteScopeRequired extends StateError {
+  FavoriteScopeRequired()
+      : super('Un profil et un abonnement actifs sont nécessaires.');
+}
+
 class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
   int _revision = 0;
   String? _scope;
@@ -105,7 +110,7 @@ class FavoritesNotifier extends Notifier<Map<String, FavoriteEntry>> {
     final profile = ref.read(currentProfileProvider);
     final subscription = ref.read(activeSubscriptionProvider);
     if (profile == null || subscription == null || subscription.id.isEmpty) {
-      throw StateError('Un profil et un abonnement actifs sont nécessaires.');
+      throw FavoriteScopeRequired();
     }
     await _pendingLoad;
     if (!ref.mounted ||

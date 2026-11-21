@@ -41,12 +41,13 @@ Widget harness(
   Map<String, List<EPGProgram>> data, {
   Function(EPGProgram, String)? onProgramTap,
   DateTime? gridStartTime,
+  Locale locale = const Locale('fr'),
 }) {
   return MaterialApp(
     // Les delegates sont nécessaires : la grille lit ses libellés via
     // `AppLocalizations.of(context)`, qui renvoie null sans eux. Un test sans
     // delegates échouerait alors même que l'écran, lui, fonctionne.
-    locale: const Locale('fr'),
+    locale: locale,
     localizationsDelegates: const [
       AppLocalizations.delegate,
       GlobalMaterialLocalizations.delegate,
@@ -72,6 +73,32 @@ Widget harness(
 }
 
 void main() {
+  testWidgets('la grille repeint le libellé vide quand la langue change',
+      (tester) async {
+    final channels = ['TF1'];
+    dynamic gridPainter() => tester
+        .widgetList<CustomPaint>(find.descendant(
+          of: find.byType(EpgGrid2DView),
+          matching: find.byType(CustomPaint),
+        ))
+        .firstWhere((paint) =>
+            paint.painter?.runtimeType.toString() == '_EpgGridPainter')
+        .painter;
+
+    await tester.pumpWidget(harness(channels, const {}));
+    await tester.pump();
+    final dynamic french = gridPainter();
+    expect(french.emptyLabel, 'Aucune donnée de programme');
+
+    await tester
+        .pumpWidget(harness(channels, const {}, locale: const Locale('ar')));
+    await tester.pump();
+    final dynamic arabic = gridPainter();
+    expect(arabic.emptyLabel, 'لا توجد بيانات برامج');
+    expect(arabic.textDirection, TextDirection.rtl);
+    expect(arabic.shouldRepaint(french), isTrue);
+  });
+
   testWidgets('le D-pad parcourt les programmes et ouvre la sélection',
       (tester) async {
     final first = prog('Premier', 0);

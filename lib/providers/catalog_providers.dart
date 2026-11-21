@@ -43,6 +43,12 @@ Future<void> _recordCategoryCounts(
   }
 }
 
+final m3uParsingEventsProvider = Provider<StreamController<void>>((ref) {
+  final controller = StreamController<void>.broadcast(sync: true);
+  ref.onDispose(() => unawaited(controller.close()));
+  return controller;
+});
+
 final m3uPlaylistProvider = FutureProvider<M3uPlaylist>(
   (ref) async {
     final sub = ref.watch(activeSubscriptionProvider);
@@ -58,7 +64,13 @@ final m3uPlaylistProvider = FutureProvider<M3uPlaylist>(
     if (url == null || url.isEmpty) {
       throw StateError('L’URL de la playlist M3U est manquante.');
     }
-    return ref.watch(apiServiceProvider).fetchM3uPlaylist(url);
+    final parsingEvents = ref.read(m3uParsingEventsProvider);
+    return ref.watch(apiServiceProvider).fetchM3uPlaylist(
+      url,
+      onParsing: () {
+        if (ref.mounted) parsingEvents.add(null);
+      },
+    );
   },
   retry: catalogRetryUnlessRateLimited,
 );
