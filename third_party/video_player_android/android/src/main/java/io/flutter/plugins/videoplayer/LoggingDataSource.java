@@ -9,6 +9,15 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.TransferListener;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Enveloppe un {@link DataSource} pour diagnostiquer les ouvertures et les lectures
@@ -17,26 +26,31 @@ import java.io.IOException;
 final class LoggingDataSource implements DataSource {
   private static final String TAG = "OrbitHttp";
 
-  /** Nombre max d'ouvertures pour une meme demande (401 inclus). */
+  /** Nombre max d'ouvertures pour une meme demande. */
   private static final int MAX_ATTEMPTS = 4;
 
-  /**
-   * Espacement minimal entre deux ouvertures apres un SUCCES. Assez court pour
-   * ne pas penaliser un MKV (ExoPlayer ouvre le fichier plusieurs fois : tete,
-   * puis la fin pour les cues), assez long pour eviter deux sockets dans la
-   * meme milliseconde.
-   */
+  /** Espacement minimal entre les departs, sans serialiser les lectures. */
   private static final long MIN_GAP_MS = 200L;
 
   /** Delais avant nouvelle tentative apres un refus. */
   private static final long[] BACKOFF_MS = {3000L, 8000L, 20000L};
+  private static final long MAX_COOLDOWN_MS = 60000L;
+  private static final OpenGate OPEN_GATE = new OpenGate(MIN_GAP_MS);
 
   private final DataSource delegate;
+  private final OpenGate gate;
+  private final long[] backoffs;
   private long bytesRead;
   private int lastLoggedBucket;
 
   LoggingDataSource(DataSource delegate) {
+    this(delegate, OPEN_GATE, BACKOFF_MS);
+  }
+
+  LoggingDataSource(DataSource delegate, OpenGate gate, long[] backoffs) {
     this.delegate = delegate;
+    this.gate = gate;
+    this.backoffs = backoffs;
   }
 
   @Override
@@ -48,14 +62,8 @@ final class LoggingDataSource implements DataSource {
   public long open(DataSpec dataSpec) throws IOException {
     bytesRead = 0L;
     lastLoggedBucket = 0;
-    // Le CDN en aval du 302 est anti-leech : il refuse une part importante des
-    // requetes, et la duree du refus croit avec le volume de requetes. Mesure :
-    // 4 requetes quasi simultanees en boucle => 0 % de
-    // reussite, contre ~50 % en requete isolee. On espace donc les tentatives
-    // et on retente ici : l'echec remonte a Dart comme "Source error" generique,
-    // sans le code HTTP, donc l'arbitrage doit se faire natif.
     for (int attempt = 0; ; attempt++) {
-      awaitCooldown();
+      gate.awaitOpen();
       try {
         Log.i(
             TAG,
@@ -67,19 +75,22 @@ final class LoggingDataSource implements DataSource {
                 + dataSpec.length);
         long length = delegate.open(dataSpec);
         Log.i(TAG, "  OK length=" + length);
-        resetCooldown();
         return length;
       } catch (IOException e) {
-        if (isRateLimited(e) && attempt < MAX_ATTEMPTS - 1) {
-          long backoff = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
-          Log.w(TAG, "  HTTP 401/403 throttle, retry in " + backoff + "ms");
-          // Le refus etant anti-leech, on bloque aussi les AUTRES controleurs
-          // pendant ce delai : sans cela ils epuisent eux aussi la fenetre.
-          synchronized (OPEN_GATE) {
-            nextOpenAllowedAtMs = Math.max(nextOpenAllowedAtMs, System.currentTimeMillis() + backoff);
+        if (isRateLimited(e)) {
+          long backoff = backoffs[Math.min(attempt, backoffs.length - 1)];
+          long delay = Math.max(backoff, retryAfterMs(e, System.currentTimeMillis()));
+          gate.defer(Math.min(delay, MAX_COOLDOWN_MS));
+          if (attempt < MAX_ATTEMPTS - 1 && delay <= MAX_COOLDOWN_MS) {
+            Log.w(TAG, "  HTTP throttle, retry in at least " + delay + "ms");
+            try {
+              delegate.close();
+            } catch (IOException closeError) {
+              closeError.addSuppressed(e);
+              throw closeError;
+            }
+            continue;
           }
-          sleepMs(backoff);
-          continue;
         }
         String status = e instanceof HttpDataSource.InvalidResponseCodeException
             ? " status=" + ((HttpDataSource.InvalidResponseCodeException) e).responseCode
@@ -90,48 +101,83 @@ final class LoggingDataSource implements DataSource {
     }
   }
 
-  /** Vrai si l'exception correspond a un refus HTTP du panneau/CDN. */
   private static boolean isRateLimited(IOException e) {
+    if (e instanceof HttpDataSource.InvalidResponseCodeException) {
+      int code = ((HttpDataSource.InvalidResponseCodeException) e).responseCode;
+      return code == 401 || code == 403 || code == 429;
+    }
     final String m = String.valueOf(e.getMessage());
-    return m.contains("Response code: 401") || m.contains("Response code: 403");
+    return m.contains("Response code: 401")
+        || m.contains("Response code: 403")
+        || m.contains("Response code: 429");
   }
 
-  /**
-   * Serveur global du rythme d'ouverture. Sans lui, plusieurs controleurs
-   * (lecture, preload, voisins) ouvrent des sockets dans la meme milliseconde
-   * et se sanctionnent mutuellement.
-   */
-  private static final Object OPEN_GATE = new Object();
-
-  private static long nextOpenAllowedAtMs;
-
-  private static void awaitCooldown() {
-    long waitMs;
-    synchronized (OPEN_GATE) {
-      waitMs = nextOpenAllowedAtMs - System.currentTimeMillis();
+  static long retryAfterMs(IOException error, long nowMs) {
+    if (!(error instanceof HttpDataSource.InvalidResponseCodeException)
+        || ((HttpDataSource.InvalidResponseCodeException) error).responseCode != 429) {
+      return 0L;
     }
-    // Sommeil HORS du moniteur : une attente prolongée (jusqu'à 3+8+20=31 s
-    // avec la suite de backoff) bloquait tous les autres threads qui voulaient
-    // lire/prolonger nextOpenAllowedAtMs, y compris le prolongement du
-    // cooldown suite à un nouveau 401 — exactement le comportement qu'on
-    // voulait éviter. Le calcul reste atomique sous verrou, pas le sommeil.
-    if (waitMs > 0) {
-      Log.i(TAG, "  gate: attente " + waitMs + "ms avant ouverture");
-      sleepMs(waitMs);
+    Map<String, List<String>> headers =
+        ((HttpDataSource.InvalidResponseCodeException) error).headerFields;
+    for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+      if (!"Retry-After".equalsIgnoreCase(entry.getKey()) || entry.getValue() == null) continue;
+      for (String value : entry.getValue()) {
+        if (value == null) continue;
+        value = value.trim();
+        if (value.matches("[0-9]+")) {
+          try {
+            long seconds = Long.parseLong(value);
+            return seconds > Long.MAX_VALUE / 1000L ? Long.MAX_VALUE : seconds * 1000L;
+          } catch (NumberFormatException ignored) {
+            return Long.MAX_VALUE;
+          }
+        }
+        SimpleDateFormat format =
+            new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US);
+        format.setTimeZone(TimeZone.getTimeZone("GMT"));
+        format.setLenient(false);
+        try {
+          Date date = format.parse(value);
+          if (date != null) return Math.max(0L, date.getTime() - nowMs);
+        } catch (ParseException ignored) {
+          // Invalid headers fall back to the progressive delay.
+        }
+      }
     }
+    return 0L;
   }
 
-  private static void resetCooldown() {
-    synchronized (OPEN_GATE) {
-      nextOpenAllowedAtMs = System.currentTimeMillis() + MIN_GAP_MS;
-    }
-  }
+  static final class OpenGate {
+    private final long minGapMs;
+    private long nextOpenMs;
 
-  private static void sleepMs(long ms) {
-    try {
-      Thread.sleep(ms);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+    OpenGate(long minGapMs) {
+      this.minGapMs = minGapMs;
+    }
+
+    synchronized void awaitOpen() throws InterruptedIOException {
+      while (true) {
+        if (Thread.currentThread().isInterrupted()) {
+          throw new InterruptedIOException("Interrupted while waiting to open");
+        }
+        long now = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+        long remaining = nextOpenMs - now;
+        if (remaining <= 0) {
+          nextOpenMs = now + minGapMs;
+          return;
+        }
+        try {
+          wait(remaining);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new InterruptedIOException("Interrupted while waiting to open");
+        }
+      }
+    }
+
+    synchronized void defer(long delayMs) {
+      long now = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
+      nextOpenMs = Math.max(nextOpenMs, now + delayMs);
     }
   }
 

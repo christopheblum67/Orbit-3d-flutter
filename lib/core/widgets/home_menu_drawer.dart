@@ -223,19 +223,22 @@ class _MenuTile extends StatelessWidget {
     return TvFocus(
       focusNode: focusNode,
       onActivate: navigate,
-      child: ListTile(
-        leading: Icon(item.icon, color: item.color ?? scheme.primary),
-        title: Text(
-          item.label,
-          style: TextStyle(
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? scheme.primary : scheme.onSurface,
+      child: ExcludeFocus(
+        child: ListTile(
+          leading: Icon(item.icon, color: item.color ?? scheme.primary),
+          title: Text(
+            item.label,
+            style: TextStyle(
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? scheme.primary : scheme.onSurface,
+            ),
           ),
+          selected: selected,
+          selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          onTap: navigate,
         ),
-        selected: selected,
-        selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        onTap: navigate,
       ),
     );
   }

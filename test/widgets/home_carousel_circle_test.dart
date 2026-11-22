@@ -268,6 +268,54 @@ void main() {
     expect(find.text('VOD ouverte'), findsOneWidget);
   });
 
+  testWidgets('D-pad moves between carousel and bottom bar during animation',
+      (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+    ]);
+    addTearDown(router.dispose);
+    final tvMode = TvModeNotifier()..enable();
+    addTearDown(tvMode.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        tvModeNotifierProvider.overrideWith((ref) => tvMode),
+        sourceTypeProvider.overrideWith((ref) async => 'xtream'),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => null),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+        favoritesProvider.overrideWithBuild((ref, notifier) => {}),
+        lastRefreshTimestampProvider.overrideWithBuild(
+          (ref, notifier) => DateTime.now(),
+        ),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Home update');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TvFocus>(find.byKey(const ValueKey('/vod')))
+          .focusNode!
+          .hasPrimaryFocus,
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('D-pad navigation wraps from the last carousel tile to TV',
       (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);

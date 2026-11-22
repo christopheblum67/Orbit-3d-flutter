@@ -200,8 +200,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                 runSpacing: 12,
                 children: [
                   MediaActionButton(
-                    autofocus: ref.watch(tvModeNotifierProvider).enabled &&
-                        (!hasProgress || episode.streamUrl.isEmpty),
+                    autofocus: !hasProgress && episode.streamUrl.isNotEmpty,
                     onPressed: episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
                               context,
@@ -214,9 +213,7 @@ class EpisodeDetailScreen extends ConsumerWidget {
                     isTvLayout: isTvLayout,
                   ),
                   MediaActionButton(
-                    autofocus: ref.watch(tvModeNotifierProvider).enabled &&
-                        hasProgress &&
-                        episode.streamUrl.isNotEmpty,
+                    autofocus: hasProgress && episode.streamUrl.isNotEmpty,
                     onPressed: hasProgress && episode.streamUrl.isNotEmpty
                         ? () => _openPlayer(
                               context,

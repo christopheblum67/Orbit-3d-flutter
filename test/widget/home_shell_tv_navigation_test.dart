@@ -185,8 +185,21 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(find.byType(HomeMenuDrawer), findsOneWidget);
+      expect(FocusManager.instance.primaryFocus?.debugLabel,
+          'Home menu first destination');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final liveTile = find.ancestor(
+        of: find.text('Live TV'),
+        matching: find.byType(TvFocus),
+      );
+      expect(liveTile, findsOneWidget);
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TvFocus>(),
+        same(tester.widget<TvFocus>(liveTile)),
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
 

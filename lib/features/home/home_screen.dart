@@ -27,8 +27,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   PageController? _pageController;
   bool? _portraitPhone;
   final Map<String, FocusNode> _carouselFocusNodes = {};
+  final FocusNode _bottomBarFocus = FocusNode(debugLabel: 'Home update');
   double _currentPage = 0.0;
   String? _focusedCarouselRoute;
+  int _focusMoveGeneration = 0;
   bool _autoRefreshing = false;
   DateTime? _lastSilentRefreshAttempt;
   String? _pendingRefreshMessage;
@@ -145,6 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       focusNode.dispose();
     }
     _carouselFocusNodes.clear();
+    _bottomBarFocus.dispose();
     super.dispose();
   }
 
@@ -165,6 +168,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _focusMoveGeneration++;
+      _bottomBarFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
     final direction = switch (event.logicalKey) {
       LogicalKeyboardKey.arrowLeft => -1,
       LogicalKeyboardKey.arrowRight => 1,
@@ -183,11 +191,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final nextItem = items[nextIndex];
     final nextNode = _focusNodeFor(nextItem);
     _focusedCarouselRoute = _carouselItemKey(nextItem);
+    final generation = ++_focusMoveGeneration;
     if ((direction < 0 && currentIndex == 0) ||
         (direction > 0 && currentIndex == items.length - 1)) {
       _pageController!.jumpToPage(nextIndex);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _focusedCarouselRoute == _carouselItemKey(nextItem)) {
+        if (mounted && generation == _focusMoveGeneration) {
           nextNode.requestFocus();
         }
       });
@@ -200,7 +209,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       curve: Curves.easeOutCubic,
     )
         .then((_) {
-      if (mounted && _focusedCarouselRoute == _carouselItemKey(nextItem)) {
+      if (mounted && generation == _focusMoveGeneration) {
         nextNode.requestFocus();
       }
     });
@@ -392,9 +401,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
       _pendingRefreshSubscriptionId = subscriptionId;
       final l = AppLocalizations.of(context);
-      _pendingRefreshMessage = responded
-          ? l.homeRefreshDone
-          : l.homeRefreshEmpty;
+      _pendingRefreshMessage =
+          responded ? l.homeRefreshDone : l.homeRefreshEmpty;
       _showPendingRefreshMessage();
     } finally {
       _autoRefreshing = false;
@@ -532,8 +540,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               color: item.color.withValues(alpha: 0.3)),
                         ),
                         child: Padding(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           child: Text(
                             AppLocalizations.of(context).comingSoon,
                             style: const TextStyle(
@@ -617,6 +625,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         const SizedBox(width: 10),
         _UpdateButton(
+          focusNode: _bottomBarFocus,
           tooltip: l.updateAllData,
           onPressed: _refreshAll,
         ),
@@ -642,9 +651,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: compact
-          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: bar)
-          : bar,
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: (_, event) {
+          if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+              event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            final node = _carouselFocusNodes[_focusedCarouselRoute];
+            if (node != null && node.context != null) {
+              _focusMoveGeneration++;
+              node.requestFocus();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: compact
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal, child: bar)
+            : bar,
+      ),
     );
   }
 }
@@ -1002,10 +1027,12 @@ class _OrbitItem {
 class _UpdateButton extends StatelessWidget {
   const _UpdateButton({
     required this.onPressed,
+    required this.focusNode,
     this.tooltip = 'Mettre à jour',
   });
 
   final VoidCallback onPressed;
+  final FocusNode focusNode;
   final String tooltip;
 
   /// Teinte et icône fixes : aucun appelant ne les surchargait, les paramètres
@@ -1016,6 +1043,7 @@ class _UpdateButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TvFocus(
+      focusNode: focusNode,
       onActivate: onPressed,
       child: GestureDetector(
         onTap: onPressed,

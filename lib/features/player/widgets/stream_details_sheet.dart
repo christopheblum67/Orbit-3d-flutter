@@ -283,15 +283,14 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight:
-              MediaQuery.of(context).size.height * (widget.isLive ? 1 : 0.8),
+          maxHeight: MediaQuery.of(context).size.height * 0.78,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 4),
               child: Row(
                 children: [
                   Icon(Icons.info_outline_rounded, color: scheme.primary),
@@ -300,7 +299,7 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                     child: Text(
                       l.streamDetails,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -308,10 +307,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                   TvFocus(
                     autofocus: true,
                     onActivate: () => Navigator.of(context).pop(),
-                    child: IconButton(
-                      tooltip: l.close,
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
+                    child: ExcludeFocus(
+                      child: IconButton(
+                        tooltip: l.close,
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close),
+                      ),
                     ),
                   ),
                 ],
@@ -351,59 +352,51 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
                           ),
                         )
                       : FocusTraversalGroup(
-                          policy: OrderedTraversalPolicy(),
-                          child: ListView(
-                            shrinkWrap: true,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            children: [
-                              _sectionTitle(l.audioSection),
-                              if (_audioTracks.isEmpty)
-                                _EmptyRow(label: l.noAudioTrackDetected)
-                              else ...[
-                                // « Aucun » en tête : coupe la sortie audio.
-                                _TrackTile(
-                                  title: l.noneOption,
-                                  subtitle: null,
-                                  selected: _audioDisabled,
-                                  onTap: _selectAudioNone,
-                                  autofocus: true,
-                                ),
-                                for (final track in _audioTracks)
-                                  _TrackTile(
-                                    title: _audioLabel(context, track, l),
-                                    // Pas de ligne de métadonnées : les pistes
-                                    // audio s'identifient par leur langue, et
-                                    // les canaux/codecs n'aidaient pas à choisir.
-                                    subtitle: null,
-                                    selected: _selectedAudioId == track.id,
-                                    onTap: () => _selectAudio(track.id),
+                          policy: ReadingOrderTraversalPolicy(),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final audio = _buildAudioSection(l);
+                              final video = _buildVideoSection(l);
+                              final subtitles = [
+                                ..._buildSubtitleNoneTiles(),
+                                ..._buildEmbeddedSection(l),
+                                ..._buildSubtitleSection(),
+                              ];
+                              final landscape =
+                                  MediaQuery.orientationOf(context) ==
+                                          Orientation.landscape &&
+                                      constraints.maxWidth >= 420;
+                              if (landscape) {
+                                return Row(
+                                  key: const ValueKey(
+                                    'stream-details-landscape',
                                   ),
-                              ],
-                              const SizedBox(height: 12),
-                              _sectionTitle(l.videoSection),
-                              _TrackTile(
-                                title: l.autoQuality,
-                                subtitle: l.autoQualityDescription,
-                                selected: _selectedVideoId == 'auto',
-                                onTap: () => _selectVideo(null),
-                              ),
-                              if (_videoTracks.isEmpty)
-                                _EmptyRow(label: l.noVideoQualityDetected)
-                              else
-                                for (final track in _videoTracks)
-                                  _TrackTile(
-                                    title: _videoLabel(track, l),
-                                    subtitle: _videoMeta(track),
-                                    selected: _selectedVideoId == track.id,
-                                    onTap: () => _selectVideo(track.id),
-                                  ),
-                              const SizedBox(height: 12),
-                              _sectionTitle(l.subtitleSection),
-                              ..._buildSubtitleNoneTiles(),
-                              ..._buildEmbeddedSection(l),
-                              ..._buildSubtitleSection(),
-                              const SizedBox(height: 16),
-                            ],
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _landscapeSection(l.audioSection, audio),
+                                    _landscapeSection(l.videoSection, video),
+                                    _landscapeSection(
+                                      l.subtitleSection,
+                                      subtitles,
+                                    ),
+                                  ],
+                                );
+                              }
+                              return ListView(
+                                key: const ValueKey('stream-details-portrait'),
+                                shrinkWrap: true,
+                                padding: const EdgeInsets.only(bottom: 8),
+                                children: [
+                                  _sectionTitle(l.audioSection),
+                                  ...audio,
+                                  _sectionTitle(l.videoSection),
+                                  ...video,
+                                  _sectionTitle(l.subtitleSection),
+                                  ...subtitles,
+                                ],
+                              );
+                            },
                           ),
                         ),
             ),
@@ -412,6 +405,60 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
       ),
     );
   }
+
+  List<Widget> _buildAudioSection(AppLocalizations l) => [
+        if (_audioTracks.isEmpty)
+          _EmptyRow(label: l.noAudioTrackDetected)
+        else ...[
+          _TrackTile(
+            title: l.noneOption,
+            subtitle: null,
+            selected: _audioDisabled,
+            onTap: _selectAudioNone,
+          ),
+          for (final track in _audioTracks)
+            _TrackTile(
+              title: _audioLabel(context, track, l),
+              subtitle: null,
+              selected: _selectedAudioId == track.id,
+              onTap: () => _selectAudio(track.id),
+            ),
+        ],
+      ];
+
+  List<Widget> _buildVideoSection(AppLocalizations l) => [
+        _TrackTile(
+          title: l.autoQuality,
+          subtitle: l.autoQualityDescription,
+          selected: _selectedVideoId == 'auto',
+          onTap: () => _selectVideo(null),
+        ),
+        if (_videoTracks.isEmpty)
+          _EmptyRow(label: l.noVideoQualityDetected)
+        else
+          for (final track in _videoTracks)
+            _TrackTile(
+              title: _videoLabel(track, l),
+              subtitle: _videoMeta(track),
+              selected: _selectedVideoId == track.id,
+              onTap: () => _selectVideo(track.id),
+            ),
+      ];
+
+  Widget _landscapeSection(String title, List<Widget> items) => Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _sectionTitle(title),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 8),
+                children: items,
+              ),
+            ),
+          ],
+        ),
+      );
 
   /// Entrée « Aucun » de la section sous-titres — cas « sous-titres du panel ».
   ///
@@ -472,12 +519,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
     final scheme = Theme.of(context).colorScheme;
     return [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
         child: Text(
           l.subtitleEmbeddedSection,
           style: TextStyle(
             color: scheme.primary,
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
           ),
@@ -671,12 +718,12 @@ class _StreamDetailsSheetState extends ConsumerState<StreamDetailsSheet> {
   Widget _sectionTitle(String label) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
       child: Text(
         label,
         style: TextStyle(
           color: scheme.primary,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.3,
         ),
@@ -735,41 +782,45 @@ class _TrackTile extends StatelessWidget {
     required this.subtitle,
     required this.selected,
     required this.onTap,
-    this.autofocus = false,
   });
 
   final String title;
   final String? subtitle;
   final bool selected;
   final VoidCallback onTap;
-  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return TvFocus(
-      autofocus: autofocus,
       onActivate: onTap,
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-        leading: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-          color: selected ? scheme.primary : scheme.onSurfaceVariant,
-          size: 20,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? scheme.primary : scheme.onSurface,
+      child: ExcludeFocus(
+        child: ListTile(
+          dense: true,
+          visualDensity: VisualDensity.compact,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+          horizontalTitleGap: 6,
+          minLeadingWidth: 18,
+          leading: Icon(
+            selected
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            size: 18,
           ),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? scheme.primary : scheme.onSurface,
+            ),
+          ),
+          subtitle: subtitle != null && subtitle!.isNotEmpty
+              ? Text(subtitle!, style: const TextStyle(fontSize: 10))
+              : null,
+          onTap: onTap,
         ),
-        subtitle: subtitle != null && subtitle!.isNotEmpty
-            ? Text(subtitle!, style: const TextStyle(fontSize: 11))
-            : null,
-        onTap: onTap,
       ),
     );
   }
@@ -785,7 +836,7 @@ class _EmptyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -798,7 +849,7 @@ class _EmptyRow extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),

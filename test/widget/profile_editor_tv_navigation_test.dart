@@ -128,7 +128,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+    expect(
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
   });
 
   testWidgets('TV continue validates the name and keeps D-pad editing',
@@ -177,14 +178,16 @@ void main() {
     await tester.enterText(find.byType(TextFormField), 'Zoë 李');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+    expect(
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+    expect(
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
     expect(name.controller.text, 'Zoë 李');
   });
 
@@ -215,7 +218,8 @@ void main() {
     await tester.ensureVisible(find.text('Continuer'));
     await tester.tap(find.text('Continuer'));
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+    expect(
+        FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstGender');
   });
 
   testWidgets('TV can reach continue from the name in RTL', (tester) async {

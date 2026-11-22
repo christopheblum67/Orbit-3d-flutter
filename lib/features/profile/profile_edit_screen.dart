@@ -20,7 +20,7 @@ import 'package:orbit_3d_flutter/services/profile_pin.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 3 — Création / Édition de profil :
-/// - nom (formatté), type Adulte/Enfant/Expert,
+/// - nom (formatté), préférences personnelles,
 /// - avatar DiceBear par catégorie,
 /// - protection par code PIN (pavé TV) pour Enfant/Expert.
 ///
@@ -43,7 +43,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
   final _continueFocus = FocusNode(debugLabel: 'profile.continue');
-  final _firstAgeFocus = FocusNode(debugLabel: 'profile.firstAge');
+  final _firstGenderFocus = FocusNode(debugLabel: 'profile.firstGender');
   final _saveFocus = FocusNode(debugLabel: 'profile.save');
   final _identityCardKey = GlobalKey();
   ProfileType _type = ProfileType.adult;
@@ -185,16 +185,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     return _confirmDiscard();
   }
 
-  static const _ageRanges = [
-    (label: '- 12 ans', min: 0, max: 12),
-    (label: '13 - 17 ans', min: 13, max: 17),
-    (label: '18 - 24 ans', min: 18, max: 24),
-    (label: '25 - 34 ans', min: 25, max: 34),
-    (label: '35 - 44 ans', min: 35, max: 44),
-    (label: '45 - 54 ans', min: 45, max: 54),
-    (label: '55 ans et plus', min: 55, max: 100),
-  ];
-
   static const _genreOptions = [
     'Action',
     'Aventure',
@@ -258,24 +248,9 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         _ => genre,
       };
 
-  int get _ageRangeIndex {
-    if (_dateOfBirth == null) return 2;
+  DateTime _defaultDateOfBirth() {
     final now = DateTime.now();
-    final birth = _dateOfBirth!;
-    var age = now.year - birth.year;
-    if (now.month < birth.month ||
-        (now.month == birth.month && now.day < birth.day)) {
-      age--;
-    }
-    for (var i = 0; i < _ageRanges.length; i++) {
-      if (age >= _ageRanges[i].min && age <= _ageRanges[i].max) return i;
-    }
-    return 2;
-  }
-
-  DateTime _dateForRange(int index) {
-    final now = DateTime.now();
-    return DateTime(now.year - _ageRanges[index].max, now.month, now.day);
+    return DateTime(now.year - 24, now.month, now.day);
   }
 
   bool get _isEdit => widget.profileId != null;
@@ -362,7 +337,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
-      if (mounted) _firstAgeFocus.requestFocus();
+      if (mounted) _firstGenderFocus.requestFocus();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -373,7 +348,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _scrollController.dispose();
     _nameFocus.dispose();
     _continueFocus.dispose();
-    _firstAgeFocus.dispose();
+    _firstGenderFocus.dispose();
     _saveFocus.dispose();
     super.dispose();
   }
@@ -510,7 +485,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             firstName: name,
             profileType: _type,
             avatarUrl: avatarUrl,
-            dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
+            dateOfBirth: _dateOfBirth ?? _defaultDateOfBirth(),
             gender: _gender,
             favoriteGenres: List.of(_favoriteGenres),
             pinHash: _pinHash,
@@ -551,7 +526,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         final profile = UserProfile(
           id: const Uuid().v4(),
           firstName: name,
-          dateOfBirth: _dateOfBirth ?? _dateForRange(_ageRangeIndex),
+          dateOfBirth: _dateOfBirth ?? _defaultDateOfBirth(),
           gender: _gender,
           favoriteGenres: List.of(_favoriteGenres),
           avatarUrl: avatarUrl,
@@ -853,15 +828,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final ageLabels = [
-      l.ageRangeUnder12,
-      l.ageRange13to17,
-      l.ageRange18to24,
-      l.ageRange25to34,
-      l.ageRange35to44,
-      l.ageRange45to54,
-      l.ageRange55plus,
-    ];
     final genders = [
       ('Non spécifié', l.noneOption),
       ('Homme', l.actorGenderMale),
@@ -874,57 +840,17 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            l.age,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (var i = 0; i < ageLabels.length; i++)
-                _ProfileChoiceChip(
-                  label: ageLabels[i],
-                  focusNode: i == 0 ? _firstAgeFocus : null,
-                  onUp: i == 0 ? _focusContinue : null,
-                  selected: _ageRangeIndex == i,
-                  onTap: () => setState(() => _dateOfBirth = _dateForRange(i)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (value, label) in genders)
+              for (final (index, (value, label)) in genders.indexed)
                 _ProfileChoiceChip(
                   label: label,
+                  focusNode: index == 0 ? _firstGenderFocus : null,
+                  onUp: index == 0 ? _focusContinue : null,
                   selected: _gender == value,
                   onTap: () => setState(() => _gender = value),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            l.menuProfile,
-            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (type, label) in [
-                (ProfileType.adult, l.profileAdult),
-                (ProfileType.child, l.profileChild),
-                (ProfileType.expert, l.profileExpert),
-              ])
-                _ProfileChoiceChip(
-                  label: label,
-                  selected: _type == type,
-                  onTap: () => setState(() => _type = type),
                 ),
             ],
           ),
@@ -1039,7 +965,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   }
 }
 
-/// Puces focales du pad (tranche d'âge / genre de film), sélectionnables
+/// Puces focales du pad (genre / genre de film), sélectionnables
 /// et navigables au d-pad avec retour haptique.
 class _ProfileChoiceChip extends StatefulWidget {
   const _ProfileChoiceChip({

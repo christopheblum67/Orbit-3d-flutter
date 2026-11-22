@@ -27,6 +27,7 @@ void main() {
         firstName: 'Alex',
         dateOfBirth: DateTime(1990),
         gender: preserving ? 'Non spécifié' : 'Homme',
+        profileType: editing ? ProfileType.child : ProfileType.adult,
         favoriteGenres: const [],
         hideAdultContent: true,
       );
@@ -71,6 +72,11 @@ void main() {
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
+      expect(find.text('Âge'), findsNothing);
+      expect(find.text('- 12 ans'), findsNothing);
+      expect(find.text('Profil'), findsNothing);
+      expect(find.text('enfant'), findsNothing);
+      expect(find.text('expert'), findsNothing);
 
       final scrollable = find
           .descendant(
@@ -102,10 +108,7 @@ void main() {
       await tester.pumpAndSettle();
 
       if (!preserving) {
-        await tapVisible(find.text('- 12 ans'));
         await tapVisible(find.text('Femme'));
-        await tapVisible(find.text('expert'));
-        await tapVisible(find.text('enfant'));
       }
       await tapVisible(find.text('Aventure'));
       await tapVisible(find.text(editing ? 'Enregistrer' : 'Créer le profil'));
@@ -116,12 +119,12 @@ void main() {
       expect(saved.gender, preserving ? 'Non spécifié' : 'Femme');
       expect(
         saved.profileType,
-        preserving ? ProfileType.adult : ProfileType.child,
+        editing ? ProfileType.child : ProfileType.adult,
       );
-      if (preserving) {
+      if (editing) {
         expect(saved.dateOfBirth, existing.dateOfBirth);
       } else {
-        expect(saved.age, inInclusiveRange(0, 12));
+        expect(saved.age, 24);
       }
       expect(saved.favoriteGenres, contains('Aventure'));
       if (editing) expect(saved.hideAdultContent, isTrue);

@@ -49,6 +49,7 @@ class UnifiedSettingsScreen extends ConsumerStatefulWidget {
 class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _accountTabKey = GlobalKey();
 
   // Onglets : 0=Compte, 1=Réseau & Sécurité, 2=Lecture & Audio, 3=Avancé.
   // Les deux menus historiquement séparés « Réseau »/« Sécurité » et
@@ -125,6 +126,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
               for (var i = 0; i < _tabIcons.length; i++)
                 Tab(
                   icon: Builder(
+                    key: i == 0 ? _accountTabKey : null,
                     builder: (context) => Icon(
                       _tabIcons[i],
                       size: Focus.maybeOf(context)?.hasFocus == true ? 34 : 24,
@@ -142,11 +144,14 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
       body: TvSafeArea(
         child: TabBarView(
           controller: _tabController,
-          children: const [
-            _AccountSection(),
-            _NetworkSecuritySection(),
-            _PlayerAudioSection(),
-            _AdvancedSection(),
+          children: [
+            _AccountSection(onFirstUp: () {
+              final tabContext = _accountTabKey.currentContext;
+              if (tabContext != null) Focus.maybeOf(tabContext)?.requestFocus();
+            }),
+            const _NetworkSecuritySection(),
+            const _PlayerAudioSection(),
+            const _AdvancedSection(),
           ],
         ),
       ),
@@ -163,6 +168,7 @@ class _NavTile extends StatelessWidget {
     required this.onTap,
     this.trailing,
     this.autofocus = false,
+    this.onUp,
   });
 
   final IconData icon;
@@ -173,6 +179,7 @@ class _NavTile extends StatelessWidget {
 
   /// Focus initial (premier élément de l'onglet, en mode TV).
   final bool autofocus;
+  final VoidCallback? onUp;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +192,15 @@ class _NavTile extends StatelessWidget {
     return TvFocus(
       autofocus: autofocus,
       onActivate: onTap,
+      onKeyEvent: (_, event) {
+        if (onUp != null &&
+            (event is KeyDownEvent || event is KeyRepeatEvent) &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          onUp!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: Builder(
         builder: (context) {
           final focused = Focus.of(context).hasFocus;
@@ -192,33 +208,36 @@ class _NavTile extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: AppCard(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  icon,
-                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
-                ),
-                title: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
-                    color: focused ? scheme.primary : null,
+              child: ExcludeFocus(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    icon,
+                    color: focused ? scheme.primary : scheme.onSurfaceVariant,
                   ),
-                ),
-                subtitle: Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                trailing: trailing ??
-                    Icon(
-                      Icons.chevron_right,
-                      color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                  title: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                      color: focused ? scheme.primary : null,
                     ),
-                onTap: onTap,
+                  ),
+                  subtitle: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  trailing: trailing ??
+                      Icon(
+                        Icons.chevron_right,
+                        color:
+                            focused ? scheme.primary : scheme.onSurfaceVariant,
+                      ),
+                  onTap: onTap,
+                ),
               ),
             ),
           );
@@ -230,7 +249,9 @@ class _NavTile extends StatelessWidget {
 
 /// ─── COMPTE ──────────────────────────────────────────────────────
 class _AccountSection extends ConsumerWidget {
-  const _AccountSection();
+  const _AccountSection({required this.onFirstUp});
+
+  final VoidCallback onFirstUp;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -251,6 +272,7 @@ class _AccountSection extends ConsumerWidget {
           _NavTile(
             // Premier élément focusable de l'écran : focus initial en mode TV.
             autofocus: true,
+            onUp: onFirstUp,
             icon: Icons.manage_accounts_rounded,
             title: l.accountProfiles,
             subtitle: l.accountProfilesSubtitle,
@@ -460,6 +482,7 @@ class _NetworkSecuritySection extends ConsumerWidget {
         );
       }
     }
+
     return FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
       child: ListView(
