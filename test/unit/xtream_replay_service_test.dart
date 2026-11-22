@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/xtream_replay_service.dart';
 
 Channel channel(String id, {int days = 7}) => Channel(
@@ -43,6 +44,25 @@ XtreamReplayService service({
     );
 
 void main() {
+  test('API facade preserves unspecified replay retention', () async {
+    final now = DateTime.now();
+    final entry = program(
+      now.subtract(const Duration(days: 16)),
+      now.subtract(const Duration(days: 16, hours: -1)),
+      'Old',
+    );
+    final replay = service(
+      get: (url) async => Response<dynamic>(
+        requestOptions: RequestOptions(path: url),
+        data: {'epg_programmes': [entry]},
+      ),
+    );
+    final api = ApiService(replayService: replay);
+
+    expect(await api.fetchChannelReplays(channel('1', days: 0)), hasLength(1));
+    expect(await api.fetchChannelReplays(channel('1', days: 14)), isEmpty);
+  });
+
   test('channel EPG uses the shared transport and parses its short guide',
       () async {
     final requests = <Uri>[];
@@ -110,7 +130,10 @@ void main() {
               : {
                   'epg_listings': [
                     program(
-                        now.subtract(const Duration(days: 6)),
+                        now.subtract(const Duration(days: 16)),
+                        now.subtract(const Duration(days: 16, hours: -1)),
+                        'Tres ancien programme'),
+                    program(now.subtract(const Duration(days: 6)),
                         now.subtract(const Duration(days: 6, hours: -1)),
                         'Ancien programme'),
                     program(now.subtract(const Duration(hours: 3)),
@@ -124,7 +147,7 @@ void main() {
 
       final unknown = await api.fetchChannelReplays(channel('1', days: 0));
       expect(unknown.map((item) => item.title),
-          containsAll(['Ancien programme', 'Recent']));
+          containsAll(['Tres ancien programme', 'Ancien programme', 'Recent']));
       expect(unknown.map((item) => item.title), isNot(contains('Future')));
       final twoDays = await api.fetchChannelReplays(channel('1', days: 2));
       expect(twoDays.map((item) => item.title), ['Recent']);

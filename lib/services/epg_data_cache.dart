@@ -23,6 +23,9 @@ class EPGDataCache {
   DateTime? _fetchedAt;
   Future<List<EPGProgram>>? _inFlight;
 
+  /// Date du dernier chargement réussi, ou null après invalidation.
+  DateTime? get fetchedAt => _fetchedAt;
+
   /// Vrai pendant qu'un chargement du guide est en cours (l'écran EPG affiche
   /// alors un bandeau d'information).
   final ValueNotifier<bool> loading = ValueNotifier<bool>(false);

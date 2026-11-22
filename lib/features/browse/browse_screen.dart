@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter/rendering.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -399,7 +400,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
                             ),
                           ),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            padding: EdgeInsets.fromLTRB(context.screenPadding,
+                                8, context.screenPadding, 16),
                             sliver: SliverGrid(
                               gridDelegate: mediaCardGridDelegate(
                                 context,
@@ -517,6 +519,30 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
     return '';
   }
 
+  double _ratingOf(dynamic item) {
+    if (item is MovieCompact) return item.rating;
+    if (item is SeriesCompact) return item.rating;
+    if (item is Series) return item.rating;
+    if (item is Movie) return item.rating;
+    return 0.0;
+  }
+
+  String _pegiLabelOf(dynamic item) {
+    if (item is SeriesCompact) return item.pegiLabel ?? '';
+    if (item is MovieCompact) return item.pegiLabel ?? '';
+    if (item is Series) return item.pegiLabel ?? '';
+    if (item is Movie) return item.pegiLabel ?? '';
+    return '';
+  }
+
+  bool _isNewOf(dynamic item) {
+    if (item is SeriesCompact) return item.isNew;
+    if (item is MovieCompact) return item.isNew;
+    if (item is Series) return item.isNew;
+    if (item is Movie) return item.isNew;
+    return false;
+  }
+
   /// Affinité en pourcentage d'un élément de grille, quel que soit le modèle
   /// (complet ou compact). `null` si aucun profil n'est actif.
   int? _affinityPercentFor(dynamic item, bool isSeries) {
@@ -606,15 +632,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen> {
         );
     }
 
-    final cardTitle = isSeries ? (item as Series).title : (item as Movie).title;
-    final poster =
-        isSeries ? (item as Series).coverUrl : (item as Movie).posterUrl;
-    final year = isSeries ? (item as Series).year : (item as Movie).year;
-    final genre = isSeries ? (item as Series).genre : (item as Movie).genre;
-    final rating = isSeries ? (item as Series).rating : (item as Movie).rating;
-    final ageLabel =
-        isSeries ? (item as Series).pegiLabel : (item as Movie).pegiLabel;
-    final isNew = isSeries ? (item as Series).isNew : (item as Movie).isNew;
+    final cardTitle = _titleOf(item);
+    final poster = _posterOf(item);
+    final year = _yearOf(item);
+    final genre = _genreOf(item);
+    final rating = _ratingOf(item);
+    final ageLabel = _pegiLabelOf(item);
+    final isNew = _isNewOf(item);
 
     return TvFocus(
       onActivate: onOpen,
@@ -763,23 +787,31 @@ class _BrowseTabBar extends StatelessWidget {
     return Container(
       color: colors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          for (final tab in tabs) ...[
-            Expanded(
-              child: TvFocus(
-                onActivate: () => onSelected(tab.id),
-                child: _BrowseTabPill(
-                  label: tab.label,
-                  icon: tab.icon,
-                  selected: tab.id == selected,
-                  color: colors.primary,
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Row(
+          children: [
+            for (final tab in tabs) ...[
+              Expanded(
+                child: TvFocus(
+                  autofocus: tab.id == selected,
+                  onActivate: () => onSelected(tab.id),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onSelected(tab.id),
+                    child: _BrowseTabPill(
+                      label: tab.label,
+                      icon: tab.icon,
+                      selected: tab.id == selected,
+                      color: colors.primary,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            if (tab.id != tabs.last.id) const SizedBox(width: 8),
+              if (tab.id != tabs.last.id) const SizedBox(width: 8),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1074,23 +1106,25 @@ class RankingsViewState extends ConsumerState<RankingsView> {
                     title: l.noRankings,
                     message: l.browseRankingsUnavailableHint,
                   )
-                : GridView.builder(
-                    cacheExtent: 500,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    addAutomaticKeepAlives: false,
-                    gridDelegate: mediaCardGridDelegate(
-                      context,
-                      childAspectRatio: 0.55,
+                : FocusTraversalGroup(
+                    policy: ReadingOrderTraversalPolicy(),
+                    child: GridView.builder(
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      addAutomaticKeepAlives: false,
+                      gridDelegate: mediaCardGridDelegate(context,
+                          childAspectRatio: 0.55),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return _RankCard(
+                          entry: entry,
+                          rank: index + 1,
+                          onOpen: () => _openEntry(entry),
+                          autofocus: index == 0,
+                        );
+                      },
                     ),
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) {
-                      final entry = entries[index];
-                      return _RankCard(
-                        entry: entry,
-                        rank: index + 1,
-                        onOpen: () => _openEntry(entry),
-                      );
-                    },
                   ),
             loading: () => LoadingState(message: l.browseLoading),
             error: (err, _) => ErrorState(
@@ -1163,11 +1197,13 @@ class _RankCard extends StatelessWidget {
     required this.entry,
     required this.rank,
     required this.onOpen,
+    this.autofocus = false,
   });
 
   final TmdbRankEntry entry;
   final int rank;
   final VoidCallback onOpen;
+  final bool autofocus;
 
   Color _rankColor(ThemeData theme) {
     switch (rank) {
@@ -1186,6 +1222,7 @@ class _RankCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rankColor = _rankColor(Theme.of(context));
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onOpen,
       child: MediaCard(
         focusable: false,
@@ -1468,5 +1505,3 @@ class _UniversalCategoryRail extends StatelessWidget {
     );
   }
 }
-
-/// Champ de recherche large, avec police lisible pour la TV.

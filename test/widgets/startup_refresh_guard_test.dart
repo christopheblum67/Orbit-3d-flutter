@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/models/series.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 
 class _Api extends ApiService {
   @override
@@ -46,6 +47,18 @@ class _XtreamApi extends _Api {
 
   @override
   Future<DateTime?> fetchExpiration() async => null;
+}
+
+class _CloudflareSession extends Fake implements CloudflareSessionManager {
+  _CloudflareSession(this.preparation);
+  final Future<void> preparation;
+  int calls = 0;
+
+  @override
+  Future<void> initialize({required String baseUrl}) {
+    calls++;
+    return preparation;
+  }
 }
 
 class _Subscriptions extends SubscriptionsNotifier {
@@ -139,6 +152,8 @@ void main() {
       (tester) async {
     final check = Completer<bool>();
     final live = Completer<List<Channel>>();
+    final preparation = Completer<void>();
+    final session = _CloudflareSession(preparation.future);
     final subscription = Subscription(
       id: 'subscription',
       name: 'Subscription',
@@ -168,6 +183,7 @@ void main() {
       activeSubscriptionProvider.overrideWith((ref) => subscription),
       subscriptionsProvider.overrideWith(_Subscriptions.new),
       apiServiceProvider.overrideWithValue(_XtreamApi(check.future)),
+      cloudflareSessionProvider.overrideWithValue(session),
       liveChannelsProvider.overrideWith((ref) => live.future),
       certificatePinningInitializerProvider.overrideWith((ref) {}),
       lastRefreshTimestampProvider.overrideWithBuild((ref, notifier) => null),
@@ -187,13 +203,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Subscriptions 1'), findsOneWidget);
     expect(find.text('Profiles'), findsNothing);
+    expect(session.calls, 1);
     live.complete([]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    preparation.complete();
+    await tester.pump();
   });
 
   testWidgets('valid Xtream settings continue to profiles', (tester) async {
     final check = Completer<bool>();
+    final preparation = Completer<void>();
+    final session = _CloudflareSession(preparation.future);
     final subscription = Subscription(
       id: 'subscription',
       name: 'Subscription',
@@ -226,6 +247,7 @@ void main() {
       activeSubscriptionProvider.overrideWith((ref) => subscription),
       subscriptionsProvider.overrideWith(_Subscriptions.new),
       apiServiceProvider.overrideWithValue(_XtreamApi(check.future)),
+      cloudflareSessionProvider.overrideWithValue(session),
       epgDataCacheProvider.overrideWithValue(epg),
       liveChannelsProvider.overrideWith((ref) async => <Channel>[]),
       moviesProvider.overrideWith((ref) async => <Movie>[]),
@@ -248,6 +270,11 @@ void main() {
     }
     expect(find.text('Profiles'), findsNothing);
     check.complete(false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Profiles'), findsNothing);
+    expect(session.calls, 1);
+    preparation.complete();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();

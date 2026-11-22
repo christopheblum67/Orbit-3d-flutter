@@ -46,10 +46,13 @@ class SeriesDetailScreen extends ConsumerWidget {
       return Scaffold(
         appBar: AppBar(
           leading: context.canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  tooltip: AppLocalizations.of(context).profileBack,
-                  onPressed: () => context.pop(),
+              ? TvFocus(
+                  onActivate: () => context.pop(),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: l.profileBack,
+                    onPressed: () => context.pop(),
+                  ),
                 )
               : null,
           title: Text(l.detailUnavailable),
@@ -74,10 +77,13 @@ class SeriesDetailScreen extends ConsumerWidget {
         return Scaffold(
           appBar: AppBar(
             leading: context.canPop()
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    tooltip: AppLocalizations.of(context).profileBack,
-                    onPressed: () => context.pop(),
+                ? TvFocus(
+                    onActivate: () => context.pop(),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      tooltip: l.profileBack,
+                      onPressed: () => context.pop(),
+                    ),
                   )
                 : null,
             title: Text(title.isEmpty ? baseSeries.title : title),
@@ -153,6 +159,11 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
       episodesBySeason.putIfAbsent(episode.season, () => []).add(episode);
     }
     final seasons = episodesBySeason.keys.toList()..sort();
+    final seenBySeason = <int, int>{
+      if (seasons.length > 1)
+        for (final season in seasons)
+          season: _seenCountFor(ref, episodesBySeason[season]!),
+    };
 
     final header = SliverToBoxAdapter(
       child: _SeriesHeader(series: detail, baseSeries: baseSeries, l: l),
@@ -179,6 +190,38 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
       fontSize: seasonFontSize,
       fontWeight: FontWeight.w700,
     );
+    Tab seasonTab(int number) {
+      final episodes = episodesBySeason[number]!;
+      final seen = seenBySeason[number]!;
+      final complete = episodes.isNotEmpty && seen == episodes.length;
+      final label = l.seasonNumber(number);
+      return Tab(
+        height: seasonTabHeight,
+        child: Semantics(
+          label: complete
+              ? '$label, ${l.episodesWatchedCount(seen, episodes.length)}'
+              : label,
+          child: ExcludeSemantics(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label),
+                if (complete) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.check_circle,
+                    key: ValueKey('season-complete-$number'),
+                    color: _watchedGreen,
+                    size: seasonFontSize,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final scrollView = CustomScrollView(
       cacheExtent: 1500,
       slivers: [
@@ -228,11 +271,7 @@ class _SeriesDetailContentState extends ConsumerState<_SeriesDetailContent> {
                   onTap: (index) =>
                       setState(() => _selectedSeason = seasons[index]),
                   tabs: [
-                    for (final number in seasons)
-                      Tab(
-                        text: l.seasonNumber(number),
-                        height: seasonTabHeight,
-                      ),
+                    for (final number in seasons) seasonTab(number),
                   ],
                 ),
               ),

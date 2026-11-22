@@ -38,7 +38,7 @@ Application de type Xtream/M3U/Radio fonctionnelle, architecture Riverpod + go_r
   - token FCM débuggé mais **jamais stocké nulle part** (`notification_service.dart:33,39`, `_storeToken` vide).
 - **Logique dupliquée** : `buildXtreamTestUrl` (`subscription_provider.dart:130-138`) reproduit `_playerApiUrl` (`api_service.dart:338-342`) ; `_refererFor` dupliqué (`live_tv_screen.dart:16-19` / `player_screen.dart:96-99`) ; listes de User-Agent dupliquées (`live_tv_screen.dart:21-29`, `player_screen.dart:16-24` puis 50-54, 163-166, 341-344).
 - **Encodage corrompu** : caractères U+FFFD réels dans plusieurs fichiers sources : `main.dart:42,46`, `subscriptions_screen.dart:71,116,367-369,445-446,482`, `player_screen.dart:57`, `api_service.dart:143`. ✅
-- **Nommage** : `lib/features/` comme « couche » ; `data_providers.dart` n'est qu'un re-export hérité (seul `search_screen.dart:3` l'importe).
+- **Nommage** : `lib/features/` comme « couche » ; `data_providers.dart` (re-export hérité importé par `search_screen.dart:3`) a été supprimé par le commit `4458d6d`.
 
 ## 4 - Dépendances
 

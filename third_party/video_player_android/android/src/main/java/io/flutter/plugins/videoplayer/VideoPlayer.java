@@ -183,9 +183,9 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
                           + "x"
                           + p.getVideoSize().height
                           + " audio="
-                          + (audio == null ? "none" : audio.sampleRate + "Hz/" + audio.channelCount + "ch/" + audio.sampleMimeType)
+                          + (audio == null ? "none" : audio.sampleRate + "Hz/" + audio.channelCount + "ch")
                           + " video="
-                          + (video == null ? "none" : video.width + "x" + video.height + "/" + video.sampleMimeType));
+                          + (video == null ? "none" : video.width + "x" + video.height));
                 }
 
                 @Override
@@ -200,8 +200,9 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
 
                 @Override
                 public void onPlayerError(PlaybackException error) {
-                  Log.e("OrbitPlayer", "error", error);
+                  logPlaybackError(error);
                 }
+
               });
           return player;
         },
@@ -210,6 +211,10 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
         asset.getMediaItem(),
         options,
         new OrbitPlaybackErrorLog(context.getApplicationContext()));
+  }
+
+  static void logPlaybackError(PlaybackException error) {
+    Log.e("OrbitPlayer", "error code=" + error.errorCode);
   }
 
   /** A closure-compatible signature since {@link java.util.function.Supplier} is API level 24. */
@@ -342,8 +347,15 @@ final class VideoPlayer implements TextureRegistry.SurfaceProducer.Callback {
   }
 
   private static void setAudioAttributes(ExoPlayer exoPlayer, boolean isMixMode) {
+    // Usage MEDIA explicite (et non le défaut implicite de Media3) : l'app est
+    // un lecteur de contenu, le système doit la traiter comme telle pour le
+    // routage audio, le ducking et l'affichage des contrôles média. Le
+    // contentType MOVIE reflète le contenu dominant (film/série/live).
     exoPlayer.setAudioAttributes(
-        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
+        new AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build(),
         !isMixMode);
   }
 

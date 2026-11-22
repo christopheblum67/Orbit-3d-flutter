@@ -3,6 +3,7 @@ class UserPreferences {
   final int ageRestriction;
   final String language;
   final String theme;
+  final String palette;
   final bool profileVisible;
   final bool allowRecording;
   final double fontScale;
@@ -11,7 +12,8 @@ class UserPreferences {
     this.parentalControlEnabled = false,
     this.ageRestriction = 0,
     this.language = 'fr',
-    this.theme = 'system',
+    this.theme = 'dark',
+    this.palette = 'cyan',
     this.profileVisible = true,
     this.allowRecording = true,
     this.fontScale = 1.0,
@@ -22,6 +24,7 @@ class UserPreferences {
     int? ageRestriction,
     String? language,
     String? theme,
+    String? palette,
     bool? profileVisible,
     bool? allowRecording,
     double? fontScale,
@@ -32,6 +35,7 @@ class UserPreferences {
       ageRestriction: ageRestriction ?? this.ageRestriction,
       language: language ?? this.language,
       theme: theme ?? this.theme,
+      palette: palette ?? this.palette,
       profileVisible: profileVisible ?? this.profileVisible,
       allowRecording: allowRecording ?? this.allowRecording,
       fontScale: fontScale ?? this.fontScale,
@@ -44,6 +48,7 @@ class UserPreferences {
       'ageRestriction': ageRestriction,
       'language': language,
       'theme': theme,
+      'palette': palette,
       'profileVisible': profileVisible,
       'allowRecording': allowRecording,
       'fontScale': fontScale,
@@ -55,7 +60,7 @@ class UserPreferences {
       parentalControlEnabled: map['parentalControlEnabled'] ?? false,
       ageRestriction: map['ageRestriction'] ?? 0,
       language: map['language'] ?? 'fr',
-      theme: map['theme'] ?? 'system',
+      theme: map['theme'] ?? 'dark',
       profileVisible: map['profileVisible'] ?? true,
       allowRecording: map['allowRecording'] ?? true,
       fontScale: (map['fontScale'] as num?)?.toDouble() ?? 1.0,

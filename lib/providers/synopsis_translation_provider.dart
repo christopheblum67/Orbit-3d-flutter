@@ -11,9 +11,9 @@ final synopsisTranslationServiceProvider = Provider<SynopsisTranslationService>(
 /// Synopsis traduit pour un contenu, calculé une seule fois par identifiant.
 ///
 /// Ordre de résolution (cf. [SynopsisTranslationService]) :
-/// 1. synopsis français TMDB s'il existe ;
-/// 2. texte d'origine s'il est déjà en français ;
-/// 3. traduction automatique Google Translate.
+/// 1. synopsis XMLTV déjà dans la langue de l'app → conserver tel quel ;
+/// 2. sinon, synopsis TMDB dans la langue cible s'il existe ;
+/// 3. sinon, traduction automatique Google Translate.
 ///
 /// `isSeries` est nécessaire : le catalogue série ne répond pas aux endpoints
 /// film. Sans lui, `searchMovieId`/`getMovieDetail` ne trouvaient rien pour

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/services/api_service.dart';
@@ -193,6 +195,64 @@ void main() {
       expect(
         api.buildXtreamStreamUrl('http://host:80', 'user', 'p4ss', ''),
         isEmpty,
+      );
+    });
+  });
+
+  group('catch-up guide synopsis', () {
+    final channel = Channel(
+      id: '1',
+      name: 'Channel',
+      logoUrl: '',
+      streamUrl: '',
+      group: 'Group',
+    );
+
+    Map<String, dynamic> program(Map<String, dynamic> descriptions) => {
+          'start_timestamp': 1700000000,
+          'stop': 1700003600,
+          'title': 'Journal',
+          ...descriptions,
+        };
+
+    test('uses the first nonempty field in the main branch order', () {
+      final result = ApiService.debugParseCatchUpGuide(
+        {
+          'epg_programmes': [
+            program({'description': '', 'plot': 'Résumé', 'desc': 'Autre'}),
+            program({'plot': 'Résumé', 'desc': 'Autre', 'summary': 'Dernier'}),
+            program({'description': '  ', 'desc': 'Description'}),
+            program({'description': '<b> </b>', 'summary': 'Dernier'}),
+            program({'description': 'Premier', 'plot': 'Autre'}),
+          ],
+        },
+        channel,
+      );
+
+      expect(
+        result.map((p) => p.description),
+        ['Résumé', 'Résumé', 'Description', 'Dernier', 'Premier'],
+      );
+    });
+
+    test('cleans entities and tags before decoding base64', () {
+      final encoded = base64Encode(utf8.encode('Résumé encodé du journal'));
+      final result = ApiService.debugParseCatchUpGuide(
+        {
+          'epg_listings': [
+            program({
+              'description': ' &lt;b&gt;L&apos;info&lt;/b&gt;<br/>'
+                  '&quot;Suite&quot; &amp;apos; &#39; &nbsp;fin ',
+            }),
+            program({'description': encoded}),
+          ],
+        },
+        channel,
+      );
+
+      expect(
+        result.map((p) => p.description),
+        ["L'info\n\"Suite\" &apos; '  fin", 'Résumé encodé du journal'],
       );
     });
   });

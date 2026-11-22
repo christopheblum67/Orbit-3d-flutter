@@ -565,4 +565,19 @@ class StorageService {
       await _saveSubscriptionWithSecret(sub);
     }
   }
+
+  /// Clé Hive pour le flag de pré-config TV
+  static const _tvPreconfigDoneKey = 'tv_preconfig_done';
+
+  /// Récupère si la pré-config TV a été faite
+  Future<bool> getTvPreconfigDone() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_tvPreconfigDoneKey) ?? false;
+  }
+
+  /// Marque la pré-config TV comme faite
+  Future<void> setTvPreconfigDone(bool done) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_tvPreconfigDoneKey, done);
+  }
 }

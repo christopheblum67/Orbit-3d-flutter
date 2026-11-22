@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 
@@ -13,6 +14,42 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('RefreshStepsController — progression', () {
+    test('dispose cancels the inter-step timer', () {
+      fakeAsync((clock) {
+        final c = RefreshStepsController(
+          steps: const {StartupStep.live, StartupStep.movies},
+        );
+        var finished = false;
+        var calls = 0;
+        c.run((_) async => calls++, gap: const Duration(hours: 1))
+            .then((_) => finished = true);
+        clock.flushMicrotasks();
+        expect(clock.pendingTimers, hasLength(1));
+
+        c.dispose();
+        clock.flushMicrotasks();
+        expect(clock.pendingTimers, isEmpty);
+        expect(finished, isTrue);
+        expect(calls, 1);
+      });
+    });
+
+    test('dispose during a pending step does not start a delay', () {
+      fakeAsync((clock) {
+        final c = RefreshStepsController(steps: const {StartupStep.live});
+        final pending = Completer<void>();
+        var finished = false;
+        c.run((_) => pending.future, gap: const Duration(hours: 1))
+            .then((_) => finished = true);
+        c.dispose();
+        pending.complete();
+        clock.flushMicrotasks();
+
+        expect(clock.pendingTimers, isEmpty);
+        expect(finished, isTrue);
+      });
+    });
+
     test('playlist parsing advances only the active live step', () async {
       final c = RefreshStepsController(
         steps: const {StartupStep.live, StartupStep.movies},

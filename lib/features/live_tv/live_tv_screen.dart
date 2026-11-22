@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
@@ -71,7 +72,6 @@ class LiveTvScreen extends ConsumerStatefulWidget {
 
 class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
   String _selectedGroup = '';
-
   /// Chaîne ouverte dans la vue de navigation (aperçu live + EPG), ou `null`
   /// quand on est sur la grille.
   ///
@@ -128,6 +128,18 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             tooltip: l.searchChannel,
             onPressed: () => context.push('/search?type=live'),
           ),
+          IconButton(
+            tooltip: l.refreshAction,
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.read(epgDataCacheProvider).forceRefresh(
+                  ref.read(apiServiceProvider),
+                ),
+          ),
+          IconButton(
+            tooltip: l.epgGuideTv,
+            icon: const Icon(Icons.timeline),
+            onPressed: () => context.push('/epg'),
+          ),
         ],
       ),
       // Le retour SYSTÈME (bouton matériel, geste) doit ramener à la grille
@@ -142,7 +154,8 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _closeBrowse();
         },
-        child: channelsAsync.when(
+        child: TvSafeArea(
+          child: channelsAsync.when(
           data: (channels) {
             if (channels.isEmpty) {
               return EmptyState(
@@ -290,7 +303,9 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
                                 padding: channelGridPadding,
                                 // Delegate partagé avec le Replay : même tuile, même
                                 // taille sur les deux écrans.
-                                gridDelegate: channelGridDelegate,
+                                gridDelegate: channelGridDelegate(
+                                  isTv: context.isTv,
+                                ),
                                 itemCount: filteredChannels.length,
                                 itemBuilder: (context, index) {
                                   final channel = filteredChannels[index];
@@ -327,6 +342,7 @@ class _LiveTvScreenState extends ConsumerState<LiveTvScreen> {
             message: userFriendlyError(err),
             onRetry: () => ref.invalidate(liveChannelsAllProvider),
           ),
+        ),
         ),
       ),
     );

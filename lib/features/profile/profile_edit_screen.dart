@@ -42,6 +42,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   final _nameController = TextEditingController();
   final _scrollController = ScrollController();
   late final FocusNode _nameFocus;
+  final _continueFocus = FocusNode(debugLabel: 'profile.continue');
   final _firstAgeFocus = FocusNode(debugLabel: 'profile.firstAge');
   final _saveFocus = FocusNode(debugLabel: 'profile.save');
   final _identityCardKey = GlobalKey();
@@ -56,6 +57,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   bool _hashingPin = false;
   bool _submitted = false;
   UserProfile? _loadedTarget;
+  String? _pendingProfileId;
 
   /// Valeurs initiales du formulaire (pour la détection de modifications).
   String _baseName = '';
@@ -118,6 +120,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
         content: Text(l.profileDiscardHelp),
         actions: [
           Focus(
+            autofocus: true,
             focusNode: cancelFocus,
             onKeyEvent: (node, event) {
               if (event is KeyDownEvent &&
@@ -257,7 +260,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
 
   int get _ageRangeIndex {
     if (_dateOfBirth == null) return 2;
-    final age = DateTime.now().difference(_dateOfBirth!).inDays ~/ 365;
+    final now = DateTime.now();
+    final birth = _dateOfBirth!;
+    var age = now.year - birth.year;
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
+      age--;
+    }
     for (var i = 0; i < _ageRanges.length; i++) {
       if (age >= _ageRanges[i].min && age <= _ageRanges[i].max) return i;
     }
@@ -299,6 +308,13 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           }
           return KeyEventResult.ignored;
         }
+        final forward = Directionality.of(context) == TextDirection.rtl
+            ? LogicalKeyboardKey.arrowLeft
+            : LogicalKeyboardKey.arrowRight;
+        if (_dpadMode && !_nameEditing && key == forward) {
+          _focusContinue();
+          return KeyEventResult.handled;
+        }
         if (key == LogicalKeyboardKey.arrowDown || isSelect) {
           setState(() => _nameEditing = false);
           _scrollToNextSection();
@@ -311,6 +327,17 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           setState(() => _nameEditing = false);
         }
       });
+  }
+
+  void _focusContinue() {
+    _continueFocus.requestFocus();
+    final target = _continueFocus.context;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 180),
+      );
+    }
   }
 
   void _scrollToNextSection() {
@@ -337,6 +364,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       );
       if (mounted) _firstAgeFocus.requestFocus();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -344,6 +372,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.dispose();
     _scrollController.dispose();
     _nameFocus.dispose();
+    _continueFocus.dispose();
     _firstAgeFocus.dispose();
     _saveFocus.dispose();
     super.dispose();
@@ -355,11 +384,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _nameController.text = profile.firstName;
     _type = profile.profileType;
     _dateOfBirth = profile.dateOfBirth;
-    // Genre : défaut sur la première option valide (comme le type de profil)
-    const validGenders = ['Homme', 'Femme', 'Autre'];
-    _gender = validGenders.contains(profile.gender)
-        ? profile.gender
-        : validGenders.first;
+    _gender = profile.gender;
     _favoriteGenres
       ..clear()
       ..addAll(profile.favoriteGenres);
@@ -582,15 +607,32 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                         style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                       const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () => context.go('/profiles'),
-                        child: Text(l.chooseProfile),
+                      TvFocus(
+                        autofocus: true,
+                        onActivate: () => context.go('/profiles'),
+                        child: FilledButton(
+                          onPressed: () => context.go('/profiles'),
+                          child: Text(l.chooseProfile),
+                        ),
                       ),
                     ],
                   ),
                 );
               }
-              _fillFromProfile(target);
+              if (_loadedTarget?.id != target.id) {
+                if (_pendingProfileId != target.id) {
+                  final profile = target;
+                  _pendingProfileId = profile.id;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted || widget.profileId != profile.id) return;
+                    setState(() {
+                      _pendingProfileId = null;
+                      _fillFromProfile(profile);
+                    });
+                  });
+                }
+                return const Center(child: CircularProgressIndicator());
+              }
               return _buildBody();
             },
           ),
@@ -752,6 +794,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       key: _identityCardKey,
       color: Colors.transparent,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ListenableBuilder(
             listenable: ref.read(tvModeNotifierProvider),
@@ -767,7 +810,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               textCapitalization: TextCapitalization.words,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(
-                  RegExp("[a-zA-Z\\u00C0-\\u017F' -]"),
+                  RegExp(r"[\p{L}\p{N}\p{M}'’\-\s]", unicode: true),
                 ),
                 LengthLimitingTextInputFormatter(AppConstants.maxNameLength),
               ],
@@ -788,6 +831,19 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               },
             ),
           ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TvFocus(
+              focusNode: _continueFocus,
+              onActivate: _scrollToNextSection,
+              child: OutlinedButton.icon(
+                onPressed: _scrollToNextSection,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: Text(l.menuContinue),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -797,12 +853,82 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final l = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ageLabels = [
+      l.ageRangeUnder12,
+      l.ageRange13to17,
+      l.ageRange18to24,
+      l.ageRange25to34,
+      l.ageRange35to44,
+      l.ageRange45to54,
+      l.ageRange55plus,
+    ];
+    final genders = [
+      ('Non spécifié', l.noneOption),
+      ('Homme', l.actorGenderMale),
+      ('Femme', l.actorGenderFemale),
+      ('Autre', l.onboardingOtherNetwork),
+    ];
     return AppCard(
       key: key,
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            l.age,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < ageLabels.length; i++)
+                _ProfileChoiceChip(
+                  label: ageLabels[i],
+                  focusNode: i == 0 ? _firstAgeFocus : null,
+                  onUp: i == 0 ? _focusContinue : null,
+                  selected: _ageRangeIndex == i,
+                  onTap: () => setState(() => _dateOfBirth = _dateForRange(i)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (value, label) in genders)
+                _ProfileChoiceChip(
+                  label: label,
+                  selected: _gender == value,
+                  onTap: () => setState(() => _gender = value),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            l.menuProfile,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (type, label) in [
+                (ProfileType.adult, l.profileAdult),
+                (ProfileType.child, l.profileChild),
+                (ProfileType.expert, l.profileExpert),
+              ])
+                _ProfileChoiceChip(
+                  label: label,
+                  selected: _type == type,
+                  onTap: () => setState(() => _type = type),
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
           Text(
             l.profileFavoriteMovieGenres,
             style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -821,8 +947,6 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               for (final genre in _genreOptions)
                 _ProfileChoiceChip(
                   label: _genreLabel(l, genre),
-                  focusNode:
-                      genre == _genreOptions.first ? _firstAgeFocus : null,
                   selected: _favoriteGenres.contains(genre),
                   onTap: () => setState(() {
                     if (_favoriteGenres.contains(genre)) {
@@ -842,6 +966,7 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Widget _buildPinSection() {
     final l = AppLocalizations.of(context);
     return AppCard(
+      color: Colors.transparent,
       child: Column(
         children: [
           SettingsSwitchTile(
@@ -922,12 +1047,14 @@ class _ProfileChoiceChip extends StatefulWidget {
     required this.selected,
     required this.onTap,
     this.focusNode,
+    this.onUp,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
   final FocusNode? focusNode;
+  final VoidCallback? onUp;
 
   @override
   State<_ProfileChoiceChip> createState() => _ProfileChoiceChipState();
@@ -952,6 +1079,12 @@ class _ProfileChoiceChipState extends State<_ProfileChoiceChip> {
         setState(() => _focused = hasFocus);
       },
       onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp &&
+            widget.onUp != null) {
+          widget.onUp!();
+          return KeyEventResult.handled;
+        }
         if (event is KeyDownEvent &&
             (event.logicalKey == LogicalKeyboardKey.select ||
                 event.logicalKey == LogicalKeyboardKey.enter ||

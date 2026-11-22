@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -715,4 +719,694 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('EpgGrid2DView — le texte est peint dans le viewport', () {
+    test('`screenXFor` ramène une abscisse absolue dans le viewport', () {
+      // 10:00 à 4 px/min = 2400 px depuis minuit ; défilé de 2300 px, le bord
+      // gauche du bloc se retrouve à 100 px du bord visible.
+      expect(screenXFor(2400, 2300), 100);
+      expect(screenXFor(100, 0), 100);
+      // Programme à cheval sur minuit : l'abscisse reste négative, le culling
+      // s'en charge.
+      expect(screenXFor(-60, 0), -60);
+    });
+
+    testWidgets('le titre reste peint DANS le bloc après défilement',
+        (tester) async {
+      final day = DateTime.now();
+      final start = DateTime(day.year, day.month, day.day);
+      // Un programme par heure, de 00:00 à 24:00 : la fenêtre visible en
+      // contient toujours, quel que soit le décalage.
+      final programs = [
+        for (var h = 0; h < 24; h++)
+          EPGProgram(
+            channelId: 'c1',
+            title: 'P$h',
+            description: '',
+            start: start.add(Duration(hours: h)),
+            end: start.add(Duration(hours: h + 1)),
+          ),
+      ];
+
+      await tester.pumpWidget(
+        _captureHarness(['AAAA'], {'AAAA': programs}),
+      );
+      // Deux frames : le postFrame qui recentre sur l'heure courante passe au
+      // premier ; on impose ensuite notre position.
+      await tester.pump();
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      // Place le programme de 10:00 à 100 px du bord gauche visible.
+      const ppm = 4.0;
+      final tenAm = start.add(const Duration(hours: 10));
+      final offset = programLeftPx(tenAm, start, ppm) - 100;
+      state.debugSetHorizontalOffsetForTest(offset);
+      await tester.pump();
+      expect(state.debugHorizontalOffsetForTest, closeTo(offset, 0.5));
+
+      final captureRect = tester.getRect(find.byKey(_captureKey));
+      // La ligne 0 commence sous la frise et le mini-lecteur : on lit sa vraie
+      // position plutôt que de la supposer.
+      final gridList = find.byWidgetPredicate(
+        (w) => w is ListView && w.itemExtent == EpgGrid2DViewState.kRowStride,
+      );
+      final gridRect = tester.getRect(gridList.last);
+      expect(
+        gridRect.left - captureRect.left,
+        closeTo(kChannelWidth, 1.0),
+        reason: 'la liste de droite doit être la grille de programmes',
+      );
+
+      // `toImage` doit tourner hors de la zone async simulée du test.
+      final image = await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_captureKey),
+        );
+        return boundary.toImage();
+      });
+      expect(image, isNotNull, reason: 'capture de la grille impossible');
+      final rgba = await tester.runAsync(() async {
+        final data =
+            await image!.toByteData(format: ui.ImageByteFormat.rawRgba);
+        return data!.buffer.asUint8List();
+      });
+
+      final blockLeft = gridRect.left - captureRect.left + 100;
+      final rowTop = gridRect.top - captureRect.top;
+      final bright = _countBrightPixels(
+        rgba!,
+        image!.width,
+        x0: blockLeft.round() + 2,
+        x1: (blockLeft + 200).round(),
+        y0: rowTop.round() + 4,
+        y1: rowTop.round() + 44,
+      );
+
+      image.dispose();
+      expect(
+        bright,
+        greaterThan(50),
+        reason: 'le titre doit être peint dans le bloc visible ; des blocs '
+            'vides signifient que le texte part à son abscisse ABSOLUE '
+            '(hors du canvas) au lieu de son abscisse écran',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('l\'indicateur « en direct » est peint dans le bloc',
+        (tester) async {
+      final now = DateTime.now();
+      final day = DateTime(now.year, now.month, now.day);
+      // Programme couvrant l'instant courant, pour être « live ».
+      final liveStart = now.isBefore(day.add(const Duration(minutes: 45)))
+          ? day
+          : now.subtract(const Duration(minutes: 45));
+      final liveEnd = now.add(const Duration(minutes: 45));
+      final programs = [
+        EPGProgram(
+          channelId: 'c1',
+          title: 'EN COURS',
+          description: '',
+          start: liveStart,
+          end: liveEnd,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _captureHarness(['TF1 HD'], {'TF1 HD': programs}),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      const ppm = 4.0;
+      final desiredOffset = programLeftPx(liveStart, day, ppm) - 100;
+      state.debugSetHorizontalOffsetForTest(desiredOffset);
+      await tester.pump();
+      final actualOffset = state.debugHorizontalOffsetForTest;
+      final liveLeft = programLeftPx(liveStart, day, ppm) - actualOffset;
+
+      expect(
+        liveLeft,
+        greaterThanOrEqualTo(-50),
+        reason:
+            'le bloc « live » doit être positionnable sur la fenêtre visible',
+      );
+      expect(
+        liveLeft,
+        lessThan(300),
+        reason: 'le bloc « live » doit rester dans la fenêtre de test',
+      );
+
+      final captureRect = tester.getRect(find.byKey(_captureKey));
+      final gridList = find.byWidgetPredicate(
+        (w) => w is ListView && w.itemExtent == EpgGrid2DViewState.kRowStride,
+      );
+      final gridRect = tester.getRect(gridList.last);
+      expect(gridRect.left - captureRect.left, closeTo(kChannelWidth, 1.0));
+
+      final image = await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_captureKey),
+        );
+        return boundary.toImage();
+      });
+      expect(image, isNotNull, reason: 'capture de la grille impossible');
+      final rgba = await tester.runAsync(() async {
+        final data =
+            await image!.toByteData(format: ui.ImageByteFormat.rawRgba);
+        return data!.buffer.asUint8List();
+      });
+
+      final gridDelta = gridRect.left - captureRect.left;
+      final rowTop = gridRect.top - captureRect.top;
+      final red = _countRedPixels(
+        rgba!,
+        image!.width,
+        x0: (gridDelta + liveLeft + 2).round(),
+        x1: (gridDelta + liveLeft + 62).round(),
+        y0: (rowTop + 4).round(),
+        y1: (rowTop + 44).round(),
+      );
+      // On vérifie aussi que le titre existe à droite de l'indicateur.
+      final white = _countBrightPixels(
+        rgba,
+        image.width,
+        x0: (gridDelta + liveLeft + 68).round(),
+        x1: (gridDelta + liveLeft + 200).round(),
+        y0: (rowTop + 4).round(),
+        y1: (rowTop + 44).round(),
+      );
+
+      image.dispose();
+      expect(
+        red,
+        greaterThan(25),
+        reason: 'l\'indicateur « en direct » (pastille + libellé) doit être '
+            'peint dans le bloc visible',
+      );
+      expect(
+        white,
+        greaterThan(30),
+        reason: 'le titre doit rester peint à droite de l\'indicateur live, '
+            'sans se superposer à celui-ci',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('EpgGrid2DView — navigation à la télécommande (D-pad)', () {
+    /// Journée horaire complète (0 h → 25 h) pour chaque chaîne.
+    ///
+    /// Le focus s'initialise sur le programme EN COURS ; en allant jusqu'à
+    /// 25 h, le programme suivant existe toujours, quel que soit l'instant où
+    /// le test tourne (même à 23 h).
+    Map<String, List<EPGProgram>> dayFor(List<String> channels) => {
+          for (final c in channels)
+            c: [for (var h = 0; h <= 25; h++) prog('$c-$h', h)],
+        };
+
+    Widget dpadHarness({
+      required List<String> channels,
+      required Map<String, List<EPGProgram>> data,
+      void Function(EPGProgram, String)? onProgramTap,
+      void Function(String)? onChannelTap,
+      EpgTimelineController? timelineController,
+    }) =>
+        MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 500,
+                height: 700,
+                child: EpgGrid2DView(
+                  channels: channels,
+                  epgData: data,
+                  onProgramTap: onProgramTap,
+                  onChannelTap: onChannelTap,
+                  timelineController: timelineController,
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('les flèches déplacent la cellule désignée', (tester) async {
+      final channels = ['AAAA', 'BBBB'];
+      await tester.pumpWidget(
+        dpadHarness(channels: channels, data: dayFor(channels)),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      expect(
+        state.debugGridFocusNodeForTest.hasFocus,
+        isTrue,
+        reason: 'la grille doit pouvoir prendre le focus clavier : sans lui, '
+            'aucune touche de télécommande n\'est reçue',
+      );
+      // Le focus initial est le programme en cours de la première chaîne.
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+      final start = state.debugFocusedProgramStartForTest;
+      expect(start, isNotNull);
+
+      // Droite : le programme SUIVANT de la même chaîne.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+      expect(
+        state.debugFocusedProgramStartForTest,
+        start!.add(const Duration(hours: 1)),
+        reason: 'la flèche droite doit avancer d\'un programme dans la ligne',
+      );
+
+      // Bas : la chaîne suivante, à la MÊME colonne horaire.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'BBBB');
+      expect(
+        state.debugFocusedProgramStartForTest,
+        start.add(const Duration(hours: 1)),
+        reason: 'la flèche bas doit conserver la colonne horaire',
+      );
+
+      // Haut : retour à la première chaîne.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la navigation verticale conserve l’heure visée',
+        (tester) async {
+      final anchor = DateTime.now().subtract(const Duration(minutes: 10));
+      EPGProgram at(String title, DateTime start, DateTime end) => EPGProgram(
+            channelId: title,
+            title: title,
+            description: '',
+            start: start,
+            end: end,
+          );
+      final initial =
+          at('initial', anchor, anchor.add(const Duration(hours: 1)));
+      final covering = at('couvre', anchor.subtract(const Duration(hours: 2)),
+          anchor.add(const Duration(minutes: 5)));
+      final closer = at('proche', anchor.add(const Duration(minutes: 6)),
+          anchor.add(const Duration(hours: 1)));
+      final third = at('troisième', anchor.subtract(const Duration(minutes: 1)),
+          anchor.add(const Duration(hours: 1)));
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['A', 'B', 'C'],
+        data: {
+          'A': [initial],
+          'B': [covering, closer],
+          'C': [third],
+        },
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, covering.start);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, third.start);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, covering.start);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, third.start);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, closer.start);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('un trou ne sélectionne pas une largeur visuelle débordante',
+        (tester) async {
+      final anchor = DateTime.now().subtract(const Duration(minutes: 10));
+      EPGProgram at(String title, DateTime start, DateTime end) => EPGProgram(
+            channelId: title,
+            title: title,
+            description: '',
+            start: start,
+            end: end,
+          );
+      final initial =
+          at('initial', anchor, anchor.add(const Duration(hours: 1)));
+      final short = at('court', anchor.subtract(const Duration(seconds: 15)),
+          anchor.subtract(const Duration(seconds: 5)));
+      final next = at('suivant', anchor.add(const Duration(seconds: 2)),
+          anchor.add(const Duration(hours: 1)));
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['A', 'B'],
+        data: {
+          'A': [initial],
+          'B': [short, next],
+        },
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, next.start);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('les chaînes sans EPG restent activables dans une grille mixte',
+        (tester) async {
+      final start = DateTime.now();
+      String? tapped;
+      await tester.pumpWidget(
+        dpadHarness(
+          channels: const ['AAAA', 'VIDE', 'TROU', 'ZZZZ'],
+          onChannelTap: (channel) => tapped = channel,
+          data: {
+            'AAAA': [for (var h = 0; h <= 25; h++) prog('A-$h', h)],
+            // 'VIDE' volontairement absente de la map EPG.
+            'TROU': [
+              EPGProgram(
+                channelId: '',
+                title: '',
+                description: '',
+                start: start,
+                end: start.add(const Duration(hours: 1)),
+                isDummy: true,
+              ),
+            ],
+            'ZZZZ': [for (var h = 0; h <= 25; h++) prog('Z-$h', h)],
+          },
+        ),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'VIDE');
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      expect(tapped, 'VIDE');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'TROU');
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      expect(tapped, 'TROU');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'ZZZZ');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('le focus initial révèle le dernier programme passé',
+        (tester) async {
+      final now = DateTime.now();
+      EPGProgram past(String title, int hoursAgo) => EPGProgram(
+            channelId: 'A',
+            title: title,
+            description: '',
+            start: now.subtract(Duration(hours: hoursAgo)),
+            end: now.subtract(Duration(hours: hoursAgo - 1)),
+          );
+      final first = past('premier', 4);
+      final last = past('dernier', 2);
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['A'],
+        data: {'A': [first, last]},
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugSetHorizontalOffsetForTest(0);
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      await tester.pump();
+      expect(state.debugFocusedProgramStartForTest, last.start);
+      if (last.start.isAfter(DateTime(now.year, now.month, now.day, 2))) {
+        expect(state.debugHorizontalOffsetForTest, greaterThan(0));
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('OK reste sûr si la liste des chaînes devient vide',
+        (tester) async {
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['A'],
+        data: {'A': [prog('A', 0)]},
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      await tester.pumpWidget(dpadHarness(channels: const [], data: const {}));
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('les chaînes restent activables sans aucun EPG',
+        (tester) async {
+      String? tapped;
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['AAAA', 'BBBB'],
+        data: const {},
+        onChannelTap: (channel) => tapped = channel,
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'BBBB');
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      expect(tapped, 'BBBB');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('une chaîne ciblée sans EPG reste activable', (tester) async {
+      String? tapped;
+      final controller = EpgTimelineController(
+        gridStartTime: DateTime.now(),
+        pixelsPerMinute: 4,
+      )..setTargetedChannel('VIDE');
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(dpadHarness(
+        channels: const ['VIDE', 'AAAA'],
+        data: {
+          'AAAA': [for (var h = 0; h <= 25; h++) prog('A-$h', h)],
+        },
+        onChannelTap: (channel) => tapped = channel,
+        timelineController: controller,
+      ));
+      await tester.pump();
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'VIDE');
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      expect(tapped, 'VIDE');
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      expect(state.debugFocusedChannelForTest, 'AAAA');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('OK ouvre le programme désigné', (tester) async {
+      EPGProgram? tapped;
+      final channels = ['AAAA', 'BBBB'];
+      await tester.pumpWidget(
+        dpadHarness(
+          channels: channels,
+          data: dayFor(channels),
+          onProgramTap: (p, _) => tapped = p,
+        ),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+
+      final start = state.debugFocusedProgramStartForTest;
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+
+      expect(
+        tapped,
+        isNotNull,
+        reason: '« OK » doit ouvrir le programme focalisé, pas rester muet',
+      );
+      expect(tapped!.start, start);
+
+      // Même comportement avec la touche « entrée » d'un clavier.
+      tapped = null;
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(tapped?.start, start);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la cellule désignée est ramenée dans la vue', (tester) async {
+      // La télécommande peut focaliser un programme hors écran (après un
+      // déplacement) : sans recentrage, on validerait un programme invisible.
+      final channels = ['AAAA'];
+      await tester.pumpWidget(
+        dpadHarness(channels: channels, data: dayFor(channels)),
+      );
+      await tester.pump();
+
+      final state =
+          tester.state<EpgGrid2DViewState>(find.byType(EpgGrid2DView));
+      state.debugGridFocusNodeForTest.requestFocus();
+      await tester.pump();
+      await tester.pump();
+
+      // On pousse la grille à la fin de la journée : le programme focalisé
+      // (l'heure courante) passe alors à gauche du viewport.
+      state.debugSetHorizontalOffsetForTest(999999);
+      await tester.pump();
+      final before = state.debugHorizontalOffsetForTest;
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+
+      expect(
+        state.debugHorizontalOffsetForTest,
+        lessThan(before),
+        reason: 'la grille doit défiler pour ramener la cellule dans la vue',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+/// Clé de capture : la grille est enveloppée dans une frontière de repeint
+/// dédiée, pour la photographier au pixel près dans le test de visibilité.
+const Key _captureKey = Key('epg-capture');
+
+Widget _captureHarness(
+  List<String> channels,
+  Map<String, List<EPGProgram>> data,
+) {
+  return MaterialApp(
+    locale: const Locale('fr'),
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(
+      body: Center(
+        child: RepaintBoundary(
+          key: _captureKey,
+          child: SizedBox(
+            width: 500,
+            height: 700,
+            child: EpgGrid2DView(channels: channels, epgData: data),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Compte les pixels franchement clairs (glyphes blancs sur fond sombre) d'un
+/// rectangle de l'image RGBA.
+///
+/// Seuil sur les trois canaux : le texte (blanc à 70 %) passe largement, alors
+/// que le fond (#1C1F26), la bordure (blanc à 10 %) et la ligne « maintenant »
+/// (rouge, vert et bleu bas) restent sous le seuil.
+int _countBrightPixels(
+  Uint8List rgba,
+  int width, {
+  required int x0,
+  required int x1,
+  required int y0,
+  required int y1,
+}) {
+  const threshold = 130;
+  final height = rgba.length ~/ (width * 4);
+  var count = 0;
+  for (var y = y0 < 0 ? 0 : y0; y < y1 && y < height; y++) {
+    for (var x = x0 < 0 ? 0 : x0; x < x1 && x < width; x++) {
+      final i = (y * width + x) * 4;
+      if (rgba[i] > threshold &&
+          rgba[i + 1] > threshold &&
+          rgba[i + 2] > threshold) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+/// Compte les pixels « rouge vif » typiques de la pastille et du libellé
+/// « en direct » (`#FF5252`).
+///
+/// Critère : rouge dominant (R > 200), vert et bleu faibles (G,B < 140).
+/// Cela évite de compter du blanc (tous hauts), du violet de fond/bordure
+/// (R moyen) ou de la ligne rouge très fine au mauvais endroit.
+int _countRedPixels(
+  Uint8List rgba,
+  int width, {
+  required int x0,
+  required int x1,
+  required int y0,
+  required int y1,
+}) {
+  const rThresh = 200;
+  const gbThresh = 140;
+  final height = rgba.length ~/ (width * 4);
+  var count = 0;
+  for (var y = y0 < 0 ? 0 : y0; y < y1 && y < height; y++) {
+    for (var x = x0 < 0 ? 0 : x0; x < x1 && x < width; x++) {
+      final i = (y * width + x) * 4;
+      if (rgba[i] > rThresh &&
+          rgba[i + 1] < gbThresh &&
+          rgba[i + 2] < gbThresh) {
+        count++;
+      }
+    }
+  }
+  return count;
 }

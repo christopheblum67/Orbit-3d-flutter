@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart'
     show RankingsView;
 import 'package:orbit_3d_flutter/features/matchmaking/widgets/matchmaking_tab.dart'
@@ -72,10 +73,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
+        leading: TvFocus(
+          onActivate: () =>
               context.canPop() ? context.pop() : context.go('/home'),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () =>
+                context.canPop() ? context.pop() : context.go('/home'),
+          ),
         ),
         title: Text(l.matchmaking),
         bottom: TabBar(

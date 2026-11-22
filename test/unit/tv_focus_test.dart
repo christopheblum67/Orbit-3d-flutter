@@ -3,8 +3,24 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 
 void main() {
+  test('TvModeNotifier leaves an injected controller usable after disposal',
+      () {
+    final controller = TvModeController();
+    final notifier = TvModeNotifier(controller);
+    var changes = 0;
+    notifier.addListener(() => changes++);
+    controller.enable();
+    expect(notifier.enabled, isTrue);
+    expect(changes, 1);
+    notifier.dispose();
+    controller.disable();
+    expect(controller.enabled, isFalse);
+    controller.dispose();
+  });
+
   testWidgets('TvFocus without an action lets activation keys bubble',
       (tester) async {
     var parentHandledActivation = false;

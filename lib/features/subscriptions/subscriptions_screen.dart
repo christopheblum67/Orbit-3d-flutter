@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/orbit_logo_icon.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/startup/refresh_progress_screen.dart';
 import 'package:orbit_3d_flutter/features/subscriptions/widgets/connection_error_dialog.dart';
@@ -393,19 +394,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: scheme.primaryContainer.withValues(alpha: 0.5),
-              ),
-              child: Icon(
-                Icons.subscriptions_outlined,
-                size: 48,
-                color: scheme.primary,
-              ),
-            ),
+            const OrbitLogoIcon(size: 100),
             const SizedBox(height: 20),
             Text(
               l.subscriptionNone,
@@ -422,10 +411,13 @@ class _EmptyState extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l.addSubscription),
-              onPressed: onAdd,
+            TvFocus(
+              onActivate: onAdd,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.add_rounded),
+                label: Text(l.addSubscription),
+                onPressed: onAdd,
+              ),
             ),
           ],
         ),
@@ -653,21 +645,39 @@ class _SubscriptionCard extends ConsumerWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                tooltip: l.subscriptionTestAction,
-                icon: const Icon(Icons.wifi_find),
-                onPressed:
-                    isTesting ? null : () => _testWithErrorDialog(context, ref),
+              TvFocus(
+                onActivate: isTesting
+                    ? null
+                    : () => _testWithErrorDialog(context, ref),
+                child: ExcludeFocus(
+                  child: IconButton(
+                    tooltip: l.subscriptionTestAction,
+                    icon: const Icon(Icons.wifi_find),
+                    onPressed: isTesting
+                        ? null
+                        : () => _testWithErrorDialog(context, ref),
+                  ),
+                ),
               ),
-              IconButton(
-                tooltip: l.profileEdit,
-                icon: const Icon(Icons.edit),
-                onPressed: onEdit,
+              TvFocus(
+                onActivate: onEdit,
+                child: ExcludeFocus(
+                  child: IconButton(
+                    tooltip: l.profileEdit,
+                    icon: const Icon(Icons.edit),
+                    onPressed: onEdit,
+                  ),
+                ),
               ),
-              IconButton(
-                tooltip: l.profileDelete,
-                icon: const Icon(Icons.delete),
-                onPressed: onDelete,
+              TvFocus(
+                onActivate: onDelete,
+                child: ExcludeFocus(
+                  child: IconButton(
+                    tooltip: l.profileDelete,
+                    icon: const Icon(Icons.delete),
+                    onPressed: onDelete,
+                  ),
+                ),
               ),
             ],
           ),
@@ -913,7 +923,7 @@ class _SubscriptionFormDialogState
   final _typeKey = GlobalKey();
   late final Map<FocusNode, GlobalKey> _fieldKeys;
   SubscriptionType _type = SubscriptionType.xtream;
-  bool _obscurePassword = false;
+  bool _obscurePassword = true;
   bool _saving = false;
   FocusNode? _editingFocus;
   double _keyboardInset = 0;
@@ -1139,6 +1149,7 @@ class _SubscriptionFormDialogState
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1183,7 +1194,9 @@ class _SubscriptionFormDialogState
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // 3. CHAMPS SELON TYPE
                   if (_type == SubscriptionType.xtream) ...[
                     _buildTvTextField(
                       controller: _baseUrlController,
@@ -1192,7 +1205,7 @@ class _SubscriptionFormDialogState
                       labelText: l.serverUrlPlaceholder,
                       validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     _buildTvTextField(
                       controller: _usernameController,
                       focusNode: _usernameFocus,
@@ -1200,7 +1213,7 @@ class _SubscriptionFormDialogState
                       labelText: l.subscriptionUsername,
                       validator: (v) => v!.isEmpty ? l.profileRequired : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     _buildTvTextField(
                       controller: _passwordController,
                       focusNode: _passwordFocus,
@@ -1262,7 +1275,20 @@ class _SubscriptionFormDialogState
   Future<void> _save() async {
     if (_saving) return;
     final formState = _formKey.currentState;
-    if (formState == null || !formState.validate()) return;
+    if (formState == null) return;
+    if (!formState.validate()) {
+      final focus = _nameController.text.isEmpty
+          ? _nameFocus
+          : _type == SubscriptionType.m3u
+              ? _m3uFocus
+              : _baseUrlController.text.isEmpty
+                  ? _baseUrlFocus
+                  : _usernameController.text.isEmpty
+                      ? _usernameFocus
+                      : _passwordFocus;
+      _requestFocus(focus);
+      return;
+    }
     setState(() => _saving = true);
 
     final id = widget.subscription?.id ??
@@ -1320,7 +1346,7 @@ class _SubscriptionFormDialogState
       if (mounted) {
         final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l.errorSaving}: $e')),
+          SnackBar(content: Text(l.errorSaving)),
         );
       }
     } finally {

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:orbit_3d_flutter/core/widgets/tv_key_handler_wrapper.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/services/refresh_freshness.dart';
 import 'package:orbit_3d_flutter/core/widgets/profile_avatar.dart';
@@ -292,12 +293,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF0E1117),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(child: _buildOrbitCarousel(items)),
-              _buildBottomBar(context),
-            ],
+        body: TvKeyHandlerWrapper(
+          onPlayPause: () {
+            for (final item in items) {
+              if (_carouselItemKey(item) == _focusedCarouselRoute &&
+                  _focusNodeFor(item).hasFocus) {
+                _openItem(context, item);
+                break;
+              }
+            }
+          },
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: _buildOrbitCarousel(items)),
+                _buildBottomBar(context),
+              ],
+            ),
           ),
         ),
       ),

@@ -61,7 +61,7 @@ public final class NightFocusRenderersFactory extends DefaultRenderersFactory {
             }
             Log.i(
                 "OrbitDecoder",
-                "mode=" + decoderMode + " mime=" + mimeType + " secure="
+                "mode=" + decoderMode + " secure="
                     + requiresSecureDecoder + " tunneled=" + requiresTunnelingDecoder
                     + " candidates=" + candidates);
             return sorted;

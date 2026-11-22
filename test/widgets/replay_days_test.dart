@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/features/replay/replay_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
@@ -78,9 +79,61 @@ void main() {
     await tester.drag(horizontal, const Offset(1200, 0));
     await tester.pumpAndSettle();
     final oldest = items.last.startAt!;
-    final locale = MaterialLocalizations.of(tester.element(find.text('France')));
-    await tester.tap(find.text(locale.formatShortMonthDay(oldest).toUpperCase()));
+    final locale =
+        MaterialLocalizations.of(tester.element(find.text('France')));
+    await tester
+        .tap(find.text(locale.formatShortMonthDay(oldest).toUpperCase()));
     await tester.pumpAndSettle();
     expect(find.text('Programme 7'), findsOneWidget);
+
+    await tester.tap(find.byTooltip(locale.backButtonTooltip));
+    await tester.pumpAndSettle();
+    expect(find.text('Programme 7'), findsNothing);
+    expect(find.text('France'), findsOneWidget);
   });
+
+  for (final hasPreviousRoute in [false, true]) {
+    testWidgets(
+        'retour de la grille ${hasPreviousRoute ? 'vers la page précédente' : 'vers l’accueil'}',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: hasPreviousRoute ? '/previous' : '/replay',
+        routes: [
+          GoRoute(
+            path: '/previous',
+            builder: (_, __) => const Scaffold(body: Text('Previous')),
+          ),
+          GoRoute(
+            path: '/home',
+            builder: (_, __) => const Scaffold(body: Text('Home')),
+          ),
+          GoRoute(path: '/replay', builder: (_, __) => const ReplayScreen()),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          liveChannelsProvider.overrideWith((ref) async => []),
+        ],
+        child: MaterialApp.router(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      if (hasPreviousRoute) {
+        router.push('/replay');
+        await tester.pumpAndSettle();
+      }
+
+      final locale = MaterialLocalizations.of(
+        tester.element(find.byType(ReplayScreen)),
+      );
+      await tester.tap(find.byTooltip(locale.backButtonTooltip));
+      await tester.pumpAndSettle();
+      expect(find.text(hasPreviousRoute ? 'Previous' : 'Home'), findsOneWidget);
+    });
+  }
 }

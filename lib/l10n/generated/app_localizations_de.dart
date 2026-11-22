@@ -1316,6 +1316,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailKeywords => 'Stichwörter';
 
   @override
+  String get detailGenres => 'Genres';
+
+  @override
   String get detailCast => 'Besetzung';
 
   @override
@@ -2273,6 +2276,23 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wenden Sie sich an Ihren Anbieter, wenn das Problem weiterhin besteht.';
 
   @override
+  String get connectionDnsFailure => 'Server nicht gefunden (DNS)';
+
+  @override
+  String get connectionDnsFailureHelp =>
+      'Der Server wurde nicht gefunden. Prüfen Sie seine Adresse und Ihre Internetverbindung.';
+
+  @override
+  String get connectionNetworkUnavailable => 'Netzwerk nicht erreichbar';
+
+  @override
+  String get connectionNetworkUnavailableHelp =>
+      'Das Netzwerk des Servers ist nicht erreichbar. Prüfen Sie Ihre Internetverbindung.';
+
+  @override
+  String get connectionServerError => 'Server vorübergehend nicht verfügbar';
+
+  @override
   String get connectionServerUnreachable => 'Server nicht erreichbar';
 
   @override
@@ -2976,7 +2996,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get language => 'Sprache';
 
   @override
-  String get languageExample => 'Deutsch, English, etc.';
+  String get languageExample => 'Français, English, etc.';
 
   @override
   String get noneOption => 'Keine';
@@ -3394,6 +3414,10 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get playbackUnavailableMessage =>
       'Dieser Film oder diese Folge kann derzeit nicht abgespielt werden. Versuche es erneut oder überprüfe Verbindung und Dateiformat.';
+
+  @override
+  String get protectedPlaybackUnsupportedMessage =>
+      'Der integrierte Player kann diesen DASH- oder weitergeleiteten Stream mit geschützten Headern nicht sicher abspielen.';
 
   @override
   String get greenScreenDetectedTitle => 'Bildanzeigeproblem erkannt';
@@ -3971,7 +3995,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String replayNoneInArchiveDays(Object days) {
-    return 'Kein bereits ausgestrahltes Programm innerhalb der $days-Tage-Archivs dieses Kontos für diesen Sender.';
+    return 'Kein bereits ausgestrahltes Programm im $days-Tage-Archiv dieses Kontos für diesen Sender.';
   }
 
   @override
@@ -4189,4 +4213,115 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get unassignedLegacyLibraryItems =>
       'Einige ältere Favoriten oder Downloads werden nicht angezeigt, weil ihr ursprüngliches Abonnement unbekannt ist. Sie bleiben gespeichert.';
+
+  @override
+  String get forceNoSubtitles => 'Keine Untertitel erzwingen';
+
+  @override
+  String get forceNoSubtitlesSubtitle =>
+      'Untertitel beim Start eines Films oder einer Serie automatisch deaktivieren';
+
+  @override
+  String get backTooltip => 'Zurück';
+
+  @override
+  String get categoryFilters => 'Kategoriefilter';
+
+  @override
+  String get categoryFiltersSubtitle =>
+      'Je nach Abonnement ausgeblendete Kategorien';
+
+  @override
+  String get memoryCacheTitle => 'Speicher- und Cache-Verwaltung';
+
+  @override
+  String get memoryCacheSubtitle =>
+      'Geben Sie Speicherplatz frei und bereinigen Sie lokale Daten.';
+
+  @override
+  String get clearWatchHistoryTitle => 'Ansehverlauf leeren';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'Löscht die Liste der zuletzt angesehenen Inhalte und die Wiedergabepositionen.';
+
+  @override
+  String get clearWatchHistoryAction => 'Löschen';
+
+  @override
+  String get clearCoverCacheTitle => 'Cover-Cache leeren';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'Gibt den von lokal gespeicherten VOD-/EPG-Miniaturen belegten Speicherplatz frei.';
+
+  @override
+  String get clearCoverCacheAction => 'Leeren';
+
+  @override
+  String get enginesDescription =>
+      'Wählen Sie die für jeden Inhaltstyp verwendete Engine sowie die Ausweich-Engine bei Wiedergabefehler.';
+
+  @override
+  String get sortAdvancedTitle => 'Erweiterte Sortierungsoptionen';
+
+  @override
+  String get sortAdvancedSubtitle =>
+      'Wählen Sie mit der Fernbedienung einen Modus:';
+
+  @override
+  String get sortDescRecentlyAdded => 'Kürzlich zur Liste hinzugefügte Inhalte';
+
+  @override
+  String get sortDescResumePriority =>
+      'Setzt begonnene, unvollendete Inhalte nach oben';
+
+  @override
+  String get sortDescByRating => 'Sortierung nach vergebenen Bewertungen';
+
+  @override
+  String get sortDescByYear => 'Chronologisch nach Produktionsjahr';
+
+  @override
+  String get sortDescByDuration => 'Sortierung nach Inhaltsdauer';
+
+  @override
+  String get sortOptionActive => 'Aktiv';
+
+  @override
+  String get showAll => 'Alle anzeigen';
+
+  @override
+  String get noActiveSubscription => 'Kein aktives Abonnement';
+
+  @override
+  String get noVodCategories => 'Keine Filmkategorien auf diesem Panel.';
+
+  @override
+  String get noSeriesCategories => 'Keine Serienkategorien auf diesem Panel.';
+
+  @override
+  String get neverScanned => 'Nie analysiert';
+
+  @override
+  String get scannedToday => 'Heute analysiert';
+
+  @override
+  String get scannedYesterday => 'Gestern analysiert';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'Vor $days Tagen analysiert';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'Einstellungen nur für dieses Abonnement — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'Kategorien erneut analysieren';
+
+  @override
+  String get scanningCategories => 'Analyse…';
 }

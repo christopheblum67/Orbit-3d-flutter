@@ -4,21 +4,25 @@ import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 
 void main() {
   double opacity(WidgetTester tester, int index) => tester
-      .widget<Opacity>(find.byKey(ValueKey('orbit-letter-$index')))
+      .widget<Opacity>(find.byKey(ValueKey('iptv-letter-$index')))
       .opacity;
 
-  testWidgets('reveals letters, blinks twice and repeats', (tester) async {
+  testWidgets('keeps ORBIT fixed and reveals IPTV in sequence', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: OrbitLoadingCinematic())),
     );
     await tester.pump();
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [1, 0, 0, 0, 0]);
-    await tester.pump(const Duration(milliseconds: 750));
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [1, 1, 1, 1, 0]);
-    await tester.pump(const Duration(milliseconds: 300));
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [1, 1, 1, 1, 1]);
-    await tester.pump(const Duration(milliseconds: 950));
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [0, 0, 0, 0, 0]);
+    expect(find.byKey(const ValueKey('orbit-fixed')), findsOneWidget);
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [0, 0, 0, 0]);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [1, 0, 0, 0]);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [1, 1, 1, 0]);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [1, 1, 1, 1]);
+    await tester.pump(const Duration(milliseconds: 1000));
+    expect(find.byKey(const ValueKey('orbit-fixed')), findsOneWidget);
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [0, 0, 0, 0]);
     await tester.pump(const Duration(milliseconds: 200));
     expect(opacity(tester, 0), 1);
     await tester.pump(const Duration(milliseconds: 400));
@@ -26,7 +30,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(opacity(tester, 0), 1);
     await tester.pump(const Duration(milliseconds: 700));
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [1, 0, 0, 0, 0]);
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [0, 0, 0, 0]);
   });
 
   testWidgets('loading animation appears only after two seconds',
@@ -51,7 +55,8 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(seconds: 2));
-    expect([for (var i = 0; i < 5; i++) opacity(tester, i)], [1, 1, 1, 1, 1]);
+    expect(find.byKey(const ValueKey('orbit-fixed')), findsOneWidget);
+    expect([for (var i = 0; i < 4; i++) opacity(tester, i)], [1, 1, 1, 1]);
   });
 
   testWidgets('fits a compact multi-video cell', (tester) async {

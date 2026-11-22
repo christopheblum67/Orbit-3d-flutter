@@ -32,6 +32,90 @@ void main() {
       expect(result.title, 'Délai de réponse dépassé');
     });
 
+    test('recognizes DNS failures, including wrapped socket errors', () {
+      for (final error in [
+        'temporary failure in name resolution',
+        'SocketException: failed host lookup',
+      ]) {
+        final result = ConnectionErrorAnalyzer.analyze(
+          error,
+          type: SubscriptionType.xtream,
+          l: AppLocalizationsFr(),
+        );
+        expect(result.category, ConnectionErrorCategory.network);
+        expect(result.title, 'Serveur introuvable (DNS)');
+      }
+    });
+
+    test('recognizes unreachable networks and interrupted connections', () {
+      for (final error in [
+        'network is unreachable',
+        'ENETUNREACH',
+        'SocketException: no route to host',
+      ]) {
+        final result = ConnectionErrorAnalyzer.analyze(
+          error,
+          type: SubscriptionType.xtream,
+          l: AppLocalizationsFr(),
+        );
+        expect(result.category, ConnectionErrorCategory.network);
+        expect(result.title, 'Réseau inaccessible');
+      }
+      for (final error in [
+        'connection aborted',
+        'ECNCONNREFUSED',
+        'ECNCONNRESET',
+      ]) {
+        final result = ConnectionErrorAnalyzer.analyze(
+          error,
+          type: SubscriptionType.m3u,
+          l: AppLocalizationsFr(),
+        );
+        expect(result.category, ConnectionErrorCategory.network);
+        expect(result.title, 'Serveur inaccessible');
+      }
+    });
+
+    test('recognizes server failures without inventing a status code', () {
+      for (final error in [
+        'maintenance',
+        'service unavailable',
+        'bad gateway',
+        'internal server error',
+      ]) {
+        final result = ConnectionErrorAnalyzer.analyze(
+          error,
+          type: SubscriptionType.m3u,
+          l: AppLocalizationsFr(),
+        );
+        expect(result.category, ConnectionErrorCategory.server);
+        expect(result.title, 'Serveur temporairement indisponible');
+      }
+    });
+
+    test('recognizes socket timeouts before the generic socket fallback', () {
+      final result = ConnectionErrorAnalyzer.analyze(
+        'SocketException: connection timed out',
+        type: SubscriptionType.m3u,
+        l: AppLocalizationsFr(),
+      );
+      expect(result.category, ConnectionErrorCategory.timeout);
+    });
+
+    test('redacts technical details in restored network diagnoses', () {
+      final result = ConnectionErrorAnalyzer.analyze(
+        'connection aborted ?password=example-sensitive-value',
+        type: SubscriptionType.xtream,
+        l: AppLocalizationsFr(),
+      );
+      expect(result.category, ConnectionErrorCategory.network);
+      expect(
+        result.technicalDetails,
+        isNot(contains('example-sensitive-value')),
+      );
+      expect(result.technicalDetails, contains('[masqué]'));
+    });
+
     test('redacts credentials from technical details', () {
       final result = ConnectionErrorAnalyzer.analyze(
         'GET https://panel.example/player_api.php?username=alice&password=secret',
@@ -145,5 +229,33 @@ void main() {
     expect(find.text('Try again in a few minutes.'), findsOneWidget);
     expect(find.text('Technical details'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
+  });
+
+  testWidgets('localizes a restored DNS diagnosis', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showConnectionErrorDialog(
+              context,
+              'temporary failure in name resolution',
+              type: SubscriptionType.m3u,
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Server not found (DNS)'), findsOneWidget);
+    expect(
+      find.text(
+          'Could not find the server. Check its address and your Internet connection.'),
+      findsOneWidget,
+    );
   });
 }

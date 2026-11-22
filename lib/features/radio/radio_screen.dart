@@ -6,6 +6,7 @@ import 'package:orbit_3d_flutter/providers/radio_favorites_provider.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/core/utils/xtream_taxonomy.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
@@ -173,91 +174,102 @@ class _RadioScreenState extends ConsumerState<RadioScreen> {
                         final radio = shown[index - 1];
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
-                          child: ChannelTile(
-                            title: radio.name,
-                            subtitle: radio.group,
-                            icon: Icons.radio,
-                            isActive: stationName == radio.name && isPlaying,
-                            trailing: _unavailable.contains(radio.name)
-                                ? Tooltip(
-                                    message: l.radioStreamUnavailable,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .errorContainer,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.error_outline_rounded,
-                                            size: 16,
+                          child: TvFocus(
+                            autofocus: index == 1,
+                            onActivate: () => _toggleStation(radio),
+                            onLongPress: () => _toggleFavorite(radio),
+                            child: ExcludeFocus(
+                              child: ChannelTile(
+                                title: radio.name,
+                                subtitle: radio.group,
+                                icon: Icons.radio,
+                                isActive:
+                                    stationName == radio.name && isPlaying,
+                                trailing: _unavailable.contains(radio.name)
+                                    ? Tooltip(
+                                        message: l.radioStreamUnavailable,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
                                             color: Theme.of(context)
                                                 .colorScheme
-                                                .onErrorContainer,
+                                                .errorContainer,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            l.subtitleUnavailable,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onErrorContainer,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.error_outline_rounded,
+                                                size: 16,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onErrorContainer,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                l.subtitleUnavailable,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onErrorContainer,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ExcludeFocus(
+                                            child: IconButton(
+                                              tooltip:
+                                                  favorites.contains(radio.name)
+                                                      ? l.favoritesRemove
+                                                      : l.favoritesAdd,
+                                              icon: Icon(
+                                                favorites.contains(radio.name)
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: favorites
+                                                        .contains(radio.name)
+                                                    ? const Color(0xFFFF5252)
+                                                    : null,
+                                              ),
+                                              onPressed: () =>
+                                                  _toggleFavorite(radio),
                                             ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              stationName == radio.name &&
+                                                      isPlaying
+                                                  ? Icons.stop_circle_outlined
+                                                  : Icons.play_circle_outline,
+                                            ),
+                                            color: stationName == radio.name &&
+                                                    isPlaying
+                                                ? Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                            onPressed: () =>
+                                                _toggleStation(radio),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  )
-                                : Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ExcludeFocus(
-                                        child: IconButton(
-                                          tooltip:
-                                              favorites.contains(radio.name)
-                                                  ? l.favoritesRemove
-                                                  : l.favoritesAdd,
-                                          icon: Icon(
-                                            favorites.contains(radio.name)
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            color:
-                                                favorites.contains(radio.name)
-                                                    ? const Color(0xFFFF5252)
-                                                    : null,
-                                          ),
-                                          onPressed: () =>
-                                              _toggleFavorite(radio),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(
-                                          stationName == radio.name && isPlaying
-                                              ? Icons.stop_circle_outlined
-                                              : Icons.play_circle_outline,
-                                        ),
-                                        color: stationName == radio.name &&
-                                                isPlaying
-                                            ? Theme.of(context)
-                                                .colorScheme
-                                                .primary
-                                            : Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                        onPressed: () => _toggleStation(radio),
-                                      ),
-                                    ],
-                                  ),
-                            onTap: () => _toggleStation(radio),
-                            onLongPress: () => _toggleFavorite(radio),
+                                onTap: () => _toggleStation(radio),
+                                onLongPress: () => _toggleFavorite(radio),
+                              ),
+                            ),
                           ),
                         );
                       },

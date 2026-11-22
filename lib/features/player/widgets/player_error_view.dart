@@ -39,6 +39,8 @@ class PlayerErrorView extends StatelessWidget {
     final l = AppLocalizations.of(context);
     final providerBlocked = isPlaybackProviderBlock(errorDescription);
     final cloudflare = isPlaybackCloudflareError(errorDescription);
+    final protectedUnavailable =
+        errorDescription == protectedPlaybackUnsupported;
     final isLive = contentType == PlaybackContentType.live;
     return VideoErrorState(
       title: greenScreenDetected
@@ -56,13 +58,15 @@ class PlayerErrorView extends StatelessWidget {
           ? l.greenScreenDetectedMessage
           : externalPlaybackLaunched
               ? l.playerExternalTrackHelp
-              : providerBlocked
-                  ? l.playerProviderBlockedHelp
-                  : cloudflare
-                      ? l.cloudflareChallengeHelp
-                      : isLive
-                          ? l.playerLiveUnavailableHelp
-                          : l.playbackUnavailableMessage,
+              : protectedUnavailable
+                  ? l.protectedPlaybackUnsupportedMessage
+                  : providerBlocked
+                      ? l.playerProviderBlockedHelp
+                      : cloudflare
+                          ? l.cloudflareChallengeHelp
+                          : isLive
+                              ? l.playerLiveUnavailableHelp
+                              : l.playbackUnavailableMessage,
       onRetry: onRetry,
       autoFocusRetry: true,
       onProviderWebsite: cloudflare ? onProviderWebsite : null,

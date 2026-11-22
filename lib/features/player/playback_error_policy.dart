@@ -1,3 +1,5 @@
+const protectedPlaybackUnsupported = 'protected-playback-unsupported';
+
 /// Un échec de décodeur ne doit pas être assimilé à un blocage du serveur.
 bool isPlaybackDecoderError(Object? error) {
   final message = '$error';
@@ -30,6 +32,9 @@ PlaybackRecoveryAction playbackRecoveryAction({
   required String? description,
   required int attempts,
 }) {
+  if (description == protectedPlaybackUnsupported) {
+    return PlaybackRecoveryAction.showError;
+  }
   if (isPlaybackCloudflareError(description)) {
     return PlaybackRecoveryAction.showError;
   }

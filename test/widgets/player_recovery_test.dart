@@ -16,11 +16,13 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/recent_entry.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/services/connectivity_monitor.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
 import 'package:orbit_3d_flutter/services/embedded_subtitles.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
@@ -32,6 +34,27 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 class _Online extends ConnectivityMonitor {
   @override
   bool get isOnline => true;
+}
+
+class _ReadyCloudflare implements CloudflareSessionManager {
+  _ReadyCloudflare(this.baseUrl, this.protected);
+
+  @override
+  final String baseUrl;
+  final bool protected;
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Map<String, String> getFreshHeaders() => {
+        'User-Agent': 'browser',
+        'Referer': baseUrl,
+        if (protected) 'Cookie': 'private',
+      };
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _Subtitles extends SubtitleController {
@@ -175,6 +198,100 @@ class _VideoPlatform extends VideoPlayerPlatform {
 }
 
 void main() {
+  for (final protected in [false, true]) {
+    testWidgets('DASH session header protection: $protected', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      SharedPreferences.setMockInitialValues({});
+      PlayerProfileService.invalidate();
+      final previousPlatform = VideoPlayerPlatform.instance;
+      final video = _VideoPlatform();
+      VideoPlayerPlatform.instance = video;
+      addTearDown(() => VideoPlayerPlatform.instance = previousPlatform);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      const connectivityChannel =
+          MethodChannel('dev.fluttercommunity.plus/connectivity');
+      const connectivityStatus =
+          MethodChannel('dev.fluttercommunity.plus/connectivity_status');
+      messenger.setMockMethodCallHandler(connectivityChannel, (_) async => ['wifi']);
+      messenger.setMockMethodCallHandler(connectivityStatus, (_) async => null);
+      var externalCalls = 0;
+      messenger.setMockMethodCallHandler(
+        const MethodChannel('orbit/external_player'),
+        (_) async {
+          externalCalls++;
+          return true;
+        },
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(connectivityChannel, null);
+        messenger.setMockMethodCallHandler(connectivityStatus, null);
+        messenger.setMockMethodCallHandler(
+            const MethodChannel('orbit/external_player'), null);
+      });
+      for (final name in ['orbit/night_focus', 'orbit/player_config']) {
+        messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
+        addTearDown(
+            () => messenger.setMockMethodCallHandler(MethodChannel(name), null));
+      }
+      final monitor = _Online();
+      addTearDown(monitor.dispose);
+      final origin = Uri(scheme: 'https', host: 'provider.test').origin;
+      final stream = Uri.parse(origin).replace(path: '/video.mpd').toString();
+      final container = ProviderContainer(overrides: [
+        connectivityMonitorProvider.overrideWithValue(monitor),
+        subtitleControllerProvider.overrideWith((ref) => _Subtitles()),
+        deviceProfileProvider.overrideWithValue(DeviceProfile.standard),
+        playbackProgressServiceProvider.overrideWith((ref) => _Progress()),
+        rustProxyManagerProvider.overrideWithValue(RustProxyManager.instance),
+        cloudflareSessionProvider
+            .overrideWithValue(_ReadyCloudflare(origin, protected)),
+        activeSubscriptionProvider.overrideWithValue(Subscription(
+          id: 'test',
+          name: 'test',
+          type: SubscriptionType.xtream,
+          baseUrl: origin,
+          createdAt: DateTime(2020),
+        )),
+      ]);
+      addTearDown(container.dispose);
+      await tester.runAsync(() async {
+        await tester.pumpWidget(UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: PlayerScreen(
+              streamUrl: stream,
+              contentType: PlaybackContentType.vod,
+            ),
+          ),
+        ));
+        final message = AppLocalizationsFr().protectedPlaybackUnsupportedMessage;
+        for (var i = 0; i < 50; i++) {
+          if (protected ? find.text(message).evaluate().isNotEmpty : video.sources.isNotEmpty) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        if (protected) {
+          expect(video.sources, isEmpty);
+          expect(find.text(message), findsOneWidget);
+          expect(externalCalls, 0);
+        } else {
+          expect(video.sources, hasLength(1));
+          expect(video.sources.single.uri, stream);
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      });
+      debugDefaultTargetPlatformOverride = null;
+    });
+  }
+
   for (final config in [
     (enabled: false, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: false),
     (enabled: true, type: PlaybackContentType.vod, url: 'https://example.test/video.mp4?secret=abc', proxied: true),
@@ -255,7 +372,7 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
   }
-  testWidgets('a Cloudflare challenge stops recovery without a new player',
+  testWidgets('immersive mode is restored and Cloudflare stops recovery',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -269,6 +386,16 @@ void main() {
     addTearDown(monitor.dispose);
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final uiModes = <String>[];
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+        uiModes.add(call.arguments as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
     for (final name in ['orbit/night_focus', 'orbit/player_config']) {
       messenger.setMockMethodCallHandler(MethodChannel(name), (_) async => null);
       addTearDown(
@@ -298,6 +425,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(video.calls, contains('play:1'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(uiModes, contains('SystemUiMode.immersiveSticky'));
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pump();
+    expect(uiModes.last, 'SystemUiMode.edgeToEdge');
+    await tester.pump(const Duration(seconds: 6));
+    expect(uiModes.last, 'SystemUiMode.immersiveSticky');
     video.failWith(1, 'HTTP 403 Cloudflare challenge');
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 100));

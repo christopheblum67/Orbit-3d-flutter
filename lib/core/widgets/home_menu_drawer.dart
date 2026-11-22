@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -125,7 +126,7 @@ class HomeMenuDrawerState extends ConsumerState<HomeMenuDrawer> {
     return Drawer(
       child: FocusTraversalGroup(
         policy: ReadingOrderTraversalPolicy(),
-        child: SafeArea(
+        child: TvSafeArea(
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
@@ -214,23 +215,28 @@ class _MenuTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final location = GoRouterState.of(context).uri.path;
     final selected = location.startsWith(item.route);
-    return ListTile(
+    void navigate() {
+      Navigator.of(context).pop();
+      context.go(item.route);
+    }
+
+    return TvFocus(
       focusNode: focusNode,
-      leading: Icon(item.icon, color: item.color ?? scheme.primary),
-      title: Text(
-        item.label,
-        style: TextStyle(
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? scheme.primary : scheme.onSurface,
+      onActivate: navigate,
+      child: ListTile(
+        leading: Icon(item.icon, color: item.color ?? scheme.primary),
+        title: Text(
+          item.label,
+          style: TextStyle(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? scheme.primary : scheme.onSurface,
+          ),
         ),
+        selected: selected,
+        selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onTap: navigate,
       ),
-      selected: selected,
-      selectedTileColor: scheme.primaryContainer.withValues(alpha: 0.4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onTap: () {
-        Navigator.of(context).pop();
-        context.go(item.route);
-      },
     );
   }
 }

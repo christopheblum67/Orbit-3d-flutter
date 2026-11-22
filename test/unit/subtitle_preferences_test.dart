@@ -95,6 +95,102 @@ void main() {
     expect(controller.actions, isEmpty);
   });
 
+  test('force-off overrides VOD and series automatic choices on every scan',
+      () async {
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()..tracks = [forced, full];
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+
+    Future<void> scan() => prefs.applyAutomatic(
+          controller: controller,
+          tracks: controller.tracks,
+          contentType: PlaybackContentType.series,
+          generation: 1,
+          readForceNoSubtitles: () => true,
+          readMode: () => VodSubtitleMode.forcedOnly,
+          seriesId: 'series',
+          isCurrent: () => true,
+        );
+
+    await scan();
+    await scan();
+    expect(controller.actions, ['disable:false', 'disable:false']);
+    controller.revision++;
+    await scan();
+    expect(controller.actions, hasLength(2));
+  });
+
+  test('force-off does not affect live playback or an inactive setting',
+      () async {
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles();
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+    Future<void> scan(PlaybackContentType type, bool forcedOff) =>
+        prefs.applyAutomatic(
+          controller: controller,
+          tracks: [forced],
+          contentType: type,
+          generation: 1,
+          readForceNoSubtitles: () => forcedOff,
+          readMode: () => VodSubtitleMode.forcedOnly,
+          seriesId: null,
+          isCurrent: () => true,
+        );
+    await scan(PlaybackContentType.live, true);
+    expect(controller.actions, isEmpty);
+    await scan(PlaybackContentType.vod, false);
+    expect(controller.actions, ['select:forced:false']);
+  });
+
+  test('force-off disables an automatic VOD selection', () async {
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()..tracks = [forced];
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+    await prefs.applyAutomatic(
+      controller: controller,
+      tracks: controller.tracks,
+      contentType: PlaybackContentType.vod,
+      generation: 1,
+      readForceNoSubtitles: () => true,
+      readMode: () => VodSubtitleMode.forcedOnly,
+      seriesId: null,
+      isCurrent: () => true,
+    );
+    expect(controller.actions, ['disable:false']);
+  });
+
+  test('force-off enabled during selection cancels subsequent series choice',
+      () async {
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()
+      ..tracks = [forced, full]
+      ..selection = Completer<void>()
+      ..selectionStarted = Completer<void>();
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+    var forceOff = false;
+    final pending = prefs.applyAutomatic(
+      controller: controller,
+      tracks: controller.tracks,
+      contentType: PlaybackContentType.series,
+      generation: 1,
+      readForceNoSubtitles: () => forceOff,
+      readMode: () => VodSubtitleMode.forcedOnly,
+      seriesId: 'series',
+      isCurrent: () => true,
+    );
+    await controller.selectionStarted!.future;
+    forceOff = true;
+    controller.selection!.complete();
+    await pending;
+    expect(controller.actions, ['select:forced:false', 'disable:false']);
+  });
+
   test('series preference waits for a match and applies once per generation',
       () async {
     await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');

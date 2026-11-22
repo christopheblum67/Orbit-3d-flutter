@@ -40,10 +40,13 @@ class MovieDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => context.pop(),
+            ? TvFocus(
+                onActivate: () => context.pop(),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => context.pop(),
+                ),
               )
             : null,
         title: Text(movie.title.isEmpty ? 'Détail' : movie.title),
@@ -154,6 +157,12 @@ class _MovieDetailContent extends ConsumerWidget {
     final recommendationsAsync = detail.tmdbId > 0
         ? ref.watch(tmdbMovieRecommendationsProvider(detail.tmdbId))
         : null;
+    // Sans identifiant TMDB, la section resterait invisible : on propose un
+    // repli sur le catalogue local (même genre), calculé une seule fois.
+    final localArgs = (excludeId: movie.id, genre: detail.genre);
+    final localSimilarAsync = detail.tmdbId <= 0 && detail.genre.trim().isNotEmpty
+        ? ref.watch(localSimilarMoviesProvider(localArgs))
+        : null;
 
     final metaParts = <String>[
       if (detail.year > 0) '${detail.year}',
@@ -170,6 +179,9 @@ class _MovieDetailContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header: Poster + Titre + Métadonnées
+          // (Le backdrop hero en tête a été retiré : affichage redondant qui
+          //  ne servait qu'à « répéter » le film et gonflait inutilement le scroll
+          //  vertical de la fiche.)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -422,11 +434,14 @@ class _MovieDetailContent extends ConsumerWidget {
               rawSynopsis: detail.description,
               originalLanguageCode: detail.originalLanguage,
             ),
-          // Mots-clés
-          if (detail.keywords.isNotEmpty) ...[
+          // Mots-clés (ou genres en repli quand aucune métadonnée TMDB)
+          if (detail.keywords.isNotEmpty ||
+              (detail.keywords.isEmpty && detail.genre.trim().isNotEmpty)) ...[
             const SizedBox(height: 20),
             Text(
-              l.detailKeywords,
+              detail.keywords.isNotEmpty
+                  ? l.detailKeywords
+                  : l.detailGenres,
               style:
                   textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
@@ -434,7 +449,13 @@ class _MovieDetailContent extends ConsumerWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: detail.keywords
+              children: (detail.keywords.isNotEmpty
+                      ? detail.keywords
+                      : detail.genre
+                          .split(RegExp(r'[,|/]'))
+                          .map((g) => g.trim())
+                          .where((g) => g.isNotEmpty)
+                          .toList())
                   .take(15)
                   .map(
                     (kw) => Chip(
@@ -504,6 +525,15 @@ class _MovieDetailContent extends ConsumerWidget {
               title: l.similarMovies,
               async: similarAsync,
               onTap: (entry) => _openSimilarMovie(context, ref, entry),
+            ),
+          ],
+          // Films du même genre (repli local sans TMDB)
+          if (localSimilarAsync != null) ...[
+            const SizedBox(height: 24),
+            _LocalSimilarSection(
+              title: l.similarMovies,
+              async: localSimilarAsync,
+              onTap: (m) => context.push('/vod/detail', extra: m),
             ),
           ],
         ],
@@ -678,8 +708,128 @@ class _SimilarSection extends ConsumerWidget {
   }
 }
 
-class _SimilarCard extends StatelessWidget {
-  const _SimilarCard({required this.entry, required this.onTap});
+/// Section de repli « Films similaires » alimentée par le catalogue local
+/// (`Movie`), utilisée quand TMDB n'est pas disponible.
+class _LocalSimilarSection extends StatelessWidget {
+  const _LocalSimilarSection({
+    required this.title,
+    required this.async,
+    required this.onTap,
+  });
+
+  final String title;
+  final AsyncValue<List<Movie>> async;
+  final void Function(Movie) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+
+    return async.when(
+      data: (list) {
+        if (list.isEmpty) return const SizedBox.shrink();
+        final shown = list.take(12).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 280,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                itemCount: shown.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = shown[index];
+                  return TvFocus(
+                    onActivate: () => onTap(item),
+                    child: GestureDetector(
+                      onTap: () => onTap(item),
+                      child: SizedBox(
+                      width: 130,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: item.posterUrl.isNotEmpty
+                                ? OrbitCachedImage(
+                                    imageUrl: item.posterUrl,
+                                    width: 130,
+                                    height: 195,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => Container(
+                                      color: scheme.surfaceContainerHighest,
+                                      child: Icon(
+                                        Icons.movie_outlined,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
+                                    errorWidget: (_, __, ___) => Container(
+                                      color: scheme.surfaceContainerHighest,
+                                      child: Icon(
+                                        Icons.movie_outlined,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 130,
+                                    height: 195,
+                                    color: scheme.surfaceContainerHighest,
+                                    child: Icon(
+                                      Icons.movie_outlined,
+                                      color: scheme.primary,
+                                      size: 44,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              if (item.year > 0) '${item.year}',
+                              if (item.genre.isNotEmpty) item.genre,
+                            ].join('  •  '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox(
+        height: 280,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
+class _SimilarCard extends StatelessWidget {  const _SimilarCard({required this.entry, required this.onTap});
 
   final TmdbRankEntry entry;
   final VoidCallback onTap;
@@ -919,18 +1069,22 @@ class _CrewToggleButtonState extends ConsumerState<_CrewToggleButton> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OutlinedButton.icon(
-          onPressed: () => setState(() => _expanded = !_expanded),
-          icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
-          label: Text(
-            _expanded
-                ? l.detailHideCrew
-                : l.detailShowCrew,
-            style: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(44),
-            side: BorderSide(color: scheme.outlineVariant),
+        TvFocus(
+          onActivate: () => setState(() => _expanded = !_expanded),
+          child: OutlinedButton.icon(
+            onPressed: () => setState(() => _expanded = !_expanded),
+            icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+            label: Text(
+              _expanded
+                  ? l.detailHideCrew
+                  : l.detailShowCrew,
+              style:
+                  textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(44),
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
           ),
         ),
         AnimatedCrossFade(

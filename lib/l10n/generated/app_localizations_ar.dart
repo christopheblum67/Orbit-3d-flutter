@@ -93,7 +93,8 @@ class AppLocalizationsAr extends AppLocalizations {
   String get recommendationBuilding => 'جارٍ إعداد توصياتك…';
 
   @override
-  String get recommendationLoadingDuration => 'قد يستغرق ذلك دقيقة واحدة.';
+  String get recommendationLoadingDuration =>
+      'قد يستغرق ذلك ما يصل إلى دقيقة واحدة.';
 
   @override
   String get memoryPanelTitle => 'الذاكرة والتخزين المؤقت';
@@ -1269,6 +1270,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get detailKeywords => 'الكلمات المفتاحية';
 
   @override
+  String get detailGenres => 'الأنواع';
+
+  @override
   String get detailCast => 'طاقم التمثيل';
 
   @override
@@ -2193,6 +2197,23 @@ class AppLocalizationsAr extends AppLocalizations {
       'اتصل بمزود الخدمة إذا استمرت المشكلة.';
 
   @override
+  String get connectionDnsFailure => 'تعذر العثور على الخادم (DNS)';
+
+  @override
+  String get connectionDnsFailureHelp =>
+      'تعذر العثور على الخادم. تحقق من عنوانه واتصال الإنترنت.';
+
+  @override
+  String get connectionNetworkUnavailable => 'تعذر الوصول إلى الشبكة';
+
+  @override
+  String get connectionNetworkUnavailableHelp =>
+      'تعذر الوصول إلى شبكة الخادم. تحقق من اتصال الإنترنت.';
+
+  @override
+  String get connectionServerError => 'الخادم غير متاح مؤقتًا';
+
+  @override
   String get connectionServerUnreachable => 'تعذر الوصول إلى الخادم';
 
   @override
@@ -2874,7 +2895,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get language => 'اللغة';
 
   @override
-  String get languageExample => 'العربية, English, etc.';
+  String get languageExample => 'Français، English، إلخ.';
 
   @override
   String get noneOption => 'لا شيء';
@@ -2907,7 +2928,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get liveChannelsAndZapping => 'القنوات المباشرة والتبديل';
 
   @override
-  String get liveTv => 'Live TV';
+  String get liveTv => 'البث التلفزيوني المباشر';
 
   @override
   String get logsDiagnostic => 'السجلات والتشخيص';
@@ -3284,6 +3305,10 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يمكن تشغيل هذا الفيلم أو هذه الحلقة حاليًا. أعد المحاولة أو تحقق من الاتصال وتنسيق الملف.';
 
   @override
+  String get protectedPlaybackUnsupportedMessage =>
+      'لا يستطيع المشغّل المدمج تشغيل بث DASH أو البث المُرحّل ذي الترويسات المحمية بأمان.';
+
+  @override
   String get greenScreenDetectedTitle => 'تم اكتشاف مشكلة في عرض الفيديو';
 
   @override
@@ -3423,7 +3448,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String selectAtLeastOneProfile(int count) {
-    return 'اختر ملفًا واحدًا على الأقل ($count/4)';
+    return 'اختر ملفًا شخصيًا إضافيًا واحدًا على الأقل ($count/4)';
   }
 
   @override
@@ -3992,7 +4017,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get avatarCategoryYouth => 'الناشئة';
 
   @override
-  String get avatarCategorySmileys => 'مزاح';
+  String get avatarCategorySmileys => 'الوجوه التعبيرية';
 
   @override
   String get avatarCategoryBlackWhite => 'أبيض وأسود';
@@ -4059,4 +4084,112 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get unassignedLegacyLibraryItems =>
       'بعض المفضلات أو التنزيلات القديمة مخفية لأن اشتراكها الأصلي غير معروف. لا تزال محفوظة.';
+
+  @override
+  String get forceNoSubtitles => 'فرض عدم عرض الترجمة';
+
+  @override
+  String get forceNoSubtitlesSubtitle =>
+      'تعطيل الترجمة تلقائيًا عند بدء فيلم أو مسلسل';
+
+  @override
+  String get backTooltip => 'رجوع';
+
+  @override
+  String get categoryFilters => 'مرشحات الفئات';
+
+  @override
+  String get categoryFiltersSubtitle => 'فئات مخفية حسب الاشتراك';
+
+  @override
+  String get memoryCacheTitle => 'إدارة الذاكرة والكاش';
+
+  @override
+  String get memoryCacheSubtitle => 'حرّر المساحة ونظّف البيانات المحلية.';
+
+  @override
+  String get clearWatchHistoryTitle => 'مسح سجل المشاهدة';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'يمسح قائمة المشاهدات الأخيرة ومواضع استئناف التشغيل.';
+
+  @override
+  String get clearWatchHistoryAction => 'مسح';
+
+  @override
+  String get clearCoverCacheTitle => 'مسح ذاكرة أغلفة الصور المؤقتة';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'يحرّر مساحة القرص التي تشغلها مصغّرات VOD/EPG المخزنة محليًا.';
+
+  @override
+  String get clearCoverCacheAction => 'تفريغ';
+
+  @override
+  String get enginesDescription =>
+      'اختر المحرك المستخدم لكل نوع من المحتوى، ومحرك الاحتياط في حال فشل التشغيل.';
+
+  @override
+  String get sortAdvancedTitle => 'خيارات فرز متقدمة';
+
+  @override
+  String get sortAdvancedSubtitle => 'اختر وضعًا باستخدام جهاز التحكم:';
+
+  @override
+  String get sortDescRecentlyAdded => 'محتويات أُضيفت مؤخرًا إلى القائمة';
+
+  @override
+  String get sortDescResumePriority =>
+      'يضع في الأعلى المحتويات المبدأة غير المنتهية';
+
+  @override
+  String get sortDescByRating => 'ترتيب حسب التقييمات الممنوحة';
+
+  @override
+  String get sortDescByYear => 'ترتيب زمني حسب سنة الإنتاج';
+
+  @override
+  String get sortDescByDuration => 'فرز حسب مدة المحتوى';
+
+  @override
+  String get sortOptionActive => 'مفعّل';
+
+  @override
+  String get showAll => 'إظهار الكل';
+
+  @override
+  String get noActiveSubscription => 'لا يوجد اشتراك نشط';
+
+  @override
+  String get noVodCategories => 'لا توجد فئات أفلام على هذه اللوحة.';
+
+  @override
+  String get noSeriesCategories => 'لا توجد فئات مسلسلات على هذه اللوحة.';
+
+  @override
+  String get neverScanned => 'لم يُحلَّل من قبل';
+
+  @override
+  String get scannedToday => 'حُلِّل اليوم';
+
+  @override
+  String get scannedYesterday => 'حُلِّل أمس';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'حُلِّل قبل $days يومًا';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'إعدادات خاصة بهذا الاشتراك — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'إعادة تحليل الفئات';
+
+  @override
+  String get scanningCategories => 'جارٍ التحليل…';
 }

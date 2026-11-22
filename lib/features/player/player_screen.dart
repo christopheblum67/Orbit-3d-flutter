@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:orbit_3d_flutter/core/services/playback_refresh_gate.dart';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,8 @@ import 'package:orbit_3d_flutter/core/hardware/player_config.dart';
 import 'package:orbit_3d_flutter/services/video_decoder_prefs.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart' show tvModeNotifierProvider;
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart'
+    show tvModeNotifierProvider;
 import 'package:orbit_3d_flutter/features/player/widgets/delayed_playback_loading.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_footer_bars.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_footer_content.dart';
@@ -27,6 +29,7 @@ import 'package:orbit_3d_flutter/features/player/adjacent_player_cache.dart';
 import 'package:orbit_3d_flutter/features/player/player_key_policy.dart';
 import 'package:orbit_3d_flutter/features/player/playback_checkpoint.dart';
 import 'package:orbit_3d_flutter/features/player/playback_error_policy.dart';
+import 'package:orbit_3d_flutter/features/player/player_cloudflare.dart';
 import 'package:orbit_3d_flutter/features/player/external_playback.dart';
 import 'package:orbit_3d_flutter/features/player/playback_history_writer.dart';
 import 'package:orbit_3d_flutter/features/player/preload_candidate.dart';
@@ -40,6 +43,7 @@ import 'package:orbit_3d_flutter/features/player/decoder_recovery.dart';
 import 'package:orbit_3d_flutter/features/player/next_episode.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/models/series.dart';
+import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
@@ -85,6 +89,8 @@ class PlayerScreen extends ConsumerStatefulWidget {
     this.episode,
     this.vodId,
     this.consecutiveEpisodes = 1,
+    this.isLocalFile = false,
+    this.headers,
   });
 
   final String streamUrl;
@@ -109,6 +115,12 @@ class PlayerScreen extends ConsumerStatefulWidget {
   /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
   final String? vodId;
   final int consecutiveEpisodes;
+
+  /// Si true, `streamUrl` est un chemin de fichier local (hors-ligne).
+  final bool isLocalFile;
+
+  /// Headers HTTP optionnels (pour flux protégés ou fichiers locaux avec auth).
+  final Map<String, String>? headers;
 
   @override
   ConsumerState<PlayerScreen> createState() => PlayerScreenState();
@@ -198,6 +210,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   int? _decoderModeOverride;
   DateTime? _lastRetryTime;
   String? _lastErrorDescription;
+  bool _protectedPlaybackUnsupported = false;
   int _generation = 0;
   bool _footerVisible = false;
   Timer? _footerTimer;
@@ -212,14 +225,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   bool? _lastKnownPlaying;
   final FocusNode _focusNode = FocusNode(debugLabel: 'PlayerScreen');
   final FocusNode _nextEpisodeFocus = FocusNode(debugLabel: 'NextEpisode');
-  final FocusNode _cancelNextEpisodeFocus = FocusNode(debugLabel: 'CancelNextEpisode');
+  final FocusNode _cancelNextEpisodeFocus =
+      FocusNode(debugLabel: 'CancelNextEpisode');
   final FocusNode _playPauseFocus = FocusNode(debugLabel: 'PlayerPlayPause');
-  final FocusScopeNode _footerScope = FocusScopeNode(debugLabel: 'PlayerFooter');
-  final FocusScopeNode _playerErrorScope = FocusScopeNode(debugLabel: 'PlayerErrors');
+  final FocusScopeNode _footerScope =
+      FocusScopeNode(debugLabel: 'PlayerFooter');
+  final FocusScopeNode _playerErrorScope =
+      FocusScopeNode(debugLabel: 'PlayerErrors');
 
   // Picture-in-Picture & lecture en arrière-plan
   final _pipService = PipService();
   final _bgService = BackgroundPlaybackService();
+  StreamSubscription<String>? _remoteCommandSub;
   bool? _pipSupported;
   late final PlaybackRefreshLease _refreshLease;
 
@@ -256,9 +273,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Empêche la mise en veille de l'écran tant que le lecteur est ouvert.
   void _setKeepScreenOn(bool enabled) {
     unawaited(
-      _hardwareChannel
-          .invokeMethod<bool>('setKeepScreenOn', {'enabled': enabled})
-          .catchError((_) => false),
+      _hardwareChannel.invokeMethod<bool>(
+          'setKeepScreenOn', {'enabled': enabled}).catchError((_) => false),
     );
   }
 
@@ -292,6 +308,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_externalPlaybackLaunched && result.completed) _offerNextEpisode();
     });
     WidgetsBinding.instance.addObserver(this);
+    // Commandes de la MediaSession native (télécommande TV, casque, contrôles
+    // de la notification) : reçues quand l'app n'a plus le focus clavier.
+    _remoteCommandSub = _bgService.commands.listen(_handleRemoteCommand);
     // Contexte de découverte des sous-titres pour le contenu lu. Renseigné
     // ici (et non au moment de l'appui sur l'icône) pour que la feuille puisse
     // interroger le panel dès son ouverture.
@@ -363,6 +382,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     _saveProgressTimer?.cancel();
     _monitoringTimer?.cancel();
     _stallDetector?.stop();
+    _remoteCommandSub?.cancel();
+    _remoteCommandSub = null;
     _bgService.stop();
     _saveProgress(
       preserveOnError: _handlingError ||
@@ -401,14 +422,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // le foreground service mediaPlayback garde le process vivant (Android 14+).
       if (_controller?.value.isPlaying == true &&
           _status == _PlayerStatus.ready) {
-        _bgService.start(title: _playbackTitle, subtitle: _playbackSubtitle);
+        _bgService.start(
+          title: _playbackTitle,
+          subtitle: _playbackSubtitle,
+          playing: true,
+        );
       }
     }
   }
 
   /// Passe en plein écran immersif (masque status bar + navbar Android)
-  /// quand la vidéo joue. Ne fait RIEN si la footerbar est visible (tap/OK) —
-  /// son timer d'auto-masquage la fera disparaître (~5s) puis on reviendra ici.
+  /// quand la vidéo joue. Si la footerbar est visible (tap/OK), on attend sa
+  /// disparition (timer ~5s) puis on repasse en immersive via _syncImmersive().
   void _syncImmersive() {
     final playing = _status == _PlayerStatus.ready &&
         _controller != null &&
@@ -443,13 +468,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (mounted && focusControls && !_footerScope.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_footerVisible || _footerScope.hasFocus ||
-            _status != _PlayerStatus.ready || _playerErrorScope.hasFocus) return;
-        if (_playPauseFocus.context != null && _playPauseFocus.canRequestFocus) {
+        if (!mounted ||
+            !_footerVisible ||
+            _footerScope.hasFocus ||
+            _status != _PlayerStatus.ready ||
+            _playerErrorScope.hasFocus) return;
+        if (_playPauseFocus.context != null &&
+            _playPauseFocus.canRequestFocus) {
           _playPauseFocus.requestFocus();
         }
       });
     }
+    _immersive = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _footerTimer = Timer(duration, () {
       if (!mounted) return;
@@ -567,10 +597,14 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _startAttempt() async {
     final gen = _generation;
     if (!mounted) return;
+    _protectedPlaybackUnsupported = false;
+    if (_lastErrorDescription == protectedPlaybackUnsupported) {
+      _lastErrorDescription = null;
+    }
 
     // Refroidissement après un 401 anti-leech : on laisse l'endpoint avant de
     // repartir, sinon on accumulate les refus et le blocage s'allonge.
-    await _rateLimit.wait();
+    if (!widget.isLocalFile) await _rateLimit.wait();
     if (!mounted || gen != _generation) return;
 
     // Connectivite au demarrage. ConnectivityMonitor demarre a
@@ -579,12 +613,12 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // revenait quelques dizaines de millisecondes plus tard, sans qu'aucune
     // reprise ne soit declenchee. On patiente donc brievement avant d'echouer.
     final connectivity = ref.read(connectivityMonitorProvider);
-    if (!connectivity.isOnline) {
+    if (!widget.isLocalFile && !connectivity.isOnline) {
       debugPrint('📶 Network not confirmed yet, waiting before failing...');
       await _waitForOnline(const Duration(seconds: 6));
     }
     if (!mounted || gen != _generation) return;
-    if (!connectivity.isOnline) {
+    if (!widget.isLocalFile && !connectivity.isOnline) {
       debugPrint('📶 Still offline after grace period.');
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
@@ -612,13 +646,27 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       decoderModeOverride: _decoderModeOverride,
     );
     if (!mounted || gen != _generation) return;
-    if (!isLikelyStreamUrl(_activeStreamUrl)) {
+    if (!widget.isLocalFile && !isLikelyStreamUrl(_activeStreamUrl)) {
       if (gen == _generation) _setStatus(_PlayerStatus.error);
       return;
     }
+    final subscription =
+        widget.isLocalFile ? null : ref.read(activeSubscriptionProvider);
+    if (subscription?.type == SubscriptionType.xtream) {
+      await preparePlayerCloudflare(
+        session: ref.read(cloudflareSessionProvider),
+        isLocalFile: false,
+        isXtream: true,
+        panelUrl: subscription?.baseUrl,
+      );
+    }
+    if (!mounted || gen != _generation) return;
     // Flux préchauffé par la grille Live TV : zapping sans démarrage à froid.
-    final prewarmed = widget.contentType == PlaybackContentType.live &&
-            _autoRecoveryAttempts == 0
+    final prewarmed = !widget.isLocalFile &&
+            (widget.headers == null || widget.headers!.isEmpty) &&
+            widget.contentType == PlaybackContentType.live &&
+            _autoRecoveryAttempts == 0 &&
+            !_requiresProtectedProxy(_activeStreamUrl)
         ? StreamPrewarmService.instance.take(_activeStreamUrl)
         : null;
     if (prewarmed != null) {
@@ -682,6 +730,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       }
     }
     if (gen == _generation) {
+      if (_protectedPlaybackUnsupported) {
+        _lastErrorDescription = protectedPlaybackUnsupported;
+        _setStatus(_PlayerStatus.error);
+        return;
+      }
       // Échec du moteur interne : si le moteur de secours est externe, on
       // bascule sur le fallback (ex. libVLC) avant de déclarer une erreur.
       if (_engineConfig.fallback.isExternal) {
@@ -745,6 +798,27 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  String _relayForPlayback(String url, {required bool proxyReady}) {
+    if (!proxyReady) return url;
+    if (_requiresProtectedProxy(url)) return url;
+    return maybeRebaseThroughProxy(url, proxyReady: true);
+  }
+
+  bool _requiresProtectedProxy(String url) {
+    if (widget.isLocalFile) return false;
+    if (widget.headers?.isNotEmpty == true) return true;
+    return needsProtectedPlaybackProxy(
+      isLocalFile: false,
+      suppliedHeaders: widget.headers,
+      sessionHeaders: playerCloudflareHeaders(
+        session: ref.read(cloudflareSessionProvider),
+        isLocalFile: false,
+        panelUrl: ref.read(activeSubscriptionProvider)?.baseUrl,
+        playbackUrl: url,
+      ),
+    );
+  }
+
   /// Variantes d'URL candidates à tenter. Quand le proxy Rust est prêt et
   /// que le flux est un candidat (draap.online), chaque variante est rebasée
   /// via le relais local : l'entrée passe par `/proxy/hls` (manifest HLS/DASH)
@@ -752,6 +826,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   /// réécrites `/hls/<hash>/…` renvoyées par le serveur. Comportement
   /// inchangé si le proxy n'est pas prêt ou si l'URL n'est pas relayable.
   Future<List<String>> _resolvedVariants() async {
+    if (widget.isLocalFile) return [_activeStreamUrl];
     final manager = ref.read(rustProxyManagerProvider);
     // Démarrage best-effort (no-op si binaire absent / Android sans hook FFI),
     // borné par le ping : on attend une fenêtre courte AVANT de relayer.
@@ -761,7 +836,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     var variants = streamUrlVariants(_activeStreamUrl);
     if (manager.isReady) {
       variants = variants
-          .map((u) => maybeRebaseThroughProxy(u, proxyReady: true))
+          .map((u) => _relayForPlayback(u, proxyReady: true))
           .toList();
     }
     return variants;
@@ -772,10 +847,20 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     // Get panel URL from active subscription for Xtream Referer
     final activeSub = ref.read(activeSubscriptionProvider);
     final panelUrl = activeSub?.baseUrl;
+    final safePanelUrl = providerVerificationUri(panelUrl)?.origin;
 
     final base =
-        streamHeaders(url, userAgentIndex: agentIndex, panelUrl: panelUrl);
+        streamHeaders(url, userAgentIndex: agentIndex, panelUrl: safePanelUrl);
 
+    base.addAll(
+      playerCloudflareHeaders(
+        session: ref.read(cloudflareSessionProvider),
+        isLocalFile: widget.isLocalFile,
+        panelUrl: panelUrl,
+        playbackUrl: url,
+      ),
+    );
+    if (widget.headers != null) base.addAll(widget.headers!);
     return base;
   }
 
@@ -826,7 +911,11 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     if (controller != null) unawaited(_disposeController(controller));
   }
 
-  Future<bool> _tryPlay(int gen, String url) async {
+  Future<bool> _tryPlay(
+    int gen,
+    String url, {
+    bool bypassOptionalProxy = false,
+  }) async {
     // Chaque tentative repart d'un état de refus neutre : le drapeau est
     // réarmé par le limiteur si, et seulement si, ce nouvel essai
     // est lui aussi refusé.
@@ -846,7 +935,7 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       return false;
     }
 
-    final userAgentOrder = _userAgentOrder();
+    final userAgentOrder = widget.isLocalFile ? <int>[0] : _userAgentOrder();
     // La config media3 est lue à la CONSTRUCTION de l'ExoPlayer : ce `push`
     // garantit que la relance applique bien le profil de l'appareil, même
     // appelée depuis un chemin qui n'a pas déjà poussé (_startAttempt, prewarm).
@@ -865,14 +954,29 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         if (!mounted || gen != _generation) return false;
       }
       final headers = _resolvedHeaders(url, agentIndex);
-      var playbackUri = Uri.parse(url);
+      var playbackUri = widget.isLocalFile ? Uri() : Uri.parse(url);
       LocalVideoProxySession? proxySession;
-      final useProxy = ref.read(advancedSettingsProvider).localVideoProxy &&
-          (widget.contentType == PlaybackContentType.vod ||
-              widget.contentType == PlaybackContentType.series) &&
-          !(playbackUri.host == kRustProxyHost &&
-              playbackUri.port == kRustProxyPort) &&
-          !playbackUri.path.toLowerCase().endsWith('.mpd');
+      final protectedRoute = protectedPlaybackRoute(
+        needsProtection: needsProtectedPlaybackProxy(
+          isLocalFile: widget.isLocalFile,
+          suppliedHeaders: widget.headers,
+          sessionHeaders: headers,
+        ),
+        target: playbackUri,
+      );
+      if (protectedRoute == ProtectedPlaybackRoute.unsupported) {
+        _protectedPlaybackUnsupported = true;
+        return false;
+      }
+      final useProxy = protectedRoute == ProtectedPlaybackRoute.proxy ||
+          (!bypassOptionalProxy &&
+              !widget.isLocalFile &&
+              ref.read(advancedSettingsProvider).localVideoProxy &&
+              (widget.contentType == PlaybackContentType.vod ||
+                  widget.contentType == PlaybackContentType.series) &&
+              !(playbackUri.host == kRustProxyHost &&
+                  playbackUri.port == kRustProxyPort) &&
+              !playbackUri.path.toLowerCase().endsWith('.mpd'));
       if (useProxy) {
         try {
           if (_localVideoProxy == null) {
@@ -904,11 +1008,18 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           return false;
         }
       }
-      final controller = VideoPlayerController.networkUrl(
-        playbackUri,
-        httpHeaders: proxySession == null ? headers : const {},
-        videoPlayerOptions: _exclusivePlayback,
-      );
+      final controller = widget.isLocalFile
+          ? VideoPlayerController.file(
+              url.startsWith('file:')
+                  ? File.fromUri(Uri.parse(url))
+                  : File(url),
+              videoPlayerOptions: _exclusivePlayback,
+            )
+          : VideoPlayerController.networkUrl(
+              playbackUri,
+              httpHeaders: proxySession == null ? headers : const {},
+              videoPlayerOptions: _exclusivePlayback,
+            );
       if (proxySession != null) _proxySessions[controller] = proxySession;
       if (widget.contentType != PlaybackContentType.live) {
         _checkpoint.restoring = true;
@@ -924,6 +1035,17 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         return true;
       }
       if (initResult.isFailure) {
+        if (proxySession?.unsupportedDash == true) {
+          _controller = null;
+          await _disposeController(controller);
+          if (!mounted || gen != _generation) return false;
+          if (protectedRoute == ProtectedPlaybackRoute.direct &&
+              !bypassOptionalProxy) {
+            return _tryPlay(gen, url, bypassOptionalProxy: true);
+          }
+          _protectedPlaybackUnsupported = true;
+          return false;
+        }
         final description = controller.value.errorDescription ??
             initResult.errorOrNull?.message;
         if (isPlaybackDecoderError(description)) {
@@ -933,7 +1055,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           await _disposeController(controller);
           return false;
         }
-        if (host.isNotEmpty && !isPlaybackDecoderError(initResult.errorOrNull)) {
+        if (host.isNotEmpty &&
+            !isPlaybackDecoderError(initResult.errorOrNull)) {
           circuitBreaker.recordFailure(host);
         }
         if (_controller == controller) {
@@ -955,9 +1078,22 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         return true;
       }
       if (controller.value.hasError) {
-        debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+        if (proxySession?.unsupportedDash == true) {
+          _controller = null;
+          await _disposeController(controller);
+          if (!mounted || gen != _generation) return false;
+          if (protectedRoute == ProtectedPlaybackRoute.direct &&
+              !bypassOptionalProxy) {
+            return _tryPlay(gen, url, bypassOptionalProxy: true);
+          }
+          _protectedPlaybackUnsupported = true;
+          return false;
+        }
+        debugPrint('Orbit3D video error');
         if (isPlaybackDecoderError(controller.value.errorDescription)) {
-          _lastErrorDescription = controller.value.errorDescription;
+          _lastErrorDescription = _proxySessions[controller]?.unsupportedDash == true
+              ? protectedPlaybackUnsupported
+              : controller.value.errorDescription;
           _decoderInitializationError = true;
           _controller = null;
           await _disposeController(controller);
@@ -1006,9 +1142,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           return true;
         }
         if (played.isFailure || controller.value.hasError) {
-          _lastErrorDescription = controller.value.errorDescription ??
-              played.errorOrNull?.message;
-          _decoderInitializationError = isPlaybackDecoderError(_lastErrorDescription);
+          _lastErrorDescription =
+              controller.value.errorDescription ?? played.errorOrNull?.message;
+          _decoderInitializationError =
+              isPlaybackDecoderError(_lastErrorDescription);
           _controller = null;
           await _disposeController(controller);
           return false;
@@ -1044,7 +1181,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // par vagues, donc on la rejoue (voir [_startEmbeddedScan]).
       _startEmbeddedScan(active);
     }
-    if (active != null && _status == _PlayerStatus.ready &&
+    if (active != null &&
+        _status == _PlayerStatus.ready &&
         widget.contentType != PlaybackContentType.live) {
       _checkpoint.observe(active.value);
       if (active.value.isInitialized && !active.value.hasError) {
@@ -1063,20 +1201,28 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (_status != _PlayerStatus.ready) return;
     final controller = _controller;
-    if (controller != null && !controller.value.isCompleted && _completionHandled) {
+    if (controller != null &&
+        !controller.value.isCompleted &&
+        _completionHandled) {
       _nextEpisodeTimer?.cancel();
       _nextEpisode = null;
       _completionHandled = false;
       if (mounted) setState(() {});
     }
-    if (controller != null && !controller.value.hasError &&
-        controller.value.isCompleted && !_completionHandled &&
+    if (controller != null &&
+        !controller.value.hasError &&
+        controller.value.isCompleted &&
+        !_completionHandled &&
         widget.contentType == PlaybackContentType.series) {
       _completionHandled = true;
       _offerNextEpisode();
     }
     if (controller == null || !controller.value.hasError) return;
-    debugPrint('Orbit3D video error: ${controller.value.errorDescription}');
+    if (_status == _PlayerStatus.loading &&
+        _proxySessions[controller]?.unsupportedDash == true) {
+      return;
+    }
+    debugPrint('Orbit3D video error');
     _lastErrorDescription = controller.value.errorDescription;
     _handleActiveError();
   }
@@ -1084,7 +1230,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   void _offerNextEpisode() {
     final series = widget.series;
     final episode = widget.episode;
-    if (series == null || episode == null || widget.consecutiveEpisodes >= 3) return;
+    if (series == null || episode == null || widget.consecutiveEpisodes >= 3)
+      return;
     final next = nextPlayableEpisode(series, episode);
     if (next == null) return;
     _nextEpisode = next;
@@ -1121,7 +1268,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       await disposal.timeout(const Duration(seconds: 5));
       await _progressWriter.pending;
     } catch (error, stackTrace) {
-      debugPrint('Impossible de libérer le lecteur précédent : $error\n$stackTrace');
+      debugPrint(
+          'Impossible de libérer le lecteur précédent : $error\n$stackTrace');
       if (mounted && generation == _generation) {
         _lastErrorDescription = 'Impossible de libérer le lecteur précédent.';
         _setStatus(_PlayerStatus.error);
@@ -1129,14 +1277,16 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
 
       return;
     }
-    if (!mounted || generation != _generation ||
+    if (!mounted ||
+        generation != _generation ||
         ModalRoute.of(context)?.isCurrent != true) return;
     context.pushReplacement(
       '/player',
       extra: PlayerRouteData(
         streamUrl: next.streamUrl,
         title: next.title,
-        progressId: PlaybackProgressService.idForProfile(profileId, 'episode-${next.id}'),
+        progressId: PlaybackProgressService.idForProfile(
+            profileId, 'episode-${next.id}'),
         contentType: PlaybackContentType.series,
         posterUrl: series.coverUrl,
         subtitle: series.genre,
@@ -1221,19 +1371,15 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
             '${tracks.map((t) => '${t.id}:${t.label}').join(', ')}',
           );
         }
-        await _subtitlePreferences.applyVod(
+        await _subtitlePreferences.applyAutomatic(
           controller: ctrl,
           tracks: tracks,
           contentType: widget.contentType,
           generation: probeGeneration,
+          readForceNoSubtitles: () =>
+              ref.read(advancedSettingsProvider).forceNoSubtitles,
           readMode: () => ref.read(advancedSettingsProvider).vodSubtitleMode,
-          isCurrent: scanIsCurrent,
-        );
-        if (!scanIsCurrent()) return;
-        await _subtitlePreferences.applySeries(
-          controller: ctrl,
           seriesId: widget.episode != null ? widget.series?.id : null,
-          generation: probeGeneration,
           isCurrent: scanIsCurrent,
         );
       },
@@ -1371,6 +1517,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
         target == _index ||
         target < 0 ||
         target >= _channels.length) {
+      LoggerService.instance.info(
+        'ZAPPING_ABORT _switchTo: target=$target index=$_index channels=${_channels.length} mounted=$mounted',
+      );
       return;
     }
     final gen = ++_generation;
@@ -1419,6 +1568,9 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
           if (identical(_pendingZapPause, pause)) _pendingZapPause = null;
         }
         if (!mounted || gen != _generation) {
+          LoggerService.instance.info(
+            'ZAPPING_ABORT _switchTo (pause old): gen=$gen cur=$_generation',
+          );
           // Un autre zapping a pris la main pendant l'attente : cet ancien
           // controleur n'appartient plus a personne. On ne le remet surtout
           // pas en cache, on le libere.
@@ -1449,7 +1601,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       // tick sur un contrôleur disposé si l'ancien était en erreur.
       _startStallDetection();
       _showInfoBrief();
+      LoggerService.instance.info(
+        'ZAPPING_SWITCH_DONE target=$_index (cached controller)',
+      );
     } else {
+      LoggerService.instance.info(
+        'ZAPPING_SWITCH_COLD target=$_index -> _startAttempt',
+      );
       _startAttempt();
     }
     _startPreload();
@@ -1467,12 +1625,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Future<void> _startPreload() async {
+    if (widget.isLocalFile) return;
+    LoggerService.instance.info('ZAPPING_PRELOAD start');
     final gen = _generation;
     if (!mounted || _channels.isEmpty) return;
     if (!ref.read(advancedSettingsProvider).zeroLagPrefetch) return;
     // Sur TV ou en mode sûr, éviter un second lecteur et son décodeur.
-    if (ref.read(tvModeNotifierProvider).enabled ||
-        PlayerCrashGuard.safeMode) {
+    if (ref.read(tvModeNotifierProvider).enabled || PlayerCrashGuard.safeMode) {
       return;
     }
     // Ne pas precharger pendant que la lecture courante se bat encore : le
@@ -1493,16 +1652,20 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
       currentPlaying: current?.value.isPlaying ?? false,
     );
     if (candidate == null) return;
+    if (_requiresProtectedProxy(candidate.url)) return;
     final target = candidate.index;
     // Préchargement relais uniquement si le proxy est prêt.
-    final targetUrl = maybeRebaseThroughProxy(
+    final targetUrl = _relayForPlayback(
       candidate.url,
       proxyReady: ref.read(rustProxyManagerProvider).isReady,
     );
     await _preloader.start(
       index: target,
       attempts: _userAgentOrder(),
-      isCurrent: () => mounted && gen == _generation,
+      isCurrent: () =>
+          mounted &&
+          gen == _generation &&
+          !_requiresProtectedProxy(candidate.url),
       create: (attempt) => VideoPlayerController.networkUrl(
         Uri.parse(targetUrl),
         httpHeaders: _resolvedHeaders(targetUrl, attempt),
@@ -1740,6 +1903,45 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
     return disposal;
   }
 
+  /// Applique une commande issue de la MediaSession native (notification,
+  /// télécommande TV, casque Bluetooth). Le natif ne connaît pas l'état réel du
+  /// lecteur : le traitement est donc idempotent (« play » alors qu'on joue
+  /// déjà ne relance rien).
+  void _handleRemoteCommand(String command) {
+    if (!mounted) return;
+    switch (command) {
+      case 'play':
+        {
+          final controller = _controller;
+          if (controller != null && !controller.value.isPlaying) {
+            setState(() => controller.play());
+            _syncImmersive();
+          }
+        }
+      case 'pause':
+        {
+          final controller = _controller;
+          if (controller != null && controller.value.isPlaying) {
+            setState(() => controller.pause());
+            _syncImmersive();
+          }
+        }
+      case 'stop':
+        {
+          final controller = _controller;
+          if (controller != null && controller.value.isPlaying) {
+            setState(() => controller.pause());
+            _syncImmersive();
+          }
+          _bgService.stop();
+        }
+      case 'next':
+        _goNext();
+      case 'previous':
+        _goPrevious();
+    }
+  }
+
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (_status != _PlayerStatus.ready || _playerErrorScope.hasFocus) {
       return KeyEventResult.ignored;
@@ -1824,12 +2026,13 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                 ? EdgeInsets.zero
                 : const EdgeInsets.all(16),
             child: switch (_status) {
-              _PlayerStatus.loading => widget.contentType == PlaybackContentType.live
-                  ? const VideoLoadingState()
-                  : DelayedPlaybackLoading(
-                      key: ValueKey(_generation),
-                      onRetry: _retry,
-                    ),
+              _PlayerStatus.loading =>
+                widget.contentType == PlaybackContentType.live
+                    ? const VideoLoadingState()
+                    : DelayedPlaybackLoading(
+                        key: ValueKey(_generation),
+                        onRetry: _retry,
+                      ),
               _PlayerStatus.error => PlayerErrorView(
                   externalPlaybackLaunched: _externalPlaybackLaunched,
                   greenScreenDetected: _greenScreenDetected,
@@ -1843,10 +2046,10 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                       : null,
                   nextEpisodeFocus: _nextEpisodeFocus,
                   cancelNextEpisodeFocus: _cancelNextEpisodeFocus,
-                  onNextEpisode: _externalPlaybackLaunched &&
-                          _externalNextEpisode != null
-                      ? _playExternalNextEpisode
-                      : null,
+                  onNextEpisode:
+                      _externalPlaybackLaunched && _externalNextEpisode != null
+                          ? _playExternalNextEpisode
+                          : null,
                   onCancelNextEpisode: _externalPlaybackLaunched &&
                           _nextEpisodeTimer?.isActive == true
                       ? _cancelNextEpisode
@@ -1880,8 +2083,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                               streamUrl: _activeStreamUrl,
                               onRetry: _retry,
                               onGreenScreenDetected: _onGreenScreenDetected,
-                              watchBuffering:
-                                  widget.contentType != PlaybackContentType.live,
+                              watchBuffering: widget.contentType !=
+                                  PlaybackContentType.live,
                             ),
                           ),
                         ),
@@ -1917,7 +2120,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                   onNext: _hasNext ? _goNext : null,
                                   onTogglePlayPause: _togglePlayPause,
                                   playPauseFocusNode: _playPauseFocus,
-                                  onPip: _pipSupported == true ? _enterPip : null,
+                                  onPip:
+                                      _pipSupported == true ? _enterPip : null,
                                   onSeekBack30: () =>
                                       _seekBy(const Duration(seconds: -30)),
                                   onSeekForward30: () =>
@@ -1965,7 +2169,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                   }
                                   if ((key == LogicalKeyboardKey.select ||
                                           key == LogicalKeyboardKey.enter ||
-                                          key == LogicalKeyboardKey.gameButtonA) &&
+                                          key ==
+                                              LogicalKeyboardKey.gameButtonA) &&
                                       _cancelNextEpisodeFocus.hasFocus) {
                                     _cancelNextEpisode();
                                     return KeyEventResult.handled;
@@ -1997,7 +2202,8 @@ class PlayerScreenState extends ConsumerState<PlayerScreen>
                                     OutlinedButton(
                                       focusNode: _cancelNextEpisodeFocus,
                                       onPressed: _cancelNextEpisode,
-                                      child: Text(AppLocalizations.of(context).cancel),
+                                      child: Text(
+                                          AppLocalizations.of(context).cancel),
                                     ),
                                   ],
                                 ),

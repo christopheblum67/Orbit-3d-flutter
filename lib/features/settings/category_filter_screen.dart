@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/models/category.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -178,7 +179,8 @@ class _CategoryFilterScreenState extends ConsumerState<CategoryFilterScreen>
             : event.logicalKey == LogicalKeyboardKey.arrowLeft
                 ? -1
                 : 0;
-        final next = index + direction;
+        final rtl = Directionality.of(context) == TextDirection.rtl;
+        final next = index + (rtl ? -direction : direction);
         if (direction == 0 || next < 0 || next >= _tabFocusNodes.length) {
           return KeyEventResult.ignored;
         }
@@ -344,21 +346,24 @@ class _CategorySection extends StatelessWidget {
         ...sorted.map(
           (category) {
             final hidden = isHidden(category.id);
-            return SwitchListTile.adaptive(
-              dense: true,
-              value: !hidden,
-              onChanged: (visible) => onToggle(category.id, visible),
-              title: Text(
-                category.name,
-                style: TextStyle(
-                  color: hidden ? theme.colorScheme.onSurfaceVariant : null,
+            return TvFocus(
+              onActivate: () => onToggle(category.id, hidden),
+              child: SwitchListTile.adaptive(
+                dense: true,
+                value: !hidden,
+                onChanged: (visible) => onToggle(category.id, visible),
+                title: Text(
+                  category.name,
+                  style: TextStyle(
+                    color: hidden ? theme.colorScheme.onSurfaceVariant : null,
+                  ),
                 ),
+                subtitle: category.count > 0
+                    ? Text(channels
+                        ? l.categoryChannelsCount(category.count)
+                        : l.categoryTitlesCount(category.count))
+                    : null,
               ),
-              subtitle: category.count > 0
-                  ? Text(channels
-                      ? l.categoryChannelsCount(category.count)
-                      : l.categoryTitlesCount(category.count))
-                  : null,
             );
           },
         ),

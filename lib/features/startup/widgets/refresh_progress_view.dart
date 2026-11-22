@@ -155,16 +155,15 @@ class RefreshProgressView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        Text(
-          failureMessage ??
-              (isFinished ? l.startupReady : (title ?? l.updatingMediaContent)),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color:
-                failureMessage == null ? Colors.white70 : Colors.orangeAccent,
-            fontSize: 14,
+        if (failureMessage != null)
+          Text(
+            failureMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.orangeAccent,
+              fontSize: 14,
+            ),
           ),
-        ),
         if (failureMessage != null &&
             (onOpenHome != null || onOpenSubscriptions != null)) ...[
           const SizedBox(height: 16),
@@ -201,6 +200,14 @@ class RefreshProgressView extends StatelessWidget {
             valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00CFE8)),
           ),
         ),
+        const SizedBox(height: 16),
+        // Texte de chargement APRÈS les icônes et la barre de progression
+        if (failureMessage == null)
+          Text(
+            isFinished ? l.startupReady : (title ?? l.updatingMediaContent),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -107,6 +107,9 @@ class AdvancedSettings {
   final bool certificatePinningEnabled;
   final List<String> certificatePinningFingerprints;
 
+  // Sous-titres
+  final bool forceNoSubtitles;
+
   const AdvancedSettings({
     this.useTlsImpersonation = true,
     this.dnsProvider = '1.1.1.1 (Cloudflare DoH)',
@@ -141,6 +144,7 @@ class AdvancedSettings {
     this.fontSizeScale = 1.0,
     this.certificatePinningEnabled = false,
     this.certificatePinningFingerprints = const [],
+    this.forceNoSubtitles = false,
   });
 
   AdvancedSettings copyWith({
@@ -165,6 +169,7 @@ class AdvancedSettings {
     double? fontSizeScale,
     bool? certificatePinningEnabled,
     List<String>? certificatePinningFingerprints,
+    bool? forceNoSubtitles,
   }) {
     return AdvancedSettings(
       useTlsImpersonation: useTlsImpersonation ?? this.useTlsImpersonation,
@@ -194,6 +199,7 @@ class AdvancedSettings {
           certificatePinningEnabled ?? this.certificatePinningEnabled,
       certificatePinningFingerprints:
           certificatePinningFingerprints ?? this.certificatePinningFingerprints,
+      forceNoSubtitles: forceNoSubtitles ?? this.forceNoSubtitles,
     );
   }
 
@@ -236,6 +242,7 @@ class AdvancedSettings {
   static const kCertificatePinningEnabled = 'certificate_pinning_enabled';
   static const kCertificatePinningFingerprints =
       'certificate_pinning_fingerprints';
+  static const kForceNoSubtitles = 'force_no_subtitles';
 }
 
 class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
@@ -253,7 +260,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       dnsProvider: prefs.getString(AdvancedSettings.kDnsProvider) ??
           '1.1.1.1 (Cloudflare DoH)',
       zeroLagPrefetch: prefs.getBool(AdvancedSettings.kZeroLagPrefetch) ?? true,
-      localVideoProxy: prefs.getBool(AdvancedSettings.kLocalVideoProxy) ?? false,
+      localVideoProxy:
+          prefs.getBool(AdvancedSettings.kLocalVideoProxy) ?? false,
       livePreviewVideo: prefs.getBool(AdvancedSettings.kLivePreviewVideo),
       playerLive: _readPlayerConfig(
         prefs,
@@ -286,6 +294,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
             AdvancedSettings.kCertificatePinningFingerprints,
           ) ??
           const <String>[],
+      forceNoSubtitles:
+          prefs.getBool(AdvancedSettings.kForceNoSubtitles) ?? false,
     );
   }
 
@@ -453,6 +463,11 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
     );
   }
 
+  Future<void> setForceNoSubtitles(bool value) async {
+    state = state.copyWith(forceNoSubtitles: value);
+    await _persistBool(AdvancedSettings.kForceNoSubtitles, value);
+  }
+
   Future<void> importFromJson(AdvancedSettings imported) async {
     state = imported;
     await _persistBool(
@@ -464,7 +479,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       AdvancedSettings.kZeroLagPrefetch,
       imported.zeroLagPrefetch,
     );
-    await _persistBool(AdvancedSettings.kLocalVideoProxy, imported.localVideoProxy);
+    await _persistBool(
+        AdvancedSettings.kLocalVideoProxy, imported.localVideoProxy);
     await _persistString(
       AdvancedSettings.kPlayerPrimary(PlaybackContentType.live),
       imported.playerLive.primary.name,
@@ -538,6 +554,8 @@ class AdvancedSettingsNotifier extends Notifier<AdvancedSettings> {
       AdvancedSettings.kCertificatePinningEnabled,
       imported.certificatePinningEnabled,
     );
+    await _persistBool(
+        AdvancedSettings.kForceNoSubtitles, imported.forceNoSubtitles);
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(
       AdvancedSettings.kCertificatePinningFingerprints,

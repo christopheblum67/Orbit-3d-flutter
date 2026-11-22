@@ -13,15 +13,23 @@ import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart
 /// TV : les deux écrans ne se ressemblaient pas, et l'utilisateur ne retrouvait
 /// pas ses repères en passant de l'un à l'autre. Un delegate dupliqué avait
 /// dérivé ; ici il n'existe qu'en un point.
-const channelGridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
-  maxCrossAxisExtent: 200,
-  childAspectRatio: 0.55,
-  crossAxisSpacing: 12,
-  mainAxisSpacing: 12,
-);
+/// Grille de chaînes : dense sur mobile, espacée sur TV.
+SliverGridDelegate channelGridDelegate({bool isTv = false}) => isTv
+    ? const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 5,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 30,
+        mainAxisSpacing: 30,
+      )
+    : const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 150,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      );
 
 /// Marge de grille commune aux écrans de chaînes.
-const channelGridPadding = EdgeInsets.all(16);
+const channelGridPadding = EdgeInsets.symmetric(horizontal: 12, vertical: 16);
 
 /// Tuile de chaîne, partagée par le Live TV et le Replay.
 ///
@@ -39,6 +47,7 @@ class ChannelGridCard extends StatelessWidget {
     this.meta = '',
     this.badgeNumber = 0,
     this.favoriteEntry,
+    this.autofocus = false,
   });
 
   /// Nom de chaîne, tel que le panel le publie.
@@ -61,9 +70,13 @@ class ChannelGridCard extends StatelessWidget {
   /// cas aucun favori ne peut être proposé.
   final FavoriteEntry? favoriteEntry;
 
+  /// Se positionne automatiquement au focus au chargement (première tuile).
+  final bool autofocus;
+
   @override
   Widget build(BuildContext context) {
     return TvFocus(
+      autofocus: autofocus,
       onActivate: onTap,
       onFocusChange: (focused) {
         if (focused) onFocus?.call();
@@ -80,7 +93,7 @@ class ChannelGridCard extends StatelessWidget {
         // Un logo de chaîne est un wordmark large : `contain` + marge évite le
         // zoom/rognage de `cover`, qui le faisait déborder de la tuile.
         posterFit: BoxFit.contain,
-        posterPadding: const EdgeInsets.fromLTRB(12, 18, 12, 10),
+        posterPadding: const EdgeInsets.fromLTRB(10, 12, 10, 8),
         onTap: onTap,
         topBadge: badgeNumber > 0 ? ChannelNumBadge(number: badgeNumber) : null,
         favoriteOverlay: favoriteEntry == null

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
@@ -58,6 +60,8 @@ class RefreshStepsController extends ChangeNotifier {
   bool _started = false;
   bool _finished = false;
   bool _disposed = false;
+  Timer? _gapTimer;
+  Completer<void>? _gapCompleter;
   StartupStep? _current;
   double _currentFraction = 0;
   final Stopwatch _progressWatch = Stopwatch()..start();
@@ -119,7 +123,14 @@ class RefreshStepsController extends ChangeNotifier {
     for (final step in _todo) {
       if (_disposed) return;
       await _run(step, () => action(step));
-      await Future<void>.delayed(gap);
+      if (_disposed) return;
+      final completer = Completer<void>();
+      _gapCompleter = completer;
+      _gapTimer = Timer(gap, completer.complete);
+      await completer.future;
+      _gapTimer = null;
+      _gapCompleter = null;
+      if (_disposed) return;
     }
 
     _finished = true;
@@ -158,6 +169,9 @@ class RefreshStepsController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _gapTimer?.cancel();
+    final completer = _gapCompleter;
+    if (completer != null && !completer.isCompleted) completer.complete();
     super.dispose();
   }
 

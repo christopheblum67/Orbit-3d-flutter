@@ -54,6 +54,10 @@ class PreferencesNotifier extends Notifier<UserPreferences> {
     await update(state.copyWith(theme: theme));
   }
 
+  Future<void> setPalette(String palette) async {
+    await update(state.copyWith(palette: palette));
+  }
+
   Future<void> setFontScale(double scale) async {
     await update(state.copyWith(fontScale: scale.clamp(0.8, 1.5)));
   }

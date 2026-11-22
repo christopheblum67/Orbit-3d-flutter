@@ -43,4 +43,22 @@ void main() {
     expect((await cache.loadFull(api)).single.title, 'new');
     expect(api.calls, 2);
   });
+
+  test('fetchedAt reflects successful loads and invalidation', () async {
+    final api = _FakeApi();
+    final cache = EPGDataCache();
+    expect(cache.fetchedAt, isNull);
+
+    final before = DateTime.now();
+    final load = cache.loadFull(api);
+    api.first.complete([_program('old')]);
+    await load;
+    final fetched = cache.fetchedAt;
+    expect(fetched, isNotNull);
+    expect(fetched!.isBefore(before), isFalse);
+    expect(fetched.isAfter(DateTime.now()), isFalse);
+
+    cache.invalidate();
+    expect(cache.fetchedAt, isNull);
+  });
 }

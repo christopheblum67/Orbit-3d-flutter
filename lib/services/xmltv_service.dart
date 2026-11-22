@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:orbit_3d_flutter/core/utils/catalog_diagnostic.dart';
@@ -12,9 +13,10 @@ typedef XmltvHttpGet = Future<Response<dynamic>> Function(
 });
 
 class XmltvService {
-  XmltvService(
-      {required ConditionalXmltvCache cache, required XmltvHttpGet get})
-      : _cache = cache,
+  XmltvService({
+    required ConditionalXmltvCache cache,
+    required XmltvHttpGet get,
+  })  : _cache = cache,
         _get = get;
 
   final ConditionalXmltvCache _cache;
@@ -51,10 +53,29 @@ class XmltvService {
         parse: (bytes, contentType) => traceCatalogStep(
           'epg',
           'parse',
-          () => compute(_parseXmltvBytes, (bytes, contentType)),
+          () => parseBytesInIsolate(bytes, contentType: contentType),
         ),
       );
+
+  static String decodeBytes(Uint8List bytes, {String headerCharset = ''}) =>
+      _decodeXmltvPayload(bytes, 'charset=$headerCharset');
+
+  static Future<List<EPGProgram>> parseBytesInIsolate(
+    Uint8List bytes, {
+    String? contentType,
+  }) {
+    if (kIsWeb) return compute(_parseXmltvBytes, (bytes, contentType));
+    return compute(
+      _parseTransferredXmltvBytes,
+      (TransferableTypedData.fromList([bytes]), contentType),
+    );
+  }
 }
+
+List<EPGProgram> _parseTransferredXmltvBytes(
+  (TransferableTypedData, String?) input,
+) =>
+    _parseXmltvBytes((input.$1.materialize().asUint8List(), input.$2));
 
 List<EPGProgram> _parseXmltvBytes((Uint8List, String?) input) {
   final (bytes, contentType) = input;

@@ -588,10 +588,11 @@ class _EpgListState extends ConsumerState<_EpgList> {
           // Programme en cours puis à venir, jusqu'à l'horizon ; la liste défile
           // si la place manque.
           final limit = now.add(_EpgList._horizon);
-          final visible = programs
-              .where((p) => p.end.isAfter(now) && p.start.isBefore(limit))
-              .take(_EpgList._maxPrograms)
-              .toList(growable: false);
+          final visible = epgPreviewPrograms(
+            programs.where((p) => p.start.isBefore(limit)).toList(),
+            now,
+            maxPrograms: _EpgList._maxPrograms,
+          );
           final current = epgCurrentProgram(programs, now);
           if (visible.isEmpty) {
             return Center(

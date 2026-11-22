@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:orbit_3d_flutter/core/widgets/responsive_grid.dart';
 
 /// Nombre maximum de profils autorisés
 const int kMaxProfiles = 6;
@@ -22,16 +23,24 @@ class AvatarItem {
   });
 }
 
+/// Sélecteur d'avatar — grille unique de tous les avatars (TV-friendly)
+///
+/// Affiche :
+/// - En-tête : nom/pseudo + barre de texte
+/// - Grille unique de tous les avatars (6 colonnes)
+/// - Navigation D-pad complète (←/→/↑/↓/Enter/Select/Space/GamepadA)
 class ProfileAvatarSelector extends StatefulWidget {
   final List<AvatarItem> avatars;
   final String selectedAvatarId;
   final Function(AvatarItem) onAvatarSelected;
+  final String? profileName;
 
   const ProfileAvatarSelector({
     super.key,
     required this.avatars,
     required this.selectedAvatarId,
     required this.onAvatarSelected,
+    this.profileName,
   });
 
   @override
@@ -39,83 +48,270 @@ class ProfileAvatarSelector extends StatefulWidget {
 }
 
 class _ProfileAvatarSelectorState extends State<ProfileAvatarSelector> {
-  String _selectedCategory = 'Tous';
-  late List<String> _categories;
+  late List<FocusNode> _avatarFocusNodes;
+  final ScrollController _gridScroll = ScrollController();
+  int _focusedIndex = 0;
+  int _columns = 1;
+  double _rowExtent = 0;
+  String? _selectedCategory;
+
+  List<AvatarItem> get _filteredAvatars => _selectedCategory == null
+      ? widget.avatars
+      : widget.avatars.where((a) => a.category == _selectedCategory).toList();
 
   @override
   void initState() {
     super.initState();
-    final cats = widget.avatars.map((e) => e.category).toSet().toList();
-    _categories = ['Tous', ...cats];
+
+    // Trouve l'index de l'avatar actuellement sélectionné
+    final selectedIndex = widget.avatars.indexWhere(
+      (a) => a.id == widget.selectedAvatarId,
+    );
+    _focusedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+
+    _avatarFocusNodes = List.generate(
+      widget.avatars.length,
+      (_) => FocusNode(),
+    );
   }
 
-  List<AvatarItem> get _filteredAvatars {
-    if (_selectedCategory == 'Tous') return widget.avatars;
-    return widget.avatars
-        .where((a) => a.category == _selectedCategory)
-        .toList();
+  @override
+  void dispose() {
+    _gridScroll.dispose();
+    for (final node in _avatarFocusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileAvatarSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.avatars.length != widget.avatars.length) {
+      for (final node in _avatarFocusNodes) {
+        node.dispose();
+      }
+      _avatarFocusNodes = List.generate(widget.avatars.length, (_) => FocusNode());
+      _focusedIndex = 0;
+    }
+    if (_selectedCategory != null &&
+        !widget.avatars.any((a) => a.category == _selectedCategory)) {
+      _selectedCategory = null;
+      _focusedIndex = 0;
+    }
+    if (_focusedIndex >= _filteredAvatars.length) _focusedIndex = 0;
+  }
+
+  void _onAvatarSelected(int index) {
+    final avatars = _filteredAvatars;
+    if (index >= 0 && index < avatars.length) {
+      setState(() => _focusedIndex = index);
+      widget.onAvatarSelected(avatars[index]);
+    }
+  }
+
+  void _requestFocus(int index) {
+    if (index >= 0 && index < _avatarFocusNodes.length) {
+      if (_gridScroll.hasClients && _rowExtent > 0) {
+        final position = _gridScroll.position;
+        final rowTop = (index ~/ _columns) * _rowExtent;
+        final rowBottom = rowTop + _rowExtent;
+        var offset = position.pixels;
+        if (rowTop < offset) {
+          offset = rowTop;
+        } else if (rowBottom > offset + position.viewportDimension) {
+          offset = rowBottom - position.viewportDimension;
+        }
+        _gridScroll.jumpTo(offset.clamp(0.0, position.maxScrollExtent));
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && index < _avatarFocusNodes.length) {
+          _avatarFocusNodes[index].requestFocus();
+        }
+      });
+    }
+  }
+
+  KeyEventResult _handleKeyEvent(KeyEvent event, int columns) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final totalItems = _filteredAvatars.length;
+    if (totalItems == 0) return KeyEventResult.ignored;
+
+    int newIndex = _focusedIndex;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+        event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      final right = event.logicalKey == LogicalKeyboardKey.arrowRight;
+      final rtl = Directionality.of(context) == TextDirection.rtl;
+      newIndex = (_focusedIndex + (right != rtl ? 1 : -1))
+          .clamp(0, totalItems - 1);
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      newIndex = (_focusedIndex + columns).clamp(0, totalItems - 1);
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      newIndex = (_focusedIndex - columns).clamp(0, totalItems - 1);
+    } else if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+      if (event is KeyDownEvent) _onAvatarSelected(_focusedIndex);
+      return KeyEventResult.handled;
+    } else {
+      return KeyEventResult.ignored;
+    }
+
+    if (newIndex != _focusedIndex) {
+      setState(() => _focusedIndex = newIndex);
+      _requestFocus(newIndex);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final avatars = _filteredAvatars;
+    final categories = widget.avatars.map((avatar) => avatar.category).toSet();
+
     return Container(
       color: const Color(0xFF0D0E12),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête
-          const Text(
-            'Choisir un Avatar de Profil',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Barre de Filtres / Catégories (Adaptée D-Pad)
-          SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = cat == _selectedCategory;
-                return CategoryChipTV(
-                  label: cat,
-                  isSelected: isSelected,
-                  onPressed: () => setState(() => _selectedCategory = cat),
-                );
-              },
-            ),
+          // ─── En-tête : Nom/Pseudo + Barre de texte ───
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.profileName?.isNotEmpty == true
+                          ? widget.profileName!
+                          : 'Choisir un Avatar',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 2,
+                      width: 120,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            scheme.primary,
+                            scheme.primary.withValues(alpha: 0.3),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${widget.avatars.length} avatars disponibles',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
 
-          // Grille des Avatars — 6 colonnes max, icônes agrandies
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 6, // 6 profils max → 6 colonnes
-                crossAxisSpacing: 24,
-                mainAxisSpacing: 24,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: _filteredAvatars.length,
-              itemBuilder: (context, index) {
-                final avatar = _filteredAvatars[index];
-                final isCurrent = avatar.id == widget.selectedAvatarId;
-
-                return AvatarTileLarge(
-                  avatar: avatar,
-                  isCurrentSelection: isCurrent,
-                  onSelect: () => widget.onAvatarSelected(avatar),
-                );
-              },
+          SizedBox(
+            height: 40,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final category in <String?>[null, ...categories])
+                  CategoryChipTV(
+                    label: category ?? 'Tous',
+                    isSelected: category == _selectedCategory,
+                    onPressed: () {
+                      setState(() {
+                        _selectedCategory = category;
+                        final selected = _filteredAvatars.indexWhere(
+                          (avatar) => avatar.id == widget.selectedAvatarId,
+                        );
+                        _focusedIndex = selected < 0 ? 0 : selected;
+                      });
+                      if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
+                    },
+                  ),
+              ],
             ),
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final columns = ResponsiveGrid.calculateCrossAxisCount(
+                constraints.maxWidth,
+                minItemWidth: ResponsiveGrid.compactGridConfig.minItemWidth,
+                spacing: ResponsiveGrid.compactGridConfig.crossAxisSpacing,
+                minColumns: ResponsiveGrid.compactGridConfig.minColumns,
+                maxColumns: ResponsiveGrid.compactGridConfig.maxColumns,
+              );
+              final spacing = ResponsiveGrid.compactGridConfig.crossAxisSpacing;
+              final width = (constraints.maxWidth - spacing * (columns - 1)) /
+                  columns;
+              final aspectRatio = ResponsiveGrid.calculateAspectRatio(
+                width,
+                isWide: constraints.maxWidth >= ResponsiveGrid.tabletBreakpoint,
+              );
+              _columns = columns;
+              _rowExtent = width / aspectRatio +
+                  ResponsiveGrid.compactGridConfig.mainAxisSpacing;
+              return Focus(
+                onKeyEvent: (node, event) => _handleKeyEvent(event, columns),
+                child: FocusTraversalGroup(
+                policy: ReadingOrderTraversalPolicy(),
+                child: avatars.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Aucun avatar disponible',
+                          style: TextStyle(color: scheme.onSurfaceVariant),
+                        ),
+                      )
+                    : GridView.builder(
+                        key: const ValueKey('avatar_grid'),
+                        controller: _gridScroll,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          childAspectRatio: aspectRatio,
+                          crossAxisSpacing: spacing,
+                          mainAxisSpacing:
+                              ResponsiveGrid.compactGridConfig.mainAxisSpacing,
+                        ),
+                        itemCount: avatars.length,
+                        itemBuilder: (context, index) {
+                          final avatar = avatars[index];
+                          final isCurrent = avatar.id == widget.selectedAvatarId;
+
+                          return AvatarTileLarge(
+                            avatar: avatar,
+                            isCurrentSelection: isCurrent,
+                            focusNode: _avatarFocusNodes[index],
+                            autofocus: index == _focusedIndex && isCurrent,
+                            onFocusChange: (focused) {
+                              if (focused) _focusedIndex = index;
+                            },
+                            onSelect: () => _onAvatarSelected(index),
+                          );
+                        },
+                      ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -195,16 +391,22 @@ class _CategoryChipTVState extends State<CategoryChipTV> {
 
 /// --- CARTE AVATAR AGRANDIE AVEC EFFET FOCUS D-PAD ---
 class AvatarTileLarge extends StatefulWidget {
-  final AvatarItem avatar;
-  final bool isCurrentSelection;
-  final VoidCallback onSelect;
-
   const AvatarTileLarge({
     super.key,
     required this.avatar,
     required this.isCurrentSelection,
     required this.onSelect,
+    this.focusNode,
+    this.autofocus = false,
+    this.onFocusChange,
   });
+
+  final AvatarItem avatar;
+  final bool isCurrentSelection;
+  final VoidCallback onSelect;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final ValueChanged<bool>? onFocusChange;
 
   @override
   State<AvatarTileLarge> createState() => _AvatarTileLargeState();
@@ -235,25 +437,34 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
     );
   }
 
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    // Activation: Enter/Space/OK
+    if (event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.space ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+      widget.onSelect();
+      return KeyEventResult.handled;
+    }
+    // Navigation: let parent handle arrow keys
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Focus(
-      onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent &&
-            (event.logicalKey == LogicalKeyboardKey.select ||
-                event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.gameButtonA ||
-                event.logicalKey == LogicalKeyboardKey.space)) {
-          widget.onSelect();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
+      focusNode: widget.focusNode,
+      autofocus: widget.autofocus,
+      onFocusChange: (hasFocus) {
+        setState(() => _isFocused = hasFocus);
+        widget.onFocusChange?.call(hasFocus);
       },
+      onKeyEvent: _handleKeyEvent,
       child: GestureDetector(
         onTap: widget.onSelect,
         child: AnimatedScale(
-          scale: _isFocused ? 1.12 : 1.0, // Légère mise à l'échelle au focus
+          scale: _isFocused ? 1.12 : 1.0,
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           child: AnimatedContainer(
@@ -263,19 +474,25 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: _isFocused
-                    ? const Color(0xFF8B5CF6)
+                    ? const Color(0xFF00E5FF)
                     : (widget.isCurrentSelection
                         ? Colors.amber
                         : Colors.white10),
-                width: _isFocused ? 3 : (widget.isCurrentSelection ? 2 : 1),
+                width: _isFocused ? 4 : (widget.isCurrentSelection ? 2 : 1),
               ),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.5),
-                        blurRadius: 20,
-                        spreadRadius: 3,
-                        offset: const Offset(0, 8),
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.95),
+                        blurRadius: 38,
+                        spreadRadius: 10,
+                        offset: const Offset(0, 10),
+                      ),
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.25),
+                        blurRadius: 18,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 6),
                       ),
                     ]
                   : [
@@ -291,9 +508,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(
-                      20.0,
-                    ), // Plus d'espace pour l'image
+                    padding: const EdgeInsets.all(20.0),
                     child: widget.avatar.assetPath.isNotEmpty
                         ? Image.asset(
                             widget.avatar.assetPath,
@@ -309,8 +524,7 @@ class _AvatarTileLargeState extends State<AvatarTileLarge> {
                   style: TextStyle(
                     color: _isFocused ? Colors.white : Colors.white70,
                     fontSize: 13,
-                    fontWeight:
-                        _isFocused ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

@@ -10,11 +10,13 @@ import 'package:orbit_3d_flutter/services/api_service.dart';
 
 class _Api extends ApiService {
   int calls = 0;
+  final started = Completer<void>();
   final pending = Completer<List<EPGProgram>>();
 
   @override
-  Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) {
+  Future<List<EPGProgram>> fetchChannelCatchUpPrograms(Channel channel) {
     calls++;
+    if (!started.isCompleted) started.complete();
     return pending.future;
   }
 }
@@ -42,6 +44,7 @@ EPGProgram _program(String title, Duration ago) {
 void main() {
   test('facade exports the same catch-up provider', () {
     expect(public.channelCatchUpProvider, same(split.channelCatchUpProvider));
+    expect(public.catchUpEpgCacheProvider, same(split.catchUpEpgCacheProvider));
   });
 
   test('cached programs use channel window, sort and leave cache untouched',
@@ -51,47 +54,58 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         public.apiServiceProvider.overrideWithValue(api),
+        public.activeSubscriptionProvider.overrideWith((ref) => null),
         public.liveChannelsProvider.overrideWith((ref) async => [channel]),
       ],
     );
     addTearDown(container.dispose);
     await container.read(public.liveChannelsProvider.future);
-    final cache = container.read(public.shortEpgCacheProvider);
+    final cache = container.read(public.catchUpEpgCacheProvider);
+    final shortCache = container.read(public.shortEpgCacheProvider);
+    shortCache.put('1', [_program('short only', const Duration(hours: 1))]);
     cache.put('1', [
-      _program('older', const Duration(days: 2, hours: 12)),
+      _program('older', const Duration(days: 1, hours: 23)),
       _program('future', const Duration(hours: -1)),
       _program('expired', const Duration(days: 3, hours: 1)),
       _program('recent', const Duration(hours: 1)),
     ]);
-    final listener = container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    final listener =
+        container.listen(public.channelCatchUpProvider('1'), (_, __) {});
     addTearDown(listener.close);
-    final result = await container.read(public.channelCatchUpProvider('1').future);
+    final result =
+        await container.read(public.channelCatchUpProvider('1').future);
     expect(result.map((p) => p.title), ['recent', 'older']);
     expect(
       cache.get('1')!.map((p) => p.title),
       ['older', 'future', 'expired', 'recent'],
     );
+    expect(shortCache.get('1')!.single.title, 'short only');
     expect(api.calls, 0);
   });
 
-  test('default window is seven days; unknown channels make no request',
+  test('default window is fourteen days; unknown channels make no request',
       () async {
     final api = _Api();
     final container = ProviderContainer(
       overrides: [
         public.apiServiceProvider.overrideWithValue(api),
-        public.liveChannelsProvider.overrideWith((ref) async => [_channel('1')]),
+        public.activeSubscriptionProvider.overrideWith((ref) => null),
+        public.liveChannelsProvider
+            .overrideWith((ref) async => [_channel('1')]),
       ],
     );
     addTearDown(container.dispose);
     await container.read(public.liveChannelsProvider.future);
-    container.read(public.shortEpgCacheProvider).put('1', [
-      _program('inside', const Duration(days: 7, hours: 1)),
-      _program('outside', const Duration(days: 8, hours: 1)),
+    container.read(public.catchUpEpgCacheProvider).put('1', [
+      _program('inside', const Duration(days: 13, hours: 1)),
+      _program('outside', const Duration(days: 14, hours: 1)),
     ]);
-    final valid = container.listen(public.channelCatchUpProvider('1'), (_, __) {});
-    final missing = container.listen(public.channelCatchUpProvider('missing'), (_, __) {});
-    final empty = container.listen(public.channelCatchUpProvider(''), (_, __) {});
+    final valid =
+        container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    final missing =
+        container.listen(public.channelCatchUpProvider('missing'), (_, __) {});
+    final empty =
+        container.listen(public.channelCatchUpProvider(''), (_, __) {});
     addTearDown(valid.close);
     addTearDown(missing.close);
     addTearDown(empty.close);
@@ -100,34 +114,92 @@ void main() {
           .map((p) => p.title),
       ['inside'],
     );
-    expect(await container.read(public.channelCatchUpProvider('missing').future), isEmpty);
-    expect(await container.read(public.channelCatchUpProvider('').future), isEmpty);
+    expect(
+      await container.read(public.channelCatchUpProvider('missing').future),
+      isEmpty,
+    );
+    expect(
+      await container.read(public.channelCatchUpProvider('').future),
+      isEmpty,
+    );
     expect(api.calls, 0);
   });
 
-  test('pending request survives disposal without writing into a replaced cache',
+  test('full archive request waits for channels and caches its result',
       () async {
     final api = _Api();
     final container = ProviderContainer(
       overrides: [
         public.apiServiceProvider.overrideWithValue(api),
-        public.liveChannelsProvider.overrideWith((ref) async => [_channel('1')]),
+        public.activeSubscriptionProvider.overrideWith((ref) => null),
+        public.liveChannelsProvider
+            .overrideWith((ref) async => [_channel('1')]),
       ],
     );
     addTearDown(container.dispose);
-    await container.read(public.liveChannelsProvider.future);
-    final oldCache = container.read(public.shortEpgCacheProvider);
-    final listener = container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    final listener =
+        container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    addTearDown(listener.close);
     final result = container.read(public.channelCatchUpProvider('1').future);
+    await api.started.future;
     expect(api.calls, 1);
-    listener.close();
-    await container.pump();
-    container.invalidate(public.shortEpgCacheProvider);
-    final newCache = container.read(public.shortEpgCacheProvider);
-    expect(newCache, isNot(same(oldCache)));
     api.pending.complete([_program('recorded', const Duration(hours: 1))]);
     expect((await result).single.title, 'recorded');
-    expect(oldCache.get('1')!.single.title, 'recorded');
+    expect(
+      container.read(public.catchUpEpgCacheProvider).get('1')!.single.title,
+      'recorded',
+    );
+    expect(container.read(public.shortEpgCacheProvider).get('1'), isNull);
+  });
+
+  test('a failed archive request leaves the dedicated cache empty', () async {
+    final api = _Api();
+    final container = ProviderContainer(
+      overrides: [
+        public.apiServiceProvider.overrideWithValue(api),
+        public.activeSubscriptionProvider.overrideWith((ref) => null),
+        public.liveChannelsProvider
+            .overrideWith((ref) async => [_channel('1')]),
+      ],
+    );
+    addTearDown(container.dispose);
+    final listener =
+        container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    addTearDown(listener.close);
+    final result = container.read(public.channelCatchUpProvider('1').future);
+    await api.started.future;
+    final failure = expectLater(result, throwsStateError);
+    api.pending.completeError(StateError('archive unavailable'));
+
+    await failure;
+    expect(container.read(public.catchUpEpgCacheProvider).get('1'), isNull);
+  });
+
+  test('disposed request does not write into a replaced catch-up cache',
+      () async {
+    final api = _Api();
+    final container = ProviderContainer(
+      overrides: [
+        public.apiServiceProvider.overrideWithValue(api),
+        public.activeSubscriptionProvider.overrideWith((ref) => null),
+        public.liveChannelsProvider
+            .overrideWith((ref) async => [_channel('1')]),
+      ],
+    );
+    addTearDown(container.dispose);
+    final oldCache = container.read(public.catchUpEpgCacheProvider);
+    final listener =
+        container.listen(public.channelCatchUpProvider('1'), (_, __) {});
+    final result = container.read(public.channelCatchUpProvider('1').future);
+    await api.started.future;
+    listener.close();
+    await container.pump();
+    container.invalidate(public.catchUpEpgCacheProvider);
+    final newCache = container.read(public.catchUpEpgCacheProvider);
+    expect(newCache, isNot(same(oldCache)));
+    api.pending.complete([_program('recorded', const Duration(hours: 1))]);
+    expect(await result, isEmpty);
+    expect(oldCache.get('1'), isNull);
     expect(newCache.get('1'), isNull);
   });
 }

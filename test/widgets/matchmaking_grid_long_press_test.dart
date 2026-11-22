@@ -474,6 +474,52 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('decision options remain tappable and cancellation is harmless',
+      (tester) async {
+    bool? result;
+    final reco = Recommendation.fromMetadata(
+      kind: RecommendationKind.movie,
+      title: 'Test',
+    );
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+        activeSubscriptionProvider.overrideWith((ref) => null),
+      ],
+      child: MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: Consumer(builder: (context, ref, _) {
+          return TextButton(
+            onPressed: () async {
+              result = await showProlongDecision(context, ref, reco);
+            },
+            child: const Text('Ouvrir'),
+          );
+        })),
+      ),
+    ));
+
+    for (final option in [
+      'Film déjà vu',
+      'Pas intéressé',
+      'Ajouter aux favoris',
+    ]) {
+      result = null;
+      await tester.tap(find.text('Ouvrir'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option));
+      await tester.pumpAndSettle();
+      expect(Focus.of(tester.element(find.text('Confirmer'))).hasPrimaryFocus,
+          isTrue);
+      await tester.tap(find.text('Annuler'));
+      await tester.pumpAndSettle();
+      expect(result, isFalse);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('selected group profile has a halo and contrasting color',
       (tester) async {
     await tester.pumpWidget(ProviderScope(

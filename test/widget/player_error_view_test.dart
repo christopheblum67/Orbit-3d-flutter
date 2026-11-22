@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit_3d_flutter/features/player/playback_error_policy.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/player_error_view.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations_fr.dart';
@@ -90,6 +91,13 @@ void main() {
     );
     expect(find.text(l.playbackUnavailableTitle), findsOneWidget);
     expect(find.text(l.openProviderWebsite), findsNothing);
+    await render(
+      error: protectedPlaybackUnsupported,
+      external: false,
+      contentType: PlaybackContentType.vod,
+    );
+    expect(find.text(l.protectedPlaybackUnsupportedMessage), findsOneWidget);
+    expect(find.text(l.playbackUnavailableMessage), findsNothing);
     await render(
       error: null,
       external: false,

@@ -105,11 +105,9 @@ Future<void> _bootstrap() async {
   await mediaLibraryManager.init([]);
 
   await BetaConfig.applyIfNeeded();
-
   // S'assure qu'un éventuel abonnement issu des préférences (source par défaut)
   // est présent en Hive avant de décider de la route de démarrage.
   await storageService.migrateFromSharedPreferences();
-
   final restoredProfile = await _restoreLastProfile(storageService);
   final onboardingDone = storageService.getSetting('onboarding_done') == true;
   final legalNoticeDone =
@@ -120,9 +118,10 @@ Future<void> _bootstrap() async {
   );
 
   final activeSubscriptionId = storageService.getActiveSubscriptionSync()?.id;
-  final lastRefresh = activeSubscriptionId == null || activeSubscriptionId.isEmpty
-      ? null
-      : await loadLastRefresh(subscriptionId: activeSubscriptionId);
+  final lastRefresh =
+      activeSubscriptionId == null || activeSubscriptionId.isEmpty
+          ? null
+          : await loadLastRefresh(subscriptionId: activeSubscriptionId);
 
   runApp(
     ProviderScope(

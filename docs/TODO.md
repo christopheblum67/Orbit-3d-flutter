@@ -2,17 +2,17 @@
 
 > Fichier unique de suivi. Une ligne = une tâche vérifiable.
 > Statuts : `[ ]` à faire · `[~]` en cours · `[x]` fait (à valider) · `[X]` validé sur appareil.
-> Dernière mise à jour : 2026-10-13.
+> Dernière mise à jour : 2026-10-17.
 
 ---
 
 ## 0. Bugs signalés (priorité utilisateur)
 
-> Note actuelle : l'intégration OpenSubtitles a été retirée. Les entrées historiques ci-dessous décrivent l'état antérieur.
+> Note actuelle : l'intégration OpenSubtitles a été retirée. Les références ci-dessous sont uniquement historiques.
 
 - [x] **Icône « hamburger » non cliquable** — `Scaffold.of(context)` était appelé depuis le contexte du widget qui *crée* le `Scaffold` (donc au-dessus), ce qui lève une `FlutterError` et rend le tap muet. Corrigé via `DrawerMenuButton` (avec `Builder`) dans `HomeShell` et `DuoProfileSelectionScreen`. Test de non-régression : `test/widget/drawer_menu_button_test.dart` (2 verts). **Installé sur le S20 — reste la validation visuelle par l'utilisateur (accueil + écran profils Duo).**
-- [x] **Sous-titres OpenSubtitles qui « ne se lisaient plus »** (les intégrés fonctionnaient) — *Cause racine* : media3 auto-sélectionne sa piste texte **quelques secondes après** le début de la lecture, pas au premier sondage. Un sous-titre OpenSubtitles choisi dans cette fenêtre était adopté alors que `_activeEmbeddedTrackId == null` : `_cancelEmbeddedForExternal` sortait donc sans couper le type « texte » côté natif, et dès que media3 sélectionnait sa piste (souvent la « forced ») **et** que la liste s'enrichissait, `setEmbeddedContext` ré-adoptait la piste intégrée → l'overlay intégré masquait le sous-titre externe.
-      *Correctif* (`lib/services/subtitle_controller.dart`) : ① `_cancelEmbeddedForExternal` coupe désormais **toujours** le type texte natif quand un pont existe ; ② garde d'exclusivité `_externalPlayerId` — la découverte intégrée n'adopte plus la sélection automatique de media3 tant que l'utilisateur a choisi une piste externe **pour ce lecteur** (le changement de contenu libère la garde tout seul). Tests : `test/unit/embedded_subtitle_controller_test.dart` (2 nouveaux, échouaient avant le correctif). **Reste : validation utilisateur sur le S20.**
+- [x] **Historique — sous-titres OpenSubtitles qui « ne se lisaient plus »** (les intégrés fonctionnaient) — *Cause racine* : media3 auto-sélectionne sa piste texte **quelques secondes après** le début de la lecture, pas au premier sondage. Un sous-titre OpenSubtitles choisi dans cette fenêtre était adopté alors que `_activeEmbeddedTrackId == null` : `_cancelEmbeddedForExternal` sortait donc sans couper le type « texte » côté natif, et dès que media3 sélectionnait sa piste (souvent la « forced ») **et** que la liste s'enrichissait, `setEmbeddedContext` ré-adoptait la piste intégrée → l'overlay intégré masquait le sous-titre externe.
+      *Correctif historique* (`lib/services/subtitle_controller.dart`) : ① `_cancelEmbeddedForExternal` coupait le type texte natif quand un pont existait ; ② garde d'exclusivité `_externalPlayerId` pour éviter l'adoption automatique d'une piste intégrée après le choix d'une piste externe. Tests historiques : `test/unit/embedded_subtitle_controller_test.dart` (2 nouveaux, échouaient avant le correctif). La validation sur le S20 était alors en attente ; l'intégration a depuis été retirée.
 
 ## 1. Tri des listes — refonte demandée
 
@@ -28,10 +28,10 @@
       → *Cause racine trouvée* : le **tampon EPG local** (`lib/services/epg_buffer_store.dart`) est ancré sur la **journée de l'écriture** (`project(windowStart = minuit du jour, horizon = écriture + 30 h)`), et `read()` ne le rejetait que sur une péremption de 12 h. Écrit la veille au soir, il couvre « hier 00:00 → aujourd'hui ~05:00 » ; relu le lendemain matin (moins de 12 h plus tard, donc « frais »), il ne reste que les **premières heures après minuit** — le reste est comblé par des blocs « Aucune donnée de programme » quasi invisibles, d'où « tout disparaît ».
       *Correctif* : ① `EpgBufferStore.read` refuse un tampon écrit un **autre jour civil** (horloge injectable pour le test) ; ② `EPGDataCache.isFresh` rejette aussi les données en mémoire chargées la veille (application restée ouverte à cheval sur minuit). Tests : `test/unit/epg_buffer_store_test.dart` (2 nouveaux, dont un échouait avant le correctif).
       **Reste : confirmation visuelle sur le S20** — le diagnostic est une hypothèse forte appuyée par un défaut prouvé, pas une mesure faite sur l'appareil.
-- [ ] **Améliorations Replay — durée réelle de l'abonnement** — *Demande (13/10)* : « avoir le replay réel que chaque abonnement propose en durée de jours ».
+- [x] **Améliorations Replay — durée réelle de l'abonnement** — *Demande (13/10)* : « avoir le replay réel que chaque abonnement propose en durée de jours ».
       → La fenêtre de replay doit refléter la rétroactivité **réellement annoncée par l'abonnement/le panel**, par chaîne et par compte, au lieu d'une constante globale.
       Aujourd'hui : `kCatchUpWindow = 14 jours` en dur (`lib/providers/providers.dart:1091`) + `Channel.archiveDays` (`tv_archive_duration`, `models/channel.dart`) et logique dans `api_service.dart` (~1820, ~1983).
-      Attendu : bornage par la durée réelle (catchup-days / tv_archive_duration), par chaîne, et non systématiquement 14 j.
+      **FAIT** : fenêtre unifiée via `ApiService.fallbackArchiveDays = 14` (remplace 48 h / 7 j divergents) ; `effectiveArchiveDays` source unique pour Replay + rattrapage EPG ; `_replayLimit = 400`. Validé S20 : 517 replays FRANCE 2 (archiveDays=0 → repli 14 j). Tests : `replay_archive_window_test` mis à jour.
 
 ## 2 bis. Chantiers du 13/10 — demande utilisateur (ordre 1→4, tous livrés)
 
@@ -55,6 +55,77 @@
       → `StreamSubtitleTracksService._toLanguages` **dédupliquait par code langue** et collait au survivant le libellé de la **dernière** piste (`Français (SDH)`, `English [Original] (SDH)`) : l'utilisateur lisait « 3 options » face aux 6 du lecteur. Remplacé par `_toTrackChoices` (**une entrée par piste**, valeur = libellé, `Map` pour dédupliquer sans violer l'assertion `DropdownButton` sur valeurs dupliquées) ; nouveau `pickEmbeddedSubtitleTrackForPreference` (libellé exact → nom de langue traduit → code langue, pour les préférences enregistrées avant ce changement) ; items du menu complétés par la préférence mémorisée quand la sonde courante ne la contient pas (sinon assertion → crash de l'écran série). Tests : `embedded_subtitle_pick_test` (+5).
 
 État : `flutter analyze <fichiers touchés>` → « No issues found! », **suite complète 915 verts**, build release installé et validé sur le S20.
+
+## 2 quater. Chantiers du 15/10 — artefacts d'encodage, lecture locale, aperçu live
+
+- [x] **Aperçu live — étendre l'EPG à 4-5 programmes** — *Demande (15/10)* : « étendre le programme EPG à 4-5 programmes dans l'aperçu live ».
+      Aujourd'hui `_EpgList` (`lib/features/live_tv/widgets/channel_browse_view.dart`) est **borné à `_maxPrograms = 2`** (programme en cours + suivant), à cause d'une hauteur contrainte dans la maquette à deux zones (voir commentaire l. 174-177 : « les deux programmes EPG passaient sous le bord de l'écran »).
+      **FAIT** : `_maxPrograms = 5` + padding vertical densifié (dense: 7→5, normal: 10→7). Validé S20.
+- [x] **Signature APK en schéma v3** — *Demande (15/10)* : « faire passer la signature en v3 pour le keystore ».
+      → *Constat mesuré* : l'APK release est signé **v2 uniquement**. `apksigner verify --verbose` (build-tools 36.0.0, AGP 9.0.1) renvoie `v1: false`, `v2: true`, `v3: false`, `v3.1: false`, `v4: false`. Signature `CN=Orbit3D, OU=Mobile, O=Orbit, C=FR`, SHA-256 `856837ba79570f2bc2658766880e8fceb112439418b9c96554abe2428446fb2a`.
+      **FAIT** : `signingConfigs.release { enableV3Signing = true }` → `apksigner verify --verbose` → `v3: true`. Clé/certificat inchangés → mises à jour `adb install -r` conservent abonnement/profil.
+
+## 2 quinquies. TV Support (Android TV / Fire TV / TV Boxes) — 2026-10-15
+
+### Priorité 1 : Manifest & Assets (CRITICAL — bloquant pour TV Launcher)
+- [x] **AndroidManifest.xml** : `android:software.leanback required="true"`, `<category android:name="android.intent.category.LEANBACK_LAUNCHER"/>`, `android:largeHeap="true"`, `android:banner="@drawable/tv_banner"` sur `<application>`
+- [x] **TV Banner (320×180)** : `android/app/src/main/res/drawable/tv_banner.xml` (vector drawable scalable)
+
+### Priorité 2 : Safe Area / Overscan (CRITICAL — contenu coupé aux bords)
+- [x] **TvSafeArea widget** (`lib/core/widgets/tv_safe_area.dart`) : minimum `EdgeInsets.symmetric(horizontal: 48, vertical: 27)` pour overscan 5-10%
+- [x] **Appliqué aux écrans principaux** : Home, Live TV, VOD, Séries, Replay, EPG, Search, Settings, Advanced Settings
+
+### Priorité 3 : Navigation D-pad / Focus System (HIGH)
+- [x] **TvFocus** existant : glow + scale + border + haptique + clés OK/Enter/Space/GamepadA
+- [x] **CategoriesRail** : `_FocusableCategoryTile` avec `Focus` + `onKeyEvent` (Enter = select)
+- [x] **ProfileEditScreen** : chips focales (`_ProfileChoiceChip`), SegmentedButton, "Suivant" button accessible D-pad
+- [x] **PlayerScreen** : `_onKeyEvent` gère flèches (zapping), Space (play/pause), Escape (footer)
+- [~] **EPG Grid** : CustomPainter sans FocusNode par cellule — **nécessite refactor majeur** pour D-pad left/right entre programmes
+- [~] **SearchScreen** : SearchAnchor/TextField pas TV-ready — IME options, conditional keyboard, SearchManager manquant
+- [~] **UnifiedSettingsScreen** : TabBar, DropdownButton, ListTile pas focus-wrappés — navigation D-pad limitée
+
+### Priorité 4 : Audio Focus / MediaSession (MEDIUM)
+- [ ] **MediaSessionCompat + MediaButtonReceiver** Android natif pour contrôles télécommande (play/pause/next/prev)
+- [ ] **AudioAttributes** explicites (USAGE_MEDIA, CONTENT_TYPE_MOVIE)
+- [ ] Bridge Flutter ↔ MediaSession via platform channel
+
+### Priorité 5 : Tests TV (LOW)
+- [ ] `integration_test/tv_navigation_test.dart` : scénarios navigation complète, lecture, zapping, recherche, profil
+
+### État actuel
+- `flutter analyze lib` → 0 erreur, 0 warning (hors infos préexistantes EPG)
+- `flutter test` → **966 tests passed**
+- `dart run tool/check_i18n_sync.dart` → 428 messages, 0 problème sur 6 locales
+- Build release installé sur S20 (mode TV forcé via réglages avancés)
+
+**Prochaines étapes prioritaires** : EPG Grid D-pad refactor + SearchScreen TV delegate + MediaSession bridge.
+
+---
+
+## 2 sexies. Chantiers du 17/10 — synopsis, aperçu EPG, menus Réglages
+
+- [x] **Synopsis traduit affiché en ROUGE (film ET série)** — *Demande (17/10)* : « pour le synopsis, si traduction, affichage du texte en rouge », « valable pour film et série évidemment ».
+      `TranslatedSynopsisView` (partagé par `movie_detail_screen` et `series_detail_screen`) colorait le texte en `onSurfaceVariant` quelle que soit la source. Le texte passe désormais en `Colors.redAccent` dès que `resolved.isTranslated` (synopsis TMDB fr **ou** traduction automatique Google) ; la source du traducteur reste affichée sous le texte. Couleur exposée en `TranslatedSynopsisView.translatedTextColor`. Tests : `test/widget/translated_synopsis_view_test.dart` (3, dont 2 échouaient sans le rouge).
+- [x] **Aperçu Live TV — 7 programmes EPG au lieu de 5** — *Demande (17/10)* : « augmenter le nombre de programmes valides en validant 2 lignes de plus ».
+      `_EpgList._maxPrograms` (5) remplacé par l'appel à `epgPreviewPrograms(programs, now)` (`lib/core/utils/epg_lookup.dart`) avec `kEpgPreviewMaxPrograms = 7`. La sélection quitte le widget pour devenir testable. Tests : `test/unit/epg_preview_programs_test.dart` (6, dont 1 échouait avec l'ancienne limite de 5).
+- [x] **Réglages — fusion des menus (Réseau + Sécurité / Lecteur + Audio)** — *Demande (17/10)* : « fusionner les menus Réseau + Sécurité / Lecteur vidéo + Audio, avec un séparateur en sous-titre distinctif pour bien différencier les 2 ».
+      Barre d'onglets ramenée de 6 à 4 : **Compte · « Réseau & Sécurité » · « Lecteur & Audio » · Avancé**. Nouveau widget `SettingsGroupDivider` (`lib/features/settings/widgets/settings_widgets.dart`) : libellé cyan (`tertiary`) en majuscules espacées, encadré de deux traits, qui marque la frontière entre les deux anciens menus dans chaque onglet fusionné. Les noms d'onglets sont la concaténation des libellés existants → correct dans les 6 langues sans nouvelle clé l10n. Vérif : suite complète **966 verts**, `flutter analyze` sans erreur.
+- [~] **Bug d'affichage « Moteurs de lecture » (écran gris)** — *investigation* en cours (agent externe, lecture seule). Le fix FocusNode du 16/10 (`6c6a923`) couvre le double usage du `FocusNode` ; la cause exacte de l'écran gris reste à confirmer, faute de device connecté.
+
+---
+
+## 2 septies. Garde-fou TV et grilles portrait (17/10)
+
+- [x] **Détection TV multi-méthodes** (`lib/core/utils/device_info.dart`) — `DeviceInfoUtils.detectDeviceType()` combine : ① feature `android.software.leanback` (packaging), ② taille d'écran (`shortestSide >= 720dp`), ③ UI mode. Retourne `DeviceDetectionResult` avec `isTv`, `confidence` (0-1) et `details`. Fallback synchrone `isTvFromContext()` pour le `build()`.
+- [x] **Provider centralisé `TvModeController`** (`lib/providers/tv_mode_provider.dart`) — `ChangeNotifier` unique avec `enabled`, `autoDetected`, `detectionResult`. `enable()`/`disable()`/`setEnabled()` pour activation manuelle (première pression D-pad). `updateFromDetection()` pour auto-détection au démarrage. `tvModeControllerProvider` + `tvModeProvider` (booléen).
+- [x] **Adaptation `TvFocus`/`TvSafeArea`** (`lib/core/widgets/tv_focus.dart`, `tv_safe_area.dart`) — `TvModeNotifier` wrapper rétrocompatible délègue au controller centralisé. `TvFocus` et `TvSafeArea` lisent `tvModeNotifierProvider` (qui watch le controller). Aucun changement d'API.
+- [x] **Intégration détection auto au démarrage** — `main.dart` appelle `DeviceInfoUtils.detectDeviceType()` et `controller.updateFromDetection()` avant `runApp()`. Le mode TV s'active automatiquement si leanback détecté.
+- [x] **Adaptation `SearchScreen`** (`lib/features/search/search_screen.dart`) — Utilise `tvModeControllerProvider` au lieu de l'ancien `tvModeNotifierProvider`. `initState` lit le controller, `dispose` nettoie correctement.
+- [x] **Tests TvSafeArea/TvFocus** — `test/widget/tv_safe_area_test.dart` et `test/widget/tv_focus_test.dart` ajoutés par l'agent.
+- [x] **Grilles films/séries 2 colonnes en portrait** (`vod_screen.dart`, `series_screen.dart`) — `maxCrossAxisExtent: 200` → `140`, `childAspectRatio: 0.55/0.62` → `0.65`. En portrait (~360dp), 2 colonnes au lieu de 1. Commit `8308a23`.
+- [x] **Nettoyage imports inutiles** (`providers.dart`) — Suppression de `tv_mode_provider.dart` et `device_info.dart` (inutiles dans ce fichier). Commit `14c9bcc`.
+
+---
 
 ## 3. Chantiers en cours (issus du plan précédent)
 
@@ -136,7 +207,11 @@
 
 ## 4. Reporté (audit `docs/audit-complet-2026-10-12.md`)
 
-- [x] **S1** — Migration `flutter_secure_storage` — **COMPLÈTE (décision utilisateur : tout migrer)** : abstraction `SecretStore` (Keystore RSA OAEP + AES-GCM, `InMemorySecretStore` pour tests injecté via `test/flutter_test_config.dart`). Cinq familles migrées : ① PIN parental (Hive → coffre, `_migrateLegacySecrets`), ② mot de passe OpenSubtitles (prefs → coffre, l'identifiant — non sensible — reste en prefs), ③ clé API OpenSubtitles (prefs → coffre, sanitise conservé), ④ override clé API TMDB (prefs → coffre), ⑤ **mot de passe Xtream des abonnements (Hive → coffre, keyé par id)** : cache mémoire pour les lecteurs synchrones (`getActiveSubscriptionSync`), hydratation aux lectures, nettoyage à la suppression, migration au premier `init()`. Tests : `parental_pin_migration_test`, `subscription_password_migration_test`, stores adaptés + tests de migration legacy. Suite complète : **861 verts**, `dart analyze` 0.
+- [ ] **DASH authentifié** — les flux DASH nécessitant des en-têtes sensibles ou
+      personnalisés sont temporairement refusés pour éviter leur divulgation.
+      La limitation a été acceptée pour la prochaine mise à jour ; rétablir
+      leur lecture avec une protection des origines et des redirections.
+- [x] **S1** — Migration `flutter_secure_storage` — **COMPLÈTE (décision utilisateur : tout migrer)** : abstraction `SecretStore` (Keystore RSA OAEP + AES-GCM, `InMemorySecretStore` pour tests injecté via `test/flutter_test_config.dart`). Familles migrées : PIN parental (Hive → coffre, `_migrateLegacySecrets`), override clé API TMDB (prefs → coffre), **mot de passe Xtream des abonnements (Hive → coffre, keyé par id)** : cache mémoire pour les lecteurs synchrones (`getActiveSubscriptionSync`), hydratation aux lectures, nettoyage à la suppression, migration au premier `init()`. La migration historique comprenait aussi les identifiants sensibles d'OpenSubtitles, intégration retirée depuis. Tests : `parental_pin_migration_test`, `subscription_password_migration_test`, stores adaptés + tests de migration legacy. Suite complète : **861 verts**, `dart analyze` 0.
 - [x] **S2** — Signature release + `proguard-rules.pro` (+ règles R8 si sérialisation impactée) : keystore neuf PKCS12 `upload-keystore.jks` + `key.properties` gitignorés, `signingConfigs.release`, règles keep media3/videoplayer, `minifyEnabled`/`shrinkResources` actifs. **Build release validé (13/10)** : `√ Built build\app\outputs\flutter-apk\app-release.apk (71,4 Mo)`, installé sur le S20 sans crash R8.
 - [x] **armeabi-v7a** — ajouté aux architectures de l'APK release pour prendre
       en charge la TV 32 bits, aux côtés d'arm64-v8a et x86_64.
@@ -144,3 +219,5 @@
 ## 5. Hygiène dépôt
 
 - [x] **Commits** : 19 commits atomiques réalisés le 14/10, couvrant tout le reliquat (config, docs, l10n, sécurité/SecretStore, stockage Hive, OpenSubtitles, sous-titres + fork media3, tri/affinité, EPG, replay `archiveDays`, démarrage/rafraîchissement, connectivité, synopsis, métadonnées, matchmaking, bouton hamburger, avatars, UI, style). Arbre de travail propre ; suite complète verte (906 tests) et build release installé sur le S20.
+- [~] Sous-titre désactivé non acquis — `TranslatedSynopsisView` s'affiche indépendamment de `subtitleController.disable()` — fix suggéré : coupler avec `subtitleControllerProvider` ou cacher dans `player_screen` quand sous-titre off.
+

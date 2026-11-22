@@ -65,6 +65,11 @@ void main() {
     await tester.pumpWidget(_app(container, const ProfilePreferencesScreen()));
     await tester.pumpAndSettle();
 
+    await tester.scrollUntilVisible(
+      find.text('Live video preview'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Live video preview'), findsOneWidget);
     Finder switchTile() => find.widgetWithText(SwitchListTile, 'Multi TV');
     expect(tester.widget<SwitchListTile>(switchTile()).value, isTrue);

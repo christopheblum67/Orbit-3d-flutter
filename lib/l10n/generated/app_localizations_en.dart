@@ -1288,6 +1288,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailKeywords => 'Keywords';
 
   @override
+  String get detailGenres => 'Genres';
+
+  @override
   String get detailCast => 'Cast';
 
   @override
@@ -2233,6 +2236,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Contact your provider if the problem persists.';
 
   @override
+  String get connectionDnsFailure => 'Server not found (DNS)';
+
+  @override
+  String get connectionDnsFailureHelp =>
+      'Could not find the server. Check its address and your Internet connection.';
+
+  @override
+  String get connectionNetworkUnavailable => 'Network unreachable';
+
+  @override
+  String get connectionNetworkUnavailableHelp =>
+      'Could not reach the server’s network. Check your Internet connection.';
+
+  @override
+  String get connectionServerError => 'Server temporarily unavailable';
+
+  @override
   String get connectionServerUnreachable => 'Server unreachable';
 
   @override
@@ -2927,7 +2947,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
-  String get languageExample => 'English, French, etc.';
+  String get languageExample => 'Français, English, etc.';
 
   @override
   String get noneOption => 'None';
@@ -3339,6 +3359,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get playbackUnavailableMessage =>
       'This movie or episode cannot be played right now. Retry or check the connection and file format.';
+
+  @override
+  String get protectedPlaybackUnsupportedMessage =>
+      'The built-in player cannot safely play this DASH or relayed stream with protected headers.';
 
   @override
   String get greenScreenDetectedTitle => 'Video display problem detected';
@@ -4121,4 +4145,111 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get unassignedLegacyLibraryItems =>
       'Some older favorites or downloads are hidden because their original subscription is unknown. They are still saved.';
+
+  @override
+  String get forceNoSubtitles => 'Force no subtitles';
+
+  @override
+  String get forceNoSubtitlesSubtitle =>
+      'Automatically disable subtitles when starting a movie or series';
+
+  @override
+  String get backTooltip => 'Back';
+
+  @override
+  String get categoryFilters => 'Category filters';
+
+  @override
+  String get categoryFiltersSubtitle => 'Categories hidden per subscription';
+
+  @override
+  String get memoryCacheTitle => 'Memory & cache management';
+
+  @override
+  String get memoryCacheSubtitle => 'Free up space and clean up local data.';
+
+  @override
+  String get clearWatchHistoryTitle => 'Clear watch history';
+
+  @override
+  String get clearWatchHistorySubtitle =>
+      'Clears the recently watched list and resume positions.';
+
+  @override
+  String get clearWatchHistoryAction => 'Clear';
+
+  @override
+  String get clearCoverCacheTitle => 'Clear the cover cache';
+
+  @override
+  String get clearCoverCacheSubtitle =>
+      'Frees the disk space used by locally stored VOD/EPG thumbnails.';
+
+  @override
+  String get clearCoverCacheAction => 'Purge';
+
+  @override
+  String get enginesDescription =>
+      'Choose the engine used for each content type, and the fallback engine used when playback fails.';
+
+  @override
+  String get sortAdvancedTitle => 'Advanced sort options';
+
+  @override
+  String get sortAdvancedSubtitle => 'Select a mode with the remote:';
+
+  @override
+  String get sortDescRecentlyAdded => 'Content added to the list recently';
+
+  @override
+  String get sortDescResumePriority => 'Puts unfinished items at the top';
+
+  @override
+  String get sortDescByRating => 'Ranked by the ratings given';
+
+  @override
+  String get sortDescByYear => 'Chronological order by release year';
+
+  @override
+  String get sortDescByDuration => 'Sorted by content duration';
+
+  @override
+  String get sortOptionActive => 'Active';
+
+  @override
+  String get showAll => 'Show all';
+
+  @override
+  String get noActiveSubscription => 'No active subscription';
+
+  @override
+  String get noVodCategories => 'No movie categories on this panel.';
+
+  @override
+  String get noSeriesCategories => 'No series categories on this panel.';
+
+  @override
+  String get neverScanned => 'Never scanned';
+
+  @override
+  String get scannedToday => 'Scanned today';
+
+  @override
+  String get scannedYesterday => 'Scanned yesterday';
+
+  @override
+  String scannedDaysAgo(int days) {
+    return 'Scanned $days days ago';
+  }
+
+  @override
+  String subscriptionSettingsNote(String scanned) {
+    return 'Settings specific to this subscription — $scanned';
+  }
+
+  @override
+  String get rescanCategories => 'Rescan categories';
+
+  @override
+  String get scanningCategories => 'Scanning…';
 }

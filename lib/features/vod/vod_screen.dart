@@ -398,15 +398,18 @@ class _VodScreenState extends ConsumerState<VodScreen> {
         ..._withRealCounts(serverCategories, _dbCounts),
       ];
       return Scaffold(
-        body: _layout(
-          context,
-          l,
-          rail,
-          List<Movie>.unmodifiable(_pager?.items ?? const <Movie>[]),
-          enrichments,
-          affinity,
-          scrollController: _dbScroll,
-          listLoading: !(_pager?.loaded ?? false),
+        appBar: _buildAppBar(context, l),
+        body: TvSafeArea(
+          child: _layout(
+            context,
+            l,
+            rail,
+            List<Movie>.unmodifiable(_pager?.items ?? const <Movie>[]),
+            enrichments,
+            affinity,
+            scrollController: _dbScroll,
+            listLoading: !(_pager?.loaded ?? false),
+          ),
         ),
       );
     }
@@ -415,7 +418,9 @@ class _VodScreenState extends ConsumerState<VodScreen> {
     _dbSignature = '';
     _dbCountsSignature = '';
     return Scaffold(
-      body: moviesAsync.when(
+      appBar: _buildAppBar(context, l),
+      body: TvSafeArea(
+        child: moviesAsync.when(
         data: (movies) {
           if (movies.isEmpty) {
             return EmptyState(
@@ -470,7 +475,8 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           ];
 
           return _layout(
-              context, l, railCategories, visibleMovies, enrichments, affinity);
+            context, l, railCategories, visibleMovies, enrichments, affinity,
+          );
         },
         loading: () => LoadingState(
           message: l.catalogLoading,
@@ -482,8 +488,24 @@ class _VodScreenState extends ConsumerState<VodScreen> {
           onRetry: () => ref.invalidate(moviesProvider),
         ),
       ),
+      ),
     );
   }
+
+  AppBar _buildAppBar(BuildContext context, AppLocalizations l) => AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
+        title: Text(l.films),
+      );
 
   Widget _layout(
     BuildContext context,
@@ -811,4 +833,3 @@ class _VodTile extends ConsumerWidget {
   }
 }
 
-/// Champ de recherche large, avec police lisible pour la TV.

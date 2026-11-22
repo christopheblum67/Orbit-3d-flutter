@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/categories_rail.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
 import 'package:orbit_3d_flutter/features/live_tv/channel_groups.dart';
 import 'package:orbit_3d_flutter/features/live_tv/widgets/channel_grid_card.dart';
@@ -18,6 +20,7 @@ import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
+import 'package:orbit_3d_flutter/services/api_service.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 
 /// Replay (catch-up) — navigation à deux niveaux.
@@ -67,36 +70,53 @@ class _ReplayScreenState extends ConsumerState<ReplayScreen> {
     final selected = _selected;
 
     return Scaffold(
-      body: channelsAsync.when(
-        loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
-        error: (err, _) => Center(child: Text(userFriendlyError(err))),
-        data: (channels) {
-          // Le catalogue est la seule source du niveau 1 : `supportsReplay`
-          // vient de `get_live_streams`, déjà chargé pour le Live TV. Aucun
-          // appel supplémentaire.
-          final replayable = channels.where((c) => c.supportsReplay).toList();
-          final open = selected;
-          if (open == null) {
-            if (replayable.isEmpty) {
-              return const _NoReplayAtAll();
-            }
-            return _ChannelGrid(channels: replayable, onOpen: _open);
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ChannelBand(
-                channel: open,
-                onBack: _close,
-                onRefresh: () {
-                  channelReplaysCache.invalidateChannel(open.id);
-                  ref.invalidate(channelReplaysProvider(open.id));
-                },
+      appBar: selected == null
+          ? AppBar(
+              leading: TvFocus(
+                onActivate: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  onPressed: () =>
+                      context.canPop() ? context.pop() : context.go('/home'),
+                ),
               ),
-              Expanded(child: _ChannelReplaysView(channel: open)),
-            ],
-          );
-        },
+              title: Text(AppLocalizations.of(context).replay),
+            )
+          : null,
+      body: TvSafeArea(
+        child: channelsAsync.when(
+          loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
+          error: (err, _) => Center(child: Text(userFriendlyError(err))),
+          data: (channels) {
+            // Le catalogue est la seule source du niveau 1 : `supportsReplay`
+            // vient de `get_live_streams`, déjà chargé pour le Live TV. Aucun
+            // appel supplémentaire.
+            final replayable = channels.where((c) => c.supportsReplay).toList();
+            final open = selected;
+            if (open == null) {
+              if (replayable.isEmpty) {
+                return const _NoReplayAtAll();
+              }
+              return _ChannelGrid(channels: replayable, onOpen: _open);
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ChannelBand(
+                  channel: open,
+                  onBack: _close,
+                  onRefresh: () {
+                    channelReplaysCache.invalidateChannel(open.id);
+                    ref.invalidate(channelReplaysProvider(open.id));
+                  },
+                ),
+                Expanded(child: _ChannelReplaysView(channel: open)),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -199,29 +219,33 @@ class _ChannelGridState extends ConsumerState<_ChannelGrid> {
         Expanded(
           child: visible.isEmpty
               ? _EmptyCategory(groupId: _selectedGroup)
-              : GridView.builder(
-                  padding: channelGridPadding,
-                  // Même tuile que le Live TV : le Replay montre des chaînes,
-                  // il doit les montrer comme le Live TV.
-                  gridDelegate: channelGridDelegate,
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) {
-                    final channel = visible[index];
-                    return ChannelGridCard(
-                      name: channel.name,
-                      logoUrl: channel.logoUrl,
-                      badgeNumber: channel.orderNum,
-                      favoriteEntry: FavoriteEntry(
-                        type: ContentType.live,
-                        id: channel.id,
-                        title: channel.name,
-                        posterUrl: channel.logoUrl,
-                        subtitle: channel.groupLabel,
-                        streamUrl: channel.streamUrl,
-                      ),
-                      onTap: () => widget.onOpen(channel),
-                    );
-                  },
+              : FocusTraversalGroup(
+                  policy: OrderedTraversalPolicy(),
+                  child: GridView.builder(
+                    padding: channelGridPadding,
+                    // Même tuile que le Live TV : le Replay montre des chaînes,
+                    // il doit les montrer comme le Live TV.
+                    gridDelegate: channelGridDelegate(isTv: context.isTv),
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) {
+                      final channel = visible[index];
+                      return ChannelGridCard(
+                        name: channel.name,
+                        logoUrl: channel.logoUrl,
+                        badgeNumber: channel.orderNum,
+                        autofocus: index == 0,
+                        favoriteEntry: FavoriteEntry(
+                          type: ContentType.live,
+                          id: channel.id,
+                          title: channel.name,
+                          posterUrl: channel.logoUrl,
+                          subtitle: channel.groupLabel,
+                          streamUrl: channel.streamUrl,
+                        ),
+                        onTap: () => widget.onOpen(channel),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
@@ -392,7 +416,7 @@ class _ChannelBand extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: Text(
-                      _archiveBadgeLabel(l, channel),
+                      replayWindowBadgeLabel(l, channel),
                       style: theme.textTheme.labelSmall
                           ?.copyWith(color: scheme.onSurfaceVariant),
                     ),
@@ -401,7 +425,8 @@ class _ChannelBand extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
+            tooltip:
+                MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
             icon: const Icon(Icons.refresh),
             onPressed: onRefresh,
           ),
@@ -409,15 +434,27 @@ class _ChannelBand extends StatelessWidget {
       ),
     );
   }
+}
 
-  /// Fenêtre de replay du compte, en clair.
-  ///
-  /// `catchup-days` / `tv_archive_duration` décrit ce que le compte permet
-  /// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
-  /// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
-  /// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
-  static String _archiveBadgeLabel(AppLocalizations l, Channel channel) =>
-      l.replayWindowBadge(channel.archiveDays);
+/// Fenêtre de replay du compte, en clair.
+///
+/// `catchup-days` / `tv_archive_duration` décrit ce que le compte permet
+/// réellement. Sans elle à l'écran, un programme absent semblait cassé alors
+/// que la limite venait du compte : l'utilisateur ne pouvait pas distinguer
+/// « le panel ne publie rien » de « c'est plus vieux que mon abonnement ».
+///
+/// **Toujours exprimée en jours.** La source unique est
+/// [ApiService.effectiveArchiveDays] : la durée annoncée par l'abonnement,
+/// sinon le repli de 14 jours. L'ancienne version partait de
+/// `channel.archiveDays` (brut) et, quand le panel ne renseignait rien,
+/// retombait sur `archiveWindow(...).inHours` — soit « Replay 336 h » au lieu
+/// de « Replay 14 j », en plus de diverger de `channelCatchUpProvider`.
+String replayWindowBadgeLabel(AppLocalizations l, Channel channel) {
+  final days = ApiService.effectiveArchiveDays(channel);
+  if (days > 0) return l.replayWindowBadge(days);
+  // Jamais atteint aujourd'hui (le repli vaut 14 j) : garde-fou qui évite
+  // d'afficher « Replay 0 j » si le repli était mis à jour à 0.
+  return l.replayWindowBadgeHours(ApiService.archiveWindow(channel).inHours);
 }
 
 /// Le détail : bandeau de chaîne, onglets de jours, puis les programmes du
@@ -546,6 +583,8 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
   /// programme. Un « aucun replay » nu ne permettait aucune de ces réponses.
   Widget _noProgram(ThemeData theme, ColorScheme scheme) {
     final l = AppLocalizations.of(context);
+    // La distinction « le panel ne publie rien » / « au-delà de la fenêtre »
+    // reste portée par ce que l'abonnement annonce.
     final days = widget.channel.archiveDays;
     return Center(
       child: Padding(
@@ -578,7 +617,9 @@ class _ReplayDayViewState extends State<_ReplayDayView> {
     final l = AppLocalizations.of(context);
     if (diff == 0) return l.replayToday;
     if (diff == 1) return l.replayYesterday;
-    return MaterialLocalizations.of(context).formatShortMonthDay(day).toUpperCase();
+    return MaterialLocalizations.of(context)
+        .formatShortMonthDay(day)
+        .toUpperCase();
   }
 }
 

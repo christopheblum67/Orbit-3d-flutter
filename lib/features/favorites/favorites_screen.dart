@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/utils/device_type.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
 import 'package:orbit_3d_flutter/features/favorites/widgets/favorite_toggle.dart';
@@ -26,60 +27,35 @@ Future<void> confirmClearAllFavorites(
   final l = AppLocalizations.of(context);
   final cancelFocus = FocusNode();
   final confirmFocus = FocusNode();
-
-  void requestFocus(FocusNode focus) {
-    if (context.mounted) {
-      FocusScope.of(context).requestFocus(focus);
+  KeyEventResult navigate(KeyEvent event, FocusNode target) {
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+            event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+      target.requestFocus();
+      return KeyEventResult.handled;
     }
+    return KeyEventResult.ignored;
   }
-
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: Text(l.deleteAllConfirm),
       content: Text(l.favoritesClearPrompt(total)),
       actions: [
-        Focus(
+        TvFocus(
           focusNode: cancelFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(dialogContext, false);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(confirmFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
+          autofocus: true,
+          onKeyEvent: (_, event) => navigate(event, confirmFocus),
+          onActivate: () => Navigator.pop(dialogContext, false),
           child: TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l.cancel),
           ),
         ),
-        Focus(
+        TvFocus(
           focusNode: confirmFocus,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.select ||
-                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-              Navigator.pop(dialogContext, true);
-              return KeyEventResult.handled;
-            }
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-              requestFocus(cancelFocus);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
+          onKeyEvent: (_, event) => navigate(event, cancelFocus),
+          onActivate: () => Navigator.pop(dialogContext, true),
           child: FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l.deleteAll),
@@ -123,7 +99,7 @@ class FavoritesLiveSection extends ConsumerWidget {
     };
 
     return ListView.builder(
-      cacheExtent: 500,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
       padding: const EdgeInsets.all(16),
       addAutomaticKeepAlives: false,
       itemCount: entries.length,
@@ -255,8 +231,13 @@ class FavoritesVodSection extends ConsumerWidget {
     ];
 
     return GridView.builder(
-      cacheExtent: 500,
-      padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: EdgeInsets.fromLTRB(
+        context.screenPadding,
+        16,
+        context.screenPadding,
+        16,
+      ),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
         context,
@@ -412,8 +393,13 @@ class FavoritesSeriesSection extends ConsumerWidget {
     };
 
     return GridView.builder(
-      cacheExtent: 500,
-      padding: const EdgeInsets.all(16),
+      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+      padding: EdgeInsets.fromLTRB(
+        context.screenPadding,
+        16,
+        context.screenPadding,
+        16,
+      ),
       addAutomaticKeepAlives: false,
       gridDelegate: mediaCardGridDelegate(
         context,
@@ -548,3 +534,4 @@ class FavoritesReplaySection extends ConsumerWidget {
     );
   }
 }
+

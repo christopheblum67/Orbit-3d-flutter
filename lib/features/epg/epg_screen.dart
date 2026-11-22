@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
@@ -14,6 +15,8 @@ import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/core/widgets/error_state.dart';
 import 'package:orbit_3d_flutter/core/widgets/loading_state.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/core/utils/epg_lookup.dart';
 import 'package:orbit_3d_flutter/features/epg/replay_utils.dart';
 import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
@@ -78,6 +81,9 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
   Channel? _selectedChannel;
   late final EpgTimelineController _timelineController;
   final Set<String> _loadingChannels = {};
+  GlobalKey<_EpgGrid2DWrapperState> _gridKey = GlobalKey();
+  String? _gridKeyCategory;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -97,10 +103,84 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
     super.dispose();
   }
 
+  Future<void> _refreshAll() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      final initialLoad = _gridKey.currentState?._initialLoad;
+      if (initialLoad != null) await safeAsync(() => initialLoad);
+      if (!mounted) return;
+
+      final api = ref.read(apiServiceProvider);
+      final cache = ref.read(epgDataCacheProvider);
+      final epgResult = await safeAsync(() => cache.forceRefresh(api));
+      if (!mounted) return;
+      if (epgResult.isSuccess) {
+        ref.read(shortEpgCacheProvider).clear();
+        ref.invalidate(channelEpgWindowProvider);
+        ref.invalidate(channelEpgProvider);
+      }
+
+      final channelsResult = await safeAsync(() async {
+        if (ref.read(activeSubscriptionProvider)?.type == SubscriptionType.m3u) {
+          ref.invalidate(m3uPlaylistProvider);
+          ref.invalidate(liveCategoriesFromM3UProvider);
+        }
+        ref.invalidate(liveChannelsAllProvider);
+        ref.invalidate(liveChannelsProvider);
+        await ref.read(liveChannelsProvider.future);
+      });
+      if (!mounted) return;
+
+      final currentLoad = _gridKey.currentState?._initialLoad;
+      if (currentLoad != null) await safeAsync(() => currentLoad);
+      if (!mounted) return;
+      setState(() => _gridKey = GlobalKey());
+      if (!epgResult.isSuccess || !channelsResult.isSuccess) {
+        final l = AppLocalizations.of(context);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(
+              !channelsResult.isSuccess
+                  ? l.epgChannelsLoadFailed
+                  : l.errorLoading(l.epgGuideTv),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
-      body: _buildGrid2DTab(),
+      appBar: AppBar(
+        leading: context.canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () => context.pop(),
+              )
+            : null,
+        title: Text(l.epgGuideTv),
+        actions: [
+          IconButton(
+            icon: _refreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            tooltip: l.refreshAction,
+            onPressed: _refreshing ? null : _refreshAll,
+          ),
+        ],
+      ),
+      body: TvSafeArea(child: _buildGrid2DTab()),
     );
   }
 
@@ -115,7 +195,7 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
         if (channels.isEmpty) {
           return Center(child: Text(l.noChannelsAvailable));
         }
-        const ungroupedLabel = 'Non groupé';
+        const ungroupedLabel = '__epg_ungrouped__';
         String categoryOf(Channel c) =>
             c.groupLabel.isEmpty ? ungroupedLabel : c.groupLabel;
         final groupCounts = <String, int>{};
@@ -132,7 +212,16 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               count: entry.value,
             ),
         ];
-        final effective = _gridCategory ?? categories.first.id;
+        final selected = _gridCategory;
+        final effective = selected == 'fav' ||
+                selected == 'recent' ||
+                categories.any((category) => category.id == selected)
+            ? selected!
+            : categories.first.id;
+        if (_gridKeyCategory != effective) {
+          _gridKeyCategory = effective;
+          _gridKey = GlobalKey();
+        }
         final favIds = favoriteEntries.values
             .where((e) => e.type == ContentType.live)
             .map((e) => e.id)
@@ -193,11 +282,13 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
                       ),
                     )
                   : _EpgGrid2DWrapper(
-                      key: ValueKey(effective),
+                      key: _gridKey,
                       channels: visible.map((c) => c.name).toList(),
                       channelObjects: visible,
                       timelineController: _timelineController,
                       loadingChannels: _loadingChannels,
+                      refreshing: _refreshing,
+                      onRefresh: _refreshAll,
                       onProgramSelected: (program, channel) {
                         setState(() {
                           _selectedProgram = program;
@@ -286,43 +377,67 @@ class _EpgScreenState extends ConsumerState<EpgScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    icon: const Icon(Icons.play_arrow),
-                    label: Text(l.watchLive),
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      context.push(
-                        '/player',
-                        extra: PlayerRouteData(
-                          streamUrl: channel.streamUrl,
-                          title: channel.name,
-                          channels: channels,
-                          index: channels.indexOf(channel),
-                          contentType: PlaybackContentType.live,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                if (replayable) ...[
-                  const SizedBox(width: 12),
+            FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: Row(
+                children: [
                   Expanded(
-                    child: FilledButton.tonalIcon(
-                      icon: const Icon(Icons.replay),
-                      label: const Text('Replay'),
-                      onPressed: () {
+                    child: TvFocus(
+                      autofocus: true,
+                      onActivate: () {
                         Navigator.pop(sheetContext);
-                        _playReplay(context, program, channel);
+                        context.push(
+                          '/player',
+                          extra: PlayerRouteData(
+                            streamUrl: channel.streamUrl,
+                            title: channel.name,
+                            channels: channels,
+                            index: channels.indexOf(channel),
+                            contentType: PlaybackContentType.live,
+                          ),
+                        );
                       },
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(l.watchLive),
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          context.push(
+                            '/player',
+                            extra: PlayerRouteData(
+                              streamUrl: channel.streamUrl,
+                              title: channel.name,
+                              channels: channels,
+                              index: channels.indexOf(channel),
+                              contentType: PlaybackContentType.live,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
+                  if (replayable) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TvFocus(
+                        onActivate: () {
+                          Navigator.pop(sheetContext);
+                          _playReplay(context, program, channel);
+                        },
+                        child: FilledButton.tonalIcon(
+                          icon: const Icon(Icons.replay),
+                          label: Text(l.epgStartReplay),
+                          onPressed: () {
+                            Navigator.pop(sheetContext);
+                            _playReplay(context, program, channel);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            if (channel.supportsReplay) ...[
+              ),
+            ),            if (channel.supportsReplay) ...[
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: () {
@@ -463,7 +578,9 @@ class _CategoryFilterBar extends StatelessWidget {
     final labelled = count > 0 ? '$label ($count)' : label;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
+      child: TvFocus(
+        onActivate: onTap,
+        child: FilterChip(
         label: Text(labelled),
         selected: selected,
         onSelected: (_) => onTap(),
@@ -474,6 +591,7 @@ class _CategoryFilterBar extends StatelessWidget {
           color: selected ? const Color(0xFF8B5CF6) : Colors.white70,
           fontWeight: FontWeight.w700,
           fontSize: 12,
+        ),
         ),
       ),
     );
@@ -487,6 +605,8 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
   final EpgTimelineController timelineController;
   final void Function(EPGProgram program, Channel channel)? onProgramSelected;
   final Set<String> loadingChannels;
+  final bool refreshing;
+  final Future<void> Function() onRefresh;
 
   const _EpgGrid2DWrapper({
     super.key,
@@ -494,6 +614,8 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
     required this.channelObjects,
     required this.timelineController,
     required this.loadingChannels,
+    required this.refreshing,
+    required this.onRefresh,
     this.onProgramSelected,
   });
 
@@ -504,10 +626,16 @@ class _EpgGrid2DWrapper extends ConsumerStatefulWidget {
 class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
   final Map<String, List<EPGProgram>> _epgData = {};
 
+  /// Instant du dernier chargement réussi, affiché dans le bandeau de
+  /// fraîcheur. `null` tant que rien n'a été chargé.
+  DateTime? _lastLoadedAt;
+
+  Future<void>? _initialLoad;
+
   @override
   void initState() {
     super.initState();
-    _loadAllEpg();
+    _initialLoad = _loadAllEpg();
   }
 
   Future<void> _loadAllEpg() async {
@@ -530,7 +658,9 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     // des lignes vides alors que le dump contenait les programmes.
     if (!mounted) return;
 
-    LoggerService.instance.info(
+    // Journal de diagnostic d'ouverture : `debug`, pas `info`, car il part
+    // vers logcat à chaque chargement d'écran et n'intéresse que le debug.
+    LoggerService.instance.debug(
       'EPG: XMLTV chargé (${resolved.isSuccess ? 'ok' : 'échec'}), '
       '$widget.loadingChannels chaînes à résoudre',
     );
@@ -575,9 +705,8 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
         );
       }
       await Future.wait(tasks);
-      if (mounted) {
-        setState(() => _epgData.addAll(chunkResults));
-      }
+      if (!mounted) return;
+      setState(() => _epgData.addAll(chunkResults));
     }
 
     // 2 bis. Bilan mesuré, pas deviné : `inWindow.isEmpty` est la seule source
@@ -587,12 +716,18 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
     final missing = missingIds.length;
     if (mounted) setState(() {});
 
-    LoggerService.instance.info(
+    LoggerService.instance.debug(
       'EPG: $total chaînes, ${total - missing} avec programmes, '
       '$missing sans (aucun programme dans la fenêtre) — ${_epgData.length} '
       'lignes construites.${missingIds.isEmpty ? '' : ' Sans résultat pour : '
           '${missingIds.take(8).join(', ')}'}',
     );
+
+    if (mounted) {
+      // `cache` est lu AVANT toute suspension (règle Riverpod) : on relit son
+      // horodatage local plutôt que de repasser par `ref`.
+      setState(() => _lastLoadedAt = cache.fetchedAt);
+    }
   }
 
   Future<void> _loadOne(
@@ -610,7 +745,10 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
       () => ref.read(channelEpgWindowProvider(epgId).future),
       context: '_loadOne channelEpgWindowProvider',
     );
-    if (!mounted) return;
+    if (!mounted) {
+      widget.loadingChannels.remove(channelName);
+      return;
+    }
     if (result.isSuccess) {
       // Fenêtre de la journée : minuit → minuit, et une seule définition pour
       // toute l'application.
@@ -657,52 +795,137 @@ class _EpgGrid2DWrapperState extends ConsumerState<_EpgGrid2DWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadAllEpg,
-      child: EpgGrid2DView(
-        channels: widget.channels,
-        epgData: _epgData,
-        pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
-        replayChannels: {
-          for (final c in widget.channelObjects)
-            if (c.supportsReplay) c.name,
-        },
-        loadingChannels: widget.loadingChannels,
-        onProgramTap: (program, channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          widget.onProgramSelected?.call(program, channel);
-        },
-        onChannelTap: (channelName) {
-          // Invalidate EPG cache on zap to free memory
-          ref.read(epgDataCacheProvider).invalidate();
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          context.push(
-            '/player',
-            extra: PlayerRouteData(
-              streamUrl: channel.streamUrl,
-              title: channel.name,
-              channels: widget.channelObjects,
-              index: widget.channelObjects.indexOf(channel),
-              contentType: PlaybackContentType.live,
+    return Column(
+      children: [
+        _EpgFreshnessBar(
+          loadedAt: _lastLoadedAt,
+          refreshing: widget.refreshing,
+          onRefresh: widget.onRefresh,
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh,
+            child: EpgGrid2DView(
+              channels: widget.channels,
+              epgData: _epgData,
+              isTv: ref.watch(tvModeProvider),
+              pixelsPerMinute: EpgTimelineController.defaultPixelsPerMinute,
+              replayChannels: {
+                for (final c in widget.channelObjects)
+                  if (c.supportsReplay) c.name,
+              },
+              loadingChannels: widget.loadingChannels,
+              onProgramTap: (program, channelName) {
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                widget.onProgramSelected?.call(program, channel);
+              },
+              onChannelTap: (channelName) {
+                // Invalidate EPG cache on zap to free memory
+                ref.read(epgDataCacheProvider).invalidate();
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                context.push(
+                  '/player',
+                  extra: PlayerRouteData(
+                    streamUrl: channel.streamUrl,
+                    title: channel.name,
+                    channels: widget.channelObjects,
+                    index: widget.channelObjects.indexOf(channel),
+                    contentType: PlaybackContentType.live,
+                  ),
+                );
+              },
+              onChannelLongPress: (channelName) {
+                final channel = widget.channelObjects
+                    .firstWhere((c) => c.name == channelName);
+                if (channel.supportsReplay) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CatchUpScreen(channel: channel),
+                    ),
+                  );
+                }
+              },
+              // Use shared timeline controller
+              timelineController: widget.timelineController,
             ),
-          );
-        },
-        onChannelLongPress: (channelName) {
-          final channel =
-              widget.channelObjects.firstWhere((c) => c.name == channelName);
-          if (channel.supportsReplay) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CatchUpScreen(channel: channel),
-              ),
-            );
-          }
-        },
-        // Use shared timeline controller
-        timelineController: widget.timelineController,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bandeau de fraîcheur de l'EPG, avec bouton de rafraîchissement forcé.
+///
+/// Répond à deux manques constatés : rien n'indiquait QUAND les données
+/// avaient été chargées, et « tirer pour rafraîchir » servait le cache mémoire
+/// sans jamais retélécharger — donc sans effet visible ni explication.
+class _EpgFreshnessBar extends StatelessWidget {
+  const _EpgFreshnessBar({
+    required this.loadedAt,
+    required this.refreshing,
+    required this.onRefresh,
+  });
+
+  final DateTime? loadedAt;
+  final bool refreshing;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final at = loadedAt;
+    final String label;
+    final Color color;
+    if (refreshing) {
+      label = l.updating;
+      color = const Color(0xFF8B5CF6);
+    } else if (at == null) {
+      label = l.epgNoDataTitle;
+      color = Colors.white38;
+    } else {
+      final time = MaterialLocalizations.of(context)
+          .formatTimeOfDay(TimeOfDay.fromDateTime(at));
+      label = '${l.homeRefreshDone} $time';
+      color = Colors.white54;
+    }
+
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      color: const Color(0xFF13151B),
+      child: Row(
+        children: [
+          if (refreshing)
+            const SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(Icons.cloud_done_outlined, size: 14, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: 11),
+            ),
+          ),
+          TvFocus(
+            onActivate: refreshing ? null : () => onRefresh(),
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              color: Colors.white70,
+              tooltip: l.refreshAction,
+              onPressed: refreshing ? null : () => onRefresh(),
+            ),
+          ),
+        ],
       ),
     );
   }

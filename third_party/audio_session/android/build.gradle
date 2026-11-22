@@ -1,0 +1,26 @@
+group = "com.ryanheise.audio_session"
+version "1.0"
+
+// Copie locale de audio_session 0.1.25 (sources Java uniquement).
+// Le build.gradle du cache Pub cible AGP 9.0.1 ; on s'appuie sur l'AGP déclaré
+// dans android/settings.gradle (9.1.1) et sur l'ancien DSL
+// (`android.newDsl=false`), conformément au template Flutter 3.47.x.
+apply plugin: "com.android.library"
+
+android {
+    namespace "com.ryanheise.audio_session"
+    compileSdk 36
+
+    defaultConfig {
+        minSdkVersion 21
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "androidx.media:media:1.7.0"
+}

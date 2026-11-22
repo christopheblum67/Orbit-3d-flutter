@@ -19,35 +19,51 @@ import io.flutter.plugin.common.MethodChannel
 object PipChannel {
     private const val CHANNEL = "orbit/pip"
 
+    @Volatile private var channel: MethodChannel? = null
+
     fun register(engine: FlutterEngine, activity: FlutterActivity) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "isSupported" -> {
-                        val supported = activity.packageManager
-                            .hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-                        result.success(supported)
-                    }
-                    "enter" -> {
-                        if (Build.VERSION.SDK_INT >= 26 &&
-                            activity.packageManager
-                                .hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-                        ) {
-                            val width = (call.argument<Number>("width") ?: 16).toInt()
-                            val height = (call.argument<Number>("height") ?: 9).toInt()
-                            val safeW = if (width > 0) width else 16
-                            val safeH = if (height > 0) height else 9
-                            val params = PictureInPictureParams.Builder()
-                                .setAspectRatio(Rational(safeW, safeH))
-                                .build()
-                            activity.enterPictureInPictureMode(params)
-                            result.success(true)
-                        } else {
-                            result.success(false)
-                        }
-                    }
-                    else -> result.notImplemented()
+        val ch = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        channel = ch
+        ch.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isSupported" -> {
+                    val supported = activity.packageManager
+                        .hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                    result.success(supported)
                 }
+                "enter" -> {
+                    if (Build.VERSION.SDK_INT >= 26 &&
+                        activity.packageManager
+                            .hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                    ) {
+                        val width = (call.argument<Number>("width") ?: 16).toInt()
+                        val height = (call.argument<Number>("height") ?: 9).toInt()
+                        val safeW = if (width > 0) width else 16
+                        val safeH = if (height > 0) height else 9
+                        val params = PictureInPictureParams.Builder()
+                            .setAspectRatio(Rational(safeW, safeH))
+                            .build()
+                        activity.enterPictureInPictureMode(params)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                else -> result.notImplemented()
             }
+        }
+    }
+
+    /**
+     * Detache le canal : retire le handler du binaryMessenger et libere la
+     * reference statique au MethodChannel.
+     *
+     * Appele depuis [MainActivity.onDestroy] avant la destruction de l'engine.
+     * Le handler, qui capture l'Activity / le Context, n'est alors plus
+     * atteignable depuis une racine statique.
+     */
+    fun detach() {
+        channel?.setMethodCallHandler(null)
+        channel = null
     }
 }

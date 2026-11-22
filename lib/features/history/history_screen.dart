@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' hide AsyncResult;
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/widgets/widgets.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/services/history_service.dart';
 import 'package:orbit_3d_flutter/services/user_friendly_error.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
@@ -55,18 +56,35 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               message: l.historyEmptyHint,
             );
           }
-          return RefreshIndicator(
-            onRefresh: _loadHistory,
-            child: ListView.builder(
+          final firstPlayable = hist.indexWhere((e) => e.streamUrl.isNotEmpty);
+          return FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: RefreshIndicator(
+              onRefresh: _loadHistory,
+              child: ListView.builder(
               cacheExtent: 500,
               padding: const EdgeInsets.all(16),
               addAutomaticKeepAlives: false,
               itemCount: hist.length,
               itemBuilder: (context, index) {
                 final entry = hist[index];
+                void openEntry() => context.go(
+                      Uri(
+                        path: '/player',
+                        queryParameters: {
+                          'url': entry.streamUrl,
+                          'title': entry.title,
+                          'type': entry.type,
+                        },
+                      ).toString(),
+                    );
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: AppCard(
+                  child: TvFocus(
+                    autofocus: index == firstPlayable,
+                    onActivate: entry.streamUrl.isEmpty ? null : openEntry,
+                    child: AppCard(
+                      focusable: false,
                     child: ListTile(
                       leading: Container(
                         width: 52,
@@ -102,20 +120,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           : const Icon(Icons.play_arrow_rounded),
                       onTap: entry.streamUrl.isEmpty
                           ? null
-                          : () => context.go(
-                                Uri(
-                                  path: '/player',
-                                  queryParameters: {
-                                    'url': entry.streamUrl,
-                                    'title': entry.title,
-                                    'type': entry.type,
-                                  },
-                                ).toString(),
-                              ),
+                          : openEntry,
+                    ),
                     ),
                   ),
                 );
               },
+              ),
             ),
           );
         },

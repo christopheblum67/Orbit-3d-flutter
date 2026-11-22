@@ -62,27 +62,41 @@ class _OrbitLoadingCinematicState extends State<OrbitLoadingCinematic>
                     final elapsed = _controller.value * 3500;
                     final blinkOff = (elapsed >= 1900 && elapsed < 2100) ||
                         (elapsed >= 2500 && elapsed < 2700);
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (var i = 0; i < 5; i++)
-                          Opacity(
-                            key: ValueKey('orbit-letter-$i'),
-                            opacity: reducedMotion ||
-                                    (elapsed >= i * 250 && !blinkOff)
-                                ? 1
-                                : 0,
-                            child: Text(
-                              'ORBIT'[i],
-                              style: const TextStyle(
-                                color: Color(0xFF00CFE8),
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 10,
-                              ),
+                    return FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'ORBIT',
+                            key: ValueKey('orbit-fixed'),
+                            style: TextStyle(
+                              color: Color(0xFF00CFE8),
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 4,
                             ),
                           ),
-                      ],
+                          const SizedBox(width: 8),
+                          for (var i = 0; i < 4; i++)
+                            Opacity(
+                              key: ValueKey('iptv-letter-$i'),
+                              opacity: reducedMotion ||
+                                      (elapsed >= (i + 1) * 250 && !blinkOff)
+                                  ? 1
+                                  : 0,
+                              child: Text(
+                                'IPTV'[i],
+                                style: const TextStyle(
+                                  color: Color(0xFF00CFE8),
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 4,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     );
                   },
                 ),

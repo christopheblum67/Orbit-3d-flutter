@@ -83,4 +83,29 @@ void main() {
       expect(c.pixelsToTime(60), newStart.add(const Duration(hours: 1)));
     });
   });
+
+  group('mémorisation du défilement', () {
+    test('aucune position mémorisée au départ', () {
+      expect(make(4).hasSavedScroll, false);
+    });
+
+    test('saveScrollOffsets mémorise les deux axes', () {
+      final c = make(4);
+      c.saveScrollOffsets(horizontal: 123.5, vertical: 456);
+      expect(c.hasSavedScroll, true);
+      expect(c.lastHorizontalOffset, 123.5);
+      expect(c.lastVerticalOffset, 456);
+    });
+
+    test('une position à zéro compte comme mémorisée', () {
+      // Sinon, au retour sur une catégorie, la grille recréerait sur l'heure
+      // courante alors que l'utilisateur s'était placé volontairement à
+      // l'origine de la journée.
+      final c = make(4);
+      c.saveScrollOffsets(horizontal: 0, vertical: 0);
+      expect(c.hasSavedScroll, true);
+      expect(c.lastHorizontalOffset, 0);
+      expect(c.lastVerticalOffset, 0);
+    });
+  });
 }

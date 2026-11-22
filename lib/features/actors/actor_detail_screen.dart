@@ -635,7 +635,7 @@ class _FilmographyCard extends StatelessWidget {
           ),
         ),
       ),
-    );
+      );
   }
 
   Widget _placeholder(ColorScheme scheme) => Container(

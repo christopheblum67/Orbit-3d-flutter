@@ -147,43 +147,48 @@ class _ProfileSelectionScreenState
     if (!await _authorize(profile) || !mounted) return;
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l.deleteProfileConfirm),
-        content: Text(
-          l.profileDeleteBody(profile.firstName),
-        ),
-        actions: [
-          TextButton(
-            autofocus: true,
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(l.cancel),
-          ),
-          FilledButton.tonal(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.errorContainer,
-              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+      builder: (dialogContext) {
+        Future<void> deleteProfile() async {
+          Navigator.of(dialogContext).pop();
+          final storage = ref.read(storageServiceProvider);
+          await storage.deleteProfile(profile.id);
+          if (profile.id == storage.getSetting('last_profile_id')) {
+            await storage.setSetting('last_profile_id', null);
+          }
+          final current = ref.read(currentProfileProvider);
+          if (current?.id == profile.id) {
+            ref.read(currentProfileProvider.notifier).setUserProfile(null);
+            ref.read(profileTypeProvider.notifier).clear();
+          }
+          ref.invalidate(profilesProvider);
+        }
+
+        return AlertDialog(
+          title: Text(l.deleteProfileConfirm),
+          content: Text(l.profileDeleteBody(profile.firstName)),
+          actions: [
+            TvFocus(
+              autofocus: true,
+              onActivate: () => Navigator.of(dialogContext).pop(),
+              child: TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(l.cancel),
+              ),
             ),
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              final storage = ref.read(storageServiceProvider);
-              await storage.deleteProfile(profile.id);
-              if (profile.id ==
-                  ref
-                      .read(storageServiceProvider)
-                      .getSetting('last_profile_id')) {
-                await storage.setSetting('last_profile_id', null);
-              }
-              final current = ref.read(currentProfileProvider);
-              if (current?.id == profile.id) {
-                ref.read(currentProfileProvider.notifier).setUserProfile(null);
-                ref.read(profileTypeProvider.notifier).clear();
-              }
-              ref.invalidate(profilesProvider);
-            },
-            child: Text(l.profileDelete),
-          ),
-        ],
-      ),
+            TvFocus(
+              onActivate: deleteProfile,
+              child: FilledButton.tonal(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
+                  foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+                onPressed: deleteProfile,
+                child: Text(l.profileDelete),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

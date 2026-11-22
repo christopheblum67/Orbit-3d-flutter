@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
@@ -63,13 +65,27 @@ Future<bool> requestAdvancedAccess(BuildContext context) async {
         onSubmitted: (_) => Navigator.of(dialogContext).pop(true),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(l.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(l.advancedAccessConfirm),
+        // Navigation D-pad TV : halos + Enter sur Annuler / Valider.
+        FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Row(
+            children: [
+              TvFocus(
+                onActivate: () => Navigator.of(dialogContext).pop(false),
+                child: TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(l.cancel),
+                ),
+              ),
+              TvFocus(
+                onActivate: () => Navigator.of(dialogContext).pop(true),
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(l.advancedAccessConfirm),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -200,7 +216,8 @@ class _AdvancedSettingsScreenState
         ),
         title: Text(l.advancedSettingsTitle),
       ),
-      body: DpadScope(
+      body: TvSafeArea(
+        child: DpadScope(
           child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -216,6 +233,8 @@ class _AdvancedSettingsScreenState
           const SizedBox(height: 24),
           SettingsSectionTitle(l.sectionTmdb),
           const TmdbApiKeyTile(),
+          const SizedBox(height: 24),
+          const ForceNoSubtitlesTile(),
           const SizedBox(height: 24),
           SettingsSectionTitle(l.profileProtection),
           Text(
@@ -254,7 +273,7 @@ class _AdvancedSettingsScreenState
             active: tmdbKey.isNotEmpty,
           ),
         ],
-      )),
+      ))),
     );
   }
 }
@@ -521,5 +540,25 @@ class _TmdbApiKeyTileState extends ConsumerState<TmdbApiKeyTile> {
     await ref.read(tmdbApiKeyOverrideProvider.notifier).setOverride('');
     _controller.clear();
     if (mounted) setState(() {});
+  }
+}
+
+/// Tuile pour forcer l'absence de sous-titres au lancement (Films/Séries).
+class ForceNoSubtitlesTile extends ConsumerWidget {
+  const ForceNoSubtitlesTile({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context);
+    final settings = ref.watch(advancedSettingsProvider);
+
+    return SettingsSwitchTile(
+      title: l.forceNoSubtitles,
+      subtitle: l.forceNoSubtitlesSubtitle,
+      value: settings.forceNoSubtitles,
+      onChanged: (v) =>
+          ref.read(advancedSettingsProvider.notifier).setForceNoSubtitles(v),
+      icon: Icons.subtitles_off_outlined,
+    );
   }
 }

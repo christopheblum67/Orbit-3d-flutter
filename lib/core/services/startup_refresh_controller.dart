@@ -105,7 +105,7 @@ class StartupRefreshController extends RefreshStepsController {
   void _startDeferred() {
     final pending = List.of(_deferred);
     _deferred.clear();
-    if (pending.isEmpty) return;
+    if (pending.isEmpty || _deferredStillValid?.call() == false) return;
     unawaited(() async {
       await Future<void>.delayed(const Duration(milliseconds: 2500));
       for (final item in pending) {

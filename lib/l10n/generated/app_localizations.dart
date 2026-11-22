@@ -2308,6 +2308,12 @@ abstract class AppLocalizations {
   /// **'Mots-clés'**
   String get detailKeywords;
 
+  /// No description provided for @detailGenres.
+  ///
+  /// In fr, this message translates to:
+  /// **'Genres'**
+  String get detailGenres;
+
   /// No description provided for @detailCast.
   ///
   /// In fr, this message translates to:
@@ -3939,6 +3945,36 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Contactez votre fournisseur si le problème persiste.'**
   String get connectionContactProvider;
+
+  /// No description provided for @connectionDnsFailure.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur introuvable (DNS)'**
+  String get connectionDnsFailure;
+
+  /// No description provided for @connectionDnsFailureHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible de trouver le serveur. Vérifiez son adresse et votre connexion Internet.'**
+  String get connectionDnsFailureHelp;
+
+  /// No description provided for @connectionNetworkUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réseau inaccessible'**
+  String get connectionNetworkUnavailable;
+
+  /// No description provided for @connectionNetworkUnavailableHelp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’atteindre le réseau du serveur. Vérifiez votre connexion Internet.'**
+  String get connectionNetworkUnavailableHelp;
+
+  /// No description provided for @connectionServerError.
+  ///
+  /// In fr, this message translates to:
+  /// **'Serveur temporairement indisponible'**
+  String get connectionServerError;
 
   /// No description provided for @connectionServerUnreachable.
   ///
@@ -5926,6 +5962,12 @@ abstract class AppLocalizations {
   /// **'Impossible de lancer ce film ou cet épisode pour le moment. Réessaie ou vérifie la connexion et le format du fichier.'**
   String get playbackUnavailableMessage;
 
+  /// No description provided for @protectedPlaybackUnsupportedMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le lecteur intégré ne peut pas lire en toute sécurité ce flux DASH ou relayé avec des en-têtes protégés.'**
+  String get protectedPlaybackUnsupportedMessage;
+
   /// No description provided for @greenScreenDetectedTitle.
   ///
   /// In fr, this message translates to:
@@ -7383,6 +7425,204 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Certains anciens favoris ou téléchargements ne sont pas affichés : leur abonnement d’origine est inconnu. Ils restent conservés.'**
   String get unassignedLegacyLibraryItems;
+
+  /// No description provided for @forceNoSubtitles.
+  ///
+  /// In fr, this message translates to:
+  /// **'Forcer aucun sous-titre'**
+  String get forceNoSubtitles;
+
+  /// No description provided for @forceNoSubtitlesSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Désactive automatiquement les sous-titres au lancement d\'un film ou d\'une série'**
+  String get forceNoSubtitlesSubtitle;
+
+  /// No description provided for @backTooltip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Retour'**
+  String get backTooltip;
+
+  /// No description provided for @categoryFilters.
+  ///
+  /// In fr, this message translates to:
+  /// **'Filtres de catégories'**
+  String get categoryFilters;
+
+  /// No description provided for @categoryFiltersSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Catégories masquées par abonnement'**
+  String get categoryFiltersSubtitle;
+
+  /// No description provided for @memoryCacheTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Gestion de la Mémoire & Cache'**
+  String get memoryCacheTitle;
+
+  /// No description provided for @memoryCacheSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Libérez de l\'espace et nettoyez les données locales.'**
+  String get memoryCacheSubtitle;
+
+  /// No description provided for @clearWatchHistoryTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vider l\'historique des vues'**
+  String get clearWatchHistoryTitle;
+
+  /// No description provided for @clearWatchHistorySubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Efface la liste des récemment regardés et les positions de reprise.'**
+  String get clearWatchHistorySubtitle;
+
+  /// No description provided for @clearWatchHistoryAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Effacer'**
+  String get clearWatchHistoryAction;
+
+  /// No description provided for @clearCoverCacheTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Nettoyer le cache des pochettes'**
+  String get clearCoverCacheTitle;
+
+  /// No description provided for @clearCoverCacheSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Libère l\'espace disque occupé par les vignettes VOD/EPG stockées localement.'**
+  String get clearCoverCacheSubtitle;
+
+  /// No description provided for @clearCoverCacheAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Purger'**
+  String get clearCoverCacheAction;
+
+  /// No description provided for @enginesDescription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisissez le moteur utilisé pour chaque type de contenu, ainsi que le moteur de secours en cas d\'échec de lecture.'**
+  String get enginesDescription;
+
+  /// No description provided for @sortAdvancedTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Options de Tri Avancé'**
+  String get sortAdvancedTitle;
+
+  /// No description provided for @sortAdvancedSubtitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sélectionnez un mode avec la télécommande :'**
+  String get sortAdvancedSubtitle;
+
+  /// No description provided for @sortDescRecentlyAdded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Contenus importés récemment dans la liste'**
+  String get sortDescRecentlyAdded;
+
+  /// No description provided for @sortDescResumePriority.
+  ///
+  /// In fr, this message translates to:
+  /// **'Place les contenus commencés non terminés en haut'**
+  String get sortDescResumePriority;
+
+  /// No description provided for @sortDescByRating.
+  ///
+  /// In fr, this message translates to:
+  /// **'Classement selon les notes attribuées'**
+  String get sortDescByRating;
+
+  /// No description provided for @sortDescByYear.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri chronologique par année de production'**
+  String get sortDescByYear;
+
+  /// No description provided for @sortDescByDuration.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tri par durée du contenu'**
+  String get sortDescByDuration;
+
+  /// No description provided for @sortOptionActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Actif'**
+  String get sortOptionActive;
+
+  /// No description provided for @showAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tout afficher'**
+  String get showAll;
+
+  /// No description provided for @noActiveSubscription.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun abonnement actif'**
+  String get noActiveSubscription;
+
+  /// No description provided for @noVodCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune catégorie Films sur ce panel.'**
+  String get noVodCategories;
+
+  /// No description provided for @noSeriesCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune catégorie Séries sur ce panel.'**
+  String get noSeriesCategories;
+
+  /// No description provided for @neverScanned.
+  ///
+  /// In fr, this message translates to:
+  /// **'Jamais analysé'**
+  String get neverScanned;
+
+  /// No description provided for @scannedToday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé aujourd\'hui'**
+  String get scannedToday;
+
+  /// No description provided for @scannedYesterday.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé hier'**
+  String get scannedYesterday;
+
+  /// No description provided for @scannedDaysAgo.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analysé il y a {days} jours'**
+  String scannedDaysAgo(int days);
+
+  /// No description provided for @subscriptionSettingsNote.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réglages propres à cet abonnement — {scanned}'**
+  String subscriptionSettingsNote(String scanned);
+
+  /// No description provided for @rescanCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réanalyser les catégories'**
+  String get rescanCategories;
+
+  /// No description provided for @scanningCategories.
+  ///
+  /// In fr, this message translates to:
+  /// **'Analyse…'**
+  String get scanningCategories;
 }
 
 class _AppLocalizationsDelegate

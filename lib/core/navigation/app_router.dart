@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/features/home_shell.dart';
 import 'package:orbit_3d_flutter/features/startup/startup_splash_screen.dart';
+import 'package:orbit_3d_flutter/features/tv_setup/tv_preconfig_screen.dart';
 import 'package:orbit_3d_flutter/features/home/home_screen.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_selection_screen.dart';
 import 'package:orbit_3d_flutter/features/onboarding/onboarding_screen.dart';
@@ -27,6 +28,7 @@ import 'package:orbit_3d_flutter/features/series/series_screen.dart';
 import 'package:orbit_3d_flutter/features/series/series_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/series/episode_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/vod_screen.dart';
+import 'package:orbit_3d_flutter/features/vod/m3u_vod_screen.dart';
 import 'package:orbit_3d_flutter/features/vod/movie_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/actors/actor_detail_screen.dart';
 import 'package:orbit_3d_flutter/features/browse/browse_screen.dart';
@@ -47,6 +49,7 @@ import 'package:orbit_3d_flutter/core/navigation/form_back_handler.dart';
 import 'package:orbit_3d_flutter/core/navigation/route_meta.dart';
 import 'package:orbit_3d_flutter/core/navigation/with_back_handling.dart';
 import 'package:orbit_3d_flutter/core/utils/error_handler.dart';
+import 'package:orbit_3d_flutter/models/channel.dart';
 
 String routerInitialLocation = '/profiles';
 
@@ -209,6 +212,14 @@ final GoRouter router = GoRouter(
         final extra = state.extra;
         if (extra is PlayerRouteData) {
           routeData = extra;
+        } else if (extra is Map<String, dynamic>) {
+          routeData = PlayerRouteData(
+            streamUrl: extra['url'] as String? ?? '',
+            title: extra['title'] as String?,
+            isLocalFile: extra['isLocalFile'] as bool? ?? false,
+            headers: extra['headers'] as Map<String, String>?,
+            posterUrl: extra['posterUrl'] as String?,
+          );
         } else {
           // Fallback pour deep links externes (query parameters)
           final url = state.uri.queryParameters['url'] ?? '';
@@ -294,6 +305,8 @@ final GoRouter router = GoRouter(
               episodeLabel: routeData.episodeLabel,
               series: routeData.series,
               episode: routeData.episode,
+              isLocalFile: routeData.isLocalFile,
+              headers: routeData.headers,
             ),
           ),
         );
@@ -363,6 +376,21 @@ final GoRouter router = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/m3u-vod/detail',
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        restorationId: 'm3u_vod_detail',
+        child: WithBackHandling(
+          meta: const RouteMeta.pop(restorationId: 'm3u_vod_detail'),
+          child: () {
+            final channel = state.extra;
+            if (channel is Channel) return M3uVodDetailScreen(channel: channel);
+            return const Material(child: SizedBox.shrink());
+          }(),
+        ),
+      ),
+    ),
+    GoRoute(
       path: '/series/detail',
       pageBuilder: (context, state) => MaterialPage(
         key: state.pageKey,
@@ -422,6 +450,10 @@ final GoRouter router = GoRouter(
         remainingPhase: state.uri.queryParameters['phase'] == 'remaining',
       ),
     ),
+    GoRoute(
+      path: '/tv-preconfig',
+      builder: (context, state) => const TvPreconfigScreen(),
+    ),
     ShellRoute(
       builder: (context, state, child) => HomeShell(child: child),
       routes: [
@@ -463,6 +495,17 @@ final GoRouter router = GoRouter(
             child: const WithBackHandling(
               meta: RouteMeta.popOrFallback('/home', restorationId: 'vod'),
               child: VodScreen(),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/m3u-vod',
+          pageBuilder: (context, state) => MaterialPage(
+            key: state.pageKey,
+            restorationId: 'm3u_vod',
+            child: const WithBackHandling(
+              meta: RouteMeta.popOrFallback('/home', restorationId: 'm3u_vod'),
+              child: M3uVodScreen(),
             ),
           ),
         ),

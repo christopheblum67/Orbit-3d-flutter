@@ -1,36 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 
 /// Simple global notifier for TV mode (avoids Riverpod 3.x provider API changes)
+/// Maintenu pour compatibilité rétroactive - délègue au controller centralisé
 class TvModeNotifier extends ChangeNotifier {
-  bool _enabled = false;
-  bool get enabled => _enabled;
+  final TvModeController _controller;
+  final bool _ownsController;
 
-  void enable() {
-    if (!_enabled) {
-      _enabled = true;
-      notifyListeners();
-    }
+  TvModeNotifier([TvModeController? controller])
+      : _controller = controller ?? TvModeController(),
+        _ownsController = controller == null {
+    _controller.addListener(_onControllerChange);
   }
 
-  void disable() {
-    if (_enabled) {
-      _enabled = false;
-      notifyListeners();
-    }
+  bool get enabled => _controller.enabled;
+
+  void enable() => _controller.enable();
+  void disable() => _controller.disable();
+  void setEnabled(bool v) => _controller.setEnabled(v);
+
+  void _onControllerChange() {
+    notifyListeners();
   }
 
-  void setEnabled(bool v) {
-    if (_enabled != v) {
-      _enabled = v;
-      notifyListeners();
-    }
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerChange);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
   }
 }
 
 final tvModeNotifierProvider = Provider<TvModeNotifier>((ref) {
-  final notifier = TvModeNotifier();
+  final controller = ref.watch(tvModeControllerProvider);
+  final notifier = TvModeNotifier(controller);
   ref.onDispose(() => notifier.dispose());
   return notifier;
 });
@@ -75,6 +81,7 @@ class TvFocus extends ConsumerStatefulWidget {
   final void Function()? onActivate;
   final void Function()? onLongPress;
   final void Function(bool focused)? onFocusChange;
+  final KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent;
   final bool autofocus;
   final bool enableTvEffects;
   final bool circular;
@@ -86,6 +93,7 @@ class TvFocus extends ConsumerStatefulWidget {
     this.onActivate,
     this.onLongPress,
     this.onFocusChange,
+    this.onKeyEvent,
     this.autofocus = false,
     this.enableTvEffects = true,
     this.circular = false,
@@ -112,21 +120,35 @@ class _TvFocusState extends ConsumerState<TvFocus>
   void initState() {
     super.initState();
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+    // Agrandissement ~20 % au focus pour signaler clairement la section
+    // courante (icône) tout en réduisant le halo lumineux autour.
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.10).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeOut),
     );
-    final notifier = ref.read(tvModeNotifierProvider);
-    _tvModeNotifier = notifier;
-    _isTvMode = notifier.enabled;
-    notifier.addListener(_onTvModeChange);
+    try {
+      final notifier = ref.read(tvModeNotifierProvider);
+      _tvModeNotifier = notifier;
+      _isTvMode = notifier.enabled;
+      notifier.addListener(_onTvModeChange);
+    } catch (_) {
+      _tvModeNotifier = null;
+      _isTvMode = false;
+    }
   }
 
   void _onTvModeChange() {
+    final was = _isTvMode;
     if (mounted) {
       setState(() => _isTvMode = _tvModeNotifier?.enabled ?? _isTvMode);
+    }
+    // Des centaines d'instances de `TvFocus` sont à l'écoute : on ne
+    // journalise que le changement sur le widget réellement focalisé, sinon le
+    // basculement du mode TV remplirait logcat en une seule fois.
+    if (_isTvMode != was && _isTvMode && _isFocused) {
+      LoggerService.instance.info('TVFOCUS tvMode ON while focused');
     }
   }
 
@@ -143,6 +165,12 @@ class _TvFocusState extends ConsumerState<TvFocus>
     if (focused) {
       _scaleController.forward();
       HapticFeedback.selectionClick();
+      // Diagnostic : on ne journalise que le GAIN de focus et seulement si le
+      // halo TV sera réellement dessiné. Une tuile focalisée sans mode TV
+      // n'est pas le sujet du diagnostic.
+      if (widget.enableTvEffects && _isTvMode) {
+        LoggerService.instance.info('TVFOCUS focused=true (border+halo drawn)');
+      }
     } else {
       _scaleController.reverse();
     }
@@ -159,6 +187,7 @@ class _TvFocusState extends ConsumerState<TvFocus>
 
   static bool _isSelectKey(LogicalKeyboardKey k) =>
       k == LogicalKeyboardKey.enter ||
+      k == LogicalKeyboardKey.numpadEnter ||
       k == LogicalKeyboardKey.select ||
       k == LogicalKeyboardKey.space ||
       k == LogicalKeyboardKey.gameButtonA;
@@ -227,56 +256,119 @@ class _TvFocusState extends ConsumerState<TvFocus>
     final tvMode = _isTvMode && widget.enableTvEffects;
     final scheme = Theme.of(context).colorScheme;
 
+    // Un `onKeyEvent` custom ne doit pas désactiver l'activation Enter/OK.
+    // Avant, fournir `onKeyEvent` (dialogues abonnement, profil, formulaires)
+    // remplaçait entièrement `_handleKeyEvent` : la touche OK n'appelait plus
+    // `onActivate`, donc les boutons « Ajouter / Annuler » devenaient inertes
+    // au D-pad. On chaîne désormais : handler custom d'abord, puis activation.
+    //
+    // Le repli ne consomme les touches que pour une activation ou un appui
+    // long déclaré, afin de préserver la saisie dans les champs enfants.
+    final customHandler = widget.onKeyEvent;
+    KeyEventResult handleKey(FocusNode node, KeyEvent event) {
+      if (customHandler != null) {
+        final result = customHandler(node, event);
+        if (result != KeyEventResult.ignored) return result;
+      }
+      return _handleKeyEvent(node, event);
+    }
+
     return _TvLongPressScope(
       holder: _longPressHolder,
       child: Focus(
-      focusNode: widget.focusNode,
-      autofocus: widget.autofocus,
-      onFocusChange: _handleFocusChange,
-      onKeyEvent: _handleKeyEvent,
-      child: AnimatedBuilder(
-        animation: _scaleAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: tvMode && _isFocused ? _scaleAnimation.value : 1.0,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOut,
-              decoration: tvMode && _isFocused
-                  ? BoxDecoration(
-                      shape:
-                          widget.circular ? BoxShape.circle : BoxShape.rectangle,
-                      borderRadius:
-                          widget.circular ? null : BorderRadius.circular(12),
-                      border: Border.all(color: scheme.primary, width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.6),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 0),
-                        ),
-                        BoxShadow(
-                          color: scheme.primary.withValues(alpha: 0.3),
-                          blurRadius: 40,
-                          spreadRadius: 6,
-                          offset: const Offset(0, 0),
-                        ),
-                      ],
-                    )
-                  : null,
-              child: Material(
+        focusNode: widget.focusNode,
+        autofocus: widget.autofocus,
+        onFocusChange: _handleFocusChange,
+        onKeyEvent: handleKey,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            final showEffects = tvMode && _isFocused;
+            if (!showEffects && !widget.enableTvEffects) {
+              // Sans effets TV et hors mode TV : ne pas ajouter de containers
+              // supplémentaires pour préserver la structure attendue par les tests.
+              return Material(
                 color: Colors.transparent,
-                child: widget.child,
+                child: child,
+              );
+            }
+            return Transform.scale(
+              scale: showEffects ? _scaleAnimation.value : 1.0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOut,
+                decoration: showEffects
+                    ? BoxDecoration(
+                        shape: widget.circular
+                            ? BoxShape.circle
+                            : BoxShape.rectangle,
+                        borderRadius:
+                            widget.circular ? null : BorderRadius.circular(12),
+                        border: Border.all(color: scheme.primary, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.45),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 0),
+                          ),
+                          BoxShadow(
+                            color: scheme.primary.withValues(alpha: 0.18),
+                            blurRadius: 24,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 0),
+                          ),
+                        ],
+                      )
+                    : null,
+                child: Material(
+                  color: Colors.transparent,
+                  child: child,
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+          child: widget.child,
+        ),
       ),
     );
   }
 }
+
+/// Touches qui trahissent une télécommande ou une manette.
+///
+/// Le mode TV ne doit s'activer QUE sur celles-ci. Avant, n'importe quelle
+/// touche (`KeyDownEvent`) suffisait : une pression sur le clavier d'un
+/// téléphone basculait l'interface en mode TV, sans revenir en arrière
+/// possible. Les touches de volume, les caractères saisis ou les touches système
+/// ne comptent plus comme signal « télécommande ».
+///
+/// `space` et `goBack` sont également exclus : tous deux sont émis par un
+/// téléphone tactile (touche Espace du clavier virtuel, bouton Retour système),
+/// jamais par une télécommande de TV.
+// `final` et non `const` : `LogicalKeyboardKey` redéfinit `==` / `hashCode`, ce
+// qui interdit un ensemble constant de ce type.
+final Set<LogicalKeyboardKey> _tvTriggerKeys = {
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.select,
+  LogicalKeyboardKey.enter,
+  LogicalKeyboardKey.gameButtonA,
+  LogicalKeyboardKey.gameButtonB,
+  LogicalKeyboardKey.gameButtonX,
+  LogicalKeyboardKey.gameButtonY,
+  LogicalKeyboardKey.escape,
+  LogicalKeyboardKey.mediaPlayPause,
+  LogicalKeyboardKey.mediaPlay,
+  LogicalKeyboardKey.mediaPause,
+  LogicalKeyboardKey.mediaStop,
+  LogicalKeyboardKey.mediaFastForward,
+  LogicalKeyboardKey.mediaRewind,
+  LogicalKeyboardKey.mediaTrackNext,
+  LogicalKeyboardKey.mediaTrackPrevious,
+};
 
 /// Wrapper pour détecter la première interaction clavier/D-pad et activer le mode TV
 class TvModeDetector extends ConsumerWidget {
@@ -289,7 +381,8 @@ class TvModeDetector extends ConsumerWidget {
       onPointerDown: (_) => ref.read(tvModeNotifierProvider).disable(),
       child: Focus(
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
+          if (event is KeyDownEvent &&
+              _tvTriggerKeys.contains(event.logicalKey)) {
             ref.read(tvModeNotifierProvider).enable();
           }
           return KeyEventResult.ignored;
@@ -308,14 +401,30 @@ extension TvFocusExtension on Widget {
     FocusNode? focusNode,
     bool autofocus = false,
     bool enableTvEffects = true,
+    KeyEventResult Function(FocusNode, KeyEvent)? onKeyEvent,
+    String? a11yLabel,
+    String? a11yHint,
+    bool a11yButton = false,
+    bool a11ySelected = false,
   }) {
-    return TvFocus(
+    Widget w = TvFocus(
       focusNode: focusNode,
       onActivate: onActivate,
       onLongPress: onLongPress,
+      onKeyEvent: onKeyEvent,
       autofocus: autofocus,
       enableTvEffects: enableTvEffects,
       child: this,
     );
+    if (a11yLabel != null || a11yHint != null || a11yButton || a11ySelected) {
+      w = Semantics(
+        label: a11yLabel,
+        hint: a11yHint,
+        button: a11yButton,
+        selected: a11ySelected,
+        child: w,
+      );
+    }
+    return w;
   }
 }

@@ -40,8 +40,8 @@ void main() {
       expect(
         manifest.contains('POST_NOTIFICATIONS'),
         isFalse,
-        reason: 'aucune notification n\'est plus émise : la permission était '
-            'inutile et visible par l\'utilisateur',
+        reason: 'le service de lecture en premier plan ne nécessite pas '
+            'cette permission pour démarrer',
       );
     });
 
@@ -55,7 +55,8 @@ void main() {
       // de lecture : la lecture continue de fonctionner.
       expect(manifest.contains('android.permission.INTERNET'), isTrue);
       expect(manifest.contains('android.permission.WAKE_LOCK'), isTrue);
-      expect(manifest.contains('android.permission.FOREGROUND_SERVICE'), isTrue);
+      expect(
+          manifest.contains('android.permission.FOREGROUND_SERVICE'), isTrue);
       expect(
         manifest.contains('FOREGROUND_SERVICE_MEDIA_PLAYBACK'),
         isTrue,
@@ -101,5 +102,78 @@ void main() {
       expect(onboarding.contains('speech_to_text'), isFalse);
       expect(onboarding.contains('_prewarmMicrophone'), isFalse);
     });
+  });
+
+  group('Recherche', () {
+    test('le tiroir conserve l\'accès à la recherche', () {
+      final drawer = File(
+        'lib/core/widgets/home_menu_drawer.dart',
+      ).readAsStringSync();
+      expect(
+        drawer.contains("route: '/search'"),
+        isTrue,
+      );
+    });
+
+    test('l\'écran de recherche n\'a plus le mode unifié', () {
+      final search = File(
+        'lib/features/search/search_screen.dart',
+      ).readAsStringSync();
+      expect(search.contains('Recherche unifiée'), isFalse);
+      expect(search.contains('searchProvider'), isFalse);
+      expect(search.contains('Rechercher Live, Films, Séries'), isFalse);
+    });
+
+    test('la route /search affiche l\'écran de recherche', () {
+      final router =
+          File('lib/core/navigation/app_router.dart').readAsStringSync();
+      final route = router.indexOf("path: '/search'");
+      expect(route, greaterThan(-1), reason: 'la route /search doit exister');
+      final next = router.indexOf('GoRoute(', route + 1);
+      final block = router.substring(
+        route,
+        next == -1 ? router.length : next,
+      );
+      expect(block.contains('SearchScreen()'), isTrue);
+    });
+  });
+
+  group('Code mort supprimé (nettoyage)', () {
+    // Ces fichiers n'étaient importés ni exportés par aucun autre fichier de
+    // `lib/`, `test/` ni `integration_test/` : soit remplacés par une
+    // implémentation plus récente, soit restes d'un chantier jamais branché.
+    // Les contrôles échouent sur l'état d'avant le nettoyage : ils
+    // verrouillent la suppression.
+    const deadFiles = <String>[
+      // Remplacés par une autre implémentation ou jamais utilisés.
+      'lib/core/services/personalized_recommendations.dart',
+      'lib/core/widgets/confirm_exit_app.dart',
+      'lib/features/auth/profile_creation_screen.dart',
+      'lib/features/matchmaking/widgets/matchmaking_preloading_overlay.dart',
+      'lib/features/player/widgets/subtitle_controls_sheet.dart',
+      'lib/features/vod/widgets/cast_grid.dart',
+      'lib/features/vpn/vpn_screen.dart',
+      'lib/providers/data_providers.dart',
+      'lib/services/movie_repository.dart',
+      'lib/services/series_repository.dart',
+      // Chantier « EPG orbite 3D » + recherche IA, jamais branchés.
+      'lib/services/epg_ai_search.dart',
+      'lib/features/epg/widgets/constellation_dual_screen.dart',
+      'lib/features/epg/widgets/favorites_orbit_system_3d.dart',
+      'lib/features/epg/widgets/gravity_focus_node.dart',
+      'lib/features/epg/widgets/nebula_search_space.dart',
+      'lib/features/epg/widgets/orbit_planet_node.dart',
+    ];
+
+    for (final path in deadFiles) {
+      test('$path supprimé', () {
+        expect(
+          File(path).existsSync(),
+          isFalse,
+          reason: '$path n\'était référencé par aucun fichier : ne pas le '
+              'réintroduire sans un appelant réel',
+        );
+      });
+    }
   });
 }

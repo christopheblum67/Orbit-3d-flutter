@@ -15,6 +15,57 @@ class SubtitlePreferences {
     _manualRevisionAtScan = controller.manualSelectionRevision;
   }
 
+  Future<void> applyAutomatic({
+    required SubtitleController controller,
+    required List<EmbeddedSubtitleTrack> tracks,
+    required PlaybackContentType contentType,
+    required int generation,
+    required bool Function() readForceNoSubtitles,
+    required VodSubtitleMode Function() readMode,
+    required String? seriesId,
+    required bool Function() isCurrent,
+  }) async {
+    bool forceOff() => _applyForcedOff(
+          controller: controller,
+          contentType: contentType,
+          forceNoSubtitles: readForceNoSubtitles(),
+        );
+    if (!isCurrent() || forceOff()) return;
+    await applyVod(
+      controller: controller,
+      tracks: tracks,
+      contentType: contentType,
+      generation: generation,
+      readMode: readMode,
+      isCurrent: isCurrent,
+    );
+    if (!isCurrent() || forceOff()) return;
+    await applySeries(
+      controller: controller,
+      seriesId: seriesId,
+      generation: generation,
+      isCurrent: isCurrent,
+    );
+    if (isCurrent()) forceOff();
+  }
+
+  /// Force-off wins over automatic preferences, but not a later manual choice.
+  bool _applyForcedOff({
+    required SubtitleController controller,
+    required PlaybackContentType contentType,
+    required bool forceNoSubtitles,
+  }) {
+    if (!forceNoSubtitles ||
+        (contentType != PlaybackContentType.vod &&
+            contentType != PlaybackContentType.series)) {
+      return false;
+    }
+    if (controller.manualSelectionRevision == _manualRevisionAtScan) {
+      controller.disable(userInitiated: false);
+    }
+    return true;
+  }
+
   Future<void> applyVod({
     required SubtitleController controller,
     required List<EmbeddedSubtitleTrack> tracks,

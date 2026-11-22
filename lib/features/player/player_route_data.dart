@@ -24,6 +24,8 @@ class PlayerRouteData {
     this.episode,
     this.vodId,
     this.consecutiveEpisodes = 1,
+    this.isLocalFile = false,
+    this.headers,
   });
 
   final String streamUrl;
@@ -37,6 +39,8 @@ class PlayerRouteData {
   /// sous-titres publiés par le panel. `null` pour un flux live ou une série.
   final String? vodId;
   final int consecutiveEpisodes;
+  final bool isLocalFile;
+  final Map<String, String>? headers;
   final PlaybackContentType contentType;
 
   /// Favori associé au contenu lancé (utilisé pour la lecture non live).

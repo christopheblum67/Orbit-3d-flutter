@@ -6,16 +6,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.TransferListener;
 import java.io.IOException;
 
 /**
- * Enveloppe un {@link DataSource} pour journaliser l'echange HTTP reel.
- *
- * Expose ce qu'aucun log Dart ne montre : l'URL FINALE apres redirection
- * (donc la cible CDN reelle) et le volume d'octets effectivement lus dans le
- * temps. Un ecran fige avec position a 0 se distingue immediatement d'un
- * flux bloque a la redirection d'un flux ouvert mais sans donnees.
+ * Enveloppe un {@link DataSource} pour diagnostiquer les ouvertures et les lectures
+ * sans journaliser les adresses ni les messages d'erreur.
  */
 final class LoggingDataSource implements DataSource {
   private static final String TAG = "OrbitHttp";
@@ -52,8 +49,8 @@ final class LoggingDataSource implements DataSource {
     bytesRead = 0L;
     lastLoggedBucket = 0;
     // Le CDN en aval du 302 est anti-leech : il refuse une part importante des
-    // requetes, et la duree du refus croft avec le volume de requetes. Mesure
-    // sur draap.online : 4 requetes quasi simultanees en boucle => 0 % de
+    // requetes, et la duree du refus croit avec le volume de requetes. Mesure :
+    // 4 requetes quasi simultanees en boucle => 0 % de
     // reussite, contre ~50 % en requete isolee. On espace donc les tentatives
     // et on retente ici : l'echec remonte a Dart comme "Source error" generique,
     // sans le code HTTP, donc l'arbitrage doit se faire natif.
@@ -64,20 +61,18 @@ final class LoggingDataSource implements DataSource {
             TAG,
             "OPEN(try "
                 + (attempt + 1)
-                + ") uri="
-                + dataSpec.uri
-                + " position="
+                + ") position="
                 + dataSpec.position
                 + " length="
                 + dataSpec.length);
         long length = delegate.open(dataSpec);
-        Log.i(TAG, "  OK finalUri=" + delegate.getUri() + " length=" + length);
+        Log.i(TAG, "  OK length=" + length);
         resetCooldown();
         return length;
       } catch (IOException e) {
         if (isRateLimited(e) && attempt < MAX_ATTEMPTS - 1) {
           long backoff = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
-          Log.w(TAG, "  401 throttle, retry in " + backoff + "ms");
+          Log.w(TAG, "  HTTP 401/403 throttle, retry in " + backoff + "ms");
           // Le refus etant anti-leech, on bloque aussi les AUTRES controleurs
           // pendant ce delai : sans cela ils epuisent eux aussi la fenetre.
           synchronized (OPEN_GATE) {
@@ -86,7 +81,10 @@ final class LoggingDataSource implements DataSource {
           sleepMs(backoff);
           continue;
         }
-        Log.e(TAG, "  FAILED finalUri=" + delegate.getUri() + " -> " + e);
+        String status = e instanceof HttpDataSource.InvalidResponseCodeException
+            ? " status=" + ((HttpDataSource.InvalidResponseCodeException) e).responseCode
+            : "";
+        Log.e(TAG, "  FAILED type=" + e.getClass().getSimpleName() + status);
         throw e;
       }
     }
@@ -159,7 +157,7 @@ final class LoggingDataSource implements DataSource {
       int bucket = (int) (bytesRead / (1024 * 1024));
       if (bucket != lastLoggedBucket) {
         lastLoggedBucket = bucket;
-        Log.i(TAG, "  READ total=" + bytesRead + "B uri=" + delegate.getUri());
+        Log.i(TAG, "  READ total=" + bytesRead + "B");
       }
     }
     return n;
@@ -167,7 +165,7 @@ final class LoggingDataSource implements DataSource {
 
   @Override
   public void close() throws IOException {
-    Log.i(TAG, "CLOSE totalRead=" + bytesRead + "B uri=" + delegate.getUri());
+    Log.i(TAG, "CLOSE totalRead=" + bytesRead + "B");
     delegate.close();
   }
 

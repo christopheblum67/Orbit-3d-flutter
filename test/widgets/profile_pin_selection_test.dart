@@ -515,6 +515,8 @@ void main() {
         .first;
     final pinSwitch = find.byType(SwitchListTile);
     await tester.scrollUntilVisible(pinSwitch, 300, scrollable: scrollable);
+    await tester.ensureVisible(pinSwitch);
+    await tester.pumpAndSettle();
     await tester.tap(pinSwitch);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Saisir PIN'));

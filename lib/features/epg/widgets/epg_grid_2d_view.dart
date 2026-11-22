@@ -38,6 +38,7 @@ class EpgGrid2DView extends StatefulWidget {
   final Function(String)? onChannelTap;
   final Function(String)? onChannelLongPress;
   final EpgTimelineController? timelineController;
+  final bool isTv;
 
   /// Noms des chaînes supportant le replay/DVR : leurs programmes terminés
   /// affichent un badge « REPLAY » dans la grille.
@@ -57,6 +58,7 @@ class EpgGrid2DView extends StatefulWidget {
     this.onChannelTap,
     this.onChannelLongPress,
     this.timelineController,
+    this.isTv = false,
     this.replayChannels = const {},
     this.loadingChannels = const {},
   });
@@ -65,10 +67,19 @@ class EpgGrid2DView extends StatefulWidget {
   State<EpgGrid2DView> createState() => EpgGrid2DViewState();
 }
 
+/// Cellule désignée au D-pad dans la grille EPG.
+///
+/// Identité STABLE (`channelIndex`, `start`) plutôt qu'une référence à un
+/// `_RenderProgram` : le cache de rendu est reconstruit (zoom, nouvelles
+/// données) et les objets qu'il contient sont alors remplacés, alors que le
+/// couple (chaîne, début de programme) reste vrai. L'égalité structurelle des
+/// records fait le reste : le `ValueNotifier` ne notifie que sur changement
+/// réel, donc le painter ne repeint pas pour rien.
+typedef _GridFocusCell = ({int channelIndex, DateTime? start});
+
 class EpgGrid2DViewState extends State<EpgGrid2DView> {
   late Timer _timer;
   final ScrollController _verticalController = ScrollController();
-  final FocusNode _gridFocusNode = FocusNode(debugLabel: 'EpgGrid');
 
   /// Défilement vertical de la colonne des noms de chaînes.
   ///
@@ -83,12 +94,23 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   // Repaints ciblés (pas de rebuild du widget) :
   final ValueNotifier<Offset?> _hoverPosition = ValueNotifier<Offset?>(null);
   final ValueNotifier<double> _horizontalOffset = ValueNotifier<double>(0);
-  final ValueNotifier<(int, EPGProgram)?> _keyboardSelection =
-      ValueNotifier<(int, EPGProgram)?>(null);
-  int _keyboardRow = 0;
-  DateTime? _keyboardTime;
   Offset? _tapDownPos;
   DateTime? _tapDownTime;
+
+  /// Cellule désignée au D-pad (télécommande TV) — voir [_onGridKey].
+  ///
+  /// Ce n'est PAS un `FocusNode` par cellule : la grille est virtualisée
+  /// (628 chaînes × N programmes) et peinte au canvas, donc plusieurs milliers
+  /// de nœuds de focus tueraient la mémoire et le layout — exactement le
+  /// chemin qui menait aux ANR. On ne garde qu'une cellule LOGIQUE, désignée
+  /// par son identité (chaîne + début de programme), que le painter met en
+  /// évidence. La navigation repeint via ce `ValueNotifier`, sans rebuild.
+  final ValueNotifier<_GridFocusCell?> _focusCell =
+      ValueNotifier<_GridFocusCell?>(null);
+  DateTime? _focusAnchorTime;
+
+  /// Le focus clavier est porté par la grille ENTIÈRE (un seul nœud).
+  final FocusNode _gridFocusNode = FocusNode(debugLabel: 'EpgGrid2D');
 
   late DateTime _gridStartTime;
   late double _pixelsPerMinute;
@@ -184,7 +206,15 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToCurrentTime();
+      if (!mounted) return;
+      // Une position mémorisée (retour d'une autre catégorie) prime sur le
+      // recentrage : l'utilisateur revient où il était, au lieu de sauter sur
+      // l'heure courante à chaque changement de catégorie.
+      if (_timelineController.hasSavedScroll) {
+        _restoreScrollOffsets();
+      } else {
+        _scrollToCurrentTime();
+      }
     });
   }
 
@@ -209,7 +239,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     _rebuildRenderCache();
     if (_gridFocusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _gridFocusNode.hasFocus) _updateKeyboardSelection();
+        if (mounted && _gridFocusNode.hasFocus) _ensureFocusCell();
       });
     }
   }
@@ -217,7 +247,14 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   @override
   void dispose() {
     _timer.cancel();
-    _gridFocusNode.dispose();
+    // Mémorise la position AVANT de libérer `_horizontalOffset`/le contrôleur
+    // vertical : c'est ici que le défilement survit au changement de catégorie
+    // (la grille est détruite puis recréée).
+    _timelineController.saveScrollOffsets(
+      horizontal: _horizontalOffset.value,
+      vertical:
+          _verticalController.hasClients ? _verticalController.offset : 0.0,
+    );
     _timelineController.scheduledJump.removeListener(_consumeJump);
     // Symétrique de l'abonnement. Sans cette ligne, chaque changement de
     // catégorie de chaîne empilait un State et son cache de rendu.
@@ -231,8 +268,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     }
     _hoverPosition.dispose();
     _horizontalOffset.dispose();
-    _keyboardSelection.dispose();
     _dataRevision.dispose();
+    _focusCell.dispose();
+    _gridFocusNode.dispose();
     _verticalController.removeListener(_syncNamesColumn);
     _verticalController.dispose();
     _namesVerticalController.dispose();
@@ -370,6 +408,22 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     _setHorizontalOffset(_getOffsetForTime(DateTime.now()) - 120);
   }
 
+  /// Restaure le défilement mémorisé par une précédente instance de la grille.
+  ///
+  /// Les deux offsets sont re-bornés : entre-temps la fenêtre a pu rétrécir
+  /// (rotation, clavier), et `jumpTo` hors bornes lève. On teste aussi
+  /// `hasClients` avant de toucher à la colonne verticale — le rappel de
+  /// `postFrame` s'exécute parfois avant que les `ListView` soient attachés.
+  void _restoreScrollOffsets() {
+    final c = _timelineController;
+    _setHorizontalOffset(c.lastHorizontalOffset);
+    if (!_verticalController.hasClients) return;
+    final target = c.lastVerticalOffset.clamp(0.0, _maxVerticalOffset);
+    if ((_verticalController.offset - target).abs() > 0.5) {
+      _verticalController.jumpTo(target);
+    }
+  }
+
   /// Bornes du zoom, en px/min.
   ///
   /// Mesuré sur le S20 (1080x2400 en 420 dpi, donc 411 dp) : la grille utile
@@ -445,10 +499,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     return 1.0;
   }
 
-  double _getOffsetForTime(DateTime time) {
-    final diffInMinutes = time.difference(_gridStartTime).inSeconds / 60.0;
-    return diffInMinutes * _pixelsPerMinute;
-  }
+  double _getOffsetForTime(DateTime time) =>
+      programLeftPx(time, _gridStartTime, _pixelsPerMinute);
 
   /// Signature légère (O(channels)) pour détecter un changement de données
   /// sans comparer des listes entières : suffixée par le zoom et l'origine
@@ -500,8 +552,12 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     _dataRevision.value++;
 
     final cache = <String, List<_RenderProgram>>{};
-    final ppm = _pixelsPerMinute;
     final now = DateTime.now();
+    // Échelle lue UNE fois. Les positions et largeurs sont précalculées ici,
+    // puis seulement multipliées pendant le `paint` : sur une box Android
+    // ancienne, un `DateTime.difference` par programme et par trame saturait
+    // le thread UI (le guide saccadait dès qu'on faisait défiler).
+    final ppm = _pixelsPerMinute;
     for (final ch in widget.channels) {
       final programs = widget.epgData[ch] ?? const <EPGProgram>[];
       final channelHasReplay = widget.replayChannels.contains(ch);
@@ -509,8 +565,8 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
         for (final p in programs)
           _RenderProgram(
             program: p,
-            left: _getOffsetForTime(p.startTime),
-            width: _clampWidth(p.durationMinutes * ppm),
+            left: programLeftPx(p.startTime, _gridStartTime, ppm),
+            width: programWidthPx(p.durationMinutes, ppm),
             isLive: p.isLive,
             replayable: isReplayableProgram(
               p,
@@ -548,7 +604,11 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       // et l'ancien compteur les confondait avec les lignes ayant de vrais
       // programmes — rendant le bilan incomparable à celui du chargeur.
       final diag = diagnoseEpgRows(widget.epgData);
-      LoggerService.instance.info(
+      // Mesure de rendu : le cache se reconstruit à chaque lot de chaînes
+      // chargées, donc en `info` ce bilan partait vers logcat des dizaines de
+      // fois par ouverture d'écran. `debug` le conserve au build de dev et
+      // l'efface du logcat de release.
+      LoggerService.instance.debug(
         'EPG rendu: $diag, étendue $minLeft..'
         '${maxLeft == double.negativeInfinity ? 0 : maxLeft} '
         'px, origine ${_gridStartTime.toIso8601String()}, '
@@ -572,24 +632,6 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     return 'aucune';
   }
 
-  /// Largeur d'un bloc de programme, en px.
-  ///
-  /// `raw` vaut `durée × pxParMin - 2`. On ne le BORNE PLUS PAR EN BAS.
-  ///
-  /// Le minimum de 40 px était là pour qu'un programme court reste cliquable,
-  /// mais il falsifiait la géométrie : `EpgGapFiller` garantit des blocs
-  /// contigus, et gonfler les uns cassait cette garantie. Mesuré à 1,0 px/min,
-  /// un programme de 20 min occupe 18 px et était dessiné sur 40 — plus du
-  /// double. Le test `epg_program_width_test.dart` compte 61 blocs qui se
-  /// recouvrent sur une journée et une seule chaîne, et le culling écartait
-  /// alors les blocs voisins légitimes : la grille finissait vide au
-  /// défilement.
-  ///
-  /// Il ne reste qu'un plancher de 1 px : une durée nulle donnerait
-  /// `raw = -2`, et une largeur négative fait disparaître le bloc sans que le
-  /// culling l'explique. Le combleur écarte déjà ces programmes.
-  static double _clampWidth(double raw) => raw < 1.0 ? 1.0 : raw;
-
   /// Appui court (peu de déplacement, < 400 ms) sur la grille : ouvre le
   /// programme sous le doigt. Un appui hors programme sélectionne la chaîne
   /// de la ligne (comme un appui sur la colonne des noms).
@@ -602,7 +644,9 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     if ((pos - down).distance > 12) return; // c'est un scroll, pas un tap
     if (DateTime.now().difference(downTime).inMilliseconds >= 400) return;
 
-    final channelIndex = (pos.dy / kRowStride).floor();
+    final verticalOffset =
+        _verticalController.hasClients ? _verticalController.offset : 0.0;
+    final channelIndex = ((pos.dy + verticalOffset) / kRowStride).floor();
     if (channelIndex < 0 || channelIndex >= widget.channels.length) return;
     final ch = widget.channels[channelIndex];
     _timelineController.setTargetedChannel(ch);
@@ -613,6 +657,262 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
     } else {
       widget.onChannelTap?.call(ch);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navigation à la télécommande (D-pad)
+  //
+  // La grille n'a pas de widget par cellule : tout est peint par un
+  // `CustomPainter`. Le focus est donc modélisé comme une CELLULE LOGIQUE
+  // (`_focusCell`) que le painter surligne, et la navigation à flèches est
+  // traitée par le seul nœud de focus de la grille. Aucun rebuild du widget n'a
+  // lieu pendant les déplacements : seul le `ValueNotifier` de focus est
+  // notifié, ce que les painters écoutent via `repaint`.
+  // ---------------------------------------------------------------------------
+
+  /// Programmes d'une ligne, dans l'ordre du cache de rendu (croissant).
+  List<_RenderProgram> _programsOf(int channelIndex) {
+    if (channelIndex < 0 || channelIndex >= widget.channels.length) {
+      return const <_RenderProgram>[];
+    }
+    return _renderCache[widget.channels[channelIndex]] ??
+        const <_RenderProgram>[];
+  }
+
+  /// Programme actuellement désigné, résolu depuis l'identité mémorisée.
+  ///
+  /// Retourne null si le cache a été reconstruit sans ce programme (données
+  /// rafraîchies) : la navigation suivante réinitialisera le focus.
+  _RenderProgram? _focusedProgram() {
+    final cell = _focusCell.value;
+    if (cell == null) return null;
+    for (final rp in _programsOf(cell.channelIndex)) {
+      if (rp.program.start == cell.start) return rp;
+    }
+    return null;
+  }
+
+  /// Positionne la cellule de focus sur [channelIndex].
+  ///
+  /// [anchorTime] conserve l'heure visée pendant les déplacements verticaux ;
+  /// sinon on prend le programme en cours ou à venir à [preferNow], puis le
+  /// dernier. Les blocs de trou ne sont pas sélectionnables.
+  bool _focusOnRow(
+    int channelIndex, {
+    DateTime? preferNow,
+    DateTime? anchorTime,
+    bool allowEmpty = false,
+  }) {
+    final programs = _programsOf(channelIndex);
+    _RenderProgram? target;
+
+    if (anchorTime != null) {
+      int? best;
+      for (final rp in programs) {
+        if (rp.program.isDummy) continue;
+        if (!rp.program.start.isAfter(anchorTime) &&
+            rp.program.end.isAfter(anchorTime)) {
+          target = rp;
+          break;
+        }
+        final distance =
+            rp.program.start.difference(anchorTime).inMicroseconds.abs();
+        if (best == null || distance < best) {
+          best = distance;
+          target = rp;
+        }
+      }
+    } else {
+      final now = preferNow ?? DateTime.now();
+      for (final rp in programs) {
+        if (rp.program.isDummy) continue;
+        target = rp;
+        if (rp.program.end.isAfter(now)) break;
+      }
+    }
+
+    if (target == null) {
+      if (!allowEmpty) return false;
+      _focusCell.value = (channelIndex: channelIndex, start: null);
+      return true;
+    }
+    if (anchorTime == null) _focusAnchorTime = target.program.start;
+    _focusCell.value = (
+      channelIndex: channelIndex,
+      start: target.program.start,
+    );
+    return true;
+  }
+
+  /// Première cellule proposée : le programme en cours de la chaîne ciblée.
+  ///
+  /// Appelée à la prise de focus ; sans cela la première flèche partirait d'une
+  /// cellule nulle et ne ferait rien.
+  void _ensureFocusCell() {
+    if (widget.channels.isEmpty) {
+      _focusCell.value = null;
+      _focusAnchorTime = null;
+      return;
+    }
+    final existing = _focusCell.value;
+    if (existing != null && existing.channelIndex < widget.channels.length) {
+      if (existing.start != null && _focusedProgram() != null) return;
+      if (_focusOnRow(
+        existing.channelIndex,
+        allowEmpty: existing.start == null,
+      )) return;
+    }
+    final targeted = _timelineController.targetedChannel.value;
+    var index = (targeted == null || targeted.isEmpty)
+        ? 0
+        : widget.channels.indexOf(targeted);
+    if (index < 0) index = 0;
+
+    _focusOnRow(index, allowEmpty: true);
+  }
+
+  /// Flèche gauche/droite : programme précédent/suivant de la MÊME chaîne.
+  ///
+  /// Retourne true si la cellule a effectivement bougé — sinon la touche est
+  /// rendue au gestionnaire de focus, pour que la flèche puisse sortir de la
+  /// grille (remonter vers la barre d'outils) au lieu d'y rester piégée.
+  bool _moveFocusHorizontal(int step) {
+    _ensureFocusCell();
+    final cell = _focusCell.value;
+    if (cell == null) return false;
+    final programs = _programsOf(cell.channelIndex);
+    final current = _focusedProgram();
+    if (current == null) return false;
+
+    final index = programs.indexOf(current);
+    for (var i = index + step; i >= 0 && i < programs.length; i += step) {
+      final rp = programs[i];
+      if (rp.program.isDummy) continue;
+      _focusCell.value = (
+        channelIndex: cell.channelIndex,
+        start: rp.program.start,
+      );
+      _focusAnchorTime = rp.program.start;
+      _revealFocused();
+      return true;
+    }
+    return false;
+  }
+
+  /// Flèche haut/bas : chaîne voisine, en conservant la colonne horaire.
+  ///
+  /// Les chaînes sans EPG restent activables. Retourne true si la cellule a
+  /// bougé (cf.
+  /// [_moveFocusHorizontal] pour l'échappement du focus).
+  bool _moveFocusVertical(int step) {
+    _ensureFocusCell();
+    final cell = _focusCell.value;
+    if (cell == null || widget.channels.isEmpty) return false;
+    final anchorTime = _focusAnchorTime ?? _focusedProgram()?.program.start;
+
+    final next = cell.channelIndex + step;
+    if (next < 0 || next >= widget.channels.length) return false;
+    _focusOnRow(next, anchorTime: anchorTime, allowEmpty: true);
+    _revealFocused();
+    return true;
+  }
+
+  /// Amène la cellule focalisée dans la vue (horizontal ET vertical).
+  ///
+  /// `jumpTo` et non animation : la télécommande envoie des répétitions
+  /// rapprochées, et des animations qui se recouvrent rendraient la grille
+  /// illisible. Une marge de respiration de 24 px évite que la cellule collée
+  /// au bord passe sous l'overscan de la TV.
+  void _revealFocused() {
+    final rp = _focusedProgram();
+    final cell = _focusCell.value;
+    if (cell == null) return;
+
+    const margin = 24.0;
+    if (rp != null && _viewportWidth > 0) {
+      final offset = _horizontalOffset.value;
+      final viewport = _viewportWidth;
+      if (rp.left < offset + margin) {
+        _setHorizontalOffset(rp.left - margin);
+      } else if (rp.left + rp.width > offset + viewport - margin) {
+        _setHorizontalOffset(rp.left + rp.width - viewport + margin);
+      }
+    }
+
+    if (!_verticalController.hasClients) return;
+    final viewport = _verticalController.position.viewportDimension;
+    final top = cell.channelIndex * kRowStride;
+    final bottom = top + kRowHeight;
+    final current = _verticalController.offset;
+    if (top >= current && bottom <= current + viewport) return;
+
+    // Centrée quand la ligne est entièrement hors écran, alignée en haut quand
+    // elle n'est que tronquée : même règle que `_revealChannel`. La colonne des
+    // noms suit via son écouteur d'offset.
+    final target = (top < current || bottom > current + viewport)
+        ? (top - (viewport - kRowHeight) / 2).clamp(0.0, _maxVerticalOffset)
+        : top;
+    _verticalController.jumpTo(target);
+  }
+
+  /// Valide la cellule focalisée : ouvre le programme (comme un appui court).
+  bool _openFocused() {
+    _ensureFocusCell();
+    final cell = _focusCell.value;
+    final rp = _focusedProgram();
+    if (cell == null ||
+        cell.channelIndex < 0 ||
+        cell.channelIndex >= widget.channels.length) return false;
+    final ch = widget.channels[cell.channelIndex];
+    _timelineController.setTargetedChannel(ch);
+    if (rp == null) {
+      widget.onChannelTap?.call(ch);
+    } else {
+      widget.onProgramTap?.call(rp.program, ch);
+    }
+    return true;
+  }
+
+  /// Touches de la télécommande : flèches pour se déplacer, OK pour ouvrir.
+  ///
+  /// La cellule est initialisée paresseusement : sur une grille fraîche, la
+  /// première flèche part du programme en cours de la chaîne ciblée.
+  ///
+  /// Une flèche qui ne déplace PAS la cellule est « ignorée » et non
+  /// « traitée » : elle est alors rendue au gestionnaire de focus, qui peut
+  /// sortir de la grille (remonter vers la barre d'outils par exemple). Sinon
+  /// le focus resterait prisonnier des programmes.
+  KeyEventResult _onGridKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      return _moveFocusHorizontal(-1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      return _moveFocusHorizontal(1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      return _moveFocusVertical(-1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.arrowDown) {
+      return _moveFocusVertical(1)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      return _openFocused() ? KeyEventResult.handled : KeyEventResult.ignored;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Contrôleur partagé — pour les tests.
@@ -628,6 +928,22 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
   /// Décalage horizontal courant, en px — pour les tests.
   @visibleForTesting
   double get debugHorizontalOffsetForTest => _horizontalOffset.value;
+
+  /// Nœud de focus de la grille — pour les tests D-pad.
+  @visibleForTesting
+  FocusNode get debugGridFocusNodeForTest => _gridFocusNode;
+
+  /// Chaîne désignée au D-pad, ou null — pour les tests.
+  @visibleForTesting
+  String? get debugFocusedChannelForTest {
+    final cell = _focusCell.value;
+    if (cell == null) return null;
+    return widget.channels[cell.channelIndex];
+  }
+
+  /// Début du programme désigné au D-pad, ou null — pour les tests.
+  @visibleForTesting
+  DateTime? get debugFocusedProgramStartForTest => _focusCell.value?.start;
 
   /// Titre du programme sous l'abscisse ÉCRAN [screenDx] — pour les tests.
   ///
@@ -652,84 +968,6 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
       if (absolute >= rp.left && absolute < rp.left + rp.width) return rp;
     }
     return null;
-  }
-
-  void _updateKeyboardSelection() {
-    if (widget.channels.isEmpty) return;
-    _keyboardRow = _keyboardRow.clamp(0, widget.channels.length - 1);
-    final programs = _renderCache[widget.channels[_keyboardRow]] ?? [];
-    if (programs.isEmpty) {
-      _keyboardSelection.value = null;
-      return;
-    }
-    final time = _keyboardTime ?? DateTime.now();
-    final selected = programs.firstWhere(
-      (p) => p.program.end.isAfter(time),
-      orElse: () => programs.last,
-    );
-    _keyboardTime = selected.program.start;
-    _keyboardSelection.value = (_keyboardRow, selected.program);
-    if (_verticalController.hasClients) {
-      final pos = _verticalController.position;
-      final top = _keyboardRow * kRowStride;
-      if (top < pos.pixels) {
-        _verticalController.jumpTo(top.clamp(0.0, pos.maxScrollExtent));
-      } else if (top + kRowStride > pos.pixels + pos.viewportDimension) {
-        _verticalController.jumpTo(
-          (top + kRowStride - pos.viewportDimension)
-              .clamp(0.0, pos.maxScrollExtent),
-        );
-      }
-    }
-    if (selected.left < _horizontalOffset.value) {
-      _setHorizontalOffset(selected.left);
-    } else if (selected.left + selected.width >
-        _horizontalOffset.value + _viewportWidth) {
-      _setHorizontalOffset(selected.left + selected.width - _viewportWidth);
-    }
-  }
-
-  KeyEventResult _onGridKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-    if (widget.channels.isEmpty) return KeyEventResult.ignored;
-    final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.arrowUp ||
-        key == LogicalKeyboardKey.arrowDown) {
-      final next = _keyboardRow + (key == LogicalKeyboardKey.arrowUp ? -1 : 1);
-      if (next < 0 || next >= widget.channels.length) {
-        return KeyEventResult.ignored;
-      }
-      _keyboardRow = next;
-      _updateKeyboardSelection();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.arrowLeft ||
-        key == LogicalKeyboardKey.arrowRight) {
-      final programs = _renderCache[widget.channels[_keyboardRow]] ?? [];
-      final selection = _keyboardSelection.value;
-      final index = programs.indexWhere((p) => p.program == selection?.$2);
-      final next = index + (key == LogicalKeyboardKey.arrowLeft ? -1 : 1);
-      if (index < 0 || next < 0 || next >= programs.length) {
-        return KeyEventResult.ignored;
-      }
-      _keyboardTime = programs[next].program.start;
-      _updateKeyboardSelection();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.select ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.gameButtonA) {
-      final selection = _keyboardSelection.value;
-      if (selection != null) {
-        widget.onProgramTap?.call(selection.$2, widget.channels[selection.$1]);
-      } else {
-        widget.onChannelTap?.call(widget.channels[_keyboardRow]);
-      }
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
   }
 
   @override
@@ -911,7 +1149,7 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                                 ? Colors.white30
                                                 : Colors.white,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 11,
+                                        fontSize: widget.isTv ? 14.0 : 11.0,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -960,9 +1198,15 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                             focusNode: _gridFocusNode,
                             onFocusChange: (focused) {
                               if (focused) {
-                                _updateKeyboardSelection();
+                                _ensureFocusCell();
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (mounted && _gridFocusNode.hasFocus) {
+                                    _revealFocused();
+                                  }
+                                });
                               } else {
-                                _keyboardSelection.value = null;
+                                _focusCell.value = null;
+                                _focusAnchorTime = null;
                               }
                             },
                             onKeyEvent: _onGridKey,
@@ -1049,18 +1293,23 @@ class EpgGrid2DViewState extends State<EpgGrid2DView> {
                                           viewportWidth: viewportWidth,
                                           channelIndex: index,
                                           emptyLabel: l.epgNoDataTitle,
+                                          liveLabel: l.epgLiveNow,
+                                          focusCell: _focusCell,
                                           textDirection:
                                               Directionality.of(context),
                                           horizontalOffset: _horizontalOffset,
+                                          verticalOffsetOf: () =>
+                                              _verticalController.hasClients
+                                                  ? _verticalController.offset
+                                                  : 0,
                                           touchPosition: _hoverPosition,
                                           dataRevision: _dataRevision,
-                                          keyboardSelection: _keyboardSelection,
                                           repaint: Listenable.merge([
                                             _hoverPosition,
                                             _timelineController.now,
                                             _horizontalOffset,
                                             _dataRevision,
-                                            _keyboardSelection,
+                                            _focusCell,
                                           ]),
                                         ),
                                       ),
@@ -1117,6 +1366,83 @@ const double kTitleMinReadableWidth = 12.0;
 @visibleForTesting
 double cullMarginFor(double pixelsPerMinute) => pixelsPerMinute * 60.0;
 
+/// Plancher de largeur d'un bloc, en px.
+///
+/// Ne sert qu'à garder VISIBLE et cliquable un bloc dont la durée réelle
+/// donnerait moins de 4 px (programme très court, ou zoom très dézoomé). Il est
+/// volontairement minuscule : l'ancien plancher de 40 px faisait déborder
+/// chaque bloc sur ses voisins, et le culling occultait alors la suite de la
+/// grille. Sur un appareil Android ancien, où le zoom minimum est atteint
+/// souvent, ce plancher borne le recouvrement à 4 px au lieu de plusieurs
+/// centaines.
+@visibleForTesting
+const double kMinProgramBlockWidth = 4.0;
+
+/// Couleur de l'indicateur « en direct ».
+///
+/// Alignée sur la ligne « maintenant » (`#FF5252`) : les deux désignent le même
+/// instant, ils doivent se lire comme un seul repère.
+const Color kLiveIndicatorColor = Color(0xFFFF5252);
+
+/// Rayon de la pastille « en direct », en px logiques.
+const double kLiveDotRadius = 3.0;
+
+/// Espace entre la pastille, le libellé et le titre, en px logiques.
+const double kLiveDotGap = 4.0;
+
+/// Largeur de bloc à partir de laquelle le libellé « en direct » est écrit.
+///
+/// En dessous, seule la pastille reste : écrire le libellé dans un bloc trop
+/// étroit écraserait le titre — c'était exactement le défaut d'origine, où
+/// « DIRECT » et le titre partageaient la même abscisse et le titre gagnait
+/// toujours.
+const double kLiveLabelMinWidth = 72.0;
+
+/// Abscisse du bord gauche d'un bloc, en px, dans le repère [gridStartTime].
+///
+/// Fonction pure, extraite du `paint` pour être verrouillée par un test : c'est
+/// elle qui garantit que deux programmes de la même tranche horaire ne se
+/// superposent plus. [start] peut précéder [gridStartTime] (programme à cheval
+/// sur minuit) : le résultat est alors négatif, et c'est le culling qui s'en
+/// charge.
+@visibleForTesting
+double programLeftPx(
+  DateTime start,
+  DateTime gridStartTime,
+  double pixelsPerMinute,
+) =>
+    start.difference(gridStartTime).inSeconds / 60.0 * pixelsPerMinute;
+
+/// Largeur d'un bloc, en px : durée réelle × échelle, plancher
+/// [kMinProgramBlockWidth].
+///
+/// Pas de gouttière soustraite : les tuiles sont volontairement pleine largeur
+/// (chaque bloc va jusqu'au début du suivant), ce qui évite les fentes
+/// claires qui se lisaient comme des trous d'EPG.
+@visibleForTesting
+double programWidthPx(int durationMinutes, double pixelsPerMinute) {
+  final raw = durationMinutes * pixelsPerMinute;
+  return raw < kMinProgramBlockWidth ? kMinProgramBlockWidth : raw;
+}
+
+/// Abscisse ÉCRAN (0 = bord gauche du canvas de la ligne) d'une position
+/// ABSOLUE de la journée.
+///
+/// Le canvas de chaque ligne ne montre qu'une tranche de la journée : toute
+/// abscisse issue de [programLeftPx] (donc relative à minuit, jusqu'à 5760 px)
+/// doit passer par ici avant d'être dessinée.
+///
+/// Oublier cet appel — le défaut qui touchait le titre et le badge « REPLAY » —
+/// peignait le texte à sa position absolue, hors du canvas dès que la grille
+/// est défilée : les blocs restaient visibles mais vides de texte, ce qui se
+/// lisait comme « aucun programme dans la grille ».
+///
+/// Source unique : fond, titre et badge appellent cette fonction, donc ils ne
+/// peuvent plus diverger.
+@visibleForTesting
+double screenXFor(double absolutePx, double horizontalOffset) =>
+    absolutePx - horizontalOffset;
+
 /// Abscisse de départ de l'axe des heures.
 @visibleForTesting
 double axisLeftInset() => kChannelWidth;
@@ -1159,11 +1485,23 @@ class _AxisButton extends StatelessWidget {
   }
 }
 
-/// Programme préparé pour le rendu (positions précalculées).
+/// Programme préparé pour le rendu (positions précalculées une fois).
+///
+/// [left] et [width] sont calculés à la construction du cache, à partir de
+/// l'heure réelle (`startTime`/`durationMinutes`) et de l'origine de la
+/// journée. La grille a un temps quantifié les programmes en créneaux de 2 h :
+/// tous ceux d'un même créneau recevaient la MÊME abscisse et se masquaient
+/// les uns les autres. On revient à un placement exact.
 class _RenderProgram {
   final EPGProgram program;
+
+  /// Abscisse du bord gauche, en px, depuis l'origine de la journée.
+  /// Négative pour un programme commencé la veille.
   final double left;
+
+  /// Largeur réelle en px : `durée × échelle`, plancher [kMinProgramBlockWidth].
   final double width;
+
   final bool isLive;
   final bool replayable;
 
@@ -1264,7 +1602,10 @@ class _NowLineOverlay extends StatelessWidget {
             );
             final drift = now.difference(axisTime).inSeconds;
             if (drift.abs() >= 30) {
-              LoggerService.instance.info(
+              // Ce build tourne à chaque défilement horizontal : avec un
+              // décalage persistant, le bilan partait en logcat à chaque
+              // frame. `debug` le limite au build de dev.
+              LoggerService.instance.debug(
                 'EPG : ligne « maintenant » décalée de ${drift}s — '
                 'axe=$axisTime grille=$now '
                 '(décalage=$offset, colonne=$channelWidth, '
@@ -1345,7 +1686,14 @@ class _EpgGridPainter extends CustomPainter {
   final String emptyLabel;
   final TextDirection textDirection;
   final ValueListenable<double>? horizontalOffset;
+  final double Function() verticalOffsetOf;
   final ValueListenable<Offset?>? touchPosition;
+
+  /// Cellule désignée au D-pad (télécommande TV), à mettre en évidence.
+  ///
+  /// Écoutée via `repaint` (comme le survol) : la navigation TV repeint donc
+  /// une ligne sans reconstruire le widget.
+  final ValueListenable<_GridFocusCell?>? focusCell;
 
   /// Notifié quand le cache de rendu est reconstruit.
   ///
@@ -1360,18 +1708,22 @@ class _EpgGridPainter extends CustomPainter {
   /// elle qui supprime l'empreinte mémoire délirante.
   final int channelIndex;
 
+  /// Libellé « en direct », résolu par l'écran (`epgLiveNow`).
+  ///
+  /// Le painter n'a pas de `BuildContext` : le texte est lu dans le `build` puis
+  /// passé ici, pour que l'indicateur suive la langue de l'application.
+  final String liveLabel;
+
   /// Lecture différée du cache de rendu.
   ///
   /// Le painter ne reçoit pas la map : il la lit au moment du paint. Capturer
   /// la map à la construction figeait le premier état (vide) dans chaque ligne
   /// déjà displayée, et aucun rebuild ne venait la corriger.
   final Map<String, List<_RenderProgram>> Function() renderCacheOf;
-  final ValueNotifier<(int, EPGProgram)?> keyboardSelection;
 
   _EpgGridPainter({
     required this.channels,
     required this.renderCacheOf,
-    required this.keyboardSelection,
     required this.gridStartTime,
     required this.pixelsPerMinute,
     required this.rowHeight,
@@ -1380,8 +1732,11 @@ class _EpgGridPainter extends CustomPainter {
     required this.channelIndex,
     required this.emptyLabel,
     required this.textDirection,
+    required this.liveLabel,
     required this.horizontalOffset,
+    required this.verticalOffsetOf,
     required this.touchPosition,
+    required this.focusCell,
     required this.dataRevision,
     super.repaint,
   });
@@ -1406,14 +1761,33 @@ class _EpgGridPainter extends CustomPainter {
   /// ne cherche que parmi les programmes de cette chaîne.
   _RenderProgram? _resolveHovered(Offset? pos) {
     if (pos == null) return null;
-    if (pos.dy < 0 || pos.dy > rowHeight) return null;
+    final rowY = pos.dy +
+        verticalOffsetOf() -
+        channelIndex * EpgGrid2DViewState.kRowStride;
+    if (rowY < 0 || rowY > rowHeight) return null;
     final ch = channels[channelIndex];
+    // `pos.dx` est relatif au canvas de la ligne (tranche visible), alors que
+    // `rp.left` est ABSOLU depuis minuit : sans cette conversion, la
+    // surbrillance suivait le programme situé à la même abscisse près de
+    // minuit au lieu de celui sous le pointeur.
+    final absolute = pos.dx + (horizontalOffset?.value ?? 0.0);
     for (final rp in renderCacheOf()[ch] ?? const <_RenderProgram>[]) {
-      if (pos.dx >= rp.left && pos.dx <= rp.left + rp.width) {
+      if (absolute >= rp.left && absolute < rp.left + rp.width) {
         return rp;
       }
     }
     return null;
+  }
+
+  /// Vrai si [rp] est la cellule désignée au D-pad sur CETTE ligne.
+  ///
+  /// Comparaison par identité de programme (début) et non par référence :
+  /// l'objet `_RenderProgram` est recréé à chaque reconstruction du cache.
+  bool _isFocusedCell(_RenderProgram rp) {
+    final cell = focusCell?.value;
+    return cell != null &&
+        cell.channelIndex == channelIndex &&
+        cell.start == rp.program.start;
   }
 
   @override
@@ -1432,9 +1806,9 @@ class _EpgGridPainter extends CustomPainter {
     canvas.drawLine(const Offset(0, 0), Offset(size.width, 0), linePaint);
 
     final (cullMin, cullMax) = _cullRange;
-    // Translation : les positions sont absolues dans la journée (0 → 5760 px),
-    // le canvas ne montre que la tranche visible.
-    final shift = -(horizontalOffset?.value ?? 0.0);
+    // Positions absolues dans la journée (0 → 5760 px) : le canvas ne montre
+    // que la tranche visible, donc on les ramène à l'écran via `screenXFor`.
+    final screenOffset = horizontalOffset?.value ?? 0.0;
     final hovered = _resolveHovered(touchPosition?.value);
 
     final ch = channels[channelIndex];
@@ -1446,14 +1820,18 @@ class _EpgGridPainter extends CustomPainter {
       for (final rp in programs) {
         // Culling : on ne dessine/layout que les barres visibles dans le
         // viewport + marge (évite ~des milliers de TextPainter hors écran).
-        if (rp.left + rp.width < cullMin || rp.left > cullMax) continue;
+        final left = rp.left;
+        final width = rp.width;
+        if (left + width < cullMin || left > cullMax) continue;
 
-        final selection = keyboardSelection.value;
-        final isKeyboardSelected =
-            selection?.$1 == channelIndex && selection?.$2 == rp.program;
-        final isHovered = rp == hovered || isKeyboardSelected;
+        // Abscisse ÉCRAN du bord gauche du bloc : partagée par le fond, le
+        // titre et le badge REPLAY (source unique `screenXFor`).
+        final screenLeft = screenXFor(left, screenOffset);
+
+        final isHovered = rp == hovered;
+        final isFocused = _isFocusedCell(rp);
         final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(rp.left + shift, y, rp.width, h),
+          Rect.fromLTWH(screenLeft, y, width, h),
           const Radius.circular(6),
         );
 
@@ -1466,7 +1844,7 @@ class _EpgGridPainter extends CustomPainter {
               ? const Color(0x00000000)
               : rp.isLive
                   ? const Color(0xFF2D224D)
-                  : (isHovered
+                  : (isHovered || isFocused
                       ? const Color(0xFF2A2F3A)
                       : const Color(0xFF1C1F26));
         if (isDummy) {
@@ -1482,17 +1860,20 @@ class _EpgGridPainter extends CustomPainter {
 
         final borderPaint = Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = isKeyboardSelected ? 2.5 : 1
-          ..color = isKeyboardSelected
-              ? Colors.amber
-              : isDummy
-                  ? Colors.white10.withValues(alpha: 0.4)
+          // Le focus D-pad est plus épais : à plusieurs mètres d'un téléviseur,
+          // une bordure de 1 px violette se confond avec la surbrillance de
+          // survol. C'est le seul repère de « où je suis » à la télécommande.
+          ..strokeWidth = isFocused ? 2.5 : 1.0
+          ..color = isDummy
+              ? Colors.white10.withValues(alpha: 0.4)
+              : isFocused
+                  ? Colors.amber
                   : rp.isLive
                       ? const Color(0xFF8B5CF6)
                       : (isHovered
                           ? const Color(0xFF8B5CF6).withValues(alpha: 0.5)
                           : Colors.white10);
-        if (isDummy && !isKeyboardSelected) {
+        if (isDummy) {
           // Bordure en pointillés : le motif dit « il n'y a rien ici » sans
           // competing avec les programmes voisins.
           _drawDashedRect(canvas, rect, borderPaint);
@@ -1500,16 +1881,55 @@ class _EpgGridPainter extends CustomPainter {
           canvas.drawRRect(rect, borderPaint);
         }
 
-        // Titre du programme, adapté au bloc.
+        // Contenu du bloc : pastille « en direct », puis éventuellement son
+        // libellé, puis le titre — tous posés SÉQUENTIELLEMENT depuis la
+        // gauche. C'est la correction du défaut d'origine : « DIRECT » et le
+        // titre partageaient la même abscisse (`rp.left + 6`) et se
+        // recouvraient, le titre passant toujours au-dessus.
+        var contentLeft = screenLeft + kTitlePaddingH;
+        if (rp.isLive && !isDummy) {
+          final centerY = y + h / 2;
+          canvas.drawCircle(
+            Offset(contentLeft + kLiveDotRadius, centerY),
+            kLiveDotRadius,
+            Paint()..color = kLiveIndicatorColor,
+          );
+          contentLeft += kLiveDotRadius * 2 + kLiveDotGap;
+          // Le libellé n'est écrit que si le bloc peut le porter sans écraser
+          // le titre : en dessous de [kLiveLabelMinWidth], la pastille suffit à
+          // dire « en direct ».
+          if (rp.width >= kLiveLabelMinWidth) {
+            final livePainter = TextPainter(
+              text: TextSpan(
+                text: liveLabel,
+                style: const TextStyle(
+                  color: kLiveIndicatorColor,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              textDirection: textDirection,
+              maxLines: 1,
+            )..layout();
+            livePainter.paint(
+              canvas,
+              Offset(contentLeft, centerY - livePainter.height / 2),
+            );
+            contentLeft += livePainter.width + kLiveDotGap;
+          }
+        }
+        if (contentLeft < kTitlePaddingH) contentLeft = kTitlePaddingH;
+
+        // Titre du programme, adapté à la place restante.
         //
         // Le seuil est dérivé de la marge intérieure : il faut de la place pour
         // au moins quelques caractères, sinon n'écrire rien. L'ancien
         // `width > 26` produisait deux défauts opposés — du texte broyé entre
         // 26 et 38 px, et un bloc totalement vide en dessous, ce qui se lisait
         // comme une description disparue au défilement.
-        final blockLeft = rp.left + shift;
-        final textX = (blockLeft < 0 ? 0.0 : blockLeft) + kTitlePaddingH;
-        final textMaxWidth = blockLeft + rp.width - textX - kTitlePaddingH;
+        final textMaxWidth =
+            screenLeft + rp.width - kTitlePaddingH - contentLeft;
         if (textMaxWidth >= kTitleMinReadableWidth) {
           final textPainter = TextPainter(
             text: TextSpan(
@@ -1520,26 +1940,16 @@ class _EpgGridPainter extends CustomPainter {
                 fontSize: 10,
               ),
             ),
-            textDirection: TextDirection.ltr,
+            textDirection: textDirection,
             maxLines: 1,
             ellipsis: '…',
           );
           textPainter.layout(maxWidth: textMaxWidth);
           textPainter.paint(
             canvas,
-            Offset(textX, y + (h - textPainter.height) / 2),
+            Offset(contentLeft, y + (h - textPainter.height) / 2),
           );
         }
-
-        // Indicateur « en direct », volontairement absent.
-//
-// Il partageait la position du titre (`rp.left + 6`) : sur un bloc étroit,
-// deux `TextPainter` se disputaient le même pixel, et le titre passait en
-// premier — donc « DIRECT » disparaissait. Ce qui se lisait comme une
-// information manquante au défilement.
-//
-// L'information reste disponible ailleurs : la ligne rouge donne l'heure
-// courante, et le mini-lecteur donne le titre du programme en cours.
 
         // Badge "replay" pour les programmes terminés des chaînes DVR
         if (rp.replayable && rp.width > 34) {
@@ -1559,7 +1969,7 @@ class _EpgGridPainter extends CustomPainter {
           replayPainter.paint(
             canvas,
             Offset(
-              blockLeft + rp.width - replayPainter.width - 6,
+              screenLeft + rp.width - replayPainter.width - 6,
               y + h - 14,
             ),
           );
@@ -1573,6 +1983,20 @@ class _EpgGridPainter extends CustomPainter {
       // distinguer « cette chaîne n'a pas d'EPG » d'un bug d'affichage ou
       // d'un décalage de grille. Un libellé rend l'information lisible et
       // évite au lecteur de croire que l'application est cassée.
+      final cell = focusCell?.value;
+      if (cell?.channelIndex == channelIndex && cell?.start == null) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+                1, y, (size.width - 2).clamp(0.0, double.infinity), h),
+            const Radius.circular(6),
+          ),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = Colors.amber,
+        );
+      }
       if (programs.isEmpty) {
         final emptyPainter = TextPainter(
           text: TextSpan(
@@ -1585,7 +2009,7 @@ class _EpgGridPainter extends CustomPainter {
           ),
           textDirection: textDirection,
         )..layout(maxWidth: (cullMax - cullMin).clamp(0.0, size.width));
-        if (cullMin <= 8 && emptyPainter.width > 0) {
+        if (emptyPainter.width > 0) {
           emptyPainter.paint(
             canvas,
             Offset(8, y + (h - emptyPainter.height) / 2),
@@ -1595,11 +2019,11 @@ class _EpgGridPainter extends CustomPainter {
     }
 
     // La ligne « maintenant » n'est PAS tracée ici.
-//
-// Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
-// aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
-// signification. Elle est désormais peinte une seule fois, par-dessus toute la
-// grille, dans `_NowLineOverlay`.
+    //
+    // Une ligne = un canvas, donc ce tracé était répété 628 fois et s'interrompait
+    // aux bords de chaque ligne : elle se lisait comme une suite de tirets sans
+    // signification. Elle est désormais peinte une seule fois, par-dessus toute la
+    // grille, dans `_NowLineOverlay`.
   }
 
   /// Rectangle à bordure pointillée, pour les blocs de trou.

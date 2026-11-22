@@ -2,12 +2,14 @@
 
 > **Équipe Terre** (EPG/Données, Lvl 4 Apprenti) — **Audit rapport uniquement**.
 > Aucun fichier de code n'a été modifié.
+>
+> ⚠️ **Mise à jour (commit `4458d6d`)** : le widget `ConfirmExitApp` et son fichier `lib/core/widgets/confirm_exit_app.dart` ont été supprimés ; les mentions ci-dessous décrivent l'état au 2026-09-08.
 
 - **Date** : 2026-09-08
 - **Périmètre** : toutes les routes GoRouter de `lib/main.dart` (1 shell + 28 routes),
   croisement avec `WithBackHandling`, `ConfirmExitApp`, et les écrans de `lib/features/`.
 - **Mécanismes en jeu** :
-  - `ConfirmExitApp` (`lib/core/widgets/confirm_exit_app.dart`) : `PopScope(canPop:false)` + dialog « Quitter Orbit IPTV ? » → `SystemNavigator.pop()`.
+  - `ConfirmExitApp` (`lib/core/widgets/confirm_exit_app.dart`, **supprimé par `4458d6d`**) : `PopScope(canPop:false)` + dialog « Quitter Orbit IPTV ? » → `SystemNavigator.pop()`.
   - `WithBackHandling` (`lib/core/navigation/with_back_handling.dart`) : `PopScope(canPop:false)` + `RestorationScope`, piloté par `RouteMeta` (pop / popOrFallback / custom).
   - `PopScope` racine dans `OrbitApp.build` (`MaterialApp.router` → `builder`) : `canPop:false` + même dialog.
 

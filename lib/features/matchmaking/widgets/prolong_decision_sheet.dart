@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/favorite_entry.dart';
 import 'package:orbit_3d_flutter/models/recommendation.dart';
@@ -180,84 +181,87 @@ class _ProlongDecisionSheetState extends State<_ProlongDecisionSheet> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isMovie
-                          ? l.recommendationMovieQuestion
-                          : l.recommendationSeriesQuestion,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.reco.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: scheme.onSurfaceVariant),
-                    ),
-                    const SizedBox(height: 16),
-                    _DecisionTile(
-                      icon: Icons.visibility_off_outlined,
-                      label: isMovie
-                          ? l.recommendationMovieSeen
-                          : l.recommendationSeriesSeen,
-                      detail: l.recommendationRemovedFuture,
-                      autofocus: true,
-                      selected: _selected == _Decision.seen,
-                      onTap: () => _select(_Decision.seen),
-                    ),
-                    const SizedBox(height: 8),
-                    _DecisionTile(
-                      icon: Icons.thumb_down_alt_outlined,
-                      label: l.recommendationNotInterested,
-                      detail: l.recommendationExcluded,
-                      selected: _selected == _Decision.notInterested,
-                      onTap: () => _select(_Decision.notInterested),
-                    ),
-                    const SizedBox(height: 8),
-                    _DecisionTile(
-                      icon: Icons.favorite_border,
-                      label: l.favoritesAdd,
-                      detail: l.recommendationFavoriteProfile,
-                      selected: _selected == _Decision.favorite,
-                      onTap: () => _select(_Decision.favorite),
-                    ),
-                  ],
+        child: FocusTraversalGroup(
+          policy: OrderedTraversalPolicy(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isMovie
+                            ? l.recommendationMovieQuestion
+                            : l.recommendationSeriesQuestion,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.reco.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 16),
+                      _DecisionTile(
+                        icon: Icons.visibility_off_outlined,
+                        label: isMovie
+                            ? l.recommendationMovieSeen
+                            : l.recommendationSeriesSeen,
+                        detail: l.recommendationRemovedFuture,
+                        autofocus: true,
+                        selected: _selected == _Decision.seen,
+                        onTap: () => _select(_Decision.seen),
+                      ),
+                      const SizedBox(height: 8),
+                      _DecisionTile(
+                        icon: Icons.thumb_down_alt_outlined,
+                        label: l.recommendationNotInterested,
+                        detail: l.recommendationExcluded,
+                        selected: _selected == _Decision.notInterested,
+                        onTap: () => _select(_Decision.notInterested),
+                      ),
+                      const SizedBox(height: 8),
+                      _DecisionTile(
+                        icon: Icons.favorite_border,
+                        label: l.favoritesAdd,
+                        detail: l.recommendationFavoriteProfile,
+                        selected: _selected == _Decision.favorite,
+                        onTap: () => _select(_Decision.favorite),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(l.cancel),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(l.cancel),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    focusNode: _confirmFocus,
-                    onPressed: _selected == null
-                        ? null
-                        : () => Navigator.of(context).pop(_selected),
-                    child: Text(l.cloudConfirm),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      focusNode: _confirmFocus,
+                      onPressed: _selected == null
+                          ? null
+                          : () => Navigator.of(context).pop(_selected),
+                      child: Text(l.cloudConfirm),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -289,32 +293,37 @@ class _DecisionTile extends StatelessWidget {
           selected ? scheme.primaryContainer : scheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        autofocus: autofocus,
+        canRequestFocus: false,
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Icon(icon, color: scheme.onSurfaceVariant),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 2),
-                    Text(
-                      detail,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                    ),
-                  ],
+        child: TvFocus(
+          autofocus: autofocus,
+          onActivate: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(icon, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 2),
+                      Text(
+                        detail,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-            ],
+                Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              ],
+            ),
           ),
         ),
       ),

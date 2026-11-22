@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/profile_pin.dart';
@@ -172,7 +173,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SafeArea(
+      body: TvSafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final textWidth = (constraints.maxWidth - 48).clamp(1.0, 432.0);

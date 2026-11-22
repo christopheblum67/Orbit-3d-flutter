@@ -13,6 +13,7 @@ import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/models/watched_episode.dart';
 import 'package:orbit_3d_flutter/providers/favorites_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
 import 'package:orbit_3d_flutter/services/watched_episodes_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,11 +41,19 @@ class _WatchedService extends WatchedEpisodesService {
 
 class _Progress extends PlaybackProgressService {
   PlaybackProgress? progress;
+  final byId = <String, PlaybackProgress>{};
   @override
-  PlaybackProgress? get(String id) => progress;
+  PlaybackProgress? get(String id) => byId[id] ?? progress;
+
+  void setFor(String id, PlaybackProgress value) {
+    byId[id] = value;
+    notifyListeners();
+  }
+
   @override
   Future<void> clear(String id) async {
     progress = null;
+    byId.remove(id);
     notifyListeners();
   }
 }
@@ -113,6 +122,7 @@ void main() {
       Series? customSeries,
       Size size = const Size(1920, 1080),
       double textScale = 1,
+      bool ensureEpisode = true,
       Locale locale = const Locale('fr')}) async {
     SharedPreferences.setMockInitialValues({});
     final selectedSeries = customSeries ?? series;
@@ -163,6 +173,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
+    if (!ensureEpisode) return;
     final tile = find.byKey(const ValueKey('season-episode-0'));
     if (tile.evaluate().isEmpty) {
       await tester.scrollUntilVisible(
@@ -192,6 +203,89 @@ void main() {
       find.text('"S01E01 — Episode" will be marked as watched for this profile.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('season check follows manual and playback watched state',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    final episodes = [
+      for (final (season, number) in [(1, 1), (1, 2), (2, 1)])
+        Episode(
+          id: '$season-$number',
+          title: 'Episode $number',
+          season: season,
+          episodeNumber: number,
+          streamUrl: '',
+        ),
+    ];
+    final multiSeason = Series(
+      id: 'series',
+      title: 'Series',
+      description: '',
+      coverUrl: '',
+      year: 0,
+      genre: '',
+      director: '',
+      rating: 0,
+      pegi: '',
+      episodes: episodes,
+    );
+    final progress = _Progress();
+    await open(tester, _WatchedService(), progress,
+        customSeries: multiSeason, locale: const Locale('en'));
+
+    final seasonOneCheck = find.byKey(const ValueKey('season-complete-1'));
+    final seasonTwoCheck = find.byKey(const ValueKey('season-complete-2'));
+    expect(seasonOneCheck, findsNothing);
+    expect(seasonTwoCheck, findsNothing);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SeriesDetailScreen)),
+    );
+    await container.read(watchedEpisodesProvider.notifier).record(
+          multiSeason,
+          episodes.first,
+        );
+    await tester.pumpAndSettle();
+    expect(seasonOneCheck, findsNothing);
+
+    final id = PlaybackProgressService.idForProfile('profile', 'episode-1-2');
+    progress.setFor(
+      id,
+      const PlaybackProgress(positionMs: 800, durationMs: 1000, updatedAt: 0),
+    );
+    await tester.pumpAndSettle();
+    expect(seasonOneCheck, findsOneWidget);
+    expect(seasonTwoCheck, findsNothing);
+    expect(find.bySemanticsLabel(RegExp('Season 1, 2/2 watched')), findsOneWidget);
+
+    progress.setFor(
+      id,
+      const PlaybackProgress(positionMs: 799, durationMs: 1000, updatedAt: 0),
+    );
+    await tester.pumpAndSettle();
+    expect(seasonOneCheck, findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('a series without episodes has no completed season',
+      (tester) async {
+    final emptySeries = Series(
+      id: 'series',
+      title: 'Series',
+      description: '',
+      coverUrl: '',
+      year: 0,
+      genre: '',
+      director: '',
+      rating: 0,
+      pegi: '',
+      episodes: const [],
+    );
+    await open(tester, _WatchedService(), _Progress(),
+        customSeries: emptySeries, ensureEpisode: false);
+    expect(find.byKey(const ValueKey('season-complete-1')), findsNothing);
+    expect(find.byType(TabBar), findsNothing);
   });
 
   testWidgets(

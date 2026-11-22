@@ -7,6 +7,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 
 void main() {
+  testWidgets('forwards HTTP headers to the image loader', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: OrbitCachedImage(
+          imageUrl: 'https://example.test/headers',
+          httpHeaders: {'X-Test': 'value'},
+        ),
+      ),
+    );
+    final image =
+        tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+    expect(image.httpHeaders, {'X-Test': 'value'});
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('bounds decoding to the displayed width and pixel ratio',
       (tester) async {
     await tester.pumpWidget(

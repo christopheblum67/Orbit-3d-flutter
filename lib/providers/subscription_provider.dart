@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:orbit_3d_flutter/core/utils/logger_service.dart';
 import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
@@ -38,6 +39,7 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     final subs = await _storage.getSubscriptions();
     if (!ref.mounted) return;
     state = subs;
+    ref.invalidate(activeSubscriptionProvider);
   }
 
   Future<void> addSubscription(Subscription subscription) async {
@@ -45,8 +47,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     await _storage.saveSubscription(subscription);
     if (!ref.mounted) return;
     state = [...state, subscription];
+    ref.invalidate(activeSubscriptionProvider);
     if (subscription.type == SubscriptionType.xtream && subscription.isActive) {
-      refreshValidity(subscription.id);
+      unawaited(refreshValidity(subscription.id));
     }
   }
 
@@ -56,8 +59,9 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     if (!ref.mounted) return;
     state =
         state.map((s) => s.id == subscription.id ? subscription : s).toList();
+    ref.invalidate(activeSubscriptionProvider);
     if (subscription.type == SubscriptionType.xtream && subscription.isActive) {
-      refreshValidity(subscription.id);
+      unawaited(refreshValidity(subscription.id));
     }
   }
 
@@ -66,6 +70,7 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     await _storage.deleteSubscription(id);
     if (!ref.mounted) return;
     state = state.where((s) => s.id != id).toList();
+    ref.invalidate(activeSubscriptionProvider);
   }
 
   Future<void> setActive(String id) async {
@@ -113,6 +118,12 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
     replaysCache.invalidate();
     channelReplaysCache.invalidate();
     ref.invalidate(shortEpgCacheProvider);
+    // Cache de l'EPG complet du rattrapage : même raison (indexé sur le
+    // `stream_id`, partagé entre abonnements).
+    ref.invalidate(catchUpEpgCacheProvider);
+    // Outrepasse la règle des 30 min : on marque les données comme non
+    // fraîches pour que `_refreshAll` (bouton « Mettre à jour ») soit
+    // re-autorisé immédiatement après un changement d'abonnement.
     ref.read(lastRefreshTimestampProvider.notifier).setTimestamp(null);
     final lastRefresh = await loadLastRefresh(subscriptionId: activated.id);
     if (!ref.mounted) return;
@@ -156,29 +167,36 @@ class SubscriptionsNotifier extends Notifier<List<Subscription>> {
   /// l'abonnement afin que `validityLabel` affiche une vraie valeur.
   /// Sans effet pour les playlists M3U (aucune validité serveur).
   Future<void> refreshValidity(String id, {ApiService? api}) async {
-    await _ensureLoaded();
-    if (!ref.mounted) return;
-    final index = state.indexWhere((s) => s.id == id);
-    if (index == -1) return;
-    final sub = state[index];
-    if (sub.type != SubscriptionType.xtream) return;
+    try {
+      await _ensureLoaded();
+      if (!ref.mounted) return;
+      final index = state.indexWhere((s) => s.id == id);
+      if (index == -1) return;
+      final sub = state[index];
+      if (sub.type != SubscriptionType.xtream) return;
 
-    final apiService = api ?? ApiService();
-    final expiry = await apiService.fetchExpiration();
-    if (!ref.mounted || expiry == null) return;
-    // Date inchangée : rien à persister, et surtout aucune invalidation, qui
-    // relancerait le chargement des catalogues en plein démarrage.
-    if (sub.validUntil == expiry) return;
+      final apiService = api ?? ApiService();
+      final expiry = await apiService.fetchExpiration();
+      if (!ref.mounted || expiry == null) return;
+      // Date inchangée : rien à persister, et surtout aucune invalidation, qui
+      // relancerait le chargement des catalogues en plein démarrage.
+      if (sub.validUntil == expiry) return;
 
-    final updated = sub.copyWith(validUntil: expiry);
-    await _storage.saveSubscription(updated);
-    if (!ref.mounted) return;
-    state = [
-      ...state.sublist(0, index),
-      updated,
-      ...state.sublist(index + 1),
-    ];
-    ref.invalidate(activeSubscriptionProvider);
+      final updated = sub.copyWith(validUntil: expiry);
+      await _storage.saveSubscription(updated);
+      if (!ref.mounted) return;
+      state = [
+        ...state.sublist(0, index),
+        updated,
+        ...state.sublist(index + 1),
+      ];
+      ref.invalidate(activeSubscriptionProvider);
+    } catch (_) {
+      // Ne doit JAMAIS remonter : `refreshValidity` est appelé en
+      // fire-and-forget depuis `addSubscription`/`updateSubscription`, et un
+      // oubli ici provoquerait une exception asynchrone non interceptée.
+      LoggerService.instance.warning('refreshValidity failed');
+    }
   }
 
   Future<void> testConnection(Subscription sub, {ApiService? api}) async {

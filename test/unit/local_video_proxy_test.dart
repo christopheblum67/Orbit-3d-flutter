@@ -411,13 +411,17 @@ void main() {
       () async {
     final other = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     String? authorization;
+    String? otherCustomHeader;
     other.listen((request) async {
       authorization = request.headers.value('authorization');
+      otherCustomHeader = request.headers.value('x-session-data');
       request.response.write('ok');
       await request.response.close();
     });
     final redirect = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    String? initialCustomHeader;
     redirect.listen((request) async {
+      initialCustomHeader = request.headers.value('x-session-data');
       request.response.statusCode = 302;
       request.response.headers
           .set('location', 'http://127.0.0.1:${other.port}/video');
@@ -426,12 +430,168 @@ void main() {
     try {
       final session = proxy.openSession(
         Uri.parse('http://127.0.0.1:${redirect.port}/video'),
-        headers: {'Authorization': 'secret'},
+        headers: {'Authorization': 'secret', 'X-Session-Data': 'private'},
       );
       expect((await get(session.url)).$3, 'ok');
       expect(authorization, isNull);
+      expect(initialCustomHeader, 'private');
+      expect(otherCustomHeader, isNull);
     } finally {
       await redirect.close(force: true);
+      await other.close(force: true);
+    }
+  });
+
+  test('conserve les en-têtes lors d’une redirection de même origine',
+      () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final observed = <String?>[];
+    server.listen((request) async {
+      observed.add(request.headers.value('x-session-data'));
+      if (request.uri.path == '/start') {
+        request.response.statusCode = 302;
+        request.response.headers.set('location', '/end');
+      } else {
+        request.response.write('ok');
+      }
+      await request.response.close();
+    });
+    try {
+      final session = proxy.openSession(
+        Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: server.port,
+            path: '/start'),
+        headers: {'X-Session-Data': 'private'},
+      );
+      expect((await get(session.url)).$3, 'ok');
+      expect(observed, ['private', 'private']);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('ne rétablit pas les en-têtes après un détour par une autre origine',
+      () async {
+    final other = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final original = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final received = <String?>[];
+    original.listen((request) async {
+      received.add(request.headers.value('x-session-data'));
+      if (request.uri.path == '/start') {
+        request.response.statusCode = 302;
+        request.response.headers.set(
+          'location',
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: other.port,
+            path: '/redirect',
+          ).toString(),
+        );
+      } else {
+        request.response.write('ok');
+      }
+      await request.response.close();
+    });
+    other.listen((request) async {
+      received.add(request.headers.value('x-session-data'));
+      request.response.statusCode = 302;
+      request.response.headers.set(
+        'location',
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: original.port,
+          path: '/return',
+        ).toString(),
+      );
+      await request.response.close();
+    });
+    try {
+      final session = proxy.openSession(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: original.port,
+          path: '/start',
+        ),
+        headers: {'X-Session-Data': 'private'},
+      );
+      expect((await get(session.url)).$3, 'ok');
+      expect(received, ['private', null, null]);
+    } finally {
+      await original.close(force: true);
+      await other.close(force: true);
+    }
+  });
+
+  test('signale un manifeste DASH détecté sans extension', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType =
+          ContentType('application', 'dash+xml');
+      request.response.write('<MPD/>');
+      await request.response.close();
+    });
+    try {
+      final session = proxy.openSession(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: server.port,
+          path: '/manifest',
+        ),
+      );
+      expect((await get(session.url)).$1, 502);
+      expect(session.unsupportedDash, isTrue);
+    } finally {
+      await server.close(force: true);
+    }
+  });
+
+  test('ne transmet aucun en-tête de session aux ressources HLS étrangères',
+      () async {
+    final other = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    String? otherCustomHeader;
+    other.listen((request) async {
+      otherCustomHeader = request.headers.value('x-session-data');
+      request.response.write('segment');
+      await request.response.close();
+    });
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    String? initialCustomHeader;
+    server.listen((request) async {
+      initialCustomHeader = request.headers.value('x-session-data');
+      request.response.headers.contentType =
+          ContentType('application', 'vnd.apple.mpegurl');
+      final segment = Uri(
+        scheme: 'http',
+        host: '127.0.0.1',
+        port: other.port,
+        path: '/segment.ts',
+      );
+      request.response.write('#EXTM3U\n#EXTINF:4,\n$segment\n');
+      await request.response.close();
+    });
+    try {
+      final session = proxy.openSession(
+        Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: server.port,
+            path: '/a.m3u8'),
+        headers: {'X-Session-Data': 'private'},
+      );
+      final manifest = (await get(session.url)).$3;
+      final segment =
+          manifest.split('\n').firstWhere((line) => line.startsWith('http'));
+      expect((await get(Uri.parse(segment))).$3, 'segment');
+      expect(initialCustomHeader, 'private');
+      expect(otherCustomHeader, isNull);
+    } finally {
+      await server.close(force: true);
       await other.close(force: true);
     }
   });

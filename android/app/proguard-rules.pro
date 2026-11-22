@@ -1,8 +1,8 @@
 # Règles ProGuard/R8 pour le build release d'Orbit3D.
 #
 # Les règles de base du SDK Android sont fournies par
-# `proguard-android-optimize.txt` ; celles des dépendances AAR (ExoPlayer,
-# media3, firebase…) sont appliquées automatiquement par Gradle via leurs
+# `proguard-android-optimize.txt` ; celles des dépendances AAR (media3,
+# firebase…) sont appliquées automatiquement par Gradle via leurs
 # `consumer-rules.pro` respectives. Ce fichier ne garde que ce que les AARs ne
 # couvrent pas : notre fork natif et les points de réflexion connus.
 
@@ -14,15 +14,19 @@
 # pistes texte/audio (appels JNI vers les méthodes du pont natif).
 -keep class io.flutter.plugins.videoplayer.** { *; }
 
-# ---- Réflexion ExoPlayer/media3 (client hérité hors consumer rules) ------
-# ExoPlayer instancie par réflexion les `DefaultRenderersFactory` /
-# `DrmSessionManager` de certains chemins de lecture. On garde les classes
-# renderer référencées par le fork pour ne pas casser le décodage.
--keep class com.google.android.exoplayer2.** { *; }
--keep class androidx.media3.** { *; }
+# ---- Réflexion media3 (client hérité hors consumer rules du fork) ----------
+# Le fork video_player_android dépend d'androidx.media3:media3-exoplayer:1.9.3
+# mais n'expose pas de consumer-rules.pro. Les factories/renderers instanciés
+# par réflexion (DefaultRenderersFactory, DrmSessionManager) doivent être gardés
+# pour ne pas casser le décodage.
+-keep class androidx.media3.exoplayer.** { *; }
+-keep class androidx.media3.datasource.** { *; }
+-keep class androidx.media3.drm.** { *; }
 
-# ---- Divers plugins (aucune réflexion connue, garde défensive légère) ----
--keep class com.example.orbit_3d_flutter.** { *; }
+# ---- Plugins sans réflexion connue (garde défensive légère) ----------------
+# Supprimé : -keep class com.example.orbit_3d_flutter.** { *; }
+# Aucune réflexion détectée dans le code natif ; les classes de l'app sont
+# atteintes statiquement par le graphe R8.
 
 # ---- Java 8+ APIs (génériques, streams) ---------------------------------
 # Pas de sérialisation custom : rien à garder de plus.

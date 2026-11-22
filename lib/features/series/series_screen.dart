@@ -234,14 +234,17 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
             .map((c) => c.copyWith(count: _dbCounts[c.id] ?? 0)),
       ];
       return Scaffold(
-        body: _layout(
-          context,
-          l,
-          rail,
-          List<Series>.unmodifiable(_pager?.items ?? const <Series>[]),
-          affinity,
-          scrollController: _dbScroll,
-          listLoading: !(_pager?.loaded ?? false),
+        appBar: _buildAppBar(context, l),
+        body: TvSafeArea(
+          child: _layout(
+            context,
+            l,
+            rail,
+            List<Series>.unmodifiable(_pager?.items ?? const <Series>[]),
+            affinity,
+            scrollController: _dbScroll,
+            listLoading: !(_pager?.loaded ?? false),
+          ),
         ),
       );
     }
@@ -250,7 +253,9 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
     _dbSignature = '';
     _dbCountsSignature = '';
     return Scaffold(
-      body: ref.watch(seriesProvider).when(
+      appBar: _buildAppBar(context, l),
+      body: TvSafeArea(
+        child: ref.watch(seriesProvider).when(
             data: (seriesList) {
               if (seriesList.isEmpty) {
                 return EmptyState(
@@ -417,8 +422,24 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
               onRetry: () => ref.invalidate(seriesProvider),
             ),
           ),
+      ),
     );
   }
+
+  AppBar _buildAppBar(BuildContext context, AppLocalizations l) => AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
+        title: Text(l.series),
+      );
 
   Widget _layout(
     BuildContext context,

@@ -12,6 +12,7 @@ import 'package:orbit_3d_flutter/core/utils/poster_metrics.dart';
 ///
 /// Utilise `OrbitCacheManager` (5000 objets max, TTL 30 jours).
 /// Placeholder/error unifiés pour cohérence UX.
+/// Supporte l'injection d'en-têtes HTTP (ex. cookies Cloudflare) via [httpHeaders].
 class OrbitCachedImage extends StatefulWidget {
   const OrbitCachedImage({
     super.key,
@@ -28,6 +29,7 @@ class OrbitCachedImage extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.maxWidthDiskCache,
     this.maxHeightDiskCache,
+    this.httpHeaders,
   });
 
   final String imageUrl;
@@ -43,6 +45,7 @@ class OrbitCachedImage extends StatefulWidget {
   final FilterQuality filterQuality;
   final int? maxWidthDiskCache;
   final int? maxHeightDiskCache;
+  final Map<String, String>? httpHeaders;
 
   @override
   State<OrbitCachedImage> createState() => _OrbitCachedImageState();
@@ -154,6 +157,7 @@ class _OrbitCachedImageState extends State<OrbitCachedImage> {
     return CachedNetworkImage(
       key: ValueKey(_attempt),
       imageUrl: widget.imageUrl,
+      httpHeaders: widget.httpHeaders,
       width: widget.width,
       height: widget.height,
       fit: widget.fit,

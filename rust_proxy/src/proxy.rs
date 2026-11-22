@@ -81,6 +81,7 @@ pub struct PurgeResponse {
 }
 
 const FORWARDED_HEADERS: &[&str] = &[
+    "cookie",
     "range",
     "accept",
     "accept-language",
@@ -159,6 +160,9 @@ async fn fetch_upstream_bytes(
     }
 
     let partial = matches!(range, Some(r) if !r.trim().is_empty() && r.trim() != "bytes=0-");
+    if partial {
+        tracing::debug!("[CF-DEBUG] Range demandée: {:?}", range);
+    }
     let mut last_blocked: Option<(StatusCode, String)> = None;
 
     for (idx, (client, mode)) in attempts.iter().enumerate() {
@@ -180,6 +184,7 @@ async fn fetch_upstream_bytes(
 
         if is_waf_block(status) {
             state.metrics.increment_waf_blocks();
+            tracing::warn!("[CF-DEBUG] WAF block détecté: {} (mode: {}) pour URL: {}", status.as_u16(), mode, url);
             if idx + 1 < attempts.len() {
                 // Bloqué par le WAF : on réessaie avec l'autre empreinte TLS.
                 state.metrics.increment_upstream_fallback_retries();
@@ -194,6 +199,8 @@ async fn fetch_upstream_bytes(
                     status,
                     format!("Upstream blocked by WAF ({} {})", status.as_u16(), mode),
                 ));
+                // Backoff exponentiel (point 4) : délai croissant avant retry fallback.
+                tokio::time::sleep(Duration::from_millis(200 * (idx as u64 + 1))).await;
                 continue;
             }
             // Plus d'empreinte disponible : session invalide, on signale un
@@ -416,6 +423,7 @@ pub async fn stream_proxy(
 
         if is_waf_block(status) {
             state.metrics.increment_waf_blocks();
+            tracing::warn!("[CF-DEBUG] WAF block détecté: {} (mode: {}) pour URL: {}", status.as_u16(), mode, url);
             if idx + 1 < attempts.len() {
                 // Bloqué par le WAF : réessai avec l'autre empreinte TLS.
                 state.metrics.increment_upstream_fallback_retries();

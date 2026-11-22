@@ -162,6 +162,22 @@ void main() {
   });
 
   group('robustesse', () {
+    test('un remplacement surdimensionné invalide aussi le tampon précédent',
+        () async {
+      final store = EpgBufferStore.instance;
+      await store.write('k', [program()]);
+      expect(await store.read('k'), isNotNull);
+
+      final largeTitle = 'x' * (EpgBufferStore.maxBufferSizeMiB * 1024 * 1024);
+      await store.write('k', [program(title: largeTitle)]);
+
+      expect(await store.read('k'), isNull);
+      expect(
+        File('${dir.path}/${store.fileNameFor('k')}.tmp').existsSync(),
+        isFalse,
+      );
+    });
+
     test('un fichier corrompu ne lève pas, il est ignoré', () async {
       final file = File(
         '${dir.path}/${EpgBufferStore.instance.fileNameFor('k')}',

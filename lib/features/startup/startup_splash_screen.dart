@@ -51,8 +51,10 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
   bool _showBranding = false;
   bool _refreshStalled = false;
   final Stopwatch _splashWatch = Stopwatch()..start();
+  final Completer<void> _disposedSignal = Completer<void>();
   String? _startingSubscriptionId;
   Future<bool>? _configurationCheck;
+  Future<void>? _sessionPreparation;
 
   @override
   void initState() {
@@ -100,12 +102,12 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
         _finishRemainingPhase();
         return;
       }
+      _sessionPreparation = _prepareSession();
       if (_startingSubscriptionId != null &&
           _startingSubscriptionId!.isNotEmpty &&
           ref.read(activeSubscriptionProvider)?.id == _startingSubscriptionId &&
           isSubscriptionRefreshFresh(ref.read(lastRefreshTimestampProvider))) {
-        _navigated = true;
-        context.go('/profiles?startup=true');
+        unawaited(_openFreshProfiles());
         return;
       }
       setState(() => _showBranding = true);
@@ -115,6 +117,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   @override
   void dispose() {
+    _disposedSignal.complete();
     _stallTimer?.cancel();
     _slowTimer?.cancel();
     unawaited(_m3uParsingSubscription?.cancel());
@@ -166,6 +169,7 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<void> _finishInitialPhase() async {
     final invalid = await _configurationCheck;
+    await _sessionPreparation;
     if (!mounted || _navigated) return;
     if (invalid == true &&
         ref.read(activeSubscriptionProvider)?.id == _startingSubscriptionId) {
@@ -192,6 +196,44 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     logDiag('STARTUP splashToProfilesMs=${_splashWatch.elapsedMilliseconds}');
     if (mounted) context.go('/profiles?startup=true');
+  }
+
+  Future<void> _openFreshProfiles() async {
+    await _sessionPreparation;
+    if (!mounted || _navigated ||
+        ref.read(activeSubscriptionProvider)?.id != _startingSubscriptionId) {
+      return;
+    }
+    _navigated = true;
+    context.go('/profiles?startup=true');
+  }
+
+  Future<void> _prepareSession() async {
+    final subscription = ref.read(activeSubscriptionProvider);
+    if (subscription == null || subscription.type != SubscriptionType.xtream) {
+      return;
+    }
+    final uri = Uri.tryParse(subscription.baseUrl ?? '');
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.userInfo.isNotEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      logDiag('STARTUP sessionPreparation invalidOrigin');
+      return;
+    }
+    try {
+      final prepared = await _waitWhileMounted(
+        ref
+            .read(cloudflareSessionProvider)
+            .initialize(baseUrl: uri.origin)
+            .then((_) => true),
+      );
+      if (prepared == null && mounted) {
+        logDiag('STARTUP sessionPreparation timedOut');
+      }
+    } catch (_) {
+      logDiag('STARTUP sessionPreparation failed');
+    }
   }
 
   Future<void> _finishRemainingPhase() async {
@@ -272,13 +314,37 @@ class _StartupSplashScreenState extends ConsumerState<StartupSplashScreen> {
 
   Future<bool> _checkConfiguration(Subscription subscription) async {
     final result = await safeAsync<bool>(
-      () => ref
-          .read(apiServiceProvider)
-          .isXtreamConfigurationInvalid(subscription)
-          .timeout(const Duration(seconds: 20)),
+      () async {
+        final invalid = await _waitWhileMounted(
+          ref
+              .read(apiServiceProvider)
+              .isXtreamConfigurationInvalid(subscription),
+        );
+        if (invalid == null && mounted) {
+          logDiag('STARTUP configurationCheck timedOut');
+        }
+        return invalid ?? false;
+      },
       context: 'StartupSplashScreen.checkConfiguration',
     );
     return result.valueOrNull ?? false;
+  }
+
+  Future<T?> _waitWhileMounted<T>(Future<T> task) async {
+    final timeout = Completer<T?>();
+    final timer = Timer(
+      const Duration(seconds: 20),
+      () => timeout.complete(null),
+    );
+    try {
+      return await Future.any<T?>([
+        task,
+        timeout.future,
+        _disposedSignal.future.then((_) => null),
+      ]);
+    } finally {
+      timer.cancel();
+    }
   }
 
   void _openInvalidSubscription() {

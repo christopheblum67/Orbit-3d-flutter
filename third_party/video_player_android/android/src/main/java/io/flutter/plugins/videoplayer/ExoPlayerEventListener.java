@@ -219,11 +219,11 @@ final class ExoPlayerEventListener implements Player.Listener {
    * Détection des sous-titres embarques (cahier des charges — SubtitleDetector).
    *
    * <p>Un listener léger dedie : aucune I/O reseau, aucune action de selection — on journalise
-   * juste le resultat structure pour valider les trois cas (francais embarque / anglais seul /
-   * flux tardif) avant d'aller plus loin.
+   * juste le statut et le nombre de pistes sans exposer leurs metadonnees.
    */
   @Override
   public void onTracksChanged(@NonNull Tracks tracks) {
-    Log.i("OrbitSubtitle", "tracksChanged " + subtitleDetector.detect(exoPlayer));
+    SubtitleDetector.DetectionResult result = subtitleDetector.detect(exoPlayer);
+    Log.i("OrbitSubtitle", "tracksChanged status=" + result.status + " count=" + result.tracks.size());
   }
 }

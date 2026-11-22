@@ -5,6 +5,16 @@ import 'package:orbit_3d_flutter/core/widgets/media_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
+import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
+
+class _Session extends Fake implements CloudflareSessionManager {
+  @override
+  String get baseUrl => 'https://panel.example';
+
+  @override
+  Map<String, String> get videoHeaders => {'X-Test-Session': 'marker'};
+}
 
 class _TestPreferences extends PreferencesNotifier {
   @override
@@ -145,5 +155,68 @@ void main() {
     expect(newBadge.top, greaterThan(age.bottom));
     expect(tester.widget<Text>(find.text('NOUVEAU')).style?.fontSize, 7);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('badges do not overlap in the normal layout', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [preferencesProvider.overrideWith(_TestPreferences.new)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 160,
+              height: 300,
+              child: MediaCard(
+                title: 'Film',
+                posterUrl: '',
+                year: 0,
+                genre: '',
+                rating: 0,
+                ageLabel: '12+',
+                fallbackIcon: Icons.movie,
+                isNew: true,
+                topBadge: Text('1'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.getRect(find.text('1')).bottom,
+        lessThan(tester.getRect(find.text('12+')).top));
+    expect(tester.getRect(find.text('12+')).bottom,
+        lessThan(tester.getRect(find.text('NOUVEAU')).top));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('poster headers are not sent to URLs with user info',
+      (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        preferencesProvider.overrideWith(_TestPreferences.new),
+        cloudflareSessionProvider.overrideWith((ref) => _Session()),
+      ],
+      child: const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 160,
+            height: 300,
+            child: MediaCard(
+              title: 'Film',
+              posterUrl: 'https://user@panel.example/poster.jpg',
+              year: 0,
+              genre: '',
+              rating: 0,
+              ageLabel: null,
+              fallbackIcon: Icons.movie,
+            ),
+          ),
+        ),
+      ),
+    ));
+    expect(
+      tester.widget<OrbitCachedImage>(find.byType(OrbitCachedImage)).httpHeaders,
+      isNull,
+    );
   });
 }

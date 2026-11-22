@@ -160,7 +160,10 @@ void main() {
     await _key(tester, LogicalKeyboardKey.arrowDown);
     expect(
         _textField(tester, 'Mot de passe').focusNode!.hasPrimaryFocus, isTrue);
+    expect(_textField(tester, 'Mot de passe').obscureText, isTrue);
     await _key(tester, LogicalKeyboardKey.arrowRight);
+    await _key(tester, LogicalKeyboardKey.select);
+    expect(_textField(tester, 'Mot de passe').obscureText, isFalse);
     await _key(tester, LogicalKeyboardKey.select);
     expect(_textField(tester, 'Mot de passe').obscureText, isTrue);
     await _key(tester, LogicalKeyboardKey.arrowLeft);

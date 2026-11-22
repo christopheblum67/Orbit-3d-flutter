@@ -186,6 +186,9 @@ class Channel {
       rating: rating,
       supportsReplay: supportsReplay ?? this.supportsReplay,
       timeshift: timeshift ?? this.timeshift,
+      archiveDays: archiveDays,
+      catchupMode: catchupMode,
+      catchupSource: catchupSource,
     );
   }
 

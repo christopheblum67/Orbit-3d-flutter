@@ -118,16 +118,16 @@ class LocalVideoProxy {
         return;
       }
       var target = resource.target;
+      var sessionHeadersAllowed = _sameOrigin(resource.session.origin, target);
       for (var redirects = 0;; redirects++) {
         _validateTarget(target);
         final outgoing = await _client.openUrl(request.method, target);
         outgoing.followRedirects = false;
         outgoing.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
-        final sameOrigin = _sameOrigin(resource.session.origin, target);
         for (final entry in resource.session.headers.entries) {
           final name = entry.key.toLowerCase();
           if (_forbiddenRequestHeaders.contains(name) ||
-              (!sameOrigin && _sensitiveHeaders.contains(name))) {
+              !sessionHeadersAllowed) {
             continue;
           }
           outgoing.headers.set(name, entry.value);
@@ -146,6 +146,9 @@ class LocalVideoProxy {
           if (target.scheme == 'https' && next.scheme != 'https') {
             throw const HttpException('Redirection HTTPS non sécurisée');
           }
+          if (!_sameOrigin(resource.session.origin, next)) {
+            sessionHeadersAllowed = false;
+          }
           target = next;
           continue;
         }
@@ -156,6 +159,7 @@ class LocalVideoProxy {
       final contentType = upstream.headers.contentType?.mimeType.toLowerCase();
       if (contentType == 'application/dash+xml' ||
           target.path.toLowerCase().endsWith('.mpd')) {
+        resource.session._unsupportedDash = true;
         await upstream.drain<void>();
         throw const FormatException('Manifeste DASH non pris en charge');
       }
@@ -474,6 +478,9 @@ class LocalVideoProxySession {
   final _storedKeys = <String>{};
   late final Uri url;
   bool _closed = false;
+  bool _unsupportedDash = false;
+
+  bool get unsupportedDash => _unsupportedDash;
 
   void close() {
     if (_closed) return;

@@ -2,22 +2,28 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
+import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// État de chargement générique : anneau animé dans une carte.
 class LoadingState extends StatelessWidget {
   const LoadingState({
     super.key,
-    this.message = 'Chargement…',
-    this.subtitle = 'Un instant…',
+    this.showLogo = true,
+    this.message,
+    this.subtitle,
   });
 
-  final String message;
-  final String subtitle;
+  final bool showLogo;
+
+  final String? message;
+
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -26,23 +32,30 @@ class LoadingState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const OrbitDelayedLoadingIndicator(initialChild: _OrbitSpinner()),
+              if (showLogo)
+                const OrbitDelayedLoadingIndicator(
+                  initialChild: _OrbitSpinner(),
+                )
+              else
+                const _OrbitSpinner(),
               const SizedBox(height: 20),
               Text(
-                message,
+                message ?? l.browseLoading,
                 textAlign: TextAlign.center,
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle!,
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -97,7 +110,7 @@ class _OrbitSpinnerState extends State<_OrbitSpinner>
               ),
             ),
             Transform.rotate(
-              angle: value * 2 * math.pi,
+              angle: _controller.value * 2 * math.pi,
               child: CustomPaint(
                 size: const Size.square(56),
                 painter: _RingPainter(

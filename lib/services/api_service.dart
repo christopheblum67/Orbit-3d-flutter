@@ -38,6 +38,7 @@ import 'package:orbit_3d_flutter/services/xtream_movie_detail_service.dart';
 import 'package:orbit_3d_flutter/services/xtream_series_detail_service.dart';
 import 'package:orbit_3d_flutter/services/xtream_subtitle_service.dart';
 import 'package:orbit_3d_flutter/services/xtream_replay_service.dart';
+import 'package:orbit_3d_flutter/services/xtream_epg_parser.dart';
 
 class ApiService {
   /// Instance courante, utilisée par le builder global d'URLs de stream.
@@ -186,11 +187,13 @@ class ApiService {
     CatalogDiskCache? catalogCache,
     CatalogHttpValidators? catalogValidators,
     ConditionalXmltvCache? xmltvCache,
+    @visibleForTesting XtreamReplayService? replayService,
   })  : _playlistCache = playlistCache ?? ConditionalPlaylistCache.instance,
         _catalogCache = catalogCache ?? CatalogDiskCache.instance,
         _catalogValidators =
             catalogValidators ?? CatalogHttpValidators.instance,
-        _xmltvCache = xmltvCache ?? ConditionalXmltvCache.instance {
+        _xmltvCache = xmltvCache ?? ConditionalXmltvCache.instance,
+        _replayServiceOverride = replayService {
     _instance = this;
     initStreamUrlBuilder();
   }
@@ -380,8 +383,13 @@ class ApiService {
         sub['password']!,
       );
     }
+    if (sub['type'] == 'm3u') {
+      final url = sub['url'];
+      if (url == null || url.isEmpty) return const <Channel>[];
+      return (await fetchM3uPlaylist(url)).channels;
+    }
     throw StreamNetworkException(
-      'Le chargement Live M3U doit passer par le fournisseur de playlist M3U.',
+      'Aucun abonnement configuré.',
     );
   }
 
@@ -485,6 +493,11 @@ class ApiService {
 
   Future<List<Movie>> _fetchMovies() async {
     final sub = await _activeSub();
+    if (sub['type'] == 'm3u') {
+      final url = sub['url'];
+      if (url == null || url.isEmpty) return const <Movie>[];
+      return (await fetchM3uPlaylist(url)).movies;
+    }
     if (sub['type'] == 'xtream') {
       return _mediaCatalogService.movies(
         sub['baseUrl']!,
@@ -542,11 +555,90 @@ class ApiService {
   Future<Movie> fetchMovieDetail(Movie movie) async {
     final sub = await _activeSub();
     if (sub['type'] != 'xtream' || movie.id.isEmpty) return movie;
-    return _movieDetailService.detail(
+    Response<dynamic>? response;
+    final service = XtreamMovieDetailService(
+      buildApiUrl: _playerApiUrl,
+      get: (url) async {
+        response = await get(url);
+        return response!;
+      },
+    );
+    final detail = await service.detail(
       movie,
       sub['baseUrl']!,
       sub['username']!,
       sub['password']!,
+    );
+    final data = response?.data;
+    final rawInfo = data is Map ? data['info'] : null;
+    final info = <String, dynamic>{};
+    if (rawInfo is Map) {
+      for (final entry in rawInfo.entries) {
+        if (entry.key is String) info[entry.key as String] = entry.value;
+      }
+    }
+
+    String text(Object? value, String fallback) {
+      final result = value?.toString().trim() ?? '';
+      return result.isEmpty ? fallback : result;
+    }
+
+    int number(Object? value, int fallback) =>
+        int.tryParse(value?.toString() ?? '') ?? fallback;
+
+    int runtime(Object? value) {
+      if (value is num) return value.toInt();
+      final raw = value?.toString().trim() ?? '';
+      final match = RegExp(r'^(\d+):(\d{1,2}):(\d{1,2})').firstMatch(raw);
+      if (match != null) {
+        return (int.tryParse(match.group(1)!) ?? 0) * 60 +
+            (int.tryParse(match.group(2)!) ?? 0);
+      }
+      return int.tryParse(raw) ?? 0;
+    }
+
+    List<String> names(Object? value, List<String> fallback) {
+      final values = value is List
+          ? value.map((v) => v is Map ? v['name'] : v)
+          : (value?.toString() ?? '').split(RegExp(r'[,|]'));
+      final parsed = values
+          .map((v) => v?.toString().trim() ?? '')
+          .where((v) => v.isNotEmpty)
+          .toList();
+      return parsed.isEmpty ? fallback : parsed;
+    }
+
+    MovieCredits? credits;
+    try {
+      credits = MovieCredits.fromMap(info);
+    } catch (_) {
+      // Les autres métadonnées restent exploitables si le casting est invalide.
+    }
+    final backdrop = info['backdrop_path'] ?? info['backdrop'];
+    final backdropValue = backdrop is List
+        ? (backdrop.isEmpty ? null : backdrop.first)
+        : backdrop;
+    var minutes = runtime(info['duration']);
+    if (minutes == 0) minutes = runtime(info['runtime']);
+    return detail.copyWith(
+      cast: credits == null || credits.cast.isEmpty ? movie.cast : credits.cast,
+      crew: credits == null || credits.crew.isEmpty ? movie.crew : credits.crew,
+      keywords: names(info['keywords'], movie.keywords),
+      productionCompanies: names(
+        info['production_companies'] ?? info['productionCompanies'],
+        movie.productionCompanies,
+      ),
+      runtime: minutes == 0 ? movie.runtime : minutes,
+      budget: number(info['budget'], movie.budget),
+      revenue: number(info['revenue'], movie.revenue),
+      trailerUrl: text(
+        info['youtube_trailer'] ?? info['trailer'] ?? info['trailer_url'],
+        movie.trailerUrl,
+      ),
+      backdropUrl: text(backdropValue, movie.backdropUrl),
+      tmdbId: number(info['tmdb_id'] ?? info['tmdbId'], movie.tmdbId),
+      imdbId: text(info['imdb_id'] ?? info['imdbId'], movie.imdbId),
+      addedDate: movie.addedDate,
     );
   }
 
@@ -570,6 +662,11 @@ class ApiService {
 
   Future<List<Series>> _fetchSeries() async {
     final sub = await _activeSub();
+    if (sub['type'] == 'm3u') {
+      final url = sub['url'];
+      if (url == null || url.isEmpty) return const <Series>[];
+      return (await fetchM3uPlaylist(url)).series;
+    }
     if (sub['type'] == 'xtream') {
       return _mediaCatalogService.series(
         sub['baseUrl']!,
@@ -589,11 +686,15 @@ class ApiService {
   );
 
   Future<({List<SubtitleTrackRef> tracks, bool guessed})> discoverSubtitles(
-          String contentId,
-          {required bool isSeries,
-          String? streamId}) =>
-      _subtitleService.discoverSubtitles(contentId,
-          isSeries: isSeries, streamId: streamId);
+    String contentId, {
+    required bool isSeries,
+    String? streamId,
+  }) =>
+      _subtitleService.discoverSubtitles(
+        contentId,
+        isSeries: isSeries,
+        streamId: streamId,
+      );
 
   late final XtreamSeriesDetailService _seriesDetailService =
       XtreamSeriesDetailService(buildApiUrl: _playerApiUrl, get: _get);
@@ -629,6 +730,11 @@ class ApiService {
         sub['password']!,
       );
     }
+    if (sub['type'] == 'm3u') {
+      final url = sub['url'];
+      if (url == null || url.isEmpty) return const <Channel>[];
+      return (await fetchM3uPlaylist(url)).radios;
+    }
     logDiag(
       'RADIO fetch=unsupported-source source=${sub['type'] ?? 'unknown'}',
     );
@@ -638,7 +744,9 @@ class ApiService {
   }
 
   // ---------- Replays ----------
-  late final XtreamReplayService _replayService = XtreamReplayService(
+  final XtreamReplayService? _replayServiceOverride;
+  late final XtreamReplayService _replayService =
+      _replayServiceOverride ?? XtreamReplayService(
     activeSub: _activeSub,
     get: get,
     buildApiUrl: _playerApiUrl,
@@ -663,7 +771,9 @@ class ApiService {
   Future<List<ReplayItem>> fetchReplays() => _replayService.fetchReplays();
 
   static List<Channel> replayProbeSet(
-          List<Channel> channels, List<Channel> flagged) =>
+    List<Channel> channels,
+    List<Channel> flagged,
+  ) =>
       XtreamReplayService.replayProbeSet(channels, flagged);
 
   @visibleForTesting
@@ -671,6 +781,72 @@ class ApiService {
 
   Future<List<EPGProgram>> fetchChannelEpgPrograms(Channel channel) =>
       _replayService.fetchChannelEpgPrograms(channel);
+
+  static List<EPGProgram> _parseCatchUpGuide(Object? data, Channel channel) {
+    final entries = data is List
+        ? data
+        : data is Map
+            ? (data['epg_programmes'] ?? data['epg_listings'])
+            : null;
+    if (entries is! List) return const <EPGProgram>[];
+    final normalized = entries.whereType<Map>().map((entry) {
+      final map = Map<String, dynamic>.from(entry);
+      map['end'] ??= map['stop'];
+      map['description'] = _catchUpDescription(map);
+      return map;
+    }).toList();
+    return const XtreamEpgParser().parseShortGuide(normalized, channel);
+  }
+
+  static String _catchUpDescription(Map<String, dynamic> map) {
+    for (final key in const ['description', 'plot', 'desc', 'summary']) {
+      final raw = map[key];
+      if (raw == null) continue;
+      var value = raw.toString().trim();
+      if (value.isEmpty) continue;
+      value = value
+          .replaceAll('&apos;', "'")
+          .replaceAll('&#39;', "'")
+          .replaceAll('&quot;', '"')
+          .replaceAll('&nbsp;', ' ')
+          .replaceAll('&lt;', '<')
+          .replaceAll('&gt;', '>')
+          .replaceAll('&amp;', '&');
+      if (value.contains('<')) {
+        value = value
+            .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+            .replaceAll(RegExp(r'<[^>]*>'), '')
+            .trim();
+      }
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  @visibleForTesting
+  static List<EPGProgram> debugParseCatchUpGuide(Object? data, Channel channel) =>
+      _parseCatchUpGuide(data, channel);
+
+  Future<List<EPGProgram>> fetchChannelCatchUpPrograms(Channel channel) async {
+    final sub = await _activeSub();
+    if (sub['type'] != 'xtream') return const <EPGProgram>[];
+    final result = await safeAsync<List<EPGProgram>>(
+      () async {
+        final url = _playerApiUrl(sub['baseUrl']!, 'player_api.php', {
+          'username': sub['username']!,
+          'password': sub['password']!,
+          'action': 'get_simple_data_table',
+          'stream_id': channel.id,
+        });
+        return _parseCatchUpGuide((await _get(url)).data, channel);
+      },
+      context: 'ApiService.fetchChannelCatchUpPrograms',
+      fallbackValue: const <EPGProgram>[],
+    );
+    final programs = result.valueOrNull ?? const <EPGProgram>[];
+    if (programs.isEmpty) return fetchChannelEpgPrograms(channel);
+    return programs;
+  }
 
   Future<List<ReplayItem>> fetchChannelReplays(Channel channel) =>
       _replayService.fetchChannelReplays(channel);
@@ -692,8 +868,15 @@ class ApiService {
         endEpoch: endEpoch,
       );
 
-  static Duration? archiveWindow(Channel channel) =>
-      XtreamReplayService.archiveWindow(channel);
+  static const int fallbackArchiveDays = 14;
+  static const Duration fallbackArchiveWindow =
+      Duration(days: fallbackArchiveDays);
+
+  static int effectiveArchiveDays(Channel channel) =>
+      channel.archiveDays > 0 ? channel.archiveDays : fallbackArchiveDays;
+
+  static Duration archiveWindow(Channel channel) =>
+      Duration(days: effectiveArchiveDays(channel));
 
   // ---------- EPG (XMLTV) ----------
   Future<List<EPGProgram>> fetchEpg() async {
@@ -720,6 +903,23 @@ class ApiService {
   @visibleForTesting
   Future<List<EPGProgram>> fetchXmltvForTest(String url) =>
       _xmltvService.fetch(url);
+
+  @visibleForTesting
+  static String decodeXmltvBytes(
+    Uint8List bytes, {
+    String headerCharset = '',
+  }) =>
+      XmltvService.decodeBytes(bytes, headerCharset: headerCharset);
+
+  @visibleForTesting
+  static Future<List<EPGProgram>> debugParseXmltvInIsolate(
+    Uint8List bytes, {
+    String headerCharset = '',
+  }) =>
+      XmltvService.parseBytesInIsolate(
+        bytes,
+        contentType: 'charset=$headerCharset',
+      );
 
   static String _trimBaseUrl(String baseUrl) {
     return XtreamUrlBuilder.trimBaseUrl(baseUrl);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -13,6 +14,9 @@ import 'package:orbit_3d_flutter/features/player/player_screen.dart';
 import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/orbit_loading_cinematic.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/providers/tv_mode_provider.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -25,13 +29,45 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
+  final _suggestionFocus = FocusNode();
   Timer? _debounceTimer;
   String _lastQuery = '';
+
+
+  /// Controller du mode TV, lu une seule fois dans [initState]
+  TvModeController? _tvModeController;
+
+  /// Mode TV courant : il décide si le clavier logiciel doit s'ouvrir.
+  bool _isTv = false;
 
   @override
   void initState() {
     super.initState();
-    _focusNode.requestFocus();
+    // Autofocus au doigt : sur téléphone, le clavier doit s'ouvrir dès
+    // l'arrivée. Sur TV c'est l'inverse — le champ de saisie consomme les
+    // flèches (elles déplacent le curseur dans le texte au lieu de parcourir
+    // les résultats) et il n'y a pas de clavier : on laisse le focus libre.
+    final controller = ref.read(tvModeControllerProvider);
+    _tvModeController = controller;
+    _isTv = controller.enabled;
+    controller.addListener(_onTvModeChange);
+    if (!_isTv) {
+      _focusNode.requestFocus();
+    }
+  }
+
+  /// Le mode TV s'active à la première pression D-pad, donc parfois APRÈS
+  /// l'ouverture de l'écran (ouverture au doigt puis usage de la télécommande).
+  /// Si le champ tenait le focus, on le relâche : sinon les flèches restent
+  /// prisonnières du texte et l'utilisateur ne peut plus atteindre les
+  /// résultats.
+  void _onTvModeChange() {
+    final enabled = _tvModeController?.enabled ?? false;
+    if (enabled == _isTv || !mounted) return;
+    setState(() => _isTv = enabled);
+    if (enabled && _focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
   }
 
   void _onQueryChanged(String query) {
@@ -53,8 +89,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _tvModeController?.removeListener(_onTvModeChange);
+    _tvModeController = null;
     _searchController.dispose();
     _focusNode.dispose();
+    _suggestionFocus.dispose();
     super.dispose();
   }
 
@@ -63,39 +102,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final query = _searchController.text.trim();
     final uri = GoRouterState.of(context).uri;
     final typeParam = uri.queryParameters['type'];
-    final filterType =
-        typeParam != null ? SearchType.values.byName(typeParam) : null;
+    SearchType? filterType;
+    for (final type in SearchType.values) {
+      if (type.name == typeParam) filterType = type;
+    }
     final categoryId = uri.queryParameters['category'];
 
-    final searchAsync = filterType != null
-        ? ref.watch(
-            searchFilteredProvider(
-              (
-                query: query,
-                filterType: filterType,
-                categoryId: categoryId,
-              ),
-            ),
-          )
-        : ref.watch(searchProvider(query));
+    final searchAsync = ref.watch(
+      searchFilteredProvider(
+        (
+          query: query,
+          filterType: filterType,
+          categoryId: categoryId,
+        ),
+      ),
+    );
     final suggestionsAsync = ref.watch(searchSuggestionsProvider(query));
     final historyAsync = ref.watch(searchServiceProvider).getHistory();
 
     return Scaffold(
-      body: SafeArea(
+      body: TvSafeArea(
         child: Column(
           children: [
-            _buildSearchBar(query, suggestionsAsync, historyAsync, filterType),
-            // Sélecteur de catégorie : la recherche suit le même principe de
-            // filtrage que les grilles VOD / Séries / Chaînes. Sans lui, une
-            // recherche dans une section renvoyait toute la section, et
-            // l'utilisateur découvrait des résultats hors du périmètre choisi.
-            if (filterType != null && categoryId != null)
-              _buildCategorySelector(filterType),
+            _buildSearchBar(query, filterType),
             Expanded(
-              child: query.isEmpty
-                  ? _buildEmptyState(historyAsync, filterType)
-                  : _buildResults(searchAsync, query, filterType),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final hasCategorySelector = filterType == SearchType.vod ||
+                      filterType == SearchType.series;
+                  final suggestionsHeight = ((constraints.maxHeight -
+                              (hasCategorySelector ? 44.0 : 0.0)) /
+                          2)
+                      .clamp(0.0, 240.0);
+                  return Column(
+                    children: [
+                      query.isEmpty
+                          ? const SizedBox.shrink()
+                          : ConstrainedBox(
+                              constraints:
+                                  BoxConstraints(maxHeight: suggestionsHeight),
+                              child: _buildSuggestions(
+                                query,
+                                suggestionsAsync,
+                                historyAsync,
+                              ),
+                            ),
+                      if (hasCategorySelector)
+                        _buildCategorySelector(filterType!),
+                      Expanded(
+                        child: query.isEmpty
+                            ? _buildEmptyState(historyAsync, filterType)
+                            : _buildResults(searchAsync, query, filterType),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -180,170 +242,115 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     context.go(uri.replace(queryParameters: params).toString());
   }
 
-  Widget _buildSearchBar(
+  Widget _buildSearchBar(String query, SearchType? filterType) {
+    final l = AppLocalizations.of(context);
+    return TvFocus(
+      autofocus: _isTv,
+      onActivate: () => _focusNode.requestFocus(),
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowDown &&
+            _suggestionFocus.context != null &&
+            _suggestionFocus.canRequestFocus) {
+          _suggestionFocus.requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: SearchBar(
+        controller: _searchController,
+        focusNode: _focusNode,
+        autoFocus: !_isTv,
+        textInputAction: TextInputAction.search,
+        hintText: filterType == null
+            ? l.searchHint
+            : l.searchWithinHint(_typeLabel(filterType)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: l.profileBack,
+        ),
+        trailing: [
+          if (query.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: _clearQuery,
+              tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
+            ),
+        ],
+        onChanged: _onQueryChanged,
+        onSubmitted: (_) => _focusNode.unfocus(),
+      ),
+    );
+  }
+
+  Widget _buildSuggestions(
     String query,
     AsyncValue<List<SearchSuggestion>> suggestionsAsync,
     Future<List<String>> historyFuture,
-    SearchType? filterType,
   ) {
-    final scheme = Theme.of(context).colorScheme;
-    final l = AppLocalizations.of(context);
-    final searchController = SearchController();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SearchAnchor(
-        searchController: searchController,
-        viewBackgroundColor: scheme.surface,
-        viewHintText: filterType != null
-            ? l.searchWithinHint(_typeLabel(filterType))
-            : l.searchAllHint,
-        viewTrailing: query.isNotEmpty
-            ? <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: _clearQuery,
-                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
-                ),
-              ]
-            : null,
-        suggestionsBuilder: (context, controller) {
-          return _buildSuggestions(suggestionsAsync, historyFuture);
-        },
-        builder: (context, controller) {
-          return SearchBar(
-            controller: controller,
-            focusNode: _focusNode,
-            hintText: filterType != null
-                ? l.searchWithinHint(_typeLabel(filterType))
-                : l.searchHint,
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                  tooltip: l.profileBack,
-                ),
-              ],
+    return FutureBuilder<List<String>>(
+      future: historyFuture,
+      builder: (context, snapshot) {
+        final suggestions = <SearchSuggestion>[
+          ...?suggestionsAsync.value,
+          ...?snapshot.data
+              ?.where((text) =>
+                  text.toLowerCase().contains(query.toLowerCase()))
+              .map((text) => SearchSuggestion(text: text, isHistory: true)),
+        ];
+        final seen = <String>{};
+        final items = suggestions
+            .where((item) => seen.add(item.text.toLowerCase()))
+            .toList();
+        if (items.isEmpty) return const SizedBox.shrink();
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 240),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: items.length,
+            itemBuilder: (context, index) => _buildSuggestionTile(
+              items[index],
+              first: index == 0,
             ),
-            trailing: <Widget>[
-              if (query.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: _clearQuery,
-                  tooltip: MaterialLocalizations.of(context).clearButtonTooltip,
-                ),
-            ],
-            onTap: () => controller.openView(),
-            onChanged: (value) {
-              _searchController.text = value;
-              _onQueryChanged(value);
-            },
-            onSubmitted: (value) {
-              _focusNode.unfocus();
-            },
-            padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 12),
-            ),
-            shape: WidgetStatePropertyAll(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-            ),
-            elevation: const WidgetStatePropertyAll(0),
-          );
-        },
-      ),
-    );
-  }
-
-  Iterable<Widget> _buildSuggestions(
-    AsyncValue<List<SearchSuggestion>> suggestionsAsync,
-    Future<List<String>> historyFuture,
-  ) {
-    return suggestionsAsync.when(
-      data: (suggestions) => _buildSuggestionsList(suggestions),
-      loading: () => _buildSuggestionsList([]),
-      error: (_, __) => _buildHistorySuggestions(historyFuture),
-    );
-  }
-
-  Iterable<Widget> _buildSuggestionsList(List<SearchSuggestion> suggestions) {
-    if (suggestions.isEmpty) return const [];
-
-    return [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child:
-            Text('Suggestions', style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-      ...suggestions.map((s) => _buildSuggestionTile(s)),
-    ];
-  }
-
-  Iterable<Widget> _buildHistorySuggestions(
-    Future<List<String>> historyFuture,
-  ) {
-    return [
-      FutureBuilder<List<String>>(
-        future: historyFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          final history = snapshot.data!.take(5).toList();
-          final l = AppLocalizations.of(context);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  l.recentSearches,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              ...history.map(
-                (h) => _buildSuggestionTile(
-                  SearchSuggestion(text: h, isHistory: true),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    ];
-  }
-
-  Widget _buildSuggestionTile(SearchSuggestion suggestion) {
-    return ListTile(
-      leading: Icon(
-        suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
-        size: 20,
-      ),
-      title: Text(suggestion.text),
-      trailing: suggestion.isHistory
-          ? IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () async {
-                await ref.read(searchServiceProvider).clearHistory();
-                // Effacement disque : aucune garde, le `setState` pouvait
-                // s'exécuter sur un State démonté.
-                if (!mounted) return;
-                setState(() {});
-              },
-              tooltip: AppLocalizations.of(context).searchClearHistory,
-            )
-          : null,
-      onTap: () {
-        _searchController.text = suggestion.text;
-        _searchController.selection =
-            TextSelection.collapsed(offset: suggestion.text.length);
-        _focusNode.unfocus();
+          ),
+        );
       },
     );
   }
 
+  Widget _buildSuggestionTile(SearchSuggestion suggestion, {bool first = false}) {
+    void apply() {
+      _searchController.text = suggestion.text;
+      _searchController.selection =
+          TextSelection.collapsed(offset: suggestion.text.length);
+      _onQueryChanged(suggestion.text);
+      _focusNode.unfocus();
+    }
+
+    return TvFocus(
+      focusNode: first ? _suggestionFocus : null,
+      onActivate: apply,
+      child: ListTile(
+        leading: Icon(
+          suggestion.isHistory ? Icons.history : _typeIcon(suggestion.type),
+          size: 20,
+        ),
+        title: Text(suggestion.text),
+        trailing: suggestion.isHistory
+            ? IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () async {
+                  await ref.read(searchServiceProvider).clearHistory();
+                  if (mounted) setState(() {});
+                },
+                tooltip: AppLocalizations.of(context).searchClearHistory,
+              )
+            : null,
+        onTap: apply,
+      ),
+    );
+  }
   Widget _buildEmptyState(
     Future<List<String>> historyFuture,
     SearchType? filterType,
@@ -365,7 +372,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       filterType != null
@@ -378,7 +388,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                     ),
                     if (filterType != null) ...[
-                      const SizedBox(width: 12),
                       Chip(
                         label: Text(_typeLabel(filterType)),
                         avatar: Icon(_typeIcon(filterType), size: 18),
@@ -445,13 +454,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildHistoryChip(String query) {
-    return ActionChip(
-      label: Text(query),
-      onPressed: () {
-        _searchController.text = query;
-        _focusNode.unfocus();
-      },
-      avatar: const Icon(Icons.history, size: 16),
+    void apply() {
+      _searchController.text = query;
+      _onQueryChanged(query);
+      _focusNode.unfocus();
+    }
+
+    return TvFocus(
+      onActivate: apply,
+      child: ActionChip(
+        label: Text(query),
+        onPressed: apply,
+        avatar: const Icon(Icons.history, size: 16),
+      ),
     );
   }
 
@@ -463,39 +478,54 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     return searchAsync.when(
       data: (result) {
         if (result.items.isEmpty) {
-          return _buildNoResults(query);
+          return _scrollableMessage(_buildNoResults(query));
         }
         return RefreshIndicator(
           onRefresh: () async {
-            if (filterType != null) {
-              ref.invalidate(
-                searchFilteredProvider(
-                  (
-                    query: query,
-                    filterType: filterType,
-                    categoryId: GoRouterState.of(context)
-                        .uri
-                        .queryParameters['category'],
-                  ),
+            ref.invalidate(
+              searchFilteredProvider(
+                (
+                  query: query,
+                  filterType: filterType,
+                  categoryId: GoRouterState.of(context)
+                      .uri
+                      .queryParameters['category'],
                 ),
-              );
-            } else {
-              ref.invalidate(searchProvider(query));
-            }
+              ),
+            );
             await ref.read(searchServiceProvider).addToHistory(query);
           },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (result.isOffline) _buildOfflineBanner(),
-              _buildResultsHeader(context, result, filterType),
-              ..._buildGroupedResults(result, query),
-            ],
+          // Chaque résultat est déjà wrappé dans `TvFocus`
+          // ([_buildResultTile]) : Enter ouvre le détail / la lecture.
+          // `FocusTraversalGroup` + `OrderedTraversalPolicy` donnent l'ordre
+          // de parcours D-pad (haut → bas) sur la liste de résultats.
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (result.isOffline) _buildOfflineBanner(),
+                _buildResultsHeader(context, result, filterType),
+                ..._buildGroupedResults(result, query),
+              ],
+            ),
           ),
         );
       },
       loading: () => const Center(child: OrbitDelayedLoadingIndicator()),
-      error: (error, stack) => _buildErrorState(error.toString()),
+      error: (error, stack) =>
+          _scrollableMessage(_buildErrorState(error.toString(), filterType)),
+    );
+  }
+
+  Widget _scrollableMessage(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: child,
+        ),
+      ),
     );
   }
 
@@ -610,42 +640,44 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final highlightedTitle = _highlightMatch(item.title, query);
     final highlightedSubtitle = _highlightMatch(item.subtitle, query);
 
-    return InkWell(
-      onTap: () => _onItemTap(item),
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: item.posterUrl.isNotEmpty
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: OrbitCachedImage(
-                    imageUrl: item.posterUrl,
-                    width: 56,
-                    height: 84,
-                    memCacheWidth:
-                        (56 * MediaQuery.devicePixelRatioOf(context)).ceil(),
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => _placeholderIcon(item.type),
-                  ),
-                )
-              : _placeholderIcon(item.type),
-          title: Text.rich(
-            highlightedTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    return TvFocus(
+      onActivate: () => _onItemTap(item),
+      child: InkWell(
+        onTap: () => _onItemTap(item),
+        child: Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: item.posterUrl.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: OrbitCachedImage(
+                      imageUrl: item.posterUrl,
+                      width: 56,
+                      height: 84,
+                      memCacheWidth: (56 * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => _placeholderIcon(item.type),
+                    ),
+                  )
+                : _placeholderIcon(item.type),
+            title: Text.rich(
+              highlightedTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: item.subtitle.isNotEmpty
+                ? Text.rich(
+                    highlightedSubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
+            trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
+                ? const Icon(Icons.play_circle_filled, size: 28)
+                : null,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           ),
-          subtitle: item.subtitle.isNotEmpty
-              ? Text.rich(
-                  highlightedSubtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          trailing: item.streamUrl != null && item.streamUrl!.isNotEmpty
-              ? const Icon(Icons.play_circle_filled, size: 28)
-              : null,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         ),
       ),
     );
@@ -745,8 +777,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     } else if (item.type == SearchType.series &&
         item.originalObject is Series) {
-      Navigator.of(context)
-          .pushNamed('/series', arguments: item.originalObject);
+      final series = item.originalObject as Series;
+      context.push(
+        Uri(
+          path: '/series/detail',
+          queryParameters: {'id': series.id, 'title': series.title},
+        ).toString(),
+      );
     } else if (item.type == SearchType.epg &&
         item.originalObject is EPGProgram) {
       _showEpgDetail(item.originalObject as EPGProgram);
@@ -820,7 +857,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  Widget _buildErrorState(String error) {
+  Widget _buildErrorState(String error, SearchType? filterType) {
     final l = AppLocalizations.of(context);
     return Center(
       child: Column(
@@ -843,8 +880,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () =>
-                ref.invalidate(searchProvider(_searchController.text.trim())),
+            onPressed: () => ref.invalidate(
+              searchFilteredProvider(
+                (
+                  query: _searchController.text.trim(),
+                  filterType: filterType,
+                  categoryId:
+                      GoRouterState.of(context).uri.queryParameters['category'],
+                ),
+              ),
+            ),
             child: Text(l.retry),
           ),
         ],

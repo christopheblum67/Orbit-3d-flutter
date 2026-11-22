@@ -131,12 +131,23 @@ class SynopsisTranslationService {
   Future<TranslatedSynopsis> resolve({
     required String rawSynopsis,
     String? tmdbLocalizedSynopsis,
+    String? tmdbFrenchSynopsis,
     String? originalLanguageCode,
     String targetLanguage = _targetLanguage,
   }) async {
     final raw = rawSynopsis.trim();
     final target = _languageCode(targetLanguage);
+    final tmdbText = (tmdbLocalizedSynopsis ?? tmdbFrenchSynopsis ?? '').trim();
+    final hasLocalizedTmdb = tmdbText.isNotEmpty &&
+        (tmdbLocalizedSynopsis == null || isInLanguage(tmdbText, target));
     if (raw.isEmpty) {
+      if (hasLocalizedTmdb) {
+        return TranslatedSynopsis(
+          text: tmdbText,
+          source: SynopsisSource.tmdb,
+          detectedLanguage: target,
+        );
+      }
       return const TranslatedSynopsis(
         text: '',
         source: SynopsisSource.none,
@@ -152,8 +163,7 @@ class SynopsisTranslationService {
       );
     }
 
-    final tmdbText = (tmdbLocalizedSynopsis ?? '').trim();
-    if (tmdbText.isNotEmpty && isInLanguage(tmdbText, target)) {
+    if (hasLocalizedTmdb) {
       return TranslatedSynopsis(
         text: tmdbText,
         source: SynopsisSource.tmdb,
@@ -210,7 +220,7 @@ class SynopsisTranslationService {
   /// présent, sinon à l'heuristique [isFrench].
   String? _detectLanguage(String text, String? originalLanguageCode) {
     if (originalLanguageCode != null && originalLanguageCode.isNotEmpty) {
-      return originalLanguageCode.toLowerCase();
+      return _languageCode(originalLanguageCode);
     }
     if (isFrench(text)) return 'fr';
     for (final language in _languageMarkers.keys) {

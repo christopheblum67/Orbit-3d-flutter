@@ -83,15 +83,51 @@ class ConnectionErrorAnalyzer {
     }
 
     if (_containsAny(error, [
-      'socketexception',
       'failed host lookup',
       'name resolution failed',
       'dns resolution failed',
+      'temporary failure in name resolution',
       'no address associated with hostname',
+    ])) {
+      return _info(
+        ConnectionErrorCategory.network,
+        l.connectionDnsFailure,
+        l.connectionDnsFailureHelp,
+        [
+          l.connectionCheckUrl,
+          l.connectionCheckInternet,
+          l.connectionTryAnotherNetwork,
+        ],
+        rawError,
+      );
+    }
+
+    if (_containsAny(error, [
+      'network unreachable',
+      'network is unreachable',
+      'no route to host',
+      'enetunreach',
+    ])) {
+      return _info(
+        ConnectionErrorCategory.network,
+        l.connectionNetworkUnavailable,
+        l.connectionNetworkUnavailableHelp,
+        [
+          l.connectionCheckInternet,
+          l.connectionTryAnotherNetwork,
+        ],
+        rawError,
+      );
+    }
+
+    if (_containsAny(error, [
       'connection refused',
       'connection reset',
-      'network unreachable',
-      'no route to host',
+      'connection aborted',
+      'ecnconnrefused',
+      'ecnconnreset',
+      'econnrefused',
+      'econnreset',
     ])) {
       return _info(
         ConnectionErrorCategory.network,
@@ -118,6 +154,20 @@ class ConnectionErrorAnalyzer {
         [
           l.connectionTryLater,
           l.connectionCheckInternet,
+        ],
+        rawError,
+      );
+    }
+
+    if (error.contains('socketexception')) {
+      return _info(
+        ConnectionErrorCategory.network,
+        l.connectionServerUnreachable,
+        l.connectionServerUnreachableHelp,
+        [
+          l.connectionCheckUrl,
+          l.connectionTryAnotherNetwork,
+          l.connectionContactUnreachableProvider,
         ],
         rawError,
       );
@@ -189,10 +239,18 @@ class ConnectionErrorAnalyzer {
       );
     }
 
-    if (statusCode != null && statusCode >= 500) {
+    if ((statusCode != null && statusCode >= 500) ||
+        _containsAny(error, [
+          'maintenance',
+          'service unavailable',
+          'bad gateway',
+          'internal server error',
+        ])) {
       return _info(
         ConnectionErrorCategory.server,
-        l.connectionServerUnavailable(statusCode),
+        statusCode == null
+            ? l.connectionServerError
+            : l.connectionServerUnavailable(statusCode),
         l.connectionServerProblem,
         [
           l.connectionTryLater,
@@ -265,14 +323,18 @@ class ConnectionErrorAnalyzer {
 String redactConnectionError(String error) {
   final queryRedacted = error.replaceAllMapped(
     RegExp(
-      r'([?&](?:username|user|password|pass|token|api_key)=)[^&\s]+',
+      r'([?&](?:username|user|login|password|pass|token|api_key)=)[^&\s]+',
       caseSensitive: false,
     ),
     (match) => '${match.group(1)}[masqué]',
   );
-  return queryRedacted.replaceAllMapped(
+  final authorityRedacted = queryRedacted.replaceAllMapped(
     RegExp(r'(://)[^/@\s:]+:[^/@\s]+@'),
     (match) => '${match.group(1)}[masqué]@',
+  );
+  return authorityRedacted.replaceAllMapped(
+    RegExp(r'(/(?:live|movie|series)/)[^/\s?#]+/[^/\s?#]+/', caseSensitive: false),
+    (match) => '${match.group(1)}[masqué]/[masqué]/',
   );
 }
 
@@ -354,10 +416,13 @@ class ConnectionErrorDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
+        ErrorActionFocus(
           autofocus: onRetry == null,
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l.close),
+          builder: (context, focusNode) => TextButton(
+            focusNode: focusNode,
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l.close),
+          ),
         ),
         if (onRetry case final retry?)
           ErrorActionFocus(

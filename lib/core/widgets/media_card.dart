@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
-import 'package:orbit_3d_flutter/core/widgets/orbit_cached_image.dart';
+import 'package:orbit_3d_flutter/core/widgets/secure_cached_image.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 
@@ -165,7 +165,8 @@ class MediaCard extends ConsumerWidget {
       child: AppCard(
         padding: EdgeInsets.zero,
         focusable: focusable,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.zero,
+        color: Colors.transparent,
         onTap: onTap,
         onLongPress: onLongPress,
         child: Column(
@@ -178,19 +179,11 @@ class MediaCard extends ConsumerWidget {
                   Padding(
                     padding: posterPadding,
                     child: posterUrl.isNotEmpty
-                        ? OrbitCachedImage(
+                        ? SecureCachedImage(
                             imageUrl: posterUrl,
                             fit: posterFit,
-                            // Décodage mémoire borné à la taille réelle.
-                            //
-                            // `maxWidthDiskCache: 800` ne limitait que le
-                            // FICHIER disque ; sans `memCacheWidth`, Flutter
-                            // décodait l'affiche en pleine résolution. Une
-                            // image TMDB `original` (2000×3000) = ~24 Mo en
-                            // cache mémoire, et quelques dizaines de tuiles
-                            // visibles suffisaient à dépasser les centaines
-                            // de Mo sur TV.
                             memCacheWidth: posterDecodeWidth,
+                            memCacheHeight: (posterDecodeWidth / 0.72).round(),
                             fadeInDuration: const Duration(milliseconds: 60),
                             fadeOutDuration: Duration.zero,
                             placeholder: (context, url) => _PosterFallback(
@@ -213,60 +206,68 @@ class MediaCard extends ConsumerWidget {
                             ) ??
                             _PosterFallback(scheme: scheme, icon: fallbackIcon),
                   ),
-                  if (ageLabel != null && ageLabel!.isNotEmpty)
+                  if (topBadge != null ||
+                      (ageLabel != null && ageLabel!.isNotEmpty) ||
+                      isNew)
                     Positioned(
                       left: 8,
                       top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          ageLabel!,
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: scheme.onPrimary,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (topBadge != null) topBadge!,
+                          if (ageLabel != null && ageLabel!.isNotEmpty) ...[
+                            if (topBadge != null) const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.primary,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                ageLabel!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: scheme.onPrimary,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                            ),
+                          ],
+                          if (isNew) ...[
+                            if (topBadge != null ||
+                                (ageLabel != null && ageLabel!.isNotEmpty))
+                              const SizedBox(height: 4),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ratingAboveAffinity ? 5 : 8,
+                                vertical: ratingAboveAffinity ? 2 : 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.error,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                'NOUVEAU',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: scheme.onError,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: ratingAboveAffinity ? 7 : 10,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  if (isNew)
-                    Positioned(
-                      left: 8,
-                      top: ratingAboveAffinity
-                          ? (ageLabel != null && ageLabel!.isNotEmpty ? 42 : 14)
-                          : 8,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ratingAboveAffinity ? 5 : 8,
-                          vertical: ratingAboveAffinity ? 2 : 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.error,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'NOUVEAU',
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: scheme.onError,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: ratingAboveAffinity ? 7 : 10,
-                                  ),
-                        ),
-                      ),
-                    ),
-                  if (topBadge != null)
-                    Positioned(
-                      left: 8,
-                      top: 8,
-                      child: topBadge!,
                     ),
                   if (ratingAboveAffinity &&
                       ((matchPercent != null && matchPercent! > 0) ||

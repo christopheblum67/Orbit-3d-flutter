@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TV Banner for Android TV Launcher (320x180) -->
+<!-- Utilise un vector drawable pour la compatibilité toutes densités -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Fond Orbit -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#0E1117" />
+        </shape>
+    </item>
+    <!-- Logo vectoriel centré -->
+    <item android:drawable="@drawable/tv_banner_image"
+          android:gravity="center"
+          android:width="200dp"
+          android:height="200dp" />
+</layer-list>

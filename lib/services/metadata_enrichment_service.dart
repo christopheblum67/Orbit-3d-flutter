@@ -61,26 +61,25 @@ class MetadataEnrichmentService {
       );
     }
 
-    // 1. TMDB PRIMAIRE (recherche par titre + année si pas d'ID connu)
+    // 1. TMDB PRIMAIRE (ID fourni par le panel, sinon recherche par titre)
     if (_tmdb.hasApiKey) {
       await safeAsync<void>(() async {
-        int? tmdbId;
+        // `get_vod_info` expose souvent `tmdb_id` : on l'utilise directement
+        // pour éviter une recherche approximative (et les faux positifs sur
+        // les remakes) ainsi qu'un appel réseau superflu.
+        int? tmdbId = xtreamMovie.tmdbId > 0 ? xtreamMovie.tmdbId : null;
 
-        // Si on a déjà un IMDB ID dans les données Xtream, on pourrait le mapper
-        // Sinon, recherche par titre + année
-        tmdbId = await _tmdb.searchMovieId(
+        tmdbId ??= await _tmdb.searchMovieId(
           movie.title,
           year: movie.year > 0 ? movie.year : null,
         );
 
-        // Nouveau : si l'ajout de l'année fait échouer la recherche (TMDb
-        // renvoie 404 pour certains titres combinés avec une année), on retente
-        // sans contrainte d'année pour ne pas perdre l'enrichissement.
         tmdbId ??= await _tmdb.searchMovieId(movie.title);
 
         if (tmdbId != null) {
           final tmdbDetail = await _tmdb.getMovieDetail(tmdbId);
           if (tmdbDetail != null) {
+            // Toujours prioritaire sur cast/crew/toutes métadonnées TMDB
             detail = _mergeMovieDetail(detail, tmdbDetail);
           }
         }
@@ -184,6 +183,7 @@ class MetadataEnrichmentService {
 
   MovieDetail _mergeMovieDetail(MovieDetail base, MovieDetail incoming) {
     // Préserver les données Xtream (streamUrl, etc.) et ne compléter que les manquants
+    // Cast/Crew: privilégier systématiquement les données TMDB si disponibles
     return base.copyWith(
       // Métadonnées TMDB/OMDB/TVmaze prennent le dessus si base manquante
       title: base.title.isNotEmpty ? base.title : incoming.title,
@@ -234,7 +234,7 @@ class MetadataEnrichmentService {
       backdropUrl: incoming.backdropUrl ?? base.backdropUrl,
       originalLanguage: incoming.originalLanguage ?? base.originalLanguage,
       originalTitle: incoming.originalTitle ?? base.originalTitle,
-      // Cast/Crew (prendre le plus complet)
+      // Cast/Crew (toujours privilégier TMDB si disponible)
       cast: incoming.cast.isNotEmpty ? incoming.cast : base.cast,
       crew: incoming.crew.isNotEmpty ? incoming.crew : base.crew,
       // Source tracking

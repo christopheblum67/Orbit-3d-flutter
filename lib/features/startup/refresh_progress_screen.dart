@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:orbit_3d_flutter/core/services/refresh_steps_controller.dart';
 import 'package:orbit_3d_flutter/core/utils/app_log.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/features/startup/widgets/refresh_progress_view.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -253,7 +254,7 @@ class _RefreshProgressScreenState extends ConsumerState<RefreshProgressScreen> {
     final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0E1117),
-      body: SafeArea(
+      body: TvSafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),

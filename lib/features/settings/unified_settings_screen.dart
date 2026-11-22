@@ -16,12 +16,13 @@ import 'package:orbit_3d_flutter/services/video_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/app_card.dart';
+import 'package:orbit_3d_flutter/core/constants/app_constants.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/features/player/widgets/audio_controls_sheet.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart';
-import 'package:orbit_3d_flutter/features/settings/widgets/settings_tab_bar.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_sheet.dart'
     show showPlayerEngineConfigSheet;
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
@@ -29,8 +30,11 @@ import 'package:orbit_3d_flutter/features/settings/widgets/widevine_config_tile.
 import 'package:orbit_3d_flutter/features/settings/widgets/update_dialog.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
+import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
+import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
+import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
 
 /// Configuration unifiée (style XCIPTV) — fusionne SettingsScreen + AdvancedSettingsScreen.
 /// Organisé en sections logiques avec icônes explicites, navigation au D-pad/TV.
@@ -46,10 +50,32 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  // Onglets : 0=Compte, 1=Réseau & Sécurité, 2=Lecture & Audio, 3=Avancé.
+  // Les deux menus historiquement séparés « Réseau »/« Sécurité » et
+  // « Lecteur »/« Audio » sont fusionnés pour raccourcir la barre d'onglets.
+  static const _tabIcons = [
+    Icons.person_outline,
+    Icons.shield_outlined, // Réseau + Sécurité
+    Icons.play_circle_outline, // Lecture + Audio
+    Icons.tune,
+  ];
+  static const _darkTabColors = [
+    Color(0xFF64B5F6),
+    Color(0xFF4DD0E1),
+    Color(0xFFFFB74D),
+    Color(0xFFAED581),
+  ];
+  static const _lightTabColors = [
+    Color(0xFF1565C0),
+    Color(0xFF006978),
+    Color(0xFFA64E00),
+    Color(0xFF387200),
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: SettingsTabBar.icons.length, vsync: this);
+    _tabController = TabController(length: _tabIcons.length, vsync: this);
   }
 
   @override
@@ -62,10 +88,10 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
     final l = AppLocalizations.of(context);
     return switch (i) {
       0 => l.tabAccount,
-      1 => l.tabNetwork,
-      2 => l.tabPlayer,
-      3 => l.tabSecurity,
-      4 => l.tabAudio,
+      // Nom des menus fusionnés : concaténation des deux anciens libellés,
+      // ce qui reste correct dans les six langues sans nouvelle clé l10n.
+      1 => '${l.tabNetwork} & ${l.tabSecurity}',
+      2 => '${l.tabPlayer} & ${l.tabAudio}',
       _ => l.tabAdvanced,
     };
   }
@@ -77,7 +103,7 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
         leading: context.canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: AppLocalizations.of(context).profileBack,
+                tooltip: AppLocalizations.of(context).backTooltip,
                 onPressed: () => context.pop(),
               )
             : null,
@@ -89,23 +115,40 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen>
             icon: const Icon(Icons.settings_input_component),
           ),
         ],
-        bottom: SettingsTabBar(
-          controller: _tabController,
-          labels: [
-            for (var i = 0; i < SettingsTabBar.icons.length; i++) _tabLabel(i),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(74),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              for (var i = 0; i < _tabIcons.length; i++)
+                Tab(
+                  icon: Builder(
+                    builder: (context) => Icon(
+                      _tabIcons[i],
+                      size: Focus.maybeOf(context)?.hasFocus == true ? 34 : 24,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? _darkTabColors[i]
+                          : _lightTabColors[i],
+                    ),
+                  ),
+                  text: _tabLabel(i),
+                ),
+            ],
+          ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _AccountSection(),
-          _NetworkSection(),
-          _PlayerSection(),
-          _SecuritySection(),
-          _AudioSection(),
-          _AdvancedSection(),
-        ],
+      body: TvSafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: const [
+            _AccountSection(),
+            _NetworkSecuritySection(),
+            _PlayerAudioSection(),
+            _AdvancedSection(),
+          ],
+        ),
       ),
     );
   }
@@ -119,6 +162,7 @@ class _NavTile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.trailing,
+    this.autofocus = false,
   });
 
   final IconData icon;
@@ -127,25 +171,58 @@ class _NavTile extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? trailing;
 
+  /// Focus initial (premier élément de l'onglet, en mode TV).
+  final bool autofocus;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon, color: scheme.primary),
-          title: Text(title, style: const TextStyle(fontSize: 14)),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-          ),
-          trailing: trailing ??
-              Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
-          onTap: onTap,
-        ),
+    // `TvFocus` remplace l'ancien `Focus` manuel : l'activation Enter / Select /
+    // Space / GamepadA reste portée par `onActivate`, et la tuile gagne en plus
+    // le halo + le scale réservés au mode TV. Le `Builder` lit ensuite
+    // `Focus.of(context)` qui pointe (de nouveau) sur le nœud de `TvFocus` :
+    // le style « focalisé » du titre/chevron suit donc le focus réel.
+    return TvFocus(
+      autofocus: autofocus,
+      onActivate: onTap,
+      child: Builder(
+        builder: (context) {
+          final focused = Focus.of(context).hasFocus;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  icon,
+                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
+                  ),
+                ),
+                subtitle: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: trailing ??
+                    Icon(
+                      Icons.chevron_right,
+                      color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                onTap: onTap,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -159,106 +236,296 @@ class _AccountSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final sub = ref.watch(activeSubscriptionProvider);
+    final syncState = ref.watch(encryptedActivitySyncProvider);
+    final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionAccountProfile),
-        _NavTile(
-          icon: Icons.manage_accounts_rounded,
-          title: l.accountProfiles,
-          subtitle: l.accountProfilesSubtitle,
-          onTap: () => context.go('/profiles'),
-        ),
-        _NavTile(
-          icon: Icons.subscriptions_rounded,
-          title: l.accountSubscriptions,
-          subtitle: sub == null
-              ? l.accountNoSubscription
-              : '${sub.name} · ${sub.validityLabel}',
-          onTap: () => context.go('/subscriptions'),
-        ),
-        _NavTile(
-          icon: Icons.settings_outlined,
-          title: l.accountPreferences,
-          subtitle: l.accountPreferencesSubtitle,
-          onTap: () => context.go('/profile/preferences'),
-        ),
-        _NavTile(
-          icon: Icons.memory_rounded,
-          title: l.accountDeviceProfile,
-          subtitle: l.accountDeviceProfileSubtitle(
-            ref.watch(deviceProfileProvider).label,
+    // `FocusTraversalGroup` + `ReadingOrderTraversalPolicy` : ordre de parcours
+    // D-pad explicite (haut → bas) dans l'onglet, et le groupe agit comme
+    // frontière de traversal — on ne sort de la liste que par le haut (onglets).
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SettingsSectionTitle(l.sectionAccountProfile),
+          _NavTile(
+            // Premier élément focusable de l'écran : focus initial en mode TV.
+            autofocus: true,
+            icon: Icons.manage_accounts_rounded,
+            title: l.accountProfiles,
+            subtitle: l.accountProfilesSubtitle,
+            onTap: () => context.go('/profiles'),
           ),
-          onTap: () => context.go('/onboarding'),
-        ),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionCloudSync),
-        _NavTile(
-          icon: Icons.account_circle_outlined,
-          title: l.settingsCloudAccount,
-          subtitle: l.settingsCloudSignIn,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const CloudAccountScreen()),
+          _NavTile(
+            icon: Icons.subscriptions_rounded,
+            title: l.accountSubscriptions,
+            subtitle: sub == null
+                ? l.accountNoSubscription
+                : '${sub.name} · ${sub.validityLabel}',
+            onTap: () => context.go('/subscriptions'),
           ),
-        ),
-        ListTile(
-          leading: const Icon(Icons.cloud_off_outlined),
-          title: Text(l.settingsSyncUnavailable),
-          subtitle: Text(l.settingsSyncUnavailableHelp),
-        ),
-      ],
+          _NavTile(
+            icon: Icons.settings_outlined,
+            title: l.accountPreferences,
+            subtitle: l.accountPreferencesSubtitle,
+            onTap: () => context.go('/profile/preferences'),
+          ),
+          _NavTile(
+            icon: Icons.memory_rounded,
+            title: l.accountDeviceProfile,
+            subtitle: l.accountDeviceProfileSubtitle(
+              ref.watch(deviceProfileProvider).label,
+            ),
+            onTap: () => context.go('/onboarding'),
+          ),
+          const SizedBox(height: 8),
+          SettingsSectionTitle(l.sectionCloudSync),
+          _NavTile(
+            icon: Icons.account_circle_outlined,
+            title: l.settingsCloudAccount,
+            subtitle: l.settingsCloudSignIn,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const CloudAccountScreen(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(l.cloudSyncProfileHelp),
+          ),
+          if (syncState.error != null ||
+              syncState.realtimeError != null ||
+              syncState.conflictScope != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                syncState.conflictScope != null
+                    ? l.cloudConflictHelp
+                    : l.cloudOperationFailed,
+                style: TextStyle(color: scheme.error),
+              ),
+            ),
+          if (syncState.unlocked)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                l.cloudSyncLastSync(
+                  _formatTime(syncState.lastSyncAt, l.never),
+                ),
+              ),
+            ),
+          if (syncState.unlocked && syncState.busy)
+            ListTile(title: Text(l.cloudStartingSync)),
+          if (syncState.unlocked &&
+              !syncState.busy &&
+              syncState.conflictScope == null)
+            TvFocus(
+              onActivate: () =>
+                  ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
+              child: SettingsActionTile(
+                title: l.cloudSyncNow,
+                subtitle: l.cloudSyncNowSubtitle,
+                icon: Icons.sync_rounded,
+                onTap: () =>
+                    ref.read(encryptedActivitySyncProvider.notifier).syncAll(),
+              ),
+            ),
+          const SizedBox(height: 8),
+          SettingsSectionTitle(l.sectionBackup),
+          _NavTile(
+            icon: Icons.upload_outlined,
+            title: l.backupExport,
+            subtitle: l.backupExportSubtitle,
+            // `unawaited` explicite : ces deux écritures sont déclenchées par un appui et
+            // ne doivent pas bloquer le tap. Les helpers retournent désormais
+            // `Future<void>` : en `static void ... async` l'appelant ne pouvait
+            // ni attendre, ni voir les exceptions, qui remontaient en zone non
+            // rattrapable.
+            onTap: () => unawaited(_exportSettings(context, ref)),
+            trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          ),
+          _NavTile(
+            icon: Icons.download_outlined,
+            title: l.backupImport,
+            subtitle: l.backupImportSubtitle,
+            onTap: () => unawaited(_importSettings(context, ref)),
+            trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
+  }
+
+  static Future<void> _exportSettings(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l = AppLocalizations.of(context);
+    final s = ref.read(advancedSettingsProvider);
+    final prefs = ref.read(preferencesProvider);
+    final json = await SettingsBackupService().exportToJson(
+      advancedSettings: s,
+      userPreferences: prefs,
+    );
+    // L'export est du vrai I/O : l'utilisateur peut quitter les réglages entre
+    // l'appel et l'écriture. `context.mounted` ne protégeait que le SnackBar,
+    // la ligne suivante lisait `ref` sans garde.
+    if (!context.mounted) return;
+    await ref.read(storageServiceProvider).setSetting('settings_backup', json);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackBackupExported)),
+      );
+    }
+  }
+
+  static Future<void> _importSettings(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l = AppLocalizations.of(context);
+    final backup =
+        ref.read(storageServiceProvider).getSetting('settings_backup');
+    if (backup == null || backup.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.snackNoBackup)),
+        );
+      }
+      return;
+    }
+    final result = await SettingsBackupService().importFromJson(
+      backup,
+      ref.read(advancedSettingsProvider.notifier),
+      ref.read(preferencesProvider.notifier),
+    );
+    // L'import réécrit les réglages : l'écran peut avoir été quitté entre-temps.
+    if (!context.mounted) return;
+    if (result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackImportSuccess)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.snackImportError(result.message))),
+      );
+    }
+  }
+
+  static String _formatTime(DateTime? dt, String neverLabel) {
+    if (dt == null) return neverLabel;
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    final d = dt.day.toString().padLeft(2, '0');
+    final mo = dt.month.toString().padLeft(2, '0');
+    return '$d/$mo/${dt.year} $h:$m';
   }
 }
 
-/// ─── RÉSEAU ──────────────────────────────────────────────────────
-class _NetworkSection extends ConsumerWidget {
-  const _NetworkSection();
+/// ─── RÉSEAU & SÉCURITÉ ───────────────────────────────────────────
+/// Fusion des anciens menus « Réseau » et « Sécurité ». Un séparateur de
+/// groupe distinctif (cyan, encadré) marque la frontière entre les deux :
+/// sans lui, l'utilisateur ne saurait plus où finit le réseau et où commence
+/// la sécurité.
+class _NetworkSecuritySection extends ConsumerWidget {
+  const _NetworkSecuritySection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionAntiThrottle),
-        SettingsSwitchTile(
-          title: l.tlsImpersonation,
-          subtitle: l.tlsImpersonationSubtitle,
-          value: s.useTlsImpersonation,
-          onChanged: n.setTlsImpersonation,
-          icon: Icons.shield_outlined,
-        ),
-        SettingsSwitchTile(
-          title: l.localVideoProxy,
-          subtitle: l.localVideoProxySubtitle,
-          value: s.localVideoProxy,
-          onChanged: n.setLocalVideoProxy,
-          icon: Icons.router_outlined,
-        ),
-        const _DnsProviderTile(),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionCloudflare),
-        SettingsActionTile(
-          title: l.cloudflareReset,
-          subtitle: l.cloudflareResetSubtitle,
-          icon: Icons.restore_outlined,
-          onTap: () async {
-            n.setTlsImpersonation(false);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l.snackCloudflareReset),
-                  backgroundColor: const Color(0xFF00CFE8),
-                ),
-              );
-            }
-          },
-        ),
-      ],
+    // Hoisté : partagé entre l'appui tactile (`onTap`) et l'activation TV
+    // (`TvFocus.onActivate`), une seule et même définition.
+    Future<void> resetCloudflare() async {
+      final session = ref.read(cloudflareSessionProvider);
+      try {
+        await n.setTlsImpersonation(false);
+        if (session.isReady) await session.renewSession(force: true);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l.connectionServerUnreachable)),
+          );
+        }
+        return;
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l.snackCloudflareReset),
+            backgroundColor: const Color(0xFF00CFE8),
+          ),
+        );
+      }
+    }
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── Groupe RÉSEAU (anti-throttle, DNS, Cloudflare) ──
+          SettingsGroupDivider(l.tabNetwork, icon: Icons.wifi_tethering),
+          SettingsSectionTitle(l.sectionAntiThrottle),
+          TvFocus(
+            onActivate: () => n.setTlsImpersonation(!s.useTlsImpersonation),
+            child: SettingsSwitchTile(
+              title: l.tlsImpersonation,
+              subtitle: l.tlsImpersonationSubtitle,
+              value: s.useTlsImpersonation,
+              onChanged: n.setTlsImpersonation,
+              icon: Icons.shield_outlined,
+            ),
+          ),
+          TvFocus(
+            onActivate: () => n.setLocalVideoProxy(!s.localVideoProxy),
+            child: SettingsSwitchTile(
+              title: l.localVideoProxy,
+              subtitle: l.localVideoProxySubtitle,
+              value: s.localVideoProxy,
+              onChanged: n.setLocalVideoProxy,
+              icon: Icons.router_outlined,
+            ),
+          ),
+          // `_DnsProviderTile` : le `DropdownButton` porte déjà son propre
+          // nœud de focus (Enter ouvre la liste nativement) ; le wrapper
+          // parent est `canRequestFocus: false`. Pas de `TvFocus` ici pour ne
+          // pas créer un second candidat de traversal qui masquerait le champ.
+          const _DnsProviderTile(),
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionCloudflare),
+          TvFocus(
+            onActivate: resetCloudflare,
+            child: SettingsActionTile(
+              title: l.cloudflareReset,
+              subtitle: l.cloudflareResetSubtitle,
+              icon: Icons.restore_outlined,
+              onTap: resetCloudflare,
+            ),
+          ),
+          // ── Groupe SÉCURITÉ (contrôle parental, résilience, mentions) ──
+          SettingsGroupDivider(l.tabSecurity, icon: Icons.lock_outline),
+          SettingsSectionTitle(l.sectionParental),
+          _NavTile(
+            icon: Icons.gpp_good_outlined,
+            title: l.parentalControl,
+            subtitle: l.parentalControlSubtitle,
+            onTap: () => context.go('/parental'),
+          ),
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.settingsProtectedPlayback),
+          const WidevineConfigTile(),
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionLegal),
+          _NavTile(
+            icon: Icons.balance_outlined,
+            title: l.legalNotice,
+            subtitle: l.legalNoticeSubtitle,
+            onTap: () => context.go('/legal?flow=settings'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -278,38 +545,77 @@ class _DnsProviderTile extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: AppCard(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            Icons.dns_outlined,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          title: Text(l.dnsProvider, style: const TextStyle(fontSize: 14)),
-          subtitle: Text(
-            l.dnsProviderSubtitle,
-            style: const TextStyle(fontSize: 11),
-          ),
-          trailing: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _options.contains(s.dnsProvider)
-                  ? s.dnsProvider
-                  : _options.last,
-              isDense: true,
-              items: [
-                for (final o in _options)
-                  DropdownMenuItem(
-                    value: o,
-                    child: Text(o == _options.last ? l.settingsSystemAutomatic : o),
+        child: Focus(
+          // Le nœud de focus est porté par le `DropdownButton` (voir plus bas) ;
+          // le partager avec ce `Focus` parent levait « FocusNode._reparent:
+          // assert(child != this) » à chaque frame. Parent exposant juste
+          // `hasFocus` pour le halo : il ne doit pas être une cible de focus.
+          canRequestFocus: false,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.space ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown)) {
+              return KeyEventResult.ignored;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Builder(
+            builder: (context) {
+              final focused = Focus.of(context).hasFocus;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.dns_outlined,
+                  color: focused ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                title: Text(
+                  l.dnsProvider,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: focused ? FontWeight.w700 : FontWeight.w400,
+                    color: focused ? scheme.primary : null,
                   ),
-              ],
-              onChanged: (v) {
-                if (v != null) n.setDnsProvider(v);
-              },
-            ),
+                ),
+                subtitle: Text(
+                  l.dnsProviderSubtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                trailing: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _options.contains(s.dnsProvider)
+                        ? s.dnsProvider
+                        : _options.last,
+                    isDense: true,
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.radiusLg,
+                    ),
+                    items: [
+                      for (final o in _options)
+                        DropdownMenuItem(
+                          value: o,
+                          child: Text(
+                            o == _options.last ? l.settingsSystemAutomatic : o,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) n.setDnsProvider(v);
+                    },
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -317,44 +623,149 @@ class _DnsProviderTile extends ConsumerWidget {
   }
 }
 
-/// ─── LECTEUR ─────────────────────────────────────────────────────
-class _PlayerSection extends ConsumerWidget {
-  const _PlayerSection();
+/// ─── LECTURE & AUDIO ─────────────────────────────────────────────
+/// Fusion des anciens menus « Lecteur » (vidéo) et « Audio ». Le séparateur
+/// de groupe distinctif marque le passage de la configuration de lecture à la
+/// configuration audio.
+class _PlayerAudioSection extends ConsumerWidget {
+  const _PlayerAudioSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
     final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionEngines),
-        const _PlayerEngineTile(),
-        const SizedBox(height: 8),
-        const SettingsSectionTitle('Sous-titres'),
-        const _SubtitleModeTile(),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionAudioNight),
-        SettingsNavTile(
-          icon: Icons.nightlight_outlined,
-          title: l.audioAndNightFocus,
-          subtitle: l.audioAndNightFocusSubtitle,
-          onTap: () => showAudioControlsSheet(context),
-        ),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionZapping),
-        SettingsSwitchTile(
-          title: l.instantZapping,
-          subtitle: l.instantZappingSubtitle,
-          value: s.zeroLagPrefetch,
-          onChanged: n.setZeroLagPrefetch,
-          icon: Icons.fast_forward_outlined,
-        ),
-        const SizedBox(height: 8),
-        SettingsSectionTitle(l.sectionMemory),
-        const MemorySettingsPanel(),
-      ],
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── Groupe LECTURE (moteurs, zapping, mémoire) ──
+          SettingsGroupDivider(l.tabPlayer, icon: Icons.play_circle_outline),
+          SettingsSectionTitle(l.sectionEngines),
+          const _PlayerEngineTile(),
+          const SizedBox(height: 8),
+          SettingsSectionTitle(l.settingsSubtitles),
+          const _SubtitleModeTile(),
+          const SizedBox(height: 8),
+          SettingsSectionTitle(l.sectionZapping),
+          TvFocus(
+            onActivate: () => n.setZeroLagPrefetch(!s.zeroLagPrefetch),
+            child: SettingsSwitchTile(
+              title: l.instantZapping,
+              subtitle: l.instantZappingSubtitle,
+              value: s.zeroLagPrefetch,
+              onChanged: n.setZeroLagPrefetch,
+              icon: Icons.fast_forward_outlined,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SettingsSectionTitle(l.sectionMemory),
+          // Pas de `TvFocus` autour du panneau : ses boutons d'action sont
+          // déjà des `OutlinedButton` focusables nativement, alors qu'un
+          // wrapper englobant aurait une géométrie strictement plus grande
+          // qu'eux — la navigation directionnelle (flèches) exclut les nœuds
+          // à l'intérieur de la tuile courante : les actions seraient
+          // inatteignables au D-pad.
+          const MemorySettingsPanel(),
+          // ── Groupe AUDIO (night focus, sync A/V, sortie) ──
+          SettingsGroupDivider(l.tabAudio, icon: Icons.equalizer),
+          SettingsSectionTitle(l.sectionAudioNight),
+          TvFocus(
+            onActivate: () => showAudioControlsSheet(context),
+            child: SettingsNavTile(
+              icon: Icons.nightlight_outlined,
+              title: l.audioAndNightFocus,
+              subtitle: l.audioAndNightFocusSubtitle,
+              onTap: () => showAudioControlsSheet(context),
+            ),
+          ),
+          SettingsSectionTitle(l.nightFocusTitle),
+          TvFocus(
+            onActivate: () => n.setNightFocus(!s.nightFocusEnabled),
+            child: SettingsSwitchTile(
+              title: l.nightFocusEnable,
+              subtitle: l.nightFocusEnableSubtitle,
+              value: s.nightFocusEnabled,
+              onChanged: n.setNightFocus,
+              icon: Icons.nightlight_round,
+            ),
+          ),
+          TvFocus(
+            onActivate: () =>
+                n.setNightFocusDialogueBoost(!s.nightFocusDialogueBoost),
+            child: SettingsSwitchTile(
+              title: l.dialogueBoost,
+              subtitle: l.dialogueBoostSubtitle,
+              value: s.nightFocusDialogueBoost,
+              onChanged: n.setNightFocusDialogueBoost,
+              icon: Icons.record_voice_over,
+            ),
+          ),
+          TvFocus(
+            onActivate: () =>
+                n.setNightFocusBassKiller(!s.nightFocusBassKiller),
+            child: SettingsSwitchTile(
+              title: l.bassKiller,
+              subtitle: l.bassKillerSubtitle,
+              value: s.nightFocusBassKiller,
+              onChanged: n.setNightFocusBassKiller,
+              icon: Icons.equalizer,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionAvSync),
+          TvFocus(
+            onActivate: () => n.setNightFocusAudioShiftMs(
+              s.nightFocusAudioShiftMs != 0 ? 0 : 50,
+            ),
+            child: SettingsSwitchTile(
+              title: l.audioShift,
+              subtitle: l.audioShiftSubtitle,
+              value: s.nightFocusAudioShiftMs != 0,
+              onChanged: (v) => n.setNightFocusAudioShiftMs(v ? 0 : 50),
+              icon: Icons.timer_outlined,
+            ),
+          ),
+          if (s.nightFocusAudioShiftMs != 0) ...[
+            TvFocus(
+              onActivate: () => _showAvSyncDialog(context, ref),
+              child: SettingsActionTile(
+                title: l.manualAvCalibration,
+                subtitle:
+                    l.manualAvCalibrationSubtitle(s.nightFocusAudioShiftMs),
+                icon: Icons.timer_outlined,
+                onTap: () => _showAvSyncDialog(context, ref),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionOutput),
+          TvFocus(
+            onActivate: () => n.setNightFocusVolumeNormalization(
+              !s.nightFocusVolumeNormalization,
+            ),
+            child: SettingsSwitchTile(
+              title: l.volumeNormalization,
+              subtitle: l.volumeNormalizationSubtitle,
+              value: s.nightFocusVolumeNormalization,
+              onChanged: n.setNightFocusVolumeNormalization,
+              icon: Icons.volume_up_outlined,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TvFocus(
+            onActivate: () => n.setForceNoSubtitles(!s.forceNoSubtitles),
+            child: SettingsSwitchTile(
+              title: l.forceNoSubtitles,
+              subtitle: l.forceNoSubtitlesSubtitle,
+              value: s.forceNoSubtitles,
+              onChanged: n.setForceNoSubtitles,
+              icon: Icons.subtitles_off_outlined,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -413,252 +824,149 @@ class _PlayerEngineTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final s = ref.watch(advancedSettingsProvider);
-    return SettingsNavTile(
-      icon: Icons.play_circle_outline,
-      title: l.enginesTile,
-      subtitle: l.enginesSubtitle(
-        s.playerLive.primary.label,
-        s.playerVod.primary.label,
+    return TvFocus(
+      onActivate: () => showPlayerEngineConfigSheet(context),
+      child: SettingsNavTile(
+        icon: Icons.play_circle_outline,
+        title: l.enginesTile,
+        subtitle: l.enginesSubtitle(
+          s.playerLive.primary.label,
+          s.playerVod.primary.label,
+        ),
+        onTap: () => showPlayerEngineConfigSheet(context),
       ),
-      onTap: () => showPlayerEngineConfigSheet(context),
     );
   }
 }
 
-/// ─── SÉCURITÉ ────────────────────────────────────────────────────
-class _SecuritySection extends ConsumerWidget {
-  const _SecuritySection();
+/// Boîte de dialogue de calibration manuelle du décalage audio (ms).
+///
+/// Extraite en fonction de premier niveau : elle était méthode privée de
+/// l'ancienne `_AudioSection`, désormais fusionnée dans [_PlayerAudioSection].
+Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
+  final n = ref.read(advancedSettingsProvider.notifier);
+  final l = AppLocalizations.of(context);
+  final controller = TextEditingController(text: '0');
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
+  final cancelFocus = FocusNode();
+  final confirmFocus = FocusNode();
+  final fieldFocus = FocusNode();
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionParental),
-        _NavTile(
-          icon: Icons.gpp_good_outlined,
-          title: l.parentalControl,
-          subtitle: l.parentalControlSubtitle,
-          onTap: () => context.go('/parental'),
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.settingsProtectedPlayback),
-        const WidevineConfigTile(),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionResilience),
-        SettingsSwitchTile(
-          title: l.autoReconnectLive,
-          subtitle: l.autoReconnectLiveSubtitle,
-          value: s.zeroLagPrefetch, // réutilise le flag existant pour la démo
-          onChanged: n.setZeroLagPrefetch,
-          icon: Icons.sync_rounded,
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionLegal),
-        _NavTile(
-          icon: Icons.balance_outlined,
-          title: l.legalNotice,
-          subtitle: l.legalNoticeSubtitle,
-          onTap: () => context.go('/legal?flow=settings'),
-        ),
-      ],
-    );
-  }
-}
-
-/// ─── AUDIO ───────────────────────────────────────────────────────
-class _AudioSection extends ConsumerWidget {
-  const _AudioSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
-    final n = ref.read(advancedSettingsProvider.notifier);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.nightFocusTitle),
-        SettingsSwitchTile(
-          title: l.nightFocusEnable,
-          subtitle: l.nightFocusEnableSubtitle,
-          value: s.nightFocusEnabled,
-          onChanged: n.setNightFocus,
-          icon: Icons.nightlight_round,
-        ),
-        SettingsSwitchTile(
-          title: l.dialogueBoost,
-          subtitle: l.dialogueBoostSubtitle,
-          value: s.nightFocusDialogueBoost,
-          onChanged: n.setNightFocusDialogueBoost,
-          icon: Icons.record_voice_over,
-        ),
-        SettingsSwitchTile(
-          title: l.bassKiller,
-          subtitle: l.bassKillerSubtitle,
-          value: s.nightFocusBassKiller,
-          onChanged: n.setNightFocusBassKiller,
-          icon: Icons.equalizer,
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionAvSync),
-        SettingsSwitchTile(
-          title: l.audioShift,
-          subtitle: l.audioShiftSubtitle,
-          value: s.nightFocusAudioShiftMs != 0,
-          onChanged: (v) => n.setNightFocusAudioShiftMs(v ? 0 : 50),
-          icon: Icons.timer_outlined,
-        ),
-        if (s.nightFocusAudioShiftMs != 0) ...[
-          SettingsActionTile(
-            title: l.manualAvCalibration,
-            subtitle: l.manualAvCalibrationSubtitle(s.nightFocusAudioShiftMs),
-            icon: Icons.timer_outlined,
-            onTap: () => _showAvSyncDialog(context, ref),
-          ),
-        ],
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionOutput),
-        SettingsSwitchTile(
-          title: l.volumeNormalization,
-          subtitle: l.volumeNormalizationSubtitle,
-          value: s.nightFocusVolumeNormalization,
-          onChanged: n.setNightFocusVolumeNormalization,
-          icon: Icons.volume_up_outlined,
-        ),
-      ],
-    );
-  }
-
-  Future<void> _showAvSyncDialog(BuildContext context, WidgetRef ref) async {
-    final n = ref.read(advancedSettingsProvider.notifier);
-    final l = AppLocalizations.of(context);
-    final controller = TextEditingController(text: '0');
-
-    final cancelFocus = FocusNode();
-    final confirmFocus = FocusNode();
-    final fieldFocus = FocusNode();
-
-    void requestFocus(FocusNode focus) {
-      if (context.mounted) {
-        FocusScope.of(context).requestFocus(focus);
-      }
+  void requestFocus(FocusNode focus) {
+    if (context.mounted) {
+      FocusScope.of(context).requestFocus(focus);
     }
+  }
 
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.avSyncDialogTitle),
-        content: Focus(
+  await showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l.avSyncDialogTitle),
+      content: Focus(
+        focusNode: fieldFocus,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.enter ||
+                event.logicalKey == LogicalKeyboardKey.select ||
+                event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+              final ms = int.tryParse(controller.text) ?? 0;
+              n.setNightFocusAudioShiftMs(ms);
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              requestFocus(cancelFocus);
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: TextField(
+          controller: controller,
           focusNode: fieldFocus,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          decoration: InputDecoration(
+            labelText: l.avSyncDialogLabel,
+            hintText: l.avSyncDialogHint,
+          ),
+          textInputAction: TextInputAction.done,
+          onEditingComplete: () {
+            final ms = int.tryParse(controller.text) ?? 0;
+            n.setNightFocusAudioShiftMs(ms);
+            Navigator.pop(ctx);
+          },
+        ),
+      ),
+      actions: [
+        Focus(
+          focusNode: cancelFocus,
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              if (event.logicalKey == LogicalKeyboardKey.enter ||
-                  event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                requestFocus(cancelFocus);
-                return KeyEventResult.handled;
-              }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(confirmFocus);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              requestFocus(fieldFocus);
+              return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
           },
-          child: TextField(
-            controller: controller,
-            focusNode: fieldFocus,
-            keyboardType: const TextInputType.numberWithOptions(signed: true),
-            decoration: InputDecoration(
-              labelText: l.avSyncDialogLabel,
-              hintText: l.avSyncDialogHint,
-            ),
-            textInputAction: TextInputAction.done,
-            onEditingComplete: () {
+          child: TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.cancel),
+          ),
+        ),
+        Focus(
+          focusNode: confirmFocus,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.enter ||
+                    event.logicalKey == LogicalKeyboardKey.select ||
+                    event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
+              final ms = int.tryParse(controller.text) ?? 0;
+              n.setNightFocusAudioShiftMs(ms);
+              Navigator.pop(ctx);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
+              requestFocus(cancelFocus);
+              return KeyEventResult.handled;
+            }
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              requestFocus(fieldFocus);
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: FilledButton(
+            onPressed: () {
               final ms = int.tryParse(controller.text) ?? 0;
               n.setNightFocusAudioShiftMs(ms);
               Navigator.pop(ctx);
             },
+            child: Text(l.apply),
           ),
         ),
-        actions: [
-          Focus(
-            focusNode: cancelFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(confirmFocus);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                requestFocus(fieldFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(l.cancel),
-            ),
-          ),
-          Focus(
-            focusNode: confirmFocus,
-            onKeyEvent: (node, event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                      event.logicalKey == LogicalKeyboardKey.select ||
-                      event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                      event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
-                requestFocus(cancelFocus);
-                return KeyEventResult.handled;
-              }
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                requestFocus(fieldFocus);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            },
-            child: FilledButton(
-              onPressed: () {
-                final ms = int.tryParse(controller.text) ?? 0;
-                n.setNightFocusAudioShiftMs(ms);
-                Navigator.pop(ctx);
-              },
-              child: Text(l.apply),
-            ),
-          ),
-        ],
-      ),
-    );
+      ],
+    ),
+  );
 
-    cancelFocus.dispose();
-    confirmFocus.dispose();
-    fieldFocus.dispose();
-  }
+  cancelFocus.dispose();
+  confirmFocus.dispose();
+  fieldFocus.dispose();
 }
 
 /// ─── AVANCÉ ──────────────────────────────────────────────────────
@@ -668,83 +976,106 @@ class _AdvancedSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        SettingsSectionTitle(l.sectionAccessibility),
-        SettingsSwitchTile(
-          title: l.highContrast,
-          subtitle: l.highContrastSubtitle,
-          value: ref.watch(advancedSettingsProvider).highContrast,
-          onChanged:
-              ref.read(advancedSettingsProvider.notifier).setHighContrast,
-          icon: Icons.contrast_outlined,
-        ),
-        SettingsSwitchTile(
-          title: l.dpadNavigation,
-          subtitle: l.dpadNavigationSubtitle,
-          value: ref.watch(advancedSettingsProvider).dpadNavigation,
-          onChanged:
-              ref.read(advancedSettingsProvider.notifier).setDpadNavigation,
-          icon: Icons.tv_rounded,
-        ),
-        SettingsSwitchTile(
-          title: l.fontSize,
-          subtitle: l.fontSizeSubtitle,
-          value: ref.watch(advancedSettingsProvider).fontSizeScale > 1.0,
-          onChanged: (value) {
-            ref.read(advancedSettingsProvider.notifier).setFontSizeScale(
-                  value ? 1.3 : 1.0,
-                );
-          },
-          icon: Icons.format_size_outlined,
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionRecommendations),
-        _NavTile(
-          icon: Icons.recommend_rounded,
-          title: l.matchmaking,
-          subtitle: l.matchmakingSubtitle,
-          onTap: () => context.go('/matchmaking'),
-        ),
-        _NavTile(
-          icon: Icons.filter_list_rounded,
-          title: l.settingsCategoryFilters,
-          subtitle: l.settingsCategoryFiltersHelp,
-          onTap: () => context.push('/category-filters'),
-        ),
-        const SizedBox(height: 16),
-        SettingsSectionTitle(l.sectionDiagnostics),
-        if (Platform.isAndroid)
+    // Un seul `watch` pour les interrupteurs de l'onglet (valeur identique au
+    // sein d'un même build) ; les activations TV lisent l'état courant via
+    // `read` — `watch` dans un callback serait illégal chez Riverpod.
+    final adv = ref.watch(advancedSettingsProvider);
+    final advNotifier = ref.read(advancedSettingsProvider.notifier);
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SettingsSectionTitle(l.sectionAccessibility),
+          TvFocus(
+            onActivate: () => advNotifier.setHighContrast(!adv.highContrast),
+            child: SettingsSwitchTile(
+              title: l.highContrast,
+              subtitle: l.highContrastSubtitle,
+              value: adv.highContrast,
+              onChanged: advNotifier.setHighContrast,
+              icon: Icons.contrast_outlined,
+            ),
+          ),
+          TvFocus(
+            onActivate: () =>
+                advNotifier.setDpadNavigation(!adv.dpadNavigation),
+            child: SettingsSwitchTile(
+              title: l.dpadNavigation,
+              subtitle: l.dpadNavigationSubtitle,
+              value: adv.dpadNavigation,
+              onChanged: advNotifier.setDpadNavigation,
+              icon: Icons.tv_rounded,
+            ),
+          ),
+          TvFocus(
+            // Bascule identique à l'interrupteur : >1.0 = grosse police.
+            onActivate: () => advNotifier.setFontSizeScale(
+              adv.fontSizeScale > 1.0 ? 1.0 : 1.3,
+            ),
+            child: SettingsSwitchTile(
+              title: l.fontSize,
+              subtitle: l.fontSizeSubtitle,
+              value: adv.fontSizeScale > 1.0,
+              onChanged: (value) {
+                advNotifier.setFontSizeScale(value ? 1.3 : 1.0);
+              },
+              icon: Icons.format_size_outlined,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionRecommendations),
           _NavTile(
-            icon: Icons.system_update_alt,
-            title: l.updateTitle,
-            subtitle: l.updateSettingsSubtitle,
-            onTap: () => showUpdateDialog(context),
+            icon: Icons.recommend_rounded,
+            title: l.matchmaking,
+            subtitle: l.matchmakingSubtitle,
+            onTap: () => context.go('/matchmaking'),
           ),
-        _NavTile(
-          icon: Icons.cleaning_services_outlined,
-          title: l.clearCaches,
-          subtitle: l.clearCachesSubtitle,
-          onTap: () => _clearAllCaches(context, ref),
-          trailing: Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          _NavTile(
+            icon: Icons.filter_list_rounded,
+            title: l.settingsCategoryFilters,
+            subtitle: l.settingsCategoryFiltersHelp,
+            onTap: () => context.push('/category-filters'),
           ),
-        ),
-        _NavTile(
-          icon: Icons.restart_alt_outlined,
-          title: l.resetApp,
-          subtitle: l.resetAppSubtitle,
-          onTap: () => _factoryReset(context, ref),
-          trailing: Icon(
-            Icons.chevron_right,
-            color: Theme.of(context).colorScheme.error,
+          const SizedBox(height: 16),
+          SettingsSectionTitle(l.sectionDiagnostics),
+          if (Platform.isAndroid)
+            _NavTile(
+              icon: Icons.system_update_alt,
+              title: l.updateTitle,
+              subtitle: l.updateSettingsSubtitle,
+              onTap: () => showUpdateDialog(context),
+            ),
+          _NavTile(
+            icon: Icons.bug_report_outlined,
+            title: l.logsDiagnostic,
+            subtitle: l.logsDiagnosticSubtitle,
+            onTap: () => context.go('/diagnostic'),
           ),
-        ),
-        const SizedBox(height: 24),
-        const _AdvancedEntry(),
-      ],
+          _NavTile(
+            icon: Icons.cleaning_services_outlined,
+            title: l.clearCaches,
+            subtitle: l.clearCachesSubtitle,
+            onTap: () => _clearAllCaches(context, ref),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          _NavTile(
+            icon: Icons.restart_alt_outlined,
+            title: l.resetApp,
+            subtitle: l.resetAppSubtitle,
+            onTap: () => _factoryReset(context, ref),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 24),
+          const _AdvancedEntry(),
+        ],
+      ),
     );
   }
 

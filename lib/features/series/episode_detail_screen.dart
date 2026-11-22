@@ -12,9 +12,9 @@ import 'package:orbit_3d_flutter/features/downloads/widgets/download_button.dart
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/providers/watched_episodes_provider.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/services/playback_progress_service.dart';
-import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 
 /// Page intermédiaire d'un épisode de série : infos + boutons « Démarrer »
 /// et « Reprendre » (si une progression de lecture existe pour l'épisode).
@@ -109,10 +109,13 @@ class EpisodeDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => context.pop(),
+            ? TvFocus(
+                onActivate: () => context.pop(),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  onPressed: () => context.pop(),
+                ),
               )
             : null,
         title: Text(l.episode),

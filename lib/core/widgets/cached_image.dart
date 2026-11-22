@@ -20,6 +20,7 @@ class CachedImage extends StatelessWidget {
     this.fadeInDuration = const Duration(milliseconds: 200),
     this.fadeOutDuration = const Duration(milliseconds: 100),
     this.filterQuality = FilterQuality.medium,
+    this.httpHeaders,
   });
 
   final String imageUrl;
@@ -33,6 +34,7 @@ class CachedImage extends StatelessWidget {
   final Duration fadeInDuration;
   final Duration fadeOutDuration;
   final FilterQuality filterQuality;
+  final Map<String, String>? httpHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +64,7 @@ class CachedImage extends StatelessWidget {
               ),
       memCacheWidth: memCacheWidth,
       memCacheHeight: memCacheHeight,
+      httpHeaders: httpHeaders,
       fadeInDuration: fadeInDuration,
       fadeOutDuration: fadeOutDuration,
       filterQuality: filterQuality,

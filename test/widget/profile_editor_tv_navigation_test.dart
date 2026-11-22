@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_catalog.dart';
 import 'package:orbit_3d_flutter/core/widgets/avatar_picker_grid.dart';
+import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/features/profile/profile_edit_screen.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
-Widget _localizedApp(Widget child, {Locale? locale}) {
+Widget _localizedApp(Widget child, {Locale? locale, TvModeNotifier? tvMode}) {
   return ProviderScope(
+    overrides: [
+      if (tvMode != null) tvModeNotifierProvider.overrideWithValue(tvMode),
+    ],
     child: MaterialApp(
       locale: locale,
       localizationsDelegates: const [
@@ -49,6 +53,7 @@ void main() {
     expect(find.text('Aventure'), findsNothing);
     await tester.scrollUntilVisible(find.byType(TextFormField), -300,
         scrollable: scrollable);
+    expect(find.text('Continue'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField), 'Camille');
     await tester.scrollUntilVisible(
       find.text('Create profile'),
@@ -124,5 +129,125 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+  });
+
+  testWidgets('TV continue validates the name and keeps D-pad editing',
+      (tester) async {
+    final tvMode = TvModeNotifier()..enable();
+    addTearDown(tvMode.dispose);
+    await tester.pumpWidget(
+      _localizedApp(
+        const ProfileEditScreen(),
+        locale: const Locale('fr'),
+        tvMode: tvMode,
+      ),
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+    final editable = find.descendant(
+      of: find.byType(TextFormField),
+      matching: find.byType(EditableText),
+    );
+    final name = tester.widget<EditableText>(editable);
+    name.focusNode.requestFocus();
+    await tester.pump();
+
+    expect(tester.widget<EditableText>(editable).readOnly, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.name');
+    expect(find.text('Obligatoire'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pump();
+    expect(tester.widget<EditableText>(editable).readOnly, isFalse);
+    await tester.enterText(find.byType(TextFormField), 'Zoë 李');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+    expect(name.controller.text, 'Zoë 李');
+  });
+
+  testWidgets('continue button validates and advances on tap', (tester) async {
+    await tester.pumpWidget(
+      _localizedApp(const ProfileEditScreen(), locale: const Locale('fr')),
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Continuer'),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Obligatoire'), findsOneWidget);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.name');
+
+    await tester.enterText(find.byType(TextFormField), 'Camille');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Continuer'));
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.firstAge');
+  });
+
+  testWidgets('TV can reach continue from the name in RTL', (tester) async {
+    final tvMode = TvModeNotifier()..enable();
+    addTearDown(tvMode.dispose);
+    await tester.pumpWidget(
+      _localizedApp(
+        const ProfileEditScreen(),
+        locale: const Locale('ar'),
+        tvMode: tvMode,
+      ),
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ListView).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+    final editable = find.descendant(
+      of: find.byType(TextFormField),
+      matching: find.byType(EditableText),
+    );
+    tester.widget<EditableText>(editable).focusNode.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'profile.continue');
   });
 }

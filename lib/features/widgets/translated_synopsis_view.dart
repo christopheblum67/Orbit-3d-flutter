@@ -56,6 +56,9 @@ class TranslatedSynopsisView extends ConsumerWidget {
     );
   }
 
+  /// Couleur du texte quand le synopsis affiché provient d'une traduction
+  /// (TMDB fr ou Google) : le rouge signale visuellement que ce n'est pas le
+  /// texte d'origine du fournisseur.
   static const Color translatedTextColor = Colors.redAccent;
 
   Widget _body(

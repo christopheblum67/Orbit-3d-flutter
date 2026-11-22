@@ -800,7 +800,15 @@ class _EngineRow extends StatelessWidget {
           Icon(icon, size: 18, color: Theme.of(context).colorScheme.tertiary),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              '$label • ${value.label}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Expanded(
             child: buildTvDropdown(

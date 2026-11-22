@@ -48,3 +48,26 @@ EPGProgram? epgNextProgram(List<EPGProgram> programs, DateTime now) {
   DateTime now,
 ) =>
     (epgCurrentProgram(programs, now), epgNextProgram(programs, now));
+
+/// Nombre de programmes affichés dans l'aperçu de chaîne (Live TV).
+///
+/// 7 : la soirée entière reste lisible sans noyer l'aperçu. L'ancienne limite
+/// de 5 coupait la grille trop tôt sur les chaînes au rythme de programmes
+/// court (journaux, magazines) ; +2 lignes couvrent ces cas (demande produit).
+const int kEpgPreviewMaxPrograms = 7;
+
+/// Sélectionne les programmes EPG à afficher dans l'aperçu de chaîne.
+///
+/// Écarte le passé (`end` postérieur à [now]) et retient au plus
+/// [maxPrograms] programmes à venir. Extrait du widget pour être testable :
+/// c'est la seule logique métier de l'aperçu, le rendu des lignes restant
+/// purement visuel.
+List<EPGProgram> epgPreviewPrograms(
+  List<EPGProgram> programs,
+  DateTime now, {
+  int maxPrograms = kEpgPreviewMaxPrograms,
+}) =>
+    programs
+        .where((p) => p.end.isAfter(now))
+        .take(maxPrograms)
+        .toList(growable: false);

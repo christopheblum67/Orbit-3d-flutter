@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit_3d_flutter/models/channel.dart';
+import 'package:orbit_3d_flutter/models/epg_program.dart';
 import 'package:orbit_3d_flutter/models/replay_item.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
@@ -52,6 +53,33 @@ class _DelayedReplayApi extends ApiService {
     started.complete();
     return result.future.whenComplete(completed.complete);
   }
+}
+
+class _DelayedCatchUpApi extends ApiService {
+  final started = Completer<void>();
+  final oldResult = Completer<List<EPGProgram>>();
+  int calls = 0;
+
+  @override
+  Future<List<EPGProgram>> fetchChannelCatchUpPrograms(Channel channel) {
+    calls++;
+    if (calls == 1) {
+      started.complete();
+      return oldResult.future;
+    }
+    return Future.value([_program('new')]);
+  }
+}
+
+EPGProgram _program(String title) {
+  final now = DateTime.now();
+  return EPGProgram(
+    channelId: '42',
+    title: title,
+    description: '',
+    start: now.subtract(const Duration(hours: 2)),
+    end: now.subtract(const Duration(hours: 1)),
+  );
 }
 
 Subscription _subscription(
@@ -112,6 +140,8 @@ void main() {
 
     final staleShortEpg = container.read(shortEpgCacheProvider)
       ..put('channel-id', const []);
+    final staleCatchUp = container.read(catchUpEpgCacheProvider)
+      ..put('channel-id', [_program('old')]);
     final staleEpgData = container.read(epgDataCacheProvider);
     container
         .read(lastRefreshTimestampProvider.notifier)
@@ -142,11 +172,85 @@ void main() {
       isFalse,
     );
     expect(container.read(shortEpgCacheProvider).get('channel-id'), isNull);
+    expect(container.read(catchUpEpgCacheProvider), isNot(same(staleCatchUp)));
+    expect(staleCatchUp.get('channel-id'), isNull);
+    expect(container.read(catchUpEpgCacheProvider).get('channel-id'), isNull);
     expect(
       identical(container.read(epgDataCacheProvider), staleEpgData),
       isFalse,
     );
     channelSubscription.close();
+  });
+
+  test('le cache catch-up suit les modifications et la synchronisation',
+      () async {
+    final storage = _MemoryStorageService([
+      _subscription('old', active: true),
+      _subscription('new', active: false),
+    ]);
+    final container = ProviderContainer(
+      overrides: [storageServiceProvider.overrideWithValue(storage)],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(subscriptionsProvider.notifier);
+    await notifier.reloadAfterCloudSync();
+
+    final firstCache = container.read(catchUpEpgCacheProvider)
+      ..put('42', [_program('old')]);
+    final edited = _subscription('old', active: true)
+        .copyWith(m3uUrl: 'https://other.example/playlist');
+    await notifier.updateSubscription(edited);
+    final editedCache = container.read(catchUpEpgCacheProvider);
+    expect(editedCache, isNot(same(firstCache)));
+    expect(editedCache.get('42'), isNull);
+
+    editedCache.put('42', [_program('edited')]);
+    storage.subscriptions[0] = edited.copyWith(isActive: false);
+    storage.subscriptions[1] = _subscription('new', active: true);
+    await notifier.reloadAfterCloudSync();
+    expect(container.read(activeSubscriptionProvider)?.id, 'new');
+    final syncedCache = container.read(catchUpEpgCacheProvider);
+    expect(syncedCache, isNot(same(editedCache)));
+    expect(syncedCache.get('42'), isNull);
+  });
+
+  test('une réponse catch-up ancienne ne contamine pas le nouvel abonnement',
+      () async {
+    final storage = _MemoryStorageService([
+      _subscription('old', active: true),
+      _subscription('new', active: false),
+    ]);
+    final api = _DelayedCatchUpApi();
+    final channel = Channel(
+      id: '42',
+      name: 'Channel',
+      logoUrl: '',
+      streamUrl: '',
+      group: '',
+    );
+    final container = ProviderContainer(
+      overrides: [
+        storageServiceProvider.overrideWithValue(storage),
+        apiServiceProvider.overrideWithValue(api),
+        liveChannelsProvider.overrideWith((ref) async => [channel]),
+      ],
+    );
+    addTearDown(container.dispose);
+    final listener = container.listen(channelCatchUpProvider('42'), (_, __) {});
+    addTearDown(listener.close);
+    final oldFuture = container.read(channelCatchUpProvider('42').future);
+    unawaited(oldFuture.then<void>((_) {}, onError: (Object _) {}));
+    await api.started.future;
+
+    await container.read(subscriptionsProvider.notifier).setActive('new');
+    final current = await container.read(channelCatchUpProvider('42').future);
+    expect(current.single.title, 'new');
+    api.oldResult.complete([_program('old')]);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(catchUpEpgCacheProvider).get('42')!.single.title,
+      'new',
+    );
   });
 
   test('la bascule restaure uniquement la date du nouvel abonnement', () async {
