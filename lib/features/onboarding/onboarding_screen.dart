@@ -13,6 +13,10 @@ import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/models/subscription.dart';
 
+final deviceHardwareDetectionProvider =
+    Provider<Future<HardwareSpecs> Function()>(
+        (ref) => HardwareDetectorService.analyze);
+
 /// Sprint Phase 1 — Configuration du premier lancement.
 ///
 /// Diagnostique l'appareil (matériel, connexion, mémoire), recommande un
@@ -32,13 +36,12 @@ class _OnboardingConfigScreenState
   late Future<HardwareSpecs> _detection;
   HardwareSpecs? _specs;
   DeviceProfile? _selected;
-  bool _adjusting = false;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _detection = HardwareDetectorService.analyze();
+    _detection = ref.read(deviceHardwareDetectionProvider)();
   }
 
   Future<void> _validate() async {
@@ -163,9 +166,9 @@ class _OnboardingConfigScreenState
     final l = AppLocalizations.of(context);
     final profileName =
         profile == DeviceProfile.eco ? l.onboardingEco : profile.label;
-    final isSelected = _adjusting && _selected == profile;
+    final isSelected = (_selected ?? _specs?.recommendedProfile) == profile;
     return _FocusableOption(
-      onTap: _adjusting ? () => setState(() => _selected = profile) : null,
+      onTap: _saving ? null : () => setState(() => _selected = profile),
       selected: isSelected,
       child: Container(
         padding: const EdgeInsets.all(18),
@@ -227,50 +230,20 @@ class _OnboardingConfigScreenState
     final l = AppLocalizations.of(context);
     return FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),
-      child: Row(
-        children: [
-          Expanded(
-            child: TvFocus(
-              onActivate: _saving
-                  ? null
-                  : () => setState(() {
-                        _adjusting = !_adjusting;
-                        _selected = null;
-                      }),
-              child: OutlinedButton.icon(
-                onPressed: _saving
-                    ? null
-                    : () => setState(() {
-                          _adjusting = !_adjusting;
-                          _selected = null;
-                        }),
-                icon: Icon(_adjusting ? Icons.auto_awesome_rounded : Icons.tune),
-                label: Text(
-                  _adjusting ? l.onboardingResetRecommendation : l.onboardingAdjust,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            flex: 2,
-            child: TvFocus(
-              autofocus: true,
-              onActivate: _saving ? null : _validate,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _validate,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(l.confirmAndContinue),
-              ),
-            ),
-          ),
-        ],
+      child: TvFocus(
+        autofocus: true,
+        onActivate: _saving ? null : _validate,
+        child: FilledButton.icon(
+          onPressed: _saving ? null : _validate,
+          icon: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                )
+              : const Icon(Icons.check_circle_outline),
+          label: Text(l.confirmAndContinue),
+        ),
       ),
     );
   }
@@ -307,9 +280,7 @@ class _OnboardingConfigScreenState
                   }
                   _specs ??= specs;
                   final recommended = specs.recommendedProfile;
-                  final displayed = _adjusting && _selected != null
-                      ? _selected!
-                      : recommended;
+                  final displayed = _selected ?? recommended;
                   return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: Column(
@@ -318,9 +289,7 @@ class _OnboardingConfigScreenState
                         _buildDeviceCard(specs),
                         const SizedBox(height: 16),
                         Text(
-                          _adjusting
-                              ? l.onboardingChooseProfile
-                              : l.onboardingRecommendedProfile,
+                          l.onboardingChooseProfile,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w800,
@@ -328,14 +297,12 @@ class _OnboardingConfigScreenState
                         ),
                         const SizedBox(height: 10),
                         _buildProfileCard(recommended, highlight: true),
-                        if (_adjusting) ...[
-                          const SizedBox(height: 10),
-                          for (final profile in DeviceProfile.values)
-                            if (profile != recommended) ...[
-                              _buildProfileCard(profile, highlight: false),
-                              const SizedBox(height: 10),
-                            ],
-                        ] else ...[
+                        for (final profile in DeviceProfile.values)
+                          if (profile != recommended) ...[
+                            const SizedBox(height: 10),
+                            _buildProfileCard(profile, highlight: false),
+                          ],
+                        if (displayed.disable3D) ...[
                           const SizedBox(height: 10),
                           _buildProfileHint(displayed),
                         ],
@@ -443,6 +410,9 @@ class _FocusableOptionState extends State<_FocusableOption> {
       onFocusChange: (hasFocus) {
         if (hasFocus && widget.onTap != null) HapticFeedback.selectionClick();
         setState(() => _focused = hasFocus);
+        if (hasFocus) {
+          Scrollable.ensureVisible(context);
+        }
       },
       onKeyEvent: (node, event) {
         if (widget.onTap == null) return KeyEventResult.ignored;
@@ -667,16 +637,19 @@ class _SubscriptionCreationDialogState
                             ButtonSegment(
                               value: SubscriptionType.m3u,
                               label: Text('M3U Playlist'),
-                              icon: const Icon(Icons.playlist_play_outlined, size: 18),
+                              icon: const Icon(Icons.playlist_play_outlined,
+                                  size: 18),
                             ),
                           ],
                           selected: {_type},
-                          onSelectionChanged: (Set<SubscriptionType> newSelection) {
+                          onSelectionChanged:
+                              (Set<SubscriptionType> newSelection) {
                             setState(() => _type = newSelection.first);
                           },
                           style: ButtonStyle(
                             padding: WidgetStateProperty.all(
-                              const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                              const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 14),
                             ),
                           ),
                         ),
@@ -720,11 +693,13 @@ class _SubscriptionCreationDialogState
                     TvFocus(
                       focusNode: _baseUrlFocus,
                       onKeyEvent: (node, event) {
-                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event is! KeyDownEvent)
+                          return KeyEventResult.ignored;
                         if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
                             event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_usernameFocus);
                           return KeyEventResult.handled;
                         }
@@ -751,11 +726,13 @@ class _SubscriptionCreationDialogState
                     TvFocus(
                       focusNode: _m3uFocus,
                       onKeyEvent: (node, event) {
-                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event is! KeyDownEvent)
+                          return KeyEventResult.ignored;
                         if (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
                             event.logicalKey == LogicalKeyboardKey.space ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_submitFocus);
                           return KeyEventResult.handled;
                         }
@@ -781,11 +758,13 @@ class _SubscriptionCreationDialogState
                     TvFocus(
                       focusNode: _usernameFocus,
                       onKeyEvent: (node, event) {
-                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event is! KeyDownEvent)
+                          return KeyEventResult.ignored;
                         if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
                             event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_passwordFocus);
                           return KeyEventResult.handled;
                         }
@@ -814,11 +793,13 @@ class _SubscriptionCreationDialogState
                     TvFocus(
                       focusNode: _passwordFocus,
                       onKeyEvent: (node, event) {
-                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event is! KeyDownEvent)
+                          return KeyEventResult.ignored;
                         if (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
                             event.logicalKey == LogicalKeyboardKey.space ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_submitFocus);
                           return KeyEventResult.handled;
                         }
@@ -858,11 +839,13 @@ class _SubscriptionCreationDialogState
                     TvFocus(
                       focusNode: _m3uFocus,
                       onKeyEvent: (node, event) {
-                        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                        if (event is! KeyDownEvent)
+                          return KeyEventResult.ignored;
                         if (event.logicalKey == LogicalKeyboardKey.enter ||
                             event.logicalKey == LogicalKeyboardKey.select ||
                             event.logicalKey == LogicalKeyboardKey.space ||
-                            event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                            event.logicalKey ==
+                                LogicalKeyboardKey.gameButtonA) {
                           _requestFocus(_submitFocus);
                           return KeyEventResult.handled;
                         }
@@ -907,9 +890,8 @@ class _SubscriptionCreationDialogState
               return KeyEventResult.handled;
             }
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              final prevFocus = _type == SubscriptionType.xtream
-                  ? _passwordFocus
-                  : _m3uFocus;
+              final prevFocus =
+                  _type == SubscriptionType.xtream ? _passwordFocus : _m3uFocus;
               _requestFocus(prevFocus);
               return KeyEventResult.handled;
             }
@@ -957,7 +939,8 @@ class _CategoryFiltersDialog extends ConsumerStatefulWidget {
       _CategoryFiltersDialogState();
 }
 
-class _CategoryFiltersDialogState extends ConsumerState<_CategoryFiltersDialog> {
+class _CategoryFiltersDialogState
+    extends ConsumerState<_CategoryFiltersDialog> {
   final List<String> _allCategories = const [
     'Films',
     'Séries',
@@ -1116,10 +1099,9 @@ class _CategoryFiltersDialogState extends ConsumerState<_CategoryFiltersDialog> 
                                     style: TextStyle(
                                       color: scheme.onSurface,
                                       fontSize: 15,
-                                      fontWeight:
-                                          isSelected || isFocused
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
+                                      fontWeight: isSelected || isFocused
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
                                     ),
                                   ),
                                 ),
@@ -1133,34 +1115,35 @@ class _CategoryFiltersDialogState extends ConsumerState<_CategoryFiltersDialog> 
                 ),
               ),
             ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _selectedCategories.clear());
-                  },
-                  icon: const Icon(Icons.clear_all),
-                  label: const Text('Tout désélectionner'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() => _selectedCategories.clear());
+                    },
+                    icon: const Icon(Icons.clear_all),
+                    label: const Text('Tout désélectionner'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _selectedCategories = List.from(_allCategories));
-                  },
-                  icon: const Icon(Icons.checklist),
-                  label: const Text('Tout sélectionner'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() =>
+                          _selectedCategories = List.from(_allCategories));
+                    },
+                    icon: const Icon(Icons.checklist),
+                    label: const Text('Tout sélectionner'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-    actions: [
+      actions: [
         FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: Row(

@@ -41,12 +41,14 @@ class SubtitlePreferences {
       isCurrent: isCurrent,
     );
     if (!isCurrent() || forceOff()) return;
-    await applySeries(
-      controller: controller,
-      seriesId: seriesId,
-      generation: generation,
-      isCurrent: isCurrent,
-    );
+    if (readMode() == VodSubtitleMode.defaultSelection) {
+      await applySeries(
+        controller: controller,
+        seriesId: seriesId,
+        generation: generation,
+        isCurrent: isCurrent,
+      );
+    }
     if (isCurrent()) forceOff();
   }
 

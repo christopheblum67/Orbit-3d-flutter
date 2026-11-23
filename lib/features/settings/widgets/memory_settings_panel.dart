@@ -38,7 +38,7 @@ class MemorySettingsPanel extends ConsumerWidget {
               ),
               subtitle: Text(
                 l.memoryPanelHelp,
-                style: const TextStyle(fontSize: 11, color: Colors.white38),
+                style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
               ),
             ),
           ),
@@ -60,7 +60,7 @@ class MemorySettingsPanel extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   l.memoryHistoryHelp,
-                  style: const TextStyle(fontSize: 11, color: Colors.white38),
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),
               trailing: OutlinedButton.icon(
@@ -109,7 +109,7 @@ class MemorySettingsPanel extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   l.memoryImagesHelp,
-                  style: const TextStyle(fontSize: 11, color: Colors.white38),
+                  style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
               ),
               trailing: OutlinedButton.icon(

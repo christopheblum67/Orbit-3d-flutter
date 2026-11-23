@@ -190,8 +190,8 @@ class _ActorCard extends StatelessWidget {
                 // Nom de l'acteur - TV: 2 lignes max, wrap
                 Text(
                   actor.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.2,
@@ -205,8 +205,8 @@ class _ActorCard extends StatelessWidget {
                   // Rôle/personnage - TV: 2 lignes max, wrap
                   Text(
                     actor.character,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
                       fontStyle: FontStyle.italic,
                       height: 1.2,
@@ -399,8 +399,8 @@ class _CompactActorCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   actor.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     height: 1.2,
@@ -413,8 +413,8 @@ class _CompactActorCard extends StatelessWidget {
                   const SizedBox(height: 1),
                   Text(
                     actor.character,
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 9,
                       fontStyle: FontStyle.italic,
                       height: 1.2,

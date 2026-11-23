@@ -303,7 +303,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
       content = _Message(
         icon: Icons.play_circle_outline_rounded,
         text: AppLocalizations.of(context).livePreviewDisabled,
-        color: scheme.onSurfaceVariant,
+        color: Colors.white70,
       );
     } else if (controller != null && controller.value.isInitialized) {
       content = Stack(
@@ -325,7 +325,7 @@ class _LiveChannelVideoState extends ConsumerState<LiveChannelVideo> {
       content = _Message(
         icon: Icons.tv_off_rounded,
         text: _failureMessage ?? 'Flux indisponible',
-        color: scheme.onSurfaceVariant,
+        color: Colors.white70,
       );
     } else {
       content = Column(

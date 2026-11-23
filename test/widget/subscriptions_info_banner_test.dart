@@ -91,6 +91,14 @@ class _DuplicateSubscriptionsNotifier extends SubscriptionsNotifier {
 }
 
 void main() {
+  test('category filter guidance uses the current path in every language', () {
+    for (final language in ['fr', 'en', 'de', 'es', 'it', 'ar']) {
+      final l = lookupAppLocalizations(Locale(language));
+      expect(l.subscriptionFilterHelp, contains(l.settingsTitle));
+      expect(l.subscriptionFilterHelp, contains(l.sectionAccessibility));
+      expect(l.subscriptionFilterHelp, contains(l.settingsCategoryFilters));
+    }
+  });
   testWidgets('subscription deletion defaults to delete and supports D-pad',
       (tester) async {
     final notifier = _SubscriptionsNotifier();
@@ -252,7 +260,7 @@ void main() {
 
     expect(
       find.text(
-        'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.',
+        'Les catégories à masquer se règlent dans Configuration > Accessibilité > Filtres de catégories.',
       ),
       findsOneWidget,
     );

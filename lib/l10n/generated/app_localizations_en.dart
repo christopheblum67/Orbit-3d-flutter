@@ -809,7 +809,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get engineSubtitleForced => 'Forced subtitles';
 
   @override
-  String get engineVodSubtitles => 'VOD subtitles';
+  String get engineVodSubtitles => 'Movie and series subtitles';
 
   @override
   String get profilePinsNone => 'No profile has a PIN.';
@@ -836,6 +836,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get profilePinsRemoveFailed =>
       'Could not remove PINs. Please try again.';
+
+  @override
+  String get profilePinsLocked =>
+      'A profile is temporarily locked after three incorrect PINs. Wait until the lock expires before changing or removing its PIN.';
 
   @override
   String get profileProtection => 'Profile protection';
@@ -2168,7 +2172,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'Choose categories to hide in Settings > Advanced settings > Category filters.';
+      'Choose categories to hide in Settings > Accessibility > Category filters.';
 
   @override
   String get subscriptionPossibleDuplicate => 'Possible duplicate';
@@ -3231,7 +3235,12 @@ class AppLocalizationsEn extends AppLocalizations {
       other: '$count attempts remaining',
       one: '1 attempt remaining',
     );
-    return 'Incorrect code — $_temp0';
+    return 'Incorrect code — $_temp0. After 3 errors, access is locked for 2 hours.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'Too many incorrect PINs. Try again in $minutes min.';
   }
 
   @override
@@ -3313,17 +3322,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'All data will be erased: profiles, favorites, history, settings. This action is irreversible.';
+      'Local viewing and search histories will be erased. Profiles, subscriptions, API data, TLS and stream settings, Cloudflare and other settings will be kept. This action cannot be undone.';
 
   @override
-  String get resetAppDialogConfirm => 'Erase everything';
+  String get resetAppDialogConfirm => 'Reset';
 
   @override
   String get resetAppDialogTitle => 'Reset application?';
 
   @override
   String get resetAppSubtitle =>
-      'Erases all user data (profiles, favorites, history)';
+      'Clears local history while keeping profiles and configuration';
+
+  @override
+  String get resetFailed => 'Reset incomplete. Please try again.';
 
   @override
   String get resetCompleted => 'Reset completed';

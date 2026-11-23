@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/features/settings/advanced_settings_screen.dart';
+import 'package:orbit_3d_flutter/features/auth/profile_preferences_screen.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
+import 'package:orbit_3d_flutter/models/user_preferences.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
 import 'package:orbit_3d_flutter/services/cloudflare_session_manager.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _CloudflareSession extends Fake implements CloudflareSessionManager {
   _CloudflareSession({required this.ready, this.fail = false});
@@ -32,6 +36,9 @@ class _MemoryStorage extends StorageService {
 
   List<UserProfile> profiles;
   var clearCalls = 0;
+
+  @override
+  Future<UserPreferences> getPreferences() async => const UserPreferences();
 
   @override
   Future<List<UserProfile>> getProfiles() async => profiles;
@@ -61,6 +68,7 @@ UserProfile _profile(String id, {String? pin}) => UserProfile(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final scenario in ['ready', 'absent', 'error']) {
     testWidgets('Cloudflare action reports $scenario correctly',
@@ -140,7 +148,7 @@ void main() {
         locale: const Locale('fr'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const AdvancedSettingsScreen(),
+        home: const ProfilePreferencesScreen(),
       ),
     ));
     await tester.pumpAndSettle();
@@ -189,7 +197,7 @@ void main() {
         locale: Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: AdvancedSettingsScreen(),
+        home: ProfilePreferencesScreen(),
       ),
     ));
     await tester.pumpAndSettle();
@@ -206,5 +214,52 @@ void main() {
       findsOneWidget,
     );
     expect(storage.clearCalls, 0);
+  });
+
+  testWidgets('bulk PIN removal checks for locks again after confirmation',
+      (tester) async {
+    var now = DateTime(2026, 1, 1);
+    final guard = ProfilePinGuard(clock: () => now);
+    final locked = _profile('locked', pin: '1234');
+    final storage = _MemoryStorage([locked, _profile('other', pin: '5678')]);
+    final container = ProviderContainer(overrides: [
+      activeSubscriptionProvider.overrideWith((ref) => null),
+      storageServiceProvider.overrideWithValue(storage),
+      profilePinGuardProvider.overrideWithValue(guard),
+      profilesProvider.overrideWith((ref) async => storage.profiles),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(
+        locale: Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ProfilePreferencesScreen(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final action = find.text('Supprimer les codes PIN des profils');
+    await tester.scrollUntilVisible(action, 250,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await guard.verify(locked, '0000');
+    }
+    await tester.tap(find.text('Supprimer les PIN'));
+    await tester.pumpAndSettle();
+    expect(storage.clearCalls, 0);
+    expect(storage.profiles.where((profile) => profile.hasPin), hasLength(2));
+    expect(find.textContaining('Un profil est temporairement bloqué'),
+        findsOneWidget);
+
+    now = now.add(const Duration(hours: 2));
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Supprimer les PIN'));
+    await tester.pumpAndSettle();
+    expect(storage.clearCalls, 1);
+    expect(storage.profiles.where((profile) => profile.hasPin), isEmpty);
   });
 }

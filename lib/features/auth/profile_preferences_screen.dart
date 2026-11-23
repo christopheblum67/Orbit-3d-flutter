@@ -2,17 +2,111 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:orbit_3d_flutter/core/widgets/dpad_scope.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_focus.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
 
-class ProfilePreferencesScreen extends ConsumerWidget {
+class ProfilePreferencesScreen extends ConsumerStatefulWidget {
   const ProfilePreferencesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilePreferencesScreen> createState() =>
+      _ProfilePreferencesScreenState();
+}
+
+class _ProfilePreferencesScreenState
+    extends ConsumerState<ProfilePreferencesScreen> {
+  bool _removingProfilePins = false;
+
+  Future<void> _removeProfilePins() async {
+    if (_removingProfilePins) return;
+    final l = AppLocalizations.of(context);
+    setState(() => _removingProfilePins = true);
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final profiles = await storage.getProfiles();
+      if (!mounted) return;
+      final count = profiles.where((profile) => profile.hasPin).length;
+      if (count == 0) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.profilePinsNone)));
+        return;
+      }
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => DpadScope(
+          child: AlertDialog(
+            title: Text(l.profilePinsRemoveQuestion),
+            content: Text(l.profilePinsRemoveConfirmation(count)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(l.cancel),
+              ),
+              FilledButton(
+                autofocus: true,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                  foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(l.profilePinsRemove),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final clearedProfiles =
+          await ref.read(profilePinGuardProvider).withUnlockedProfiles(
+                () async => (await storage.getProfiles())
+                    .map((profile) => profile.id),
+                storage.clearProfilePins,
+              );
+      if (!mounted) return;
+      final current = ref.read(currentProfileProvider);
+      if (current != null &&
+          clearedProfiles.any((profile) => profile.id == current.id)) {
+        ref.read(currentProfileProvider.notifier).setUserProfile(
+              current.copyWith(clearPin: true, updatedAt: DateTime.now()),
+            );
+      }
+      ref.invalidate(profilesProvider);
+      for (final profile in clearedProfiles) {
+        await ref.read(profilePinGuardProvider).clear(profile.id);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(clearedProfiles.isEmpty
+            ? l.profilePinsNothingToRemove
+            : l.profilePinsRemoved(clearedProfiles.length)),
+      ));
+    } on ProfilePinLockedException {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.profilePinsLocked)));
+      }
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('suppression des codes PIN des profils'),
+      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l.profilePinsRemoveFailed)));
+      }
+    } finally {
+      if (mounted) setState(() => _removingProfilePins = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
@@ -142,6 +236,14 @@ class ProfilePreferencesScreen extends ConsumerWidget {
             value: ref.watch(advancedSettingsProvider).livePreviewVideo ?? true,
             onChanged:
                 ref.read(advancedSettingsProvider.notifier).setLivePreviewVideo,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.lock_open_rounded),
+            title: Text(l.profilePinsRemoveAll),
+            subtitle: Text(l.profilePinsRemoveHelp),
+            enabled: !_removingProfilePins,
+            onTap: _removingProfilePins ? null : _removeProfilePins,
           ),
           const Divider(height: 1),
           const SizedBox(height: 24),

@@ -14,9 +14,6 @@ import 'package:orbit_3d_flutter/providers/tmdb_api_key_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart'
     show
         cloudflareSessionProvider,
-        currentProfileProvider,
-        profilesProvider,
-        storageServiceProvider,
         tmdbServiceProvider;
 
 /// Code d'accès à l'écran des réglages sensibles.
@@ -117,7 +114,6 @@ class AdvancedSettingsScreen extends ConsumerStatefulWidget {
 
 class _AdvancedSettingsScreenState
     extends ConsumerState<AdvancedSettingsScreen> {
-  bool _removingProfilePins = false;
   bool _resettingCloudflare = false;
 
   Future<void> _resetCloudflare() async {
@@ -152,89 +148,6 @@ class _AdvancedSettingsScreenState
       }
     } finally {
       if (mounted) setState(() => _resettingCloudflare = false);
-    }
-  }
-
-  Future<void> _removeProfilePins() async {
-    if (_removingProfilePins) return;
-    final l = AppLocalizations.of(context);
-    var removalStarted = false;
-    try {
-      final storage = ref.read(storageServiceProvider);
-      final profiles = await storage.getProfiles();
-      if (!mounted) return;
-      final count = profiles.where((profile) => profile.hasPin).length;
-      if (count == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l.profilePinsNone)),
-        );
-        return;
-      }
-
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => DpadScope(
-          child: AlertDialog(
-            title: Text(l.profilePinsRemoveQuestion),
-            content: Text(l.profilePinsRemoveConfirmation(count)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: Text(l.cancel),
-              ),
-              FilledButton(
-                autofocus: true,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Theme.of(dialogContext).colorScheme.error,
-                  foregroundColor: Theme.of(dialogContext).colorScheme.onError,
-                ),
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: Text(l.profilePinsRemove),
-              ),
-            ],
-          ),
-        ),
-      );
-      if (confirmed != true || !mounted) return;
-
-      setState(() => _removingProfilePins = true);
-      removalStarted = true;
-      final clearedProfiles = await storage.clearProfilePins();
-      if (!mounted) return;
-      final current = ref.read(currentProfileProvider);
-      if (current != null &&
-          clearedProfiles.any((profile) => profile.id == current.id)) {
-        ref.read(currentProfileProvider.notifier).setUserProfile(
-              current.copyWith(clearPin: true, updatedAt: DateTime.now()),
-            );
-      }
-      ref.invalidate(profilesProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            clearedProfiles.isEmpty
-                ? l.profilePinsNothingToRemove
-                : l.profilePinsRemoved(clearedProfiles.length),
-          ),
-        ),
-      );
-    } catch (error, stack) {
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stack,
-        context: ErrorDescription('suppression des codes PIN des profils'),
-      ));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l.profilePinsRemoveFailed),
-          ),
-        );
-      }
-    } finally {
-      if (mounted && removalStarted) {
-        setState(() => _removingProfilePins = false);
-      }
     }
   }
 
@@ -274,37 +187,6 @@ class _AdvancedSettingsScreenState
           const SizedBox(height: 24),
           SettingsSectionTitle(l.settingsProtectedPlayback),
           const WidevineConfigTile(),
-          const SizedBox(height: 24),
-          SettingsSectionTitle(l.profileProtection),
-          Text(
-            l.profilePinsRemoveHelp,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: FilledButton.tonalIcon(
-              onPressed: _removingProfilePins ? null : _removeProfilePins,
-              style: FilledButton.styleFrom(
-                backgroundColor: scheme.errorContainer,
-                foregroundColor: scheme.onErrorContainer,
-              ),
-              icon: _removingProfilePins
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.lock_open_rounded),
-              label: Text(
-                _removingProfilePins
-                    ? l.profilePinsRemoving
-                    : l.profilePinsRemoveAll,
-              ),
-            ),
-          ),
           const SizedBox(height: 24),
           SettingsSectionTitle(l.sectionCloudflare),
           Text(

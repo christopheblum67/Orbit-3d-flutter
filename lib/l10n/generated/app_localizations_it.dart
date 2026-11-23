@@ -825,7 +825,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get engineSubtitleForced => 'Sottotitoli forzati';
 
   @override
-  String get engineVodSubtitles => 'Sottotitoli VOD';
+  String get engineVodSubtitles => 'Sottotitoli di film e serie';
 
   @override
   String get profilePinsNone => 'Nessun profilo ha un PIN.';
@@ -851,6 +851,10 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get profilePinsRemoveFailed => 'Impossibile rimuovere i PIN. Riprova.';
+
+  @override
+  String get profilePinsLocked =>
+      'Un profilo è temporaneamente bloccato dopo tre PIN errati. Attendi la fine del blocco prima di modificare o rimuovere il suo PIN.';
 
   @override
   String get profileProtection => 'Protezione dei profili';
@@ -2203,7 +2207,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'Le categorie da nascondere si impostano in Impostazioni > Impostazioni avanzate > Filtri categorie.';
+      'Le categorie da nascondere si impostano in Impostazioni > Accessibilità > Filtri categorie.';
 
   @override
   String get subscriptionPossibleDuplicate => 'Possibile duplicato';
@@ -3278,7 +3282,12 @@ class AppLocalizationsIt extends AppLocalizations {
       other: '$count tentativi rimanenti',
       one: '1 tentativo rimanente',
     );
-    return 'Codice errato — $_temp0';
+    return 'Codice errato — $_temp0. Dopo 3 errori l\'accesso è bloccato per 2 ore.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'Troppi PIN errati. Riprova tra $minutes min.';
   }
 
   @override
@@ -3360,17 +3369,20 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'Tutti i dati verranno cancellati: profili, preferiti, cronologia, impostazioni. Questa azione è irreversibile.';
+      'Le cronologie locali di visione e ricerca saranno cancellate. Profili, abbonamenti, dati API, impostazioni TLS e dei flussi, Cloudflare e le altre impostazioni saranno conservati. Questa azione è irreversibile.';
 
   @override
-  String get resetAppDialogConfirm => 'Cancella tutto';
+  String get resetAppDialogConfirm => 'Reimposta';
 
   @override
   String get resetAppDialogTitle => 'Azzerare l\'applicazione?';
 
   @override
   String get resetAppSubtitle =>
-      'Cancella tutti i dati utente (profili, preferiti, cronologia)';
+      'Cancella la cronologia locale conservando profili e configurazione';
+
+  @override
+  String get resetFailed => 'Reimpostazione incompleta. Riprova.';
 
   @override
   String get resetCompleted => 'Reimpostazione completata';

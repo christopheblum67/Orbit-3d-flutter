@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:orbit_3d_flutter/core/widgets/tv_safe_area.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
-import 'package:orbit_3d_flutter/services/profile_pin.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
 
 /// Contexte d'ouverture du pavé PIN.
 enum PinPadMode {
@@ -56,10 +58,76 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   bool _wrong = false;
   bool _validated = false;
   bool _checking = false;
+  bool _unavailable = false;
+  DateTime? _lockedUntil;
+  Timer? _lockTimer;
   final _confirmFocus = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.args.isVerify) {
+      _checking = true;
+      _loadAttemptState();
+    }
+  }
+
+  Future<void> _loadAttemptState() async {
+    try {
+      final result = await ref
+          .read(profilePinGuardProvider)
+          .status(widget.args.profile!.id);
+      if (!mounted) return;
+      setState(() {
+        _checking = false;
+        _attempts = _maxAttempts - result.remainingAttempts;
+        _wrong = _attempts > 0;
+        _lockedUntil = result.lockedUntil;
+      });
+      _scheduleLockUpdates();
+    } catch (error, stack) {
+      _reportFailure(error, stack);
+    }
+  }
+
+  void _scheduleLockUpdates() {
+    _lockTimer?.cancel();
+    if (_lockedUntil == null) return;
+    _lockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (!DateTime.now().isBefore(_lockedUntil!)) {
+          _lockedUntil = null;
+          _attempts = 0;
+          _wrong = false;
+          _lockTimer?.cancel();
+        }
+      });
+    });
+  }
+
+  void _reportFailure(Object error, StackTrace stack) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('vérification du code PIN de profil'),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _unavailable = true;
+      _digits = '';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context).pinVerifyFailed)),
+    );
+  }
+
+  @override
   void dispose() {
+    _lockTimer?.cancel();
     _confirmFocus.dispose();
     super.dispose();
   }
@@ -83,7 +151,12 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   }
 
   void _append(String digit) {
-    if (_checking || _digits.length >= _pinLength) return;
+    if (_checking ||
+        _unavailable ||
+        _lockedUntil != null ||
+        _digits.length >= _pinLength) {
+      return;
+    }
     HapticFeedback.heavyImpact();
     setState(() {
       _digits += digit;
@@ -99,13 +172,20 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
   }
 
   void _erase() {
-    if (_checking || _digits.isEmpty) return;
+    if (_checking || _unavailable || _lockedUntil != null || _digits.isEmpty) {
+      return;
+    }
     HapticFeedback.selectionClick();
     setState(() => _digits = _digits.substring(0, _digits.length - 1));
   }
 
   void _onOk() {
-    if (_checking || _digits.length != _pinLength) return;
+    if (_checking ||
+        _unavailable ||
+        _lockedUntil != null ||
+        _digits.length != _pinLength) {
+      return;
+    }
     _submit();
   }
 
@@ -117,41 +197,30 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
     }
     setState(() => _checking = true);
     final profile = widget.args.profile;
-    bool verified;
+    ProfilePinAttempt result;
     try {
-      verified = profile != null && await ProfilePin.verify(profile, _digits);
+      if (profile == null) {
+        throw StateError('Missing profile for PIN verification');
+      }
+      result = await ref.read(profilePinGuardProvider).verify(profile, _digits);
     } catch (error, stack) {
-      FlutterError.reportError(FlutterErrorDetails(
-        exception: error,
-        stack: stack,
-        context: ErrorDescription('vérification du code PIN de profil'),
-      ));
-      if (!mounted) return;
-      setState(() {
-        _checking = false;
-        _digits = '';
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).pinVerifyFailed)),
-      );
+      _reportFailure(error, stack);
       return;
     }
     if (!mounted) return;
-    if (verified) {
+    if (result.verified) {
       _finish(true);
       return;
     }
-    _attempts++;
     HapticFeedback.vibrate();
-    if (_attempts >= _maxAttempts) {
-      _finish(false);
-      return;
-    }
     setState(() {
       _checking = false;
+      _attempts = _maxAttempts - result.remainingAttempts;
+      _lockedUntil = result.lockedUntil;
       _wrong = true;
       _digits = '';
     });
+    _scheduleLockUpdates();
   }
 
   void _finish(Object? result) {
@@ -202,7 +271,14 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
             final instruction = l.pinConfirmInstruction;
             final title = _title(l);
             final subtitle = _subtitle(l);
-            final errorText = l.pinIncorrectAttempts(_maxAttempts - _attempts);
+            final errorText = _lockedUntil == null
+                ? l.pinIncorrectAttempts(_maxAttempts - _attempts)
+                : l.pinTemporarilyLocked(
+                    ((_lockedUntil!.difference(DateTime.now()).inSeconds +
+                                59) ~/
+                            60)
+                        .clamp(1, 120),
+                  );
             final reservedHeight = 16 +
                 textHeight(title, titleStyle) +
                 8 +
@@ -257,9 +333,7 @@ class _PinPadScreenState extends ConsumerState<PinPadScreen> {
                               ? Padding(
                                   padding: const EdgeInsets.only(top: 14),
                                   child: Text(
-                                    _checking
-                                        ? l.pinChecking
-                                        : errorText,
+                                    _checking ? l.pinChecking : errorText,
                                     style: TextStyle(
                                       color: _checking
                                           ? scheme.onSurfaceVariant

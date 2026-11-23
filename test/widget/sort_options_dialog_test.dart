@@ -60,7 +60,7 @@ void main() {
     expect(find.text('Advanced sorting options'), findsOneWidget);
     expect(
         find.text('Sort chronologically by production year'), findsOneWidget);
-    expect(find.text('Active'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
   });
 
   testWidgets('un seul représentant par critère, sans doublons asc/desc',
@@ -75,10 +75,7 @@ void main() {
     expect(find.text(l.sortByDuration), findsOneWidget);
     expect(find.text(l.sortAffinity), findsOneWidget);
 
-    // Plus aucun doublon de sens dans la liste : le nom a ses deux boutons,
-    // la durée et l'affinité leur bouton ↑/↓. On compte les tuiles (6) pour
-    // verrouiller l'absence de l'ancien doublon « affinité croissante ».
-    expect(find.byType(AnimatedContainer), findsNWidgets(6));
+    expect(find.byType(SortOptionTileTV), findsNWidgets(6));
     expect(find.text(l.sortNameAToZ), findsNothing);
     expect(find.text(l.sortNameZToA), findsNothing);
   });
@@ -91,23 +88,24 @@ void main() {
     final yearTile = find
         .ancestor(
           of: find.text(l.sortByYear),
-          matching: find.byType(AnimatedContainer),
+          matching: find.byType(SortOptionTileTV),
         )
         .first;
     final ratingTile = find
         .ancestor(
           of: find.text(l.sortByRating),
-          matching: find.byType(AnimatedContainer),
+          matching: find.byType(SortOptionTileTV),
         )
         .first;
 
     expect(
-      find.descendant(of: yearTile, matching: find.text(l.sortOptionActive)),
+      find.descendant(of: yearTile, matching: find.byIcon(Icons.check_circle)),
       findsOneWidget,
       reason: '« Par année » doit rester actif même en sens inverse',
     );
     expect(
-      find.descendant(of: ratingTile, matching: find.text(l.sortOptionActive)),
+      find.descendant(
+          of: ratingTile, matching: find.byIcon(Icons.check_circle)),
       findsNothing,
     );
   });
@@ -133,6 +131,21 @@ void main() {
       (tester) async {
     await open(tester, SortMode.recentlyAdded, size: const Size(1280, 720));
     final dialog = tester.getRect(find.byType(Dialog));
+    final panel = find
+        .descendant(
+          of: find.byType(Dialog),
+          matching: find.byType(Container),
+        )
+        .first;
+    final size = tester.getSize(panel);
+    expect(size.width * size.height, lessThanOrEqualTo(560 * 510 / 2));
+    for (final element in tester.elementList(find.byType(SortOptionTileTV))) {
+      final circle = tester.widget<AnimatedContainer>(find.descendant(
+        of: find.byWidget(element.widget),
+        matching: find.byType(AnimatedContainer),
+      ));
+      expect((circle.decoration! as BoxDecoration).shape, BoxShape.circle);
+    }
     final tiles = find.byType(SortOptionTileTV);
     expect(tiles, findsNWidgets(6));
     for (final element in tester.elementList(tiles)) {
@@ -162,6 +175,25 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(l.sortAffinity), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('le D-pad atteint la dernière option et revient en haut',
+      (tester) async {
+    await open(tester, SortMode.recentlyAdded,
+        size: const Size(640, 360), textScale: 1.5);
+    final l = AppLocalizations.of(tester.element(find.byType(Dialog)));
+    for (var i = 0; i < 5; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+    }
+    expect(Focus.of(tester.element(find.text(l.sortAffinity))).hasFocus, isTrue);
+    for (var i = 0; i < 5; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+    }
+    expect(Focus.of(tester.element(find.text(l.sortLatestM3UXtream))).hasFocus,
+        isTrue);
     expect(tester.takeException(), isNull);
   });
 }

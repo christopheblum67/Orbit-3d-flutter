@@ -120,6 +120,11 @@ void main() {
             ? LogicalKeyboardKey.arrowLeft
             : LogicalKeyboardKey.arrowRight);
         await tester.pumpAndSettle();
+        expect(find.text(l.dnsProvider), findsOneWidget);
+        await tester.sendKeyEvent(language == 'ar'
+            ? LogicalKeyboardKey.arrowLeft
+            : LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
         expect(find.byType(CategoryFilterScreen), findsOneWidget);
         for (final label in [
           l.settingsCategoryFilters,
@@ -500,15 +505,65 @@ void main() {
       expect(circles, findsOneWidget);
       expect(
           tester.widget<Text>(find.text(l.accountProfiles)).maxLines, isNull);
-      expect(tester.widget<Text>(find.text(l.accountProfilesSubtitle)).maxLines,
-          isNull);
+      expect(find.text(l.accountProfilesSubtitle), findsNothing);
+      expect(find.text(l.accountPreferencesSubtitle), findsNothing);
+      expect(find.text(l.matchmaking), findsNothing);
+      final maintenance =
+          find.byKey(ValueKey('settings-group-${l.sectionDiagnostics}'));
+      expect(
+          find.descendant(of: maintenance, matching: find.text(l.enginesTile)),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: maintenance, matching: find.text(l.sectionBackup)),
+          findsOneWidget);
+      expect(find.descendant(of: maintenance, matching: find.text(l.resetApp)),
+          findsNothing);
+      final contactTile = find
+          .ancestor(
+              of: find.text(l.settingsContact), matching: find.byType(TvFocus))
+          .first;
+      final legalTile = find
+          .ancestor(
+              of: find.text(l.legalNotice), matching: find.byType(TvFocus))
+          .first;
+      final contactFocus = Focus.of(tester.element(find
+          .descendant(of: contactTile, matching: find.byType(AnimatedBuilder))
+          .first));
+      contactFocus.requestFocus();
+      await tester.pumpAndSettle();
+      contactFocus.nextFocus();
+      await tester.pumpAndSettle();
+      expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<TvFocus>(),
+          same(tester.widget<TvFocus>(legalTile)));
+      final resetTile = find
+          .ancestor(of: find.text(l.resetApp), matching: find.byType(TvFocus))
+          .first;
+      final secret = find
+          .ancestor(
+              of: find.byKey(const ValueKey('hidden-advanced-entry')),
+              matching: find.byType(TvFocus))
+          .first;
+      final resetFocus = Focus.of(tester.element(find
+          .descendant(of: resetTile, matching: find.byType(AnimatedBuilder))
+          .first));
+      resetFocus.requestFocus();
+      await tester.pumpAndSettle();
+      resetFocus.nextFocus();
+      await tester.pumpAndSettle();
+      expect(
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<TvFocus>(),
+          same(tester.widget<TvFocus>(secret)));
       await tester
           .ensureVisible(find.byKey(const ValueKey('hidden-advanced-entry')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('network card is localized and editable in $language',
+    testWidgets('network tab is localized and editable in $language',
         (tester) async {
       SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = const Size(360, 720);
@@ -537,12 +592,20 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text(l.dnsProvider));
+      expect(find.text(l.dnsProvider), findsNothing);
+      await tester.ensureVisible(find.text(l.sectionAccessibility));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l.dnsProvider));
+      await tester.tap(find.text(l.sectionAccessibility));
       await tester.pumpAndSettle();
+      await tester.sendKeyEvent(language == 'ar'
+          ? LogicalKeyboardKey.arrowLeft
+          : LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text(l.dnsProvider), findsOneWidget);
       expect(find.text(l.cloudflareReset), findsNothing);
-      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
       await tester.pumpAndSettle();
       await tester.tap(find.text('8.8.8.8 (Google DoH)').last);
       await tester.pumpAndSettle();
@@ -591,6 +654,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(Dialog), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('DNS provider (DoH)'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
       expect(
@@ -708,15 +774,12 @@ void main() {
     await tester.ensureVisible(find.text('Playback engines'));
     await tester.tap(find.text('Playback engines'));
     await tester.pumpAndSettle();
-    final checkbox = find.byType(CheckboxListTile);
-    expect(checkbox, findsNWidgets(2));
-    expect(
-        find.text(
-            'Automatically disable subtitles when starting a movie or series'),
-        findsOneWidget);
+    final checkbox = find.widgetWithText(CheckboxListTile, 'No subtitles');
+    expect(find.byType(CheckboxListTile), findsNWidgets(7));
+    expect(find.text('Movie and series subtitles'), findsOneWidget);
     expect(find.text('Force no subtitles'), findsNothing);
-    await tester.ensureVisible(checkbox.first);
-    await tester.tap(checkbox.first);
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
     await tester.pumpAndSettle();
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
     await tester.tap(find.byIcon(Icons.save_outlined));
@@ -772,7 +835,7 @@ void main() {
     final second = find.text('Xtream/M3U subscriptions');
     expect(first, findsOneWidget);
     expect(second, findsOneWidget);
-    expect(find.text('Language, PIN'), findsOneWidget);
+    expect(find.text('Language, PIN'), findsNothing);
     expect(find.byType(TabBar), findsNothing);
     expect(find.byType(TabBarView), findsNothing);
     final l = lookupAppLocalizations(const Locale('en'));
@@ -792,15 +855,14 @@ void main() {
         find.byKey(ValueKey('settings-group-${l.sectionDiagnostics}'));
     expect(
         tester.getRect(accountGroup).top, tester.getRect(diagnosticGroup).top);
-    final cloudTile = find
-        .ancestor(
-            of: find.text(l.settingsCloudAccount),
-            matching: find.byType(TvFocus))
-        .first;
-    final dnsTile = find
-        .ancestor(of: find.text(l.dnsProvider), matching: find.byType(TvFocus))
-        .first;
-    expect(tester.getRect(cloudTile).top, tester.getRect(dnsTile).top);
+    expect(
+        find.descendant(
+            of: diagnosticGroup, matching: find.text(l.enginesTile)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: diagnosticGroup, matching: find.text(l.sectionBackup)),
+        findsOneWidget);
     expect(
       FocusManager.instance.primaryFocus?.context
           ?.findAncestorWidgetOfExactType<TvFocus>(),
@@ -884,10 +946,10 @@ void main() {
               tester.getRect(find.byWidget(tile)).top < firstTileTop + 2));
         }
         final starts = [
-          find.text(l.settingsCloudAccount),
-          find.text(l.dnsProvider),
+          find.text(l.sectionBackup),
           find.text(l.legalNotice),
           find.text(l.sectionAccessibility),
+          find.text(l.resetApp),
           find.text(l.settingsContact),
           find.text(l.settingsActivateApp),
           find.byKey(const ValueKey('hidden-advanced-entry')),

@@ -118,11 +118,11 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
-        width: 560,
-        padding: const EdgeInsets.all(18),
+        width: 400,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: const Color(0xFF16181E),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFF262933), width: 1.5),
           boxShadow: const [
             BoxShadow(
@@ -142,15 +142,15 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
                 const Icon(
                   Icons.filter_alt,
                   color: Color(0xFF8B5CF6),
-                  size: 24,
+                  size: 20,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     l.sortOptionsTitle,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -160,9 +160,9 @@ class _SortOptionsDialogTVState extends State<SortOptionsDialogTV> {
             const SizedBox(height: 4),
             Text(
               l.sortOptionsHelp,
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
             ),
-            const Divider(color: Color(0xFF262933), height: 20),
+            const Divider(color: Color(0xFF262933), height: 12),
 
             // Liste scrollable des options — FocusTraversalGroup : ordre de
             // navigation D-pad télécommande TV explicite.
@@ -225,46 +225,49 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
 
   @override
   Widget build(BuildContext context) {
-    // Keep a stable AnimatedContainer for the test (findsNWidgets)
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: TvFocus(
         enableTvEffects: false,
         autofocus: widget.autofocus,
         onActivate: widget.onSelect,
         onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
-        child: GestureDetector(
-          onTap: widget.onSelect,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _isFocused
-                  ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
-                  : (widget.isActive
-                      ? const Color(0xFF1C1F26)
-                      : Colors.transparent),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _isFocused
-                    ? const Color(0xFF8B5CF6)
-                    : (widget.isActive
-                        ? Colors.amber.withValues(alpha: 0.5)
-                        : const Color(0xFF262933)),
-                width: _isFocused ? 2 : 1,
-              ),
-            ),
+        child: Semantics(
+          button: true,
+          selected: widget.isActive,
+          child: GestureDetector(
+            onTap: widget.onSelect,
             child: Row(
               children: [
-                // Icône du mode de tri
-                Icon(
-                  widget.option.icon,
-                  color: _isFocused
-                      ? const Color(0xFF8B5CF6)
-                      : (widget.isActive ? Colors.amber : Colors.white38),
-                  size: 20,
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isFocused
+                        ? const Color(0xFF8B5CF6).withValues(alpha: 0.22)
+                        : (widget.isActive
+                            ? Colors.amber.withValues(alpha: 0.12)
+                            : const Color(0xFF262933)),
+                    border: Border.all(
+                      color: _isFocused
+                          ? const Color(0xFF8B5CF6)
+                          : (widget.isActive
+                              ? Colors.amber
+                              : Colors.transparent),
+                      width: _isFocused ? 2 : 1,
+                    ),
+                  ),
+                  child: Icon(
+                    widget.option.icon,
+                    color: _isFocused
+                        ? const Color(0xFFBFA6FF)
+                        : (widget.isActive ? Colors.amber : Colors.white70),
+                    size: 17,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
 
                 // Libellé et Description
                 Expanded(
@@ -279,41 +282,30 @@ class _SortOptionTileTVState extends State<SortOptionTileTV> {
                               : (widget.isActive
                                   ? Colors.amber
                                   : Colors.white70),
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: _isFocused || widget.isActive
                               ? FontWeight.bold
                               : FontWeight.normal,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
                         widget.option.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10.5,
+                          color: Colors.white70,
+                          fontSize: 9.5,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Badge de statut Actif
                 if (widget.isActive)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      AppLocalizations.of(context).sortActive,
-                      style: const TextStyle(
-                        color: Colors.amber,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(start: 4),
+                    child:
+                        Icon(Icons.check_circle, color: Colors.amber, size: 15),
                   ),
               ],
             ),

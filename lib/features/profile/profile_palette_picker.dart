@@ -65,11 +65,11 @@ class ProfilePalettePicker extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           "Redemarrer l'application pour appliquer completement la nouvelle palette.",
           style: TextStyle(
             fontStyle: FontStyle.italic,
-            color: Colors.white70,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 12,
           ),
         ),
@@ -166,8 +166,11 @@ class _PaletteChipState extends State<_PaletteChip> {
               child: Text(
                 widget.def.name,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: ThemeData.estimateBrightnessForColor(widget.def.color) ==
+                          Brightness.light
+                      ? Colors.black
+                      : Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 10,
                 ),

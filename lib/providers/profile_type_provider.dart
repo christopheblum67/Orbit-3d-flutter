@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
-import 'package:orbit_3d_flutter/services/profile_pin.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
 
 class ProfileTypeState {
   final ProfileType? currentType;
@@ -42,9 +42,15 @@ class ProfileTypeNotifier extends Notifier<ProfileTypeState> {
       throw ArgumentError('PIN requis pour ce type de profil');
     }
 
-    if (pin != null && !await ProfilePin.verify(currentProfile, pin)) {
-      state = state.copyWith(isLoading: false);
-      throw ArgumentError('PIN incorrect');
+    if (pin != null) {
+      try {
+        final attempt =
+            await ref.read(profilePinGuardProvider).verify(currentProfile, pin);
+        if (!attempt.verified) throw ArgumentError('PIN incorrect');
+      } catch (_) {
+        if (ref.mounted) state = state.copyWith(isLoading: false);
+        rethrow;
+      }
     }
 
     final updatedProfile = currentProfile.copyWith(
@@ -61,12 +67,15 @@ class ProfileTypeNotifier extends Notifier<ProfileTypeState> {
     state = state.copyWith(currentType: type, isLoading: false);
   }
 
-  Future<bool> verifyPin(String input) {
+  Future<bool> verifyPin(String input) async {
     final currentProfile = ref.read(currentProfileProvider);
     if (currentProfile == null || !currentProfile.hasPin) {
-      return Future.value(false);
+      return false;
     }
-    return ProfilePin.verify(currentProfile, input);
+    return (await ref
+            .read(profilePinGuardProvider)
+            .verify(currentProfile, input))
+        .verified;
   }
 
   void clear() {

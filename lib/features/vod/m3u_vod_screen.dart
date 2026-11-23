@@ -115,11 +115,11 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.video_library_outlined, size: 64, color: Colors.white38),
+                  Icon(Icons.video_library_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   const SizedBox(height: 16),
                   Text(
                     _query.isEmpty ? 'Aucun contenu VOD détecté' : 'Aucun résultat pour "$_query"',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -194,11 +194,11 @@ class _M3uVodScreenState extends ConsumerState<M3uVodScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.video_library_outlined, size: 64, color: Colors.white38),
+          Icon(Icons.video_library_outlined, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             _query.isEmpty ? 'Aucun contenu VOD détecté' : 'Aucun résultat pour "$_query"',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -313,7 +313,7 @@ class _M3uVodTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: scheme.onSurface,
                   ),
             ),
             // Badge série/film
@@ -347,7 +347,7 @@ class _M3uVodTile extends StatelessWidget {
         child: Icon(
           isSeries ? Icons.tv_outlined : Icons.movie_outlined,
           size: 48,
-          color: Colors.white38,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -465,7 +465,7 @@ class M3uVodDetailScreen extends ConsumerWidget {
             SelectableText(
               channel.streamUrl,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white70,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontFamily: 'monospace',
                   ),
             ),
@@ -488,7 +488,7 @@ class M3uVodDetailScreen extends ConsumerWidget {
         child: Icon(
           isSeries ? Icons.tv_outlined : Icons.movie_outlined,
           size: 64,
-          color: Colors.white38,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -517,7 +517,7 @@ class _InfoChip extends StatelessWidget {
           Text(
             '$label: ',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white60,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
           ),
@@ -577,7 +577,7 @@ class _M3uMovieTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: scheme.onSurface,
                   ),
             ),
             Container(
@@ -590,7 +590,7 @@ class _M3uMovieTile extends StatelessWidget {
               child: Text(
                 'FILM',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontWeight: FontWeight.bold,
                       fontSize: 9,
                     ),
@@ -609,7 +609,7 @@ class _M3uMovieTile extends StatelessWidget {
         child: Icon(
           Icons.movie_outlined,
           size: 48,
-          color: Colors.white38,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );
@@ -659,7 +659,7 @@ class _M3uSeriesTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: Colors.white,
+                    color: scheme.onSurface,
                   ),
             ),
             Container(
@@ -691,7 +691,7 @@ class _M3uSeriesTile extends StatelessWidget {
         child: Icon(
           Icons.tv_outlined,
           size: 48,
-          color: Colors.white38,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
     );

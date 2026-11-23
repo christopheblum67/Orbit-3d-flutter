@@ -886,16 +886,16 @@ class _ActiveBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle,
             size: 14,
-            color: Colors.white,
+            color: scheme.onPrimary,
           ),
           const SizedBox(width: 4),
           Text(
             AppLocalizations.of(context).profileActive,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
+                  color: scheme.onPrimary,
                   fontWeight: FontWeight.bold,
                 ),
           ),

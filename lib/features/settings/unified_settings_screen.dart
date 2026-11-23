@@ -4,9 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:orbit_3d_flutter/core/utils/safe_async.dart';
 import 'package:orbit_3d_flutter/core/utils/hive_sync.dart';
 import 'package:orbit_3d_flutter/services/epg_buffer_store.dart';
 import 'package:orbit_3d_flutter/services/conditional_playlist_cache.dart';
@@ -28,9 +26,9 @@ import 'package:orbit_3d_flutter/features/settings/widgets/player_engine_config_
 import 'package:orbit_3d_flutter/features/settings/widgets/memory_settings_panel.dart';
 import 'package:orbit_3d_flutter/features/settings/widgets/update_dialog.dart';
 import 'package:orbit_3d_flutter/providers/advanced_settings_provider.dart';
-import 'package:orbit_3d_flutter/providers/device_profile_provider.dart';
 import 'package:orbit_3d_flutter/providers/preferences_provider.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
+import 'package:orbit_3d_flutter/providers/recently_watched_provider.dart';
 import 'package:orbit_3d_flutter/features/settings/cloud_account_screen.dart';
 import 'package:orbit_3d_flutter/services/cloud_sync/encrypted_activity_sync_provider.dart';
 import 'package:orbit_3d_flutter/services/settings_backup_service.dart';
@@ -49,13 +47,10 @@ class _UnifiedSettingsScreenState extends ConsumerState<UnifiedSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final groups = [
-      ..._AccountSection.groups(context, ref),
+      ..._AccountSection.groups(context),
       ..._AdvancedSection.groups(context, ref),
     ];
     final standalone = [
-      _AccountSection.cloudBackupTile(context, ref),
-      ..._NetworkSecuritySection.tiles(context),
-      _PlayerAudioSection.engineTile(context, ref),
       _PlayerAudioSection.combinedTile(context),
       ..._AdvancedSection.standalone(context, ref),
     ];
@@ -201,7 +196,7 @@ class _NavTile extends StatelessWidget {
   const _NavTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
+    this.subtitle = '',
     required this.onTap,
     this.iconAsset,
     this.autofocus = false,
@@ -305,9 +300,8 @@ class _NavTile extends StatelessWidget {
 
 /// ─── COMPTE ──────────────────────────────────────────────────────
 class _AccountSection {
-  static List<_SettingsGroup> groups(BuildContext context, WidgetRef ref) {
+  static List<_SettingsGroup> groups(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final sub = ref.watch(activeSubscriptionProvider);
     return [
       _SettingsGroup(title: l.sectionAccountProfile, children: [
         _NavTile(
@@ -316,30 +310,22 @@ class _AccountSection {
           icon: Icons.manage_accounts_rounded,
           iconAsset: 'assets/icons/settings-profile.png',
           title: l.accountProfiles,
-          subtitle: l.accountProfilesSubtitle,
           onTap: () => context.go('/profiles'),
         ),
         _NavTile(
           icon: Icons.subscriptions_rounded,
           iconAsset: 'assets/icons/settings-subscription.png',
           title: l.accountSubscriptions,
-          subtitle: sub == null
-              ? l.accountNoSubscription
-              : '${sub.name} · ${sub.validityLabel}',
           onTap: () => context.go('/subscriptions'),
         ),
         _NavTile(
           icon: Icons.settings_outlined,
           title: l.accountPreferences,
-          subtitle: l.accountPreferencesSubtitle,
           onTap: () => context.go('/profile/preferences'),
         ),
         _NavTile(
           icon: Icons.memory_rounded,
           title: l.accountDeviceProfile,
-          subtitle: l.accountDeviceProfileSubtitle(
-            ref.watch(deviceProfileProvider).label,
-          ),
           onTap: () => context.go('/onboarding'),
         ),
       ]),
@@ -351,7 +337,6 @@ class _AccountSection {
     return _NavTile(
       icon: Icons.cloud_outlined,
       title: l.sectionBackup,
-      subtitle: l.settingsCloudAccount,
       onTap: () => _showSettingsDialog(
         context,
         title: '${l.settingsCloudAccount} · ${l.sectionBackup}',
@@ -520,32 +505,6 @@ class _CloudBackupOptions extends ConsumerWidget {
   }
 }
 
-/// ─── RÉSEAU & SÉCURITÉ ───────────────────────────────────────────
-class _NetworkSecuritySection {
-  static List<Widget> tiles(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    return [
-      _NavTile(
-        icon: Icons.public,
-        iconAsset: 'assets/icons/settings-network.png',
-        title: l.dnsProvider,
-        subtitle: l.dnsProviderSubtitle,
-        onTap: () => _showSettingsDialog(
-          context,
-          title: l.tabNetwork,
-          child: const _DnsProviderTile(),
-        ),
-      ),
-      _NavTile(
-        icon: Icons.balance_outlined,
-        title: l.legalNotice,
-        subtitle: l.legalNoticeSubtitle,
-        onTap: () => context.go('/legal?flow=settings'),
-      ),
-    ];
-  }
-}
-
 class _DnsProviderTile extends ConsumerWidget {
   const _DnsProviderTile();
 
@@ -568,7 +527,6 @@ class _DnsProviderTile extends ConsumerWidget {
         Text(l.dnsProviderSubtitle,
             style: Theme.of(context).textTheme.bodySmall),
         DropdownButton<String>(
-          autofocus: true,
           isExpanded: true,
           value:
               _options.contains(s.dnsProvider) ? s.dnsProvider : _options.last,
@@ -595,17 +553,12 @@ class _DnsProviderTile extends ConsumerWidget {
 
 /// ─── LECTURE & AUDIO ─────────────────────────────────────────────
 class _PlayerAudioSection {
-  static Widget engineTile(BuildContext context, WidgetRef ref) {
+  static Widget engineTile(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final s = ref.watch(advancedSettingsProvider);
     return _NavTile(
       icon: Icons.play_circle_outline,
       iconAsset: 'assets/icons/settings-player.png',
       title: l.enginesTile,
-      subtitle: l.enginesSubtitle(
-        s.playerLive.primary.label,
-        s.playerVod.primary.label,
-      ),
       onTap: () => showPlayerEngineConfigSheet(context),
     );
   }
@@ -615,8 +568,6 @@ class _PlayerAudioSection {
     return _NavTile(
       icon: Icons.tune_rounded,
       title: l.sectionAccessibility,
-      subtitle:
-          '${l.settingsCategoryFilters} · ${l.audioAndNightFocus} · ${l.sectionMemory}',
       onTap: () => showDialog<void>(
         context: context,
         builder: (_) => const _CombinedSettingsDialog(),
@@ -636,7 +587,7 @@ class _CombinedSettingsDialog extends StatefulWidget {
 class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
-  final _tabs = List.generate(4, (index) => FocusNode());
+  final _tabs = List.generate(5, (index) => FocusNode());
   final _visitedTabs = <int>{0};
 
   @override
@@ -670,12 +621,14 @@ class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
     final l = AppLocalizations.of(context);
     final labels = [
       l.sectionAccessibility,
+      l.tabNetwork,
       l.settingsCategoryFilters,
       l.audioAndNightFocus,
       l.sectionMemory,
     ];
     const panels = [
       SingleChildScrollView(child: _AccessibilityOptions()),
+      SingleChildScrollView(child: _DnsProviderTile()),
       CategoryFilterScreen(embedded: true),
       SingleChildScrollView(child: _AudioOptions()),
       SingleChildScrollView(child: MemorySettingsPanel()),
@@ -712,8 +665,14 @@ class _CombinedSettingsDialogState extends State<_CombinedSettingsDialog>
                   Focus(
                     focusNode: _tabs[index],
                     onFocusChange: (focused) {
-                      if (focused && _controller.index != index) {
-                        _controller.animateTo(index);
+                      if (focused) {
+                        if (_controller.index != index) {
+                          _controller.animateTo(index);
+                        }
+                        final target = _tabs[index].context;
+                        if (target != null) {
+                          Scrollable.ensureVisible(target);
+                        }
                       }
                     },
                     onKeyEvent: (node, event) {
@@ -1076,25 +1035,19 @@ class _AdvancedSection {
     final l = AppLocalizations.of(context);
     return [
       _SettingsGroup(title: l.sectionDiagnostics, children: [
+        _PlayerAudioSection.engineTile(context),
+        _AccountSection.cloudBackupTile(context, ref),
         if (Platform.isAndroid)
           _NavTile(
             icon: Icons.system_update_alt,
             title: l.updateTitle,
-            subtitle: l.updateSettingsSubtitle,
             onTap: () => showUpdateDialog(context),
           ),
         _NavTile(
           icon: Icons.cleaning_services_outlined,
           iconAsset: 'assets/icons/settings-cache.png',
           title: l.clearCaches,
-          subtitle: l.clearCachesSubtitle,
           onTap: () => _clearAllCaches(context, ref),
-        ),
-        _NavTile(
-          icon: Icons.restart_alt_outlined,
-          title: l.resetApp,
-          subtitle: l.resetAppSubtitle,
-          onTap: () => _factoryReset(context, ref),
         ),
       ]),
     ];
@@ -1104,26 +1057,28 @@ class _AdvancedSection {
     final l = AppLocalizations.of(context);
     return [
       _NavTile(
-        icon: Icons.recommend_rounded,
-        title: l.matchmaking,
-        subtitle: l.matchmakingSubtitle,
-        onTap: () => context.go('/matchmaking'),
-      ),
-      _NavTile(
         icon: Icons.contact_support_outlined,
         title: l.settingsContact,
-        subtitle: l.comingSoon,
         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l.comingSoon)),
         ),
+      ),
+      _NavTile(
+        icon: Icons.balance_outlined,
+        title: l.legalNotice,
+        onTap: () => context.go('/legal?flow=settings'),
       ),
       _NavTile(
         icon: Icons.verified_user_outlined,
         title: l.settingsActivateApp,
-        subtitle: l.comingSoon,
         onTap: () => ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l.comingSoon)),
         ),
+      ),
+      _NavTile(
+        icon: Icons.restart_alt_outlined,
+        title: l.resetApp,
+        onTap: () => _factoryReset(context, ref),
       ),
       const _AdvancedEntry(),
     ];
@@ -1171,6 +1126,7 @@ class _AdvancedSection {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         title: Text(l.resetAppDialogTitle),
         content: Text(l.resetAppDialogBody),
         actions: [
@@ -1241,65 +1197,32 @@ class _AdvancedSection {
     WidgetRef ref,
   ) async {
     final l = AppLocalizations.of(context);
-
-    // 1) Purge caches (mémoire + disque)
-    PaintingBinding.instance.imageCache.clearLiveImages();
-    PaintingBinding.instance.imageCache.clear();
-    await DefaultCacheManager().emptyCache();
-
-// 2) Clear all Hive boxes
-    final boxNames = [
-      'history',
-      'recently_watched',
-      'search_history',
-      'metadata_cache',
-      'downloads',
-      'epg_cache',
-      'settings_backup',
-      'history',
-    ];
-    for (final name in boxNames) {
-      await safeAsync(
-        () async {
-          // Si la box est déjà ouverte (typage posé à l'initialisation par un
-          // service, ex. `downloads` en Box<DownloadTask>), la réouvrir sans
-          // type levait « already open and of type Box<...> ». On réutilise donc
-          // l'instance existante, puis on la ferme pour purger le cache Hive.
-          final box = Hive.isBoxOpen(name)
-              ? Hive.box<dynamic>(name)
-              : await Hive.openBox(name);
-          await box.clear();
-          await box.close();
-        },
-        context: '_performFactoryReset Hive box $name',
-      );
-    }
-
-    // 3) Clear SharedPreferences keys
-    await safeAsync(
-      () async {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-      },
-      context: '_performFactoryReset SharedPreferences',
-    );
-
-    // 4) Clear flutter_cache_manager disk cache
-    await DefaultCacheManager().emptyCache();
-    await ConditionalPlaylistCache.instance.clear();
-    await CatalogHttpValidators.instance.clear();
-    await ConditionalXmltvCache.instance.clear();
-
-    // 5) Clear Flutter image cache
-    PaintingBinding.instance.imageCache.clearLiveImages();
-    PaintingBinding.instance.imageCache.clear();
-
-    // 6) Navigate to onboarding (reset complete)
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.resetCompleted)),
-      );
-      context.go('/onboarding');
+    try {
+      // Only local activity boxes are reset; connection and stream data remain.
+      for (final name in ['history', 'recently_watched', 'search_history']) {
+        if (!Hive.isBoxOpen(name)) await Hive.openBox<dynamic>(name);
+        await HiveSync.writeAsync(name, (box) => box.clear());
+      }
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      PaintingBinding.instance.imageCache.clear();
+      if (context.mounted) {
+        ref.invalidate(recentlyWatchedProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.resetCompleted)),
+        );
+        context.go('/onboarding');
+      }
+    } catch (error, stack) {
+      FlutterError.reportError(FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        context: ErrorDescription('réinitialisation de l’application'),
+      ));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l.resetFailed)),
+        );
+      }
     }
   }
 }

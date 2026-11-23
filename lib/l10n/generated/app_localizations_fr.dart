@@ -824,7 +824,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get engineSubtitleForced => 'Sous-titres forcés';
 
   @override
-  String get engineVodSubtitles => 'Sous-titres VOD';
+  String get engineVodSubtitles => 'Sous-titres des films et séries';
 
   @override
   String get profilePinsNone => 'Aucun profil ne possède de code PIN.';
@@ -852,6 +852,10 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get profilePinsRemoveFailed =>
       'Impossible de supprimer les codes PIN. Réessayez.';
+
+  @override
+  String get profilePinsLocked =>
+      'Un profil est temporairement bloqué après trois codes PIN incorrects. Attendez la fin du blocage avant de modifier ou supprimer son PIN.';
 
   @override
   String get profileProtection => 'Protection des profils';
@@ -2210,7 +2214,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.';
+      'Les catégories à masquer se règlent dans Configuration > Accessibilité > Filtres de catégories.';
 
   @override
   String get subscriptionPossibleDuplicate => 'Doublon possible';
@@ -3285,7 +3289,12 @@ class AppLocalizationsFr extends AppLocalizations {
       other: '$count essais restants',
       one: '1 essai restant',
     );
-    return 'Code incorrect — $_temp0';
+    return 'Code incorrect — $_temp0. Après 3 erreurs, blocage pendant 2 heures.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'Trop de codes incorrects. Réessayez dans $minutes min.';
   }
 
   @override
@@ -3367,17 +3376,20 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'Toutes les données seront effacées : profils, favoris, historique, réglages. Cette action est irréversible.';
+      'Les historiques locaux de lecture et de recherche seront effacés. Les profils, abonnements, données API, réglages TLS et de flux, ainsi que Cloudflare et les autres réglages seront conservés. Cette action est irréversible.';
 
   @override
-  String get resetAppDialogConfirm => 'Tout effacer';
+  String get resetAppDialogConfirm => 'Réinitialiser';
 
   @override
   String get resetAppDialogTitle => 'Réinitialiser l\'application ?';
 
   @override
   String get resetAppSubtitle =>
-      'Efface toutes les données utilisateur (profils, favoris, historique)';
+      'Efface les historiques locaux en conservant les configurations et les profils';
+
+  @override
+  String get resetFailed => 'Réinitialisation incomplète. Réessayez.';
 
   @override
   String get resetCompleted => 'Réinitialisation effectuée';

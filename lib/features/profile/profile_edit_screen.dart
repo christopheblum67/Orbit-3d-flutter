@@ -17,6 +17,7 @@ import 'package:orbit_3d_flutter/features/settings/widgets/settings_widgets.dart
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/profile_pin.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
 import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 
 /// Sprint 3 — Création / Édition de profil :
@@ -484,7 +485,25 @@ class ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             clearPin: _pinHash == null,
             updatedAt: now,
           );
-          await ref.read(storageServiceProvider).saveProfile(updated);
+          final storage = ref.read(storageServiceProvider);
+          if (target.pinHash != updated.pinHash) {
+            try {
+              await ref.read(profilePinGuardProvider).withUnlockedProfiles(
+                    () async => [target.id],
+                    () => storage.saveProfile(updated),
+                  );
+            } on ProfilePinLockedException {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(l.profilePinsLocked)),
+                );
+                setState(() => _saving = false);
+              }
+              return;
+            }
+          } else {
+            await storage.saveProfile(updated);
+          }
           // Écriture disque : la garde arrive ligne 369, soit APRÈS les trois
           // lectures de `ref` qui suivent. Sur TV, quitter avec la télécommande
           // pendant l'écriture suffisait à le déclencher.

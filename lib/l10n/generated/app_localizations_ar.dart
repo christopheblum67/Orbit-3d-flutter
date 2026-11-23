@@ -795,7 +795,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get engineSubtitleForced => 'ترجمة إجبارية';
 
   @override
-  String get engineVodSubtitles => 'ترجمة الفيديو حسب الطلب';
+  String get engineVodSubtitles => 'ترجمة الأفلام والمسلسلات';
 
   @override
   String get profilePinsNone => 'لا يحتوي أي ملف شخصي على رمز PIN.';
@@ -821,6 +821,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get profilePinsRemoveFailed => 'تعذرت إزالة رموز PIN. حاول مجددًا.';
+
+  @override
+  String get profilePinsLocked =>
+      'تم قفل ملف شخصي مؤقتًا بعد إدخال رمز PIN خاطئ ثلاث مرات. انتظر انتهاء القفل قبل تغيير رمز PIN أو إزالته.';
 
   @override
   String get profileProtection => 'حماية الملفات الشخصية';
@@ -2130,7 +2134,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'تُضبط الفئات المراد إخفاؤها في الإعدادات > الإعدادات المتقدمة > فلاتر الفئات.';
+      'تُضبط الفئات المراد إخفاؤها في الإعدادات > إمكانية الوصول > مرشحات الفئات.';
 
   @override
   String get subscriptionPossibleDuplicate => 'تكرار محتمل';
@@ -3178,7 +3182,12 @@ class AppLocalizationsAr extends AppLocalizations {
       two: 'تبقت محاولتان',
       one: 'تبقت محاولة واحدة',
     );
-    return 'الرمز غير صحيح — $_temp0';
+    return 'الرمز غير صحيح — $_temp0. بعد 3 أخطاء يُقفل الوصول لمدة ساعتين.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'عدد رموز PIN غير الصحيحة كبير. حاول مجددًا بعد $minutes دقيقة.';
   }
 
   @override
@@ -3259,17 +3268,20 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'سيتم مسح جميع البيانات: الملفات، المفضلات، السجل، الإعدادات. هذا الإجراء لا يمكن التراجع عنه.';
+      'سيتم مسح سجل المشاهدة والبحث المحلي. ستبقى الملفات الشخصية والاشتراكات وبيانات API وإعدادات TLS والبث وCloudflare والإعدادات الأخرى محفوظة. لا يمكن التراجع عن هذا الإجراء.';
 
   @override
-  String get resetAppDialogConfirm => 'مسح كل شيء';
+  String get resetAppDialogConfirm => 'إعادة الضبط';
 
   @override
   String get resetAppDialogTitle => 'إعادة ضبط التطبيق؟';
 
   @override
   String get resetAppSubtitle =>
-      'يمسح جميع بيانات المستخدم (الملفات، المفضلات، السجل)';
+      'يمسح السجل المحلي مع الاحتفاظ بالملفات الشخصية والإعدادات';
+
+  @override
+  String get resetFailed => 'لم تكتمل إعادة الضبط. حاول مجددًا.';
 
   @override
   String get resetCompleted => 'تمت إعادة التعيين';

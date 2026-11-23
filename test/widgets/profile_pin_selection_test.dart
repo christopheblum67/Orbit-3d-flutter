@@ -18,7 +18,9 @@ import 'package:orbit_3d_flutter/l10n/generated/app_localizations.dart';
 import 'package:orbit_3d_flutter/models/user_profile.dart';
 import 'package:orbit_3d_flutter/providers/providers.dart';
 import 'package:orbit_3d_flutter/services/profile_pin.dart';
+import 'package:orbit_3d_flutter/services/profile_pin_guard.dart';
 import 'package:orbit_3d_flutter/services/storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _Storage extends StorageService {
   UserProfile? saved;
@@ -89,6 +91,7 @@ void main() {
   late Directory cacheDirectory;
   const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
   const pinChannel = MethodChannel('orbit/profile_pin');
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() {
     cacheDirectory = Directory.systemTemp.createTempSync('orbit_pin_widget_');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -192,6 +195,7 @@ void main() {
       if (!editing) {
         await _enterProfileName(tester, 'Alex');
         tester.testTextInput.hide();
+        FocusManager.instance.primaryFocus?.unfocus();
         await tester.pumpAndSettle();
       }
       final scrollable = find
@@ -212,6 +216,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Changer le code PIN'));
       } else {
+        await tester.ensureVisible(pinSwitch);
+        await tester.pumpAndSettle();
         await tester.tap(pinSwitch);
       }
       await tester.pumpAndSettle();
@@ -274,6 +280,8 @@ void main() {
     await tester.pumpAndSettle();
     await _enterProfileName(tester, 'Alex');
     tester.testTextInput.hide();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
     tvMode.enable();
     final scrollable = find
         .descendant(
@@ -590,7 +598,124 @@ void main() {
     expect(storage.saved!.pinHash, isNull);
   });
 
-  testWidgets('verification attempts reset when the PIN pad is reopened',
+  testWidgets('editor cannot remove a locked profile PIN', (tester) async {
+    final profile = UserProfile(
+      id: 'private',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: '',
+      favoriteGenres: const [],
+      pinHash: '1234',
+    );
+    final guard = ProfilePinGuard();
+    for (var i = 0; i < 3; i++) {
+      await guard.verify(profile, '0000');
+    }
+    final storage = _Storage();
+    final router = GoRouter(initialLocation: '/edit', routes: [
+      GoRoute(
+        path: '/edit',
+        builder: (_, __) => const ProfileEditScreen(profileId: 'private'),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        profilePinGuardProvider.overrideWithValue(guard),
+        profilesProvider.overrideWith((ref) async => [profile]),
+        currentProfileProvider.overrideWithBuild((ref, notifier) => profile),
+        storageServiceProvider.overrideWithValue(storage),
+      ],
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.byType(SwitchListTile), 300,
+        scrollable: scrollable);
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Enregistrer'), 300,
+        scrollable: scrollable);
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(storage.saved, isNull);
+    expect(find.textContaining('Un profil est temporairement bloqué'),
+        findsOneWidget);
+  });
+
+  testWidgets('other profiles and creation remain accessible during a lock',
+      (tester) async {
+    final locked = UserProfile(
+      id: 'locked',
+      firstName: 'Alex',
+      dateOfBirth: DateTime(1990),
+      gender: '',
+      favoriteGenres: const [],
+      pinHash: '1234',
+    );
+    final unprotected = UserProfile(
+      id: 'open',
+      firstName: 'Camille',
+      dateOfBirth: DateTime(1990),
+      gender: '',
+      favoriteGenres: const [],
+    );
+    final guard = ProfilePinGuard();
+    for (var i = 0; i < 3; i++) {
+      await guard.verify(locked, '0000');
+    }
+    final router = GoRouter(initialLocation: '/profiles', routes: [
+      GoRoute(
+        path: '/profiles',
+        builder: (_, __) => const ProfileSelectionScreen(startupFlow: true),
+      ),
+      GoRoute(
+        path: '/profile/create',
+        builder: (_, __) => const Scaffold(body: Text('Création ouverte')),
+      ),
+      GoRoute(
+        path: '/startup',
+        builder: (_, __) => const Scaffold(body: Text('Profil ouvert')),
+      ),
+    ]);
+    addTearDown(router.dispose);
+    final container = ProviderContainer(overrides: [
+      profilePinGuardProvider.overrideWithValue(guard),
+      profilesProvider.overrideWith((ref) async => [locked, unprotected]),
+      storageServiceProvider.overrideWithValue(_Storage()),
+    ]);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Création ouverte'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey('open')),
+      matching: find.byType(ProfileAvatar),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Profil ouvert'), findsOneWidget);
+    expect(container.read(currentProfileProvider)?.id, 'open');
+  });
+
+  testWidgets(
+      'verification attempts and the lock survive reopening the PIN pad',
       (tester) async {
     final profile = UserProfile(
       id: 'private',
@@ -643,18 +768,26 @@ void main() {
     await tester.pumpAndSettle();
     await enter('0000');
     expect(find.textContaining('2 essais restants'), findsOneWidget);
+    expect(find.textContaining('blocage pendant 2 heures'), findsOneWidget);
+    await tester.tap(find.byTooltip('Annuler'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ouvrir'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2 essais restants'), findsOneWidget);
     await enter('0000');
     expect(find.textContaining('1 essai restant'), findsOneWidget);
     await enter('0000');
-    expect(result, isFalse);
-    expect(find.text('Ouvrir'), findsOneWidget);
+    expect(find.textContaining('Trop de codes incorrects'), findsOneWidget);
+    expect(result, isNull);
 
+    await tester.tap(find.byTooltip('Annuler'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
-    await enter('0000');
-    expect(find.textContaining('2 essais restants'), findsOneWidget);
+    expect(find.textContaining('Trop de codes incorrects'), findsOneWidget);
     await enter('1234');
-    expect(result, isTrue);
+    expect(result, isNull);
+    expect(find.textContaining('Trop de codes incorrects'), findsOneWidget);
   });
 
   testWidgets('PIN pad displays verification while derivation is pending',
@@ -683,6 +816,7 @@ void main() {
         home: PinPadScreen(args: PinPadArgs.verify(profile)),
       ),
     ));
+    await tester.pumpAndSettle();
     for (final digit in ['1', '2', '3', '4']) {
       await tester.tap(find.text(digit));
       await tester.pump();

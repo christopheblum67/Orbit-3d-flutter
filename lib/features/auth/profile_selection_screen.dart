@@ -176,10 +176,12 @@ class _ProfileSelectionScreenState
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.check_circle,
                                         size: 14,
-                                        color: Colors.white,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimary,
                                       ),
                                       const SizedBox(width: 4),
                                       Text(
@@ -188,7 +190,9 @@ class _ProfileSelectionScreenState
                                             .textTheme
                                             .labelSmall
                                             ?.copyWith(
-                                              color: Colors.white,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onPrimary,
                                               fontWeight: FontWeight.bold,
                                             ),
                                       ),

@@ -37,7 +37,12 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       final l = lookupAppLocalizations(Locale(language));
-      expect(find.text(l.forceNoSubtitlesSubtitle), findsOneWidget);
+      expect(find.text(l.engineSubtitleDefault), findsOneWidget);
+      expect(find.text(l.engineSubtitleForced), findsOneWidget);
+      expect(find.text(l.engineSubtitleDisabled), findsOneWidget);
+      expect(find.text(l.engineAutoRecommended), findsOneWidget);
+      expect(find.text(l.engineHardware), findsOneWidget);
+      expect(find.text(l.engineSoftware), findsOneWidget);
       expect(find.text(l.instantZapping), findsOneWidget);
       await tester.ensureVisible(find.text(l.instantZapping));
       await tester.pumpAndSettle();
@@ -75,12 +80,11 @@ void main() {
     ));
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
-    final dropdown = find.byType(DropdownButton<VodSubtitleMode>);
-    expect(tester.widget<DropdownButton<VodSubtitleMode>>(dropdown).value,
-        VodSubtitleMode.disabled);
-    await tester.tap(dropdown);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Sous-titres forcés').last);
+    final disabled = find.widgetWithText(CheckboxListTile, 'Sans sous-titres');
+    final forced = find.widgetWithText(CheckboxListTile, 'Sous-titres forcés');
+    expect(tester.widget<CheckboxListTile>(disabled).value, isTrue);
+    await tester.ensureVisible(forced);
+    await tester.tap(forced);
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.save_outlined));
     await tester.pumpAndSettle();
@@ -114,7 +118,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Playback engines'), findsOneWidget);
     expect(find.text('ExoPlayer (Internal)'), findsWidgets);
-    expect(find.text('VOD subtitles'), findsOneWidget);
+    expect(find.text('Movie and series subtitles'), findsOneWidget);
   });
 
   testWidgets(
@@ -192,17 +196,20 @@ void main() {
         tester.getSize(find.byType(PlayerEngineConfigSheet)).height;
     expect(sheetHeight, closeTo(480 * 0.90, 0.1));
     final engines = find.byType(DropdownButton<PlayerEngine>);
-    final subtitles = find.byType(DropdownButton<VodSubtitleMode>);
-    final decoder = find.byType(DropdownButton<VideoDecoderMode>);
+    final checkboxNodes = [
+      for (final checkbox
+          in tester.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)))
+        Focus.of(tester.element(find
+            .ancestor(
+              of: find.byWidget(checkbox),
+              matching: find.byType(Focus),
+            )
+            .first)),
+    ];
     final nodes = [
-      tester.widget<DropdownButton<PlayerEngine>>(engines.at(0)).focusNode!,
-      tester.widget<DropdownButton<PlayerEngine>>(engines.at(1)).focusNode!,
-      tester.widget<DropdownButton<PlayerEngine>>(engines.at(2)).focusNode!,
-      tester.widget<DropdownButton<PlayerEngine>>(engines.at(3)).focusNode!,
-      tester.widget<DropdownButton<VodSubtitleMode>>(subtitles).focusNode!,
-      for (var i = 4; i < 8; i++)
+      for (var i = 0; i < 8; i++)
         tester.widget<DropdownButton<PlayerEngine>>(engines.at(i)).focusNode!,
-      tester.widget<DropdownButton<VideoDecoderMode>>(decoder).focusNode!,
+      ...checkboxNodes,
     ];
     for (final node in nodes) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -227,43 +234,18 @@ void main() {
     final liveTitle = tester.getRect(find.text(PlaybackContentType.live.label));
     expect(liveTitle.top, greaterThanOrEqualTo(viewport.top));
     expect(liveTitle.bottom, lessThanOrEqualTo(viewport.bottom));
-    await tester.ensureVisible(decoder);
-    await tester.tap(decoder);
+    final software = find.widgetWithText(CheckboxListTile, 'Logiciel');
+    await tester.ensureVisible(software);
+    await tester.tap(software);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Logiciel').last);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-    final checkboxNodes = [
-      for (final checkbox
-          in tester.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)))
-        Focus.of(tester.element(find
+    Focus.of(tester.element(find
             .ancestor(
-              of: find.byWidget(checkbox),
+              of: find.byType(CheckboxListTile).last,
               matching: find.byType(Focus),
             )
-            .first)),
-    ];
-    expect(checkboxNodes.first.hasFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(
-        tester
-            .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
-            .first
-            .value,
-        isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-    expect(checkboxNodes.last.hasFocus, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(
-        tester
-            .widgetList<CheckboxListTile>(find.byType(CheckboxListTile))
-            .last
-            .value,
-        isFalse);
+            .first))
+        .requestFocus();
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     final cancel = tester.widget<OutlinedButton>(
@@ -276,10 +258,9 @@ void main() {
 
     await tester.tap(find.text('Ouvrir'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(decoder);
-    await tester.tap(decoder);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Matériel').last);
+    final hardware = find.widgetWithText(CheckboxListTile, 'Matériel');
+    await tester.ensureVisible(hardware);
+    await tester.tap(hardware);
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.save_outlined));
     await tester.pumpAndSettle();
@@ -322,37 +303,41 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    final checkboxes = find.byType(CheckboxListTile);
-    final subtitles = find.byType(DropdownButton<VodSubtitleMode>);
+    final disabled = find.widgetWithText(CheckboxListTile, 'No subtitles');
+    final forced = find.widgetWithText(CheckboxListTile, 'Forced subtitles');
+    final defaultMode = find.widgetWithText(CheckboxListTile, 'Default');
+    final zapping = find.widgetWithText(CheckboxListTile,
+        lookupAppLocalizations(const Locale('en')).instantZapping);
     await open();
-    await tester.ensureVisible(checkboxes.first);
-    await tester.tap(checkboxes.first);
+    await tester.ensureVisible(disabled);
+    await tester.tap(disabled);
     await tester.pumpAndSettle();
-    expect(tester.widget<DropdownButton<VodSubtitleMode>>(subtitles).value,
-        VodSubtitleMode.disabled);
+    expect(tester.widget<CheckboxListTile>(disabled).value, isTrue);
+    expect(tester.widget<CheckboxListTile>(forced).value, isFalse);
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
     await tester.tap(find.widgetWithText(OutlinedButton, 'Cancel'));
     await tester.pumpAndSettle();
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);
 
     await open();
-    await tester.ensureVisible(checkboxes.first);
-    await tester.tap(checkboxes.first);
-    await tester.tap(checkboxes.last);
+    await tester.ensureVisible(disabled);
+    await tester.tap(disabled);
+    await tester.ensureVisible(zapping);
+    await tester.tap(zapping);
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.save_outlined));
     await tester.pumpAndSettle();
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isTrue);
     expect(container.read(advancedSettingsProvider).zeroLagPrefetch, isFalse);
     expect(container.read(advancedSettingsProvider).vodSubtitleMode,
-        VodSubtitleMode.forcedOnly);
+        VodSubtitleMode.disabled);
 
     await open();
-    await tester.ensureVisible(checkboxes.first);
-    await tester.tap(checkboxes.first);
+    await tester.ensureVisible(defaultMode);
+    await tester.tap(defaultMode);
     await tester.pumpAndSettle();
-    expect(tester.widget<DropdownButton<VodSubtitleMode>>(subtitles).value,
-        VodSubtitleMode.forcedOnly);
+    expect(tester.widget<CheckboxListTile>(defaultMode).value, isTrue);
+    expect(tester.widget<CheckboxListTile>(disabled).value, isFalse);
     await tester.tap(find.byIcon(Icons.save_outlined));
     await tester.pumpAndSettle();
     expect(container.read(advancedSettingsProvider).subtitlesDisabled, isFalse);

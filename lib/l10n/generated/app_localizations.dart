@@ -1477,7 +1477,7 @@ abstract class AppLocalizations {
   /// No description provided for @engineVodSubtitles.
   ///
   /// In fr, this message translates to:
-  /// **'Sous-titres VOD'**
+  /// **'Sous-titres des films et séries'**
   String get engineVodSubtitles;
 
   /// No description provided for @profilePinsNone.
@@ -1521,6 +1521,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Impossible de supprimer les codes PIN. Réessayez.'**
   String get profilePinsRemoveFailed;
+
+  /// No description provided for @profilePinsLocked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un profil est temporairement bloqué après trois codes PIN incorrects. Attendez la fin du blocage avant de modifier ou supprimer son PIN.'**
+  String get profilePinsLocked;
 
   /// No description provided for @profileProtection.
   ///
@@ -3829,7 +3835,7 @@ abstract class AppLocalizations {
   /// No description provided for @subscriptionFilterHelp.
   ///
   /// In fr, this message translates to:
-  /// **'Les catégories à masquer se règlent dans Configuration > Réglages avancés > Filtres de catégories.'**
+  /// **'Les catégories à masquer se règlent dans Configuration > Accessibilité > Filtres de catégories.'**
   String get subscriptionFilterHelp;
 
   /// No description provided for @subscriptionPossibleDuplicate.
@@ -5731,8 +5737,14 @@ abstract class AppLocalizations {
   /// No description provided for @pinIncorrectAttempts.
   ///
   /// In fr, this message translates to:
-  /// **'Code incorrect — {count, plural, one{1 essai restant} other{{count} essais restants}}'**
+  /// **'Code incorrect — {count, plural, one{1 essai restant} other{{count} essais restants}}. Après 3 erreurs, blocage pendant 2 heures.'**
   String pinIncorrectAttempts(int count);
+
+  /// No description provided for @pinTemporarilyLocked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de codes incorrects. Réessayez dans {minutes} min.'**
+  String pinTemporarilyLocked(int minutes);
 
   /// No description provided for @pinChecking.
   ///
@@ -5881,13 +5893,13 @@ abstract class AppLocalizations {
   /// No description provided for @resetAppDialogBody.
   ///
   /// In fr, this message translates to:
-  /// **'Toutes les données seront effacées : profils, favoris, historique, réglages. Cette action est irréversible.'**
+  /// **'Les historiques locaux de lecture et de recherche seront effacés. Les profils, abonnements, données API, réglages TLS et de flux, ainsi que Cloudflare et les autres réglages seront conservés. Cette action est irréversible.'**
   String get resetAppDialogBody;
 
   /// No description provided for @resetAppDialogConfirm.
   ///
   /// In fr, this message translates to:
-  /// **'Tout effacer'**
+  /// **'Réinitialiser'**
   String get resetAppDialogConfirm;
 
   /// No description provided for @resetAppDialogTitle.
@@ -5899,8 +5911,14 @@ abstract class AppLocalizations {
   /// No description provided for @resetAppSubtitle.
   ///
   /// In fr, this message translates to:
-  /// **'Efface toutes les données utilisateur (profils, favoris, historique)'**
+  /// **'Efface les historiques locaux en conservant les configurations et les profils'**
   String get resetAppSubtitle;
+
+  /// No description provided for @resetFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réinitialisation incomplète. Réessayez.'**
+  String get resetFailed;
 
   /// No description provided for @resetCompleted.
   ///

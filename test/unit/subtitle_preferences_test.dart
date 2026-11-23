@@ -142,6 +142,25 @@ void main() {
     expect(controller.actions, ['disable:false']);
   });
 
+  test('forced-only mode overrides a saved series language', () async {
+    await PlayerTrackPrefs.setSeriesSubtitleLanguage('series', 'fr');
+    final prefs = SubtitlePreferences();
+    final controller = _Subtitles()..tracks = [forced, full];
+    addTearDown(controller.dispose);
+    prefs.startScan(controller);
+    await prefs.applyAutomatic(
+      controller: controller,
+      tracks: controller.tracks,
+      contentType: PlaybackContentType.series,
+      generation: 1,
+      readForceNoSubtitles: () => false,
+      readMode: () => VodSubtitleMode.forcedOnly,
+      seriesId: 'series',
+      isCurrent: () => true,
+    );
+    expect(controller.actions, ['select:forced:false']);
+  });
+
   test('force-off does not affect live playback or an inactive setting',
       () async {
     final prefs = SubtitlePreferences();

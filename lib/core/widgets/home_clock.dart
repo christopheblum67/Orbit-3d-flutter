@@ -36,6 +36,7 @@ class _HomeClockState extends State<HomeClock> {
   Widget build(BuildContext context) {
     final date = _capitalize(DateFormat('EEE d MMM', 'fr_FR').format(_now));
     final time = DateFormat('HH:mm', 'fr_FR').format(_now);
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -47,8 +48,8 @@ class _HomeClockState extends State<HomeClock> {
           children: [
             Text(
               time,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: scheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 height: 1.0,
@@ -57,7 +58,7 @@ class _HomeClockState extends State<HomeClock> {
             Text(
               date,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: scheme.onSurfaceVariant,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 height: 1.2,

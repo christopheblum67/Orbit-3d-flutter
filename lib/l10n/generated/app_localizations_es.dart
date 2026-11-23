@@ -824,7 +824,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get engineSubtitleForced => 'Subtítulos forzados';
 
   @override
-  String get engineVodSubtitles => 'Subtítulos VOD';
+  String get engineVodSubtitles => 'Subtítulos de películas y series';
 
   @override
   String get profilePinsNone => 'Ningún perfil tiene un PIN.';
@@ -851,6 +851,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get profilePinsRemoveFailed =>
       'No se pudieron eliminar los PIN. Inténtalo de nuevo.';
+
+  @override
+  String get profilePinsLocked =>
+      'Un perfil está bloqueado temporalmente tras tres PIN incorrectos. Espera a que termine el bloqueo antes de cambiar o eliminar su PIN.';
 
   @override
   String get profileProtection => 'Protección de perfiles';
@@ -2213,7 +2217,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'Las categorías que ocultar se configuran en Configuración > Ajustes avanzados > Filtros de categorías.';
+      'Las categorías que ocultar se configuran en Configuración > Accesibilidad > Filtros de categorías.';
 
   @override
   String get subscriptionPossibleDuplicate => 'Posible duplicado';
@@ -3289,7 +3293,12 @@ class AppLocalizationsEs extends AppLocalizations {
       other: 'quedan $count intentos',
       one: 'queda 1 intento',
     );
-    return 'Código incorrecto — $_temp0';
+    return 'Código incorrecto — $_temp0. Tras 3 errores, el acceso se bloquea durante 2 horas.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'Demasiados PIN incorrectos. Inténtalo de nuevo en $minutes min.';
   }
 
   @override
@@ -3371,17 +3380,20 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'Se borrarán todos los datos: perfiles, favoritos, historial, ajustes. Esta acción es irreversible.';
+      'Se borrarán los historiales locales de reproducción y búsqueda. Se conservarán los perfiles, suscripciones, datos de API, ajustes de TLS y de reproducción, Cloudflare y los demás ajustes. Esta acción no se puede deshacer.';
 
   @override
-  String get resetAppDialogConfirm => 'Borrar todo';
+  String get resetAppDialogConfirm => 'Restablecer';
 
   @override
   String get resetAppDialogTitle => '¿Restablecer la aplicación?';
 
   @override
   String get resetAppSubtitle =>
-      'Borra todos los datos de usuario (perfiles, favoritos, historial)';
+      'Borra el historial local y conserva los perfiles y la configuración';
+
+  @override
+  String get resetFailed => 'Restablecimiento incompleto. Inténtalo de nuevo.';
 
   @override
   String get resetCompleted => 'Restablecimiento completado';

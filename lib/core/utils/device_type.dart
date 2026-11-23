@@ -50,20 +50,20 @@ extension OrbitTypographyExtension on BuildContext {
   TextStyle get headlineLarge => TextStyle(
         fontSize: 26.0 * tvScaleFactor,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: Theme.of(this).colorScheme.onSurface,
         letterSpacing: 0.5,
       );
 
   TextStyle get titleMedium => TextStyle(
         fontSize: 18.0 * tvScaleFactor,
         fontWeight: FontWeight.w600,
-        color: Colors.white70,
+        color: Theme.of(this).colorScheme.onSurfaceVariant,
       );
 
   TextStyle get bodyMedium => TextStyle(
         fontSize: 14.0 * tvScaleFactor,
         fontWeight: FontWeight.normal,
-        color: Colors.white60,
+        color: Theme.of(this).colorScheme.onSurfaceVariant,
       );
 
   double get defaultSpacing => isTv ? 24.0 : 12.0;

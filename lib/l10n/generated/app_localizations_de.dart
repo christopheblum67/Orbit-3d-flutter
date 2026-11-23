@@ -823,7 +823,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get engineSubtitleForced => 'Erzwungene Untertitel';
 
   @override
-  String get engineVodSubtitles => 'VOD-Untertitel';
+  String get engineVodSubtitles => 'Untertitel für Filme und Serien';
 
   @override
   String get profilePinsNone => 'Kein Profil besitzt eine PIN.';
@@ -850,6 +850,10 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get profilePinsRemoveFailed =>
       'PINs konnten nicht entfernt werden. Versuche es erneut.';
+
+  @override
+  String get profilePinsLocked =>
+      'Ein Profil ist nach drei falschen PIN-Eingaben vorübergehend gesperrt. Warte bis zum Ende der Sperre, bevor du seine PIN änderst oder entfernst.';
 
   @override
   String get profileProtection => 'Profilschutz';
@@ -2207,7 +2211,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get subscriptionFilterHelp =>
-      'Auszublendende Kategorien werden unter Einstellungen > Erweiterte Einstellungen > Kategoriefilter festgelegt.';
+      'Auszublendende Kategorien werden unter Einstellungen > Barrierefreiheit > Kategoriefilter festgelegt.';
 
   @override
   String get subscriptionPossibleDuplicate => 'Mögliches Duplikat';
@@ -3286,7 +3290,12 @@ class AppLocalizationsDe extends AppLocalizations {
       other: '$count Versuche verbleiben',
       one: '1 Versuch verbleibt',
     );
-    return 'Falscher Code — $_temp0';
+    return 'Falscher Code — $_temp0. Nach 3 Fehlern ist der Zugriff 2 Stunden gesperrt.';
+  }
+
+  @override
+  String pinTemporarilyLocked(int minutes) {
+    return 'Zu viele falsche PINs. Versuche es in $minutes Min. erneut.';
   }
 
   @override
@@ -3368,17 +3377,21 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get resetAppDialogBody =>
-      'Alle Daten werden gelöscht: Profile, Favoriten, Verlauf, Einstellungen. Diese Aktion ist nicht umkehrbar.';
+      'Lokale Wiedergabe- und Suchverläufe werden gelöscht. Profile, Abonnements, API-Daten, TLS- und Stream-Einstellungen, Cloudflare und weitere Einstellungen bleiben erhalten. Dies kann nicht rückgängig gemacht werden.';
 
   @override
-  String get resetAppDialogConfirm => 'Alles löschen';
+  String get resetAppDialogConfirm => 'Zurücksetzen';
 
   @override
   String get resetAppDialogTitle => 'App zurücksetzen?';
 
   @override
   String get resetAppSubtitle =>
-      'Löscht alle Benutzerdaten (Profile, Favoriten, Verlauf)';
+      'Löscht lokale Verläufe und behält Profile und Konfiguration';
+
+  @override
+  String get resetFailed =>
+      'Zurücksetzen unvollständig. Bitte erneut versuchen.';
 
   @override
   String get resetCompleted => 'Zurücksetzen abgeschlossen';

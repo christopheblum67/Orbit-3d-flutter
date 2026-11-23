@@ -181,16 +181,16 @@ class _CrewMemberChip extends StatelessWidget {
             children: [
               Text(
                 member.name,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 member.job,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 10,
                   fontStyle: FontStyle.italic,
                 ),
